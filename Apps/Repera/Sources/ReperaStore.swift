@@ -1918,6 +1918,27 @@ final class ReperaStore: NSObject {
                 attachSessionReview(&completed, present: false)
                 upsertWorkout(completed)
                 if state.activeSession?.id == completed.id { state.activeSession = nil }
+                // Una sesión recibida desde Watch también merece la localidad
+                // que Guardar entreno añade al terminar directamente en iPhone.
+                if let sportID = completed.liveSportID,
+                   let sport = LiveSport(rawValue: sportID),
+                   !completed.routePoints.isEmpty {
+                    let watchID = completed.id
+                    let expectedTitle = completed.title
+                    let startPoint = completed.routePoints.first
+                    let endPoint = completed.routePoints.last
+                    Task { @MainActor in
+                        guard let suggested = await LiveActivityLocationName.suggest(
+                            sport: sport, start: startPoint, end: endPoint
+                        ), !suggested.isEmpty,
+                              let current = self.state.workouts.first(where: { $0.id == watchID }),
+                              current.title == expectedTitle else { return }
+                        var renamed = current
+                        renamed.title = suggested
+                        self.upsertWorkout(renamed)
+                        self.persistWorkouts()
+                    }
+                }
                 changed = true
             }
 
@@ -3381,6 +3402,12 @@ extension ReperaStore: PhoneConnectivityDelegate {
                     from: completed
                 )
             }
+            // Guardar antes de geocodificar: la confirmación del Watch no debe
+            // depender de una petición de red o un servicio de mapas lento.
+            let namedSport = recorder.sport
+            let namedStart = completed.routePoints.first
+            let namedEnd = completed.routePoints.last
+            let genericName = completed.title
             saveWorkout(completed)
             let snapshot = state
             await LocalStore.shared.persistAndFlush(snapshot)
@@ -3390,6 +3417,20 @@ extension ReperaStore: PhoneConnectivityDelegate {
                   recorder.phase == .review else { return false }
             recorder.discard(saved: true)
             sendWatchContextNow()
+            // Igual que el guardado manual del iPhone: completar el nombre
+            // con la localidad cuando el geocodificador tenga respuesta.
+            // Si ya se ha editado, no sobreescribir el título del usuario.
+            Task { @MainActor in
+                guard let suggested = await LiveActivityLocationName.suggest(
+                    sport: namedSport, start: namedStart, end: namedEnd
+                ), !suggested.isEmpty,
+                      let current = self.state.workouts.first(where: { $0.id == sessionId }),
+                      current.title == genericName else { return }
+                var named = current
+                named.title = suggested
+                self.upsertWorkout(named)
+                self.persistWorkouts()
+            }
             return true
         default:
             return false

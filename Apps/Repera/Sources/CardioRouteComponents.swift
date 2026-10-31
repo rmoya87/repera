@@ -420,8 +420,11 @@ struct CardioSplitsView: View {
                     }
                 }
 
+                // Los pasos ya aparecen bajo km en el tile Distancia de cabecera.
+                // Con distancia < 1 km se mantiene aquí (cabecera muestra metros).
                 if let stepsCount, !(sport?.isWaterSport ?? false),
-                   stepsCount > 0 {
+                   stepsCount > 0,
+                   !((sport?.usesGPS ?? false) && (healthMovementMeters ?? 0) >= 1000) {
                     SessionSportMetricTile(
                         title: healthStats?.movementUsesTimeWindow == true
                             ? "Pasos en horario" : "Pasos",

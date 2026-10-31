@@ -8,12 +8,14 @@ struct WorkoutSummaryTile: View {
     var value: String
     var icon: String
     var tint: Color
+    /// Pasos bajo los kilómetros cuando exista distancia medida y se muestre en km.
+    var subtitle: String? = nil
 
     var body: some View {
-        VStack(alignment: .center, spacing: 6) {
-            HStack(spacing: 5) {
+        VStack(alignment: .center, spacing: 3) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(tint)
                     .accessibilityHidden(true)
                 Text(title)
@@ -22,18 +24,24 @@ struct WorkoutSummaryTile: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity, height: 17, alignment: .center)
             Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(.system(size: 19, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
-                .minimumScaleFactor(0.45)
-                .frame(maxWidth: .infinity, maxHeight: 26, alignment: .center)
+                .minimumScaleFactor(0.42)
+                .frame(maxWidth: .infinity, height: 27, alignment: .center)
+            // Reservar el mismo renglón en los tres tiles: valor/alto alineados.
+            Text(subtitle ?? " ")
+                .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
+                .foregroundStyle(OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .opacity(subtitle == nil ? 0 : 1)
+                .frame(maxWidth: .infinity, height: 13, alignment: .center)
         }
-        // Altura fija para que Tiempo / Marca / Kcal alineen aunque el valor sea corto o largo.
-        .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .center)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, height: 73)
+        .padding(.horizontal, 6)
         .background(OG.surface, in: RoundedRectangle(
             cornerRadius: OG.radiusCard, style: .continuous
         ))
@@ -46,6 +54,7 @@ struct SessionSummaryTileSpec: Equatable {
     var value: String
     var icon: String
     var tint: Color
+    var subtitle: String? = nil
 }
 
 enum SessionSummaryTilesBuilder {
@@ -106,7 +115,9 @@ enum SessionSummaryTilesBuilder {
                 time,
                 SessionSummaryTileSpec(
                     title: "Distancia", value: distanceValue,
-                    icon: "point.bottomleft.forward.to.point.topright.scurvepath", tint: OG.accent
+                    icon: "point.bottomleft.forward.to.point.topright.scurvepath", tint: OG.accent,
+                    subtitle: (distanceMeters ?? 0) >= 1000 && !sport.isWaterSport && steps != nil
+                        ? "\(stepsValue) pasos" : nil
                 ),
                 SessionSummaryTileSpec(
                     title: thirdTitle, value: paceOrSpeedLabel ?? "—",
@@ -254,7 +265,8 @@ struct SessionSummaryTilesRow: View {
         HStack(spacing: 10) {
             ForEach(Array(specs.enumerated()), id: \.offset) { _, spec in
                 WorkoutSummaryTile(
-                    title: spec.title, value: spec.value, icon: spec.icon, tint: spec.tint
+                    title: spec.title, value: spec.value, icon: spec.icon,
+                    tint: spec.tint, subtitle: spec.subtitle
                 )
             }
         }
