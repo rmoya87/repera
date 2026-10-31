@@ -1013,6 +1013,19 @@ private struct LiveSnapshot: Codable {
 @MainActor
 @Observable
 final class LiveActivityRecorder: NSObject {
+    /// Sensor readings from the same live workout recorded on the companion Watch.
+    /// Never synthesize these values from GPS, MET or estimated exertion.
+    private(set) var companionEnergyKcal: Double?
+    private(set) var companionHeartRateBpm: Double?
+    private(set) var companionWorkoutUUID: UUID?
+
+    func receiveCompanionHealth(sessionID: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {
+        guard gpsSessionID == sessionID, phase != .idle else { return }
+        if let kcal, kcal.isFinite, kcal >= 0 { companionEnergyKcal = kcal }
+        if let averageBpm, averageBpm.isFinite, averageBpm > 0 { companionHeartRateBpm = averageBpm }
+        if let workoutUUID { companionWorkoutUUID = workoutUUID }
+    }
+
     static let shared = LiveActivityRecorder()
 
     enum Phase: String { case idle, recording, paused, review }
@@ -1401,6 +1414,9 @@ final class LiveActivityRecorder: NSObject {
         // el mensaje final anterior tape el nuevo aviso.
         stopGuidanceAudio()
         gpsSessionID = UUID()
+        companionEnergyKcal = nil
+        companionHeartRateBpm = nil
+        companionWorkoutUUID = nil
         startedAt = Date()
         finishedAt = nil
         pausedAt = nil
@@ -1551,7 +1567,8 @@ final class LiveActivityRecorder: NSObject {
             nextTurn: sport.usesGPS ? upcomingTurn : nil,
             nextTurnMeters: sport.usesGPS ? upcomingTurnMeters : nil,
             capturedAt: Date(),
-            conditions: liveConditions
+            conditions: liveConditions,
+            sportID: sport.rawValue
         )
     }
 
@@ -1641,7 +1658,7 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .review, let startedAt, let finishedAt else { return nil }
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        return WorkoutSession(
+        var session = WorkoutSession(
             id: gpsSessionID,
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
@@ -1658,6 +1675,11 @@ final class LiveActivityRecorder: NSObject {
             liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds),
             activityConditions: liveConditions
         )
+        session.appleActiveEnergyKcal = companionEnergyKcal
+        session.appleAverageHeartRateBpm = companionHeartRateBpm
+        session.healthKitWorkoutUUID = companionWorkoutUUID
+        if companionWorkoutUUID != nil { session.appleHealthProvenance = "watchHealthKit" }
+        return session
     }
 
     func applyReviewLocationPin(_ pin: WorkoutLocationPin?) {
