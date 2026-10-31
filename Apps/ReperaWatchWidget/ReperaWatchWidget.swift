@@ -23,30 +23,58 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// Logo real de Repera, no un círculo de relleno: el editor de esferas suele
-/// utilizar el modo accented incluso aunque la app tenga un icono a todo color.
-/// La variante de complicación conserva los detalles del PNG y la luminancia
-/// (una imagen opaca como template se convertiría en un círculo macizo).
+/// Silueta de la mascota de Repera en trazos vectoriales, sin PNG ni Assets.car.
+/// Los ojos y la boca son huecos transparentes auténticos (even-odd):
+/// watchOS puede teñir el símbolo sin convertirlo en un círculo macizo.
+private struct ReperaMascotFace: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        var path = Path()
+        path.addEllipse(in: CGRect(x: 0.10 * w, y: 0.24 * h, width: 0.80 * w, height: 0.70 * h))
+        path.addEllipse(in: CGRect(x: 0.305 * w, y: 0.515 * h, width: 0.080 * w, height: 0.125 * h))
+        path.addEllipse(in: CGRect(x: 0.615 * w, y: 0.515 * h, width: 0.080 * w, height: 0.125 * h))
+        path.move(to: CGPoint(x: 0.41 * w, y: 0.68 * h))
+        path.addQuadCurve(to: CGPoint(x: 0.59 * w, y: 0.68 * h), control: CGPoint(x: 0.50 * w, y: 0.79 * h))
+        path.addLine(to: CGPoint(x: 0.59 * w, y: 0.65 * h))
+        path.addQuadCurve(to: CGPoint(x: 0.41 * w, y: 0.65 * h), control: CGPoint(x: 0.50 * w, y: 0.755 * h))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// El icono de la esfera no depende de recursos que Chrono pueda omitir del widget.
+/// En esferas teñidas, cara y orejas forman la capa primaria; la cinta es acentuada.
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
 
     var body: some View {
-        Group {
-            if renderingMode == .fullColor {
-                Image("ReperaIcon")
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                // resizable() debe ir antes: widgetAccentedRenderingMode type-erasea a View.
-                Image("ReperaComplicationIcon")
-                    .resizable()
-                    .widgetAccentedRenderingMode(.desaturated)
-                    .scaledToFit()
-            }
+        let fullColor = renderingMode == .fullColor
+        let faceColor = fullColor ? Color(red: 0.97, green: 0.82, blue: 0.70) : Color.primary
+        let bandColor = fullColor ? Color(red: 0.08, green: 0.43, blue: 0.20) : Color.primary
+
+        ZStack {
+            Ellipse()
+                .fill(faceColor)
+                .frame(width: diameter * 0.17, height: diameter * 0.23)
+                .rotationEffect(.degrees(-27))
+                .offset(x: -diameter * 0.13, y: -diameter * 0.30)
+            Ellipse()
+                .fill(faceColor)
+                .frame(width: diameter * 0.17, height: diameter * 0.23)
+                .rotationEffect(.degrees(22))
+                .offset(x: diameter * 0.10, y: -diameter * 0.31)
+            ReperaMascotFace()
+                .fill(faceColor, style: FillStyle(eoFill: true))
+            Capsule()
+                .fill(bandColor)
+                .widgetAccentable()
+                .frame(width: diameter * 0.76, height: diameter * 0.095)
+                .rotationEffect(.degrees(-5))
+                .offset(y: -diameter * 0.12)
         }
         .frame(width: diameter, height: diameter)
-        .clipShape(Circle())
         .accessibilityLabel("Repera")
     }
 }
@@ -117,7 +145,7 @@ private struct ReperaWatchWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "com.app.repera.watch.complication", provider: ReperaWatchProvider()) { entry in
             ReperaWatchComplication(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Repera")
         .description("Actividad del reloj: duración, distancia, pulso y calorías cuando hay datos.")

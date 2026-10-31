@@ -6,8 +6,8 @@
 - Wear: Health Services lee FC/calorías tanto en entrenamiento programado como en Comenzar companion, con ExerciseType.WALKING cuando corresponde y sin segundo GPS; si una métrica no está disponible se mantiene el guion.
 - Zonas cardíacas 1–5: cinco segmentos, con FCmáx provisional de 190 lpm. No presentar estas zonas estimadas como zonas clínicas personalizadas.
 - Apple Watch: `WKSupportsLiveActivityLaunchAttributeTypes` permite abrir la app del reloj al tocar la Live Activity de iPhone. La Smart Stack tiene formato `ActivityFamily.small` propio.
-- Complicación de esfera: extensión y watch app comparten el estado mediante App Group `group.com.app.repera.watch`. Circular: FC/tiempo; rectangular: tiempo, distancia, FC, kcal. Si no hay sesión, aparece marca.
-- En el modo accented de watchOS, Apple puede reemplazar los colores: se usa marca legible de una tinta en lugar de forzar un PNG opaco que se vuelve una mancha.
+- Complicación de esfera: extensión y watch app comparten el estado mediante App Group `group.com.app.repera.watch`. Circular/esquina: acceso directo con mascota de Repera; rectangular: mascota, tiempo, distancia, FC y kcal con sesión, o «Iniciar actividad» sin sesión; inline: título de la sesión o «Repera».
+- El símbolo de la mascota se construye enteramente con formas SwiftUI y ojos/boca de transparencia real (`FillStyle(eoFill: true)`). No carga PNG de `Assets.car` ni recursos sueltos: en modo `accented` la cara es primaria y la cinta utiliza `.widgetAccentable()`. En `fullColor` mantiene cara beige/cinta verde. El fondo del contenedor es transparente; watchOS aplica el estilo de la esfera.
 - Android: un mensaje de inicio desde Wear puede atenderse con el móvil bloqueado; si Android rechaza arrancar un FGS de ubicación en segundo plano, el estado se revierte y el reloj recibe el motivo.
 
 ## Configuración obligatoria de Apple Signing
@@ -22,7 +22,12 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 ## Pruebas pendientes en dispositivos reales
 1. Apple Watch inicia caminata: conceder Salud, comprobar FC y kcal (incluyendo 0 inicial), zonas, pausa y reanudación; finalizar y verificar solo un HKWorkout.
 2. iPhone inicia Comenzar: reloj abierto obtiene FC/kcal reales, la Smart Stack muestra métricas, tocarla abre Repera **Watch** y no iPhone; pausa/reanuda y cierra sin sesión duplicada en Salud.
-3. Añadir complicación circular y rectangular en distintas esferas y editor: no aparece un disco negro opaco. Confirmar actualización y tap de navegación al reloj.
+3. Añadir complicación circular, de esquina, rectangular e inline en distintas esferas y editor (modo con y sin tinte): deben verse cara, ojos y sonrisa, no un disco gris; confirmar actualización y tap hacia la app del reloj. Probar placeholder, snapshot y timeline, con y sin sesión.
 4. Wear inicia caminata con Android desbloqueado, luego bloqueado: Health Services entrega FC/kcal, zonas, y se muestra notificación persistente de Android; controles de pausa/fin coherentes.
 5. Repetir con permisos denegados, Bluetooth desconectado, apps terminadas, optimización de batería y móvil en segundo plano. Verificar mensajes de error precisos y sin duplicar sesiones.
 6. Compilar en Xcode con perfiles App Group y ejecutar Android unit tests, instrumentados en Wear real y revisión de permisos Health Services.
+
+## Diagnóstico y comprobaciones de empaquetado (31/10/2026)
+- La antigua imagen `ReperaComplicationIcon` (66/132/198 px) era RGB sin canal alfa y podía quedar como un círculo sólido al colorearse en la esfera. El antiguo `ReperaComplicationAppIconStore` tampoco participaba en el renderizado real del widget.
+- El target `ReperaWatchWidget` ya no empaqueta el catálogo de imágenes ni los PNG heredados; solo compila la vista SwiftUI y el estado compartido. El `AppIcon` del target principal `ReperaWatch` no se modifica.
+- CI ejecuta `tests/test_watch_complication_contract.py` y verifica tanto el `Info.plist` de la extensión compilada como su inclusión dentro de `ReperaWatch.app/PlugIns`. La validación visual en un reloj físico requiere instalar una nueva build, volver a colocar la complicación y comprobar ambos modos de esfera.

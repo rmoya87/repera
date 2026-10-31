@@ -94,6 +94,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_health_permissions.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_widget_plist.py' -v
+          python3 -m unittest discover -s tests -p 'test_watch_complication_contract.py' -v
           python3 scripts/check_watch_widget_plist.py
           python3 -m unittest discover -s tests -p 'test_diary_week_scope_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_autosaved_series_progress_contract.py' -v
@@ -253,6 +254,19 @@ jobs:
             exit 1
           fi
           python3 scripts/check_watch_widget_plist.py --built "$WIDGET_PLIST"
+          # Verificar el .appex instalado realmente en el .app del reloj,
+          # no solo la extensión suelta que Xcode deja en Build/Products.
+          EMBEDDED_PLIST="$(find "$RUNNER_TEMP/ReperaDerivedData/Build/Products" \
+            -path '*/ReperaWatch.app/PlugIns/ReperaWatchWidget.appex/Info.plist' -print -quit)"
+          if [[ -z "$EMBEDDED_PLIST" ]]; then
+            echo "::error::La app de Watch no incorpora la extensión de complicaciones"
+            exit 1
+          fi
+          python3 scripts/check_watch_widget_plist.py --built "$EMBEDDED_PLIST"
+          test -f "$(dirname "$EMBEDDED_PLIST")/ReperaWatchWidget" || {
+            echo "::error::Falta el ejecutable de WidgetKit en la extensión embebida"
+            exit 1
+          }
       - name: UI tests (scheme Repera — fail hard)
         run: |
           set -euo pipefail

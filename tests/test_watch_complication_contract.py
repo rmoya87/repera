@@ -8,16 +8,32 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 class WatchComplicationTests(unittest.TestCase):
-    def test_logo_real_and_accented_mode(self):
+    def test_logo_vectorial_en_todas_las_familias_sin_png_opacos(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        self.assertIn('Image("ReperaIcon")', widget)
-        self.assertIn('Image("ReperaComplicationIcon")', widget)
-        self.assertIn('.widgetAccentedRenderingMode(.desaturated)', widget)
-        self.assertNotIn('Circle().fill(.white.opacity(0.20))', widget)
-        self.assertIn("case .accessoryCircular:", widget)
-        self.assertIn("case .accessoryCorner:", widget)
-        for name in ("ReperaIcon", "ReperaComplicationIcon"):
-            self.assertTrue((ROOT / f"Apps/ReperaWatchWidget/Assets.xcassets/{name}.imageset/Contents.json").exists())
+        self.assertIn("private struct ReperaMascotFace: Shape", widget)
+        self.assertIn("FillStyle(eoFill: true)", widget)
+        self.assertIn(".widgetAccentable()", widget)
+        self.assertIn("renderingMode == .fullColor", widget)
+        self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
+        self.assertNotIn('Image("ReperaIcon")', widget)
+        self.assertNotIn('Image("ReperaComplicationIcon")', widget)
+        for family in ("Circular", "Corner", "Rectangular", "Inline"):
+            self.assertIn(f"case .accessory{family}:", widget)
+        # Ni el placeholder ni el snapshot ni la timeline deben recurrir al PNG.
+        self.assertIn("func placeholder(in context:", widget)
+        self.assertIn("func getSnapshot(in context:", widget)
+        self.assertIn("func getTimeline(in context:", widget)
+
+    def test_target_watch_widget_sin_dependencias_de_imagenes(self):
+        project = read("project.yml")
+        widget_target = project.split("\n  ReperaWatchWidget:\n", 1)[1].split("\n  ReperaUITests:\n", 1)[0]
+        self.assertIn("Apps/ReperaWatchWidget/ReperaWatchWidget.swift", widget_target)
+        self.assertIn("Apps/ReperaWatchWidget/ReperaComplicationSharedStore.swift", widget_target)
+        for legacy in ("ReperaComplicationAppIconStore.swift", "Apps/ReperaWatchWidget/Assets.xcassets",
+                       "ReperaWatchAppIcon.png", "repera_complication.png"):
+            self.assertNotIn(legacy, widget_target)
+        self.assertIn("      - target: ReperaWatchWidget\n        embed: true", project)
+        self.assertTrue((ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json").exists())
 
     def test_deeplink_and_dismiss_old_sheets(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
