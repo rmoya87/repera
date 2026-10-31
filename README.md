@@ -75,6 +75,15 @@ ni está autorizado para producción**. Véanse
 [estado de paridad](android/docs/STATUS_AND_PARITY.md) e
 [identidad/sincronización](android/docs/GOOGLE_IDENTITY_DRIVE.md).
 
+## Evolución multiplataforma (especificación, NO desplegada)
+
+Se está definiendo la ampliación de Repera a **iOS/Android solo para deportistas** y un **portal web profesional exclusivo de gimnasios y entrenadores**. El sitio `web/` existente sigue siendo únicamente marketing/legales.
+
+- [Plan maestro funcional, técnico y de QA](docs/REPERA_MULTIPLATFORM_MASTER_PLAN.md).
+- [Migración de aislamiento inicial](supabase/migrations/20261019193000_secure_relationship_foundation.sql): bloquea consultas globales de entrenamientos de la migración fundacional; **no aplicada todavía** a un Supabase remoto.
+- [Prueba RLS reproducible](supabase/tests/rls_foundation_smoke.sql): requiere instancia local de Supabase; **aún no ejecutada**.
+- Los planes profesionales, las reservas, el portal de gestión y Android son **trabajo futuro**, no funcionalidades de la build iOS actual.
+
 ## Documentación
 
 | Documento | Contenido |
