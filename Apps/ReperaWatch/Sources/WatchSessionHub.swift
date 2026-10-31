@@ -52,6 +52,8 @@ final class WatchSessionHub: NSObject {
 
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
+    /// Phone is GPS owner; Watch records the actual health samples only once.
+    private var companionSensorSessionID: UUID?
     private var startedOnThisWatch = false
     private var awaitingHealthSave = false
     private let motion = CMMotionManager()
@@ -1568,11 +1570,38 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.suppressCompanionLive = false
             }
             if snapshot != nil {
-                // Companion activo: no mantener grabación local en paralelo.
+                // Companion activo: nunca duplicar el GPS del iPhone.
                 self.pendingCompanionSport = nil
                 if self.watchLiveSport != nil {
                     self.health.discard()
                     self.clearWatchLive()
+                }
+            }
+            if let snapshot, snapshot.phase != .review,
+               self.active == nil, self.watchLiveSport == nil {
+                if self.companionSensorSessionID != snapshot.id {
+                    if self.companionSensorSessionID != nil { self.health.discard() }
+                    self.companionSensorSessionID = snapshot.id
+                    let sport = snapshot.sportID.flatMap(WatchLiveSport.init(rawValue:)) ?? .other
+                    self.health.startLive(
+                        id: snapshot.id,
+                        at: Date().addingTimeInterval(-snapshot.displayElapsed(at: Date())),
+                        activityType: sport.healthKitActivityType,
+                        outdoor: sport.usesGPS
+                    )
+                }
+                if snapshot.phase == .paused { self.health.pause() }
+                else { self.health.resume() }
+            } else if let id = self.companionSensorSessionID,
+                      snapshot == nil || snapshot?.phase == .review {
+                self.companionSensorSessionID = nil
+                self.health.finish { [weak self] result in
+                    guard let self else { return }
+                    self.connectivity.sendLiveHealthResult(
+                        sessionID: id, kcal: result.activeEnergyKcal ?? self.health.kcal,
+                        averageBpm: result.averageHeartRateBpm ?? self.health.averageBpm,
+                        workoutUUID: result.uuid
+                    )
                 }
             }
             self.liveActivity = snapshot
