@@ -3367,6 +3367,26 @@ extension ReperaStore: PhoneConnectivityDelegate {
         }
     }
 
+    nonisolated func phoneConnectivityDidReceiveWatchOwnedLive(
+        sessionId: UUID, sportID: String, phase: String,
+        startedAt: Date, elapsedSeconds: Double, distanceMeters: Double
+    ) {
+        Task { @MainActor in
+            guard let sport = LiveSport(rawValue: sportID) else { return }
+            let coordinator = WorkoutLiveActivityCoordinator.shared
+            if phase == "completed" {
+                await coordinator.completeWatchOwned(id: sessionId)
+            } else {
+                await coordinator.updateWatchOwned(
+                    id: sessionId, sport: sport,
+                    phase: phase == "paused" ? .paused : .running,
+                    startedAt: startedAt, elapsedSeconds: elapsedSeconds,
+                    distanceMeters: distanceMeters
+                )
+            }
+        }
+    }
+
     nonisolated func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {
         Task { @MainActor in
             LiveActivityRecorder.shared.receiveCompanionHealth(
