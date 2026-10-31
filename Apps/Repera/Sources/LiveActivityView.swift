@@ -2189,7 +2189,7 @@ struct LiveActivityView: View {
     /// Actualiza los controles cuando cambia deporte, fase, pantalla, sonido
     /// o modo del mapa. No se reactiva la grabación ni se reinicia la cámara.
     private var duoRailSignature: String {
-        "\(duoRail.isExpanded)|\(recorder.sport.rawValue)|\(recorder.phase)|\(showingMetrics)|\(recorder.spokenGuidanceEnabled)|\(effectiveNavigation3D)|\(navigation3DAllowed)|\(mapIsCentered)|\(recorder.currentCoordinate != nil)"
+        "\(duoRail.isExpanded)|\(recorder.sport.rawValue)|\(recorder.phase)|\(showingMetrics)|\(recorder.spokenGuidanceEnabled)|\(effectiveNavigation3D)|\(navigation3DAllowed)|\(mapIsCentered)|\(recorder.currentCoordinate != nil)|\(routePicker)"
     }
 
     /// El TabView ya mete el accessory Continuar en el safe area inferior.
@@ -2330,7 +2330,7 @@ struct LiveActivityView: View {
     /// las pestañas del Duo. Las acciones nativas quedan en su lugar habitual
     /// si el dispositivo vuelve al modo compacto.
     private func publishDuoActions() {
-        guard duoRail.isExpanded, recorder.phase != .review else {
+        guard duoRail.isExpanded, recorder.phase != .review, !routePicker else {
             duoRail.clear(owner: "start")
             return
         }
@@ -3933,6 +3933,7 @@ private struct LiveRouteTrace: Shape {
 private struct LiveRouteLibraryPickerView: View {
     @State private var routes = LiveRoutesStore.shared
     @Environment(ReperaStore.self) private var store
+    @Environment(OGDuoContextRailStore.self) private var duoRail
 
     private var recentRoutes: [LiveSavedRoute] {
         routes.recentRoutes(using: store.state.workouts)
@@ -3961,16 +3962,18 @@ private struct LiveRouteLibraryPickerView: View {
                                 .foregroundStyle(OG.label2)
                         }
                         Spacer()
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: 42, height: 42)
-                                .glassEffect(.regular.interactive(), in: .circle)
+                        if !duoRail.isExpanded {
+                            Button(action: onClose) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: 42, height: 42)
+                                    .glassEffect(.regular.interactive(), in: .circle)
+                            }
+                            .buttonStyle(.plain)
+                            .tint(OG.label)
+                            .accessibilityLabel("Cerrar Mis rutas")
                         }
-                        .buttonStyle(.plain)
-                        .tint(OG.label)
-                        .accessibilityLabel("Cerrar Mis rutas")
                     }
                     .padding(.vertical, 4)
                 }
@@ -4038,6 +4041,20 @@ private struct LiveRouteLibraryPickerView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .tint(OG.accent)
+        .overlay(alignment: .topTrailing) {
+            if duoRail.isExpanded {
+                OGDuoContextRail(actions: [
+                    .init(
+                        id: "close-routes",
+                        systemName: "xmark",
+                        accessibilityLabel: "Cerrar Mis rutas",
+                        handler: onClose
+                    )
+                ])
+                .padding(.trailing, 26)
+                .padding(.top, 8)
+            }
+        }
     }
 }
 
