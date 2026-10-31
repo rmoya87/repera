@@ -37,6 +37,7 @@ struct RootTabView: View {
                         onStart: openTodayPreview,
                         onStartRoutine: openRoutinePreview
                     )
+                    .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
                 }
 
                 SwiftUI.Tab(
@@ -54,6 +55,7 @@ struct RootTabView: View {
                         },
                         onOpenWorkout: openWorkout
                     )
+                    .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
                 }
 
                 SwiftUI.Tab(
@@ -62,10 +64,12 @@ struct RootTabView: View {
                     value: AppTab.stats
                 ) {
                     StatsView()
+                        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
                 }
 
                 SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
                     LibraryView(onOpenedWorkout: openWorkout)
+                        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
                 }
             }
             // Observe Equatable chrome — not the full `activeSession` graph.
