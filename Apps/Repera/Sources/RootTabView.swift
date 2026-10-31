@@ -15,6 +15,7 @@ struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var duoRail = OGDuoContextRailStore()
+    @State private var lastAvailableSize: CGSize = .zero
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
     @State private var sportFavoriteOpenError: String?
@@ -88,24 +89,8 @@ struct RootTabView: View {
             // Los hijos publican sus acciones; la posición lateral pertenece al
             // TabView y no al contenido, cuya anchura excluye el menú nativo.
             .environment(duoRail)
-            .onGeometryChange(for: Bool.self, of: { geometry in
-                let size = geometry.size
-                // El Duo abierto tiene un ancho útil mayor que un iPhone normal
-                // incluso en vertical. Evitar el raíl en iPhone apaisado compacto.
-                return size.width >= 480
-                    && (size.width <= size.height || prefersRegularWidth)
-            }) { _, expanded in
-                duoRail.isExpanded = expanded
-            }
-            .overlay(alignment: .topTrailing) {
-                if duoRail.isExpanded && !selectedDuoActions.isEmpty {
-                    OGDuoContextRail(actions: selectedDuoActions)
-                        // Centro a ~53 pt del borde, igual que los iconos de
-                        // la barra vertical nativa del iPhone Duo.
-                        .padding(.trailing, 26)
-                        .padding(.top, 8)
-                }
-            }
+            // No medir TabView: en el Duo la barra nativa puede restarle
+            // ancho y hacer que la medición baje de 480 pt.
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
             .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
                 store.refreshContinueChrome()
@@ -144,6 +129,23 @@ struct RootTabView: View {
                 .transition(.move(edge: .trailing))
                 .zIndex(1)
             }
+        }
+        // El overlay debe quedar POR ENCIMA del TabView y su raíl nativo.
+        // Situarlo sobre el TabView interno lo dejaba oculto o desplazado.
+        .overlay(alignment: .topTrailing) {
+            if duoRail.isExpanded && !selectedDuoActions.isEmpty {
+                OGDuoContextRail(actions: selectedDuoActions)
+                    .padding(.trailing, 26)
+                    .padding(.top, 8)
+                    .zIndex(100)
+            }
+        }
+        // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
+        .onGeometryChange(for: CGSize.self, of: { $0.size }) { _, size in
+            updateDuoLayout(availableSize: size)
+        }
+        .onChange(of: horizontalSizeClass) { _, _ in
+            updateDuoLayout(availableSize: lastAvailableSize)
         }
         .sheet(isPresented: $showStartHub) {
             // The former Crear tab remains available from Inicio, without losing tools.
@@ -245,6 +247,33 @@ struct RootTabView: View {
         // También para destinos del flujo, sheets y fichas abiertas fuera
         // del TabView (no solo para las cuatro pestañas).
         .environment(duoRail)
+    }
+
+    /// Detecta el espacio completo de la escena, no el viewport interno
+    /// de TabView, que puede excluir la barra de pestañas derecha.
+    private func updateDuoLayout(availableSize: CGSize) {
+        lastAvailableSize = availableSize
+        let sceneSize = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .bounds.size ?? availableSize
+
+        let width = max(sceneSize.width, availableSize.width)
+        let height = max(sceneSize.height, availableSize.height)
+        // Duo vertical/iPad: ventana con raíl lateral. Un iPhone convencional
+        // de <= 440 pt o un iPhone apaisado compacto no se ve afectado.
+        let isWidePortrait = width >= 480 && height > width
+        let isRegular = horizontalSizeClass == .regular && width >= 450
+        let expanded = isWidePortrait || isRegular
+        guard duoRail.isExpanded != expanded else { return }
+        duoRail.isExpanded = expanded
+        NSLog(
+            "Repera Duo: %@ window=%.0fx%.0f root=%.0fx%.0f",
+            expanded ? "expanded" : "compact",
+            sceneSize.width, sceneSize.height,
+            availableSize.width, availableSize.height
+        )
     }
 
     /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
