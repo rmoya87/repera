@@ -31,6 +31,8 @@ dependencies {
     implementation("androidx.wear.compose:compose-foundation:1.7.1")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("androidx.health:health-services-client:1.1.0")
+    // Google: Ongoing Activity mantiene visible el entrenamiento al pasar a ambiente.
+    implementation("androidx.wear:wear-ongoing:1.1.0")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     implementation("androidx.wear.tiles:tiles:1.4.1")
     implementation("androidx.wear.protolayout:protolayout:1.2.1")

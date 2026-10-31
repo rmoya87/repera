@@ -25,6 +25,16 @@ class WearLiveCommandListener : WearableListenerService() {
             if (!WearUiPresence.active) handleBackgroundWorkout(event)
             return
         }
+        if (event.path == "/repera/session-start") {
+            handleWearPlannedStart(event)
+            return
+        }
+        if (event.path == "/repera/live-start") {
+            // MainActivity atiende la petición cuando está visible. Este listener
+            // cubre el inicio desde Wear mientras el móvil está bloqueado.
+            if (!WearUiPresence.active) handleBackgroundLiveStart(event)
+            return
+        }
         if (event.path != "/repera/live-command") return
         val command = runCatching {
             JSONObject(String(event.data, Charsets.UTF_8))
@@ -44,6 +54,88 @@ class WearLiveCommandListener : WearableListenerService() {
                 "finish" -> runtime.finish() // Review/Save remains on the phone.
             }
         }
+    }
+
+    /** Adopta inmediatamente el entrenamiento autónomo del reloj.
+     * WorkoutRepository guarda por CAS y publica su notificación de bloqueo. */
+    private fun handleWearPlannedStart(event: MessageEvent) {
+        val json = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val plan = json.optJSONObject("session") ?: return
+        val sessionId = plan.optString("id")
+        if (sessionId.isBlank()) return
+        val sessionStore = SessionStore(this)
+        val owner = sessionStore.load() ?: return
+        val revision = sessionStore.identityRevision()
+        val authorized = {
+            sessionStore.identityRevision() == revision &&
+                sessionStore.load()?.uniqueId == owner.uniqueId &&
+                sessionStore.load()?.userId == owner.userId
+        }
+        val accepted = runCatching {
+            authorized() && WorkoutRepository(this, owner.uniqueId, stillAuthorized = authorized)
+                .adoptWearSession(plan)
+        }.getOrDefault(false)
+        Wearable.getMessageClient(this).sendMessage(
+            event.sourceNodeId, "/repera/session-start-ack",
+            JSONObject().put("sessionId", sessionId).put("ok", accepted)
+                .toString().toByteArray(Charsets.UTF_8)
+        )
+        if (accepted) DriveSyncWorker.syncNow(this)
+    }
+
+    private fun handleBackgroundLiveStart(event: MessageEvent) {
+        val command = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val sportId = command.optString("sportId")
+        val sport = dev.repera.domain.LiveSport.byId(sportId) ?: return
+        val sessions = SessionStore(this)
+        val identity = sessions.load() ?: return
+        val revision = sessions.identityRevision()
+        val node = event.sourceNodeId
+        Handler(Looper.getMainLooper()).post {
+            val authorized = sessions.load()?.uniqueId == identity.uniqueId &&
+                sessions.identityRevision() == revision
+            if (!authorized) return@post
+            val runtime = LiveActivityRuntime.forAccount(this, identity.uniqueId)
+            val phase = runtime.state.phase
+            if (phase == dev.repera.domain.LiveActivityState.Phase.RECORDING ||
+                phase == dev.repera.domain.LiveActivityState.Phase.PAUSED) {
+                ackLiveStart(node, true, null)
+                return@post
+            }
+            if (phase != dev.repera.domain.LiveActivityState.Phase.IDLE ||
+                LiveActivityRuntime.hasPendingActivity(this, identity.uniqueId) &&
+                runtime.recoveryBlocked) {
+                ackLiveStart(node, false, "Hay otra actividad pendiente en el móvil")
+                return@post
+            }
+            // Android 14+ limita arrancar un FGS de ubicación en segundo plano.
+            // Una excepción en GPS o en el FGS revierte el intento completo.
+            val result = runCatching {
+                runtime.choose(sport)
+                runtime.start()
+                check(runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
+                    "No se pudo comenzar el GPS"
+                }
+                LiveActivityService.startFromVisibleUI(this, identity.uniqueId)
+            }
+            if (result.isFailure) {
+                runtime.discard()
+                ackLiveStart(node, false, "Abre Repera en el móvil para iniciar GPS")
+            } else {
+                ackLiveStart(node, true, null)
+            }
+        }
+    }
+
+    private fun ackLiveStart(node: String, ok: Boolean, reason: String?) {
+        val body = JSONObject().put("ok", ok).put("reason", reason ?: "")
+        Wearable.getMessageClient(this).sendMessage(
+            node, "/repera/live-start-ack", body.toString().toByteArray(Charsets.UTF_8)
+        )
     }
 
     /** The Activity listener is absent while the phone is locked. Wear keeps

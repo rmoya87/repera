@@ -1,0 +1,42 @@
+name: Watch/Wear live sensor smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Apps/ReperaWatch/**'
+      - 'Apps/ReperaWatchWidget/**'
+      - 'Apps/ReperaRestWidget/**'
+      - 'Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift'
+      - 'Apps/Repera/Sources/ReperaStore.swift'
+      - 'android/wear/**'
+      - 'android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt'
+      - 'project.yml'
+      - '.github/workflows/watch-wear-live-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  watch-native-build:
+    runs-on: xcode-27
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 27
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
+          xcodebuild -version
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+      - name: Swift parse of Watch + Live Activity sources
+        run: |
+          find Apps/ReperaWatch/Sources Apps/ReperaWatchWidget Apps/ReperaRestWidget             -name '*.swift' -print0 | xargs -0 xcrun swiftc -frontend -parse
+      - name: Build ReperaWatch watchOS simulator (including complication)
+        run: |
+          set -o pipefail
+          xcodebuild -project Repera.xcodeproj -scheme ReperaWatch             -configuration Debug -destination 'generic/platform=watchOS Simulator'             -derivedDataPath "$RUNNER_TEMP/ReperaWatchSmoke"             CODE_SIGNING_ALLOWED=NO build
+      - name: Build iPhone app with Live Activity and Watch embedding
+        run: |
+          set -o pipefail
+          xcodebuild -project Repera.xcodeproj -scheme Repera             -configuration Debug -destination 'generic/platform=iOS Simulator'             -derivedDataPath "$RUNNER_TEMP/ReperaWatchSmoke"             CODE_SIGNING_ALLOWED=NO build

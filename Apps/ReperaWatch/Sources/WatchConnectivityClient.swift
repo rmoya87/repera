@@ -50,7 +50,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     /// or HealthKit workout on the watch. Commands are live-only: if the phone
     /// is offline, no local state is optimistically changed.
     @discardableResult
-    func sendLiveCommand(sessionId: UUID, command: String) -> Bool {
+    func sendLiveCommand(
+        sessionId: UUID, command: String, onResult: ((Bool) -> Void)? = nil
+    ) -> Bool {
         guard ["pause", "resume", "finish"].contains(command),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
@@ -60,8 +62,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             "sessionId": sessionId.uuidString,
             "command": command,
             "actionId": UUID().uuidString
-        ], replyHandler: nil) { [weak self] error in
+        ], replyHandler: { reply in
+            onResult?((reply["ok"] as? Bool) == true)
+        }) { [weak self] error in
             self?.logger.warning("Live watch command failed: \(error.localizedDescription, privacy: .public)")
+            onResult?(false)
         }
         return true
     }

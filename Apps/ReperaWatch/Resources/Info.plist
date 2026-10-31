@@ -40,6 +40,12 @@
 	<string>com.app.repera</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
+	<!-- watchOS mantiene visible la sesión HKWorkoutSession en Always On. -->
+	<key>WKSupportsAlwaysOnDisplay</key>
+	<true/>
+	<!-- Abre la app nativa del reloj al tocar Live Activities del iPhone en Smart Stack. -->
+	<key>WKSupportsLiveActivityLaunchAttributeTypes</key>
+	<array/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

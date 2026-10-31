@@ -179,60 +179,55 @@ struct WatchLiveSessionView: View {
     }
 }
 
-/// FC a la izquierda + barra de zonas a la derecha (azul→verde→amarillo→naranja→rojo).
-/// Escala relativa a una FCmáx estimada (190) cuando no hay perfil de edad.
+/// Cinco zonas basadas en porcentaje de FCmáx estimada; no son un diagnóstico.
+/// Las muestras provienen exclusivamente de HealthKit.
 struct WatchHeartRateZoneBar: View {
     var bpm: Int?
-    /// Estimación conservadora si no hay edad del usuario en el Watch.
     var estimatedMaxBpm: Double = 190
 
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(bpm.map { "\($0)" } ?? "—")
-                .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundStyle(.primary)
-                .frame(minWidth: 36, alignment: .leading)
-                .accessibilityLabel(bpm.map { "Frecuencia cardíaca \($0)" } ?? "Sin frecuencia cardíaca")
+    private let colors: [Color] = [
+        Color(red: 0.25, green: 0.55, blue: 1),
+        Color(red: 0.20, green: 0.85, blue: 0.40),
+        Color(red: 0.95, green: 0.85, blue: 0.15),
+        Color(red: 1, green: 0.55, blue: 0.10),
+        Color(red: 0.95, green: 0.20, blue: 0.20)
+    ]
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.25, green: 0.55, blue: 1.0),
-                                    Color(red: 0.20, green: 0.85, blue: 0.40),
-                                    Color(red: 0.95, green: 0.85, blue: 0.15),
-                                    Color(red: 1.0, green: 0.55, blue: 0.10),
-                                    Color(red: 0.95, green: 0.20, blue: 0.20)
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .opacity(0.9)
-
-                    if let fraction {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 10, height: 10)
-                            .shadow(color: .black.opacity(0.45), radius: 1, y: 0.5)
-                            .offset(x: max(0, min(geo.size.width - 10, geo.size.width * fraction - 5)))
-                    }
-                }
-            }
-            .frame(height: 10)
-            .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .combine)
+    private var zone: Int? {
+        guard let bpm, (25...250).contains(bpm), estimatedMaxBpm > 0 else { return nil }
+        let ratio = Double(bpm) / estimatedMaxBpm
+        if ratio < 0.60 { return 1 }
+        if ratio < 0.70 { return 2 }
+        if ratio < 0.80 { return 3 }
+        if ratio < 0.90 { return 4 }
+        return 5
     }
 
-    /// 0…1 dentro de un rango útil ~90…FCmáx (debajo de 90 se pega al inicio).
-    private var fraction: CGFloat? {
-        guard let bpm, estimatedMaxBpm > 100 else { return nil }
-        let floor = 90.0
-        let clamped = min(estimatedMaxBpm, max(floor, Double(bpm)))
-        return CGFloat((clamped - floor) / (estimatedMaxBpm - floor))
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(bpm.map(String.init) ?? "—")
+                .font(.title3.weight(.bold).monospacedDigit())
+                .frame(minWidth: 34, alignment: .leading)
+            VStack(alignment: .trailing, spacing: 3) {
+                HStack(spacing: 2) {
+                    ForEach(1...5, id: \.self) { level in
+                        Capsule()
+                            .fill(colors[level - 1])
+                            .opacity(zone == level ? 1 : 0.28)
+                            .frame(height: zone == level ? 12 : 8)
+                    }
+                }
+                Text(zone.map { "Zona \($0)/5" } ?? "Sin lectura")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            zone.map { "Frecuencia cardíaca \(bpm ?? 0) pulsaciones, zona \($0) de 5" }
+            ?? "Frecuencia cardíaca no disponible"
+        )
     }
 }
 

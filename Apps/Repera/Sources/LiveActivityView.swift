@@ -2198,7 +2198,10 @@ struct LiveActivityView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if recorder.phase == .review {
+                if recorder.phase == .review && store.isAutoSavingWatchActivity {
+                    ProgressView("Guardando actividad del Apple Watch…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if recorder.phase == .review {
                     review
                 } else if recorder.sport.usesGPS && !showingMetrics {
                     mapView
@@ -2209,7 +2212,7 @@ struct LiveActivityView: View {
             .background(OG.bg)
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
             .toolbar(recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
-            .navigationTitle(recorder.phase == .review ? "Guardar entreno" : "Comenzar")
+            .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
             .navigationDestination(isPresented: $showFullScreenRoute) {

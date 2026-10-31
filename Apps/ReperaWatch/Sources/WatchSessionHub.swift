@@ -6,6 +6,7 @@ import Observation
 import ReperaDomain
 import WatchConnectivity
 import WatchKit
+import WidgetKit
 
 /// Offline-first workout owner. The phone sends plans, not instructions for every rep.
 @Observable
@@ -16,6 +17,7 @@ final class WatchSessionHub: NSObject {
     private(set) var lastFinished: WorkoutSession?
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
+    private(set) var isFinishingCompanionLive = false
     private(set) var recentLiveSportIDs: [String] = []
     private(set) var audioMuted = false
     /// Índice / ítem del carrusel del hub (se restaura al Volver al inicio).
@@ -52,6 +54,8 @@ final class WatchSessionHub: NSObject {
 
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
+    private var companionSensorID: UUID?
+    private var lastComplicationReload = Date.distantPast
     private var startedOnThisWatch = false
     private var awaitingHealthSave = false
     private let motion = CMMotionManager()
@@ -381,6 +385,7 @@ final class WatchSessionHub: NSObject {
 
     func activate() {
         health.onPauseResumeRequest = { [weak self] in self?.applyHealthPauseRequest() }
+        health.onMetricsUpdated = { [weak self] in self?.publishComplicationSnapshot() }
         health.onPauseStateChanged = { [weak self] paused in
             self?.alignWithHealthState(paused: paused)
         }
@@ -410,11 +415,58 @@ final class WatchSessionHub: NSObject {
         }
         startClock()
         if active?.phase == .counting && !isPaused { startMotion() }
+        publishComplicationSnapshot(force: true)
     }
 
     func recoverHealthSession() {
         if let active, startedOnThisWatch {
             health.recoverIfNeeded(id: active.id)
+        }
+    }
+
+    /// La esfera lee únicamente datos persistidos; WidgetKit puede espaciar
+    /// las actualizaciones aunque el reloj siga recibiendo sensores en vivo.
+    func publishComplicationSnapshot(force: Bool = false) {
+        let now = Date()
+        let live: ReperaComplicationSnapshot?
+        if let sport = watchLiveSport, let id = watchLiveSessionID {
+            live = ReperaComplicationSnapshot(
+                sessionID: id.uuidString, title: sport.title,
+                startedAt: watchLiveStartedAt ?? now, capturedAt: now,
+                elapsedSeconds: watchLiveElapsedSeconds,
+                distanceMeters: sport.usesGPS ? watchLiveDistanceMeters : nil,
+                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
+                paused: watchLivePaused, activityKind: "sport"
+            )
+        } else if let companion = liveActivity, companion.phase != .review {
+            live = ReperaComplicationSnapshot(
+                sessionID: companion.id.uuidString, title: companion.sportTitle,
+                startedAt: now.addingTimeInterval(-companion.displayElapsed(at: now)),
+                capturedAt: now, elapsedSeconds: Int(companion.displayElapsed(at: now)),
+                distanceMeters: companion.distanceMeters,
+                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
+                paused: companion.phase == .paused, activityKind: "companion"
+            )
+        } else if let workout = active, workout.phase == .counting {
+            live = ReperaComplicationSnapshot(
+                sessionID: workout.id.uuidString, title: workout.title,
+                startedAt: workout.startedAt ?? now, capturedAt: now,
+                elapsedSeconds: sessionElapsed, distanceMeters: nil,
+                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
+                paused: isPaused, activityKind: "planned"
+            )
+        } else {
+            live = nil
+        }
+        let previous = ReperaComplicationSharedStore.read()
+        if previous != live {
+            guard ReperaComplicationSharedStore.write(live) else { return }
+        }
+        if force || (previous?.sessionID != live?.sessionID)
+            || previous?.paused != live?.paused
+            || now.timeIntervalSince(lastComplicationReload) >= 25 {
+            lastComplicationReload = now
+            WidgetCenter.shared.reloadTimelines(ofKind: "com.app.repera.watch.complication")
         }
     }
 
@@ -424,30 +476,55 @@ final class WatchSessionHub: NSObject {
     }
 
     func controlLiveActivity(_ command: String) {
-        guard let live = liveActivity, live.phase != .review else { return }
+        guard let live = liveActivity else { return }
+        if command == "finish" {
+            guard !isFinishingCompanionLive else { return }
+            // La revisión del iPhone solo puede existir tras un primer intento
+            // fallido: permitir Reintentar desde Watch sin perder el resumen.
+            isFinishingCompanionLive = true
+            liveCommandError = nil
+            let sent = connectivity.sendLiveCommand(
+                sessionId: live.id, command: command
+            ) { [weak self] saved in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.isFinishingCompanionLive = false
+                    guard saved else {
+                        self.liveCommandError = "No se pudo guardar en iPhone. Reintenta."
+                        return
+                    }
+                    let elapsed = Int(live.displayElapsed(at: Date()))
+                    let finished = WorkoutSession(
+                        id: live.id, title: live.sportTitle, exercises: [],
+                        phase: .finished,
+                        startedAt: Date().addingTimeInterval(-Double(elapsed)),
+                        finishedAt: Date(), liveSportID: "companion",
+                        recordedDistanceMeters: live.distanceMeters > 0
+                            ? live.distanceMeters : nil,
+                        activeDurationSeconds: Double(elapsed)
+                    )
+                    self.lastFinished = finished
+                    self.summaryDismissed = false
+                    self.suppressCompanionLive = true
+                    self.liveActivity = nil
+                    if self.companionSensorID != nil {
+                        self.health.discard()
+                        self.companionSensorID = nil
+                    }
+                    self.publishComplicationSnapshot(force: true)
+                    self.save()
+                }
+            }
+            if !sent {
+                isFinishingCompanionLive = false
+                liveCommandError = "Conecta el iPhone para guardar esta actividad"
+            }
+            return
+        }
+        guard live.phase != .review else { return }
         liveCommandError = connectivity.sendLiveCommand(
             sessionId: live.id, command: command
         ) ? nil : "Conecta el iPhone para controlar esta actividad"
-        // Finalizar companion: resumen local + «Volver al inicio»; el iPhone revisa/guarda.
-        if command == "finish", liveCommandError == nil {
-            let elapsed = Int(live.displayElapsed(at: Date()))
-            let session = WorkoutSession(
-                id: live.id,
-                title: live.sportTitle,
-                exercises: [],
-                phase: .finished,
-                startedAt: Date().addingTimeInterval(-Double(elapsed)),
-                finishedAt: Date(),
-                liveSportID: "companion",
-                recordedDistanceMeters: live.distanceMeters > 0 ? live.distanceMeters : nil,
-                activeDurationSeconds: Double(elapsed)
-            )
-            lastFinished = session
-            summaryDismissed = false
-            suppressCompanionLive = true
-            liveActivity = nil
-            save()
-        }
     }
 
     /// Cierra el resumen y vuelve al hub (sin reabrir la actividad).
@@ -458,6 +535,8 @@ final class WatchSessionHub: NSObject {
         // No reabrir companion en revisión; el hub debe quedar libre para elegir otro.
         liveActivity = nil
         suppressCompanionLive = true
+        if companionSensorID != nil { health.discard(); companionSensorID = nil }
+        publishComplicationSnapshot(force: true)
         checkpoint()
     }
 
@@ -525,6 +604,7 @@ final class WatchSessionHub: NSObject {
             activityType: sport.healthKitActivityType,
             outdoor: sport.usesGPS
         )
+        publishComplicationSnapshot(force: true)
         if sport.usesGPS {
             locationManager.delegate = self
             locationManager.desiredAccuracy = kCLLocationAccuracyBest
@@ -559,6 +639,7 @@ final class WatchSessionHub: NSObject {
             health.pause()
             locationManager.stopUpdatingLocation()
         }
+        publishComplicationSnapshot(force: true)
     }
 
     /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
@@ -596,6 +677,7 @@ final class WatchSessionHub: NSObject {
         lastFinished = pending
         summaryDismissed = false
         clearWatchLive()
+        publishComplicationSnapshot(force: true)
         save()
 
         if let coord {
@@ -653,6 +735,7 @@ final class WatchSessionHub: NSObject {
         guard let started = watchLiveStartedAt, !watchLivePaused else { return }
         let paused = watchLivePausedAccum
         watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
+        publishComplicationSnapshot()
     }
 
     private func clearWatchLive() {
@@ -704,7 +787,7 @@ final class WatchSessionHub: NSObject {
         guard url.scheme == "repera-watch" else { return }
         let host = (url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
             .lowercased()
-        guard host == "today" || host.isEmpty else { return }
+        guard host == "today" || host == "active" || host.isEmpty else { return }
         if hasWorkoutInProgress || watchLiveSport != nil || liveActivity != nil {
             refreshToday()
             return
@@ -1568,15 +1651,40 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.suppressCompanionLive = false
             }
             if snapshot != nil {
-                // Companion activo: no mantener grabación local en paralelo.
                 self.pendingCompanionSport = nil
+                // El iPhone es propietario de GPS, pero no de los sensores de muñeca.
+                // Una sesión HealthKit de medición en Watch se descarta al terminar:
+                // evita guardar un segundo HKWorkout duplicado en Salud.
                 if self.watchLiveSport != nil {
                     self.health.discard()
                     self.clearWatchLive()
                 }
             }
+            if let snapshot, snapshot.phase != .review,
+               self.watchLiveSport == nil, !self.hasWorkoutInProgress {
+                if self.companionSensorID != snapshot.id {
+                    if self.companionSensorID != nil { self.health.discard() }
+                    self.companionSensorID = snapshot.id
+                    let sport = WatchLiveSport.allCases.first { $0.title == snapshot.sportTitle }
+                    self.health.startLive(
+                        id: snapshot.id, at: Date(),
+                        activityType: sport?.healthKitActivityType ?? .other,
+                        outdoor: false, mirrorsToPhone: false
+                    )
+                }
+                if snapshot.phase == .paused { self.health.pause() }
+                else { self.health.resume() }
+            } else if self.companionSensorID != nil {
+                self.health.discard()
+                self.companionSensorID = nil
+            }
             self.liveActivity = snapshot
-            self.liveCommandError = nil
+            // No ocultar un error de guardado solo porque haya llegado la
+            // revisión del iPhone; el botón Reintentar debe seguir disponible.
+            if snapshot?.phase != .review && !self.isFinishingCompanionLive {
+                self.liveCommandError = nil
+            }
+            self.publishComplicationSnapshot(force: true)
         }
     }
 
@@ -1611,6 +1719,7 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             if exerciseChanged { self.resetSetDraft() }
             self.lastClockTick = Date()
             self.startClock()
+            self.publishComplicationSnapshot(force: true)
             self.save()
         }
     }

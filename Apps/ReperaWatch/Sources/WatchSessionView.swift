@@ -29,6 +29,8 @@ struct WatchSessionView: View {
                 } else if let sport = hub.watchLiveSport {
                     // Solo con sesión live real: no usar selección suelta (Volver reabría la actividad).
                     WatchLiveSessionView(sport: sport)
+                } else if hub.isFinishingCompanionLive {
+                    ProgressView("Guardando en iPhone…")
                 } else if let live = hub.liveActivity {
                     liveActivityView(live)
                 } else if hub.pendingCompanionSport != nil {
@@ -68,6 +70,7 @@ struct WatchSessionView: View {
             && hub.active == nil
             && hub.watchLiveSport == nil
             && hub.liveActivity == nil
+            && !hub.isFinishingCompanionLive
             && hub.pendingCompanionSport == nil
     }
 
@@ -142,6 +145,9 @@ struct WatchSessionView: View {
                                     in: RoundedRectangle(cornerRadius: 10))
                 }
 
+                if let warning = hub.healthWarning {
+                    Text(warning).font(.caption2).foregroundStyle(.orange)
+                }
                 if let message = hub.liveCommandError {
                     Text(message).font(.caption2).foregroundStyle(.orange)
                 }
@@ -180,11 +186,18 @@ struct WatchSessionView: View {
                     }
                     .padding(.bottom, 4)
                 } else {
-                    // Revisión en iPhone: salir al hub sin quedarse en Condiciones.
+                    // Si falló el guardado, reintentar desde el reloj.
+                    if hub.liveCommandError != nil {
+                        Button("Reintentar guardar") {
+                            hub.controlLiveActivity("finish")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                    }
                     Button {
                         hub.returnToHome()
                     } label: {
-                        Text("Volver al inicio")
+                        Text(hub.liveCommandError == nil ? "Volver al inicio" : "Revisar después")
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity, minHeight: 44)

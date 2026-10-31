@@ -2,6 +2,19 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// Selección de layout dentro de una View (no dentro del Widget).
+private struct TrainingFamilySwitcher<Regular: View, Compact: View>: View {
+    @Environment(\.activityFamily) private var activityFamily
+    let regular: Regular
+    let compact: Compact
+
+    @ViewBuilder
+    var body: some View {
+        if activityFamily == .small { compact }
+        else { regular }
+    }
+}
+
 /// Pantalla bloqueada y Dynamic Island: mismo lenguaje visual para actividades
 /// deportivas y sesiones planificadas de fuerza, CrossFit, HYROX y similares.
 struct TrainingLiveActivityWidget: Widget {
@@ -10,7 +23,10 @@ struct TrainingLiveActivityWidget: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrainingActivityAttributes.self) { context in
-            lockScreen(context)
+            TrainingFamilySwitcher(
+                regular: lockScreen(context),
+                compact: watchSmartStack(context)
+            )
                 .widgetURL(destination(for: context.attributes))
                 .activityBackgroundTint(.black)
                 .activitySystemActionForegroundColor(.white)
@@ -48,11 +64,16 @@ struct TrainingLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     if context.state.phase != .completed,
                        context.state.navigation == nil, !context.state.subtitle.isEmpty {
-                        Text(context.state.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if !context.attributes.isPlanned {
+                            splitStrip(context.state.subtitle, compact: true)
+                        } else {
+                            Text(context.state.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 }
             } compactLeading: {
@@ -87,6 +108,47 @@ struct TrainingLiveActivityWidget: Widget {
             .widgetURL(destination(for: context.attributes))
             .keylineTint(context.state.phase == .paused ? pauseYellow : green)
         }
+        .supplementalActivityFamilies([.small])
+    }
+
+    /// Live Activity del iPhone adaptada a la Smart Stack del Apple Watch.
+    /// Al tocarla, WKSupportsLiveActivityLaunchAttributeTypes abre Repera Watch.
+    private func watchSmartStack(_ context: ActivityViewContext<TrainingActivityAttributes>) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
+                    .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
+                Text(context.state.title).font(.headline).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            if let navigation = context.state.navigation, context.state.phase != .completed {
+                HStack(spacing: 6) {
+                    Image(systemName: navigation.symbol)
+                    Text(navigation.instruction).lineLimit(1)
+                    if let distance = navigation.distanceMeters {
+                        Text(distanceLabel(distance)).monospacedDigit()
+                    }
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(green)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                islandMetric(value: timer(context.state), title: "Tiempo")
+                islandMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
+                islandMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
+            }
+            if !context.state.subtitle.isEmpty {
+                if context.attributes.isPlanned {
+                    Text(context.state.subtitle)
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    splitStrip(context.state.subtitle, compact: true)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(12)
+        .background(.black)
     }
 
     @ViewBuilder
@@ -133,17 +195,51 @@ struct TrainingLiveActivityWidget: Widget {
 
             if !hasNavigation, context.state.phase != .completed,
                !context.state.subtitle.isEmpty {
-                Text(context.state.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                    .background(.black)
+                Group {
+                    if context.attributes.isPlanned {
+                        Text(context.state.subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    } else {
+                        splitStrip(context.state.subtitle, compact: false)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 1)
+                .padding(.bottom, 15)
+                .background(.black)
             }
         }
         .background(.black)
+    }
+
+    /// Parcial/kilómetro: tarjeta centrada con aire inferior y márgenes
+    /// idénticos a los tres indicadores de duración, ritmo y distancia.
+    /// El valor procede de latestKilometerReport, nunca se recalcula aquí.
+    private func splitStrip(_ text: String, compact: Bool) -> some View {
+        VStack(spacing: compact ? 2 : 4) {
+            Text("TRAMO")
+                .font(.system(size: compact ? 9 : 10, weight: .bold))
+                .tracking(1)
+                .foregroundStyle(green)
+            Text(text)
+                .font(.system(size: compact ? 11 : 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(compact ? 2 : 3)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, compact ? 8 : 12)
+        .padding(.vertical, compact ? 7 : 10)
+        .background(.white.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: compact ? 8 : 10,
+                                         style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     /// Giro/calle para ruta GPX. Se adapta al ancho del bloqueo y la isla

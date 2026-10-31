@@ -7,6 +7,8 @@ import android.os.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import androidx.health.services.client.data.ExerciseType
+import androidx.wear.ongoing.OngoingActivity
 
 /** Owns Health Services independently of Activity. Starts only from visible UI. */
 internal class WearHealthService:Service() {
@@ -37,14 +39,14 @@ internal class WearHealthService:Service() {
     }
     private val binder=Connection()
     private val changes=SharedPreferences.OnSharedPreferenceChangeListener {_,key ->
-        if(key=="snapshot") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
+        if(key=="snapshot" || key=="companionLiveSessionId") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
     }
     override fun onCreate() {super.onCreate();cache.registerOnSharedPreferenceChangeListener(changes)}
     override fun onBind(intent:Intent?):IBinder=binder
     private fun cachedId():String?=cache.getString("snapshot",null)?.let {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
-    private fun isCurrent(id:String)=cachedId()==id
+    private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
     private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
@@ -91,8 +93,12 @@ internal class WearHealthService:Service() {
         if(starting) return START_NOT_STICKY
         owner=id;status=null;starting=true
         val token=revision
+        val companion = cache.getString("companionLiveSessionId",null)==id
+        val sportId = intent?.getStringExtra("sportId")
+        val sportType = if (companion && sportId == "walking") ExerciseType.WALKING
+            else ExerciseType.STRENGTH_TRAINING
         scope.launch {
-            val result=runCatching {sensors.start(id) {token==revision && isCurrent(id)}}
+            val result=runCatching {sensors.start(id,sportType) {token==revision && isCurrent(id)}}
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.
             // Retain the foreground owner on unknown/owned status so visible UI can retry/stop.
@@ -119,10 +125,25 @@ internal class WearHealthService:Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Entrenamiento",NotificationManager.IMPORTANCE_LOW))
         val open=PendingIntent.getActivity(this,801,Intent(this,WearMainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_repera_complication)
+        val builder = NotificationCompat.Builder(this,CHANNEL)
+            .setSmallIcon(R.drawable.ic_repera_complication)
             .setContentTitle("Repera · Entrenamiento")
             .setContentText(status ?: sensors.problem ?: if(ending) "Terminando sensores" else if(sensors.paused) "Sensores en pausa" else if(sensors.recording) "Registro de sensores activo" else "Conectando con sensores")
-            .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open).build()
+            .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
+        // La notificación foreground por sí sola NO evita Return to Watch Face.
+        // Ongoing Activity mantiene la UI visible durante el entrenamiento, en pausa
+        // y durante la recepción de sensores, y ofrece un toque para regresar si
+        // el usuario pulsa manualmente la corona. Nunca crearla sin sesión activa.
+        if (owner?.let { isCurrent(it) } == true && !sensors.ended && !ending) {
+            OngoingActivity.Builder(applicationContext, NOTIFICATION, builder)
+                .setStaticIcon(R.drawable.ic_repera_complication)
+                .setTouchIntent(open)
+                .setTitle("Repera · Entrenamiento")
+                .setContentDescription("Volver al entrenamiento en curso de Repera")
+                .build()
+                .apply(applicationContext)
+        }
+        return builder.build()
     }
     override fun onDestroy() {
         revision++;observer=null;cache.unregisterOnSharedPreferenceChangeListener(changes)
@@ -133,9 +154,10 @@ internal class WearHealthService:Service() {
     companion object {
         private const val CHANNEL="repera.wear.exercise"
         private const val NOTIFICATION=8101
-        fun startFromVisibleUI(context:Context,id:String) {
+        fun startFromVisibleUI(context:Context,id:String,sportId:String?=null) {
             androidx.core.content.ContextCompat.startForegroundService(context,
-                Intent(context,WearHealthService::class.java).putExtra("sessionId",id))
+                Intent(context,WearHealthService::class.java)
+                    .putExtra("sessionId",id).putExtra("sportId",sportId))
         }
     }
 }
