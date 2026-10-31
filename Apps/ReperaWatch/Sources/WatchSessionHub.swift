@@ -433,6 +433,9 @@ final class WatchSessionHub: NSObject {
         ) ? nil : "Conecta el iPhone para controlar esta actividad"
         // Finalizar companion: resumen local + «Volver al inicio»; el iPhone revisa/guarda.
         if command == "finish", liveCommandError == nil {
+            // End the actual HealthKit workout now, not when the iPhone later
+            // leaves its review sheet (which might stay open for minutes).
+            finishCompanionSensorsIfNeeded()
             let elapsed = Int(live.displayElapsed(at: Date()))
             let session = WorkoutSession(
                 id: live.id,
@@ -450,6 +453,37 @@ final class WatchSessionHub: NSObject {
             suppressCompanionLive = true
             liveActivity = nil
             save()
+        }
+    }
+
+    private func startCompanionSensorsIfNeeded(_ snapshot: WatchLiveActivitySnapshot) {
+        guard companionSensorSessionID == nil,
+              snapshot.phase != .review,
+              active == nil, watchLiveSport == nil else { return }
+        companionSensorSessionID = snapshot.id
+        let sport = snapshot.sportID.flatMap(WatchLiveSport.init(rawValue:)) ?? .other
+        health.startLive(
+            id: snapshot.id, at: Date().addingTimeInterval(-snapshot.displayElapsed(at: Date())),
+            activityType: sport.healthKitActivityType, outdoor: sport.usesGPS
+        )
+        if snapshot.phase == .paused { health.pause() }
+    }
+
+    private func finishCompanionSensorsIfNeeded() {
+        guard let id = companionSensorSessionID else { return }
+        companionSensorSessionID = nil
+        health.finish { [weak self] result in
+            guard let self else { return }
+            self.connectivity.sendLiveHealthResult(
+                sessionID: id, kcal: result.activeEnergyKcal ?? self.health.kcal,
+                averageBpm: result.averageHeartRateBpm ?? self.health.averageBpm,
+                workoutUUID: result.uuid
+            )
+            // Starting another sport while the previous HKWorkout was being
+            // finalized must not discard the previous recording.
+            if let current = self.liveActivity {
+                self.startCompanionSensorsIfNeeded(current)
+            }
         }
     }
 
@@ -1582,6 +1616,9 @@ final class WatchSessionHub: NSObject {
 extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
         Task { @MainActor in
+            if snapshot == nil || snapshot?.phase == .review {
+                self.finishCompanionSensorsIfNeeded()
+            }
             if self.suppressCompanionLive {
                 guard let snapshot else {
                     self.suppressCompanionLive = false
@@ -1602,29 +1639,14 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             }
             if let snapshot, snapshot.phase != .review,
                self.active == nil, self.watchLiveSport == nil {
-                if self.companionSensorSessionID != snapshot.id {
-                    if self.companionSensorSessionID != nil { self.health.discard() }
-                    self.companionSensorSessionID = snapshot.id
-                    let sport = snapshot.sportID.flatMap(WatchLiveSport.init(rawValue:)) ?? .other
-                    self.health.startLive(
-                        id: snapshot.id,
-                        at: Date().addingTimeInterval(-snapshot.displayElapsed(at: Date())),
-                        activityType: sport.healthKitActivityType,
-                        outdoor: sport.usesGPS
-                    )
-                }
-                if snapshot.phase == .paused { self.health.pause() }
-                else { self.health.resume() }
-            } else if let id = self.companionSensorSessionID,
-                      snapshot == nil || snapshot?.phase == .review {
-                self.companionSensorSessionID = nil
-                self.health.finish { [weak self] result in
-                    guard let self else { return }
-                    self.connectivity.sendLiveHealthResult(
-                        sessionID: id, kcal: result.activeEnergyKcal ?? self.health.kcal,
-                        averageBpm: result.averageHeartRateBpm ?? self.health.averageBpm,
-                        workoutUUID: result.uuid
-                    )
+                if let previous = self.companionSensorSessionID, previous != snapshot.id {
+                    self.finishCompanionSensorsIfNeeded()
+                } else if self.companionSensorSessionID == nil {
+                    self.startCompanionSensorsIfNeeded(snapshot)
+                } else if snapshot.phase == .paused {
+                    self.health.pause()
+                } else {
+                    self.health.resume()
                 }
             }
             self.liveActivity = snapshot
