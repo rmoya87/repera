@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Pin del gym + ruta GPS en entrenos outdoor (port WorkoutLocationTracker iOS). -->
@@ -63,7 +64,11 @@
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />
         <service
             android:name=".WearLiveCommandListener"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="WearableBindListener">
+            <!-- WearableListenerService aún requiere BIND_LISTENER para mensajes
+                 con la app en segundo plano; lint deprecado hasta migrar a registro
+                 explícito por path (deuda Android/Wear). -->
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.BIND_LISTENER" />
             </intent-filter>
