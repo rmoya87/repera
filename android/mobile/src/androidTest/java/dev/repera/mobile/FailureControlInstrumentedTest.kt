@@ -13,7 +13,7 @@ class FailureControlInstrumentedTest {
  @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
  @Test fun failureIsExplicitAndWarmupCannotInheritFailureOrHiddenTechnique() {
   var failure:Boolean?=null;var warmup:Boolean?=null;var effort:Double?=null;var drops=0
-  val active=ActiveWorkout("failure","Fuerza",0,1,"Press banca",0,5,60.0,allowsWeight=true,sets=emptyList())
+  val active=ActiveWorkout(id="failure",title="Fuerza",index=0,total=1,exerciseName="Press banca",completedSets=0,prescribedQuantity=5,prescribedWeightKg=60.0,allowsWeight=true,sets=emptyList())
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
    LazyColumn {item {ActiveWorkoutCard(active,false,
     {_,_,r,w,_,_,_,f->effort=r;warmup=w;failure=f},{_,_,_,_,_,_->},{},{},{},

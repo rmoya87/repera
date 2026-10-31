@@ -39,10 +39,8 @@ class WearDraftRecoveryInstrumentedTest {
                     assertEquals(8,value("restRemaining"));assertEquals(0,WearPendingSetStore(context).count())
                 } }
                 assertDraft()
-                scenario.onActivity {activity ->
-                    val method=WearMainActivity::class.java.getDeclaredMethod("showSession",
-                        ByteArray::class.java,Boolean::class.javaPrimitiveType,ByteArray::class.java)
-                    method.isAccessible=true;method.invoke(activity,null,false,null)
+                scenario.onActivity { activity ->
+                    activity.testShowSession()
                     assertNotNull(prefs.getString("snapshot",null))
                     assertTrue(prefs.getBoolean("watchStarted",false))
                 }

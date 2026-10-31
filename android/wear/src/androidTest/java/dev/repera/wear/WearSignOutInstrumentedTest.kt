@@ -15,8 +15,7 @@ class WearSignOutInstrumentedTest {
   prefs.edit().clear().putString("todayPlan",JSONObject().put("id","fixture").put("title","Fixture plan").toString()).commit()
   ActivityScenario.launch(WearMainActivity::class.java).use {scenario ->
    scenario.onActivity {activity ->
-    val method=WearMainActivity::class.java.getDeclaredMethod("showSession",ByteArray::class.java,Boolean::class.javaPrimitiveType,ByteArray::class.java)
-    method.isAccessible=true;method.invoke(activity,null,true,null)
+    activity.testShowSession(signedOut = true)
     assertNull(prefs.getString("todayPlan",null))
     val plan=WearMainActivity::class.java.getDeclaredField("todayPlanJson\$delegate").apply {isAccessible=true}
      .get(activity) as androidx.compose.runtime.State<*>
