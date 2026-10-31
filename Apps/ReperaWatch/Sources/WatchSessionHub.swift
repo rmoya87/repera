@@ -54,6 +54,7 @@ final class WatchSessionHub: NSObject {
     private let health = WatchHealthKitSession()
     /// Phone is GPS owner; Watch records the actual health samples only once.
     private var companionSensorSessionID: UUID?
+    private var lastWatchLivePublish = Date.distantPast
     private var startedOnThisWatch = false
     private var awaitingHealthSave = false
     private let motion = CMMotionManager()
@@ -538,9 +539,25 @@ final class WatchSessionHub: NSObject {
         watchLiveTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickWatchLive() }
         }
+        publishWatchOwnedLive(reliable: true)
         if !audioMuted {
             WKInterfaceDevice.current().play(.start)
         }
+    }
+
+    private func publishWatchOwnedLive(reliable: Bool = false) {
+        guard let id = watchLiveSessionID, let sport = watchLiveSport,
+              let startedAt = watchLiveStartedAt else { return }
+        guard reliable || Date().timeIntervalSince(lastWatchLivePublish) >= 10 else { return }
+        lastWatchLivePublish = Date()
+        connectivity.sendWatchOwnedLive(
+            id: id, sportID: sport.rawValue,
+            phase: watchLivePaused ? "paused" : "recording",
+            startedAt: startedAt,
+            elapsedSeconds: watchLiveElapsedSeconds,
+            distanceMeters: watchLiveDistanceMeters,
+            reliable: reliable
+        )
     }
 
     func toggleWatchLivePause() {
@@ -561,6 +578,7 @@ final class WatchSessionHub: NSObject {
             health.pause()
             locationManager.stopUpdatingLocation()
         }
+        publishWatchOwnedLive(reliable: true)
     }
 
     /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
@@ -578,6 +596,10 @@ final class WatchSessionHub: NSObject {
         let elapsed = watchLiveElapsedSeconds
         let kcalSnapshot = health.kcal
         let bpmSnapshot = health.averageBpm ?? health.pulseBpm.map(Double.init)
+        connectivity.sendWatchOwnedLive(
+            id: id, sportID: sport.rawValue, phase: "completed", startedAt: started,
+            elapsedSeconds: elapsed, distanceMeters: distance, reliable: true
+        )
         // Resumen primero (antes de clearWatchLive) para que la UI no reabra live.
         var pending = WorkoutSession(
             id: id,
@@ -655,6 +677,7 @@ final class WatchSessionHub: NSObject {
         guard let started = watchLiveStartedAt, !watchLivePaused else { return }
         let paused = watchLivePausedAccum
         watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
+        publishWatchOwnedLive()
     }
 
     private func clearWatchLive() {
