@@ -251,7 +251,8 @@ struct RootTabView: View {
         case .stats:
             return duoRail.owner == "stats" ? duoRail.actions : []
         case .exercises:
-            return duoRail.owner == "exercises" ? duoRail.actions : []
+            return duoRail.owner == "exercises" || duoRail.owner == "exercise-detail"
+                ? duoRail.actions : []
         case .home:
             return []
         }
