@@ -1,0 +1,79 @@
+name: Watch and Wear vitals native builds
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Apps/Repera/Sources/LiveActivityView.swift'
+      - 'Apps/Repera/Sources/PhoneConnectivity.swift'
+      - 'Apps/Repera/Sources/ReperaStore.swift'
+      - 'Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift'
+      - 'Apps/ReperaWatch/**'
+      - 'Apps/ReperaWatchWidget/**'
+      - 'Packages/ReperaDomain/**'
+      - 'android/**'
+      - '.github/workflows/watch-wear-vitals-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: native-watch-vitals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-watch-native:
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode and generate project
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.app/Contents/Developer
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+      - name: Compile Swift sources
+        run: |
+          set -euo pipefail
+          find Apps Packages mobile-contracts/swift -name '*.swift' -print0 | xargs -0 xcrun swiftc -frontend -parse
+      - name: Build iPhone including embedded Watch
+        run: |
+          set -eo pipefail
+          xcodebuild -project Repera.xcodeproj -scheme Repera -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ReperaVitalsBuild" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-vitals-ios.log"
+      - name: Build independent Watch scheme and complication
+        run: |
+          set -eo pipefail
+          xcodebuild -project Repera.xcodeproj -scheme ReperaWatch -configuration Debug \
+            -destination 'generic/platform=watchOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ReperaVitalsBuild" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/repera-vitals-watch.log"
+      - name: Widget packaging
+        run: |
+          WIDGET_PLIST="$(find "$RUNNER_TEMP/ReperaVitalsBuild/Build/Products" -path '*/ReperaWatchWidget.appex/Info.plist' -print -quit)"
+          test -n "$WIDGET_PLIST"
+          python3 scripts/check_watch_widget_plist.py --built "$WIDGET_PLIST"
+      - name: Collect native logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-vitals-native-build-logs
+          path: |
+            ${{ runner.temp }}/repera-vitals-ios.log
+            ${{ runner.temp }}/repera-vitals-watch.log
+          if-no-files-found: ignore
+
+  android-wear-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+      - run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Compile both phone and Wear
+        run: gradle -p android :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
