@@ -25,6 +25,25 @@ final class WatchLiveActivitySnapshotTests: XCTestCase {
         ), running)
     }
 
+    func testCompanionSportIDRoundTripAndOldPayloadCompatibility() throws {
+        let snapshot = WatchLiveActivitySnapshot(
+            id: UUID(), sportTitle: "Caminata", phase: .recording,
+            elapsedSeconds: 15, distanceMeters: 42, averageSpeedKmh: nil,
+            nextTurn: nil, nextTurnMeters: nil, capturedAt: .now, sportID: "walking"
+        )
+        let encoded = try JSONEncoder().encode(snapshot)
+        XCTAssertEqual(
+            try JSONDecoder().decode(WatchLiveActivitySnapshot.self, from: encoded).sportID,
+            "walking"
+        )
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy.removeValue(forKey: "sportID")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+        XCTAssertNil(try JSONDecoder().decode(
+            WatchLiveActivitySnapshot.self, from: legacyData
+        ).sportID)
+    }
+
     func testNoInventedGPSOrMedicalMetrics() {
         let snapshot = WatchLiveActivitySnapshot(
             id: UUID(), sportTitle: "Yoga", phase: .recording,
