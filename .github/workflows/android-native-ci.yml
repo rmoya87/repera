@@ -1,6 +1,13 @@
 name: Android and Wear OS native
 on:
   workflow_dispatch:
+    inputs:
+      skip_instrumented_deploy_gate:
+        description: >-
+          Rama beta: ejecutar deploy-internal-beta tras android-native aunque
+          fallen los jobs de emulador (los tests siguen corriendo).
+        type: boolean
+        default: true
   push:
     paths:
       - 'android/**'
@@ -14,6 +21,10 @@ on:
 concurrency:
   group: android-native-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Reversible: cambiar a "false" para volver a bloquear deploy hasta emuladores verdes.
+env:
+  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "true"
 
 jobs:
   android-native:
@@ -325,17 +336,37 @@ jobs:
           # con 0 tests el paso falla aunque continue-on-error absorba el job.
           if [ "$N" -lt 1 ]; then exit 1; fi
 
-  # Despliegue beta: SOLO rama beta, SOLO si TODOS los tests (JVM, telefono,
-  # wear) estan verdes, SOLO AAB de telefono a track INTERNA. No existe job
-  # de produccion: la via de publicacion queda bloqueada hasta nueva
-  # autorizacion (ver android/docs/DEPLOY_PLAY.md).
+  # Despliegue beta: SOLO rama beta, AAB de telefono a track INTERNA.
+  # Por defecto (2026-10-31, Ramon): deploy tras android-native aunque fallen
+  # emuladores; REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE=false restaura el gate
+  # estricto. Los jobs instrumentados NO se eliminan.
   deploy-internal-beta:
-    if: github.ref == 'refs/heads/beta' && github.event_name == 'push'
     needs: [android-native, android-instrumented, wear-instrumented]
+    if: |
+      always() &&
+      github.ref == 'refs/heads/beta' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.android-native.result == 'success' &&
+      (
+        env.REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE == 'true' ||
+        github.event.inputs.skip_instrumented_deploy_gate == 'true' ||
+        (
+          needs.android-instrumented.result == 'success' &&
+          needs.wear-instrumented.result == 'success'
+        )
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
+      - name: Modo de gate de deploy (beta)
+        run: |
+          if [ "${{ env.REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE }}" = "true" ] || [ "${{ github.event.inputs.skip_instrumented_deploy_gate }}" = "true" ]; then
+            echo "## Deploy beta: gate relajado (solo android-native)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Emuladores/instrumentados siguen ejecutándose pero no bloquean el AAB." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Deploy beta: gate estricto (todos los jobs verdes)" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
