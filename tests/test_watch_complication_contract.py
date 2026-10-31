@@ -31,29 +31,36 @@ class WatchComplicationTests(unittest.TestCase):
             ["repera.png"],
         )
 
-    def test_capas_de_render_según_la_documentacion_de_apple(self):
+    def test_mascota_transparente_monocromatica_segun_apple(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
         self.assertEqual(widget.count('Image("ReperaIcon")'), 1)
         self.assertIn('UIImage(named: "ReperaIcon")', widget)
         self.assertIn("renderingMode == .fullColor", widget)
-        self.assertIn("Circle()", widget)
-        self.assertIn(".widgetAccentable()", widget)
-        self.assertIn("Image(uiImage: subject)", widget)
-        self.assertIn(".widgetAccentedRenderingMode(.desaturated)", widget)
-        self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
-        self.assertIn("let distance = sqrt", widget)
+        # Una imagen opaca / círculo en una esfera tintada produce un disco.
+        self.assertNotIn("Circle()", widget)
+        self.assertNotIn(".clipShape(Circle())", widget)
+        self.assertNotIn(".widgetAccentedRenderingMode(.desaturated)", widget)
+        self.assertIn('Image(uiImage: face)', widget)
+        self.assertIn(".renderingMode(.template)", widget)
+        self.assertIn(".foregroundStyle(.primary)", widget)
+        # Cara recortada de la ilustración real, con fondo verde, ojos,
+        # boca y cinta convertidos en alfa (no una imagen redibujada).
+        self.assertIn("original.cropping(to: crop.integral)", widget)
+        self.assertIn("let warmth =", widget)
         self.assertIn("let luminance =", widget)
+        self.assertIn("let lightFace =", widget)
+        self.assertIn("let opacity = min(warmth, lightFace) * originalAlpha", widget)
+        self.assertIn("pixels[index + 3] = alpha", widget)
         self.assertIn("Data(bytes: base, count: raw.count)", widget)
-        self.assertNotIn("ReperaMascotFace", widget)
+        self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
         self.assertNotIn('Image("ReperaComplicationIcon")', widget)
-        self.assertNotIn("greenExcess", widget)
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
         for callback in ("placeholder", "getSnapshot", "getTimeline"):
             self.assertIn(f"func {callback}(in context:", widget)
 
     def test_kind_nuevo_evitar_preview_antiguo(self):
-        kind = "com.app.repera.watch.complication.brand2"
+        kind = "com.app.repera.watch.complication.brand3"
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
         watch = read("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")

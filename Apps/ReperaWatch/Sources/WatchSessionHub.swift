@@ -468,7 +468,7 @@ final class WatchSessionHub: NSObject {
             || previous?.paused != live?.paused
             || now.timeIntervalSince(lastComplicationReload) >= 25 {
             lastComplicationReload = now
-            WidgetCenter.shared.reloadTimelines(ofKind: "com.app.repera.watch.complication.brand2")
+            WidgetCenter.shared.reloadTimelines(ofKind: "com.app.repera.watch.complication.brand3")
         }
     }
 

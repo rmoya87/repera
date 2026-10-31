@@ -26,24 +26,40 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// La imagen fuente es EXACTAMENTE AppIcon.png de Repera, sin redibujar el icono.
-/// Un PNG opaco se convierte en un disco sólido al teñirse en watchOS: para
-/// los formatos accessoryCircular/Corner hay que separar fondo y protagonista.
-/// Se deriva la máscara a partir de los píxeles oficiales, no de otra ilustración.
+/// Glifo monocromático de la cara ORIGINAL de Repera para las esferas de watchOS.
+/// La imagen oficial tiene un fondo verde totalmente opaco: una complicación
+/// circular NO debe enviar dicho fondo a WidgetKit (se convierte en un disco).
+/// Recortamos la cara y generamos una imagen blanca con alfa real; los ojos,
+/// la sonrisa y la cinta se representan como huecos transparentes.
+/// El color lo decide watchOS según la esfera. AppIcon permanece intacto.
 @MainActor
 private enum ReperaComplicationArtwork {
-    static let subject: UIImage? = makeSubjectMask()
+    static let face: UIImage? = makeFaceTemplate()
 
-    private static func makeSubjectMask() -> UIImage? {
-        guard let image = UIImage(named: "ReperaIcon")?.cgImage else { return nil }
-        let side = 160
+    private static func makeFaceTemplate() -> UIImage? {
+        guard let original = UIImage(named: "ReperaIcon")?.cgImage else { return nil }
+
+        // La cara ocupa aproximadamente el 70 % central del AppIcon oficial.
+        // Quitar el margen verde aumenta la legibilidad en los ~28–36 pt
+        // disponibles, manteniendo una zona segura para el recorte circular.
+        let sourceSide = CGFloat(min(original.width, original.height))
+        let sourceInset = sourceSide * 0.155
+        let crop = CGRect(
+            x: CGFloat(original.width) / 2 - sourceSide / 2 + sourceInset,
+            y: CGFloat(original.height) / 2 - sourceSide / 2 + sourceInset,
+            width: sourceSide - 2 * sourceInset,
+            height: sourceSide - 2 * sourceInset
+        )
+        guard let source = original.cropping(to: crop.integral) else { return nil }
+
+        let side = 192
         let rowBytes = side * 4
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue
             | CGImageAlphaInfo.premultipliedLast.rawValue
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
         var bytes = [UInt8](repeating: 0, count: side * rowBytes)
 
-        let result: CGImage? = bytes.withUnsafeMutableBytes { raw in
+        let output: CGImage? = bytes.withUnsafeMutableBytes { raw in
             guard let base = raw.baseAddress,
                   let context = CGContext(
                     data: base,
@@ -54,42 +70,42 @@ private enum ReperaComplicationArtwork {
                     space: colorSpace,
                     bitmapInfo: bitmapInfo
                   ) else { return nil }
-            context.interpolationQuality = .high
-            context.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
 
+            context.interpolationQuality = .high
+            context.draw(source, in: CGRect(x: 0, y: 0, width: side, height: side))
             let pixels = raw.bindMemory(to: UInt8.self)
-            // Esquina del AppIcon: muestra del fondo verde real, no un verde
-            // supuesto. La diferencia cromática rescata cara, ojos y cinta.
-            let bgR = Int(pixels[0])
-            let bgG = Int(pixels[1])
-            let bgB = Int(pixels[2])
+
             for index in stride(from: 0, to: pixels.count, by: 4) {
-                let r = Int(pixels[index])
-                let g = Int(pixels[index + 1])
-                let b = Int(pixels[index + 2])
-                let a = Double(pixels[index + 3]) / 255.0
-                let distance = sqrt(Double(
-                    (r - bgR) * (r - bgR)
-                    + (g - bgG) * (g - bgG)
-                    + (b - bgB) * (b - bgB)
-                ))
-                // Bordes suaves: solo se vuelve transparente el verde que
-                // coincide con el fondo. La cinta oscura sigue presente.
-                let subjectAlpha = min(1.0, max(0.0, (distance - 16.0) / 48.0)) * a
-                let luminance = (0.2126 * Double(r) + 0.7152 * Double(g)
-                    + 0.0722 * Double(b)) / 255.0
-                // Core Graphics necesita píxeles premultiplicados.
-                // WidgetKit desaturated mapea esta luminancia a alfa del grupo
-                // primario, dejando ojos y cinta oscuros contra el fondo.
-                let value = UInt8((255.0 * luminance * subjectAlpha).rounded())
-                pixels[index] = value
-                pixels[index + 1] = value
-                pixels[index + 2] = value
-                pixels[index + 3] = UInt8((255.0 * subjectAlpha).rounded())
+                let red = Double(pixels[index])
+                let green = Double(pixels[index + 1])
+                let blue = Double(pixels[index + 2])
+                let originalAlpha = Double(pixels[index + 3]) / 255.0
+
+                // El fondo (verde) y la cinta (verde oscuro) NO son cara.
+                // El personaje original es crema/cálido, por eso R > G.
+                // Los ojos y la sonrisa son oscuros y deben ser huecos,
+                // no una segunda capa negra que se convierta en un disco.
+                let warmth = max(0, min(1, (red - green - 2) / 16))
+                let luminance = (0.2126 * red + 0.7152 * green
+                    + 0.0722 * blue) / 255.0
+                let lightFace = max(0, min(1, (luminance - 0.33) / 0.28))
+                let opacity = min(warmth, lightFace) * originalAlpha
+                let alpha = UInt8((255 * opacity).rounded())
+
+                // Blanco premultiplicado con alfa. WidgetKit utiliza el alfa
+                // como plantilla al tintar; jamás incluir píxeles opacos del
+                // fondo verde ni un Circle() detrás de la mascota.
+                pixels[index] = alpha
+                pixels[index + 1] = alpha
+                pixels[index + 2] = alpha
+                pixels[index + 3] = alpha
             }
-            // CGImage no puede retener memoria temporal de withUnsafeMutableBytes.
+
+            // CGImage debe poseer sus bytes tras salir del cierre.
             let owned = Data(bytes: base, count: raw.count)
-            guard let provider = CGDataProvider(data: owned as CFData) else { return nil }
+            guard let provider = CGDataProvider(data: owned as CFData) else {
+                return nil
+            }
             return CGImage(
                 width: side,
                 height: side,
@@ -104,14 +120,13 @@ private enum ReperaComplicationArtwork {
                 intent: .defaultIntent
             )
         }
-        return result.map { UIImage(cgImage: $0) }
+        return output.map { UIImage(cgImage: $0) }
     }
 }
 
-/// El selector de complicaciones usa el mismo timeline/SwiftUI que la esfera.
-/// El color completo solo está permitido cuando watchOS solicita fullColor.
-/// En accented, el fondo y la mascota son dos capas tintables independientes:
-/// nunca se envía a WidgetKit un único PNG opaco para convertirlo en un disco.
+/// La selección de complicaciones y la esfera usan exactamente la misma vista.
+/// Solo las familias y esferas que permiten fullColor reciben el AppIcon original;
+/// para accented/vibrant se muestra exclusivamente la cara como glifo de alfa.
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
@@ -122,30 +137,19 @@ private struct ReperaLogo: View {
                 Image("ReperaIcon")
                     .resizable()
                     .scaledToFit()
+            } else if let face = ReperaComplicationArtwork.face {
+                Image(uiImage: face)
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(.primary)
+                    .scaledToFit()
             } else {
-                ZStack {
-                    // Capa acentuada: fondo circular del icono original.
-                    Circle()
-                        .fill(Color.white)
-                        .widgetAccentable()
-                    // Capa primaria: personaje recortado DIGITALMENTE del
-                    // mismo AppIcon, con textura real y detalles de luminosidad.
-                    if let subject = ReperaComplicationArtwork.subject {
-                        Image(uiImage: subject)
-                            .resizable()
-                            .widgetAccentedRenderingMode(.desaturated)
-                            .scaledToFit()
-                    } else {
-                        // Marca de error explícita si Assets.car no contiene
-                        // el recurso; evitar fingir que el disco es el logo.
-                        Text("R")
-                            .font(.system(size: diameter * 0.55, weight: .bold))
-                    }
-                }
+                // Fallo de empaquetado visible; nunca fingir un icono válido.
+                Text("R")
+                    .font(.system(size: diameter * 0.55, weight: .bold))
             }
         }
         .frame(width: diameter, height: diameter)
-        .clipShape(Circle())
         .accessibilityLabel("Repera")
     }
 }
@@ -214,7 +218,7 @@ private struct ReperaWatchComplication: View {
 
 private struct ReperaWatchWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "com.app.repera.watch.complication.brand2", provider: ReperaWatchProvider()) { entry in
+        StaticConfiguration(kind: "com.app.repera.watch.complication.brand3", provider: ReperaWatchProvider()) { entry in
             ReperaWatchComplication(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
