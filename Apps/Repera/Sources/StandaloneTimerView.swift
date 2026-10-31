@@ -246,6 +246,7 @@ struct TimerNumericInput: View {
 /// Temporizador libre (Crear): configuración + reloj LED.
 struct StandaloneTimerView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(OGDuoContextRailStore.self) private var duoRail
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
@@ -457,20 +458,52 @@ struct StandaloneTimerView: View {
         // ScrollView independiente: no usar el margen de listas agrupadas
         // durante la transición tras cerrar "Añadir entreno".
         .ogScrollingTitleNav(usesGroupedList: false)
+        // Sin fila superior vacía en Duo: volver y favorito están sobre el
+        // lateral derecho, junto al menú de navegación.
+        .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                OGToolbarGlassButton(
-                    systemName: editingFavoriteId == nil ? "star" : "star.fill",
-                    accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
-                    tint: OG.favoriteAmber
-                ) {
-                    saveTitle = editingFavoriteId.flatMap { id in
-                        store.state.favoriteTimers.first { $0.id == id }?.title
-                    } ?? defaultFavoriteTitle
-                    showSaveAlert = true
+            if !duoRail.isExpanded {
+                ToolbarItem(placement: .topBarTrailing) {
+                    OGToolbarGlassButton(
+                        systemName: editingFavoriteId == nil ? "star" : "star.fill",
+                        accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
+                        tint: OG.favoriteAmber
+                    ) {
+                        requestFavoriteSave()
+                    }
                 }
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if duoRail.isExpanded {
+                OGDuoContextRail(actions: [
+                    .init(
+                        id: "timer-favorite",
+                        systemName: editingFavoriteId == nil ? "star" : "star.fill",
+                        accessibilityLabel: editingFavoriteId == nil ? "Guardar en favoritos" : "Actualizar favorito",
+                        tint: OG.favoriteAmber
+                    ) {
+                        requestFavoriteSave()
+                    },
+                    .init(
+                        id: "timer-back",
+                        systemName: "chevron.left",
+                        accessibilityLabel: "Volver"
+                    ) {
+                        dismiss()
+                    }
+                ])
+                .padding(.trailing, 26)
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    private func requestFavoriteSave() {
+        saveTitle = editingFavoriteId.flatMap { id in
+            store.state.favoriteTimers.first { $0.id == id }?.title
+        } ?? defaultFavoriteTitle
+        showSaveAlert = true
     }
 
     private var defaultFavoriteTitle: String {
