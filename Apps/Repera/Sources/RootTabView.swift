@@ -293,14 +293,24 @@ struct RootTabView: View {
     /// mantenga vivas otras pantallas del TabView por rendimiento.
     private var selectedDuoActions: [OGDuoContextRailStore.Action] {
         guard flowPath.isEmpty else { return [] }
+
+        // Los modales muestran sus controles en el mismo raíl físico
+        // aunque su contenido sea presentado por un NavigationStack anidado.
+        if !duoRail.actions(for: "routes").isEmpty {
+            return duoRail.actions(for: "routes")
+        }
+        if !duoRail.actions(for: "timer").isEmpty {
+            return duoRail.actions(for: "timer")
+        }
+
         switch tab {
         case .start:
-            return duoRail.owner == "start" ? duoRail.actions : []
+            return duoRail.actions(for: "start")
         case .stats:
-            return duoRail.owner == "stats" ? duoRail.actions : []
+            return duoRail.actions(for: "stats")
         case .exercises:
-            return duoRail.owner == "exercises" || duoRail.owner == "exercise-detail"
-                ? duoRail.actions : []
+            return duoRail.actions(for: "exercises")
+                + duoRail.actions(for: "exercise-detail")
         case .home:
             return []
         }
