@@ -129,21 +129,17 @@ struct RootTabView: View {
                 .zIndex(1)
             }
         }
-        // Los iconos principales vuelven a ser los del TabView nativo.
-        // Las herramientas van en el MISMO lateral físico derecho, por
-        // debajo del reloj y del estado de conexión, sin reservar una
-        // segunda columna ni empujar fuera la navegación del sistema.
-        .overlay(alignment: .topTrailing) {
-            if duoRail.isExpanded && flowPath.isEmpty && !selectedDuoActions.isEmpty {
-                OGDuoContextRail(actions: selectedDuoActions)
-                    // El raíl nativo centra sus botones a ~53 pt del borde.
-                    .padding(.trailing, 26)
-                    // El status (hora + conexión) está encima de las herramientas.
-                    // Este bloque ocupa el área vacía entre status y tab rail.
-                    .padding(.top, 168)
-                    .zIndex(10)
-                    .accessibilityIdentifier("repera-duo-context-actions")
-            }
+        // El TabView nativo reserva un carril lateral fuera de su viewport
+        // SwiftUI. Un .overlay alineado al TabView queda sobre el topbar
+        // del contenido; por eso los botones aparecían desplazados.
+        // El host se monta en la UIWindow REAL, con la misma coordenada X
+        // que Inicio/Comenzar/Progreso/Ejercicios y debajo de hora/Wi-Fi.
+        .background {
+            OGDuoWindowContextActions(
+                actions: duoRail.isExpanded && flowPath.isEmpty
+                    ? selectedDuoActions : []
+            )
+            .frame(width: 0, height: 0)
         }
         // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
         .onGeometryChange(for: CGSize.self, of: { $0.size }) { _, size in
