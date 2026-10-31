@@ -186,6 +186,19 @@ struct WatchHeartRateZoneBar: View {
     /// Estimación conservadora si no hay edad del usuario en el Watch.
     var estimatedMaxBpm: Double = 190
 
+    /// Aproximación relativa; no son las zonas personales de Salud.
+    private var estimatedZone: Int? {
+        guard let bpm, bpm > 0, estimatedMaxBpm > 0 else { return nil }
+        let fraction = Double(bpm) / estimatedMaxBpm
+        switch fraction {
+        case ..<0.60: return 1
+        case ..<0.70: return 2
+        case ..<0.80: return 3
+        case ..<0.90: return 4
+        default: return 5
+        }
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Text(bpm.map { "\($0)" } ?? "—")
@@ -193,6 +206,10 @@ struct WatchHeartRateZoneBar: View {
                 .foregroundStyle(.primary)
                 .frame(minWidth: 36, alignment: .leading)
                 .accessibilityLabel(bpm.map { "Frecuencia cardíaca \($0)" } ?? "Sin frecuencia cardíaca")
+            Text(estimatedZone.map { "Z\($0)" } ?? "—")
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(estimatedZone.map { "Zona estimada \($0)" } ?? "Sin zona disponible")
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
