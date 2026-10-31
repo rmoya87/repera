@@ -9,6 +9,10 @@ protocol PhoneConnectivityDelegate: AnyObject {
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String)
     func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?)
+    func phoneConnectivityDidReceiveWatchOwnedLive(
+        sessionId: UUID, sportID: String, phase: String,
+        startedAt: Date, elapsedSeconds: Double, distanceMeters: Double
+    )
     /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool)
@@ -28,6 +32,10 @@ protocol PhoneConnectivityDelegate: AnyObject {
 extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) {}
     func phoneConnectivityDidReceiveLiveHealth(sessionId: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {}
+    func phoneConnectivityDidReceiveWatchOwnedLive(
+        sessionId: UUID, sportID: String, phase: String,
+        startedAt: Date, elapsedSeconds: Double, distanceMeters: Double
+    ) {}
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
@@ -231,6 +239,24 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             }
             let started = await (delegate?.phoneConnectivityDidReceiveStartLive(sportID: sportID) ?? false)
             return ["ok": started]
+        case "watchOwnedLive":
+            guard let raw = message["sessionId"] as? String,
+                  let id = UUID(uuidString: raw),
+                  let sportID = message["sportID"] as? String,
+                  let phase = message["phase"] as? String,
+                  ["recording", "paused", "completed"].contains(phase),
+                  let time = message["startedAt"] as? Double,
+                  let elapsed = message["elapsedSeconds"] as? Double,
+                  let distance = message["distanceMeters"] as? Double,
+                  time.isFinite, elapsed.isFinite, distance.isFinite else {
+                return ["ok": false]
+            }
+            delegate?.phoneConnectivityDidReceiveWatchOwnedLive(
+                sessionId: id, sportID: sportID, phase: phase,
+                startedAt: Date(timeIntervalSince1970: time),
+                elapsedSeconds: max(0, elapsed), distanceMeters: max(0, distance)
+            )
+            return ["ok": true]
         case "liveHealthResult":
             guard let raw = message["sessionId"] as? String,
                   let id = UUID(uuidString: raw) else { return ["ok": false] }
