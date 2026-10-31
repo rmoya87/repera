@@ -97,8 +97,8 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
                     equalTo: window.trailingAnchor, constant: -26
                 ),
                 host.view.topAnchor.constraint(
-                    equalTo: window.safeAreaLayoutGuide.topAnchor,
-                    constant: 52
+                    equalTo: window.topAnchor,
+                    constant: max(120, window.safeAreaInsets.top + 52)
                 ),
                 host.view.widthAnchor.constraint(equalToConstant: 54),
                 host.view.heightAnchor.constraint(
