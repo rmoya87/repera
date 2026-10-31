@@ -263,6 +263,28 @@ jobs:
             exit 1
           fi
           python3 scripts/check_watch_widget_plist.py --built "$EMBEDDED_PLIST"
+          # El último bug ocultó el PNG del widget al eliminar Assets.xcassets
+          # del target: comprobar el catálogo REAL embebido, no solo el Swift.
+          REPERA_WATCH_WIDGET_ASSETS="$(dirname "$EMBEDDED_PLIST")/Assets.car"
+          if [[ ! -f "$REPERA_WATCH_WIDGET_ASSETS" ]]; then
+            echo "::error::ReperaWatchWidget.appex no contiene Assets.car"
+            exit 1
+          fi
+          xcrun assetutil --info "$REPERA_WATCH_WIDGET_ASSETS" > "$RUNNER_TEMP/repera-watch-widget-assets.json"
+          python3 - "$RUNNER_TEMP/repera-watch-widget-assets.json" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding="utf-8") as f:
+              assets=json.load(f)
+          names={a.get("Name") for a in assets if isinstance(a,dict)}
+          assert "ReperaIcon" in names, f"El icono original no está en Assets.car: {sorted(map(str,names))}"
+          print("PASS: ReperaIcon incluido en la extensión WidgetKit compilada")
+          PY
+          REPERA_WATCH_APP="$(dirname "$(dirname "$(dirname "$EMBEDDED_PLIST")")")"
+          test -f "$REPERA_WATCH_APP/Assets.car" || {
+            echo "::error::ReperaWatch.app no incluye catálogo de AppIcon"
+            exit 1
+          }
+
           test -f "$(dirname "$EMBEDDED_PLIST")/ReperaWatchWidget" || {
             echo "::error::Falta el ejecutable de WidgetKit en la extensión embebida"
             exit 1

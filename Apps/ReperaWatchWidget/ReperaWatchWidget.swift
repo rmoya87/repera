@@ -1,4 +1,7 @@
+import CoreGraphics
+import Foundation
 import SwiftUI
+import UIKit
 import WidgetKit
 
 private struct ReperaWatchEntry: TimelineEntry {
@@ -23,58 +26,114 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// Silueta de la mascota de Repera en trazos vectoriales, sin PNG ni Assets.car.
-/// Los ojos y la boca son huecos transparentes auténticos (even-odd):
-/// watchOS puede teñir el símbolo sin convertirlo en un círculo macizo.
-private struct ReperaMascotFace: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width
-        let h = rect.height
-        var path = Path()
-        path.addEllipse(in: CGRect(x: 0.10 * w, y: 0.24 * h, width: 0.80 * w, height: 0.70 * h))
-        path.addEllipse(in: CGRect(x: 0.305 * w, y: 0.515 * h, width: 0.080 * w, height: 0.125 * h))
-        path.addEllipse(in: CGRect(x: 0.615 * w, y: 0.515 * h, width: 0.080 * w, height: 0.125 * h))
-        path.move(to: CGPoint(x: 0.41 * w, y: 0.68 * h))
-        path.addQuadCurve(to: CGPoint(x: 0.59 * w, y: 0.68 * h), control: CGPoint(x: 0.50 * w, y: 0.79 * h))
-        path.addLine(to: CGPoint(x: 0.59 * w, y: 0.65 * h))
-        path.addQuadCurve(to: CGPoint(x: 0.41 * w, y: 0.65 * h), control: CGPoint(x: 0.50 * w, y: 0.755 * h))
-        path.closeSubpath()
-        return path
+/// La única fuente visual de la complicación es el AppIcon oficial de Repera.
+/// "ReperaIcon" contiene exactamente los mismos bytes que el AppIcon de Watch.
+/// Las esferas .accented no admiten mantener el verde ni el tono de piel original,
+/// así que calculamos la silueta *desde los píxeles oficiales* (no un dibujo nuevo).
+@MainActor
+private enum ReperaOfficialWatchIcon {
+    static let tintedImage: UIImage? = makeTintedImage()
+
+    private static func makeTintedImage() -> UIImage? {
+        guard let original = UIImage(named: "ReperaIcon")?.cgImage else { return nil }
+        // Chrono puede renderizar muchas previews. Crear la máscara una sola vez
+        // a tamaño reducido, en memoria, sin lanzar I/O al construir la timeline.
+        let side = 256
+        let bytesPerRow = side * 4
+        var bitmap = [UInt8](repeating: 0, count: side * bytesPerRow)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue |
+            CGImageAlphaInfo.premultipliedLast.rawValue
+
+        let output: CGImage? = bitmap.withUnsafeMutableBytes { buffer in
+            guard let address = buffer.baseAddress,
+                  let context = CGContext(
+                    data: address,
+                    width: side,
+                    height: side,
+                    bitsPerComponent: 8,
+                    bytesPerRow: bytesPerRow,
+                    space: colorSpace,
+                    bitmapInfo: bitmapInfo
+                  ) else { return nil }
+            context.interpolationQuality = .high
+            context.draw(original, in: CGRect(x: 0, y: 0, width: side, height: side))
+
+            let rgba = buffer.bindMemory(to: UInt8.self)
+            for index in stride(from: 0, to: rgba.count, by: 4) {
+                let red = Int(rgba[index])
+                let green = Int(rgba[index + 1])
+                let blue = Int(rgba[index + 2])
+                let sourceAlpha = Double(rgba[index + 3]) / 255
+
+                // Retira el fondo verde (y la cinta verde) del *mismo icono*.
+                // Un margen suave mantiene los píxeles antialiasados.
+                let greenExcess = green - max(red, blue)
+                let background = min(1.0, max(0.0, Double(greenExcess - 18) / 24))
+                // Los ojos y la sonrisa oscuros son huecos, no manchas blancas.
+                let detail = min(1.0, max(0.0, Double(max(red, green, blue) - 45) / 50))
+                let alpha = UInt8(
+                    (255 * sourceAlpha * (1 - background) * detail).rounded()
+                )
+                // Blanco premultiplicado: watchOS escoge el color de la esfera.
+                rgba[index] = alpha
+                rgba[index + 1] = alpha
+                rgba[index + 2] = alpha
+                rgba[index + 3] = alpha
+            }
+
+            // Copia los bytes: la imagen no debe referenciar el buffer temporal
+            // cuando WidgetKit la dibuje fuera del proceso de la extensión.
+            let data = Data(bytes: address, count: buffer.count)
+            guard let provider = CGDataProvider(data: data as CFData) else { return nil }
+            return CGImage(
+                width: side,
+                height: side,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: CGBitmapInfo(rawValue: bitmapInfo),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: true,
+                intent: .defaultIntent
+            )
+        }
+        guard let output else { return nil }
+        return UIImage(cgImage: output)
     }
 }
 
-/// El icono de la esfera no depende de recursos que Chrono pueda omitir del widget.
-/// En esferas teñidas, cara y orejas forman la capa primaria; la cinta es acentuada.
+/// Mismo AppIcon de la app del Watch, sin redibujar la mascota.
+/// En modo a color se muestra el PNG oficial intacto; en modo teñido se
+/// conserva su silueta original y se cede el color a watchOS.
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
 
     var body: some View {
-        let fullColor = renderingMode == .fullColor
-        let faceColor = fullColor ? Color(red: 0.97, green: 0.82, blue: 0.70) : Color.primary
-        let bandColor = fullColor ? Color(red: 0.08, green: 0.43, blue: 0.20) : Color.primary
-
-        ZStack {
-            Ellipse()
-                .fill(faceColor)
-                .frame(width: diameter * 0.17, height: diameter * 0.23)
-                .rotationEffect(.degrees(-27))
-                .offset(x: -diameter * 0.13, y: -diameter * 0.30)
-            Ellipse()
-                .fill(faceColor)
-                .frame(width: diameter * 0.17, height: diameter * 0.23)
-                .rotationEffect(.degrees(22))
-                .offset(x: diameter * 0.10, y: -diameter * 0.31)
-            ReperaMascotFace()
-                .fill(faceColor, style: FillStyle(eoFill: true))
-            Capsule()
-                .fill(bandColor)
-                .widgetAccentable()
-                .frame(width: diameter * 0.76, height: diameter * 0.095)
-                .rotationEffect(.degrees(-5))
-                .offset(y: -diameter * 0.12)
+        Group {
+            if renderingMode == .fullColor {
+                Image("ReperaIcon")
+                    .resizable()
+                    .scaledToFit()
+            } else if let tinted = ReperaOfficialWatchIcon.tintedImage {
+                Image(uiImage: tinted)
+                    .resizable()
+                    .widgetAccentedRenderingMode(.accented)
+                    .scaledToFit()
+            } else {
+                // Si falla la conversión, sigue siendo la imagen oficial,
+                // nunca una recreación geométrica del personaje.
+                Image("ReperaIcon")
+                    .resizable()
+                    .widgetAccentedRenderingMode(.desaturated)
+                    .scaledToFit()
+            }
         }
         .frame(width: diameter, height: diameter)
+        .clipShape(Circle())
         .accessibilityLabel("Repera")
     }
 }
