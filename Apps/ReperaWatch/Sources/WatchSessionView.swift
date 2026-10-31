@@ -142,6 +142,9 @@ struct WatchSessionView: View {
                                     in: RoundedRectangle(cornerRadius: 10))
                 }
 
+                if let warning = hub.healthWarning {
+                    Text(warning).font(.caption2).foregroundStyle(.orange)
+                }
                 if let message = hub.liveCommandError {
                     Text(message).font(.caption2).foregroundStyle(.orange)
                 }

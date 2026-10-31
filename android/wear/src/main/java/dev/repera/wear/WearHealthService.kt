@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
 import androidx.health.services.client.data.ExerciseType
+import androidx.wear.ongoing.OngoingActivity
 
 /** Owns Health Services independently of Activity. Starts only from visible UI. */
 internal class WearHealthService:Service() {
@@ -124,10 +125,25 @@ internal class WearHealthService:Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Entrenamiento",NotificationManager.IMPORTANCE_LOW))
         val open=PendingIntent.getActivity(this,801,Intent(this,WearMainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_repera_complication)
+        val builder = NotificationCompat.Builder(this,CHANNEL)
+            .setSmallIcon(R.drawable.ic_repera_complication)
             .setContentTitle("Repera · Entrenamiento")
             .setContentText(status ?: sensors.problem ?: if(ending) "Terminando sensores" else if(sensors.paused) "Sensores en pausa" else if(sensors.recording) "Registro de sensores activo" else "Conectando con sensores")
-            .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open).build()
+            .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
+        // La notificación foreground por sí sola NO evita Return to Watch Face.
+        // Ongoing Activity mantiene la UI visible durante el entrenamiento, en pausa
+        // y durante la recepción de sensores, y ofrece un toque para regresar si
+        // el usuario pulsa manualmente la corona. Nunca crearla sin sesión activa.
+        if (owner?.let { isCurrent(it) } == true && !sensors.ended && !ending) {
+            OngoingActivity.Builder(applicationContext, NOTIFICATION, builder)
+                .setStaticIcon(R.drawable.ic_repera_complication)
+                .setTouchIntent(open)
+                .setTitle("Repera · Entrenamiento")
+                .setContentDescription("Volver al entrenamiento en curso de Repera")
+                .build()
+                .apply(applicationContext)
+        }
+        return builder.build()
     }
     override fun onDestroy() {
         revision++;observer=null;cache.unregisterOnSharedPreferenceChangeListener(changes)

@@ -64,11 +64,16 @@ struct TrainingLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     if context.state.phase != .completed,
                        context.state.navigation == nil, !context.state.subtitle.isEmpty {
-                        Text(context.state.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if !context.attributes.isPlanned {
+                            splitStrip(context.state.subtitle, compact: true)
+                        } else {
+                            Text(context.state.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                 }
             } compactLeading: {
@@ -133,8 +138,12 @@ struct TrainingLiveActivityWidget: Widget {
                 islandMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
             }
             if !context.state.subtitle.isEmpty {
-                Text(context.state.subtitle)
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                if context.attributes.isPlanned {
+                    Text(context.state.subtitle)
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                } else {
+                    splitStrip(context.state.subtitle, compact: true)
+                }
             }
         }
         .foregroundStyle(.white)
@@ -186,17 +195,51 @@ struct TrainingLiveActivityWidget: Widget {
 
             if !hasNavigation, context.state.phase != .completed,
                !context.state.subtitle.isEmpty {
-                Text(context.state.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                    .background(.black)
+                Group {
+                    if context.attributes.isPlanned {
+                        Text(context.state.subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    } else {
+                        splitStrip(context.state.subtitle, compact: false)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 1)
+                .padding(.bottom, 15)
+                .background(.black)
             }
         }
         .background(.black)
+    }
+
+    /// Parcial/kilómetro: tarjeta centrada con aire inferior y márgenes
+    /// idénticos a los tres indicadores de duración, ritmo y distancia.
+    /// El valor procede de latestKilometerReport, nunca se recalcula aquí.
+    private func splitStrip(_ text: String, compact: Bool) -> some View {
+        VStack(spacing: compact ? 2 : 4) {
+            Text("TRAMO")
+                .font(.system(size: compact ? 9 : 10, weight: .bold))
+                .tracking(1)
+                .foregroundStyle(green)
+            Text(text)
+                .font(.system(size: compact ? 11 : 12, weight: .medium, design: .rounded))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(compact ? 2 : 3)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, compact ? 8 : 12)
+        .padding(.vertical, compact ? 7 : 10)
+        .background(.white.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: compact ? 8 : 10,
+                                         style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 
     /// Giro/calle para ruta GPX. Se adapta al ancho del bloqueo y la isla

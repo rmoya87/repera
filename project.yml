@@ -259,6 +259,7 @@ targets:
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.app.repera
         WKRunsIndependentlyOfCompanionApp: true
+        WKSupportsAlwaysOnDisplay: true
         WKSupportsLiveActivityLaunchAttributeTypes: []
         NSMotionUsageDescription: Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
         NSHealthShareUsageDescription: Repera lee durante el entrenamiento tus pulsaciones, las calorías activas y las métricas verificadas por Apple Salud. Estos datos permanecen en tus dispositivos.
