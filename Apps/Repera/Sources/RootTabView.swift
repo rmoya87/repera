@@ -13,6 +13,8 @@ enum WorkoutFlowRoute: Hashable {
 /// Las herramientas de Crear y los centros profesionales permanecen en sus secciones, no en el mapa de Comenzar.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var duoRail = OGDuoContextRailStore()
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
     @State private var sportFavoriteOpenError: String?
@@ -80,6 +82,25 @@ struct RootTabView: View {
                     }
                 }
             ))
+            // Los hijos publican sus acciones; la posición lateral pertenece al
+            // TabView y no al contenido, cuya anchura excluye el menú nativo.
+            .environment(duoRail)
+            .onGeometryChange(for: Bool.self, of: { geometry in
+                let size = geometry.size
+                // El Duo abierto tiene un ancho útil mayor que un iPhone normal
+                // incluso en vertical. Evitar el raíl en iPhone apaisado compacto.
+                return size.width >= 480
+                    && (size.width <= size.height || horizontalSizeClass == .regular)
+            }) { _, expanded in
+                duoRail.isExpanded = expanded
+            }
+            .overlay(alignment: .topTrailing) {
+                if duoRail.isExpanded && !selectedDuoActions.isEmpty {
+                    OGDuoContextRail(actions: selectedDuoActions)
+                        .padding(.trailing, 12)
+                        .padding(.top, 8)
+                }
+            }
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
             .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
                 store.refreshContinueChrome()
@@ -215,6 +236,22 @@ struct RootTabView: View {
                     store.dismissPendingSessionReview()
                 }
             }
+        }
+    }
+
+    /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
+    /// mantenga vivas otras pantallas del TabView por rendimiento.
+    private var selectedDuoActions: [OGDuoContextRailStore.Action] {
+        guard flowPath.isEmpty else { return [] }
+        switch tab {
+        case .start:
+            return duoRail.owner == "start" ? duoRail.actions : []
+        case .stats:
+            return duoRail.owner == "stats" ? duoRail.actions : []
+        case .exercises:
+            return duoRail.owner == "exercises" ? duoRail.actions : []
+        case .home:
+            return []
         }
     }
 
