@@ -95,6 +95,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_widget_plist.py' -v
           python3 -m unittest discover -s tests -p 'test_watch_complication_contract.py' -v
+          python3 scripts/generate_watch_tinted_icon.py --check
           python3 scripts/check_watch_widget_plist.py
           python3 -m unittest discover -s tests -p 'test_diary_week_scope_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_autosaved_series_progress_contract.py' -v
@@ -277,6 +278,7 @@ jobs:
               assets=json.load(f)
           names={a.get("Name") for a in assets if isinstance(a,dict)}
           assert "ReperaIcon" in names, f"El icono original no está en Assets.car: {sorted(map(str,names))}"
+          assert "ReperaWatchTintedIcon" in names, "El icono tintado verificado no está en Assets.car"
           print("PASS: ReperaIcon incluido en la extensión WidgetKit compilada")
           PY
           REPERA_WATCH_APP="$(dirname "$(dirname "$(dirname "$EMBEDDED_PLIST")")")"

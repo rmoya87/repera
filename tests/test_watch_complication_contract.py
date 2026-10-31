@@ -31,29 +31,46 @@ class WatchComplicationTests(unittest.TestCase):
             ["repera.png"],
         )
 
-    def test_editor_y_esfera_renderizan_marca_original_incluso_en_placeholder(self):
+    def test_complicacion_usa_icono_real_con_mascara_tintada_estatica(self):
+        import json
+        import sys
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from generate_watch_tinted_icon import decode_png, generate_rgba
+
+        original = ROOT / "Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+        path = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaWatchTintedIcon.imageset/icon.png"
+        width, height, source = decode_png(original)
+        target_width, target_height, rgba = decode_png(path)
+        self.assertEqual((target_width, target_height), (256, 256))
+        expected = generate_rgba(source,width,height)
+        self.assertLessEqual(max(abs(a-b) for a,b in zip(expected,rgba)), 1)
+
+        alpha = rgba[3::4]
+        self.assertLess(alpha[0], 10)       # Verde del fondo eliminado
+        self.assertGreater(max(alpha), 240) # La mascota queda visible
+        coverage = sum(a > 50 for a in alpha) / len(alpha)
+        self.assertGreater(coverage, 0.20)
+        self.assertLess(coverage, 0.45)
+        shades = set(rgba[0::4])
+        self.assertGreater(len(shades), 40) # Ojos, sonrisa, cinta y piel no son disco uniforme
+        contents = json.loads(read("Apps/ReperaWatchWidget/Assets.xcassets/ReperaWatchTintedIcon.imageset/Contents.json"))
+        self.assertEqual(contents["images"][0]["filename"], "icon.png")
+
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        logo = widget.split("private struct ReperaLogo: View", 1)[1].split(
-            "private struct ReperaWatchComplication: View", 1
-        )[0]
-        self.assertEqual(logo.count('Image("ReperaIcon")'), 2)
-        self.assertIn(".widgetAccentedRenderingMode(.desaturated)", logo)
-        self.assertIn("renderingMode == .fullColor", logo)
-        self.assertIn(".clipShape(Circle())", logo)
-        self.assertIn(".unredacted()", logo)
-        self.assertIn("context.isPreview ? nil : ReperaComplicationSharedStore.read()", widget)
+        self.assertIn('Image("ReperaIcon")', widget)
+        self.assertIn('Image("ReperaWatchTintedIcon")', widget)
+        self.assertIn("renderingMode == .fullColor", widget)
+        self.assertIn(".widgetAccentedRenderingMode(.desaturated)", widget)
+        self.assertIn(".unredacted()", widget)
         self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
-        for removed in ("ReperaComplicationArtwork", "makeFaceTemplate",
-                        "CGContext(", "UIImage(named:", "Image(uiImage:",
-                        "ReperaMascotFace", "sourceInset", "let warmth ="):
+        for removed in ("makeFaceTemplate", "CGContext(", "UIImage(named:",
+                        "Image(uiImage:", "ReperaMascotFace"):
             self.assertNotIn(removed, widget)
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
-        for method in ("placeholder", "getSnapshot", "getTimeline"):
-            self.assertIn(f"func {method}(in context:", widget)
 
-    def test_id_de_complicacion_sincronizado(self):
-        kind = "com.app.repera.watch.complication.brand4"
+    def test_kind_nuevo_para_no_reutilizar_preview_antiguo(self):
+        kind = "com.app.repera.watch.complication.brand5"
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
         app = read("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")

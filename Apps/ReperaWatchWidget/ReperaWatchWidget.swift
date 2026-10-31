@@ -23,8 +23,9 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// La marca es pública: WidgetKit la debe mostrar incluso en un placeholder.
-/// Sin .unredacted(), el editor y Always On la sustituyen por un bloque gris.
+/// AppIcon de Repera (sin reinterpretaciones).
+/// La imagen tintada procede de sus píxeles reales y se precalcula en un PNG:
+/// el selector de esferas nunca ejecuta una máscara de CoreGraphics.
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
@@ -35,11 +36,19 @@ private struct ReperaLogo: View {
                 Image("ReperaIcon")
                     .resizable()
                     .scaledToFit()
+                    .unredacted()
             } else {
-                Image("ReperaIcon")
-                    .resizable()
-                    .widgetAccentedRenderingMode(.desaturated)
-                    .scaledToFit()
+                ZStack {
+                    Circle()
+                        .fill(Color.primary.opacity(0.15))
+                        .widgetAccentable()
+                    Image("ReperaWatchTintedIcon")
+                        .resizable()
+                        .widgetAccentedRenderingMode(.desaturated)
+                        .scaledToFit()
+                        .unredacted()
+                }
+                .unredacted()
             }
         }
         .frame(width: diameter, height: diameter)
@@ -113,7 +122,7 @@ private struct ReperaWatchComplication: View {
 
 private struct ReperaWatchWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "com.app.repera.watch.complication.brand4", provider: ReperaWatchProvider()) { entry in
+        StaticConfiguration(kind: "com.app.repera.watch.complication.brand5", provider: ReperaWatchProvider()) { entry in
             ReperaWatchComplication(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }
