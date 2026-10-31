@@ -97,7 +97,9 @@ struct RootTabView: View {
             .overlay(alignment: .topTrailing) {
                 if duoRail.isExpanded && !selectedDuoActions.isEmpty {
                     OGDuoContextRail(actions: selectedDuoActions)
-                        .padding(.trailing, 12)
+                        // Centro a ~53 pt del borde, igual que los iconos de
+                        // la barra vertical nativa del iPhone Duo.
+                        .padding(.trailing, 26)
                         .padding(.top, 8)
                 }
             }
