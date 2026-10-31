@@ -1584,6 +1584,9 @@ final class ReperaStore: NSObject {
         // Mantener el ID, las marcas de tiempo, el reloj y las series ya apuntadas.
         state.activeSession = session
         persist()
+        if session.startedAt != nil {
+            Task { await WorkoutLiveActivityCoordinator.shared.updatePlanned(session) }
+        }
         pushActiveToWatch(immediate: true)
     }
 

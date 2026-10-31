@@ -572,6 +572,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/session-start-ack") {
+            val reply = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8))
+            }.getOrNull() ?: return
+            runOnUiThread {
+                if (reply.optString("sessionId") == visibleSession?.sessionId &&
+                    !reply.optBoolean("ok")) {
+                    sendStatus = "Entreno guardado en el reloj; el móvil aún no lo ha adoptado"
+                }
+            }
+            return
+        }
         if (event.path == "/repera/live-start-ack") {
             val reply = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8))
@@ -1035,6 +1047,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         todayPlanJson = null
         resetElapsedClock()
         ensureHealthRecording()
+        // Publica de inmediato para que Android cree la notificación de bloqueo
+        // desde la sesión persistida (no esperar a la primera serie).
+        val startPayload = JSONObject().put("session", plan)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            nodes.forEach { node ->
+                Wearable.getMessageClient(this).sendMessage(
+                    node.id, "/repera/session-start", startPayload
+                )
+            }
+        }
         // begin() leaves phase=ready (Apple startOnPhone). Stay ready until Play.
         pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
         sessionPaused = true

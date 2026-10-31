@@ -25,6 +25,10 @@ class WearLiveCommandListener : WearableListenerService() {
             if (!WearUiPresence.active) handleBackgroundWorkout(event)
             return
         }
+        if (event.path == "/repera/session-start") {
+            handleWearPlannedStart(event)
+            return
+        }
         if (event.path == "/repera/live-start") {
             // MainActivity atiende la petición cuando está visible. Este listener
             // cubre el inicio desde Wear mientras el móvil está bloqueado.
@@ -50,6 +54,35 @@ class WearLiveCommandListener : WearableListenerService() {
                 "finish" -> runtime.finish() // Review/Save remains on the phone.
             }
         }
+    }
+
+    /** Adopta inmediatamente el entrenamiento autónomo del reloj.
+     * WorkoutRepository guarda por CAS y publica su notificación de bloqueo. */
+    private fun handleWearPlannedStart(event: MessageEvent) {
+        val json = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val plan = json.optJSONObject("session") ?: return
+        val sessionId = plan.optString("id")
+        if (sessionId.isBlank()) return
+        val sessionStore = SessionStore(this)
+        val owner = sessionStore.load() ?: return
+        val revision = sessionStore.identityRevision()
+        val authorized = {
+            sessionStore.identityRevision() == revision &&
+                sessionStore.load()?.uniqueId == owner.uniqueId &&
+                sessionStore.load()?.userId == owner.userId
+        }
+        val accepted = runCatching {
+            authorized() && WorkoutRepository(this, owner.uniqueId, stillAuthorized = authorized)
+                .adoptWearSession(plan)
+        }.getOrDefault(false)
+        Wearable.getMessageClient(this).sendMessage(
+            event.sourceNodeId, "/repera/session-start-ack",
+            JSONObject().put("sessionId", sessionId).put("ok", accepted)
+                .toString().toByteArray(Charsets.UTF_8)
+        )
+        if (accepted) DriveSyncWorker.syncNow(this)
     }
 
     private fun handleBackgroundLiveStart(event: MessageEvent) {
