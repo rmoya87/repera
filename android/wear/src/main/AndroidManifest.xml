@@ -29,6 +29,17 @@
         </activity>
         <service android:name=".WearHealthService" android:exported="false" android:foregroundServiceType="health" />
         <service
+            android:name=".WearLiveSensorCleanupService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/repera/live-activity" />
+            </intent-filter>
+        </service>
+        <service
             android:name=".ReperaComplicationService"
             android:exported="true"
             android:icon="@drawable/ic_repera_logo"
