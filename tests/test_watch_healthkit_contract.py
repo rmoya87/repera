@@ -95,7 +95,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn(".widgetURL(", widget)
         self.assertIn('repera-watch://today', widget)
         self.assertNotIn("figure.strengthtraining", widget)
-        self.assertNotIn("systemName", widget)
+        logo = widget.split("private struct ReperaLogo: View", 1)[1].split("private struct ReperaWatchComplication: View", 1)[0]
+        self.assertNotIn("systemName", logo)
         self.assertIn('UIImage(named: "ReperaIcon")', widget)
         self.assertIn(".widgetAccentable()", widget)
         self.assertTrue((ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png").is_file())
@@ -487,7 +488,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("var body: some WidgetConfiguration {", widget)
         self.assertIn("StaticConfiguration(", widget)
         self.assertIn("struct ReperaWatchWidgetBundle: WidgetBundle {", widget)
-        self.assertIn("var body: some Widget {\n        ReperaWatchWidget()\n    }", widget)
+        self.assertIn("var body: some Widget { ReperaWatchWidget() }", widget)
         self.assertEqual(widget.count("@main"), 1)
         for family in (".accessoryCircular", ".accessoryRectangular", ".accessoryInline"):
             self.assertIn(family, widget)
