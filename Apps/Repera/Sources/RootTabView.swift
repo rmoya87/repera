@@ -16,7 +16,6 @@ struct RootTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var duoRail = OGDuoContextRailStore()
     @State private var lastAvailableSize: CGSize = .zero
-    @State private var duoRailTrailingOffset: CGFloat = 0
     @State private var tab: AppTab = .home
     @State private var showStartHub = false
     @State private var sportFavoriteOpenError: String?
@@ -87,6 +86,7 @@ struct RootTabView: View {
             // Los hijos publican sus acciones; la posición lateral pertenece al
             // TabView y no al contenido, cuya anchura excluye el menú nativo.
             .environment(duoRail)
+            .toolbar(duoRail.isExpanded ? .hidden : .visible, for: .tabBar)
             // No medir TabView: en el Duo la barra nativa puede restarle
             // ancho y hacer que la medición baje de 480 pt.
             // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
@@ -128,18 +128,12 @@ struct RootTabView: View {
                 .zIndex(1)
             }
         }
-        // El overlay debe quedar POR ENCIMA del TabView y su raíl nativo.
-        // Situarlo sobre el TabView interno lo dejaba oculto o desplazado.
-        .overlay(alignment: .topTrailing) {
-            if duoRail.isExpanded && !selectedDuoActions.isEmpty {
-                OGDuoContextRail(actions: selectedDuoActions)
-                    .padding(.trailing, 26)
-                    .padding(.top, 8)
-                    // Algunas variantes del TabView reservan la columna del
-                    // menú fuera de su tamaño SwiftUI. Desplazar solo el
-                    // overlay, nunca el contenido, al borde real de UIWindow.
-                    .offset(x: duoRailTrailingOffset)
-                    .zIndex(100)
+        // El raíl contextual y la navegación son UNA SOLA columna real.
+        // safeAreaInset le reserva ancho exclusivo junto al contenido.
+        // No superponer acciones a la toolbar ni al TabView nativo.
+        .safeAreaInset(edge: .trailing, spacing: 0) {
+            if duoRail.isExpanded {
+                duoSidebar
             }
         }
         // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
@@ -268,24 +262,81 @@ struct RootTabView: View {
 
         let width = max(sceneSize.width, availableSize.width)
         let height = max(sceneSize.height, availableSize.height)
-        let trailingOffset = max(0, sceneSize.width - availableSize.width)
-        if abs(duoRailTrailingOffset - trailingOffset) > 0.5 {
-            duoRailTrailingOffset = trailingOffset
-        }
-        // Duo vertical/iPad: ventana con raíl lateral. Un iPhone convencional
-        // de <= 440 pt o un iPhone apaisado compacto no se ve afectado.
-        let isWidePortrait = width >= 450 && height > width
+        // La relación de aspecto distingue un Duo abierto (más cuadrado)
+        // de un iPhone normal, incluso cuando SwiftUI mide solo el contenido
+        // y aunque el sistema marque la size class como compact.
+        let ratio = min(width, height) / max(width, height)
+        let hasDuoProportions = min(width, height) >= 390 && ratio >= 0.60
         let isRegular = horizontalSizeClass == .regular
-        let expanded = isWidePortrait || isRegular
+        let expanded = hasDuoProportions || isRegular
         guard duoRail.isExpanded != expanded else { return }
         duoRail.isExpanded = expanded
         NSLog(
-            "Repera Duo: %@ window=%.0fx%.0f root=%.0fx%.0f offset=%.0f",
+            "Repera Duo: %@ window=%.0fx%.0f root=%.0fx%.0f ratio=%.2f",
             expanded ? "expanded" : "compact",
             sceneSize.width, sceneSize.height,
             availableSize.width, availableSize.height,
-            trailingOffset
+            ratio
         )
+    }
+
+    /// Navegación y herramientas comparten EXACTAMENTE la misma columna.
+    /// La pestaña nativa se oculta solo mientras está abierto el Duo.
+    private var duoSidebar: some View {
+        VStack(spacing: 0) {
+            if !selectedDuoActions.isEmpty {
+                OGDuoContextRail(actions: selectedDuoActions)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+            }
+
+            Spacer(minLength: 18)
+
+            VStack(spacing: 6) {
+                duoTabButton(.home, symbol: "house", label: "Inicio")
+                duoTabButton(.start, symbol: "play.circle.fill", label: "Comenzar")
+                duoTabButton(.stats, symbol: "chart.bar.fill", label: "Progreso")
+                duoTabButton(.exercises, symbol: "dumbbell", label: "Ejercicios")
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 10)
+            .background(.regularMaterial, in: Capsule())
+        }
+        .frame(width: 66)
+        .frame(maxHeight: .infinity)
+        .padding(.leading, 8)
+        .padding(.trailing, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(OG.bg.opacity(0.001))
+        .accessibilityIdentifier("repera-duo-sidebar")
+    }
+
+    private func duoTabButton(
+        _ target: AppTab,
+        symbol: String,
+        label: String
+    ) -> some View {
+        let isSelected = tab == target
+        return Button {
+            flowPath = []
+            tab = target
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 23, weight: .semibold))
+                .foregroundStyle(isSelected ? OG.accent : OG.label)
+                .frame(width: 54, height: 54)
+                .background {
+                    if isSelected {
+                        Circle().fill(OG.label.opacity(0.10))
+                    }
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityIdentifier("repera-duo-tab-\(label)")
     }
 
     /// Mostrar únicamente los controles de la pestaña visible, aunque SwiftUI
