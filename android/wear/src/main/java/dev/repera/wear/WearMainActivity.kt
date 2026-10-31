@@ -94,7 +94,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         override fun onServiceConnected(name:android.content.ComponentName,binder:android.os.IBinder) {
             healthConnection=binder as WearHealthService.Connection
             healthConnection?.observe {state ->runOnUiThread {
-                health=if(state.sessionId==visibleSession?.sessionId) state.heart to state.energy else null
+                val current = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")
+                health=if(state.sessionId==current) state.heart to state.energy else null
                 // Apple startToday + selectBlock pauses HealthKit; decision logic is WearStartPauseIntent (JVM-tested).
                 pauseSensorsIntent?.let {intent ->
                     when(intent.onSensorState(visibleSession?.sessionId,state.sessionId,state.recording,state.paused,sessionPaused)) {
@@ -105,7 +106,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 }
                 state.problem?.let {sendStatus=it}
             }}
-            if(visibleSession!=null) ensureHealthRecording()
+            if(visibleSession!=null || liveActivityJson?.optString("phase") in setOf("recording","paused")) ensureHealthRecording()
         }
         override fun onServiceDisconnected(name:android.content.ComponentName) {healthConnection=null;health=null}
     }
@@ -116,11 +117,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         androidx.activity.result.contract.ActivityResultContracts
             .RequestMultiplePermissions()
     ) { grants ->
-        if (!pendingSensorPermission.consume(visibleSession?.sessionId,sensorRevision)) {
+        val activeSensorId = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")
+        if (!pendingSensorPermission.consume(activeSensorId,sensorRevision)) {
             sendStatus="La sesión cambió; vuelve a solicitar sensores desde el reloj"
             return@registerForActivityResult
         }
-        if (visibleSession!=null && WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all {permission ->
+        if (activeSensorId!=null && WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all {permission ->
             grants[permission]==true || androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED
         }) {
             startHealthForCurrentSession()
@@ -570,6 +572,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/live-start-ack") {
+            val reply = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8))
+            }.getOrNull() ?: return
+            runOnUiThread {
+                sendStatus = if (reply.optBoolean("ok")) null
+                    else reply.optString("reason").ifBlank {
+                        "El móvil no pudo iniciar la actividad; abre Repera"
+                    }
+            }
+            return
+        }
         if(event.path=="/repera/session-finish-ack") {
             val ack=runCatching {JSONObject(String(event.data,Charsets.UTF_8))}.getOrNull() ?: return
             if(ack.optString("status")=="saved") runOnUiThread {
@@ -763,12 +777,39 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if (parsed?.optString("phase") == "recording") {
                 suppressCompanionLive = false
                 liveActivityJson = parsed
+                syncCompanionSensors()
+            } else if (parsed == null) {
+                syncCompanionSensors()
             }
             return
         }
         liveActivityJson = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
+        syncCompanionSensors()
+    }
+
+    /** Sin segundo GPS: Health Services pertenece al reloj; el móvil registra la ruta. */
+    private fun syncCompanionSensors() {
+        val live = liveActivityJson
+        val next = live?.takeIf {
+            visibleSession == null && it.optString("phase") in setOf("recording","paused")
+        }?.optString("sessionId")?.takeIf { it.isNotBlank() }
+        val previous = sessionCache.getString("companionLiveSessionId", null)
+        if (next == null) {
+            if (previous != null) {
+                sessionCache.edit().remove("companionLiveSessionId").apply()
+                healthConnection?.stop(previous)
+                if (visibleSession == null) health = null
+            }
+            return
+        }
+        if (previous != next) {
+            sessionCache.edit().putString("companionLiveSessionId", next).apply()
+            sensorRevision++
+            ensureHealthRecording()
+        }
+        healthConnection?.pause(next, live.optString("phase") == "paused")
     }
 
     private fun presentCompanionFinished(live: JSONObject) {
@@ -788,6 +829,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         )
         suppressCompanionLive = true
         liveActivityJson = null
+        syncCompanionSensors()
     }
 
     private fun requestLiveCommand(command: String) {
@@ -1688,12 +1730,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun startHealthForCurrentSession() {
-        val id = visibleSession?.sessionId ?: return
+        val id = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")?.takeIf { it.isNotBlank() } ?: return
         if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
             sendStatus = "Abre Repera en el teléfono"
             return
         }
-        runCatching { WearHealthService.startFromVisibleUI(this, id) }
+        runCatching { WearHealthService.startFromVisibleUI(this, id, liveActivityJson?.optString("sportId")) }
             .onFailure { sendStatus = it.localizedMessage ?: "No se pudo iniciar la actividad" }
     }
 
@@ -1704,7 +1746,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (granted) {
             startHealthForCurrentSession()
         } else {
-            val id=visibleSession?.sessionId ?: return
+            val id=visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")?.takeIf { it.isNotBlank() } ?: return
             if(pendingSensorPermission.begin(id,sensorRevision)) sensorPermissions.launch(permissions)
         }
     }

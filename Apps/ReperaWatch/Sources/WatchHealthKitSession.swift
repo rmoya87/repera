@@ -25,6 +25,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var finishHandler: ((Result) -> Void)?
     var onPauseResumeRequest: (() -> Void)?
     var onPauseStateChanged: ((Bool) -> Void)?
+    var onMetricsUpdated: (() -> Void)?
     private var finishing = false
     // An HKWorkoutSession can still report .paused while an asynchronous
     // resume request is in flight. Do not send the same command twice.
@@ -100,12 +101,17 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     }
 
     /// Comenzar iniciado en el reloj: tipo HK del deporte y GPS outdoor si aplica.
-    func startLive(id: UUID, at date: Date, activityType: HKWorkoutActivityType, outdoor: Bool) {
-        startConfigured(id: id, at: date, activityType: activityType, outdoor: outdoor)
+    func startLive(
+        id: UUID, at date: Date, activityType: HKWorkoutActivityType,
+        outdoor: Bool, mirrorsToPhone: Bool = true
+    ) {
+        startConfigured(id: id, at: date, activityType: activityType, outdoor: outdoor,
+                        mirrorsToPhone: mirrorsToPhone)
     }
 
     private func startConfigured(
-        id: UUID, at date: Date, activityType: HKWorkoutActivityType, outdoor: Bool
+        id: UUID, at date: Date, activityType: HKWorkoutActivityType,
+        outdoor: Bool, mirrorsToPhone: Bool = true
     ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
@@ -117,6 +123,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         finishing = false
         pendingStateTransition = nil
         permissionIssue = nil
+        pulseBpm = nil
+        kcal = nil
+        averageBpm = nil
+        onMetricsUpdated?()
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let read: Set<HKObjectType> = [HKObjectType.workoutType(), heart, energy]
@@ -152,12 +162,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
 
                 // Mirroring is best-effort: a missing or offline iPhone must
                 // never delay the native Watch workout or its HealthKit samples.
-                Task { @MainActor in
-                    do {
-                        try await session.startMirroringToCompanionDevice()
-                    } catch {
-                        // The Watch is the primary recorder. WatchConnectivity
-                        // synchronizes the result independently once available.
+                if mirrorsToPhone {
+                    Task { @MainActor in
+                        do {
+                            try await session.startMirroringToCompanionDevice()
+                        } catch {
+                            // La medición local continúa aunque el teléfono no esté disponible.
+                        }
                     }
                 }
 
@@ -230,6 +241,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pulseBpm = nil
         kcal = nil
         averageBpm = nil
+        onMetricsUpdated?()
     }
 
     func finish(_ callback: @escaping (Result) -> Void) {
@@ -305,10 +317,15 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         let bpm = workoutBuilder.statistics(for: heart)?.mostRecentQuantity()?.doubleValue(for: unit)
         let average = workoutBuilder.statistics(for: heart)?.averageQuantity()?.doubleValue(for: unit)
         let active = workoutBuilder.statistics(for: energy)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+        let identity = ObjectIdentifier(workoutBuilder)
         Task { @MainActor in
-            if let bpm, bpm.isFinite, bpm > 0 { self.pulseBpm = Int(bpm.rounded()) }
+            guard self.builder.map({ ObjectIdentifier($0) }) == identity else { return }
+            if let bpm, bpm.isFinite, (25...250).contains(bpm) {
+                self.pulseBpm = Int(bpm.rounded())
+            }
             if let average, average.isFinite, average > 0 { self.averageBpm = average }
-            if let active, active.isFinite, active > 0 { self.kcal = active }
+            if let active, active.isFinite, active >= 0 { self.kcal = active }
+            self.onMetricsUpdated?()
         }
     }
 

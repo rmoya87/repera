@@ -2,6 +2,19 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+/// Selección de layout dentro de una View (no dentro del Widget).
+private struct TrainingFamilySwitcher<Regular: View, Compact: View>: View {
+    @Environment(\.activityFamily) private var activityFamily
+    let regular: Regular
+    let compact: Compact
+
+    @ViewBuilder
+    var body: some View {
+        if activityFamily == .small { compact }
+        else { regular }
+    }
+}
+
 /// Pantalla bloqueada y Dynamic Island: mismo lenguaje visual para actividades
 /// deportivas y sesiones planificadas de fuerza, CrossFit, HYROX y similares.
 struct TrainingLiveActivityWidget: Widget {
@@ -10,7 +23,10 @@ struct TrainingLiveActivityWidget: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrainingActivityAttributes.self) { context in
-            lockScreen(context)
+            TrainingFamilySwitcher(
+                regular: lockScreen(context),
+                compact: watchSmartStack(context)
+            )
                 .widgetURL(destination(for: context.attributes))
                 .activityBackgroundTint(.black)
                 .activitySystemActionForegroundColor(.white)
@@ -87,6 +103,43 @@ struct TrainingLiveActivityWidget: Widget {
             .widgetURL(destination(for: context.attributes))
             .keylineTint(context.state.phase == .paused ? pauseYellow : green)
         }
+        .supplementalActivityFamilies([.small])
+    }
+
+    /// Live Activity del iPhone adaptada a la Smart Stack del Apple Watch.
+    /// Al tocarla, WKSupportsLiveActivityLaunchAttributeTypes abre Repera Watch.
+    private func watchSmartStack(_ context: ActivityViewContext<TrainingActivityAttributes>) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
+                    .foregroundStyle(context.state.phase == .paused ? pauseYellow : green)
+                Text(context.state.title).font(.headline).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            if let navigation = context.state.navigation, context.state.phase != .completed {
+                HStack(spacing: 6) {
+                    Image(systemName: navigation.symbol)
+                    Text(navigation.instruction).lineLimit(1)
+                    if let distance = navigation.distanceMeters {
+                        Text(distanceLabel(distance)).monospacedDigit()
+                    }
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(green)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                islandMetric(value: timer(context.state), title: "Tiempo")
+                islandMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
+                islandMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
+            }
+            if !context.state.subtitle.isEmpty {
+                Text(context.state.subtitle)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(12)
+        .background(.black)
     }
 
     @ViewBuilder

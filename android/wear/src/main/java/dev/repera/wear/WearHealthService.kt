@@ -7,6 +7,7 @@ import android.os.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
+import androidx.health.services.client.data.ExerciseType
 
 /** Owns Health Services independently of Activity. Starts only from visible UI. */
 internal class WearHealthService:Service() {
@@ -37,14 +38,14 @@ internal class WearHealthService:Service() {
     }
     private val binder=Connection()
     private val changes=SharedPreferences.OnSharedPreferenceChangeListener {_,key ->
-        if(key=="snapshot") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
+        if(key=="snapshot" || key=="companionLiveSessionId") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
     }
     override fun onCreate() {super.onCreate();cache.registerOnSharedPreferenceChangeListener(changes)}
     override fun onBind(intent:Intent?):IBinder=binder
     private fun cachedId():String?=cache.getString("snapshot",null)?.let {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
-    private fun isCurrent(id:String)=cachedId()==id
+    private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
     private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
@@ -91,8 +92,12 @@ internal class WearHealthService:Service() {
         if(starting) return START_NOT_STICKY
         owner=id;status=null;starting=true
         val token=revision
+        val companion = cache.getString("companionLiveSessionId",null)==id
+        val sportId = intent?.getStringExtra("sportId")
+        val sportType = if (companion && sportId == "walking") ExerciseType.WALKING
+            else ExerciseType.STRENGTH_TRAINING
         scope.launch {
-            val result=runCatching {sensors.start(id) {token==revision && isCurrent(id)}}
+            val result=runCatching {sensors.start(id,sportType) {token==revision && isCurrent(id)}}
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.
             // Retain the foreground owner on unknown/owned status so visible UI can retry/stop.
@@ -133,9 +138,10 @@ internal class WearHealthService:Service() {
     companion object {
         private const val CHANNEL="repera.wear.exercise"
         private const val NOTIFICATION=8101
-        fun startFromVisibleUI(context:Context,id:String) {
+        fun startFromVisibleUI(context:Context,id:String,sportId:String?=null) {
             androidx.core.content.ContextCompat.startForegroundService(context,
-                Intent(context,WearHealthService::class.java).putExtra("sessionId",id))
+                Intent(context,WearHealthService::class.java)
+                    .putExtra("sessionId",id).putExtra("sportId",sportId))
         }
     }
 }

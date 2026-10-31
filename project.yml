@@ -215,6 +215,7 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/ReperaWatch/Sources
+      - path: Apps/ReperaWatchWidget/ReperaComplicationSharedStore.swift
       # XcodeGen 2.46 + objectVersion 77: asset catalogs van en sources buildPhase resources.
       - path: Apps/ReperaWatch/Resources/Assets.xcassets
         buildPhase: resources
@@ -240,6 +241,8 @@ targets:
       path: Apps/ReperaWatch/Resources/ReperaWatch.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.security.application-groups:
+          - group.com.app.repera.watch
     dependencies:
       - package: ReperaDomain
       - sdk: HealthKit.framework
@@ -256,6 +259,7 @@ targets:
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.app.repera
         WKRunsIndependentlyOfCompanionApp: true
+        WKSupportsLiveActivityLaunchAttributeTypes: []
         NSMotionUsageDescription: Repera usa el movimiento del Watch para contar repeticiones durante el entrenamiento.
         NSHealthShareUsageDescription: Repera lee durante el entrenamiento tus pulsaciones, las calorías activas y las métricas verificadas por Apple Salud. Estos datos permanecen en tus dispositivos.
         NSHealthUpdateUsageDescription: Repera guarda en Apple Salud el entrenamiento registrado por el reloj, con las mediciones calculadas por HealthKit.
@@ -271,6 +275,7 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift
+      - path: Apps/ReperaWatchWidget/ReperaComplicationSharedStore.swift
       - path: Apps/ReperaWatchWidget/ReperaComplicationAppIconStore.swift
       - path: Apps/ReperaWatchWidget/Assets.xcassets
         buildPhase: resources
@@ -286,6 +291,12 @@ targets:
       GENERATE_INFOPLIST_FILE: false
       CODE_SIGN_STYLE: Automatic
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      CODE_SIGN_ENTITLEMENTS: Apps/ReperaWatchWidget/ReperaWatchWidget.entitlements
+    entitlements:
+      path: Apps/ReperaWatchWidget/ReperaWatchWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.app.repera.watch
     dependencies:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework

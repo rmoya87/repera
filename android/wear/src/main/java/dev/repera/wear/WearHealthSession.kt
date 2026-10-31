@@ -96,7 +96,10 @@ class WearHealthSession(private val context: Context) {
     }
 
     /** Empieza a registrar fuerza si aún no hay ejercicio en curso. */
-    suspend fun start(sessionId:String,stillAuthorized:()->Boolean={true}) = operations.withLock {
+    suspend fun start(
+        sessionId:String, exerciseType:ExerciseType = ExerciseType.STRENGTH_TRAINING,
+        stillAuthorized:()->Boolean={true}
+    ) = operations.withLock {
         check(stillAuthorized()) {"La sesión cambió antes de iniciar sensores"}
         require(sessionId.isNotBlank())
         if (recording) {
@@ -119,7 +122,7 @@ class WearHealthSession(private val context: Context) {
         val metrics=if(info.exerciseTrackedStatus==ExerciseOwnership.NONE) {
             val capabilities=client.getCapabilities()
             check(stillAuthorized()) {"La sesión cambió durante la consulta de capacidades"}
-            WearExerciseCapabilities.strengthMetrics(capabilities)
+            WearExerciseCapabilities.metricsFor(capabilities,exerciseType)
         } else emptySet()
         terminalObserved=false
         problem=null
@@ -136,7 +139,7 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
-        val config = ExerciseConfig.Builder(ExerciseType.STRENGTH_TRAINING)
+        val config = ExerciseConfig.Builder(exerciseType)
             .setDataTypes(metrics)
             .setIsAutoPauseAndResumeEnabled(false)
             .setIsGpsEnabled(false)

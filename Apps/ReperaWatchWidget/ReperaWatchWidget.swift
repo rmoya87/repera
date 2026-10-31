@@ -3,51 +3,49 @@ import WidgetKit
 
 private struct ReperaWatchEntry: TimelineEntry {
     let date: Date
+    let session: ReperaComplicationSnapshot?
 }
 
 private struct ReperaWatchProvider: TimelineProvider {
     func placeholder(in context: Context) -> ReperaWatchEntry {
-        _ = ReperaComplicationAppIconStore.seedFromBundleIfNeeded()
-        return ReperaWatchEntry(date: .now)
+        ReperaWatchEntry(date: .now, session: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ReperaWatchEntry) -> Void) {
-        _ = ReperaComplicationAppIconStore.seedFromBundleIfNeeded()
-        completion(ReperaWatchEntry(date: .now))
+        completion(ReperaWatchEntry(date: .now, session: ReperaComplicationSharedStore.read()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ReperaWatchEntry>) -> Void) {
-        _ = ReperaComplicationAppIconStore.seedFromBundleIfNeeded()
-        completion(
-            Timeline(
-                entries: [ReperaWatchEntry(date: .now)],
-                policy: .after(.now.addingTimeInterval(6 * 60 * 60))
-            )
-        )
+        completion(Timeline(
+            entries: [ReperaWatchEntry(date: .now, session: ReperaComplicationSharedStore.read())],
+            policy: .after(.now.addingTimeInterval(60))
+        ))
     }
 }
 
-/// Logo AppIcon con frame fijo (patrón Cafesito `WatchComplicationPantryThumbnail` /
-/// `WatchBrewTimerInactiveMark`). Sin GeometryReader: Chrono deja el slot vacío.
-private struct ReperaComplicationAppLogoMark: View {
-    var markDiameter: CGFloat = 36
+/// En watchOS la esfera puede sustituir TODOS los colores del PNG.
+//// La marca a una tinta sigue siendo visible en modo accented; el AppIcon
+/// original se utiliza donde la esfera permite fullColor.
+private struct ReperaLogo: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    var diameter: CGFloat = 34
 
     var body: some View {
         Group {
-            if let image = ReperaComplicationAppIconStore.loadUIImage() {
-                Image(uiImage: image)
-                    .interpolation(.high)
+            if renderingMode == .fullColor {
+                Image("ReperaIcon")
                     .resizable()
-                    .widgetAccentedRenderingMode(.fullColor)
-                    .scaledToFill()
+                    .scaledToFit()
             } else {
-                Image(ReperaComplicationAppIconStore.assetCatalogImageName)
-                    .resizable()
-                    .widgetAccentedRenderingMode(.fullColor)
-                    .scaledToFill()
+                ZStack {
+                    Circle().fill(.white.opacity(0.20)).widgetAccentable()
+                    Text("R")
+                        .font(.system(size: diameter * 0.63, weight: .black, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
             }
         }
-        .frame(width: markDiameter, height: markDiameter)
+        .frame(width: diameter, height: diameter)
         .clipShape(Circle())
         .accessibilityLabel("Repera")
     }
@@ -55,52 +53,94 @@ private struct ReperaComplicationAppLogoMark: View {
 
 private struct ReperaWatchComplication: View {
     @Environment(\.widgetFamily) private var family
+    let entry: ReperaWatchEntry
 
     var body: some View {
-        switch family {
-        case .accessoryRectangular:
-            HStack(spacing: 6) {
-                ReperaComplicationAppLogoMark(markDiameter: 28)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Repera").font(.headline)
-                    Text("Hoy").font(.caption2)
+        Group {
+            switch family {
+            case .accessoryRectangular:
+                if let live = entry.session {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Image(systemName: live.paused ? "pause.fill" : "figure.walk")
+                                .widgetAccentable()
+                            Text(live.title).font(.caption.weight(.semibold)).lineLimit(1)
+                        }
+                        HStack(spacing: 6) {
+                            Text(live.elapsedLabel).monospacedDigit()
+                            if let distance = live.distanceLabel { Text(distance) }
+                        }.font(.caption2).lineLimit(1)
+                        HStack(spacing: 6) {
+                            if let bpm = live.heartRateBpm {
+                                Label("\(bpm)", systemImage: "heart.fill").widgetAccentable()
+                            }
+                            if let kcal = live.energyKcal {
+                                Label("\(Int(kcal.rounded()))", systemImage: "flame.fill")
+                            }
+                        }.font(.caption2).lineLimit(1)
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        ReperaLogo(diameter: 28)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Repera").font(.headline)
+                            Text("Iniciar actividad").font(.caption2)
+                        }
+                        Spacer(minLength: 0)
+                    }
                 }
-                Spacer(minLength: 0)
+            case .accessoryInline:
+                if let live = entry.session {
+                    Text("\(live.paused ? "⏸" : "▶") \(live.title) · \(live.elapsedLabel)")
+                } else {
+                    Text("Repera")
+                }
+            case .accessoryCorner:
+                if let live = entry.session {
+                    VStack(spacing: 0) {
+                        Image(systemName: live.paused ? "pause.fill" : "figure.walk")
+                        Text(live.heartRateBpm.map { "\($0)" } ?? live.elapsedLabel)
+                            .font(.caption2.weight(.bold)).monospacedDigit()
+                    }
+                    .widgetAccentable()
+                } else {
+                    ReperaLogo(diameter: 28)
+                }
+            default:
+                if let live = entry.session {
+                    VStack(spacing: 1) {
+                        Image(systemName: live.paused ? "pause.fill" : "heart.fill")
+                            .font(.caption2).widgetAccentable()
+                        Text(live.heartRateBpm.map { "\($0)" } ?? live.elapsedLabel)
+                            .font(.system(size: 17, weight: .bold, design: .rounded))
+                            .minimumScaleFactor(0.7).lineLimit(1)
+                            .monospacedDigit()
+                        Text(live.heartRateBpm != nil ? "ppm" : "min")
+                            .font(.system(size: 9))
+                    }
+                } else {
+                    ReperaLogo(diameter: 36)
+                }
             }
-        case .accessoryInline:
-            Text("Repera")
-        case .accessoryCorner:
-            ReperaComplicationAppLogoMark(markDiameter: 28)
-        default:
-            ReperaComplicationAppLogoMark(markDiameter: 36)
         }
+        .widgetURL(URL(string: entry.session == nil
+            ? "repera-watch://today" : "repera-watch://active"))
     }
 }
 
 private struct ReperaWatchWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(
-            kind: "com.app.repera.watch.complication",
-            provider: ReperaWatchProvider()
-        ) { _ in
-            ReperaWatchComplication()
+        StaticConfiguration(kind: "com.app.repera.watch.complication", provider: ReperaWatchProvider()) { entry in
+            ReperaWatchComplication(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
-                .widgetURL(URL(string: "repera-watch://today"))
         }
         .configurationDisplayName("Repera")
-        .description("Abre Repera desde la esfera del Apple Watch.")
-        .supportedFamilies([
-            .accessoryCircular,
-            .accessoryCorner,
-            .accessoryRectangular,
-            .accessoryInline
-        ])
+        .description("Actividad del reloj: duración, distancia, pulso y calorías cuando hay datos.")
+        .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular, .accessoryInline])
     }
 }
 
 @main
 struct ReperaWatchWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        ReperaWatchWidget()
-    }
+    var body: some Widget { ReperaWatchWidget() }
 }

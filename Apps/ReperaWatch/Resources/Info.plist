@@ -40,6 +40,9 @@
 	<string>com.app.repera</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
+	<!-- Abre la app nativa del reloj al tocar Live Activities del iPhone en Smart Stack. -->
+	<key>WKSupportsLiveActivityLaunchAttributeTypes</key>
+	<array/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -193,7 +193,7 @@ private fun WearLiveMetricsPage(
         }
         WearLiveMetricRow(
             label = "kcal",
-            value = health?.second?.takeIf { it > 0 }?.let { String.format("%.0f", it) } ?: "—"
+            value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—"
         )
 
         if (!live.isNull("nextTurn") && phase != "review") {
@@ -383,6 +383,20 @@ internal fun WearLiveMetricRow(label: String, value: String) {
 
 @Composable
 internal fun WearHeartRateZoneBar(bpm: Int?, estimatedMaxBpm: Double = 190.0) {
+    val zone = bpm?.takeIf { it in 25..250 && estimatedMaxBpm > 0 }?.let {
+        val ratio = it / estimatedMaxBpm
+        when {
+            ratio < 0.60 -> 1
+            ratio < 0.70 -> 2
+            ratio < 0.80 -> 3
+            ratio < 0.90 -> 4
+            else -> 5
+        }
+    }
+    val colors = listOf(
+        Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
+        Color(0xFFFF8C1A), Color(0xFFF23333)
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -394,37 +408,28 @@ internal fun WearHeartRateZoneBar(bpm: Int?, estimatedMaxBpm: Double = 190.0) {
             modifier = Modifier.width(36.dp),
             maxLines = 1
         )
-        BoxWithConstraints(
-            modifier = Modifier
-                .weight(1f)
-                .height(10.dp)
-                .clip(RoundedCornerShape(50))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color(0xFF408CFF),
-                            Color(0xFF33D966),
-                            Color(0xFFF2D926),
-                            Color(0xFFFF8C1A),
-                            Color(0xFFF23333)
-                        )
+        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                colors.forEachIndexed { index, color ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(if (zone == index + 1) 12.dp else 8.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(color.copy(alpha = if (zone == index + 1) 1f else 0.28f))
                     )
-                )
-        ) {
-            val fraction = bpm?.let {
-                val floor = 90.0
-                val clamped = minOf(estimatedMaxBpm, maxOf(floor, it.toDouble()))
-                ((clamped - floor) / (estimatedMaxBpm - floor)).toFloat().coerceIn(0f, 1f)
+                }
             }
-            if (fraction != null) {
-                val x = (maxWidth - 10.dp) * fraction
-                Box(
-                    modifier = Modifier
-                        .offset(x = x)
-                        .size(10.dp)
-                        .background(Color.White, CircleShape)
-                )
-            }
+            Text(
+                zone?.let { "Zona $it/5" } ?: "Sin lectura",
+                style = MaterialTheme.typography.labelSmall,
+                color = WearOg.label2,
+                maxLines = 1
+            )
         }
     }
 }
