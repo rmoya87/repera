@@ -45,7 +45,7 @@ class WatchComplicationTests(unittest.TestCase):
             self.assertEqual(manifest["properties"]["template-rendering-intent"], template)
             pdf = (folder / "icon.pdf").read_bytes()
             self.assertTrue(pdf.startswith(b"%PDF-"), f"{name} no es PDF")
-            self.assertIn(b"/MediaBox [0 0 200 200]", pdf)
+            self.assertRegex(pdf.decode("latin-1"), r"/MediaBox\s*\[\s*0\s+0\s+200\s+200\s*\]")
             self.assertNotIn(b"/Subtype /Image", pdf, "El PDF no debe incluir raster 3D")
             self.assertGreater(len(pdf), 1000)
         mono = (root / "ReperaWatchFlatMono.imageset/icon.pdf").read_bytes()
