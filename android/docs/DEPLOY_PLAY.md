@@ -1,6 +1,6 @@
 # Despliegue Repera Android en Google Play (beta)
 
-**Última actualización:** 2026-10-31 — rama `beta` sincronizada con `main` (`ff2e2047` + fix tests #182).
+**Última actualización:** 2026-10-31 — republicación beta tras arreglo billing; `beta` = `main` + merge `da0bc1fa`.
 
 Autorizado por Ramon el 25/10/2026 ("Ok hazlo", tras plan presentado por chat):
 beta automatica SOLO de telefono a prueba INTERNA; produccion preparada pero
