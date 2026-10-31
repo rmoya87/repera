@@ -7,6 +7,7 @@ struct StatsView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(OGDuoContextRailStore.self) private var duoRail
 
     @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
@@ -35,18 +36,20 @@ struct StatsView: View {
                 // Solo las pestañas quedan ancladas al alcanzar la parte superior.
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                     OGFixedTopBar(title: "Progreso", subtitle: model.range.title, drawsBackground: false) {
-                        Button {
-                            showRangePicker = true
-                        } label: {
-                            Image(systemName: "calendar")
-                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                .contentShape(Circle())
-                                .glassEffect(.regular.interactive(), in: .circle)
+                        if !duoRail.isExpanded {
+                            Button {
+                                showRangePicker = true
+                            } label: {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                                    .contentShape(Circle())
+                                    .glassEffect(.regular.interactive(), in: .circle)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Filtrar periodo")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Filtrar periodo")
                     }
                     .id("progress-scroll-top")
 
@@ -156,6 +159,9 @@ struct StatsView: View {
                 isExpandedLayout = expanded
             }
             .ogContentTitleNav()
+            .onAppear { publishDuoActions() }
+            .onChange(of: duoRail.isExpanded) { _, _ in publishDuoActions() }
+            .onDisappear { duoRail.clear(owner: "stats") }
             .sheet(isPresented: $showRangePicker) {
                 progressRangeSheet
                     .ogFittedSheet()
@@ -211,6 +217,23 @@ struct StatsView: View {
             }
             }
         }
+    }
+
+    /// Calendario en el raíl junto al menú nativo del Duo, no en el título.
+    private func publishDuoActions() {
+        guard duoRail.isExpanded else {
+            duoRail.clear(owner: "stats")
+            return
+        }
+        duoRail.publish(owner: "stats", actions: [
+            .init(
+                id: "period",
+                systemName: "calendar",
+                accessibilityLabel: "Filtrar periodo"
+            ) {
+                showRangePicker = true
+            }
+        ])
     }
 
     @MainActor
