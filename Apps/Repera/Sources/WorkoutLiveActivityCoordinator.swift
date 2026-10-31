@@ -49,6 +49,48 @@ final class WorkoutLiveActivityCoordinator {
         await upsert(id: key, isPlanned: false, state: state)
     }
 
+    /// Watch-owned standalone activities: mirrored to the phone lock screen
+    /// without creating a second location tracker or HealthKit workout.
+    func updateWatchOwned(
+        id: UUID, sport: LiveSport, phase: TrainingActivityAttributes.ContentState.Phase,
+        startedAt: Date, elapsedSeconds: Double, distanceMeters: Double
+    ) async {
+        let key = "watch:\(id.uuidString)"
+        let elapsed = max(0, Int(elapsedSeconds))
+        let speed = elapsed > 0 ? max(0, distanceMeters) / Double(elapsed) * 3.6 : 0
+        let pace: String
+        if speed > 0.1 {
+            if sport.displaysSpeed { pace = String(format: "%.1f", speed) }
+            else {
+                let secs = min(3599, Int(3600 / speed))
+                pace = String(format: "%d:%02d", secs / 60, secs % 60)
+            }
+        } else { pace = sport.displaysSpeed ? "—" : "—:—" }
+        let state = TrainingActivityAttributes.ContentState(
+            phase: phase, title: sport.title, symbol: sport.symbol,
+            subtitle: "En Apple Watch",
+            timerAnchor: Date().addingTimeInterval(-Double(elapsed)),
+            elapsedSeconds: elapsed,
+            primaryValue: sport.usesGPS ? pace : "—",
+            primaryLabel: sport.usesGPS
+                ? (sport.displaysSpeed ? "Veloc. media" : "Ritmo medio") : "FC (ppm)",
+            secondaryValue: sport.usesGPS
+                ? String(format: "%.2f", distanceMeters / 1000) : "—",
+            secondaryLabel: sport.usesGPS ? "Distancia (km)" : "Kcal"
+        )
+        await upsert(id: key, isPlanned: false, state: state)
+    }
+
+    func completeWatchOwned(id: UUID) async {
+        let key = "watch:\(id.uuidString)"
+        closedSessionIDs.insert(key)
+        if var state = latestStates[key] {
+            state.phase = .completed
+            state.subtitle = "Actividad finalizada"
+            await finish(id: key, state: state, dismissal: .after(Date().addingTimeInterval(20)))
+        } else { await finish(id: key, state: nil, dismissal: .immediate) }
+    }
+
     /// Todos los planes (incluidos OCR, entrenador personal y Apple Watch)
     /// comparten la misma ActivityKit, nunca dependen de WorkoutView visible.
     func updatePlanned(_ session: WorkoutSession?) async {
