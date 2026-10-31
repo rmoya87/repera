@@ -2627,9 +2627,8 @@ struct LiveActivityView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.horizontal, 14)
                                 .padding(.bottom, 10 + continueChromeLift)
-                                // El menú lateral nativo llega ~20 pt más abajo
-                                // que la safe area del contenido del TabView.
-                                .offset(y: duoRail.isExpanded ? 20 : 0)
+                                // La tarjeta y el raíl comparten el mismo pie seguro.
+                                .offset(y: 0)
                         }
                     }
                 } else {
@@ -2653,7 +2652,7 @@ struct LiveActivityView: View {
                         }
                         if recorder.phase == .idle {
                             bottomControls
-                                .offset(y: duoRail.isExpanded ? 20 : 0)
+                                .offset(y: 0)
                         }
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
@@ -3247,7 +3246,7 @@ struct LiveActivityView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 14)
                         .padding(.bottom, 10 + continueChromeLift)
-                        .offset(y: duoRail.isExpanded ? 20 : 0)
+                        .offset(y: 0)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
