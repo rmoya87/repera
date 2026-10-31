@@ -24,23 +24,35 @@ class WatchComplicationTests(unittest.TestCase):
             {"filename": "repera.png", "idiom": "universal", "scale": "1x"}
         ])
 
-    def test_complicacion_muestra_icono_entero_en_editor_y_esfera(self):
+    def test_capas_de_render_según_la_documentacion_de_apple(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
         self.assertEqual(widget.count('Image("ReperaIcon")'), 1)
+        self.assertIn('UIImage(named: "ReperaIcon")', widget)
+        self.assertIn("renderingMode == .fullColor", widget)
+        self.assertIn("Circle()", widget)
+        self.assertIn(".widgetAccentable()", widget)
+        self.assertIn("Image(uiImage: subject)", widget)
         self.assertIn(".widgetAccentedRenderingMode(.desaturated)", widget)
-        self.assertIn(".scaledToFill()", widget)
-        self.assertIn(".clipShape(Circle())", widget)
         self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
-        # La imagen original incluye el fondo; no extraer únicamente la mascota.
-        for deprecated in ("ReperaOfficialWatchIcon", "makeTintedImage",
-                           "ReperaMascotFace", "greenExcess", "UIImage(named:",
-                           "Image(uiImage:", 'Image("ReperaComplicationIcon")',
-                           ".widgetAccentedRenderingMode(.accented)"):
-            self.assertNotIn(deprecated, widget)
+        self.assertIn("let distance = sqrt", widget)
+        self.assertIn("let luminance =", widget)
+        self.assertIn("Data(bytes: base, count: raw.count)", widget)
+        self.assertNotIn("ReperaMascotFace", widget)
+        self.assertNotIn('Image("ReperaComplicationIcon")', widget)
+        self.assertNotIn("greenExcess", widget)
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
         for callback in ("placeholder", "getSnapshot", "getTimeline"):
             self.assertIn(f"func {callback}(in context:", widget)
+
+    def test_kind_nuevo_evitar_preview_antiguo(self):
+        kind = "com.app.repera.watch.complication.brand2"
+        widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
+        watch = read("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        self.assertIn(f'kind: "{kind}"', widget)
+        self.assertIn(f'ofKind: "{kind}"', watch)
+        self.assertIn(f'reloadTimelines(ofKind: "{kind}")', hub)
 
     def test_extensión_incluye_Assets_car_y_app_icon_de_watch(self):
         project = read("project.yml")

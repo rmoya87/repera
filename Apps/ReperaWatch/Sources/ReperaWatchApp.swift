@@ -29,7 +29,7 @@ struct ReperaWatchApp: App {
                     hub.activate()
                     // Registra / refresca la complicación (Chrono) al abrir la app — como Cafesito.
                     WidgetCenter.shared.reloadTimelines(
-                        ofKind: "com.app.repera.watch.complication"
+                        ofKind: "com.app.repera.watch.complication.brand2"
                     )
                     WidgetCenter.shared.reloadAllTimelines()
                     hub.publishComplicationSnapshot(force: true)
