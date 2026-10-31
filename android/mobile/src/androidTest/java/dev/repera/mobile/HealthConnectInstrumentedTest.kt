@@ -63,10 +63,7 @@ class HealthConnectInstrumentedTest {
         }
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun readTodayFailsWithDocumentedContractNotCrash() = runBlocking {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun readTodayFailsWithDocumentedContractNotCrash() = runBlocking {
         val reader = HealthConnectReader(context)
         try {
             reader.readToday()

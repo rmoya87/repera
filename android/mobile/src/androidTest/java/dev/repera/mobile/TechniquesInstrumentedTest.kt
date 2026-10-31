@@ -99,10 +99,7 @@ class TechniquesInstrumentedTest {
         assertFalse(sets.getJSONObject(4).getBoolean("toFailure"))
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun techniquesRejectCardioAndBadInput() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun techniquesRejectCardioAndBadInput() {
         val (repo, local) = repo()
         val exerciseId = JSONObject(String(local.read()!!)).getJSONArray("exercises")
             .getJSONObject(0).getString("id")

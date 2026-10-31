@@ -12,9 +12,7 @@ import org.junit.Test
 class HomeWeeklyProgressInstrumentedTest {
     @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
     private val monday=LocalDate.of(2026,10,26)
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun weeklySummaryDistinguishesWorkoutsFromDaysAndAnnouncesPlanState() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun weeklySummaryDistinguishesWorkoutsFromDaysAndAnnouncesPlanState() {
         val days=(0L..6L).map {offset -> WeeklyWorkoutDay(monday.plusDays(offset),if(offset==0L) 2 else 0,offset==1L)}
         compose.setContent {MaterialTheme {HomeWeeklyProgressCard(days,3)}}
         compose.onNodeWithText("2 de 3 entrenos").assertIsDisplayed()

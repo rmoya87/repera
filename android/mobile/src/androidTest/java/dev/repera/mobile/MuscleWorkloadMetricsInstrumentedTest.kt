@@ -27,10 +27,7 @@ class MuscleWorkloadMetricsInstrumentedTest {
             .put("blockKind", if (completed) "wod" else "strength")
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun usesFinishedPrescriptionsButIgnoresCardioWodAndUnfinished() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun usesFinishedPrescriptionsButIgnoresCardioWodAndUnfinished() {
         val strength = entry("Sentadilla", "Piernas", 3)
         val warming = entry("Press banca", "Pecho", 2, warmups = 1)
         val wod = entry("Sentadilla", "Piernas", 21, completed = true)

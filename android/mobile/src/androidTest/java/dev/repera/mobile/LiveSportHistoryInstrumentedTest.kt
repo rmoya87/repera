@@ -40,10 +40,7 @@ class LiveSportHistoryInstrumentedTest {
         context.contentResolver.openOutputStream(uri)!!.use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun catalogOpensHistoryAndSessionWithoutInventingHealthMetrics() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun catalogOpensHistoryAndSessionWithoutInventingHealthMetrics() {
         var opened: String? = null
         val sessions = listOf(session("r1", "running", 5000.0), session("r2", "running", 4500.0), session("p1", "padel"))
         compose.setContent {
@@ -103,10 +100,7 @@ class LiveSportHistoryInstrumentedTest {
         compose.onNodeWithContentDescription("2 intentos: 5.00 km, 4.90 km").assertExists()
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun activeSplitsUseSpeedForCyclingAndOnlyMeasuredHeartRate() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun activeSplitsUseSpeedForCyclingAndOnlyMeasuredHeartRate() {
         val points=(0..30).map { i -> dev.repera.domain.WorkoutRoutePoint(i,40.0+i*0.0003,-3.7,i*10_000L) }
         compose.setContent {
             MaterialTheme(colorScheme=reperaColorScheme(false)) {

@@ -10,9 +10,7 @@ import org.junit.*
 import dev.repera.domain.*
 class RecoveryHistoryInstrumentedTest {
  @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun historicalSleepStagesAndRmssdAreExplicitWithoutClaimingSdnn() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun historicalSleepStagesAndRmssdAreExplicitWithoutClaimingSdnn() {
   val today=java.time.LocalDate.now()
   val recovery=RecoveryState(null,80,8.0,7.5,
    listOf(RecoverySleepNight(today,8.0,1.5,2.0),RecoverySleepNight(today.minusDays(1),7.0,1.0,1.5)),
@@ -24,9 +22,7 @@ class RecoveryHistoryInstrumentedTest {
   compose.onNodeWithText("VFC (RMSSD)").performScrollTo().assertIsDisplayed()
   compose.onNodeWithText("RMSSD de Health Connect no equivale a SDNN de Apple Salud.").performScrollTo().assertIsDisplayed()
  }
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun cycleShowsOnlyObservedDatesPositiveTestsAndCautiousEstimate() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun cycleShowsOnlyObservedDatesPositiveTestsAndCautiousEstimate() {
   val today=java.time.LocalDate.now()
   val recovery=RecoveryState(null,null,null,null,menstrualDays=listOf(today),positiveOvulationTests=listOf(today.minusDays(1)))
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {RecoveryHistoryCards(recovery,ProgressTimeRange.WEEK,true)}}}
@@ -35,9 +31,7 @@ class RecoveryHistoryInstrumentedTest {
   compose.onNodeWithText("Pruebas de ovulación positivas registradas: 1").performScrollTo().assertIsDisplayed()
   compose.onNodeWithText("Fase aproximada solo si hay suficientes ciclos compatibles.",substring=true).performScrollTo().assertIsDisplayed()
  }
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun freeConstantsPreviewNeverShowsPrivatePhysiology() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun freeConstantsPreviewNeverShowsPrivatePhysiology() {
   val recovery=RecoveryState(null,null,null,null,vitals=listOf(RecoveryEngine.DailyVitals(java.time.LocalDate.now(),hrvMilliseconds=123.0)))
   compose.setContent {MaterialTheme {Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {RecoveryHistoryCards(recovery,ProgressTimeRange.WEEK,true,pro=false)}}}
   compose.onNodeWithText("Constantes · Ejemplo ficticio").performScrollTo().assertIsDisplayed()
@@ -54,9 +48,7 @@ class RecoveryHistoryInstrumentedTest {
   }}}
   compose.onAllNodesWithText("Ciclo menstrual").assertCountEquals(0)
  }
- @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
- @Test fun currentPreparationShowsObservedFactorsWithoutGrantingHistoricalProCharts() {
+ @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun currentPreparationShowsObservedFactorsWithoutGrantingHistoricalProCharts() {
   val today=java.time.LocalDate.now()
   val ready=RecoveryEngine.TrainingReadiness(8.4,RecoveryEngine.TrainingReadinessAdvice.USUAL,8.0,1.2,2,cardioMinutes48h=31.0)
   val recovery=RecoveryState(ready,80,8.0,7.5,vitals=listOf(RecoveryEngine.DailyVitals(today,hrvMilliseconds=48.0,restingHeartRateBpm=55.0)))

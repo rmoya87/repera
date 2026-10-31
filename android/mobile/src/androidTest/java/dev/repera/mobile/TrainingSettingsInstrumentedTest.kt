@@ -73,9 +73,7 @@ class TrainingSettingsInstrumentedTest {
         assertNull(repo.todayPlanSession())
         assertNotNull(RotationSettings.read(JSONObject(String(local.read()!!))))
     }
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun sundayWeekCalendarShowsCorrectDateRange() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun sundayWeekCalendarShowsCorrectDateRange() {
         compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
             WeekCalendarStrip(java.time.LocalDate.of(2026,10,28),false) {}
         } }

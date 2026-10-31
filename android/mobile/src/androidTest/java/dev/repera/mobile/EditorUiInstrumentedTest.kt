@@ -126,9 +126,7 @@ class EditorUiInstrumentedTest {
             RoutineBlockInfo(title = "WOD", format = "amrap", id = "b-w", entries = emptyList())))
 
     /** Mover fuerza→WOD en el editor de plan conserva id y series; Guardar emite ambos bloques. Solo compilado. */
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun planMoveStrengthToWodKeepsIdsAndSets() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planMoveStrengthToWodKeepsIdsAndSets() {
         var delivered: List<RoutineBlockDraft>? = null
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
@@ -142,10 +140,7 @@ class EditorUiInstrumentedTest {
         assertEquals("sp-2", src.getJSONArray("explicitPlannedSets").getJSONObject(1).getString("id"))
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun planAddRestAndEditWodDetailsDeliverFields() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planAddRestAndEditWodDetailsDeliverFields() {
         var delivered: List<RoutineBlockDraft>? = null
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
@@ -157,9 +152,7 @@ class EditorUiInstrumentedTest {
     }
 
     /** Soltar una entrada del plan fuera de todo bloque no cambia nada. Solo compilado (no ejecutado). */
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun planEntryDroppedOutsideAnyBlockChangesNothing() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planEntryDroppedOutsideAnyBlockChangesNothing() {
         var delivered: List<RoutineBlockDraft>? = null
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
@@ -172,9 +165,7 @@ class EditorUiInstrumentedTest {
     }
 
     /** El selector de unidad de cardio (Calorías/Metros) llega al borrador. Solo compilado. */
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun planCardioUnitPickerDeliversChoice() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planCardioUnitPickerDeliversChoice() {
         var delivered: List<RoutineBlockDraft>? = null
         val bike = ExerciseEntry("ex-bike", "Air Bike", true, false)
         val r = RoutineEntry(id = "r-3", title = "Cardio", supported = true, blocks = listOf(
@@ -189,9 +180,7 @@ class EditorUiInstrumentedTest {
     }
 
     /** «Añadir rutina» copia bloques con ids nuevos. Solo compilado. */
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun planAddRoutineCopiesBlocksWithFreshIds() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planAddRoutineCopiesBlocksWithFreshIds() {
         var delivered: List<RoutineBlockDraft>? = null
         val src = planRoutine().copy(id = "r-src", title = "Origen")
         val target = RoutineEntry(id = "r-dst", title = "Destino", supported = true, blocks = listOf(
@@ -207,10 +196,7 @@ class EditorUiInstrumentedTest {
         assertTrue(delivered!![1].blockId != "b-s" && delivered!![1].blockId != null)
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun planPickWodAddsTemplateBlock() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planPickWodAddsTemplateBlock() {
         var delivered: List<RoutineBlockDraft>? = null
         val t = dev.repera.domain.CatalogWods.seed().first { it.format != dev.repera.domain.WodFormat.LADDER }
         compose.setContent { MaterialThemeForTest {
@@ -225,9 +211,7 @@ class EditorUiInstrumentedTest {
     }
 
     /** Plantilla ladder con movimientos repetidos: se añade íntegra y el título sugerido llega antes de Guardar. Solo compilado. */
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-    @Test fun planPickLadderTemplateKeepsRepeatedMovementsAndSuggestsTitle() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planPickLadderTemplateKeepsRepeatedMovementsAndSuggestsTitle() {
         var delivered: List<RoutineBlockDraft>? = null
         var title: String? = null
         val empty = RoutineEntry(id = "r-e", title = "Entreno", supported = true, blocks = emptyList())
@@ -243,10 +227,7 @@ class EditorUiInstrumentedTest {
         assertEquals("ladder", b.format); assertEquals(6, b.entries.size)
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun planBlockDownAndSwipeRemove() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planBlockDownAndSwipeRemove() {
         var delivered: List<RoutineBlockDraft>? = null
         compose.setContent { MaterialThemeForTest {
             RoutineBlocksEditorScreen(routine = planRoutine(), exercises = listOf(exercise), busy = false,
@@ -258,10 +239,7 @@ class EditorUiInstrumentedTest {
         assertEquals(0, delivered!![1].entries.size)
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass")
-
-
-    @Test fun sessionModeStartsWithFavoriteChoice() {
+    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun sessionModeStartsWithFavoriteChoice() {
         var delivered: List<RoutineBlockDraft>? = null
         var fav: Boolean? = null
         compose.setContent { MaterialThemeForTest {
