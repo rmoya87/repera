@@ -8,10 +8,11 @@ import java.time.LocalDate
 class ProgressTimeRangeComparableTest {
     private fun day(y: Int, m: Int, d: Int) = LocalDate.of(y, m, d)
 
-    @Test fun weekComparisonOnlyUsesElapsedWeekdays() {
+    @Test fun weekComparisonRollingSevenDayPreviousWindow() {
+        // Espejo de ProgressSnapshotEngineTests.testWeekIsRollingSevenDaysPreviousWindow.
         val tuesday = day(2026, 10, 27)
         val (start, end) = ProgressTimeRange.WEEK.previousPeriodBounds(now = tuesday, weekStartsOnMonday = true)
-        assertEquals(day(2026, 10, 19), start)
+        assertEquals(day(2026, 10, 14), start)
         assertEquals(day(2026, 10, 21), end)
         assertTrue(ProgressTimeRange.WEEK.containsInPreviousPeriod(day(2026, 10, 20), now = tuesday))
         assertFalse(ProgressTimeRange.WEEK.containsInPreviousPeriod(day(2026, 10, 21), now = tuesday))
@@ -33,12 +34,12 @@ class ProgressTimeRangeComparableTest {
         assertEquals(day(2026, 3, 1), end)
     }
 
-    @Test fun weekWithSundayStartComparesSundayAndMondayOnly() {
-        // Espejo de Apple 9fb8598b: semana que empieza en domingo.
+    @Test fun weekRollingIgnoresWeekStartsOnMonday() {
+        // Espejo de ProgressSnapshotEngineTests.testWeekRollingIgnoresWeekStartsOnMonday.
         val monday = day(2026, 10, 26)
         val (start, end) = ProgressTimeRange.WEEK.previousPeriodBounds(
             now = monday, weekStartsOnMonday = false)
-        assertEquals(day(2026, 10, 18), start)
+        assertEquals(day(2026, 10, 13), start)
         assertEquals(day(2026, 10, 20), end)
         assertFalse(ProgressTimeRange.WEEK.containsInPreviousPeriod(
             day(2026, 10, 20), now = monday, weekStartsOnMonday = false))
