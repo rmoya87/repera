@@ -317,6 +317,10 @@ struct ExerciseDetailView: View {
     /// En DUO/iPad el encabezado y sus acciones viven dentro del panel derecho.
     var showsQuickLogToolbarAction = true
     var showsInlineHeader = false
+    /// Solo el destino del catálogo DUO tiene su raíl contextual visible.
+    /// Las fichas abiertas desde sesiones, modales o historial mantienen
+    /// la navegación nativa en lugar de perder sus botones.
+    var usesDuoRail = false
 
     @State private var showQuickLog = false
     @State private var suggestPercent: Double = 70
@@ -419,9 +423,9 @@ struct ExerciseDetailView: View {
                 .background(OG.bg.ignoresSafeArea())
                 .ogScrollingTitleNav(usesGroupedList: false)
                 .ogDiaryTransparentNav()
-                .toolbar(showsInlineHeader || duoRail.isExpanded ? .hidden : .visible, for: .navigationBar)
+                .toolbar(showsInlineHeader || (duoRail.isExpanded && usesDuoRail) ? .hidden : .visible, for: .navigationBar)
                 .toolbar {
-                    if !showsInlineHeader && !duoRail.isExpanded {
+                    if !showsInlineHeader && !(duoRail.isExpanded && usesDuoRail) {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(
                             systemName: exercise.isFavorite ? "star.fill" : "star",
@@ -460,7 +464,7 @@ struct ExerciseDetailView: View {
     /// En la ficha abierta desde el catálogo, Volver/Favorito/Apuntar viven
     /// a la derecha. Se elimina la fila nativa vacía del encabezado.
     private func publishDuoDetailActions() {
-        guard duoRail.isExpanded, !showsInlineHeader, let exercise else { return }
+        guard duoRail.isExpanded, usesDuoRail, !showsInlineHeader, let exercise else { return }
         var actions: [OGDuoContextRailStore.Action] = [
             .init(
                 id: "detail-back",
