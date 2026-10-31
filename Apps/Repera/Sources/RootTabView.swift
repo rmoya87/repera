@@ -84,7 +84,10 @@ struct RootTabView: View {
             .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
                 store.refreshContinueChrome()
                 // Inicio desde Watch / grabación activa → mostrar Comenzar.
-                if phase == .recording || phase == .paused || phase == .review {
+                if phase == .recording || phase == .paused
+                    || (phase == .review && !store.isAutoSavingWatchActivity) {
+                    // Una finalización en Watch guarda en segundo plano: no
+                    // llevar al iPhone a una segunda pantalla de confirmación.
                     flowPath = []
                     tab = .start
                 }
