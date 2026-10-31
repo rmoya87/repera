@@ -28,9 +28,6 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        // Bool Sendable: onGeometryChange(of:) es @Sendable y no puede leer
-        // la Environment MainActor-isolated horizontalSizeClass.
-        let prefersRegularWidth = horizontalSizeClass == .regular
         ZStack {
             TabView(selection: $tab) {
                 SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
@@ -145,6 +142,11 @@ struct RootTabView: View {
             updateDuoLayout(availableSize: size)
         }
         .onChange(of: horizontalSizeClass) { _, _ in
+            updateDuoLayout(availableSize: lastAvailableSize)
+        }
+        // onGeometryChange puede ejecutarse antes de asociar la UIWindow.
+        // Reevaluar una vez ya montada evita quedar fijo en compacto.
+        .onAppear {
             updateDuoLayout(availableSize: lastAvailableSize)
         }
         .sheet(isPresented: $showStartHub) {
@@ -263,8 +265,8 @@ struct RootTabView: View {
         let height = max(sceneSize.height, availableSize.height)
         // Duo vertical/iPad: ventana con raíl lateral. Un iPhone convencional
         // de <= 440 pt o un iPhone apaisado compacto no se ve afectado.
-        let isWidePortrait = width >= 480 && height > width
-        let isRegular = horizontalSizeClass == .regular && width >= 450
+        let isWidePortrait = width >= 450 && height > width
+        let isRegular = horizontalSizeClass == .regular
         let expanded = isWidePortrait || isRegular
         guard duoRail.isExpanded != expanded else { return }
         duoRail.isExpanded = expanded
