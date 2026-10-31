@@ -13,6 +13,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
     public let sportTitle: String
     /// Stable sport identifier for native HealthKit recording on the companion.
     public let sportID: String?
+    /// Real start, distinct from active elapsed after pauses; optional for older builds.
+    public let startedAt: Date?
     public let phase: Phase
     public let elapsedSeconds: TimeInterval
     public let distanceMeters: Double
@@ -29,11 +31,13 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         averageSpeedKmh: Double?, nextTurn: String?,
         nextTurnMeters: Int?, capturedAt: Date,
         conditions: ActivityConditionsSnapshot? = nil,
-        sportID: String? = nil
+        sportID: String? = nil,
+        startedAt: Date? = nil
     ) {
         self.id = id
         self.sportTitle = sportTitle
         self.sportID = sportID
+        self.startedAt = startedAt
         self.phase = phase
         self.elapsedSeconds = max(0, elapsedSeconds)
         self.distanceMeters = max(0, distanceMeters)
