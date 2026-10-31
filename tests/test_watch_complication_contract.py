@@ -8,38 +8,39 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 class WatchComplicationTests(unittest.TestCase):
-    def test_usa_exclusivamente_el_icono_oficial_del_watch(self):
+    def test_el_icono_completo_es_el_mismo_en_ios_watch_y_complicacion(self):
         from hashlib import sha256
-        original = ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
-        complication = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png"
-        self.assertEqual(sha256(original.read_bytes()).digest(),
-                         sha256(complication.read_bytes()).digest(),
-                         "El widget debe usar exactamente el PNG original, no una versión dibujada")
+        app = ROOT / "Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+        watch = ROOT / "Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+        widget_icon = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/repera.png"
+        digests = [sha256(path.read_bytes()).hexdigest() for path in (app, watch, widget_icon)]
+        self.assertEqual(len(set(digests)), 1, "Los tres AppIcon deben ser idénticos")
 
+        # El widget debe tener una única escala canónica: nada de miniaturas
+        # alternativas que puedan verse distintas en el editor de esferas.
+        import json
+        contents = json.loads(read("Apps/ReperaWatchWidget/Assets.xcassets/ReperaIcon.imageset/Contents.json"))
+        self.assertEqual(contents["images"], [
+            {"filename": "repera.png", "idiom": "universal", "scale": "1x"}
+        ])
+
+    def test_complicacion_muestra_icono_entero_en_editor_y_esfera(self):
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        self.assertIn('Image("ReperaIcon")', widget)
-        self.assertIn('UIImage(named: "ReperaIcon")', widget)
-        self.assertIn("Image(uiImage: tinted)", widget)
-        self.assertIn("renderingMode == .fullColor", widget)
-        self.assertIn(".widgetAccentedRenderingMode(.accented)", widget)
+        self.assertEqual(widget.count('Image("ReperaIcon")'), 1)
+        self.assertIn(".widgetAccentedRenderingMode(.desaturated)", widget)
+        self.assertIn(".scaledToFill()", widget)
+        self.assertIn(".clipShape(Circle())", widget)
         self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
-        self.assertNotIn("ReperaMascotFace", widget)
-        self.assertNotIn('Image("ReperaComplicationIcon")', widget)
-        self.assertIn("private enum ReperaOfficialWatchIcon", widget)
+        # La imagen original incluye el fondo; no extraer únicamente la mascota.
+        for deprecated in ("ReperaOfficialWatchIcon", "makeTintedImage",
+                           "ReperaMascotFace", "greenExcess", "UIImage(named:",
+                           "Image(uiImage:", 'Image("ReperaComplicationIcon")',
+                           ".widgetAccentedRenderingMode(.accented)"):
+            self.assertNotIn(deprecated, widget)
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
-
-    def test_mascara_de_tinte_derivada_de_los_pixeles_originales(self):
-        widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        self.assertIn("context.draw(original", widget)
-        self.assertIn("greenExcess = green - max(red, blue)", widget)
-        self.assertIn("let detail = ", widget)
-        self.assertIn("let data = Data(bytes: address, count: buffer.count)", widget)
-        self.assertIn("CGDataProvider(data: data as CFData)", widget)
-        self.assertIn("static let tintedImage:", widget)
-        self.assertIn("func placeholder(in context:", widget)
-        self.assertIn("func getSnapshot(in context:", widget)
-        self.assertIn("func getTimeline(in context:", widget)
+        for callback in ("placeholder", "getSnapshot", "getTimeline"):
+            self.assertIn(f"func {callback}(in context:", widget)
 
     def test_extensión_incluye_Assets_car_y_app_icon_de_watch(self):
         project = read("project.yml")
