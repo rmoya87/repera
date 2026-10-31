@@ -24,7 +24,7 @@ class CatalogRefreshInstrumentedTest {
         (0 until catalog.length()).map { catalog.getJSONObject(it) }
             .firstOrNull { it.optString("id") == id }
 
-    /** Rebobina una cuenta al catálogo de 196 entradas anterior a la unificación. */
+    /** Rebobina una cuenta al catálogo de 197 entradas anterior a la unificación. */
     private fun rewindToLegacyCatalog(state: JSONObject) {
         val catalog = state.getJSONArray("exercises")
         val newHaltero = setOf("Snatch High Pull", "Clean High Pull", "Clean Deadlift",
@@ -36,7 +36,7 @@ class CatalogRefreshInstrumentedTest {
             if (cid.startsWith("mobility-") || cid.startsWith("hyrox-") ||
                 item.optString("name") in newHaltero) catalog.remove(i)
         }
-        assertEquals(196, catalog.length())
+        assertEquals(197, catalog.length())
     }
 
     @Test fun legacySnapshotRefreshesFieldsAndNamesWithoutBreakingReferences() {

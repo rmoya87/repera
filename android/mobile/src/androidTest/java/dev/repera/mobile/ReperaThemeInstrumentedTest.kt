@@ -167,8 +167,13 @@ class ReperaThemeInstrumentedTest {
             context.contentResolver.openOutputStream(uri)!!.use {bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
         }
         compose.runOnIdle { screen=0;focusedDay=java.time.LocalDate.of(2026,10,7) }
-        compose.onNodeWithText("Entrenamientos · " + focusedDay!!.format(reperaDayFormatter))
-            .performScrollTo().assertIsDisplayed()
+        compose.waitForIdle()
+        val focusSubtitle = focusedDay!!.format(
+            java.time.format.DateTimeFormatter.ofPattern(
+                "EEEE d MMMM", java.util.Locale("es", "ES")
+            )
+        ).replaceFirstChar { it.uppercase() }
+        compose.onNodeWithText(focusSubtitle).performScrollTo().assertIsDisplayed()
         compose.runOnIdle {screen=1}
         compose.onNodeWithTag("progress_topic_1").performClick()
         compose.onNodeWithTag("progress_list").performScrollToNode(hasText("Peso corporal"))
