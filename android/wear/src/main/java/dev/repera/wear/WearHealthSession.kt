@@ -116,10 +116,17 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
+        var resolvedType=exerciseType
         val metrics=if(info.exerciseTrackedStatus==ExerciseOwnership.NONE) {
             val capabilities=client.getCapabilities()
             check(stillAuthorized()) {"La sesión cambió durante la consulta de capacidades"}
-            WearExerciseCapabilities.healthMetrics(capabilities,exerciseType)
+            // Some Wear models lack HIKING/WORKOUT-specific algorithms.
+            // Fall back to a generic real exercise, never to estimated sensor data.
+            if(resolvedType !in capabilities.supportedExerciseTypes &&
+                ExerciseType.WORKOUT in capabilities.supportedExerciseTypes) {
+                resolvedType=ExerciseType.WORKOUT
+            }
+            WearExerciseCapabilities.healthMetrics(capabilities,resolvedType)
         } else emptySet()
         terminalObserved=false
         problem=null
@@ -136,7 +143,7 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
-        val config = ExerciseConfig.Builder(exerciseType)
+        val config = ExerciseConfig.Builder(resolvedType)
             .setDataTypes(metrics)
             .setIsAutoPauseAndResumeEnabled(false)
             .setIsGpsEnabled(false)
