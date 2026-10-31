@@ -136,7 +136,9 @@ struct RootTabView: View {
         // safeAreaInset le reserva ancho exclusivo junto al contenido.
         // No superponer acciones a la toolbar ni al TabView nativo.
         .safeAreaInset(edge: .trailing, spacing: 0) {
-            if duoRail.isExpanded {
+            // Las rutas de Play/Editar/Preview ocupan la pantalla completa,
+            // como hacían con el TabView nativo; no dejar navegación detrás.
+            if duoRail.isExpanded && flowPath.isEmpty {
                 duoSidebar
             }
         }
