@@ -30,25 +30,33 @@ private struct ReperaWatchProvider: TimelineProvider {
 /// Logo AppIcon con frame fijo (patrón Cafesito `WatchComplicationPantryThumbnail` /
 /// `WatchBrewTimerInactiveMark`). Sin GeometryReader: Chrono deja el slot vacío.
 private struct ReperaComplicationAppLogoMark: View {
+    @Environment(\.widgetRenderingMode) private var renderingMode
     var markDiameter: CGFloat = 36
 
     var body: some View {
         Group {
-            if let image = ReperaComplicationAppIconStore.loadUIImage() {
-                Image(uiImage: image)
-                    .interpolation(.high)
-                    .resizable()
-                    .widgetAccentedRenderingMode(.fullColor)
-                    .scaledToFill()
-            } else {
+            if renderingMode == .fullColor {
+                // On full-color faces and in Smart Stack, show the actual app icon.
                 Image(ReperaComplicationAppIconStore.assetCatalogImageName)
                     .resizable()
-                    .widgetAccentedRenderingMode(.fullColor)
+                    .interpolation(.high)
                     .scaledToFill()
+                    .clipShape(Circle())
+            } else {
+                // watchOS deliberately recolors opaque app icons in tinted
+                // complications. An opaque PNG becomes a dark solid disc.
+                // Use an intentional high-contrast monogram for those faces.
+                ZStack {
+                    Circle().fill(.primary).widgetAccentable()
+                    Text("R")
+                        .font(.system(size: markDiameter * 0.64, weight: .black, design: .rounded))
+                        .foregroundStyle(.background)
+                        .minimumScaleFactor(0.8)
+                }
+                .accessibilityLabel("Repera")
             }
         }
         .frame(width: markDiameter, height: markDiameter)
-        .clipShape(Circle())
         .accessibilityLabel("Repera")
     }
 }
