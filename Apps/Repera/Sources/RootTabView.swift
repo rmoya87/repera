@@ -139,7 +139,9 @@ struct RootTabView: View {
                 actions: duoRail.isExpanded && flowPath.isEmpty
                     ? selectedDuoActions : []
             )
-            .frame(width: 0, height: 0)
+            // Una sonda real de 1 pt: SwiftUI no debe optimizar una
+            // UIViewRepresentable de tamaño cero antes de obtener UIWindow.
+            .frame(width: 1, height: 1)
         }
         // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
         .onGeometryChange(for: CGSize.self, of: { $0.size }) { _, size in
