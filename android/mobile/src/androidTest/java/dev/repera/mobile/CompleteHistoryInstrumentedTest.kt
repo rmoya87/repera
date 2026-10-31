@@ -20,7 +20,7 @@ class CompleteHistoryInstrumentedTest {
   val external=ExternalHealthHistoryEntry("external","Paseo sintético",java.time.Instant.parse("2026-10-25T15:00:00Z").toEpochMilli(),0,35.0,"paquete.sintetico")
   val overview=StateOverview.fromBytes(state.toString().toByteArray())!!.copy(externalHealthHistory=listOf(external))
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-   CompleteHistoryScreen(overview,false,"synthetic-account",{_,_,_,_,_,_->},{_,_,_->},{},{_,_->},{emptyList()},onOpenExercise={_,_,_->})
+   CompleteHistoryScreen(overview,false,"synthetic-account",{_,_,_,_,_,_->},{_,_,_->},{},{_,_,_->},{ emptyList() },onOpenExercise={_,_,_->})
   }}}
   compose.onNodeWithText("Paseo sintético").performClick()
   compose.onNodeWithText("35 min registrados",substring=true).assertIsDisplayed()
