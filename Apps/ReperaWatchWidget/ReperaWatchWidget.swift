@@ -37,7 +37,7 @@ private struct ReperaComplicationAppLogoMark: View {
         Group {
             if renderingMode == .fullColor {
                 // On full-color faces and in Smart Stack, show the actual app icon.
-                Image(ReperaComplicationAppIconStore.assetCatalogImageName)
+                Image("ReperaIcon")
                     .resizable()
                     .interpolation(.high)
                     .scaledToFill()
