@@ -231,6 +231,10 @@ class WearVisualVerificationInstrumentedTest {
     }
 
     @Test fun emptyShowsSinPlanDescargado() {
+        val firstSport = wearHubCarouselItems(null, emptyList())
+            .filterIsInstance<WearHubCarouselItem.Sport>()
+            .first()
+            .title
         compose.setContent {
             WearFrame {
                 WearHomeContent(
@@ -243,7 +247,7 @@ class WearVisualVerificationInstrumentedTest {
                 )
             }
         }
-        compose.onNodeWithText("Carrera", substring = true).assertExists()
+        compose.onNodeWithText(firstSport, substring = true).assertExists()
         compose.onNodeWithText("Sincronizar").assertDoesNotExist()
     }
 }

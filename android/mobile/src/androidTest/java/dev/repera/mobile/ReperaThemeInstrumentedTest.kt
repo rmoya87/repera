@@ -128,9 +128,9 @@ class ReperaThemeInstrumentedTest {
                     4 -> LiveSportHistoryScreen(dev.repera.domain.LiveSport.RUNNING,listOf(
                         dev.repera.domain.LiveSportHistory.LiveSession("theme-run","Carrera medida","running",
                             1792918800000L,1792922400000L,1800.0,5000.0,140.0,250.0)),{})
-                    6 -> DiaryTab(busy=false,syncing=false,status=null,overview=overview,activeWorkout=null,
-                        onStartRoutine={},onEditRoutine={_,_,_->},onDeleteRoutine={},onInitializeLocal={},
-                        onImportJson={},onDriveSync={},onExportJson={},onSignOut={},onNavigateHome={})
+                    6 -> ExercisesTab(busy=false,syncing=false,status=null,overview=overview,activeWorkout=null,
+                        onQuickLog={},onOpenExercise={},onInitializeLocal={},onImportJson={},onDriveSync={},
+                        onExportJson={},onSignOut={},onNavigateHome={})
                     7 -> SettingsTab(false,{},{},{},overview)
                     8 -> LiveSportsCatalogScreen(listOf(dev.repera.domain.LiveSportHistory.LiveSession(
                         "theme-run","Carrera medida","running",1792918800000L,1792922400000L,1800.0,5000.0,null,null)),"",{})
@@ -144,7 +144,7 @@ class ReperaThemeInstrumentedTest {
                         false,null,{},{},{_,_,_->},{_,_,_,_->},{},{_,_,_->},{},
                         {_,_,_,_,_,_,_,_->},{_,_,_,_,_->},{_,_,_,_->},{_,_,_,_,_,_->},{},{},{},{},{},{},null,account,{})
                     5 -> Column(Modifier.padding(16.dp)) {
-                        FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false) {}
+                        FinishedWorkoutEditorSection(overview.completeHistory.first(),account,false, onSave = {})
                     }
                     }
                 }

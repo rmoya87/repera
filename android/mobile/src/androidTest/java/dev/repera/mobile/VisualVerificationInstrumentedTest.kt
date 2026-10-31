@@ -1057,7 +1057,7 @@ class VisualVerificationInstrumentedTest {
         brandContent {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 FinishedWorkoutEditorSection(editorTerminadoVisualFixture(), "acc", false,
-                    editorTerminadoCatalog) {}
+                    editorTerminadoCatalog, onSave = {})
             }
         }
         compose.waitForIdle()
@@ -1079,7 +1079,7 @@ class VisualVerificationInstrumentedTest {
         brandContent {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 FinishedWorkoutEditorSection(editorTerminadoVisualFixture(), "acc", false,
-                    editorTerminadoCatalog) {}
+                    editorTerminadoCatalog, onSave = {})
             }
         }
         compose.waitForIdle()
