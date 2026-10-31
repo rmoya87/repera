@@ -379,7 +379,11 @@ struct LibraryView: View {
                 prompt: filterMode == .wods ? "Nombre o formato" : "Nombre, músculo o equipo"
             ))
             .navigationDestination(for: UUID.self) { id in
-                ExerciseDetailView(exerciseId: id, onOpenedWorkout: onOpenedWorkout)
+                ExerciseDetailView(
+                    exerciseId: id,
+                    onOpenedWorkout: onOpenedWorkout,
+                    usesDuoRail: true
+                )
                     .modifier(ExerciseZoomDestinationModifier(
                         id: id,
                         namespace: exerciseZoomNamespace,
