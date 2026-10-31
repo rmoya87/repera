@@ -88,6 +88,20 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         return true
     }
 
+    /// Durable companion HealthKit result; same UUID as the phone-owned GPS session.
+    /// The iPhone links the verified Watch workout rather than writing a duplicate.
+    func sendLiveHealthResult(sessionID: UUID, kcal: Double?, averageBpm: Double?, workoutUUID: UUID?) {
+        guard WCSession.isSupported(), WCSession.default.activationState == .activated else { return }
+        var message: [String: Any] = ["action": "liveHealthResult", "sessionId": sessionID.uuidString]
+        if let kcal { message["kcal"] = kcal }
+        if let averageBpm { message["averageBpm"] = averageBpm }
+        if let workoutUUID { message["workoutUUID"] = workoutUUID.uuidString }
+        WCSession.default.transferUserInfo(message)
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(message, replyHandler: nil) { _ in }
+        }
+    }
+
     func sendFinishedTimer(_ session: WorkoutSession) {
         sendFinished(session)
     }
