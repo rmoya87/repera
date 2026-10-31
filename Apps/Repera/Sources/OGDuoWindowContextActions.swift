@@ -98,11 +98,11 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
             window.addSubview(host.view)
 
             // En las capturas, el centro de los iconos del TabView está a
-            // ~53 pt del borde derecho. 54 pt de ancho + 26 pt de margen
+            // ~49 pt del borde derecho. 54 pt de ancho + 22 pt de margen
             // colocan las acciones EXACTAMENTE en esa misma línea.
             // Empezar debajo del reloj / Wi-Fi (safe area superior).
             let trailing = host.view.trailingAnchor.constraint(
-                equalTo: window.trailingAnchor, constant: -26
+                equalTo: window.trailingAnchor, constant: -22
             )
             trailingConstraint = trailing
             let height = host.view.heightAnchor.constraint(
@@ -126,10 +126,10 @@ struct OGDuoWindowContextActions: UIViewRepresentable {
 
         /// Preferir el centro real de la UITabBar vertical de iOS.
         /// Si el sistema cambia su clase interna, conservar el centro
-        /// de referencia obtenido de las capturas (53 pt desde la derecha).
+        /// de referencia obtenido de las capturas (49 pt desde la derecha).
         private func updateNativeRailAlignment(in window: UIWindow) {
             let centerX = nativeTabRailCenter(in: window)
-                ?? (window.bounds.maxX - 53)
+                ?? (window.bounds.maxX - 49)
             let trailingInset = window.bounds.maxX - centerX - 27
             trailingConstraint?.constant = -trailingInset
         }
