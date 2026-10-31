@@ -7,7 +7,7 @@
 - Zonas cardíacas 1–5: cinco segmentos, con FCmáx provisional de 190 lpm. No presentar estas zonas estimadas como zonas clínicas personalizadas.
 - Apple Watch: `WKSupportsLiveActivityLaunchAttributeTypes` permite abrir la app del reloj al tocar la Live Activity de iPhone. La Smart Stack tiene formato `ActivityFamily.small` propio.
 - Complicación de esfera: extensión y watch app comparten el estado mediante App Group `group.com.app.repera.watch`. Circular/esquina: acceso directo con mascota de Repera; rectangular: mascota, tiempo, distancia, FC y kcal con sesión, o «Iniciar actividad» sin sesión; inline: título de la sesión o «Repera».
-- **Complicación con iconos verificables:** se utiliza el PNG original `ReperaIcon` para `.fullColor`. Para `.accented`, se utiliza **otro PNG estático** (`ReperaWatchTintedIcon`), generado una sola vez a partir de los píxeles del mismo AppIcon oficial. El fondo verde opaco se convierte en transparencia y se preservan los niveles de gris del personaje, los ojos, la cinta y la sonrisa. El símbolo se muestra sobre un círculo en el color de la esfera; nunca se recorta/redibuja la figura en SwiftUI ni se genera una máscara en tiempo de ejecución. Ambos recursos se mantienen `.unredacted()` en el placeholder, selector y esfera.
+- **Icono plano vectorial:** Xcode acepta PDF en `.imageset`, no hace falta que el recurso sea PNG. La complicación utiliza `ReperaWatchFlatColor.imageset/icon.pdf` (círculo verde + mascota simplificada, sin sombras) cuando watchOS admite `fullColor`, y `ReperaWatchFlatMono.imageset/icon.pdf` (silhouette plana con ojos, sonrisa y cinta como huecos transparentes) en `accented`, renderizada como `.template` en el grupo primario. Ambos recursos activan `preserves-vector-representation=true`. El AppIcon oficial 3D de iPhone/Watch NO se modifica. La variante plana es una adaptación gráfica de su diseño, no una copia píxel a píxel.
 - Android: un mensaje de inicio desde Wear puede atenderse con el móvil bloqueado; si Android rechaza arrancar un FGS de ubicación en segundo plano, el estado se revierte y el reloj recibe el motivo.
 
 ## Configuración obligatoria de Apple Signing
@@ -22,7 +22,7 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 ## Pruebas pendientes en dispositivos reales
 1. Apple Watch inicia caminata: conceder Salud, comprobar FC y kcal (incluyendo 0 inicial), zonas, pausa y reanudación; finalizar y verificar solo un HKWorkout.
 2. iPhone inicia Comenzar: reloj abierto obtiene FC/kcal reales, la Smart Stack muestra métricas, tocarla abre Repera **Watch** y no iPhone; pausa/reanuda y cierra sin sesión duplicada en Salud.
-3. Instalar una build con `brand5`, quitar la complicación previa y añadir la nueva. Confirmar en el selector y en la esfera circular/esquina que aparece la mascota, sus ojos y sonrisa sobre el círculo teñido. Confirmar en una esfera `.fullColor` que se ve el AppIcon original verde. Validar Always On y tap para abrir Repera.
+3. Instalar una build con `brand6`, quitar la complicación previa y añadir la nueva. Confirmar en el selector y en la esfera circular/esquina que aparece la mascota, sus ojos y sonrisa sobre el círculo teñido. Confirmar en una esfera `.fullColor` que se ve el AppIcon original verde. Validar Always On y tap para abrir Repera.
 4. Wear inicia caminata con Android desbloqueado, luego bloqueado: Health Services entrega FC/kcal, zonas, y se muestra notificación persistente de Android; controles de pausa/fin coherentes.
 5. Repetir con permisos denegados, Bluetooth desconectado, apps terminadas, optimización de batería y móvil en segundo plano. Verificar mensajes de error precisos y sin duplicar sesiones.
 6. Compilar en Xcode con perfiles App Group y ejecutar Android unit tests, instrumentados en Wear real y revisión de permisos Health Services.
@@ -33,10 +33,16 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 - CI ejecuta `tests/test_watch_complication_contract.py`, verifica igualdad SHA-256 de **iPhone, Apple Watch y complicación**, obliga a una única imagen canónica `ReperaIcon/repera.png` (sin PNG `@2x`/`@3x` huérfanos en el imageset; provocan «unassigned children» en Xcode) y valida el `Info.plist` y `Assets.car` de la extensión embebida en `ReperaWatch.app/PlugIns`. La comprobación visual en un Apple Watch requiere instalar nueva build, volver a añadir la complicación y revisar editor/esfera en ambos modos.
 
 ### Regeneración y verificación del selector watchOS
-- Se registra el identificador com.app.repera.watch.complication.brand5 en widget, watch app y hub. Esto evita reutilizar el preview de la implementación anterior; tras instalarla hay que volver a añadirla.
+- Se registra el identificador com.app.repera.watch.complication.brand6 en widget, watch app y hub. Esto evita reutilizar el preview de la implementación anterior; tras instalarla hay que volver a añadirla.
 - En el selector y la esfera se usa ReperaLogo, siempre .unredacted(), incluida la vista de placeholder. Nunca recortar la cara ni generar máscaras en tiempo de ejecución para intentar corregir la redacción automática.
 - No dar la validación por terminada solo con tests estáticos: ejecutar XcodeGen y compilar el target watchOS, revisar que `ReperaWatchWidget.appex/Assets.car` incluye `ReperaIcon` y probar en el editor y en la esfera real los modos `fullColor` y `accented`.
 
 ### Revisión gráfica previa al commit (01/11/2026)
 - Se ha decodificado el PNG original de 1024×1024 directamente desde la rama main, segmentado el fondo verde y previsualizado el resultado de 256×256 sobre una simulación de esfera oscura. La figura, ojos, sonrisa y cinta son distinguibles; los píxeles del fondo son transparentes.
 - Este control acredita **la imagen generada**, no que el selector/WidgetKit de un Apple Watch haya mostrado el widget real. Para cerrar la incidencia debe existir captura del selector y de la esfera de una compilación instalada. La última ejecución de GitHub Actions disponible se encontraba fallida antes de este cambio; no declarar build como verificada mientras no pase CI.
+
+### Verificación de PDF vectorial (01/11/2026)
+- Dos PDF de 200 × 200 pt con trazados y sin imágenes raster incrustadas, renderizados previamente a 800 × 800 px y comprobados visualmente. Se revisó además a 36 × 36 px, aproximadamente el tamaño de una complicación circular.
+- El PNG 3D anterior se conserva en Assets para usos preexistentes, pero `ReperaWatchWidget.swift` no lo utiliza para la marca. El nuevo widget utiliza los dos recursos PDF `ReperaWatchFlatColor` y `ReperaWatchFlatMono`.
+- `tests/test_watch_complication_contract.py` comprueba el encabezado PDF, `preserves-vector-representation`, `template-rendering-intent`, la transparencia even-odd y los nombres de imagen usados por SwiftUI. CI inspecciona que ambos recursos estén en `Assets.car` de la extensión embebida.
+- Falta verificar el resultado en el selector real y la esfera instalada. No afirmar que esté resuelto hasta disponer de captura de esa compilación.

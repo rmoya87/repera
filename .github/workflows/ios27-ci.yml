@@ -278,7 +278,8 @@ jobs:
               assets=json.load(f)
           names={a.get("Name") for a in assets if isinstance(a,dict)}
           assert "ReperaIcon" in names, f"El icono original no está en Assets.car: {sorted(map(str,names))}"
-          assert "ReperaWatchTintedIcon" in names, "El icono tintado verificado no está en Assets.car"
+          assert "ReperaWatchFlatColor" in names, "PDF color plano no incluido en Assets.car"
+          assert "ReperaWatchFlatMono" in names, "PDF monocromo plano no incluido en Assets.car"
           print("PASS: ReperaIcon incluido en la extensión WidgetKit compilada")
           PY
           REPERA_WATCH_APP="$(dirname "$(dirname "$(dirname "$EMBEDDED_PLIST")")")"

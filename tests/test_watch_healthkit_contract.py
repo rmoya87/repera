@@ -88,7 +88,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
         hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
         for symbol in ("transferUserInfo", "pendingKey", "acknowledge", "todayDayStart", "healthKitUUID"):
             self.assertIn(symbol, watch)
-        self.assertIn('Image("ReperaIcon")', widget)
+        self.assertIn('Image("ReperaWatchFlatMono")', widget)
+        self.assertIn('Image("ReperaWatchFlatColor")', widget)
         self.assertIn("com.app.repera.watch.complication", widget)
         self.assertIn("accessoryCorner", widget)
         self.assertIn("containerBackground", widget)

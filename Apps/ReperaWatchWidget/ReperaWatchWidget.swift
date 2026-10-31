@@ -23,9 +23,10 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
-/// AppIcon de Repera (sin reinterpretaciones).
-/// La imagen tintada procede de sus píxeles reales y se precalcula en un PNG:
-/// el selector de esferas nunca ejecuta una máscara de CoreGraphics.
+/// Mascota Repera en PDF vectorial: variante plana y sin relieve.
+/// En las esferas teñidas, usar un PDF de silueta con ojos/sonrisa como
+/// transparencia real; nunca pasar un PNG opaco al motor de tintado.
+/// Ambos PDF son recursos estáticos de Assets.xcassets con Preserve Vector Data.
 private struct ReperaLogo: View {
     @Environment(\.widgetRenderingMode) private var renderingMode
     var diameter: CGFloat = 34
@@ -33,26 +34,18 @@ private struct ReperaLogo: View {
     var body: some View {
         Group {
             if renderingMode == .fullColor {
-                Image("ReperaIcon")
+                Image("ReperaWatchFlatColor")
                     .resizable()
                     .scaledToFit()
-                    .unredacted()
             } else {
-                ZStack {
-                    Circle()
-                        .fill(Color.primary.opacity(0.15))
-                        .widgetAccentable()
-                    Image("ReperaWatchTintedIcon")
-                        .resizable()
-                        .widgetAccentedRenderingMode(.desaturated)
-                        .scaledToFit()
-                        .unredacted()
-                }
-                .unredacted()
+                Image("ReperaWatchFlatMono")
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(.primary)
+                    .scaledToFit()
             }
         }
         .frame(width: diameter, height: diameter)
-        .clipShape(Circle())
         .unredacted()
         .accessibilityLabel("Repera")
     }
@@ -122,7 +115,7 @@ private struct ReperaWatchComplication: View {
 
 private struct ReperaWatchWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "com.app.repera.watch.complication.brand5", provider: ReperaWatchProvider()) { entry in
+        StaticConfiguration(kind: "com.app.repera.watch.complication.brand6", provider: ReperaWatchProvider()) { entry in
             ReperaWatchComplication(entry: entry)
                 .containerBackground(for: .widget) { Color.clear }
         }

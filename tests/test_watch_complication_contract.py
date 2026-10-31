@@ -31,46 +31,43 @@ class WatchComplicationTests(unittest.TestCase):
             ["repera.png"],
         )
 
-    def test_complicacion_usa_icono_real_con_mascara_tintada_estatica(self):
+    def test_pdf_plano_vectorial_compilado_y_ojos_transparentes(self):
         import json
-        import sys
-        sys.path.insert(0, str(ROOT / "scripts"))
-        from generate_watch_tinted_icon import decode_png, generate_rgba
-
-        original = ROOT / "Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
-        path = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets/ReperaWatchTintedIcon.imageset/icon.png"
-        width, height, source = decode_png(original)
-        target_width, target_height, rgba = decode_png(path)
-        self.assertEqual((target_width, target_height), (256, 256))
-        expected = generate_rgba(source,width,height)
-        self.assertLessEqual(max(abs(a-b) for a,b in zip(expected,rgba)), 1)
-
-        alpha = rgba[3::4]
-        self.assertLess(alpha[0], 10)       # Verde del fondo eliminado
-        self.assertGreater(max(alpha), 240) # La mascota queda visible
-        coverage = sum(a > 50 for a in alpha) / len(alpha)
-        self.assertGreater(coverage, 0.20)
-        self.assertLess(coverage, 0.45)
-        shades = set(rgba[0::4])
-        self.assertGreater(len(shades), 40) # Ojos, sonrisa, cinta y piel no son disco uniforme
-        contents = json.loads(read("Apps/ReperaWatchWidget/Assets.xcassets/ReperaWatchTintedIcon.imageset/Contents.json"))
-        self.assertEqual(contents["images"][0]["filename"], "icon.png")
-
+        root = ROOT / "Apps/ReperaWatchWidget/Assets.xcassets"
+        for name, template in (
+            ("ReperaWatchFlatColor", "original"),
+            ("ReperaWatchFlatMono", "template"),
+        ):
+            folder = root / f"{name}.imageset"
+            manifest = json.loads((folder / "Contents.json").read_text())
+            self.assertEqual(manifest["images"][0]["filename"], "icon.pdf")
+            self.assertEqual(manifest["properties"]["preserves-vector-representation"], True)
+            self.assertEqual(manifest["properties"]["template-rendering-intent"], template)
+            pdf = (folder / "icon.pdf").read_bytes()
+            self.assertTrue(pdf.startswith(b"%PDF-"), f"{name} no es PDF")
+            self.assertIn(b"/MediaBox [0 0 200 200]", pdf)
+            self.assertNotIn(b"/Subtype /Image", pdf, "El PDF no debe incluir raster 3D")
+            self.assertGreater(len(pdf), 1000)
+        mono = (root / "ReperaWatchFlatMono.imageset/icon.pdf").read_bytes()
+        self.assertIn(b"f*", mono, "El PDF monocromo necesita huecos reales even-odd")
+        self.assertIn(b"66.5 93", mono)  # Ojo izquierdo
+        self.assertIn(b"132.5 93", mono)  # Ojo derecho
+        self.assertIn(b"84 75", mono)  # Boca
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
-        self.assertIn('Image("ReperaIcon")', widget)
-        self.assertIn('Image("ReperaWatchTintedIcon")', widget)
+        self.assertIn('Image("ReperaWatchFlatColor")', widget)
+        self.assertIn('Image("ReperaWatchFlatMono")', widget)
+        self.assertIn(".renderingMode(.template)", widget)
+        self.assertIn(".foregroundStyle(.primary)", widget)
         self.assertIn("renderingMode == .fullColor", widget)
-        self.assertIn(".widgetAccentedRenderingMode(.desaturated)", widget)
         self.assertIn(".unredacted()", widget)
+        self.assertNotIn("ReperaWatchTintedIcon", widget)
+        self.assertNotIn('Image("ReperaIcon")', widget)
         self.assertIn(".containerBackground(for: .widget) { Color.clear }", widget)
-        for removed in ("makeFaceTemplate", "CGContext(", "UIImage(named:",
-                        "Image(uiImage:", "ReperaMascotFace"):
-            self.assertNotIn(removed, widget)
         for family in ("Circular", "Corner", "Rectangular", "Inline"):
             self.assertIn(f"case .accessory{family}:", widget)
 
-    def test_kind_nuevo_para_no_reutilizar_preview_antiguo(self):
-        kind = "com.app.repera.watch.complication.brand5"
+    def test_kind_nuevo_y_recargas_watch_sincronizadas(self):
+        kind = "com.app.repera.watch.complication.brand6"
         widget = read("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
         app = read("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
