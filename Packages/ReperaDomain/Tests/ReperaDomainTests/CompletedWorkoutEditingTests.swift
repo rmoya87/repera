@@ -73,7 +73,7 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         edited.blocks.append(RoutineBlock(
             title: "WOD añadido", kind: .wod,
             movements: [WODMovement(exerciseId: burpees.id, name: burpees.name, reps: 12)],
-            wodFormat: .emom, rounds: 3, emomIntervalSeconds: 60
+            wodFormat: .emom, emomIntervalSeconds: 60, rounds: 3
         ))
         let saved = CompletedWorkoutEditing.applying(edited, to: activity, catalog: [burpees])
         XCTAssertEqual(saved.id, activity.id)

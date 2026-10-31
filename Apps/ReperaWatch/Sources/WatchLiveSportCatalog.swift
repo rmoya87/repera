@@ -18,6 +18,14 @@ enum WatchLiveSport: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
+    /// Paridad iPhone: ids persistidos, fuera del carrusel/picker.
+    var isSelectable: Bool {
+        switch self {
+        case .elliptical, .stairClimbing, .softball: false
+        default: true
+        }
+    }
+
     var title: String {
         switch self {
         case .running: "Carrera"
@@ -76,17 +84,58 @@ enum WatchLiveSport: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Mismos SF Symbols que `LiveSport.symbol` en iPhone (`LiveActivityView`).
     var symbolName: String {
         switch self {
         case .running, .trail: "figure.run"
+        case .cycling: "figure.outdoor.cycle"
+        case .mountainBike, .gravel: "bicycle"
         case .walking: "figure.walk"
         case .hiking: "figure.hiking"
-        case .cycling, .mountainBike, .gravel: "figure.outdoor.cycle"
-        case .crossfit, .hyrox, .hiit: "figure.cross.training"
-        case .strength, .functionalStrength: "dumbbell"
+        case .crossfit: "figure.cross.training"
+        case .hyrox: "figure.run"
+        case .strength: "figure.strengthtraining.traditional"
+        case .hiit: "timer"
+        case .tennis: "figure.tennis"
+        case .padel: "figure.tennis"
+        case .surfing: "surfboard"
         case .swimming: "figure.pool.swim"
-        case .yoga, .pilates, .mobility: "figure.yoga"
-        default: "figure.mixed.cardio"
+        case .windsurfing: "figure.sailing"
+        case .kitesurfing: "figure.surfing"
+        case .kayaking: "figure.rower"
+        case .rowing: "figure.outdoor.rowing"
+        case .canoeing: "oar.2.crossed"
+        case .sailing: "sailboat"
+        case .golf: "figure.golf"
+        case .skiing: "figure.skiing.downhill"
+        case .iceSkating: "figure.ice.skating"
+        case .skateboarding: "figure.skating"
+        case .snowboarding: "figure.snowboarding"
+        case .crossCountrySkiing: "figure.skiing.crosscountry"
+        case .soccer: "figure.indoor.soccer"
+        case .basketball: "figure.basketball"
+        case .volleyball: "figure.volleyball"
+        case .climbing: "figure.climbing"
+        case .dance: "figure.dance"
+        case .pilates: "figure.pilates"
+        case .yoga: "figure.yoga"
+        case .mobility: "figure.flexibility"
+        case .boxing: "figure.boxing"
+        case .kickboxing: "figure.kickboxing"
+        case .martialArts: "figure.martial.arts"
+        case .wrestling: "figure.wrestling"
+        case .badminton: "figure.badminton"
+        case .pickleball: "figure.pickleball"
+        case .squash: "figure.squash"
+        case .functionalStrength: "dumbbell"
+        case .coreTraining: "figure.core.training"
+        case .elliptical, .stairClimbing: "figure.mixed.cardio"
+        case .americanFootball: "figure.american.football"
+        case .baseball, .softball: "figure.baseball"
+        case .hockey: "figure.field.hockey"
+        case .lacrosse: "figure.lacrosse"
+        case .rugby: "figure.rugby"
+        case .other: "figure.mixed.cardio"
         }
     }
 

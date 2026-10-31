@@ -20,7 +20,7 @@ Si el cambio es solo tipográfico o de estilo sin cambio de producto, no hace fa
 
 ## Stack
 
-- **Siempre la última OS**: iOS 27+ / watchOS 27+ (no programar para majors anteriores). Al salir una nueva, subir `project.yml`, `Package.swift` y docs.
+- **Target mínimo**: iOS 26+ / watchOS 26+ (UI Liquid Glass; no bajar de 26). Programar contra el SDK más reciente. Al salir un major nuevo, subir `project.yml`, `Package.swift` y docs.
 - SwiftUI, XcodeGen (`project.yml`).
 - Dominio: `Packages/ReperaDomain`.
 - App: `Apps/Repera`, Watch: `Apps/ReperaWatch`.

@@ -142,6 +142,17 @@ struct WatchSessionView: View {
                                     in: RoundedRectangle(cornerRadius: 10))
                 }
 
+                if let message = hub.liveCommandError {
+                    Text(message).font(.caption2).foregroundStyle(.orange)
+                }
+
+                // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar
+                // quedan al final (nunca «atrapado» solo con Condiciones).
+                WatchActivityConditionsBlock(
+                    conditions: live.conditions,
+                    loading: false
+                )
+
                 if live.phase != .review {
                     HStack(spacing: 10) {
                         Button {
@@ -167,9 +178,21 @@ struct WatchSessionView: View {
                         .tint(accent)
                         .accessibilityLabel("Finalizar actividad")
                     }
-                }
-                if let message = hub.liveCommandError {
-                    Text(message).font(.caption2).foregroundStyle(.orange)
+                    .padding(.bottom, 4)
+                } else {
+                    // Revisión en iPhone: salir al hub sin quedarse en Condiciones.
+                    Button {
+                        hub.returnToHome()
+                    } label: {
+                        Text("Volver al inicio")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(accent)
+                    .padding(.bottom, 4)
+                    .accessibilityLabel("Volver al inicio")
                 }
             }
             .padding(.horizontal, 6)

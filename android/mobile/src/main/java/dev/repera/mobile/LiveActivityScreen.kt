@@ -75,6 +75,7 @@ import dev.repera.domain.LiveSportHistory
 import dev.repera.domain.AdaptiveRoutePace
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /** Primer wiring ejecutable: no estima kcal/pulso ni escribe Salud.
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
@@ -539,6 +540,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 capturePosition()
             }
         }
+    }
+    // Condiciones Open-Meteo (marea/nieve) para Wear + franja Guardar.
+    LaunchedEffect(
+        state.phase,
+        state.sport.id,
+        state.points.lastOrNull()?.id,
+        state.points.size
+    ) {
+        if (state.phase != LiveActivityState.Phase.RECORDING &&
+            state.phase != LiveActivityState.Phase.PAUSED &&
+            state.phase != LiveActivityState.Phase.REVIEW
+        ) return@LaunchedEffect
+        val force = state.phase == LiveActivityState.Phase.REVIEW
+        if (!runtime.shouldRefreshConditions(force)) return@LaunchedEffect
+        val point = state.points.lastOrNull() ?: return@LaunchedEffect
+        OpenMeteoWeatherClient.fetchConditions(
+            point.latitude, point.longitude, state.sport.id
+        ).onSuccess { runtime.updateLiveConditions(it) }
     }
     // El mapa permanece compuesto con la hoja de rutas encima (no se desmonta).
     if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics) {
@@ -1077,6 +1096,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             nowTick = nowTick,
             error = error ?: runtime.lastError,
             onMapRendered = onMapRendered,
+            activityConditions = runtime.liveConditions,
             onSave = {
                 try {
                     val now = System.currentTimeMillis()
@@ -1086,7 +1106,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         state.finishedMillis ?: now,
                         state.durationSeconds(now),
                         title,
-                        notes
+                        notes,
+                        activityConditions = runtime.liveConditions
                     )
                     if (runtime.discard()) {
                         LiveActivityService.stop(context)
@@ -1270,6 +1291,7 @@ private fun LiveActivityReviewContent(
     nowTick: Long,
     error: String?,
     onMapRendered: (() -> Unit)?,
+    activityConditions: dev.repera.domain.ActivityConditionsSnapshot?,
     onSave: () -> Unit,
     onDiscard: () -> Unit,
     recoveryBlocked: Boolean
@@ -1287,8 +1309,6 @@ private fun LiveActivityReviewContent(
             if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
         }
     }
-    val energyText = previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 }
-        ?.let { "%.0f kcal".format(it) } ?: "—"
     Column(
         Modifier
             .fillMaxSize()
@@ -1333,11 +1353,14 @@ private fun LiveActivityReviewContent(
                         latitude = weatherPoint.latitude,
                         longitude = weatherPoint.longitude,
                         workoutEpochMs = weatherEpoch,
-                        modifier = Modifier.testTag("live_review_weather_under_map")
+                        modifier = Modifier.testTag("live_review_weather_under_map"),
+                        liveSportId = state.sport.id,
+                        persistedConditions = activityConditions
                     )
                 }
             }
         }
+        // Fecha fuera del bloque de tiles (paridad iOS).
         state.startedMillis?.let { started ->
             val zoned = java.time.Instant.ofEpochMilli(started)
                 .atZone(java.time.ZoneId.systemDefault())
@@ -1350,73 +1373,72 @@ private fun LiveActivityReviewContent(
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("live_review_started_subtitle")
+                modifier = Modifier
+                    .padding(bottom = 2.dp)
+                    .testTag("live_review_started_subtitle")
             )
         }
-        // Una sola fila: tiempo · distancia · ritmo · energía (paridad pedida).
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            WorkoutSummaryTile(
-                "Tiempo",
-                LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),
-                Icons.Outlined.AccessTime,
-                Modifier.weight(1f),
-                iconTint = Color(0xFF0A84FF),
-                compact = true
-            )
-            if (state.sport.usesGPS) {
+        // Tres tiles por tipo (paridad SessionSummaryTilesBuilder iOS; altura fija).
+        val durationSecs = state.durationSeconds(nowTick)
+        val durationLabel = if (durationSecs >= 60) {
+            "${(durationSecs / 60.0).roundToInt()}′"
+        } else {
+            LiveSportHistory.formatDuration(durationSecs)
+        }
+        val reviewSpecs = SessionSummaryTilesBuilder.tiles(
+            durationLabel = durationLabel,
+            sport = state.sport,
+            kcal = previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 },
+            distanceMeters = state.distanceMeters.takeIf { it > 0 },
+            paceOrSpeedLabel = if (state.sport.usesGPS) paceOrSpeed else null,
+            averageHeartRateBpm = previewHealth?.averageHeartRateBpm
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            reviewSpecs.forEach { spec ->
                 WorkoutSummaryTile(
-                    "Distancia",
-                    ReperaNumberFormat.decimal(state.distanceMeters / 1000) + " km",
-                    Icons.Outlined.Route,
+                    spec.title,
+                    spec.value,
+                    spec.icon,
                     Modifier.weight(1f),
-                    iconTint = brandGreen,
-                    compact = true
-                )
-                WorkoutSummaryTile(
-                    if (state.sport.displaysSpeed) "Veloc." else "Ritmo",
-                    paceOrSpeed,
-                    Icons.Outlined.AccessTime,
-                    Modifier.weight(1f),
-                    iconTint = Color(0xFF0A84FF),
-                    compact = true
+                    iconTint = spec.tint,
+                    compact = false
                 )
             }
-            WorkoutSummaryTile(
-                "Energía",
-                energyText,
-                Icons.Outlined.Whatshot,
-                Modifier.weight(1f),
-                iconTint = Color(0xFFFF9F0A),
-                compact = true
-            )
+        }
+        // Métricas (parciales / elevación) sin título «Entreno», como iOS.
+        if (state.splitsSeconds.isNotEmpty() ||
+            (state.sport.tracksElevation && state.hasElevationSamples)
+        ) {
+            ReperaCard(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (state.sport.tracksElevation && state.hasElevationSamples) {
+                        Text(
+                            "+%.0f m de ascenso · −%.0f m de descenso".format(
+                                state.elevationGainMeters,
+                                state.elevationLossMeters
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (state.splitsSeconds.isNotEmpty()) {
+                        LiveKilometerSplitsSection(
+                            state.splitsSeconds,
+                            state.sport.displaysSpeed,
+                            routePoints = if (previewRecorded) state.points else emptyList()
+                        )
+                    }
+                }
+            }
         }
         if (state.sport.usesGPS && previewPoints.isEmpty()) {
             LiveReviewMapUnavailableCard(
                 hasDistance = state.distanceMeters > 0,
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-        if (state.sport.tracksElevation && state.hasElevationSamples) {
-            Text(
-                "+%.0f m de ascenso · −%.0f m de descenso".format(
-                    state.elevationGainMeters,
-                    state.elevationLossMeters
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (state.splitsSeconds.isNotEmpty()) {
-            ReperaSectionTitle("Entreno")
-            ReperaCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    LiveKilometerSplitsSection(
-                        state.splitsSeconds,
-                        state.sport.displaysSpeed,
-                        routePoints = if (previewRecorded) state.points else emptyList()
-                    )
-                }
-            }
         }
         ReperaSectionTitle("Detalles de la actividad")
         ReperaCard(Modifier.fillMaxWidth()) {

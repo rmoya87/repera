@@ -147,7 +147,9 @@ enum SessionSummaryTilesBuilder {
             ]
         }
 
-        if sport == .swimming || sport == .elliptical || sport == .stairClimbing || sport == .climbing {
+        // Elíptica / escaleras: solo historial (ya no seleccionables).
+        if sport == .swimming || sport == .climbing
+            || sport == .elliptical || sport == .stairClimbing {
             let third: SessionSummaryTileSpec = {
                 if let meters = distanceMeters, meters > 0 {
                     return SessionSummaryTileSpec(
@@ -165,23 +167,25 @@ enum SessionSummaryTilesBuilder {
             ]
         }
 
-        // Entreno programado (sin liveSport): fuerza → volumen; WOD → marca.
+        // Entreno programado (sin liveSport): WOD/EMOM → Tiempo · Marca · Kcal;
+        // fuerza → Tiempo · Kcal · Volumen. EMOM/Tabata no capturan marca numérica
+        // en wodResults, pero siguen siendo WOD (no mostrar Volumen de kg prescritos).
         if sport == nil {
-            if let wod = session.wodResults.first {
-                let mark = compactWODMark(wod)
-                if mark != "—" {
-                    return [
-                        time,
-                        SessionSummaryTileSpec(
-                            title: "Marca", value: mark,
-                            icon: "flag.checkered", tint: OG.accent
-                        ),
-                        SessionSummaryTileSpec(
-                            title: "Kcal", value: kcalValue,
-                            icon: "flame.fill", tint: OG.orange
-                        )
-                    ]
-                }
+            let isWOD = !session.wodResults.isEmpty
+                || session.exercises.contains(where: { $0.blockKind == .wod })
+            if isWOD {
+                let mark = session.wodResults.first.map(compactWODMark) ?? "—"
+                return [
+                    time,
+                    SessionSummaryTileSpec(
+                        title: "Marca", value: mark,
+                        icon: "flag.checkered", tint: OG.accent
+                    ),
+                    SessionSummaryTileSpec(
+                        title: "Kcal", value: kcalValue,
+                        icon: "flame.fill", tint: OG.orange
+                    )
+                ]
             }
             let volume = session.totalVolumeKg > 0
                 ? ReperaNumberFormat.integer(Int(session.totalVolumeKg.rounded()))

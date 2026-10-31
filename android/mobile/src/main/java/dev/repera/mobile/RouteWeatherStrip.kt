@@ -48,17 +48,23 @@ internal fun RouteWeatherStrip(
     latitude: Double,
     longitude: Double,
     workoutEpochMs: Long,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    liveSportId: String? = null,
+    persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null
 ) {
     var loading by remember(latitude, longitude, workoutEpochMs) { mutableStateOf(true) }
     var reading by remember(latitude, longitude, workoutEpochMs) {
         mutableStateOf<HistoricalWeatherReading?>(null)
     }
     var failure by remember(latitude, longitude, workoutEpochMs) { mutableStateOf<String?>(null) }
-    LaunchedEffect(latitude, longitude, workoutEpochMs) {
+    var conditions by remember(latitude, longitude, workoutEpochMs, liveSportId) {
+        mutableStateOf(persistedConditions)
+    }
+    LaunchedEffect(latitude, longitude, workoutEpochMs, liveSportId, persistedConditions) {
         loading = true
         failure = null
         reading = null
+        conditions = persistedConditions
         OpenMeteoWeatherClient.fetch(latitude, longitude, workoutEpochMs)
             .onSuccess { reading = it; failure = null }
             .onFailure {
@@ -66,6 +72,10 @@ internal fun RouteWeatherStrip(
                 failure = it.message?.takeIf { m -> m.isNotBlank() }
                     ?: "Datos meteorológicos no disponibles."
             }
+        if (persistedConditions == null && liveSportId != null) {
+            OpenMeteoWeatherClient.fetchConditions(latitude, longitude, liveSportId, workoutEpochMs)
+                .onSuccess { conditions = it }
+        }
         loading = false
     }
     val uriHandler = LocalUriHandler.current
@@ -113,27 +123,59 @@ internal fun RouteWeatherStrip(
                 modifier = Modifier.weight(1f)
             )
         }
-        if (reading != null) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+        conditions?.let { snap ->
+            if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER ||
+                snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW
             ) {
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                ConditionsLayout(items = conditionItems(snap))
+                // Disclaimer + atribución en la fila unificada debajo.
+            }
+        }
+        // Una línea: aviso (izq.) · Fuente · Open-Meteo (der.). Sin WeatherKit en Android.
+        if (reading != null || conditions != null) {
+            val showDisclaimer = conditions?.family ==
+                dev.repera.domain.ActivityConditionsFamily.WATER ||
+                conditions?.disclaimer != null
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                if (showDisclaimer) {
+                    Text(
+                        "No usar para navegar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 Text(
-                    "Fuente:",
+                    "Fuente",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    softWrap = false
                 )
                 TextButton(
                     onClick = { uriHandler.openUri(OpenMeteoWeatherClient.ATTRIBUTION_URL) },
-                    modifier = Modifier.testTag("weather_attribution")
+                    modifier = Modifier.testTag("weather_attribution"),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
                         OpenMeteoWeatherClient.ATTRIBUTION_LABEL,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -150,6 +192,93 @@ internal fun RouteWeatherStrip(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+private data class ConditionItem(val title: String, val value: String?)
+
+private fun conditionItems(snap: dev.repera.domain.ActivityConditionsSnapshot): List<ConditionItem> {
+    val items = mutableListOf<ConditionItem>()
+    if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER) {
+        val tide = snap.tideHeightMeters?.let { h ->
+            val t = snap.tideTrendLabel?.let { " · $it" }.orEmpty()
+            String.format("%.2f m%s", h, t)
+        }
+        items += ConditionItem("Marea", tide)
+        snap.nextTideLabel?.let { items += ConditionItem("Próxima", it) }
+        items += ConditionItem(
+            "Oleaje",
+            snap.waveHeightMeters?.let { String.format("%.1f m", it) }
+        )
+    }
+    if (snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW) {
+        items += ConditionItem(
+            "Nevada",
+            snap.snowfallCm?.let { String.format("%.1f cm/h", it) }
+        )
+        items += ConditionItem(
+            "Nieve",
+            snap.snowDepthMeters?.let { String.format("%.0f cm", it * 100) }
+        )
+    }
+    return items
+}
+
+/** Par: dos columnas; impar: listado vertical. */
+@Composable
+private fun ConditionsLayout(items: List<ConditionItem>) {
+    if (items.isEmpty()) return
+    if (items.size % 2 == 0) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (i in items.indices step 2) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ConditionLine(
+                        items[i].title,
+                        items[i].value,
+                        Modifier.weight(1f)
+                    )
+                    ConditionLine(
+                        items[i + 1].title,
+                        items[i + 1].value,
+                        Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEach { ConditionLine(it.title, it.value) }
+        }
+    }
+}
+
+@Composable
+private fun ConditionLine(
+    title: String,
+    value: String?,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Text(
+            value ?: "—",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
     }
 }
 
@@ -208,6 +337,8 @@ internal fun SessionMapWeatherCard(
     workoutEpochMs: Long,
     placePin: WorkoutLocationPin? = null,
     modifier: Modifier = Modifier,
+    liveSportId: String? = null,
+    persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
     map: @Composable () -> Unit
 ) {
     // Sin ReperaCard anidada: el contenedor del detalle ya aporta la card.
@@ -230,7 +361,9 @@ internal fun SessionMapWeatherCard(
             RouteWeatherStrip(
                 latitude = latitude,
                 longitude = longitude,
-                workoutEpochMs = workoutEpochMs
+                workoutEpochMs = workoutEpochMs,
+                liveSportId = liveSportId,
+                persistedConditions = persistedConditions
             )
         }
     }

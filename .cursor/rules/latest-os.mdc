@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Plataforma: última versión
 
-- Target mínimo: **iOS 27+ / watchOS 27+** (`project.yml`, `Packages/ReperaDomain/Package.swift`).
-- Programar siempre contra el **SDK más reciente**; no mantener compat con majors anteriores salvo que el usuario lo pida.
+- Target mínimo: **iOS 26+ / watchOS 26+** (`project.yml`, `Packages/ReperaDomain/Package.swift`).
+- Programar siempre contra el **SDK más reciente**; no bajar de 26 (Liquid Glass / UI actual).
 - Preferir APIs nativas nuevas (Liquid Glass, `DefaultToolbarItem`, etc.) frente a polyfills o campos custom.
 - Al salir un major nuevo de Apple: subir deployment target + docs (`AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`).

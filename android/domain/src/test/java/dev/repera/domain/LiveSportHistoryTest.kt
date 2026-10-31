@@ -132,7 +132,8 @@ class LiveSportHistoryTest {
         assertEquals(53, LiveSport.entries.size)
         assertEquals(19, LiveSport.entries.count { it.usesGPS })
         assertEquals(15, LiveSport.entries.count { it.displaysSpeed })
-        assertEquals(6, LiveSport.entries.count { it.tracksElevation })
+        // Paridad iOS showsElevationAndSpeedStats (caminata/bici/gravel/esquí/snow/surf/skate).
+        assertEquals(9, LiveSport.entries.count { it.tracksElevation })
     }
 
 }

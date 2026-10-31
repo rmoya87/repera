@@ -600,12 +600,13 @@ private enum CatalogBackgroundRefreshScheduler {
             guard !pending.contains(where: { $0.identifier == identifier }) else { return }
             let request = BGAppRefreshTaskRequest(identifier: identifier)
             request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
-            BGTaskScheduler.shared.submitTaskRequest(request) { error in
-                if let error {
-                    // Background scheduling is opportunistic; foreground catalog
-                    // synchronization continues even if the system rejects it.
-                    NSLog("Repera: catalog background refresh not scheduled: %@", error.localizedDescription)
-                }
+            // `submit(_:)` (throws) es el API estable; `submitTaskRequest` es iOS 27+.
+            do {
+                try BGTaskScheduler.shared.submit(request)
+            } catch {
+                // Background scheduling is opportunistic; foreground catalog
+                // synchronization continues even if the system rejects it.
+                NSLog("Repera: catalog background refresh not scheduled: %@", error.localizedDescription)
             }
         }
     }

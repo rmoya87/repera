@@ -8,6 +8,9 @@ import WatchKit
 struct WatchLiveSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     let sport: WatchLiveSport
+    @State private var conditions: ActivityConditionsSnapshot?
+    @State private var conditionsLoading = false
+    @State private var lastConditionsFetch = Date.distantPast
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
@@ -59,6 +62,13 @@ struct WatchLiveSessionView: View {
                         .foregroundStyle(.orange)
                 }
 
+                // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar
+                // quedan al final (nunca «atrapado» solo con Condiciones).
+                WatchActivityConditionsBlock(
+                    conditions: conditions,
+                    loading: conditionsLoading
+                )
+
                 HStack(spacing: 10) {
                     Button {
                         hub.toggleWatchLivePause()
@@ -84,6 +94,7 @@ struct WatchLiveSessionView: View {
                     .tint(accent)
                     .accessibilityLabel("Finalizar")
                 }
+                .padding(.bottom, 4)
             }
             .padding(.horizontal, 6)
         }
@@ -106,6 +117,27 @@ struct WatchLiveSessionView: View {
                 .accessibilityLabel(hub.audioMuted ? "Activar audio" : "Silenciar audio")
             }
         }
+        .task(id: hub.watchLiveDistanceMeters) {
+            await refreshConditionsIfNeeded()
+        }
+    }
+
+    private func refreshConditionsIfNeeded() async {
+        let family = ActivityConditionsSnapshot.family(forLiveSportID: sport.rawValue)
+        guard family != .none else { return }
+        guard Date().timeIntervalSince(lastConditionsFetch) > 12 * 60 || conditions == nil else {
+            return
+        }
+        guard let point = hub.watchLiveLastCoordinate else { return }
+        conditionsLoading = conditions == nil
+        lastConditionsFetch = Date()
+        let snap = await OpenMeteoConditionsClient.fetch(
+            latitude: point.latitude,
+            longitude: point.longitude,
+            sportID: sport.rawValue
+        )
+        conditions = snap
+        conditionsLoading = false
     }
 
     private var distanceValue: String {

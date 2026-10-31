@@ -1235,7 +1235,7 @@ struct HomeView: View {
                     .padding(.top, 12)
             }
         }
-        .swipeActionsContainer()
+        .ogSwipeActionsContainer()
     }
 
     /// A read-only, tappable professional card in the native daily workout design.

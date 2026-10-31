@@ -1285,6 +1285,8 @@ final class HealthKitStore {
     /// Use workout-specific Apple zone boundaries and durations, including
     /// user-defined zones. Nil when there is no actual linked Apple workout.
     func heartZones(for session: WorkoutSession) async -> WorkoutHeartZones? {
+        // `HKWorkout.zoneGroup(for:)` es iOS 27+; en 26 no hay zonas de workout.
+        guard #available(iOS 27, *) else { return nil }
         guard isAvailable,
               let heartType = HKObjectType.quantityType(forIdentifier: .heartRate),
               let start = session.startedAt, let finished = session.finishedAt,
@@ -1350,6 +1352,7 @@ final class HealthKitStore {
         )
     }
 
+    @available(iOS 27, *)
     private func overlappingWorkoutWithZones(
         from start: Date, to end: Date
     ) async -> HKWorkout? {
@@ -1586,6 +1589,33 @@ final class HealthKitStore {
                     )
                 }
                 cont.resume(returning: points)
+            }
+            store.execute(q)
+        }
+    }
+
+    /// Última muestra de FC desde `start` (p. ej. sesión Comenzar en curso).
+    /// Solo lectura HealthKit; nil si no hay permiso o muestras reales.
+    func latestHeartRateBpm(since start: Date, until end: Date = Date()) async -> Int? {
+        guard isAvailable,
+              let type = HKQuantityType.quantityType(forIdentifier: .heartRate),
+              end > start
+        else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
+        return await withCheckedContinuation { cont in
+            let q = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, samples, _ in
+                let unit = HKUnit.count().unitDivided(by: .minute())
+                let bpm = (samples as? [HKQuantitySample])?.first?
+                    .quantity.doubleValue(for: unit)
+                cont.resume(returning: bpm.flatMap {
+                    $0.isFinite && $0 > 0 ? Int($0.rounded()) : nil
+                })
             }
             store.execute(q)
         }
@@ -2677,11 +2707,21 @@ enum HealthActivityIcons {
         case .martialArts:
             return "figure.martial.arts"
         case .soccer:
-            return "figure.soccer"
+            return "figure.indoor.soccer"
         case .basketball:
             return "figure.basketball"
+        case .volleyball:
+            return "figure.volleyball"
         case .tennis:
             return "figure.tennis"
+        case .badminton:
+            return "figure.badminton"
+        case .pickleball:
+            return "figure.pickleball"
+        case .squash:
+            return "figure.squash"
+        case .traditionalStrengthTraining:
+            return "figure.strengthtraining.traditional"
         case .golf:
             return "figure.golf"
         case .crossTraining:
@@ -2702,8 +2742,6 @@ enum HealthActivityIcons {
             return "figure.snowboarding"
         case .skatingSports:
             return "figure.skating"
-        case .volleyball:
-            return "volleyball"
         case .climbing:
             return "figure.climbing"
         case .mixedCardio, .other:

@@ -1608,23 +1608,44 @@ internal fun WorkoutHistoryCard(
                     Icon(Icons.Outlined.Delete, contentDescription = "Eliminar registro")
                 }
             }
-            // I-25 tiles Tiempo / Kcal / Volumen.
+            // Misma matriz que detalle Historial / Guardar (SessionSummaryTilesBuilder).
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // R5 P1-10: reloj de pared inicio→fin (iOS HistoryView summary), no solo activeDuration.
-                val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }
-                HistoryMetricTile("Tiempo", mins?.let { "$it′" } ?: "—", Modifier.weight(1f))
-                HistoryMetricTile("Kcal", "—", Modifier.weight(1f))
-                val vol = workout.movements.sumOf { m ->
-                    m.editableSets.size.takeIf { it > 0 } ?: m.registered.size
+                val mins = workout.displayDurationMinutes().takeIf { it > 0 }
+                    ?.let { kotlin.math.round(it).toInt() }
+                val durationLabel = when {
+                    workout.timerDetails != null -> {
+                        val s = workout.timerDetails.configuredSeconds.coerceAtLeast(0)
+                        val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
+                        if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+                    }
+                    mins != null && mins > 0 -> "$mins′"
+                    else -> "—"
                 }
-                HistoryMetricTile(
-                    "Vol.",
-                    if (vol > 0) "$vol series" else "—",
-                    Modifier.weight(1f)
+                val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+                val specs = SessionSummaryTilesBuilder.tiles(
+                    durationLabel = durationLabel,
+                    sport = sport,
+                    kcal = workout.appleActiveEnergyKcal,
+                    averageHeartRateBpm = workout.appleAverageHeartRateBpm,
+                    distanceMeters = workout.recordedDistanceMeters,
+                    paceOrSpeedLabel = SessionSummaryTilesBuilder.paceOrSpeedLabel(
+                        sport,
+                        workout.recordedDistanceMeters,
+                        workout.activeDurationSeconds
+                            ?: mins?.takeIf { it > 0 }?.times(60.0)
+                    ),
+                    timerDetails = workout.timerDetails,
+                    volumeKg = SessionSummaryTilesBuilder.volumeKgFromScoreSession(workout.scoreSessionJson),
+                    scoreSessionJson = workout.scoreSessionJson,
+                    displayResults = workout.results,
+                    hasWodBlock = workout.movements.any { it.wod }
                 )
+                specs.forEach { spec ->
+                    HistoryMetricTile(spec.title, spec.value, Modifier.weight(1f))
+                }
             }
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)
@@ -1637,7 +1658,9 @@ internal fun WorkoutHistoryCard(
                     longitude = placeOnly.longitude,
                     workoutEpochMs = workoutEpochMs(workout),
                     placePin = placeOnly,
-                    modifier = Modifier.fillMaxWidth().testTag("history_map_weather")
+                    modifier = Modifier.fillMaxWidth().testTag("history_map_weather"),
+                    liveSportId = workout.liveSportID,
+                    persistedConditions = workout.activityConditions
                 ) {
                     PlacePinMap(
                         placeOnly.latitude,
@@ -1769,7 +1792,9 @@ internal fun WorkoutHistoryCard(
                         workout.routePoints,
                         showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
                         waterSport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true,
-                        workoutEpochMs = workoutEpochMs(workout)
+                        workoutEpochMs = workoutEpochMs(workout),
+                        liveSportId = workout.liveSportID,
+                        persistedConditions = workout.activityConditions
                     )
                 }
                 val splitHeart by produceState<List<Pair<Long,Int>>>(emptyList(),workout.id,workout.liveKilometerSplitsSeconds) {
@@ -1975,6 +2000,8 @@ internal fun CardioRouteSection(
     showComputedSplits: Boolean = true,
     waterSport: Boolean = false,
     workoutEpochMs: Long? = null,
+    liveSportId: String? = null,
+    persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
 ) {
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
@@ -2003,7 +2030,9 @@ internal fun CardioRouteSection(
                 latitude = start.latitude,
                 longitude = start.longitude,
                 workoutEpochMs = workoutEpochMs,
-                modifier = Modifier.testTag("route_weather_under_map")
+                modifier = Modifier.testTag("route_weather_under_map"),
+                liveSportId = liveSportId,
+                persistedConditions = persistedConditions
             )
         }
         // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).

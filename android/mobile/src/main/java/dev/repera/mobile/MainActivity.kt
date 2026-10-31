@@ -2831,15 +2831,19 @@ data class StateOverview(
                         val score = wodScores.getJSONObject(i)
                         val value = when {
                             score.has("elapsedSeconds") && !score.isNull("elapsedSeconds") -> {
-                                val seconds = score.getInt("elapsedSeconds")
-                                "%d:%02d".format(seconds / 60, seconds % 60)
+                                val seconds = score.optDouble("elapsedSeconds", Double.NaN)
+                                    .takeIf { it.isFinite() }?.toInt()
+                                    ?: score.optInt("elapsedSeconds", -1).takeIf { it >= 0 }
+                                seconds?.let { "%d:%02d".format(it / 60, it % 60) }
                             }
-                            score.has("roundsCompleted") && score.has("totalReps") ->
-                                "${score.getInt("roundsCompleted")} rondas + " +
-                                    "${score.getInt("totalReps")} reps"
-                            score.has("totalReps") -> "${score.getInt("totalReps")} reps"
+                            score.has("roundsCompleted") && !score.isNull("roundsCompleted") &&
+                                score.has("totalReps") && !score.isNull("totalReps") ->
+                                "${score.optInt("roundsCompleted")} rondas + " +
+                                    "${score.optInt("totalReps")} reps"
+                            score.has("totalReps") && !score.isNull("totalReps") ->
+                                "${score.optInt("totalReps")} reps"
                             score.has("roundsCompleted") && !score.isNull("roundsCompleted") ->
-                                "${score.getInt("roundsCompleted")} rondas"
+                                "${score.optInt("roundsCompleted")} rondas"
                             else -> null
                         }
                         value?.let {
@@ -2868,6 +2872,13 @@ data class StateOverview(
                         recordedDistanceMeters = session.optDouble("recordedDistanceMeters",Double.NaN).takeIf { it.isFinite() && it >= 0 },
                         routineId = session.optString("routineId").takeIf { it.isNotBlank() && it != "null" },
                         timerDetails = dev.repera.domain.TimerCompletionDetails.fromSession(session),
+                        activityConditions = dev.repera.domain.ActivityConditionsSnapshot.fromJson(
+                            session.optJSONObject("activityConditions")
+                        ),
+                        appleActiveEnergyKcal = session.optDouble("appleActiveEnergyKcal", Double.NaN)
+                            .takeIf { it.isFinite() && it > 0 },
+                        appleAverageHeartRateBpm = session.optDouble("appleAverageHeartRateBpm", Double.NaN)
+                            .takeIf { it.isFinite() && it > 0 },
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
@@ -2880,7 +2891,9 @@ data class StateOverview(
                             val ex = session.optJSONArray("exercises") ?: org.json.JSONArray()
                             val exs = org.json.JSONArray()
                             for (i in 0 until ex.length()) ex.getJSONObject(i).let { e ->
-                                exs.put(org.json.JSONObject().put("blockId", e.optString("blockId"))
+                                exs.put(org.json.JSONObject()
+                                    .put("blockId", e.optString("blockId"))
+                                    .put("blockKind", e.optString("blockKind"))
                                     .put("loggedSets", e.optJSONArray("loggedSets") ?: org.json.JSONArray()))
                             }
                             slim.put("exercises", exs).toString()
@@ -3333,7 +3346,12 @@ data class WorkoutHistoryEntry(
     val recordedDistanceMeters: Double? = null,
     val routineId: String? = null,
     /** Temporizador libre: no es editable como fuerza/WOD ni aporta Salud. */
-    val timerDetails: dev.repera.domain.TimerCompletionDetails? = null
+    val timerDetails: dev.repera.domain.TimerCompletionDetails? = null,
+    /** Snapshot Open-Meteo marea/nieve al finalizar (opcional). */
+    val activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
+    /** Energía / FC medidas (Health Connect → apple* keys, paridad iOS). */
+    val appleActiveEnergyKcal: Double? = null,
+    val appleAverageHeartRateBpm: Double? = null
 ) {
     /**
      * Minutos para chips/tiles (iOS displayDurationMinutes / HistoryView summary):

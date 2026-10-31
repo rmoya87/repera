@@ -1978,24 +1978,6 @@ extension DayEditorView {
         routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = sets
     }
 
-    private func applyStrengthExerciseReorder(
-        to exercises: inout [RoutineExercise],
-        difference: ReorderDifference<UUID, UUID>
-    ) {
-        let sourceIDs = Set(difference.sources)
-        let moved = difference.sources.compactMap { id in exercises.first { $0.id == id } }
-        guard !moved.isEmpty else { return }
-        exercises.removeAll { sourceIDs.contains($0.id) }
-        let insertIndex: Int
-        switch difference.destination.position {
-        case .before(let anchorID):
-            insertIndex = exercises.firstIndex { $0.id == anchorID } ?? exercises.count
-        case .end:
-            insertIndex = exercises.count
-        }
-        exercises.insert(contentsOf: moved, at: insertIndex)
-    }
-
     /// Rondas mostradas: EMOM deriva vueltas (cap÷estaciones); RFT default 4.
     private func emomOrRFTRounds(at index: Int) -> Int {
         if let rounds = routine.blocks[index].rounds { return rounds }

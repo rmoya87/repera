@@ -30,6 +30,11 @@ final class WatchSessionHub: NSObject {
     private(set) var watchLiveElapsedSeconds = 0
     private(set) var watchLiveDistanceMeters: Double = 0
     private(set) var watchLiveElevationGainMeters: Double = 0
+    /// Última coordenada GPS de la live local (condiciones Open-Meteo).
+    var watchLiveLastCoordinate: (latitude: Double, longitude: Double)? {
+        guard let last = watchLivePoints.last else { return nil }
+        return (last.latitude, last.longitude)
+    }
     private(set) var isPaused = false
     private(set) var restRemaining = 0
     private(set) var blockElapsed = 0
@@ -115,7 +120,17 @@ final class WatchSessionHub: NSObject {
             guard let sport = WatchLiveSport(rawValue: id), seen.insert(id).inserted else { continue }
             items.append(.sport(sport))
         }
-        for sport in WatchLiveSport.allCases {
+        // Catálogo: alfabético; «Otra actividad» al final (paridad iPhone).
+        let catalog = WatchLiveSport.allCases
+            .filter(\.isSelectable)
+            .sorted {
+                if $0 == .other { return false }
+                if $1 == .other { return true }
+                let order = $0.title.localizedStandardCompare($1.title)
+                return order == .orderedSame
+                    ? $0.rawValue < $1.rawValue : order == .orderedAscending
+            }
+        for sport in catalog {
             guard seen.insert(sport.rawValue).inserted else { continue }
             items.append(.sport(sport))
         }
@@ -580,15 +595,32 @@ final class WatchSessionHub: NSObject {
         )
         pending.appleActiveEnergyKcal = kcalSnapshot
         pending.appleAverageHeartRateBpm = bpmSnapshot
+        // Snapshot condiciones (Open-Meteo) si hay coords.
+        let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending
         summaryDismissed = false
         clearWatchLive()
         save()
 
+        if let coord {
+            Task { @MainActor in
+                let snap = await OpenMeteoConditionsClient.fetch(
+                    latitude: coord.0, longitude: coord.1, sportID: sport.rawValue
+                )
+                if var current = self.lastFinished, current.id == id {
+                    current.activityConditions = snap
+                    self.lastFinished = current
+                    self.summaryDismissed = false
+                    self.connectivity.sendFinished(current)
+                    self.save()
+                }
+            }
+        }
+
         health.finish { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
-                var session = pending
+                var session = self.lastFinished ?? pending
                 session.healthKitWorkoutUUID = result.uuid
                 session.appleActiveEnergyKcal = result.activeEnergyKcal ?? session.appleActiveEnergyKcal
                 session.appleDurationSeconds = result.durationSeconds
@@ -668,6 +700,26 @@ final class WatchSessionHub: NSObject {
         guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock,
               paused != isPaused else { return }
         if paused { pause() } else { play() }
+    }
+
+    /// Atajo de la complicación de esfera (`repera-watch://today`).
+    /// Abre el hub centrado en el plan efectivo; no inicia solo (tap en el centro).
+    func openFromComplication(url: URL) {
+        guard url.scheme == "repera-watch" else { return }
+        let host = (url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+            .lowercased()
+        guard host == "today" || host.isEmpty else { return }
+        if hasWorkoutInProgress || watchLiveSport != nil || liveActivity != nil {
+            refreshToday()
+            return
+        }
+        summaryDismissed = true
+        refreshToday()
+        if let plan = todaysWorkout, !plan.exercises.isEmpty {
+            lastHubItemID = WatchHubItem.plan(plan).id
+            hubCarouselIndex = 0
+            saveHubPrefs()
+        }
     }
 
     func startToday() {

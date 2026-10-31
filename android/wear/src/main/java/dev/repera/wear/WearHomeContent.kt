@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -28,6 +31,7 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
@@ -154,7 +158,9 @@ internal class WearHomeCallbacks(
     val onHubPlay: (WearHubCarouselItem) -> Unit = {},
     val onHubIndexChange: (Int) -> Unit = {},
     val onOpenTimer: () -> Unit = {},
-    val onToggleHubAudioMuted: () -> Unit = {}
+    val onToggleHubAudioMuted: () -> Unit = {},
+    /** Sale de la live companion (p. ej. revisión) al hub sin reabrir el snapshot. */
+    val onDismissLiveToHome: () -> Unit = {}
 )
 
 @Composable
@@ -273,6 +279,8 @@ private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, call
     if (!live.isNull("nextTurn") && phase != "review") {
         item { Text(live.optString("nextTurn"), textAlign = TextAlign.Start) }
     }
+    // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar quedan al final.
+    live.optJSONObject("conditions")?.let { conditionsItems(it) }
     if (phase == "review") {
         item {
             Text(
@@ -280,6 +288,9 @@ private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, call
                 textAlign = TextAlign.Start,
                 style = MaterialTheme.typography.labelSmall
             )
+        }
+        item {
+            WearPrimaryButton("Volver al inicio") { callbacks.onDismissLiveToHome() }
         }
     } else {
         item {
@@ -304,6 +315,69 @@ private fun TransformingLazyColumnScope.liveActivityItems(live: JSONObject, call
                 }
             }
         }
+    }
+}
+
+private fun TransformingLazyColumnScope.conditionsItems(conditions: JSONObject) {
+    val snap = runCatching {
+        dev.repera.domain.ActivityConditionsSnapshot.fromJson(conditions)
+    }.getOrNull() ?: return
+    if (snap.family != dev.repera.domain.ActivityConditionsFamily.WATER &&
+        snap.family != dev.repera.domain.ActivityConditionsFamily.SNOW &&
+        snap.temperatureC == null && snap.windKmh == null
+    ) return
+    item {
+        Text(
+            "Condiciones",
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    snap.temperatureC?.let {
+        item { WearStatsLine("Temp", String.format("%.0f °C", it)) }
+    }
+    snap.windKmh?.let {
+        item { WearStatsLine("Viento", String.format("%.0f km/h", it)) }
+    }
+    if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER) {
+        snap.tideHeightMeters?.let { h ->
+            val trend = snap.tideTrendLabel?.let { " · $it" }.orEmpty()
+            item { WearStatsLine("Marea", String.format("%.2f m%s", h, trend)) }
+        }
+        snap.nextTideLabel?.let { item { WearStatsLine("Próxima", it) } }
+        snap.waveHeightMeters?.let {
+            item { WearStatsLine("Oleaje", String.format("%.1f m", it)) }
+        }
+    }
+    if (snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW) {
+        snap.snowfallCm?.takeIf { it > 0 }?.let {
+            item { WearStatsLine("Nevada", String.format("%.1f cm/h", it)) }
+        }
+        snap.snowDepthMeters?.takeIf { it > 0 }?.let {
+            item { WearStatsLine("Nieve", String.format("%.0f cm", it * 100)) }
+        }
+    }
+    snap.disclaimer?.let {
+        item {
+            Text(
+                it,
+                color = WearOg.label2,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+    item {
+        Text(
+            snap.attribution,
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -425,7 +499,12 @@ internal fun WearHubHome(
         ) {
             when (val item = current) {
                 is WearHubCarouselItem.Plan -> {
-                    Text("📋", style = MaterialTheme.typography.titleLarge)
+                    Icon(
+                        imageVector = Icons.Outlined.FitnessCenter,
+                        contentDescription = null,
+                        tint = WearOg.accent,
+                        modifier = Modifier.size(36.dp)
+                    )
                     Text(
                         item.plan.optString("title").ifBlank { "Entreno" },
                         textAlign = TextAlign.Center,
@@ -443,7 +522,13 @@ internal fun WearHubHome(
                     }
                 }
                 is WearHubCarouselItem.Sport -> {
-                    Text("🏃", style = MaterialTheme.typography.titleLarge)
+                    val sport = LiveSport.byId(item.sportId)
+                    Icon(
+                        imageVector = sport?.wearIcon ?: Icons.Outlined.FitnessCenter,
+                        contentDescription = item.title,
+                        tint = WearOg.accent,
+                        modifier = Modifier.size(36.dp)
+                    )
                     Text(
                         item.title,
                         textAlign = TextAlign.Center,

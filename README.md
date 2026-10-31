@@ -61,7 +61,7 @@ La consola Business autenticada incorpora un panel independiente de plataforma (
 **Sin integración de pagos real:** las solicitudes de plan no equivalen a cobros, y las tablas de pagos no reciben transacciones hasta configurar webhooks verificados de Stripe Billing y Connect. El sistema web conectado y la base de datos no implican por sí solos que la consola esté desplegada en IONOS. Detalles: `docs/business/ESTADO_DESARROLLO.md`, `docs/business/SEGURIDAD.md` y `docs/business/BASE_DATOS.md`.
 
 
-App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 27+).
+App nativa de entrenamiento (**iPhone + Apple Watch**), **local-first + iCloud**, acceso con Apple o Google (SDK oficial iOS + sesión Supabase), UI **SwiftUI Liquid Glass** (iOS 26+ / watchOS 26+; Android API 30+).
 
 Última actualización: 2026-10-26 (sesiones múltiples por día, Comenzar con más deportes HealthKit, eliminación de series por swipe y estado de copia Supabase; Android/Wear sigue en su rama).
 
@@ -167,7 +167,7 @@ cd web && python3 -m http.server 8080
 
 Sitio público: [repera.app](https://repera.app) — `cd web && ./pack-ionos.sh` y extraer el zip en IONOS `htdocs`; ver [web/README.md](web/README.md).
 
-Requisitos: **Xcode con SDK iOS 27**, dispositivo/simulador compatible. Apple Intelligence es opcional (fallback local en pizarra).
+Requisitos: **Xcode con SDK iOS 26+** (mínimo despliegue 26), dispositivo/simulador compatible. Android **API 30+**. Apple Intelligence es opcional (fallback local en pizarra).
 
 Cold start: Splash nativo y pantalla de espera usan la misma UIImageView UIKit en modo AspectFit y fijada a los cuatro bordes; evita saltos de escala, y una build nueva invalida la captura antigua de iOS. Store en shell vacío hasta hidratar disco; `Catalog.prewarm()` fuera del MainActor. En Debug+Simulador el dylib (~20 MB) puede retrasar el process start; medir en Release/dispositivo.
 

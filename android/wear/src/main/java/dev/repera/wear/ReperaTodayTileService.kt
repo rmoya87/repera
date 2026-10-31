@@ -46,6 +46,10 @@ class ReperaTodayTileService : TileService() {
                         ActionBuilders.AndroidActivity.Builder()
                             .setClassName(WearMainActivity::class.java.name)
                             .setPackageName(packageName)
+                            .addKeyToExtraMapping(
+                                WearMainActivity.EXTRA_OPEN_TODAY,
+                                ActionBuilders.booleanExtra(true)
+                            )
                             .build()
                     )
                     .build()

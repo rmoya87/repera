@@ -504,12 +504,14 @@ struct CardioSplitsView: View {
 
 /// Pie meteorológico anclado al mapa (misma card): icono a la izquierda, valor + título.
 /// Condiciones en la fecha del entreno vía WeatherKit histórico (AQI histórico no disponible).
-/// No se persiste: se consulta al abrir el detalle.
+/// Extra Open-Meteo (marea/nieve) si hay `liveSportID` o snapshot persistido.
 struct RouteWeatherStrip: View {
     @Environment(\.colorScheme) private var colorScheme
     var latitude: Double
     var longitude: Double
     var workoutDate: Date
+    var liveSportID: String? = nil
+    var persistedConditions: ActivityConditionsSnapshot? = nil
 
     @State private var temperatureC: Double?
     @State private var humidity: Double?
@@ -520,8 +522,14 @@ struct RouteWeatherStrip: View {
     @State private var attributionMarkDarkURL: URL?
     @State private var isLoading = true
     @State private var failureHint: String?
+    @State private var conditions: ActivityConditionsSnapshot?
+    @State private var conditionsLoading = false
 
     private var hasWeather: Bool { temperatureC != nil }
+    private var family: ActivityConditionsFamily {
+        persistedConditions?.family
+            ?? ActivityConditionsSnapshot.family(forLiveSportID: liveSportID)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -546,37 +554,13 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            // Mostrar el distintivo oficial de WeatherKit, sin alterar su
-            // proporción ni sustituirlo por texto, y enlazar a sus fuentes legales.
-            if hasWeather, let attributionURL {
-                Link(destination: attributionURL) {
-                    HStack(spacing: 4) {
-                        Text("Fuente:")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(OG.label2)
-                        if let mark = colorScheme == .dark
-                            ? attributionMarkDarkURL : attributionMarkLightURL {
-                            AsyncImage(url: mark) { phase in
-                                if let image = phase.image {
-                                    image.resizable().scaledToFit()
-                                } else {
-                                    Label("Weather", systemImage: "apple.logo")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(OG.label2)
-                                }
-                            }
-                            .frame(width: 72, height: 15)
-                        } else {
-                            Label("Weather", systemImage: "apple.logo")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Fuente: Apple Weather. Ver fuentes legales")
-                .padding(.top, 6)
+            if family == .water || family == .snow {
+                conditionsExtraRows
+            }
+            // Una sola línea: aviso (izq.) · Fuente + Apple Weather · Open-Meteo (der.).
+            if hasWeather || showsOpenMeteoAttribution {
+                weatherAttributionFooter
+                    .padding(.top, 6)
             }
             if !hasWeather {
                 if let failureHint {
@@ -601,12 +585,189 @@ struct RouteWeatherStrip: View {
         .background(OG.surface)
         .task(id: taskKey) {
             await loadWeather()
+            await loadConditions()
         }
         .accessibilityElement(children: .contain)
     }
 
+    @ViewBuilder
+    private var conditionsExtraRows: some View {
+        let snap = conditions ?? persistedConditions
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().opacity(0.35).padding(.vertical, 8)
+            if conditionsLoading && snap == nil {
+                Text("Consultando condiciones…")
+                    .font(.caption2)
+                    .foregroundStyle(OG.label3)
+            } else if let snap {
+                conditionsLayout(items: conditionItems(for: snap))
+                // Disclaimer + atribución Open-Meteo van en `weatherAttributionFooter`.
+            }
+        }
+    }
+
+    private struct ConditionItem: Identifiable {
+        let id: String
+        let symbol: String
+        let title: String
+        let value: String?
+    }
+
+    private func conditionItems(for snap: ActivityConditionsSnapshot) -> [ConditionItem] {
+        var items: [ConditionItem] = []
+        if family == .water {
+            items.append(ConditionItem(
+                id: "tide",
+                symbol: "water.waves",
+                title: "Marea",
+                value: snap.tideHeightMeters.map { h in
+                    let t = snap.tideTrendLabel.map { " · \($0)" } ?? ""
+                    return String(format: "%.2f m%@", h, t)
+                }
+            ))
+            if let next = snap.nextTideLabel {
+                items.append(ConditionItem(id: "next", symbol: "clock", title: "Próxima", value: next))
+            }
+            items.append(ConditionItem(
+                id: "wave",
+                symbol: "water.waves",
+                title: "Oleaje",
+                value: snap.waveHeightMeters.map { String(format: "%.1f m", $0) }
+            ))
+        }
+        if family == .snow {
+            items.append(ConditionItem(
+                id: "snowfall",
+                symbol: "snowflake",
+                title: "Nevada",
+                value: snap.snowfallCm.map { String(format: "%.1f cm/h", $0) }
+            ))
+            items.append(ConditionItem(
+                id: "depth",
+                symbol: "snowflake",
+                title: "Nieve",
+                value: snap.snowDepthMeters.map { String(format: "%.0f cm", $0 * 100) }
+            ))
+        }
+        return items
+    }
+
+    /// Par: dos columnas; impar: listado vertical (como antes).
+    @ViewBuilder
+    private func conditionsLayout(items: [ConditionItem]) -> some View {
+        if items.isEmpty {
+            EmptyView()
+        } else if items.count % 2 == 0 {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(stride(from: 0, to: items.count, by: 2)), id: \.self) { i in
+                    HStack(alignment: .center, spacing: 10) {
+                        conditionLine(items[i].symbol, items[i].title, items[i].value)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        conditionLine(items[i + 1].symbol, items[i + 1].title, items[i + 1].value)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(items) { item in
+                    conditionLine(item.symbol, item.title, item.value)
+                }
+            }
+        }
+    }
+
+    private var showsOpenMeteoAttribution: Bool {
+        (conditions ?? persistedConditions) != nil
+            || ((family == .water || family == .snow) && !conditionsLoading)
+    }
+
+    /// Izquierda: aviso (agua). Centro-derecha: Fuente + marca Apple. Extremo derecho: Open-Meteo.
+    @ViewBuilder
+    private var weatherAttributionFooter: some View {
+        let showDisclaimer = family == .water
+            || (conditions ?? persistedConditions)?.disclaimer != nil
+        HStack(alignment: .center, spacing: 6) {
+            if showDisclaimer {
+                Text("No usar para navegar")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(0)
+            }
+            Spacer(minLength: 4)
+            if hasWeather {
+                Group {
+                    if let attributionURL {
+                        Link(destination: attributionURL) {
+                            appleWeatherSourceLabel
+                        }
+                        .accessibilityLabel("Fuente: Apple Weather. Ver fuentes legales")
+                    } else {
+                        appleWeatherSourceLabel
+                    }
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(2)
+            }
+            if showsOpenMeteoAttribution {
+                Text("Open-Meteo")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label3)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+        }
+    }
+
+    private var appleWeatherSourceLabel: some View {
+        HStack(spacing: 4) {
+            Text("Fuente")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            if let mark = colorScheme == .dark
+                ? attributionMarkDarkURL : attributionMarkLightURL {
+                AsyncImage(url: mark) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFit()
+                    } else {
+                        Label("Weather", systemImage: "apple.logo")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .frame(width: 72, height: 15)
+            } else {
+                Label("Weather", systemImage: "apple.logo")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label2)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .contentShape(Rectangle())
+    }
+
+    private func conditionLine(_ symbol: String, _ title: String, _ value: String?) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .foregroundStyle(OG.label2)
+                .frame(width: 22)
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(OG.label2)
+            Spacer(minLength: 4)
+            Text(value ?? "—")
+                .font(.system(size: 15, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(OG.label)
+        }
+    }
+
     private var taskKey: String {
-        "\(latitude),\(longitude),\(workoutDate.timeIntervalSince1970)"
+        "\(latitude),\(longitude),\(workoutDate.timeIntervalSince1970),\(liveSportID ?? ""),\(persistedConditions?.capturedAt.timeIntervalSince1970 ?? 0)"
     }
 
     private func weatherStat(symbol: String, title: String, value: String?, loading: Bool) -> some View {
@@ -708,8 +869,22 @@ struct RouteWeatherStrip: View {
         humidity = hour.humidity
         windKmh = hour.wind.speed.converted(to: .kilometersPerHour).value
         symbol = hour.symbolName
+    }
 
-
+    private func loadConditions() async {
+        if let persistedConditions {
+            conditions = persistedConditions
+            return
+        }
+        guard family == .water || family == .snow else { return }
+        conditionsLoading = true
+        defer { conditionsLoading = false }
+        conditions = await OpenMeteoConditionsClient.fetch(
+            latitude: latitude,
+            longitude: longitude,
+            sportID: liveSportID,
+            at: workoutDate
+        )
     }
 
     /// Mensaje accionable: el vacío casi siempre es portal/provisioning, no «dato perdido».
@@ -734,6 +909,8 @@ struct SessionMapWeatherCard<MapContent: View>: View {
     var longitude: Double?
     var workoutDate: Date
     var placePin: WorkoutLocationPin? = nil
+    var liveSportID: String? = nil
+    var activityConditions: ActivityConditionsSnapshot? = nil
     @ViewBuilder var map: () -> MapContent
 
     var body: some View {
@@ -751,7 +928,9 @@ struct SessionMapWeatherCard<MapContent: View>: View {
                 RouteWeatherStrip(
                     latitude: latitude,
                     longitude: longitude,
-                    workoutDate: workoutDate
+                    workoutDate: workoutDate,
+                    liveSportID: liveSportID,
+                    persistedConditions: activityConditions
                 )
             }
         }

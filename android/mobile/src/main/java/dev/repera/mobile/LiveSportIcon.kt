@@ -11,7 +11,11 @@ internal val LiveSport.materialIcon: ImageVector get() = when (this) {
     LiveSport.WALKING -> Icons.Outlined.DirectionsWalk
     LiveSport.HIKING -> Icons.Outlined.Hiking
     LiveSport.CYCLING, LiveSport.MOUNTAIN_BIKE, LiveSport.GRAVEL -> Icons.Outlined.DirectionsBike
-    LiveSport.CROSSFIT, LiveSport.STRENGTH, LiveSport.HYROX -> Icons.Outlined.FitnessCenter
+    // HYROX en iPhone usa figure.run (ExerciseCategorySymbols.discipline).
+    LiveSport.CROSSFIT -> Icons.Outlined.FitnessCenter
+    // SF figure.strengthtraining.traditional
+    LiveSport.STRENGTH -> Icons.Outlined.FitnessCenter
+    LiveSport.HYROX -> Icons.Outlined.DirectionsRun
     LiveSport.HIIT -> Icons.Outlined.Timer
     LiveSport.TENNIS, LiveSport.PADEL -> Icons.Outlined.SportsTennis
     LiveSport.SURFING -> Icons.Outlined.Surfing
@@ -33,7 +37,12 @@ internal val LiveSport.materialIcon: ImageVector get() = when (this) {
     LiveSport.DANCE -> Icons.Outlined.MusicNote
     LiveSport.PILATES, LiveSport.YOGA, LiveSport.MOBILITY -> Icons.Outlined.SelfImprovement
     LiveSport.SKATEBOARDING -> Icons.Outlined.Skateboarding
-    LiveSport.BOXING, LiveSport.KICKBOXING, LiveSport.MARTIAL_ARTS, LiveSport.WRESTLING -> Icons.Outlined.SportsMma
+    // SF: figure.boxing / kickboxing / martial.arts / wrestling (Material sin 1:1 exacto).
+    LiveSport.BOXING -> Icons.Outlined.SportsMma
+    LiveSport.KICKBOXING -> Icons.Outlined.SportsMma
+    LiveSport.MARTIAL_ARTS -> Icons.Outlined.SportsMma
+    LiveSport.WRESTLING -> Icons.Outlined.SportsKabaddi
+    // SF figure.badminton / pickleball / squash (Material sin 1:1 → raqueta).
     LiveSport.BADMINTON, LiveSport.PICKLEBALL, LiveSport.SQUASH -> Icons.Outlined.SportsTennis
     LiveSport.FUNCTIONAL_STRENGTH, LiveSport.CORE_TRAINING -> Icons.Outlined.FitnessCenter
     LiveSport.ELLIPTICAL -> Icons.Outlined.DirectionsRun

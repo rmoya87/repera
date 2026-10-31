@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WidgetKit
 
 private struct ReperaWatchEntry: TimelineEntry {
@@ -19,20 +20,50 @@ private struct ReperaWatchProvider: TimelineProvider {
     }
 }
 
+/// Mismo AppIcon que la app (mascota sobre verde).
+private var reperaAppIcon: UIImage? {
+    if let named = UIImage(named: "ReperaIcon") { return named }
+    if let url = Bundle.main.url(forResource: "repera_logo", withExtension: "png"),
+       let data = try? Data(contentsOf: url),
+       let image = UIImage(data: data) {
+        return image
+    }
+    return nil
+}
+
+/// Icono de la app a color completo en la complicación.
+/// Sin `.fullColor`, la esfera aplana el PNG a un disco verde sin mascota.
+private struct ReperaAppIconMark: View {
+    var body: some View {
+        Group {
+            if let icon = reperaAppIcon {
+                Image(uiImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .renderingMode(.original)
+                    // watchOS 11+/26: conserva mascota y colores bajo tinte de esfera.
+                    .widgetAccentedRenderingMode(.fullColor)
+                    .scaledToFill()
+                    .clipShape(Circle())
+            } else {
+                // Solo si falta el asset en el .appex (no debería en build normal).
+                Circle().fill(Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255))
+            }
+        }
+        .accessibilityLabel("Abrir Repera en el Apple Watch")
+    }
+}
+
 private struct ReperaWatchComplication: View {
     @Environment(\.widgetFamily) private var family
-    private let accent = Color(red: 0.54, green: 0.91, blue: 0.49)
 
     var body: some View {
         Group {
             switch family {
             case .accessoryRectangular:
                 HStack(spacing: 7) {
-                    Image("ReperaIcon")
-                        .resizable()
-                        .scaledToFit()
+                    ReperaAppIconMark()
                         .frame(width: 29, height: 29)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Repera").font(.headline)
                         Text("Entreno de hoy").font(.caption2)
@@ -40,17 +71,37 @@ private struct ReperaWatchComplication: View {
                     Spacer(minLength: 0)
                 }
             case .accessoryInline:
-                Label("Repera · Entreno", systemImage: "figure.strengthtraining.traditional")
+                Label {
+                    Text("Repera · Entreno")
+                } icon: {
+                    if let icon = reperaAppIcon {
+                        Image(uiImage: icon)
+                            .resizable()
+                            .renderingMode(.original)
+                            .widgetAccentedRenderingMode(.fullColor)
+                            .frame(width: 16, height: 16)
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "figure.strengthtraining.traditional")
+                    }
+                }
             default:
-                Image("ReperaIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 41, height: 41)
-                    .clipShape(Circle())
-                    .accessibilityLabel("Abrir Repera en el Apple Watch")
+                ReperaAppIconMark()
             }
         }
-        .containerBackground(.clear, for: .widget)
+        .containerBackground(for: .widget) {
+            // El propio icono rellena el hueco circular (no un color plano).
+            if family == .accessoryCircular, let icon = reperaAppIcon {
+                Image(uiImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .renderingMode(.original)
+                    .widgetAccentedRenderingMode(.fullColor)
+                    .scaledToFill()
+            } else {
+                Color.clear
+            }
+        }
         .widgetURL(URL(string: "repera-watch://today"))
     }
 }

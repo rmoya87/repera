@@ -27,6 +27,9 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     var upcomingTurn: String? = null; private set
     var upcomingCue: dev.repera.domain.LiveRouteGuidance.Cue? = null; private set
     var latestKilometerReport: String? = null; private set
+    /** Condiciones Open-Meteo (marea/nieve) para Wear + Guardar. */
+    var liveConditions: dev.repera.domain.ActivityConditionsSnapshot? = null; private set
+    private var lastConditionsFetchMillis = 0L
     private var guidance: dev.repera.domain.LiveRouteGuidance? = null
     fun toggleSpokenGuidance() {
         spokenGuidanceEnabled = !spokenGuidanceEnabled
@@ -139,13 +142,26 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     fun finish() {
         state.finish(System.currentTimeMillis());voice.stop();location.stop(state.gpsSessionID);checkpoint(true);publish()
     }
+    fun updateLiveConditions(snap: dev.repera.domain.ActivityConditionsSnapshot?) {
+        liveConditions = snap
+        lastConditionsFetchMillis = System.currentTimeMillis()
+        lastWearPublishMillis = 0L
+        publish()
+    }
+    /** True si toca refrescar Open-Meteo (~12 min, o forzado / sin snapshot). */
+    fun shouldRefreshConditions(force: Boolean): Boolean {
+        val family = dev.repera.domain.ActivityConditionsSnapshot.familyForLiveSportId(state.sport.id)
+        if (family == dev.repera.domain.ActivityConditionsFamily.NONE) return false
+        if (force || liveConditions == null) return true
+        return System.currentTimeMillis() - lastConditionsFetchMillis >= 12 * 60_000L
+    }
     fun discard(): Boolean {
         // Primero retirar el checkpoint. Si falla no afirmar descarte ni
         // perder la actividad que sigue recuperable en disco.
         try { store.clear() } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()

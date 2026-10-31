@@ -721,7 +721,9 @@ struct WorkoutDetailView: View {
                     latitude: coordinate?.lat,
                     longitude: coordinate?.lon,
                     workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
-                    placePin: displayPin
+                    placePin: displayPin,
+                    liveSportID: session.liveSportID,
+                    activityConditions: session.activityConditions
                 ) {
                     if mapKind != .none {
                         sessionMapView(session)
@@ -832,16 +834,16 @@ struct WorkoutDetailView: View {
         List {
             OGScrollablePageTitle(workoutNavTitle).ogScrollingTitleListRow()
             if let session = draft {
-                // Fecha + tiles en el mismo inset que las cards (no Section header).
+                // Fecha fuera del bloque de tiles: la sección agrupada recortaba la «S».
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .ogSessionDateListRow()
+                }
                 Section {
                     VStack(alignment: .leading, spacing: 10) {
-                        if !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundStyle(OG.label2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
                         SessionSummaryTilesRow(
                             specs: SessionSummaryTilesBuilder.tiles(
                                 session: session,
@@ -865,11 +867,13 @@ struct WorkoutDetailView: View {
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
                     || (session.liveSportID != nil && (session.recordedDistanceMeters ?? 0) > 0
                         && (session.activeDurationSeconds ?? 0) > 0)
-                let hasMovement = extras?.stepsCount != nil || extras?.movementDistanceMeters != nil
-                if session.timerDetails == nil, hasTrackedMetrics || extras != nil {
+                let hasMovement = (extras?.stepsCount ?? 0) > 0
+                    || (extras?.movementDistanceMeters ?? 0) > 0
+                let showSplits = hasTrackedMetrics || hasMovement
+                if session.timerDetails == nil, showSplits || extras != nil {
                     Section {
                         VStack(alignment: .leading, spacing: 14) {
-                            if hasTrackedMetrics || sport != nil || hasMovement {
+                            if showSplits {
                                 CardioSplitsView(
                                     routePoints: displayedRoute(session),
                                     heartRate: extras?.heartRateSeries ?? [],
@@ -884,7 +888,7 @@ struct WorkoutDetailView: View {
                                 )
                             }
                             if let extras {
-                                if hasTrackedMetrics || sport != nil || hasMovement {
+                                if showSplits {
                                     Divider().opacity(0.35)
                                 }
                                 HealthSessionMetricsCard(
@@ -2251,17 +2255,15 @@ struct HealthActivityDetailView: View {
 
         return List {
             OGScrollablePageTitle(activity.title).ogScrollingTitleListRow()
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(OG.label2)
+                    .ogSessionDateListRow()
+            }
             Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    summaryRow(activity, detail: detail)
-                }
-                .ogCardListRow(top: 0, bottom: 2)
+                summaryRow(activity, detail: detail)
+                    .ogCardListRow(top: 0, bottom: 2)
             }
 
             if showRouteMap {

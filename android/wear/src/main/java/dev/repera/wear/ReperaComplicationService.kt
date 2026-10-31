@@ -24,11 +24,21 @@ import org.json.JSONObject
 class ReperaComplicationService : SuspendingComplicationDataSourceService() {
 
     private fun tapAction(): PendingIntent = PendingIntent.getActivity(
-        this, 0, Intent(this, WearMainActivity::class.java),
+        this,
+        0,
+        Intent(this, WearMainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(WearMainActivity.EXTRA_OPEN_TODAY, true)
+        },
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 
-    private fun icon(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_complication)
+    /** Silueta blanca para tonos de esfera (MONOCHROMATIC / SHORT_TEXT). */
+    private fun monoIcon(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_complication)
+
+    /** Logo a color (mismo AppIcon iOS) para huecos SMALL_IMAGE. */
+    private fun logoIcon(): Icon = Icon.createWithResource(this, R.drawable.ic_repera_logo)
 
     private fun todayTitle(): String {
         val prefs = getSharedPreferences("repera.wear.session", MODE_PRIVATE)
@@ -46,19 +56,20 @@ class ReperaComplicationService : SuspendingComplicationDataSourceService() {
         ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
             PlainComplicationText.Builder("Repera").build(),
             PlainComplicationText.Builder("Abrir el entreno de hoy").build()
-        ).setMonochromaticImage(MonochromaticImage.Builder(icon()).build())
+        ).setMonochromaticImage(MonochromaticImage.Builder(monoIcon()).build())
             .setTapAction(tapAction()).build()
         ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
             PlainComplicationText.Builder(todayTitle()).build(),
             PlainComplicationText.Builder("Repera · Entreno").build()
         ).setTitle(PlainComplicationText.Builder("Repera").build())
+            .setMonochromaticImage(MonochromaticImage.Builder(monoIcon()).build())
             .setTapAction(tapAction()).build()
         ComplicationType.MONOCHROMATIC_IMAGE -> MonochromaticImageComplicationData.Builder(
-            MonochromaticImage.Builder(icon()).build(),
+            MonochromaticImage.Builder(monoIcon()).build(),
             PlainComplicationText.Builder("Abrir el entreno de hoy").build()
         ).setTapAction(tapAction()).build()
         ComplicationType.SMALL_IMAGE -> SmallImageComplicationData.Builder(
-            SmallImage.Builder(icon(), SmallImageType.ICON).build(),
+            SmallImage.Builder(logoIcon(), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder("Abrir el entreno de hoy").build()
         ).setTapAction(tapAction()).build()
         else -> null

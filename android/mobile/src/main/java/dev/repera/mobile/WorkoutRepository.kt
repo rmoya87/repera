@@ -151,8 +151,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return id
     }
 
-    @Synchronized fun saveLiveActivity(snapshot: dev.repera.domain.LiveActivityState.Snapshot,
-        finishedMillis: Long, activeSeconds: Double, title: String, notes: String): String {
+    @Synchronized fun saveLiveActivity(
+        snapshot: dev.repera.domain.LiveActivityState.Snapshot,
+        finishedMillis: Long,
+        activeSeconds: Double,
+        title: String,
+        notes: String,
+        activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null
+    ): String {
         require(snapshot.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW)
         require(activeSeconds.isFinite() && activeSeconds >= 0)
         val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
@@ -183,6 +189,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (sport.usesGPS) session.put("recordedDistanceMeters", snapshot.distanceMeters)
         if (snapshot.splitsSeconds.isNotEmpty()) session.put("liveKilometerSplitsSeconds", JSONArray(snapshot.splitsSeconds))
+        activityConditions?.let { session.put("activityConditions", it.toJson()) }
         session.put("routePoints", JSONArray(snapshot.points.map { p -> JSONObject()
             .put("id", p.id).put("latitude", p.latitude).put("longitude", p.longitude)
             .put("recordedAtEpochMs", p.recordedAtEpochMs)

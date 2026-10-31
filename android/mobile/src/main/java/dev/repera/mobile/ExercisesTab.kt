@@ -251,8 +251,16 @@ internal fun ExercisesTab(
                     item { SessionSportMetricRow(detail) }
                     item { RouteUnavailableNotice(detail) }
                     item { detail.review?.let { SessionReviewCard(it) } }
-                    if (detail.routePoints.size >= 2) item { CardioRouteSection(detail.routePoints, showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty(),
-                        waterSport = detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true) }
+                    if (detail.routePoints.size >= 2) item {
+                        CardioRouteSection(
+                            detail.routePoints,
+                            showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty(),
+                            waterSport = detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true,
+                            workoutEpochMs = workoutEpochMs(detail),
+                            liveSportId = detail.liveSportID,
+                            persistedConditions = detail.activityConditions
+                        )
+                    }
                     item {
                         val heart by androidx.compose.runtime.produceState<List<Pair<Long,Int>>>(emptyList(),detail.id) {
                             value=runCatching { heartSeriesProvider(detail.id) }.getOrDefault(emptyList())

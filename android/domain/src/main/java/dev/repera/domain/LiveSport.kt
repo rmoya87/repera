@@ -16,10 +16,10 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     MOUNTAIN_BIKE("mountainBike", "Ciclismo de montaña", "bicycle", "Ciclismo"),
     GRAVEL("gravel", "Bicicleta de gravel", "bicycle", "Ciclismo"),
     CROSSFIT("crossfit", "CrossFit", "figure.cross.training", "Fuerza y fitness"),
-    STRENGTH("strength", "Entrenamiento", "dumbbell", "Fuerza y fitness"),
+    STRENGTH("strength", "Entrenamiento", "figure.strengthtraining.traditional", "Fuerza y fitness"),
     HIIT("hiit", "HIIT", "timer", "Fuerza y fitness"),
     HYROX("hyrox", "HYROX", "figure.run", "Fuerza y fitness"), // ExerciseCategorySymbols.discipline("HYROX") = figure.run,
-    TENNIS("tennis", "Tenis", "tennis.racket", "Deportes de raqueta"),
+    TENNIS("tennis", "Tenis", "figure.tennis", "Deportes de raqueta"),
     PADEL("padel", "Pádel", "figure.tennis", "Deportes de raqueta"),
     SURFING("surfing", "Surf", "surfboard", "Deportes acuáticos"),
     SWIMMING("swimming", "Natación", "figure.pool.swim", "Deportes acuáticos"),
@@ -34,36 +34,43 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
     ICE_SKATING("iceSkating", "Patinaje sobre hielo", "figure.ice.skating", "Deportes de invierno"),
     SNOWBOARDING("snowboarding", "Snowboard", "figure.snowboarding", "Deportes de invierno"),
     CROSS_COUNTRY_SKIING("crossCountrySkiing", "Esquí de fondo", "figure.skiing.crosscountry", "Deportes de invierno"),
-    SOCCER("soccer", "Fútbol", "soccerball", "Deportes de equipo"),
-    BASKETBALL("basketball", "Baloncesto", "basketball", "Deportes de equipo"),
-    VOLLEYBALL("volleyball", "Voleibol", "volleyball", "Deportes de equipo"),
+    SOCCER("soccer", "Fútbol", "figure.indoor.soccer", "Deportes de equipo"),
+    BASKETBALL("basketball", "Baloncesto", "figure.basketball", "Deportes de equipo"),
+    VOLLEYBALL("volleyball", "Voleibol", "figure.volleyball", "Deportes de equipo"),
     CLIMBING("climbing", "Escalada", "figure.climbing", "Otros deportes"),
     DANCE("dance", "Baile", "figure.dance", "Otros deportes"),
     PILATES("pilates", "Pilates", "figure.pilates", "Otros deportes"),
     SKATEBOARDING("skateboarding", "Skateboard", "figure.skating", "Otros deportes"),
     BOXING("boxing", "Boxeo", "figure.boxing", "Combate"),
-    KICKBOXING("kickboxing", "Kickboxing", "figure.boxing", "Combate"),
+    KICKBOXING("kickboxing", "Kickboxing", "figure.kickboxing", "Combate"),
     MARTIAL_ARTS("martialArts", "Artes marciales", "figure.martial.arts", "Combate"),
-    WRESTLING("wrestling", "Lucha", "figure.martial.arts", "Combate"),
-    BADMINTON("badminton", "Bádminton", "figure.tennis", "Deportes de raqueta"),
-    PICKLEBALL("pickleball", "Pickleball", "figure.tennis", "Deportes de raqueta"),
-    SQUASH("squash", "Squash", "figure.tennis", "Deportes de raqueta"),
+    WRESTLING("wrestling", "Lucha", "figure.wrestling", "Combate"),
+    BADMINTON("badminton", "Bádminton", "figure.badminton", "Deportes de raqueta"),
+    PICKLEBALL("pickleball", "Pickleball", "figure.pickleball", "Deportes de raqueta"),
+    SQUASH("squash", "Squash", "figure.squash", "Deportes de raqueta"),
     FUNCTIONAL_STRENGTH("functionalStrength", "Fuerza funcional", "dumbbell", "Cardio y gimnasio"),
     CORE_TRAINING("coreTraining", "Core", "figure.core.training", "Cardio y gimnasio"),
+    /** Legacy: fuera del picker; sesiones antiguas / Health Connect. */
     ELLIPTICAL("elliptical", "Elíptica", "figure.mixed.cardio", "Cardio y gimnasio"),
+    /** Legacy: fuera del picker. */
     STAIR_CLIMBING("stairClimbing", "Subida de escaleras", "figure.mixed.cardio", "Cardio y gimnasio"),
-    AMERICAN_FOOTBALL("americanFootball", "Fútbol americano", "sportscourt", "Deportes de equipo"),
-    BASEBALL("baseball", "Béisbol", "sportscourt", "Deportes de equipo"),
-    SOFTBALL("softball", "Sóftbol", "sportscourt", "Deportes de equipo"),
-    HOCKEY("hockey", "Hockey", "sportscourt", "Deportes de equipo"),
-    LACROSSE("lacrosse", "Lacrosse", "sportscourt", "Deportes de equipo"),
-    RUGBY("rugby", "Rugby", "sportscourt", "Deportes de equipo"),
+    AMERICAN_FOOTBALL("americanFootball", "Fútbol americano", "figure.american.football", "Deportes de equipo"),
+    BASEBALL("baseball", "Béisbol", "figure.baseball", "Deportes de equipo"),
+    /** Legacy: fuera del picker. */
+    SOFTBALL("softball", "Sóftbol", "figure.baseball", "Deportes de equipo"),
+    HOCKEY("hockey", "Hockey", "figure.field.hockey", "Deportes de equipo"),
+    LACROSSE("lacrosse", "Lacrosse", "figure.lacrosse", "Deportes de equipo"),
+    RUGBY("rugby", "Rugby", "figure.rugby", "Deportes de equipo"),
     YOGA("yoga", "Yoga", "figure.yoga", "Otros deportes"),
     MOBILITY("mobility", "Movilidad", "figure.flexibility", "Otros deportes"),
     OTHER("other", "Otra actividad", "figure.mixed.cardio", "Otros deportes");
 
-    /** Apple (live main): gravel y «Otra actividad» quedan como respaldo seleccionable. */
-    val isSelectable:Boolean get()=true
+    /** Gravel y «Otra» siguen; elíptica / escaleras / sóftbol no salen en Comenzar. */
+    val isSelectable: Boolean
+        get() = when (this) {
+            ELLIPTICAL, STAIR_CLIMBING, SOFTBALL -> false
+            else -> true
+        }
 
     /** Clave de tipo de actividad (misma que usa HealthMuscleMapper); espejo de LiveSport.healthType de Apple. */
     val healthKey: String
@@ -140,13 +147,37 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             else -> false
         }
 
-    /** Solo calcular desnivel cuando la actividad tiene sentido en pendiente. */
-    val tracksElevation: Boolean
+    /** Elevación y vel. mín/media/máx en ficha (paridad iOS showsElevationAndSpeedStats). */
+    val showsElevationAndSpeedStats: Boolean
         get() = when (this) {
-            HIKING, TRAIL, MOUNTAIN_BIKE, SKIING,
-            SNOWBOARDING, CROSS_COUNTRY_SKIING -> true
+            WALKING, HIKING,
+            CYCLING, MOUNTAIN_BIKE, GRAVEL,
+            SKIING, SNOWBOARDING, SURFING, SKATEBOARDING -> true
             else -> false
         }
+
+    /** Solo calcular desnivel cuando la actividad tiene sentido en pendiente. */
+    val tracksElevation: Boolean get() = showsElevationAndSpeedStats
+
+    /** Pádel/tenis/raqueta: tiles Tiempo · Kcal · Pasos. */
+    val usesRacketSummaryTiles: Boolean
+        get() = this in setOf(TENNIS, PADEL, BADMINTON, PICKLEBALL, SQUASH)
+
+    /** Equipo / combate / raqueta: Tiempo · Kcal · Pasos. */
+    val usesStepsKcalSummaryTiles: Boolean
+        get() = usesRacketSummaryTiles || this in setOf(
+            SOCCER, BASKETBALL, VOLLEYBALL, AMERICAN_FOOTBALL, BASEBALL,
+            SOFTBALL, HOCKEY, LACROSSE, RUGBY,
+            BOXING, KICKBOXING, MARTIAL_ARTS, WRESTLING
+        )
+
+    /** Indoor suave: Tiempo · Kcal · FC. */
+    val usesHeartRateSummaryTiles: Boolean
+        get() = this in setOf(YOGA, PILATES, MOBILITY, DANCE, CORE_TRAINING)
+
+    /** HIIT / CrossFit / HYROX / fuerza Comenzar: Tiempo · Kcal · FC|Pasos. */
+    val usesFitnessClassSummaryTiles: Boolean
+        get() = this in setOf(HIIT, CROSSFIT, HYROX, STRENGTH, FUNCTIONAL_STRENGTH)
 
     /** Un salto medio tras un cierre debe ser razonable para el deporte.
      *  No usar el límite más permisivo de picos GPS reales. (Apple 0a640da8) */
@@ -187,12 +218,14 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
             "Combate", "Cardio y gimnasio", "Otros deportes"
         )
 
-        val selectableCases:List<LiveSport>
+        val selectableCases: List<LiveSport>
             get() {
-                val collator=java.text.Collator.getInstance(java.util.Locale("es"))
-                return entries.filter {it.isSelectable}.sortedWith {a,b ->
-                    val result=collator.compare(a.title,b.title)
-                    if(result==0) a.id.compareTo(b.id) else result
+                val collator = java.text.Collator.getInstance(java.util.Locale("es"))
+                return entries.filter { it.isSelectable }.sortedWith { a, b ->
+                    if (a == OTHER) return@sortedWith 1
+                    if (b == OTHER) return@sortedWith -1
+                    val result = collator.compare(a.title, b.title)
+                    if (result == 0) a.id.compareTo(b.id) else result
                 }
             }
 
@@ -201,7 +234,7 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
         /**
          * Deportes que representan tiempo cardio real en Progreso
          * (StatsEngine.cardioLiveSports de Apple). No fabrican kcal, FC ni
-         * carga muscular.
+         * carga muscular. Incluye ids legacy (elíptica / escaleras / sóftbol).
          */
         val cardioLiveSports: Set<String> = setOf(
             "running", "cycling", "walking", "hiking", "trail", "mountainBike",

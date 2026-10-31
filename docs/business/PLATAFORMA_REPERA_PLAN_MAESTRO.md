@@ -9,7 +9,7 @@
 - **Modelo comercial gimnasio/entrenador → cliente:** totalmente configurable, independiente del modelo anterior.
 - **Hosting web:** IONOS compartido, solo HTML/CSS/JS precompilado; cero Node/SSR/servidor propio en producción.
 - **Backend compartido:** Supabase independiente, inicialmente gratuito según disponibilidad del plan y políticas actuales, PostgreSQL + Auth + Edge Functions + Storage + tareas programadas gestionadas. Sin tocar Cafesito.
-- **Apps:** iOS/watchOS 27+ nativas ya presentes; Android futura nativa, sin copiar requisitos de iCloud ni depender de Apple.
+- **Apps:** iOS/watchOS 26+ nativas ya presentes; Android nativa API 30+, sin copiar requisitos de iCloud ni depender de Apple.
 - **Identidad:** Supabase Auth es identidad de usuarios multiplataforma. Sign in with Apple debe intercambiarse por una sesión Supabase verificada; el ID guardado en Keychain por sí solo **no** es credencial de Supabase.
 - **Fuente de verdad:** backend para grupos, profesionales, programas publicados, contratos, bonos, reservas y cobros; base local del móvil para sesión en curso, métricas privadas, uso offline; sincronización por entidad, nunca reemplazar todo el estado por un JSON remoto.
 - **Seguridad:** negocio a negocio mediante `org_id`, RLS obligatoria, roles reales en tablas protegidas, permisos por función, consentimiento y auditoría. «Ver como» solo mediante delegación de servidor, tiempo limitado y auditada.

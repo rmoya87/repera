@@ -190,25 +190,27 @@ internal fun WorkoutSummaryTile(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     compact: Boolean = false
 ) {
+    // Paridad iOS WorkoutSummaryTile: altura fija (52 contenido + padding) para alinear fila.
     Column(
         modifier
+            .height(if (compact) 64.dp else 72.dp)
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
             .padding(
-                horizontal = if (compact) 6.dp else 12.dp,
+                horizontal = if (compact) 6.dp else 10.dp,
                 vertical = if (compact) 8.dp else 10.dp
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 7.dp)
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 icon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(if (compact) 11.dp else 13.dp)
+                modifier = Modifier.size(if (compact) 11.dp else 12.dp)
             )
             Text(
                 title,
@@ -224,7 +226,9 @@ internal fun WorkoutSummaryTile(
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
         )
     }
 }

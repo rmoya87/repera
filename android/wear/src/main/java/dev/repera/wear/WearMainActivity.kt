@@ -1,5 +1,6 @@
 package dev.repera.wear
 
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -59,6 +60,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     companion object {
         /** Plan del día en caché: se invalida tras 18 h (día atlética + margen). */
         const val TODAY_PLAN_TTL_MS = 18L * 60L * 60L * 1000L
+        /** Complicación / tile de esfera: abrir hub centrado en el plan de hoy. */
+        const val EXTRA_OPEN_TODAY = "dev.repera.wear.OPEN_TODAY"
     }
 
     private val dataClient by lazy { Wearable.getDataClient(this) }
@@ -213,6 +216,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 JSONArray(raw).let { arr -> (0 until arr.length()).map { arr.getString(it) } }
             }.getOrDefault(emptyList())
         }
+        consumeOpenTodayIntent(intent)
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         setContent {
@@ -288,6 +292,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     sessionCache.edit().putString(
                                         "finishedDismissed", finished.sessionId).apply()
                                     finishedSummary = null
+                                    suppressCompanionLive = true
+                                    liveActivityJson = null
+                                    hubIndex = resolvedHubIndex()
+                                },
+                                onDismissLiveToHome = {
                                     suppressCompanionLive = true
                                     liveActivityJson = null
                                     hubIndex = resolvedHubIndex()
@@ -444,6 +453,27 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeOpenTodayIntent(intent)
+    }
+
+    /** Complicación / tile: hub en plan de hoy (sin iniciar solo). */
+    private fun consumeOpenTodayIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_TODAY, false) != true) return
+        intent.removeExtra(EXTRA_OPEN_TODAY)
+        if (visibleSession != null || liveActivityJson != null) return
+        finishedSummary = null
+        hubOverlay = WearHubOverlay.HOME
+        hubIndex = 0
+        sessionCache.edit().putInt("hubIndex", 0).apply {
+            wearHubCarouselItems(todayPlanJson, recentLiveSportIDs).firstOrNull()?.let {
+                putString("lastHubItemID", carouselItemId(it))
+            }
+        }.apply()
     }
 
     override fun onStart() {

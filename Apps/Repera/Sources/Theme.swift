@@ -507,6 +507,19 @@ extension View {
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
     }
 
+    /// Fecha bajo el título grande, **fuera** del bloque de tiles/sección agrupada.
+    /// La List recorta el contenido de las filas de sección y corta glifos
+    /// iniciales («S» de sábado); esta fila clara no se recorta.
+    /// Insets: mismo leading 0 que título/tiles; `bottom: 10` = antiguo spacing
+    /// del VStack entre fecha y tiles.
+    func ogSessionDateListRow() -> some View {
+        self
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 10, trailing: 0))
+    }
+
     /// Título arriba del todo (sin franja vacía). Acciones opcionales a la derecha, misma fila.
     /// Para roots sin volver, o cuando no hay botones encima del título.
     func ogFixedTopBar(
@@ -562,6 +575,16 @@ extension View {
             .listRowInsets(EdgeInsets(top: top, leading: 0, bottom: bottom, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+    }
+
+    /// Contenedor de swipe nativo (iOS 27+). En 26 los `.swipeActions` individuales bastan.
+    @ViewBuilder
+    func ogSwipeActionsContainer() -> some View {
+        if #available(iOS 27, *) {
+            self.swipeActionsContainer()
+        } else {
+            self
+        }
     }
 
     /// Sheet tipo menú: alto = contenido (no pantalla completa).

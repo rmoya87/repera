@@ -5,12 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -18,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -216,21 +213,6 @@ internal fun WorkoutHistoryDetailScreen(
  }
  val navTitle = workout.title.ifBlank { "Entreno" }
  val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }
- val volumeLabel = remember(workout) {
-  val fromLines = workout.movements.flatMap { m ->
-   m.registered + m.editableSets.map { it.line }
-  }
-  val kg = fromLines.mapNotNull { line ->
-   Regex("""([\d.,]+)\s*kg""", RegexOption.IGNORE_CASE).find(line)
-    ?.groupValues?.getOrNull(1)
-    ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) }
-  }.sum()
-  when {
-   kg >= 1000 -> "${dev.repera.domain.ReperaNumberFormat.decimal(kg / 1000)} t"
-   kg > 0 -> "%,d".format(Locale("es", "ES"), kg.toInt()).replace(',', '.')
-   else -> "—"
-  }
- }
 
  if (confirmDelete) {
   ReperaConfirmSheet(
@@ -291,58 +273,144 @@ internal fun WorkoutHistoryDetailScreen(
     }
    }
   }
+  // Título y fecha fuera del bloque de tiles (paridad iOS ogSessionDateListRow).
   item {
-   Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+   Text(
+    navTitle,
+    style = MaterialTheme.typography.headlineSmall,
+    fontWeight = FontWeight.Bold
+   )
+  }
+  if (subtitle.isNotBlank()) {
+   item {
     Text(
-     navTitle,
-     style = MaterialTheme.typography.headlineSmall,
-     fontWeight = FontWeight.Bold
+     subtitle,
+     style = MaterialTheme.typography.bodyMedium,
+     color = MaterialTheme.colorScheme.onSurfaceVariant,
+     modifier = Modifier.padding(bottom = 2.dp)
     )
-    if (subtitle.isNotBlank()) {
-     Text(
-      subtitle,
-      style = MaterialTheme.typography.bodyMedium,
-      color = MaterialTheme.colorScheme.onSurfaceVariant
+   }
+  }
+  item {
+   val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+   val movementProvider = LocalSessionMovement.current
+   val movement by produceState<dev.repera.domain.SessionMovement?>(null, workout.id) {
+    value = runCatching { movementProvider(workout.id) }.getOrNull()
+   }
+   val volumeKg = remember(workout) {
+    SessionSummaryTilesBuilder.volumeKgFromScoreSession(workout.scoreSessionJson)
+   }
+   val durationLabel = when {
+    workout.timerDetails != null -> {
+     val s = workout.timerDetails.configuredSeconds.coerceAtLeast(0)
+     val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
+     if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+    }
+    mins != null && mins > 0 -> "$mins′"
+    else -> "—"
+   }
+   val activeSeconds = workout.activeDurationSeconds
+    ?: mins?.takeIf { it > 0 }?.times(60.0)
+   // Paridad iOS SessionSummaryTilesBuilder: kcal / FC / pasos reales.
+   val specs = SessionSummaryTilesBuilder.tiles(
+    durationLabel = durationLabel,
+    sport = sport,
+    kcal = workout.appleActiveEnergyKcal,
+    steps = movement?.steps,
+    averageHeartRateBpm = workout.appleAverageHeartRateBpm,
+    distanceMeters = workout.recordedDistanceMeters
+     ?: movement?.distanceMeters,
+    paceOrSpeedLabel = SessionSummaryTilesBuilder.paceOrSpeedLabel(
+     sport,
+     workout.recordedDistanceMeters ?: movement?.distanceMeters,
+     activeSeconds
+    ),
+    timerDetails = workout.timerDetails,
+    volumeKg = volumeKg,
+    scoreSessionJson = workout.scoreSessionJson,
+    displayResults = workout.results,
+    hasWodBlock = workout.movements.any { it.wod }
+   )
+   Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+     Modifier.fillMaxWidth(),
+     horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+     specs.forEach { spec ->
+      WorkoutSummaryTile(
+       title = spec.title,
+       value = spec.value,
+       icon = spec.icon,
+       modifier = Modifier.weight(1f),
+       iconTint = spec.tint
+      )
+     }
+    }
+    // Misma agrupación visual que iOS (tiles + review).
+    workout.review?.let { SessionReviewCard(it) }
+   }
+  }
+  // Métricas primero (sin título «Entreno»), como HistoryView iOS.
+  // Solo card si hay algo que mostrar (evita el rectángulo vacío).
+  item {
+   val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+   val showGpsMetrics = sport?.usesGPS == true && (
+    workout.routePoints.size >= 2
+     || workout.liveKilometerSplitsSeconds.isNotEmpty()
+     || ((workout.recordedDistanceMeters ?: 0.0) > 0
+      && (workout.activeDurationSeconds ?: 0.0) > 0)
+    )
+   val showRouteGap = RouteUnavailable.applies(
+    sport, workout.recordedDistanceMeters, workout.routePoints.size
+   )
+   // HeartRateCurveSection se auto-oculta sin series; el resto sí necesita gate.
+   if (showGpsMetrics || workout.liveKilometerSplitsSeconds.isNotEmpty() || showRouteGap) {
+    Column(
+     Modifier
+      .fillMaxWidth()
+      .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+      .padding(14.dp),
+     verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+     if (showGpsMetrics || workout.liveKilometerSplitsSeconds.isNotEmpty()) {
+      SessionSportMetricRow(workout)
+      LiveKilometerSplitsSection(
+       workout.liveKilometerSplitsSeconds,
+       sport?.displaysSpeed == true,
+       workout.routePoints
+      )
+     }
+     SessionMovementSection(workout.id)
+     RouteUnavailableNotice(workout)
+     HeartRateCurveSection(
+      sessionId = workout.id,
+      provider = heartSeries,
+      sectionTitle = null
      )
     }
-   }
-  }
-  item {
-   Row(
-    Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(8.dp)
-   ) {
-    WorkoutSummaryTile(
-     title = "Tiempo",
-     value = mins?.let { "$it′" } ?: "—",
-     icon = Icons.Outlined.AccessTime,
-     modifier = Modifier.weight(1f),
-     iconTint = Color(0xFF0A84FF)
-    )
-    WorkoutSummaryTile(
-     title = "Kcal",
-     value = "—",
-     icon = Icons.Outlined.LocalFireDepartment,
-     modifier = Modifier.weight(1f),
-     iconTint = Color(0xFFFF9F0A)
-    )
-    WorkoutSummaryTile(
-     title = "Volumen",
-     value = volumeLabel,
-     icon = Icons.Outlined.FitnessCenter,
-     modifier = Modifier.weight(1f),
-     iconTint = brandGreen
+   } else {
+    // Solo curva FC / pasos sin GPS: sin card vacía envolvente.
+    SessionMovementSection(workout.id)
+    HeartRateCurveSection(
+     sessionId = workout.id,
+     provider = heartSeries,
+     sectionTitle = null
     )
    }
   }
-  workout.review?.let { item { SessionReviewCard(it) } }
-  item {
-   // Solo si hay curva de FC (si no, dejaba «Entreno» + card vacía).
-   HeartRateCurveSection(
-    sessionId = workout.id,
-    provider = heartSeries,
-    sectionTitle = "Entreno"
-   )
+  // GPS: mapa tras métricas (antes de ejercicios).
+  val sportForMap = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+  if (sportForMap?.usesGPS == true && workout.routePoints.size >= 2) {
+   item {
+    CardioRouteSection(
+     workout.routePoints,
+     showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
+     waterSport = sportForMap.isWaterSport,
+     workoutEpochMs = workoutEpochMs(workout),
+     liveSportId = workout.liveSportID,
+     persistedConditions = workout.activityConditions
+    )
+   }
   }
   // Bloques / ejercicios con thumb (paridad iOS exerciseCard).
   val blockTitle = workout.results.firstOrNull()?.takeIf { it.isNotBlank() }
@@ -411,15 +479,43 @@ internal fun WorkoutHistoryDetailScreen(
     }
    }
   }
-  if (workout.routePoints.size >= 2) {
+  if (!workout.notes.isNullOrBlank()) {
    item {
-    CardioRouteSection(
-     workout.routePoints,
-     showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
-     waterSport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true,
-     workoutEpochMs = workoutEpochMs(workout)
-    )
+    ReperaSectionTitle("Notas")
+    ReperaCard(Modifier.fillMaxWidth()) {
+     Text(
+      workout.notes.orEmpty(),
+      style = MaterialTheme.typography.bodyMedium,
+      modifier = Modifier.padding(16.dp)
+     )
+    }
+   }
+  }
+  // No GPS: pin + clima al final (paridad iOS detailMapSections).
+  if (sportForMap?.usesGPS != true) {
+   val placeOnly = workout.locationPin?.takeIf { it.hasChosenPlace }
+   if (placeOnly != null) {
+    item {
+     SessionMapWeatherCard(
+      latitude = placeOnly.latitude,
+      longitude = placeOnly.longitude,
+      workoutEpochMs = workoutEpochMs(workout),
+      placePin = placeOnly,
+      modifier = Modifier.fillMaxWidth(),
+      liveSportId = workout.liveSportID,
+      persistedConditions = workout.activityConditions
+     ) {
+      PlacePinMap(
+       placeOnly.latitude,
+       placeOnly.longitude,
+       isInteractive = false,
+       modifier = Modifier
+        .fillMaxWidth()
+        .height(180.dp)
+      )
+     }
+    }
    }
   }
  }
- }
+}

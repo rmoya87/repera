@@ -118,16 +118,22 @@ enum LiveSport: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Mantener también Bicicleta gravel y Otra actividad como opción de
-    /// respaldo: ninguna disciplina queda bloqueada por falta de un nombre
-    /// específico. Los datos reales siguen procediendo de HealthKit.
-    var isSelectable: Bool { true }
+    /// Mantener gravel y «Otra actividad» como respaldo. Elíptica, escaleras y
+    /// sóftbol quedan en el enum (sesiones antiguas) pero fuera del picker.
+    var isSelectable: Bool {
+        switch self {
+        case .elliptical, .stairClimbing, .softball: false
+        default: true
+        }
+    }
 
     /// Única fuente de verdad para Elegir actividad y Elegir deporte:
-    /// orden alfabético localizado dentro de cada sección.
+    /// orden alfabético localizado dentro de cada sección; «Otra actividad» al final.
     static let selectableCases = allCases
         .filter(\.isSelectable)
         .sorted {
+            if $0 == .other { return false }
+            if $1 == .other { return true }
             let order = $0.title.localizedStandardCompare($1.title)
             return order == .orderedSame ? $0.rawValue < $1.rawValue : order == .orderedAscending
         }
@@ -199,9 +205,9 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .hiking: "figure.hiking"
         case .crossfit: "figure.cross.training"
         case .hyrox: ExerciseCategorySymbols.discipline("HYROX")
-        case .strength: "dumbbell"
+        case .strength: "figure.strengthtraining.traditional"
         case .hiit: "timer"
-        case .tennis: "tennis.racket"
+        case .tennis: "figure.tennis"
         case .padel: "figure.tennis"
         case .surfing: "surfboard"
         case .swimming: "figure.pool.swim"
@@ -217,21 +223,29 @@ enum LiveSport: String, CaseIterable, Identifiable {
         case .skateboarding: "figure.skating"
         case .snowboarding: "figure.snowboarding"
         case .crossCountrySkiing: "figure.skiing.crosscountry"
-        case .soccer: "soccerball"
-        case .basketball: "basketball"
-        case .volleyball: "volleyball"
+        case .soccer: "figure.indoor.soccer"
+        case .basketball: "figure.basketball"
+        case .volleyball: "figure.volleyball"
         case .climbing: "figure.climbing"
         case .dance: "figure.dance"
         case .pilates: "figure.pilates"
         case .yoga: "figure.yoga"
         case .mobility: "figure.flexibility"
-        case .boxing, .kickboxing: "figure.boxing"
-        case .martialArts, .wrestling: "figure.martial.arts"
-        case .badminton, .pickleball, .squash: "figure.tennis"
+        case .boxing: "figure.boxing"
+        case .kickboxing: "figure.kickboxing"
+        case .martialArts: "figure.martial.arts"
+        case .wrestling: "figure.wrestling"
+        case .badminton: "figure.badminton"
+        case .pickleball: "figure.pickleball"
+        case .squash: "figure.squash"
         case .functionalStrength: "dumbbell"
         case .coreTraining: "figure.core.training"
         case .elliptical, .stairClimbing: "figure.mixed.cardio"
-        case .americanFootball, .baseball, .softball, .hockey, .lacrosse, .rugby: "sportscourt"
+        case .americanFootball: "figure.american.football"
+        case .baseball, .softball: "figure.baseball"
+        case .hockey: "figure.field.hockey"
+        case .lacrosse: "figure.lacrosse"
+        case .rugby: "figure.rugby"
         case .other: "figure.mixed.cardio"
         }
     }
@@ -1072,6 +1086,10 @@ final class LiveActivityRecorder: NSObject {
     private var lastLiveActivityUpdate = Date.distantPast
     private var lastPublishedDistanceMeters: Double = 0
     private let snapshotKey = "repera.live.current.v1"
+    /// Condiciones Open-Meteo (marea/nieve) para Watch y revisión.
+    private(set) var liveConditions: ActivityConditionsSnapshot?
+    @ObservationIgnored private var lastConditionsFetch = Date.distantPast
+    @ObservationIgnored private var conditionsTask: Task<Void, Never>?
 
     private override init() {
         super.init()
@@ -1409,6 +1427,8 @@ final class LiveActivityRecorder: NSObject {
         currentSpeedMps = nil
         currentCourseDegrees = nil
         gpsMessage = nil
+        liveConditions = nil
+        lastConditionsFetch = .distantPast
         phase = .recording
         let sessionID = gpsSessionID
         let workoutStart = startedAt ?? Date()
@@ -1420,6 +1440,7 @@ final class LiveActivityRecorder: NSObject {
                 locationType: selectedSport.usesGPS ? .outdoor : .indoor
             )
         }
+        refreshConditionsIfNeeded(force: true)
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
@@ -1529,8 +1550,39 @@ final class LiveActivityRecorder: NSObject {
             averageSpeedKmh: averageSpeedKmh,
             nextTurn: sport.usesGPS ? upcomingTurn : nil,
             nextTurnMeters: sport.usesGPS ? upcomingTurnMeters : nil,
-            capturedAt: Date()
+            capturedAt: Date(),
+            conditions: liveConditions
         )
+    }
+
+    /// Refresco Open-Meteo ~cada 12 min (o forzado) con la última coordenada.
+    func refreshConditionsIfNeeded(force: Bool = false) {
+        let family = ActivityConditionsSnapshot.family(forLiveSportID: sport.rawValue)
+        guard family != .none else { return }
+        guard let coord = currentCoordinate
+                ?? routePoints.last.map({
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                })
+                ?? reviewLocationPin.map({
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                })
+        else { return }
+        if !force, Date().timeIntervalSince(lastConditionsFetch) < 12 * 60 { return }
+        lastConditionsFetch = Date()
+        let sportID = sport.rawValue
+        conditionsTask?.cancel()
+        conditionsTask = Task { @MainActor in
+            let snap = await OpenMeteoConditionsClient.fetch(
+                latitude: coord.latitude,
+                longitude: coord.longitude,
+                sportID: sportID
+            )
+            guard !Task.isCancelled else { return }
+            self.liveConditions = snap
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+            )
+        }
     }
 
     var durationSeconds: TimeInterval { duration(at: Date()) }
@@ -1578,6 +1630,7 @@ final class LiveActivityRecorder: NSObject {
         stopGPS()
         // No perder «finalizado» detrás de otros kilómetros/giros en cola.
         stopGuidanceAudio()
+        refreshConditionsIfNeeded(force: true)
         persistSnapshot()
         updateLiveActivity()
         // Misma señal final del temporizador; no pronunciar «Finalizado».
@@ -1602,7 +1655,8 @@ final class LiveActivityRecorder: NSObject {
             liveRouteID: chosenRoute?.id,
             recordedDistanceMeters: sport.usesGPS ? recordedDistanceMeters : nil,
             activeDurationSeconds: durationSeconds,
-            liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds)
+            liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds),
+            activityConditions: liveConditions
         )
     }
 
@@ -1655,6 +1709,10 @@ final class LiveActivityRecorder: NSObject {
         latestKilometerReport = nil
         previousFixActiveSeconds = nil
         chosenRoute = nil
+        liveConditions = nil
+        lastConditionsFetch = .distantPast
+        conditionsTask?.cancel()
+        conditionsTask = nil
         UserDefaults.standard.removeObject(forKey: snapshotKey)
         NotificationCenter.default.post(
             name: Notification.Name("repera.liveWatchStateChanged"), object: nil
@@ -1708,6 +1766,7 @@ final class LiveActivityRecorder: NSObject {
             integrateElevation(altitude)
         }
         updateUpcomingTurn(position: fix.location)
+        refreshConditionsIfNeeded()
         if Date().timeIntervalSince(lastSave) > 10 { persistSnapshot() }
         if Date().timeIntervalSince(lastLiveActivityUpdate) >= 5 {
             updateLiveActivity()
@@ -2102,6 +2161,8 @@ struct LiveActivityView: View {
     @State private var savedWorkoutID: UUID?
     @State private var isSavingRecordedActivity = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
+    /// FC en vivo desde Salud (solo lectura; sin fabricar).
+    @State private var liveHeartRateBpm: Int?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @Namespace private var routeZoomNamespace
@@ -3008,31 +3069,34 @@ struct LiveActivityView: View {
                         .padding(.top, 12)
                 }
                 Spacer(minLength: 14)
-                Text(recorder.sport.usesGPS ? paceOrSpeed : "—")
-                    .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.55).lineLimit(1)
-                    .foregroundStyle(OG.label)
-                Text(recorder.sport.usesGPS ?
-                    (recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)") :
-                    "Frecuencia cardíaca (lpm)")
-                    .font(.subheadline).foregroundStyle(OG.label2)
-                Spacer(minLength: 14)
                 if recorder.sport.usesGPS {
+                    Text(paceOrSpeed)
+                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                        .minimumScaleFactor(0.55).lineLimit(1)
+                        .foregroundStyle(OG.label)
+                    Text(recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)")
+                        .font(.subheadline).foregroundStyle(OG.label2)
+                    Spacer(minLength: 14)
                     Text(ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
                 } else {
+                    Text(liveHeartRateBpm.map { "\($0)" } ?? "—")
+                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                        .minimumScaleFactor(0.55).lineLimit(1)
+                        .foregroundStyle(OG.label)
+                    Text("Frecuencia cardíaca (lpm)")
+                        .font(.subheadline).foregroundStyle(OG.label2)
+                    Spacer(minLength: 14)
                     Text("—")
-                        .font(.system(size: 55, weight: .semibold, design: .rounded))
+                        .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Calorías activas (kcal)")
                         .font(.subheadline).foregroundStyle(OG.label2)
-                    Text("El pulso y las calorías se incorporan al finalizar si Apple Salud tiene mediciones reales.")
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(OG.label2)
-                        .padding(.horizontal, 30)
+                    HeartRateZoneBar(bpm: liveHeartRateBpm)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 10)
                 }
                 if recorder.sport.tracksElevation && recorder.hasElevationSamples {
                     HStack {
@@ -3066,7 +3130,27 @@ struct LiveActivityView: View {
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
                 recorder.checkpoint()
             }
+            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
+                Task { await refreshLiveHeartRate() }
+            }
+            .task(id: "\(recorder.phase)-\(recorder.startedAt?.timeIntervalSince1970 ?? 0)") {
+                await refreshLiveHeartRate()
+            }
         }
+    }
+
+    /// Lee la última FC de Salud desde el inicio de la sesión (Watch/banda si escriben).
+    private func refreshLiveHeartRate() async {
+        guard !recorder.sport.usesGPS,
+              recorder.phase == .recording || recorder.phase == .paused,
+              let start = recorder.startedAt
+        else {
+            if recorder.phase == .idle || recorder.phase == .review {
+                liveHeartRateBpm = nil
+            }
+            return
+        }
+        liveHeartRateBpm = await HealthKitStore.shared.latestHeartRateBpm(since: start)
     }
 
     /// Últimas tres posiciones SIEMPRE fijas contra el margen derecho:
@@ -3299,39 +3383,42 @@ struct LiveActivityView: View {
                 OGScrollablePageTitle(title.isEmpty ? recorder.sport.title : title)
                     .ogScrollingTitleListRow()
 
+                let dateLine = reviewSubtitle(session: session)
+                if !dateLine.isEmpty {
+                    Text(dateLine)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .ogSessionDateListRow()
+                }
                 Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        let dateLine = reviewSubtitle(session: session)
-                        if !dateLine.isEmpty {
-                            Text(dateLine)
-                                .font(.system(size: 15, weight: .regular))
-                                .foregroundStyle(OG.label2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        SessionSummaryTilesRow(
-                            specs: SessionSummaryTilesBuilder.tiles(
-                                session: session,
-                                sport: recorder.sport,
-                                health: previewHealthExtras,
-                                durationLabel: reviewDurationLabel,
-                                paceOrSpeedLabel: isGPS ? paceOrSpeed : nil
-                            )
+                    SessionSummaryTilesRow(
+                        specs: SessionSummaryTilesBuilder.tiles(
+                            session: session,
+                            sport: recorder.sport,
+                            health: previewHealthExtras,
+                            durationLabel: reviewDurationLabel,
+                            paceOrSpeedLabel: isGPS ? paceOrSpeed : nil
                         )
-                    }
+                    )
                     .ogCardListRow(top: 0, bottom: 2)
                 }
 
-                // Métricas primero, sin título «Entreno».
+                // Métricas primero, sin título «Entreno». Sin card vacía si no hay datos.
                 let hasSportValues = (distanceMeters > 0
                     && (session.activeDurationSeconds ?? 0) > 0)
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
                 let hasHealthValues = previewHealthExtras?.hasAuthenticSaludMetrics == true
                     || previewHealthExtras?.hasExternalSaludSource == true
-                if hasSportValues || hasHealthValues || !isGPS {
+                let hasMovement = (previewHealthExtras?.stepsCount ?? 0) > 0
+                    || (previewHealthExtras?.movementDistanceMeters ?? 0) > 0
+                let showSplits = hasSportValues || hasMovement
+                let showHealthCard = hasHealthValues
+                let showRecoveryNote = recorder.estimatedRecoveryMeters > 0
+                if showSplits || showHealthCard || showRecoveryNote {
                     Section {
                         VStack(alignment: .leading, spacing: 14) {
-                            if hasSportValues || !isGPS {
+                            if showSplits {
                                 CardioSplitsView(
                                     routePoints: isRecordedRoute ? route : [],
                                     heartRate: previewHealthExtras?.heartRateSeries ?? [],
@@ -3347,7 +3434,7 @@ struct LiveActivityView: View {
                             }
                             if let extras = previewHealthExtras,
                                extras.hasAuthenticSaludMetrics || extras.hasExternalSaludSource {
-                                if hasSportValues || !isGPS {
+                                if showSplits {
                                     Divider().opacity(0.35)
                                 }
                                 HealthSessionMetricsCard(
@@ -3357,7 +3444,7 @@ struct LiveActivityView: View {
                                     showsAltitudeProfile: recorder.sport.showsElevationAndSpeedStats
                                 )
                             }
-                            if recorder.estimatedRecoveryMeters > 0 {
+                            if showRecoveryNote {
                                 Label(
                                     "Tramo estimado: aprox. \(Int(recorder.estimatedRecoveryMeters.rounded())) m en línea recta. El tiempo de ese intervalo también es aproximado; no son medidas GPS.",
                                     systemImage: "location.north.line"
@@ -3480,7 +3567,9 @@ struct LiveActivityView: View {
                     latitude: route.first?.latitude ?? placePin?.latitude,
                     longitude: route.first?.longitude ?? placePin?.longitude,
                     workoutDate: session.startedAt ?? .now,
-                    placePin: placePin
+                    placePin: placePin,
+                    liveSportID: session.liveSportID ?? recorder.sport.rawValue,
+                    activityConditions: session.activityConditions ?? recorder.liveConditions
                 ) {
                     if !previewPoints.isEmpty {
                         WorkoutMapTapTarget(

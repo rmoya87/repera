@@ -4,9 +4,9 @@ import PackageDescription
 let package = Package(
     name: "ReperaDomain",
     platforms: [
-        .iOS(.v27),
-        .watchOS(.v27),
-        .macOS(.v27),
+        .iOS(.v26),
+        .watchOS(.v26),
+        .macOS(.v26),
     ],
     products: [
         .library(name: "ReperaDomain", targets: ["ReperaDomain"]),

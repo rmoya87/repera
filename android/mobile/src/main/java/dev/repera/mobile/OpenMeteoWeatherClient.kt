@@ -43,6 +43,30 @@ internal object OpenMeteoWeatherClient {
         }
     }
 
+    suspend fun fetchConditions(
+        latitude: Double,
+        longitude: Double,
+        liveSportId: String?,
+        atEpochMs: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): Result<dev.repera.domain.ActivityConditionsSnapshot> = withContext(Dispatchers.IO) {
+        runCatching {
+            val family = dev.repera.domain.ActivityConditionsSnapshot.familyForLiveSportId(liveSportId)
+            require(family != dev.repera.domain.ActivityConditionsFamily.NONE) {
+                "Sin familia de condiciones para este deporte."
+            }
+            val forecast = httpGet(dev.repera.domain.ActivityConditionsLogic.forecastUrl(latitude, longitude))
+            val marine = if (family == dev.repera.domain.ActivityConditionsFamily.WATER) {
+                runCatching {
+                    httpGet(dev.repera.domain.ActivityConditionsLogic.marineUrl(latitude, longitude))
+                }.getOrNull()
+            } else null
+            dev.repera.domain.ActivityConditionsLogic.parse(
+                family, forecast, marine, atEpochMs, zone
+            ) ?: error("Sin datos de condiciones.")
+        }
+    }
+
     private fun httpGet(url: String): String {
         val c = URL(url).openConnection() as HttpURLConnection
         try {

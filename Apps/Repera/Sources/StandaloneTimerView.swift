@@ -536,45 +536,43 @@ struct StandaloneTimerView: View {
                     .ogScrollingTitleListRow()
 
                 if let summary = completedSummary {
+                    Text(
+                        SpanishDate.format(
+                            summary.finishedAt,
+                            date: .complete,
+                            time: .shortened
+                        )
+                    )
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+                    .ogSessionDateListRow()
+
                     Section {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(
-                                SpanishDate.format(
-                                    summary.finishedAt,
-                                    date: .complete,
-                                    time: .shortened
-                                )
+                        HStack(spacing: 10) {
+                            WorkoutSummaryTile(
+                                title: "Tiempo",
+                                value: DurationText.format(summary.configuredSeconds),
+                                icon: "clock.fill",
+                                tint: OG.blue
                             )
-                            .font(.system(size: 15))
-                            .foregroundStyle(OG.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: .infinity)
 
-                            HStack(spacing: 10) {
+                            WorkoutSummaryTile(
+                                title: "Modalidad",
+                                value: summary.configuration.mode.title,
+                                icon: "timer",
+                                tint: OG.accent
+                            )
+                            .frame(maxWidth: .infinity)
+
+                            if summary.configuration.mode == .intervals {
                                 WorkoutSummaryTile(
-                                    title: "Tiempo",
-                                    value: DurationText.format(summary.configuredSeconds),
-                                    icon: "clock.fill",
-                                    tint: OG.blue
+                                    title: "Rondas",
+                                    value: "\(summary.configuration.rounds)",
+                                    icon: "repeat",
+                                    tint: OG.orange
                                 )
                                 .frame(maxWidth: .infinity)
-
-                                WorkoutSummaryTile(
-                                    title: "Modalidad",
-                                    value: summary.configuration.mode.title,
-                                    icon: "timer",
-                                    tint: OG.accent
-                                )
-                                .frame(maxWidth: .infinity)
-
-                                if summary.configuration.mode == .intervals {
-                                    WorkoutSummaryTile(
-                                        title: "Rondas",
-                                        value: "\(summary.configuration.rounds)",
-                                        icon: "repeat",
-                                        tint: OG.orange
-                                    )
-                                    .frame(maxWidth: .infinity)
-                                }
                             }
                         }
                         .ogCardListRow(top: 0, bottom: 2)

@@ -2,7 +2,7 @@
 Última actualización: 2026-10-19. Estado: desarrollo incremental; no producto comercial completo.
 
 ## Objetivo y segmentos
-- Deportista: iOS 27+ SwiftUI/Watch (existente); Android Kotlin/Jetpack Compose (pendiente). Sin web para deportistas.
+- Deportista: iOS/watchOS 26+ SwiftUI/Watch; Android Kotlin/Jetpack Compose API 30+. Sin web para deportistas.
 - Profesional: entrenador independiente, gimnasio o centro deportivo. Panel web estático, compatible con Apache de IONOS.
 - Operación: administración Repera separada de la de cada organización.
 - Cobros B2B de Repera a profesionales **distintos** de pagos B2C de profesionales a deportistas. Precios configurables, no fijados en SQL.

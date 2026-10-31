@@ -16,7 +16,8 @@
         <meta-data android:name="com.google.android.wearable.standalone" android:value="false" />
         <activity
             android:name=".WearMainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -26,6 +27,8 @@
         <service
             android:name=".ReperaComplicationService"
             android:exported="true"
+            android:icon="@drawable/ic_repera_logo"
+            android:label="Repera"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
@@ -47,7 +50,7 @@
             </intent-filter>
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
-                android:resource="@drawable/ic_repera_complication" />
+                android:resource="@drawable/ic_repera_logo" />
         </service>
     </application>
 </manifest>

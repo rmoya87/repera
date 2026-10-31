@@ -5,7 +5,7 @@
 El monorepo alberga `Apps/Repera`, Watch, widget, paquete `Packages/ReperaDomain` y `web/`, hoy sitio marketing estático, no panel profesional. El historial deportivo permanece en JSON local + espejo iCloud; el backend NO reemplaza `ReperaStore` ni activa subida automática.
 
 ## Capas previstas
-1. iOS 27+ SwiftUI nativo / Apple Watch; Android Kotlin + Jetpack Compose, pendiente.
+1. iOS/watchOS 26+ SwiftUI nativo; Android Kotlin + Jetpack Compose API 30+.
 2. Panel administrativo/profesional **separado** del marketing, compilable como archivos HTML/CSS/JS estáticos para IONOS Apache. Autenticación y llamadas HTTPS a Supabase; **jamás** claves secret/service_role en el bundle.
 3. Supabase Repera: Auth, Postgres RLS, lógica transaccional para operaciones de negocio, Edge Functions para webhooks/notificaciones sensibles, Storage privado según autorización.
 4. Espejo de datos deportivos personales local/cloud nativa según cada plataforma; en Supabase únicamente compartidos necesarios, mediando consentimiento.

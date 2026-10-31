@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-10-31 (hub Deportes: plan efectivo, Comenzar autónomo, timer)
+Última actualización: 2026-10-31 (complicación circular: accent+SF Symbol; evita disco gris plantilla)
 
 ## Hub (31/10/2026)
 
@@ -41,7 +41,7 @@ No se infiere la concesión de permisos de una lista de muestras vacía. Una lec
 
 La extensión `ReperaWatchWidget` utiliza la estructura nativa de WidgetKit: `ReperaWatchWidget: Widget` devuelve `StaticConfiguration` desde `body: some WidgetConfiguration`, mientras que `ReperaWatchWidgetBundle: WidgetBundle` devuelve `ReperaWatchWidget()` desde `body: some Widget`. Nunca colocar `StaticConfiguration` directamente en el cuerpo de un `WidgetBundle`, porque `WidgetBundleBuilder.buildExpression` solo acepta tipos `Widget` y Swift devuelve `No exact matches in call to static method 'buildExpression'`.
 
-El test `test_watch_complication_uses_widget_configuration_inside_widget` en `tests/test_watch_healthkit_contract.py` protege esta composición. Se mantienen las familias circular, rectangular e inline, el icono `ReperaIcon` y el enlace `repera-watch://today`.
+Circular/rectangular: **mismo AppIcon** que la app (`ReperaIcon` / `repera_logo.png`) con `widgetAccentedRenderingMode(.fullColor)` para que la mascota no se aplane a disco verde. Enlace `repera-watch://today`. Wear: `ic_repera_logo` (AppIcon).
 
 ## Pruebas antes de publicar
 

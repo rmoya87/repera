@@ -38,6 +38,10 @@ struct ReperaWatchApp: App {
                         hub.applicationWillResignActive()
                     }
                 }
+                // Complicación de esfera: repera-watch://today
+                .onOpenURL { url in
+                    hub.openFromComplication(url: url)
+                }
         }
     }
 }

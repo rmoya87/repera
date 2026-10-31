@@ -84,10 +84,21 @@ class WatchHealthKitContractTests(unittest.TestCase):
     def test_offline_background_transport_and_complication(self):
         watch = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
         widget = source("Apps/ReperaWatchWidget/ReperaWatchWidget.swift")
+        app = source("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
         for symbol in ("transferUserInfo", "pendingKey", "acknowledge", "todayDayStart", "healthKitUUID"):
             self.assertIn(symbol, watch)
-        self.assertIn('Image("ReperaIcon")', widget)
+        self.assertIn("ReperaAppIconMark", widget)
+        self.assertIn("widgetAccentedRenderingMode(.fullColor)", widget)
+        self.assertIn("ReperaIcon", widget)
+        self.assertIn("repera_logo", widget)
+        self.assertIn("containerBackground(for: .widget)", widget)
         self.assertIn(".widgetURL(", widget)
+        self.assertIn('repera-watch://today', widget)
+        self.assertTrue((ROOT / "Apps/ReperaWatchWidget/repera_logo.png").is_file())
+        self.assertIn(".onOpenURL", app)
+        self.assertIn("openFromComplication", hub)
+        self.assertIn("repera-watch", source("Apps/ReperaWatch/Resources/Info.plist"))
 
     def test_watch_app_and_complication_icons_match_ios(self):
         """Reuse iOS AppIcon bytes so all three icons stay visually identical."""

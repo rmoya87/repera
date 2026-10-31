@@ -18,12 +18,15 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
     public let nextTurn: String?
     public let nextTurnMeters: Int?
     public let capturedAt: Date
+    /// Condiciones Open-Meteo (marea/nieve); opcionales.
+    public let conditions: ActivityConditionsSnapshot?
 
     public init(
         id: UUID, sportTitle: String, phase: Phase,
         elapsedSeconds: TimeInterval, distanceMeters: Double,
         averageSpeedKmh: Double?, nextTurn: String?,
-        nextTurnMeters: Int?, capturedAt: Date
+        nextTurnMeters: Int?, capturedAt: Date,
+        conditions: ActivityConditionsSnapshot? = nil
     ) {
         self.id = id
         self.sportTitle = sportTitle
@@ -34,6 +37,7 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         self.nextTurn = nextTurn
         self.nextTurnMeters = nextTurnMeters
         self.capturedAt = capturedAt
+        self.conditions = conditions
     }
 
     /// The phone owns the GPS/elapsed odometer. The watch interpolates display

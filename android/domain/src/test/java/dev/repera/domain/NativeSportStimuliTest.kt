@@ -9,16 +9,29 @@ class NativeSportStimuliTest {
         StatsWorkout(epoch, minutes, finished, liveSportID = sport)
 
     @Test fun newSportsExistAreSelectableAndGrouped() {
-        val ids = listOf("boxing", "kickboxing", "martialArts", "wrestling", "badminton", "pickleball", "squash",
-            "functionalStrength", "coreTraining", "elliptical", "stairClimbing", "americanFootball", "baseball",
-            "softball", "hockey", "lacrosse", "rugby")
-        for (id in ids) {
+        val selectable = listOf(
+            "boxing", "kickboxing", "martialArts", "wrestling", "badminton", "pickleball", "squash",
+            "functionalStrength", "coreTraining", "americanFootball", "baseball",
+            "hockey", "lacrosse", "rugby"
+        )
+        for (id in selectable) {
             val s = LiveSport.byId(id)
             assertNotNull(id, s); assertTrue(s!!.isSelectable); assertTrue(LiveSport.groups.contains(s.group))
         }
+        for (legacy in listOf("elliptical", "stairClimbing", "softball")) {
+            val s = LiveSport.byId(legacy)!!
+            assertFalse(legacy, s.isSelectable)
+            assertTrue(LiveSport.groups.contains(s.group))
+        }
         assertTrue(LiveSport.GRAVEL.isSelectable && LiveSport.OTHER.isSelectable)
         assertEquals("Combate", LiveSport.BOXING.group)
-        assertEquals("Cardio y gimnasio", LiveSport.ELLIPTICAL.group)
+        assertEquals("figure.kickboxing", LiveSport.KICKBOXING.symbol)
+        assertEquals("figure.wrestling", LiveSport.WRESTLING.symbol)
+        assertEquals("figure.american.football", LiveSport.AMERICAN_FOOTBALL.symbol)
+        assertEquals("figure.baseball", LiveSport.BASEBALL.symbol)
+        assertEquals("figure.field.hockey", LiveSport.HOCKEY.symbol)
+        assertEquals("figure.lacrosse", LiveSport.LACROSSE.symbol)
+        assertEquals("figure.rugby", LiveSport.RUGBY.symbol)
         assertTrue("crossfit" in LiveSport.cardioLiveSports && "rugby" in LiveSport.cardioLiveSports)
         assertFalse("coreTraining" in LiveSport.cardioLiveSports)
     }

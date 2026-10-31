@@ -56,7 +56,9 @@ abstract class FinishedEditorUnitPickerRenderBase {
         composeRule.setContent {
             MaterialTheme {
                 Surface(Modifier.testTag("fweditor").height(1400.dp)) {
-                    FinishedWorkoutEditorSection(workout, "acc", false, catalog) {}
+                    FinishedWorkoutEditorSection(
+                        workout, "acc", false, catalog, onSave = {}
+                    )
                 }
             }
         }

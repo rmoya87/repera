@@ -4,8 +4,8 @@ options:
   # Salvamos los cambios realizados en Xcode ANTES de regenerar el proyecto.
   preGenCommand: python3 scripts/sync_versions.py --from-project
   deploymentTarget:
-    iOS: "27.0"
-    watchOS: "27.0"
+    iOS: "26.0"
+    watchOS: "26.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -261,6 +261,10 @@ targets:
         NSHealthUpdateUsageDescription: Repera guarda en Apple Salud el entrenamiento registrado por el reloj, con las mediciones calculadas por HealthKit.
         WKBackgroundModes:
           - workout-processing
+        CFBundleURLTypes:
+          - CFBundleURLName: com.app.repera.watch
+            CFBundleURLSchemes:
+              - repera-watch
 
   ReperaWatchWidget:
     type: app-extension
@@ -268,6 +272,8 @@ targets:
     sources:
       - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift
       - path: Apps/ReperaWatchWidget/Assets.xcassets
+        buildPhase: resources
+      - path: Apps/ReperaWatchWidget/repera_logo.png
         buildPhase: resources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.watchkitapp.widget

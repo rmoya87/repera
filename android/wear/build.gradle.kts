@@ -26,6 +26,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.wear.compose:compose-material3:1.7.1")
     implementation("androidx.wear.compose:compose-foundation:1.7.1")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
