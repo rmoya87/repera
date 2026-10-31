@@ -14,11 +14,14 @@ productos/suscripciones/precios/backend comercial en este alcance.
    teléfono (API 30/35/37.2) y Wear (5.1/6.0). Los instrumentados **siguen
    corriendo**; no se borran.
 3. **`deploy-internal-beta`** (solo rama `beta`, track **internal**):
-   - **Gate estricto (historico):** todos los jobs verdes.
-   - **Gate relajado (activo 2026-10-31, Ramon):** basta `android-native` verde.
-     Reversible en el workflow: `env.REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE`
-     (`"true"` / `"false"`) o `workflow_dispatch` con
-     `skip_instrumented_deploy_gate`.
+   - **Gate relajado (activo 2026-10-31):** `needs: [android-native]` — el AAB se
+     publica en cuanto JVM + compile están verdes; emuladores siguen corriendo en
+     paralelo.
+   - **Gate estricto (revertir):** en el workflow, `needs:
+     [android-native, android-instrumented, wear-instrumented]` y condición de
+     éxito en esos jobs (como antes del 2026-10-31).
+   - Disparo manual: `workflow_dispatch` en rama `beta` (input documentado para
+     futuro; el gate relajado no depende de emuladores).
 4. Tras el primer AAB, Play App Signing genera el certificado de firma de la
    app: registrar su SHA-1 como SEGUNDO cliente OAuth Android en el proyecto
    Cloud "Repera" (conservando el cliente debug de desarrollo).
