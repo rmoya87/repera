@@ -463,7 +463,7 @@ final class WatchSessionHub: NSObject {
         companionSensorSessionID = snapshot.id
         let sport = snapshot.sportID.flatMap(WatchLiveSport.init(rawValue:)) ?? .other
         health.startLive(
-            id: snapshot.id, at: Date().addingTimeInterval(-snapshot.displayElapsed(at: Date())),
+            id: snapshot.id, at: snapshot.startedAt ?? Date().addingTimeInterval(-snapshot.displayElapsed(at: Date())),
             activityType: sport.healthKitActivityType, outdoor: sport.usesGPS
         )
         if snapshot.phase == .paused { health.pause() }
