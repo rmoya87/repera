@@ -374,6 +374,13 @@ export class ReperaAuthAPI {
    p_org:orgId,p_client:clientId,p_pass:passId,p_occurrence:occurrenceId,
    p_note:String(note),p_request:requestId}});
  }
+ async markClassAttendance({bookingId,status,requestId=globalThis.crypto?.randomUUID?.()}){
+  if(!/^[0-9a-f-]{36}$/i.test(bookingId||'')||!/^[0-9a-f-]{36}$/i.test(requestId||'')||
+     !['attended','no_show'].includes(status))
+   throw Error('Asistencia no válida');
+  return this.#authorized('rpc/business_mark_class_attendance',{method:'POST',body:{
+   p_booking:bookingId,p_status:status,p_request:requestId}});
+ }
  async trainerAttendance(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('business_trainer_attendance?select=id,org_id,client_id,pass_id,booking_id,occurrence_id,performed_at,note&org_id=eq.'+orgId+'&order=performed_at.desc&limit=200');

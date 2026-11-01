@@ -1,5 +1,9 @@
 # Repera
 
+## Repera Business V3 P0 UX (2026-11-01)
+
+Consola `web/console/`: Inicio de recepción (gym) e Inicio PT con CTA Invitar; ficha con pestaña **Bonos y pagos** y asignación `manual_offline`; menú PT mínimo (Inicio / Clientes / Configuración); gym con Productos y bonos; asistencia/no-show de clase vía RPC `business_mark_class_attendance` (migración `20261101120000`, aplicar en staging). Matriz: `docs/business/USE_CASE_COVERAGE.md`. Sin Stripe, push 60 min ni Pro patrocinado en esta tanda. Rama `feature/business-v3-ux-p0`.
+
 ## Repera Business — fichas por pestañas, planes e invitaciones (27/10/2026)
 
 **Administración · Atletas** abre directamente con avatar, nombre y email, sin encabezado duplicado ni Volver. Pestañas: **Ejercicios** (calendario a la izquierda, sesión a la derecha, botón de añadir sesión o plan), **Datos** (identidad, roles, centros y preferencias), **Acceso** (último login y métodos, sin credenciales) y **Reservas** (reservas y sesiones profesionales). Máximas y e1RM derivadas solo de series realizadas; el mapa corporal representa frecuencia **orientativa** de grupos trabajados, no composición corporal. La puntuación Amateur/Medio/Avanzado mide completitud y variedad de registro, sin acreditar profesionalidad o salud. Para planificar, el atleta debe haber aceptado una vinculación con un centro; se abre entonces el editor profesional nativo en contexto delegado.

@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-10-31 (Duo: raíl de tabs nativo; sin overlay UIWindow)
+Última actualización: 2026-11-01 (Business V3 P0 UX consola + cobertura casos)
 
 ## Regla de oro
 

@@ -398,3 +398,31 @@
  .pa-muscle-views svg{height:190px}
  .trainer-pass-dashboard .trainer-form-cols{grid-template-columns:1fr}
  .trainer-attendance-history .business-attendance-rows{grid-template-columns:1fr}}
+
+/* V3 P0 — recepción, badges, vacíos (2026-11-01) */
+.business-home-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 18px;flex-wrap:wrap}
+.business-home-title{margin:4px 0 0;font-size:26px;letter-spacing:-.4px}
+.business-empty{margin:0;padding:18px;border:1px dashed #d4e4d8;border-radius:14px;color:#6d8474;font-size:14px;line-height:1.45}
+.business-status-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#355341;vertical-align:middle}
+.business-status-dot{width:8px;height:8px;border-radius:50%;background:#8aa193;flex-shrink:0}
+.business-status-badge.tone-ok .business-status-dot{background:#1f9d4a}
+.business-status-badge.tone-info .business-status-dot{background:#2f6fed}
+.business-status-badge.tone-warn .business-status-dot{background:#c47b12}
+.business-status-badge.tone-muted .business-status-dot{background:#9aab9f}
+.business-reception{background:#fff;border:1px solid #dae9de;border-radius:18px;padding:20px 22px;margin:0 0 18px}
+.business-reception-search{max-width:420px;margin:12px 0 16px}
+.business-reception-results{display:grid;gap:10px}
+.business-reception-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid #e3eee6;border-radius:14px;background:#f8fbf9;flex-wrap:wrap}
+.business-reception-actions,.business-roster-actions,.business-line-actions,.business-profile-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.business-line-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:1px solid #e0ebe3;background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer}
+.business-line-btn:hover{border-color:#8ed8a1;background:#f0f9f2}
+.business-attention{margin-top:16px;display:grid;gap:8px}
+.business-attention h3{margin:0 0 4px;font-size:14px;color:#4a6754}
+.business-inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}
+.business-profile-actions{margin-left:auto}
+@media(max-width:760px){
+ .business-reception-row{align-items:stretch}
+ .business-reception-actions{width:100%}
+ .business-profile-header{flex-wrap:wrap}
+ .business-profile-actions{margin-left:0;width:100%}
+}

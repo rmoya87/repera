@@ -8,6 +8,7 @@ import {navIcon} from './nav-icons.js';
 import {renderPlatformAdmin,paymentCSV} from './platform-admin.js';
 import {renderBusinessHome,renderClient360,renderClasses360} from './management-360.js';
 import {renderTrainerPassPanel,trainerSeatInfo} from './trainer-pass-panel.js';
+import {renderGymPassPanel} from './gym-pass-panel.js';
 import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup} from './workout-editor.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
@@ -32,7 +33,8 @@ const trainerActive=()=>organizations.find(o=>o.id===selectedOrg)?.kind==='perso
 function restoreWorkspaceRoute(){
  const p=new URLSearchParams(location.search),section=p.get('seccion'),client=p.get('cliente'),org=p.get('espacio');
  if(org&&/^[0-9a-f-]{36}$/i.test(org))selectedOrg=org;
- if(['overview','clients','planning','services','bonos','billing','analytics','team','settings'].includes(section||''))activeTab=section;
+ if(['overview','clients','planning','services','bonos','team','settings'].includes(section||''))activeTab=section;
+ else if(['billing','analytics'].includes(section||''))activeTab='overview';
  if(client&&/^[0-9a-f-]{36}$/i.test(client)){selectedClientId=client;planningClientId=client;activeTab='clients';}
  else if(section==='clients'){selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;}
 }
@@ -130,7 +132,14 @@ function enhanceWorkspace(own){
  const kind=org?.kind,trainer=kind==='personal_trainer',manager=['owner','admin'].includes(own.get(selectedOrg));
  const seat=trainerSeatInfo({clients,trials:trialRows,plans:planCatalog});
  const visibleOrganizations=delegation?organizations.filter(x=>x.id===delegation.org_id):organizations;
- const tabs=org?[['overview','Inicio','dashboard'],['clients','Clientes','clients'],...(trainer?[]:[['planning','Entrenamientos','planning'],['services','Clases y reservas','calendar']]),['bonos','Bonos y tarifas','products'],['billing','Facturación','billing'],['analytics','Analíticas','analytics'],...(trainer?[]:[['team','Equipo y espacios','team']]),['settings','Configuración','settings'],...(platformRole==='platform_admin'&&!delegation?[['platform','Administración Repera','admin']]:[])]:[['overview','Inicio','dashboard'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])];
+ // PT: menú mínimo Inicio / Clientes / Configuración (bonos en ficha). Gym: agenda, socios, productos.
+ const tabs=org?[
+  ['overview','Inicio','dashboard'],
+  ['clients',trainer?'Clientes':'Socios','clients'],
+  ...(trainer?[]:[['planning','Entrenamientos','planning'],['services','Agenda y clases','calendar'],['bonos','Productos y bonos','products'],['team','Equipo','team']]),
+  ['settings','Configuración','settings'],
+  ...(platformRole==='platform_admin'&&!delegation?[['platform','Administración Repera','admin']]:[])
+ ]:[['overview','Inicio','dashboard'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])];
  if(!tabs.some(t=>t[0]===activeTab))activeTab='overview';
  const nav=document.createElement('nav');nav.className='business-navigation';nav.setAttribute('aria-label','Menú profesional');
  nav.innerHTML=tabs.map(([id,label,icon])=>`<button type="button" data-workspace="${id}" aria-current="${activeTab===id?'page':'false'}">${navIcon(icon)}${escapeHTML(label)}</button>`).join('');
@@ -152,40 +161,19 @@ function enhanceWorkspace(own){
  root.querySelector('[data-workspace-section="clients"]')?.remove();
  root.querySelector('[data-workspace-section="services"]')?.remove();
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
- attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth}));
- attach('clients',renderClient360({clients,selected:selectedClientId,passes,bookings,occurrences,sessions:professionalSessions,notices,sharedHistory,attendance,trainerActivityMonth,trainerActivityDay,manager,trainer,seat,role:own.get(selectedOrg),clientSection})+(trainer&&selectedClientId&&!clients.find(c=>c.id===selectedClientId)?.account_deleted_at&&clientSection==='training'&&clientEditorOpen?renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients:clients.filter(c=>!c.account_deleted_at),memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId,embedded:true,preferredDate:planningSelectedDay}):''));
+ attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes}));
+ attach('clients',renderClient360({clients,selected:selectedClientId,passes,offers,bookings,occurrences,sessions:professionalSessions,notices,sharedHistory,attendance,trainerActivityMonth,trainerActivityDay,manager,trainer,busy,seat,role:own.get(selectedOrg),clientSection})+(trainer&&selectedClientId&&!clients.find(c=>c.id===selectedClientId)?.account_deleted_at&&clientSection==='training'&&clientEditorOpen?renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients:clients.filter(c=>!c.account_deleted_at),memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId,embedded:true,preferredDate:planningSelectedDay}):''));
  const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
  // A pre-registration center has no real owner/staff yet. The real actor can operate
  // its workspace as Repera support; we never label this account as the future trainer.
  if(delegation&&!members.some(m=>m.user_id===user.id))members.unshift({user_id:user.id,label:'Administrador Repera · soporte'});
  if(!trainer)attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
- if(trainer){attach('bonos',renderTrainerPassPanel({clients,passes,offers,attendance,bookings,occurrences,seat,manager,busy}));}
- else attach('bonos',`<section class="connected-card"><h2>Bonos y tarifas</h2>
- <p>Define las tarifas que verán los deportistas vinculados en la app. Publicar un bono no equivale a un cobro: la compra se activará cuando la pasarela esté configurada y confirme el pago.</p>
- <h3>Tarifas publicadas</h3>
- ${offers.length?offers.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)} · ${o.kind==='class'?'Clases':'Entrenamiento personal'}</strong>
- <small>${Number(o.credits)} sesiones · ${Number(o.validity_days)} días · ${(Number(o.price_cents)/100).toLocaleString('es-ES',{style:'currency',currency:'EUR'})} · ${o.is_active?'Visible':'Desactivado'}</small></div>
- ${manager?`<button type="button" class="connected-secondary" data-action="toggle-pass-offer" data-id="${escapeHTML(o.id)}" data-active="${o.is_active?'true':'false'}">${o.is_active?'Desactivar':'Activar'}</button>`:''}
- </article>`).join(''):'<p>No hay tarifas configuradas.</p>'}
- ${manager?`<h3>Crear bono</h3><form data-connected="create-pass-offer" class="connected-plan-editor">
- <label class="connected-field">Nombre del bono<input name="name" type="text" minlength="2" maxlength="120" placeholder="Bono 10 entrenamientos" required></label>
- <div class="connected-form-grid">
- <label class="connected-field">Tipo<select name="kind"><option value="appointment">Entrenador personal</option><option value="class">Clases</option></select></label>
- <label class="connected-field">Número de sesiones<input name="credits" type="number" min="1" max="1000" value="10" required></label>
- <label class="connected-field">Validez (días)<input name="validityDays" type="number" min="1" max="730" value="90" required></label>
- <label class="connected-field">Precio (€)<input name="price" type="number" min="0" max="100000" step="0.01" required></label></div>
- <button class="connected-primary" type="submit" ${busy?'disabled':''}>Publicar bono</button></form>`:''}
- <h3>Bonos asignados</h3>
- ${passes.map(p=>`<article class="connected-org"><strong>${escapeHTML(clients.find(c=>c.id===p.client_id)?.name||'Cliente')} · ${p.kind==='class'?'Clase':'Cita'}</strong><small>${p.remaining_credits} de ${p.total_credits} disponibles</small></article>`).join('')||'<p>No hay bonos asignados.</p>'}
- <p class="connected-hint">Los bonos de cortesía no generan ingresos. No se simulan cobros reales.</p>
- </section>`);
- attach('billing',`<section class="connected-card"><h2>Facturación</h2><p>La pasarela de pago y la facturación legal todavía no están habilitadas. No se muestran cobros simulados como reales.</p></section>`);
+ if(!trainer)attach('bonos',renderGymPassPanel({clients,passes,offers,manager,busy}));
  attach('platform',`<section class="connected-card"><h2>Administración Repera</h2><p>Resumen de organizaciones de la plataforma. No permite acceder al historial privado de los deportistas ni suplantar cuentas.</p><div class="table-scroll"><table><thead><tr><th>Organización</th><th>Tipo</th><th>Clientes</th><th>Prueba finaliza</th></tr></thead><tbody>${platformOrgs.map(o=>`<tr><td>${escapeHTML(o.name)}</td><td>${escapeHTML(o.kind)}</td><td>${Number(o.client_count||0)}</td><td>${escapeHTML(o.trial_ends_at?.slice(0,10)||'—')}</td></tr>`).join('')||'<tr><td colspan="4">No hay organizaciones</td></tr>'}</tbody></table></div></section>${platformRole==='platform_admin'?renderPlanAdministration(planCatalog):''}`);
- attach('analytics',`<section class="connected-card"><h2>Analíticas del negocio</h2><div class="business-stats"><div class="business-stat"><span>Clientes</span><strong>${clients.length}</strong></div><div class="business-stat"><span>Reservas activas</span><strong>${bookings.filter(b=>b.status==='booked').length}</strong></div><div class="business-stat"><span>Sesiones programadas</span><strong>${occurrences.filter(o=>o.status==='active').length}</strong></div></div><p>Las métricas deportivas personales solo estarán disponibles con consentimiento y sincronización del atleta.</p></section>`);
  const settings=document.createElement('section');settings.className='connected-card connected-settings';settings.dataset.workspaceSection='settings';
- settings.innerHTML=`${trainer?`<nav class="business-settings-navigation" aria-label="Secciones de configuración"><button data-settings-section="profile" type="button" aria-current="${settingsSection==='profile'?'page':'false'}">Datos del profesional</button><button data-settings-section="plan" type="button" aria-current="${settingsSection==='plan'?'page':'false'}">Plan y suscripción</button></nav>`:''}<div data-settings-panel="profile"><span class="connected-tag">DATOS DEL ${trainer?'PROFESIONAL':'NEGOCIO'}</span><h2>Configuración de ${escapeHTML(org.name)}</h2><p>Completa tu perfil. Los datos fiscales quedan restringidos a propietarios y administradores.</p><form data-connected="settings" class="business-onboarding-form">${renderOrganizationFields({kind,values:org,legal:legalProfile||{}}).replace('<select name="kind">','<select name="kind" disabled>')}<label class="connected-field">Zona horaria<input name="timezone" value="${escapeHTML(org.timezone||'Europe/Madrid')}" maxlength="80"></label>${manager?'<button class="connected-primary business-form-submit" type="submit">Guardar datos del negocio</button>':''}</form></div>`;
+ settings.innerHTML=`${trainer?`<nav class="business-settings-navigation" aria-label="Secciones de configuración"><button data-settings-section="profile" type="button" aria-current="${settingsSection==='profile'?'page':'false'}">Datos del profesional</button><button data-settings-section="plan" type="button" aria-current="${settingsSection==='plan'?'page':'false'}">Plan y suscripción</button><button data-settings-section="passes" type="button" aria-current="${settingsSection==='passes'?'page':'false'}">Tarifas y bonos</button></nav>`:''}<div data-settings-panel="profile"><span class="connected-tag">DATOS DEL ${trainer?'PROFESIONAL':'NEGOCIO'}</span><h2>Configuración de ${escapeHTML(org.name)}</h2><p>Completa tu perfil. Los datos fiscales quedan restringidos a propietarios y administradores.</p><form data-connected="settings" class="business-onboarding-form">${renderOrganizationFields({kind,values:org,legal:legalProfile||{}}).replace('<select name="kind">','<select name="kind" disabled>')}<label class="connected-field">Zona horaria<input name="timezone" value="${escapeHTML(org.timezone||'Europe/Madrid')}" maxlength="80"></label>${manager?'<button class="connected-primary business-form-submit" type="submit">Guardar datos del negocio</button>':''}</form></div>`;
  root.append(settings);
- attach('settings',`<div data-settings-panel="plan">${renderSubscriptions(org)}</div>`);
+ attach('settings',`<div data-settings-panel="plan">${renderSubscriptions(org)}</div>${trainer?`<div data-settings-panel="passes">${renderTrainerPassPanel({clients,passes,offers,attendance,bookings,occurrences,seat,manager,busy})}</div>`:''}`);
  // Entrenador y gimnasio disponen de permisos diferentes.
  if(trainer)root.querySelector('[data-workspace-section="team"]')?.remove();
  const trial=trialStatus();
@@ -534,7 +522,37 @@ app.addEventListener('click',async event=>{
  const mode=event.target.closest('[data-view]');if(mode){view=mode.dataset.view;error=notice='';render();return;}
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
  const trainer=trainerActive();
- const setting=event.target.closest('[data-settings-section]');if(setting){settingsSection=setting.dataset.settingsSection==='plan'?'plan':'profile';render();return;}
+ const setting=event.target.closest('[data-settings-section]');
+ if(setting){
+  const s=setting.dataset.settingsSection;
+  settingsSection=['plan','passes','profile'].includes(s)?s:'profile';
+  render();return;
+ }
+ if(action==='go-invite-client'||action==='focus-invite-form'){
+  selectedClientId=null;activeTab='clients';setWorkspaceRoute();render();
+  queueMicrotask(()=>app.querySelector('#invite-client-form')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  return;
+ }
+ if(action==='detail-client-passes'){
+  selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;clientSection='passes';
+  clientEditorOpen=false;sharedHistory=[];activeTab='clients';businessDialog='';setWorkspaceRoute();render();
+  return;
+ }
+ if((action==='mark-booking-attended'||action==='mark-booking-noshow')&&!busy){
+  const status=action==='mark-booking-attended'?'attended':'no_show';
+  const label=status==='attended'?'asistió':'no se presentó';
+  if(!confirm(status==='attended'
+   ?'¿Confirmar asistencia? El crédito ya se descontó al reservar; no se vuelve a cobrar.'
+   :'¿Marcar como no presentado? El crédito de la reserva se mantiene consumido según la política actual.'))return;
+  busy=true;error=notice='';render();
+  try{
+   await auth.markClassAttendance({bookingId:actionable.dataset.id,status});
+   await loadSelectedOrg();
+   notice='Reserva actualizada: el cliente '+label+'.';
+  }catch(e){error=e.message||'No se pudo registrar la asistencia';}
+  finally{busy=false;render();}
+  return;
+ }
  if(action==='close-business-dialog'||trainer&&(action==='back-classes'||action==='back-groups')){businessDialog='';selectedClassId=null;selectedGroupId=null;render();return;}
  if(action==='trainer-session'&&trainer){selectedClientId=actionable.dataset.id;businessDialog='trainer-session';render();return;}
  if(action==='new-date-appointment'&&trainer){dialogDay=actionable.dataset.day;businessDialog='new-appointment';render();return;}
@@ -653,6 +671,14 @@ app.addEventListener('keydown',event=>{
  }
 });
 app.addEventListener('input',event=>{
+ const reception=event.target.closest('[data-reception-filter]');
+ if(reception){
+  const q=reception.value.trim().toLowerCase();
+  app.querySelectorAll('[data-reception-name]').forEach(row=>{
+   row.hidden=q!==''&&!row.dataset.receptionName.includes(q);
+  });
+  return;
+ }
  const filter=event.target.closest('[data-admin-filter="search"],[data-admin-filter="athleteSearch"]');
  if(filter){
   const key=filter.dataset.adminFilter;

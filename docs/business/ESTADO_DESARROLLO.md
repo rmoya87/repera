@@ -1,3 +1,13 @@
+## Business V3 — Fase 0 + P0 UX web (2026-11-01)
+
+- Rama de trabajo: `feature/business-v3-ux-p0`. Sin merge a `main` ni producción en esta tanda.
+- Matriz de casos: [`USE_CASE_COVERAGE.md`](USE_CASE_COVERAGE.md). ADR: [`ADR_BUSINESS_V3_P0.md`](ADR_BUSINESS_V3_P0.md).
+- **Existe:** invitaciones RPC+Edge, clientes 360, bonos offline PT, reservas/clases con ledger, enrollments app, platform admin.
+- **Hecho en rama (código local):** Inicio recepción gym + Inicio PT; ficha con Bonos y pagos; `renderGymPassPanel` + asignación offline; RPC/UI asistencia clase (`20261101120000_business_class_attendance.sql`). Tests `web/console/tests/business-360.test.mjs`.
+- **Pendiente operativo:** aplicar migración en Supabase staging; E2E con dos cuentas; email Resend con secretos.
+- **Aplazado:** Pro patrocinado (gate tiendas), push 60 min (`notification_outbox` solo greenfield), Stripe B2B/B2C, lista de espera.
+- **Greenfield no aplicado:** no usar `supabase/repera-greenfield/` ni tablas de `backend.js` demo como esquema real.
+
 ## Administración global de Repera — 27/10/2026
 
 ## Fichas de atleta y centro; invitaciones de alumnos — 27/10/2026

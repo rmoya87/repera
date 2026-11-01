@@ -47,15 +47,15 @@ test('Los títulos no pueden inyectar HTML y ejercicios desconocidos no reciben 
 });
 
 test('Las solicitudes llegan a la portada con decisiones explícitas y actualizar',()=>{
- const html=renderBusinessHome({org:{id:org,name:'Centro'},manager:true,
+ const html=renderBusinessHome({org:{id:org,name:'Centro',kind:'gym'},manager:true,
   clients:[],occurrences:[],sessions:[],
   requests:[{id:'request',name:'Aspirante',email:'a@example.org',pass_kind:'class',note:'Me interesa',status:'pending'}]});
  assert.match(html,/Quieren entrenar contigo/);
  assert.match(html,/data-action="approve-enrollment"/);
  assert.match(html,/data-action="reject-enrollment"/);
  assert.match(html,/data-action="refresh-enrollments"/);
- assert.match(html,/data-workspace="planning"/);
- assert.match(html,/data-workspace="clients"/);
+ assert.match(html,/Recepción/);
+ assert.match(html,/data-action="go-invite-client"/);
 });
 
 test('El editor masivo ofrece plantilla, atletas, día/semana/rango y previsualización',()=>{
