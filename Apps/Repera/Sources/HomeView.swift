@@ -123,6 +123,7 @@ struct HomeView: View {
     @State private var openWorkoutId: UUID?
     @State private var openProfessionalSessionId: UUID?
     @State private var openBusinessBookingId: UUID?
+    @State private var homeBookingPendingCancellation: BusinessBooking?
     @State private var openHealthActivityId: UUID?
     /// Day-keyed buckets — rebuilt off the critical body path (no full-array filter per paint).
     @State private var workoutsByDayKey: [String: [WorkoutSession]] = [:]
@@ -218,10 +219,11 @@ struct HomeView: View {
 
     private var selectedDayProfessionalSessions: [BusinessProfessionalTrainingSession] {
         let day = BusinessDataStore.localDayKey(selectedDay)
-        let reserved = Set(selectedDayBusinessBookings.map(\.occurrenceId))
+        // Fan-out de clase (`source_occurrence_id`): solo con reserva activa,
+        // y en ese caso la ficha la pinta el booking (classPlannedDayCard).
+        // Si no, quedan fantasmas «Clase» tras desapuntarse.
         return businessData.trainingSessions.filter {
-            $0.scheduledDate == day &&
-                ($0.sourceOccurrenceId.map { !reserved.contains($0) } ?? true)
+            $0.scheduledDate == day && $0.sourceOccurrenceId == nil
         }
     }
 
@@ -716,7 +718,10 @@ struct HomeView: View {
             )) {
                 if let id = openProfessionalSessionId,
                    let session = businessData.trainingSessions.first(where: { $0.id == id }) {
-                    BusinessProfessionalSessionDetailView(session: session)
+                    BusinessProfessionalSessionDetailView(
+                        session: session,
+                        onStartRoutine: onStartRoutine
+                    )
                 }
             }
             .navigationDestination(isPresented: Binding(
@@ -726,7 +731,21 @@ struct HomeView: View {
                 if let id = openBusinessBookingId,
                    let booking = businessData.bookings.first(where: { $0.id == id }),
                    let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
-                    BusinessBookedOccurrenceDetailView(booking: booking, occurrence: occurrence)
+                    if occurrence.kind == "class" {
+                        ClassOccurrenceDetailPage(
+                            occurrence: occurrence,
+                            onRequestCancel: { pending in
+                                homeBookingPendingCancellation = pending
+                            },
+                            onStartRoutine: onStartRoutine
+                        )
+                    } else {
+                        BusinessBookedOccurrenceDetailView(
+                            booking: booking,
+                            occurrence: occurrence,
+                            onStartRoutine: onStartRoutine
+                        )
+                    }
                 }
             }
             .navigationDestination(isPresented: Binding(
@@ -794,6 +813,19 @@ struct HomeView: View {
                         }
                     },
                     onCancel: { healthPendingDelete = nil }
+                )
+            }
+            .sheet(item: $homeBookingPendingCancellation) { booking in
+                OGConfirmSheet(
+                    systemImage: "calendar.badge.minus",
+                    title: "¿Cancelar la reserva?",
+                    message: "Se te desapunta y, si tenías plaza confirmada, se te devuelve la sesión al plan.",
+                    confirmTitle: "Confirmar cancelación",
+                    onConfirm: {
+                        homeBookingPendingCancellation = nil
+                        Task { await businessData.cancel(booking) }
+                    },
+                    onCancel: { homeBookingPendingCancellation = nil }
                 )
             }
     }
@@ -1172,7 +1204,9 @@ struct HomeView: View {
         let businessBookings = selectedDayBusinessBookings
         let professionalPlans = selectedDayProfessionalSessions
 
-        LazyVStack(spacing: 6) {
+        // VStack (no Lazy): un ScrollView de chips en LazyVStack se come todo el
+        // alto flexible y deja un hueco blanco enorme hasta «Añadir nuevo entreno».
+        VStack(spacing: 6) {
             if hasInProgress {
                 Button(action: onStart) {
                     dayActionRowContent
@@ -1195,48 +1229,44 @@ struct HomeView: View {
                     }
                 }
             }
-            // La sesión estándar activa no debe ocultar actividades En vivo ya guardadas.
             ForEach(workouts) { session in
                 dayWorkoutCard(session)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             }
-            // Una sesión ya realizada no oculta los otros entrenos pendientes
-            // de esa misma fecha. Cada plan conserva su ficha y su gesto swipe.
             ForEach(planned) { routine in
                 plannedDayCard(routine)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             }
-            // Published professional plans and confirmed bookings have the same
-            // card hierarchy as private workouts; no extra sections below Activity.
             ForEach(professionalPlans) { session in
-                businessDayCard(
-                    title: session.title,
-                    subtitle: "Entreno " + businessData.centerName(session.orgId),
-                    captionSuffix: nil,
-                    time: session.scheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) },
-                    symbol: "figure.strengthtraining.traditional",
-                    summary: session.prescription.map { "\($0.blocks.count) bloq." } ?? "Entrenador",
-                    action: { openProfessionalSessionId = session.id }
-                )
-                .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+                professionalPlannedDayCard(session)
             }
             ForEach(businessBookings) { booking in
                 if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
                     let isClass = occurrence.kind == "class"
                     let center = businessData.centerName(occurrence.orgId)
-                    businessDayCard(
-                        title: occurrence.title,
-                        // Clase: centro a la derecha de la hora (caption); sin línea bajo el título.
-                        subtitle: isClass ? nil : ("Entreno " + center),
-                        captionSuffix: isClass ? center : nil,
-                        time: BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) },
-                        symbol: isClass
-                            ? "figure.strengthtraining.traditional"
-                            : "person.crop.circle",
-                        summary: isClass ? "Reserva confirmada" : "Cita confirmada",
-                        action: { openBusinessBookingId = booking.id }
-                    )
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
+                    let plan = isClass ? classHomePlan(occurrence: occurrence, booking: booking) : nil
+                    let planDone = plan.map { p in
+                        workouts.contains { $0.routineId == p.id }
+                    } ?? false
+                    if isClass, let plan, !plan.blocks.isEmpty, !planDone {
+                        classPlannedDayCard(
+                            occurrence: occurrence,
+                            booking: booking,
+                            center: center,
+                            routine: plan,
+                            action: { openBusinessBookingId = booking.id }
+                        )
+                    } else if !(isClass && planDone) {
+                        businessDayCard(
+                            title: occurrence.title,
+                            subtitle: nil,
+                            captionSuffix: center.isEmpty ? nil : center,
+                            time: BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) },
+                            symbol: isClass
+                                ? "figure.strengthtraining.traditional"
+                                : "person.crop.circle",
+                            summary: isClass ? "Reserva confirmada" : "Cita confirmada",
+                            action: { openBusinessBookingId = booking.id }
+                        )
+                    }
                 }
             }
             if !hasInProgress && workouts.isEmpty && planned.isEmpty
@@ -1246,40 +1276,42 @@ struct HomeView: View {
 
             ForEach(healthActivities) { activity in
                 healthActivityCard(activity)
-                    .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
             }
 
-            // El CTA ocupa siempre la misma posición si solo hay una ficha.
-            // Cuando hay varias sesiones, el listado sí crece verticalmente.
             if !hasInProgress {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .ogSwipeActionsContainer()
     }
 
-    /// A read-only, tappable professional card in the native daily workout design.
+    /// Ficha de reserva/cita: misma retícula que clase con plan (caption · chips, sin chevron ni subtítulo).
     private func businessDayCard(
         title: String,
-        subtitle: String?,
+        subtitle: String?, // reserved; caption carries center/time (paridad ficha clase)
         captionSuffix: String?,
         time: String?,
         symbol: String,
         summary: String,
         action: @escaping () -> Void
     ) -> some View {
+        _ = subtitle
         let captionBase = WorkoutListCaption.dayTimeLine(for: selectedDay, time: time)
         let caption: String = {
             guard let suffix = captionSuffix?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !suffix.isEmpty else { return captionBase }
             return "\(captionBase) · \(suffix)"
         }()
+        let kindChip = summary.lowercased().contains("cita")
+            ? ("Cita", "person.crop.circle")
+            : ("Clase", "person.3")
         return Button(action: action) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .top, spacing: 12) {
                     OGRegisterLeadingIcon(systemName: symbol, tint: OG.label2)
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(caption)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(OG.label3)
@@ -1290,27 +1322,19 @@ struct HomeView: View {
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                        if let subtitle, !subtitle.isEmpty {
-                            Text(subtitle)
-                                .font(.system(size: 12))
-                                .foregroundStyle(OG.label2)
-                                .lineLimit(2)
-                        }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(OG.label3)
                 }
                 .padding(.horizontal, Self.registerCardPad)
                 HStack(spacing: 7) {
+                    OGRegisterChip(text: kindChip.0, icon: kindChip.1)
                     OGRegisterChip(text: summary, icon: "calendar")
                 }
                 .padding(.leading, Self.chipsTitleLeading)
                 .frame(height: 24, alignment: .center)
             }
             .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, alignment: .center)
+            .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, maxHeight: singleWorkoutMinHeight, alignment: .center)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -1319,7 +1343,82 @@ struct HomeView: View {
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityHint("Toca para ver el detalle del entrenamiento o reserva")
+    }
+
+    /// Plan profesional (PT o clase sin reserva en lista): misma caja que «clase con plan».
+    private func professionalPlannedDayCard(_ session: BusinessProfessionalTrainingSession) -> some View {
+        let center = businessData.centerName(session.orgId)
+        let time = session.scheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) }
+        let captionBase = WorkoutListCaption.dayTimeLine(for: selectedDay, time: time)
+        let caption = center.isEmpty ? captionBase : "\(captionBase) · \(center)"
+        let isClassPlan = session.sourceOccurrenceId != nil
+        let routine: Routine? = {
+            guard let rx = session.prescription, rx.isCanonicalV1 else { return nil }
+            return store.routineFromProfessionalPrescription(
+                rx,
+                id: session.id,
+                title: session.title,
+                scheduledDate: BusinessDataStore.parseDayKey(session.scheduledDate),
+                scheduledTimeMinutes: session.scheduledTimeMinutes
+            )
+        }()
+        let blockCount = routine?.blocks.count ?? 0
+        let wodLabel = routine?.blocks.first(where: { $0.kind == .wod })?.headerLabel
+        return Button {
+            openProfessionalSessionId = session.id
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .top, spacing: 12) {
+                    OGRegisterLeadingIcon(
+                        systemName: "figure.strengthtraining.traditional",
+                        tint: OG.label2
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(caption)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(session.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, Self.registerCardPad)
+                OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
+                    OGRegisterChip(
+                        text: isClassPlan ? "Clase" : "Entrenador",
+                        icon: isClassPlan ? "person.3" : "person.fill"
+                    )
+                    if blockCount > 0 {
+                        OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
+                    }
+                    if let wodLabel {
+                        OGRegisterChip(text: wodLabel, icon: "timer")
+                    }
+                }
+                .frame(height: 24, alignment: .center)
+            }
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: singleWorkoutMinHeight, maxHeight: singleWorkoutMinHeight, alignment: .center)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityHint(
+            isClassPlan
+                ? "Toca para ver el entreno de la clase."
+                : "Toca para ver el entrenamiento del entrenador."
+        )
     }
 
     /// Usa la misma retícula del registro real (44 pt de icono, título y banda
@@ -1460,6 +1559,88 @@ struct HomeView: View {
                     OGRegisterChip(text: wod.headerLabel, icon: "timer")
                 }
             }
+        )
+    }
+
+    /// Clase con entreno del centro: misma caja que un programado, pero el título
+    /// es la prescripción del entrenador (p. ej. «entreno ejemplo»). No se edita;
+    /// deslizar cancela la reserva, no borra el plan del gimnasio.
+    private func classPlannedDayCard(
+        occurrence: BusinessOccurrence,
+        booking: BusinessBooking,
+        center: String,
+        routine: Routine,
+        action: @escaping () -> Void
+    ) -> some View {
+        let time = BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) }
+        let captionBase = WorkoutListCaption.dayTimeLine(for: selectedDay, time: time)
+        let caption = center.isEmpty ? captionBase : "\(captionBase) · \(center)"
+        let blockCount = routine.blocks.count
+        let wodLabel = routine.blocks.first(where: { $0.kind == .wod })?.headerLabel
+        return registerCardWithChipsOverlay(
+            open: action,
+            accessibilityHint: "Toca para ver la clase. Desliza para cancelar la reserva. El entreno lo publica el centro y no se puede editar.",
+            deleteLabel: "Cancelar reserva de clase",
+            onDelete: { homeBookingPendingCancellation = booking },
+            onEdit: nil,
+            title: {
+                HStack(alignment: .top, spacing: 12) {
+                    OGRegisterLeadingIcon(
+                        systemName: "figure.strengthtraining.traditional",
+                        tint: OG.label2
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(caption)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(OG.label3)
+                            .tracking(0.3)
+                        Text(routine.title)
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(OG.label)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, Self.registerCardPad)
+            },
+            chips: {
+                OGRegisterChip(text: "Clase", icon: "person.3")
+                if blockCount > 0 {
+                    OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
+                }
+                if let wodLabel {
+                    OGRegisterChip(text: wodLabel, icon: "timer")
+                }
+            }
+        )
+    }
+
+    private func classHomePlan(
+        occurrence: BusinessOccurrence,
+        booking: BusinessBooking
+    ) -> Routine? {
+        guard let rx = businessData.classPrescription(for: occurrence, clientId: booking.clientId)
+        else { return nil }
+        let day = BusinessDataStore.date(occurrence.startsAt)
+        let minutes: Int? = {
+            guard let start = day else { return nil }
+            let cal = Calendar.current
+            return cal.component(.hour, from: start) * 60 + cal.component(.minute, from: start)
+        }()
+        let session = businessData.classTrainingSession(for: occurrence.id, clientId: booking.clientId)
+        let id = session?.id ?? occurrence.id
+        let title: String = {
+            if let t = session?.title, !t.isEmpty { return t }
+            if let t = occurrence.trainingTitle, !t.isEmpty { return t }
+            return occurrence.title
+        }()
+        return store.routineFromProfessionalPrescription(
+            rx,
+            id: id,
+            title: title,
+            scheduledDate: day,
+            scheduledTimeMinutes: minutes ?? session?.scheduledTimeMinutes
         )
     }
 
@@ -1899,14 +2080,55 @@ struct HomeView: View {
         didBuildStreakChrome = true
     }
 
-    /// Excluir solo la rutina activa o ya terminada; las demás siguen
-    /// visibles y se pueden comenzar aunque haya otro registro ese día.
+    /// IDs / títulos de planes de clase del día: evitar ficha duplicada local.
+    private var classPlanRoutineIDsForSelectedDay: Set<UUID> {
+        var ids = Set<UUID>()
+        for booking in selectedDayBusinessBookings {
+            guard let occ = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  occ.kind == "class" else { continue }
+            ids.insert(occ.id)
+            if let session = businessData.classTrainingSession(
+                for: occ.id, clientId: booking.clientId
+            ) {
+                ids.insert(session.id)
+            }
+        }
+        // Cualquier sesión profesional del día ligada a una occurrence reservada.
+        let reserved = Set(selectedDayBusinessBookings.map(\.occurrenceId))
+        for session in businessData.trainingSessions {
+            if let src = session.sourceOccurrenceId, reserved.contains(src) {
+                ids.insert(session.id)
+                ids.insert(src)
+            }
+        }
+        return ids
+    }
+
+    private var classPlanTitlesForSelectedDay: Set<String> {
+        var titles = Set<String>()
+        for booking in selectedDayBusinessBookings {
+            guard let occ = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }),
+                  occ.kind == "class",
+                  let plan = classHomePlan(occurrence: occ, booking: booking),
+                  !plan.blocks.isEmpty else { continue }
+            titles.insert(plan.title)
+        }
+        return titles
+    }
+
+    /// Excluir rutina activa, terminada o materializada desde una clase del día.
     private var plannedRoutinesForSelectedDay: [Routine] {
         let completedIDs = Set(workoutsOnSelectedDay.compactMap(\.routineId))
         let activeID = calendar.isDateInToday(selectedDay)
             ? store.state.activeSession?.routineId : nil
-        return store.scheduledRoutines(on: selectedDay).filter {
-            !completedIDs.contains($0.id) && $0.id != activeID
+        let classPlanIDs = classPlanRoutineIDsForSelectedDay
+        let classTitles = classPlanTitlesForSelectedDay
+        return store.scheduledRoutines(on: selectedDay).filter { routine in
+            if completedIDs.contains(routine.id) || routine.id == activeID { return false }
+            if classPlanIDs.contains(routine.id) { return false }
+            // Misma fecha + mismo título que el plan de clase → no duplicar.
+            if classTitles.contains(routine.title) { return false }
+            return true
         }
     }
 

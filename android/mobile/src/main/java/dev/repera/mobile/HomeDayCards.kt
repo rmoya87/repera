@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.NightsStay
 import androidx.compose.material.icons.filled.PlayArrow
@@ -141,6 +142,12 @@ internal fun HomeSwipeRevealCard(
     busy: Boolean,
     onDelete: () -> Unit,
     onEdit: (() -> Unit)? = null,
+    confirmTitle: String = "¿Eliminar entreno?",
+    confirmMessage: String = "Esta acción no se puede deshacer.",
+    confirmActionTitle: String = "Eliminar",
+    deleteContentDescription: String = "Eliminar",
+    /** Si false, el basurero llama a [onDelete] al instante (p. ej. otra hoja de confirmación). */
+    askDeleteConfirm: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
@@ -175,7 +182,10 @@ internal fun HomeSwipeRevealCard(
                 Spacer(Modifier.width(0.dp))
             }
             TextButton(
-                onClick = { offset = 0f; confirmDelete = true },
+                onClick = {
+                    offset = 0f
+                    if (askDeleteConfirm) confirmDelete = true else onDelete()
+                },
                 enabled = !busy && offset < 0f,
                 modifier = Modifier
                     .width(88.dp)
@@ -184,7 +194,7 @@ internal fun HomeSwipeRevealCard(
             ) {
                 Icon(
                     Icons.Outlined.Delete,
-                    contentDescription = "Eliminar",
+                    contentDescription = deleteContentDescription,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -219,11 +229,12 @@ internal fun HomeSwipeRevealCard(
     }
     if (confirmDelete) {
         ReperaConfirmSheet(
-            title = "¿Eliminar entreno?",
-            message = "Esta acción no se puede deshacer.",
-            confirmTitle = "Eliminar",
+            title = confirmTitle,
+            message = confirmMessage,
+            confirmTitle = confirmActionTitle,
             onConfirm = { confirmDelete = false; onDelete() },
-            onCancel = { confirmDelete = false }
+            onCancel = { confirmDelete = false },
+            confirmDestructive = true
         )
     }
 }
@@ -413,6 +424,21 @@ internal fun HomeInProgressCard(
     )
 }
 
+/** Chip de formato WOD (paridad iOS RoutineBlock.headerLabel). */
+internal fun homeWodChipLabel(block: RoutineBlockInfo): String {
+    val cap = block.timeCapMinutes.takeIf { it > 0 } ?: 12
+    return when (block.format.lowercase()) {
+        "amrap" -> "AMRAP $cap'"
+        "emom" -> "EMOM $cap'"
+        "fortime", "for_time", "forTime", "rft" ->
+            if (block.rounds > 1) "${block.rounds} RFT (TC $cap')" else "For Time (TC $cap')"
+        "tabata" -> "Tabata ${block.workSeconds}/${block.restSeconds} ×${block.rounds}"
+        "circuit" -> "Circuito"
+        "chipper" -> "Chipper"
+        else -> block.format.replaceFirstChar { it.uppercase() }.ifBlank { block.title }
+    }
+}
+
 @Composable
 internal fun HomePlannedRoutineCard(
     routine: RoutineEntry,
@@ -422,7 +448,10 @@ internal fun HomePlannedRoutineCard(
     val time = routine.timeMinutes?.let { "%d:%02d".format(it / 60, it % 60) }
     val chips = buildList {
         if (routine.blocks.isNotEmpty()) {
-            add(Icons.Outlined.FitnessCenter to "${routine.blocks.size} bloq.")
+            add(Icons.Outlined.Layers to "${routine.blocks.size} bloq.")
+        }
+        routine.blocks.firstOrNull { it.format.isNotBlank() }?.let {
+            add(Icons.Outlined.Timer to homeWodChipLabel(it))
         }
     }
     // Solo realizados (historial) van en verde; planificados siempre gris.

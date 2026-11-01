@@ -1,4 +1,4 @@
-import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,setEditorLibraryTemplates} from './workout-editor.js';
+import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,visualSessionMeta,setEditorLibraryTemplates} from './workout-editor.js';
 import {renderMainProfessionalPlanning} from './connected-planning-main.js';
 import {renderWorkoutInsertPanel} from './trainer-workouts.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
@@ -19,7 +19,7 @@ function sessionComposerForm({canEdit,allowedClients,currentSession,selectedTemp
  ${currentSession?`<input type="hidden" name="client" value="${escapeHTML(selectedClient)}">`:''}
  <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" ${currentSession?'':`min="${dateToday()}"`} required></label><label class="connected-field">Hora (opcional)<input type="time" name="time" value="${escapeHTML(sessionTime)}"></label></div>
  <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
- ${editorMarkup(compose)}
+ ${editorMarkup(compose,{meta:visualSessionMeta(prescription),showMeta:true})}
  <label class="connected-field">Indicaciones para el deportista<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo y recomendaciones">${escapeHTML(notes)}</textarea></label>
  ${showTemplateSave?`<div class="planning-template-save"><label class="connected-field">Nombre para guardar como plantilla<input name="templateName" minlength="2" maxlength="120" value="${escapeHTML(selectedTemplate?.name||sessionTitle||'')}" placeholder="Ej. Full Body A"></label>
  <label class="connected-field">Descripción de la plantilla<input name="templateDescription" maxlength="1000" value="${escapeHTML(selectedTemplate?.description||'')}" placeholder="Objetivos, equipo, nivel…"></label></div>`:''}
@@ -138,7 +138,7 @@ export function renderProfessionalPlanning(props) {
  <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(allowedClients,c=>`<option value="${escapeHTML(c.id)}" ${c.id===(currentSession?.client_id||clientId)?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
  <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" ${currentSession?'':`min="${dateToday()}"`} required></label><label class="connected-field">Hora (opcional)<input type="time" name="time" value="${escapeHTML(sessionTime)}"></label></div>
  <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
- ${(()=>{setEditorLibraryTemplates(templates);return editorMarkup(visualPrescription(prescription));})()}
+ ${(()=>{setEditorLibraryTemplates(templates);const v=visualPrescription(prescription);return editorMarkup(v,{meta:visualSessionMeta(v),showMeta:true});})()}
  <label class="connected-field">Indicaciones para el deportista<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo y recomendaciones">${escapeHTML(currentSession?.instructions||'')}</textarea></label>
  <div class="planning-template-save"><label class="connected-field">Nombre para guardar como plantilla<input name="templateName" minlength="2" maxlength="120" value="${escapeHTML(selectedTemplate?.name||sessionTitle||'')}" placeholder="Ej. Full Body A"></label>
  <label class="connected-field">Descripción de la plantilla<input name="templateDescription" maxlength="1000" value="${escapeHTML(selectedTemplate?.description||'')}" placeholder="Objetivos, equipo, nivel…"></label></div>

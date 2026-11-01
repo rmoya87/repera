@@ -7,6 +7,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +39,9 @@ class BusinessCenterStore(
     data class Occurrence(val id: String, val orgId: String, val kind: String,
         val title: String, val startsAt: String, val endsAt: String?,
         val capacity: Int?, val status: String,
-        val color: String? = null, val location: String? = null)
+        val color: String? = null, val location: String? = null,
+        val trainingTitle: String? = null, val trainingInstructions: String? = null,
+        val prescription: JSONObject? = null)
     data class Pass(val id: String, val orgId: String, val clientId: String,
         val kind: String, val totalCredits: Int, val remainingCredits: Int,
         val validFrom: String?, val validUntil: String?, val status: String,
@@ -56,7 +60,8 @@ class BusinessCenterStore(
     data class ChatMessage(val id:String,val orgId:String,val clientId:String,val senderUserId:String,
         val senderRole:String,val body:String,val createdAt:String,val batchId:String?)
     data class ProfessionalSession(val id:String,val orgId:String,val clientId:String,val coachUserId:String,
-        val scheduledDate:String,val title:String,val instructions:String,val status:String,val prescription:JSONObject?)
+        val scheduledDate:String,val title:String,val instructions:String,val status:String,
+        val prescription:JSONObject?,val sourceOccurrenceId:String? = null)
     data class Availability(val occurrenceId: String, val capacity: Int,
         val reserved: Int)
 
@@ -141,6 +146,65 @@ class BusinessCenterStore(
                 parseInstant(occById[booking.occurrenceId]?.startsAt) ?: Instant.EPOCH
             }
         }
+
+        fun classTrainingSession(occurrenceId: String, clientId: String? = null): ProfessionalSession? {
+            if (clientId != null) {
+                trainingSessions.firstOrNull {
+                    it.sourceOccurrenceId == occurrenceId && it.clientId == clientId
+                }?.let { return it }
+            }
+            return trainingSessions.firstOrNull { it.sourceOccurrenceId == occurrenceId }
+        }
+
+        fun classPrescription(occurrence: Occurrence, clientId: String? = null): JSONObject? {
+            classTrainingSession(occurrence.id, clientId)?.prescription
+                ?.takeIf { isCanonicalPrescription(it) }
+                ?.let { return it }
+            return occurrence.prescription?.takeIf { isCanonicalPrescription(it) }
+        }
+
+        fun classPlanSummary(occurrence: Occurrence, clientId: String? = null): String? {
+            val rx = classPrescription(occurrence, clientId) ?: return null
+            val blocks = rx.optJSONArray("blocks") ?: return null
+            val title = classTrainingSession(occurrence.id, clientId)?.title
+                ?.takeIf { it.isNotBlank() }
+                ?: occurrence.trainingTitle?.takeIf { it.isNotBlank() }
+                ?: occurrence.title
+            return "$title · ${blocks.length()} bloq."
+        }
+
+        fun asClassPlanSession(
+            occurrence: Occurrence,
+            clientId: String? = null
+        ): ProfessionalSession? {
+            classTrainingSession(occurrence.id, clientId)
+                ?.takeIf { isCanonicalPrescription(it.prescription) }
+                ?.let { return it }
+            val rx = occurrence.prescription?.takeIf { isCanonicalPrescription(it) } ?: return null
+            val day = runCatching {
+                Instant.parse(occurrence.startsAt).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+            }.getOrElse { LocalDate.now().toString() }
+            return ProfessionalSession(
+                id = occurrence.id,
+                orgId = occurrence.orgId,
+                clientId = clientId.orEmpty(),
+                coachUserId = "",
+                scheduledDate = day,
+                title = occurrence.trainingTitle?.takeIf { it.isNotBlank() } ?: occurrence.title,
+                instructions = occurrence.trainingInstructions.orEmpty(),
+                status = "scheduled",
+                prescription = rx,
+                sourceOccurrenceId = occurrence.id
+            )
+        }
+    }
+
+    companion object {
+        fun isCanonicalPrescription(prescription: JSONObject?): Boolean {
+            if (prescription == null) return false
+            if (prescription.optInt("schemaVersion") != 1 && prescription.optInt("version") != 1) return false
+            return (prescription.optJSONArray("blocks")?.length() ?: 0) > 0
+        }
     }
 
     sealed class LoadResult {
@@ -211,7 +275,8 @@ class BusinessCenterStore(
             val ownedClientIds = myLinks.map { it.id }.toSet()
             val occurrences = parseOccurrences(get(session, "service_occurrences",
                 "id,org_id,kind,title,starts_at,ends_at,capacity,status," +
-                    "service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location)"))
+                    "service_occurrence_details!service_occurrence_details_occurrence_id_fkey(" +
+                    "color,location,training_title,training_instructions,prescription)"))
             val passes = parsePasses(get(session, "service_passes",
                 "id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status," +
                     "issuance_type,payment_method,paid_at,paid_amount_cents,offer_id"))
@@ -220,7 +285,8 @@ class BusinessCenterStore(
             val bookings = parseBookings(get(session, "service_bookings",
                 "id,org_id,client_id,occurrence_id,status"))
             val notices=parseNotices(get(session,"business_client_notifications","id,org_id,client_id,title,body,created_at"))
-            val training=parseProfessionalSessions(get(session,"professional_training_sessions","id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status"))
+            val training=parseProfessionalSessions(get(session,"professional_training_sessions",
+                "id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status,source_occurrence_id"))
             val counts = mutableMapOf<String, Availability>()
             for (center in centers) {
                 val occupancy = rpc(session, "get_service_availability",
@@ -366,7 +432,9 @@ class BusinessCenterStore(
     internal fun parseProfessionalSessions(data:JSONArray):List<ProfessionalSession> = (0 until data.length()).map { i ->
         val r=data.getJSONObject(i)
         ProfessionalSession(r.getString("id"),r.getString("org_id"),r.getString("client_id"),r.getString("coach_user_id"),
-            r.getString("scheduled_date"),r.getString("title"),r.getString("instructions"),r.getString("status"),r.optJSONObject("prescription"))
+            r.getString("scheduled_date"),r.getString("title"),r.getString("instructions"),r.getString("status"),
+            r.optJSONObject("prescription"),
+            r.optString("source_occurrence_id").ifBlank { null })
     }
 
     private fun parseOrganizations(data: JSONArray) = (0 until data.length()).map { i ->
@@ -398,14 +466,19 @@ class BusinessCenterStore(
         val row = data.getJSONObject(i)
         val details = row.optJSONObject("service_occurrence_details")
             ?: row.optJSONArray("service_occurrence_details")?.optJSONObject(0)
-        Occurrence(row.getString("id"), row.getString("org_id"),
+        Occurrence(
+            row.getString("id"), row.getString("org_id"),
             row.optString("kind"), row.optString("title"),
             row.getString("starts_at"),
             row.optString("ends_at").ifBlank { null },
             row.optInt("capacity").takeIf { row.has("capacity") && !row.isNull("capacity") },
             row.optString("status"),
             details?.optString("color")?.ifBlank { null } ?: row.optString("color").ifBlank { null },
-            details?.optString("location")?.ifBlank { null } ?: row.optString("location").ifBlank { null })
+            details?.optString("location")?.ifBlank { null } ?: row.optString("location").ifBlank { null },
+            details?.optString("training_title")?.ifBlank { null },
+            details?.optString("training_instructions")?.ifBlank { null },
+            details?.optJSONObject("prescription")
+        )
     }
 
     private fun parsePasses(data: JSONArray) = (0 until data.length()).map { i ->

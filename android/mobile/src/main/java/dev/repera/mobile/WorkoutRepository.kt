@@ -1982,8 +1982,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (personal?.optJSONArray("exercises")?.length()?.let { it > 0 } == true) return personal
         val assigned = professional.firstOrNull {
             it.scheduledDate == today.toString() && it.status == "scheduled" &&
-                it.prescription?.optInt("schemaVersion") == 1 &&
-                (it.prescription.optJSONArray("blocks")?.length() ?: 0) > 0
+                BusinessCenterStore.isCanonicalPrescription(it.prescription)
         } ?: return null
         return try { projectProfessionalWatchPlan(state, assigned) } catch (_: org.json.JSONException) { null }
     }
@@ -2023,8 +2022,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         var bestBusiness: Pair<LocalDate, BusinessCenterStore.ProfessionalSession>? = null
         for (assigned in professional) {
             if (assigned.status != "scheduled") continue
-            if (assigned.prescription?.optInt("schemaVersion") != 1) continue
-            if ((assigned.prescription.optJSONArray("blocks")?.length() ?: 0) <= 0) continue
+            if (!BusinessCenterStore.isCanonicalPrescription(assigned.prescription)) continue
             val day = runCatching { LocalDate.parse(assigned.scheduledDate.take(10)) }.getOrNull()
                 ?: continue
             if (!day.isBefore(today)) continue
@@ -2038,64 +2036,122 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return null
     }
 
+    /**
+     * Persiste la prescripción profesional/clase como rutina one-off en biblioteca
+     * (paridad iOS `ensureProfessionalRoutineInLibrary`) y devuelve su id.
+     */
+    @Synchronized fun ensureProfessionalRoutineInLibrary(
+        assigned: BusinessCenterStore.ProfessionalSession
+    ): String? {
+        if (!BusinessCenterStore.isCanonicalPrescription(assigned.prescription)) return null
+        val state = requireState()
+        val routines = state.optJSONArray("routines") ?: JSONArray().also { state.put("routines", it) }
+        for (i in 0 until routines.length()) {
+            if (routines.getJSONObject(i).optString("id") == assigned.id) return assigned.id
+        }
+        val projected = projectProfessionalRoutine(state, assigned, mutateCatalog = true) ?: return null
+        projected.put("scheduledDate", assigned.scheduledDate.take(10))
+        routines.put(projected)
+        save(state)
+        return assigned.id
+    }
+
     private fun projectProfessionalWatchPlan(state:JSONObject,assigned:BusinessCenterStore.ProfessionalSession):JSONObject? {
         // Apple professionalWorkoutForWatchToday: clone catalog for resolution,
         // no writes, no personal catalog/routine additions and no progression.
         val temporary=JSONObject(state.toString())
-        val catalog=temporary.optJSONArray("exercises") ?: JSONArray().also {temporary.put("exercises",it)}
-        val blocks=JSONArray()
-        val source=assigned.prescription!!.getJSONArray("blocks")
-        for(i in 0 until source.length()) {
-            val prescribed=source.getJSONObject(i);val wod=prescribed.optString("kind")=="wod"
-            val block=JSONObject().put("id",prescribed.getString("id")).put("title",prescribed.optString("title"))
-                .put("kind",if(wod) "wod" else "strength").put("exercises",JSONArray()).put("movements",JSONArray())
-            val format=dev.repera.domain.ProfessionalWodFormat.normalize(prescribed.optString("wodFormat"))
-            if(format.isNotEmpty() && format!="null") block.put("wodFormat",format)
-            listOf("rounds","timeCapMinutes").forEach {key -> if(prescribed.has(key) && !prescribed.isNull(key)) block.put(key,prescribed.get(key))}
-            val entries=prescribed.optJSONArray(if(wod) "movements" else "exercises") ?: JSONArray()
-            val deferredRests=JSONArray()
-            for(j in 0 until entries.length()) {
-                val entry=entries.getJSONObject(j)
-                // Paridad iOS: REST prescrito como isRest en WOD (nunca fuerza).
-                if(entry.optBoolean("isRest")) {
-                    val rest=JSONObject()
-                        .put("id",entry.getString("id"))
-                        .put("name",entry.optString("name").ifBlank { "REST" })
-                        .put("isRest",true)
-                        .put("restSeconds",entry.optInt("restSeconds",60).coerceAtLeast(5))
-                    if(entry.has("notes") && !entry.isNull("notes")) rest.put("notes",entry.get("notes"))
-                    if(wod) block.getJSONArray("movements").put(rest)
+        val projected=projectProfessionalRoutine(temporary,assigned,mutateCatalog=false) ?: return null
+        return runCatching {assembleSession(temporary,projected,allowAdvanced=false)}.getOrNull()
+    }
+
+    /** Convierte `BusinessPrescription` → JSON de `Routine` ejecutable. */
+    private fun projectProfessionalRoutine(
+        state: JSONObject,
+        assigned: BusinessCenterStore.ProfessionalSession,
+        @Suppress("UNUSED_PARAMETER") mutateCatalog: Boolean
+    ): JSONObject? {
+        val prescription = assigned.prescription ?: return null
+        if (!BusinessCenterStore.isCanonicalPrescription(prescription)) return null
+        val source = prescription.optJSONArray("blocks") ?: return null
+        val catalog = state.optJSONArray("exercises") ?: JSONArray().also { state.put("exercises", it) }
+        val blocks = JSONArray()
+        for (i in 0 until source.length()) {
+            val prescribed = source.getJSONObject(i)
+            val wod = prescribed.optString("kind") == "wod"
+            val block = JSONObject().put("id", prescribed.getString("id")).put("title", prescribed.optString("title"))
+                .put("kind", if (wod) "wod" else "strength").put("exercises", JSONArray()).put("movements", JSONArray())
+            val format = dev.repera.domain.ProfessionalWodFormat.normalize(prescribed.optString("wodFormat"))
+            if (format.isNotEmpty() && format != "null") block.put("wodFormat", format)
+            listOf("rounds", "timeCapMinutes").forEach { key ->
+                if (prescribed.has(key) && !prescribed.isNull(key)) block.put(key, prescribed.get(key))
+            }
+            val entries = prescribed.optJSONArray(if (wod) "movements" else "exercises") ?: JSONArray()
+            val deferredRests = JSONArray()
+            for (j in 0 until entries.length()) {
+                val entry = entries.getJSONObject(j)
+                if (entry.optBoolean("isRest")) {
+                    val rest = JSONObject()
+                        .put("id", entry.getString("id"))
+                        .put("name", entry.optString("name").ifBlank { "REST" })
+                        .put("isRest", true)
+                        .put("restSeconds", entry.optInt("restSeconds", 60).coerceAtLeast(5))
+                    if (entry.has("notes") && !entry.isNull("notes")) rest.put("notes", entry.get("notes"))
+                    if (wod) block.getJSONArray("movements").put(rest)
                     else deferredRests.put(rest)
                     continue
                 }
-                val known=(0 until catalog.length()).map {catalog.getJSONObject(it)}
-                val resolved=known.firstOrNull {it.optString("id")==entry.optString("catalogKey")} ?:
-                    known.firstOrNull {dev.repera.domain.ExerciseEquivalence.sameName(it.optString("name"),entry.optString("name"))} ?:
-                    JSONObject().put("id",UUID.randomUUID().toString()).put("name",entry.optString("name"))
-                        .put("muscleGroup","Entrenador").put("isCustom",true).also {catalog.put(it)}
-                val planned=entry.optJSONArray("plannedSets")?.let {JSONArray(it.toString())} ?: JSONArray()
-                for(k in 0 until planned.length()) {val set=planned.getJSONObject(k);set.put("targetReps",set.optInt("targetReps").coerceAtLeast(0))}
-                val item=JSONObject().put("id",entry.getString("id")).put("exerciseId",resolved.getString("id"))
-                if(wod) {
-                    item.put("name",resolved.getString("name"))
-                    listOf("reps","notes").forEach {key -> if(entry.has(key) && !entry.isNull(key)) item.put(key,entry.get(key))}
-                    if(planned.length()>0) item.put("explicitPlannedSets",planned)
+                val known = (0 until catalog.length()).map { catalog.getJSONObject(it) }
+                val resolved = known.firstOrNull { it.optString("id") == entry.optString("catalogKey") }
+                    ?: known.firstOrNull {
+                        dev.repera.domain.ExerciseEquivalence.sameName(
+                            it.optString("name"), entry.optString("name")
+                        )
+                    }
+                    ?: JSONObject().put("id", UUID.randomUUID().toString())
+                        .put("name", entry.optString("name"))
+                        .put("muscleGroup", "Entrenador").put("isCustom", true)
+                        .also { catalog.put(it) }
+                val planned = entry.optJSONArray("plannedSets")?.let { JSONArray(it.toString()) } ?: JSONArray()
+                for (k in 0 until planned.length()) {
+                    val set = planned.getJSONObject(k)
+                    set.put("targetReps", set.optInt("targetReps").coerceAtLeast(0))
+                }
+                val item = JSONObject().put("id", entry.getString("id")).put("exerciseId", resolved.getString("id"))
+                if (wod) {
+                    item.put("name", resolved.getString("name"))
+                    listOf("reps", "notes").forEach { key ->
+                        if (entry.has(key) && !entry.isNull(key)) item.put(key, entry.get(key))
+                    }
+                    if (planned.length() > 0) item.put("explicitPlannedSets", planned)
                     block.getJSONArray("movements").put(item)
                 } else {
-                    if(planned.length()==0) planned.put(JSONObject().put("id",UUID.randomUUID().toString()).put("targetReps",entry.optInt("reps").coerceAtLeast(0)))
-                    item.put("plannedSets",planned);block.getJSONArray("exercises").put(item)
+                    if (planned.length() == 0) {
+                        planned.put(
+                            JSONObject().put("id", UUID.randomUUID().toString())
+                                .put("targetReps", entry.optInt("reps").coerceAtLeast(0))
+                        )
+                    }
+                    item.put("plannedSets", planned)
+                    block.getJSONArray("exercises").put(item)
                 }
             }
-            val hasContent=if(wod) block.getJSONArray("movements").length()>0 else block.getJSONArray("exercises").length()>0
-            if(hasContent) blocks.put(block)
-            for(r in 0 until deferredRests.length()) {
-                blocks.put(JSONObject().put("id",UUID.randomUUID().toString()).put("title","Descanso")
-                    .put("kind","wod").put("exercises",JSONArray())
-                    .put("movements",JSONArray().put(deferredRests.getJSONObject(r))))
+            val hasContent = if (wod) block.getJSONArray("movements").length() > 0
+            else block.getJSONArray("exercises").length() > 0
+            if (hasContent) blocks.put(block)
+            for (r in 0 until deferredRests.length()) {
+                blocks.put(
+                    JSONObject().put("id", UUID.randomUUID().toString()).put("title", "Descanso")
+                        .put("kind", "wod").put("exercises", JSONArray())
+                        .put("movements", JSONArray().put(deferredRests.getJSONObject(r)))
+                )
             }
         }
-        val projected=JSONObject().put("id",assigned.id).put("title",assigned.title).put("blocks",blocks).put("progression","off")
-        return runCatching {assembleSession(temporary,projected,allowAdvanced=false)}.getOrNull()
+        if (blocks.length() == 0) return null
+        return JSONObject()
+            .put("id", assigned.id)
+            .put("title", assigned.title)
+            .put("blocks", blocks)
+            .put("progression", "off")
     }
 
     /**

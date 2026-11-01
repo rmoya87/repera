@@ -36,7 +36,7 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-11-01 (detalle clase fecha ES + sin clip)
+Última actualización: 2026-11-01 (cancel booking limpia fan-out clase)
 
 ## Series de movilidad (iOS)
 
@@ -174,11 +174,11 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Swipe bidireccional de Inicio (27/10/2026)
 - `RegisterSwipeRevealCard` y su coordinador UIKit admiten `onEdit` opcional (revelado positivo, botón azul) y mantienen `onDelete` (negativo, rojo). `SwipeRevealMath` aplica umbrales simétricos y limita el desplazamiento positivo cuando la tarjeta no dispone de editor. El host preserva el bloqueo temporal del carrusel de chips y las animaciones de desplazamiento.
-- `HomeView` separa entrenos planificados propios (`state.routines`) y resultados propios (`state.workouts`) de las prescripciones de `BusinessDataStore`. Solo los dos primeros abren edición de `DayEditorView`, reutilizando `CompletedWorkoutEditing` para resultados. Las fichas de entrenador/gimnasio y de Apple Salud carecen de `onEdit`.
+- `HomeView` separa entrenos planificados propios (`state.routines`) y resultados propios (`state.workouts`) de las prescripciones de `BusinessDataStore`. Solo los dos primeros abren edición de `DayEditorView`, reutilizando `CompletedWorkoutEditing` para resultados. Las fichas de entrenador/gimnasio y de Apple Salud carecen de `onEdit`. Clase con plan en Inicio: chip «Clase», sin lápiz; swipe rojo → cancelar reserva (`homeBookingPendingCancellation` / Android `pendingClassCancellation`), no `removeScheduledRoutine`.
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Comenzar · + · Progreso · Ejercicios**. El tab **+** (`PlusHubView` / Android `PlusHubTab`) concentra **Clases** (día; ficha con color/aforo; detalle con título = nombre de clase; subtítulo fecha en `SpanishDate` + fila `ogSessionDateListRow` / locale `es_ES` en Android; cancelación `OGConfirmSheet` / `ReperaConfirmSheet`; roster `class_occurrence_roster`) y **Centro** (ficha única: avatar/nombre + contacto; Plan, próximas, últimos 3 pagos/historial con ver más). En Home, reservas `kind=class` usan icono de entreno y caption `hora · centro`. Select orgs incluye contacto público. Ventana de inscripción: `organizations.class_booking_open_hours` + RPC `update_org_booking_window` / chequeo en `book_service_occurrence`. Datos fiscales Business: RPC `upsert_organization_legal_profile` (owner/admin) sobre `organization_legal_profiles`. `LinkedCenterDetailView` / `LinkedCenterDialog`: historiales de pagos y clases. Mensajes en topbar de Inicio. Deep link `repera://invitation/{id}` → Ajustes → centro vinculado.
+`RootTabView`: **Inicio · Comenzar · + · Progreso · Ejercicios**. El tab **+** (`PlusHubView` / Android `PlusHubTab`) concentra **Clases** (día; ficha con color/aforo; detalle unificado `ClassOccurrenceDetailPage` / `ClassDetailPage` — mismo desde Inicio; cancelación `OGConfirmSheet` / `ReperaConfirmSheet`; roster `class_occurrence_roster`; prescripción de clase en `service_occurrence_details` y/o sesión por `source_occurrence_id` → bloques + Comenzar vía `routineFromProfessionalPrescription` / `ensureProfessionalRoutineInLibrary` → preview/Play) y **Centro** (ficha única: avatar/nombre + contacto en color de texto; Plan, próximas, últimos 3 pagos/historial con ver más). Business: clases fijas vs asignación semanal — `publish_class_training` (una clase), `publish_class_training_bulk` (hasta 40) y `clear_class_training` (quitar plantilla + cancelar fan-out); plantilla en `service_occurrence_details`; `book`/`enroll` materializan con `ensure_class_training_for_client`; `cancel_service_booking` cancela también el fan-out `scheduled` del cliente. En Home, fan-out de clase no se lista sin reserva; reservas `kind=class` usan icono de entreno y caption `hora · centro` (Android también lista bookings del día). Select orgs incluye contacto público. Ventana de inscripción: `organizations.class_booking_open_hours` + RPC `update_org_booking_window` / chequeo en `book_service_occurrence`. Datos fiscales Business: RPC `upsert_organization_legal_profile` / `get_organization_legal_profile` (owner postgres, jsonb; owner/admin) sobre `organization_legal_profiles`; Ajustes guarda branding antes del bloque fiscal. Avatar de centro: Storage `business-branding` con `has_org_role` (incluye delegación admin) + RPC `update_organization_avatar`; trigger evita degradar owner/admin a athlete al aceptar vínculo atleta. `LinkedCenterDetailView` / `LinkedCenterDialog`: historiales de pagos y clases. Mensajes en topbar de Inicio. Deep link `repera://invitation/{id}` → Ajustes → centro vinculado.
 
 Business web (`web/console`): gym header Notificaciones = drawer `renderNotificationsDrawer`; edición de serie de clase por matching título+weekday+hora en `edit-occurrence`; franjas `weekSlotGrid` con paso = duración.
 
@@ -409,7 +409,7 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-11-01 (detalle clase fecha ES + sin clip)
+Última actualización: 2026-11-01 (cancel booking limpia fan-out clase)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

@@ -30,14 +30,17 @@ test('Editor renderiza miniaturas, WOD y parámetros sin ejecutar HTML inyectado
  assert.ok(!escaped.includes('<img src=x onerror=alert(1)>'));
 });
 
-test('Dentro del bloque: biblioteca, descanso, temporizador y Mis entrenos',()=>{
+test('Dentro del bloque: biblioteca, descanso, movimiento libre, temporizador y Mis entrenos',()=>{
  const html=editorMarkup(demo);
  assert.match(html,/data-editor-action="open-library"/);
  assert.match(html,/data-editor-action="add-rest-in-block"/);
+ assert.match(html,/data-editor-action="open-free"/);
  assert.match(html,/data-editor-action="open-timer"/);
  assert.match(html,/data-editor-action="open-templates"/);
- assert.match(html,/data-editor-action="add-block-after"/);
+ assert.match(html,/data-editor-action="open-global-wod"/);
+ assert.match(html,/Sin formato|none/);
  assert.match(html,/editor-block-addbar/);
+ assert.match(html,/editor-footer-actions/);
 });
 
 test('Panel de biblioteca se dibuja dentro del cuadro del bloque',()=>{
@@ -86,8 +89,10 @@ test('canonicalPrescription: descanso WOD isRest; fuerza → bloque Descanso apa
  assert.equal(split.blocks[0].exercises.length,1);
  assert.equal(split.blocks[1].kind,'wod');
  assert.equal(split.blocks[1].title,'Descanso');
+ assert.equal(split.blocks[1].wodFormat,'forTime','Descanso WOD debe llevar wodFormat o el RPC rechaza el guardado');
  assert.equal(split.blocks[1].movements[0].isRest,true);
  assert.equal(split.blocks[1].movements[0].restSeconds,90);
+ assert.equal('catalogKey' in split.blocks[0].exercises[0],false,'free sin catalogKey null');
 
  const roundtrip=visualPrescription(split);
  assert.ok(roundtrip.blocks.some(b=>b.exercises.some(isRestMovement)));
@@ -105,6 +110,14 @@ test('Plantillas Mis entrenos aparecen en el panel del bloque',()=>{
  const css=readFileSync(new URL('../src/admin-refresh.css',import.meta.url),'utf8');
  assert.match(css,/\.editor-template-row/);
  setEditorLibraryTemplates([]);
+});
+
+test('resolveMovement recupera miniatura por nombre tras round-trip canónico',async()=>{
+ const {resolveMovement,MOVEMENTS}=await import('../src/ui/workout-editor.js');
+ const known=MOVEMENTS.find(m=>/sentadilla/i.test(m.name));
+ assert.ok(known?.art);
+ const hit=resolveMovement({id:'catalog:'+known.name,name:known.name});
+ assert.equal(hit?.art,known.art);
 });
 
 test('Administración visual usa superficies blancas y controles de contraste',()=>{

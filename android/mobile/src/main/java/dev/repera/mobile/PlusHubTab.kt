@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,13 +41,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +61,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Tab «+» (paridad iOS PlusHubView): Clases del día | Centro (ficha + plan).
@@ -73,6 +81,10 @@ internal fun PlusHubTab(
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCancel: (BusinessCenterStore.Booking) -> Unit,
     loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)? = null,
+    /** Materializa la prescripción y abre preview/Play (id de rutina). */
+    onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
+    onOpenExercise: (String) -> Unit = {},
 ) {
     var hubTab by remember { mutableStateOf(0) } // 0 clases, 1 centro
     var selectedDay by remember { mutableStateOf(LocalDate.now()) }
@@ -177,6 +189,9 @@ internal fun PlusHubTab(
             loadRoster = loadRoster,
             onBook = onBook,
             onRequestCancel = { pendingCancellation = it },
+            onStartClassPlan = onStartClassPlan,
+            exerciseCatalog = exerciseCatalog,
+            onOpenExercise = onOpenExercise,
             onClose = { detailOccurrence = null }
         )
     }
@@ -288,16 +303,18 @@ private fun ClassesPane(
         }
         items(dayClasses, key = { it.id }) { occurrence ->
             val availability = snapshot?.availability?.get(occurrence.id)
+            val booking = snapshot?.bookingFor(occurrence.id)
             ClassDayCard(
                 occurrence = occurrence,
                 centerName = snapshot?.centerName(occurrence.orgId).orEmpty(),
-                booking = snapshot?.bookingFor(occurrence.id),
+                booking = booking,
                 places = snapshot?.remainingPlaces(occurrence),
                 capacity = availability?.capacity ?: occurrence.capacity,
                 reserved = availability?.reserved,
                 passes = snapshot?.availablePasses(occurrence).orEmpty(),
                 canBook = snapshot?.canBookNow(occurrence) == true,
                 opensAt = snapshot?.bookingOpensAt(occurrence),
+                planSummary = snapshot?.classPlanSummary(occurrence, booking?.clientId),
                 dayFmt = dayFmt,
                 submitting = submitting,
                 onBook = onBook,
@@ -319,6 +336,7 @@ private fun ClassDayCard(
     passes: List<BusinessCenterStore.Pass>,
     canBook: Boolean,
     opensAt: Instant?,
+    planSummary: String? = null,
     dayFmt: DateTimeFormatter,
     submitting: Boolean,
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
@@ -384,6 +402,13 @@ private fun ClassDayCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Text(
+                        planSummary ?: "Sin entreno aún",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (planSummary != null) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 if (booking != null) {
                     Row(
@@ -444,7 +469,7 @@ private fun ClassDayCard(
 }
 
 @Composable
-private fun ClassDetailPage(
+internal fun ClassDetailPage(
     occurrence: BusinessCenterStore.Occurrence,
     snapshot: BusinessCenterStore.Snapshot?,
     dayFmt: DateTimeFormatter,
@@ -453,6 +478,9 @@ private fun ClassDetailPage(
     loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)?,
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
+    onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
+    onOpenExercise: (String) -> Unit = {},
     onClose: () -> Unit,
 ) {
     var roster by remember { mutableStateOf<BusinessCenterStore.ClassRoster?>(null) }
@@ -465,6 +493,16 @@ private fun ClassDetailPage(
     val start = runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
     val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
     val canTap = open && !full && passes.isNotEmpty()
+    val associatedSession = remember(snapshot, occurrence.id, booking?.clientId, occurrence.prescription) {
+        snapshot?.asClassPlanSession(occurrence, booking?.clientId)
+    }
+    val planInfos = remember(associatedSession?.prescription) {
+        associatedSession?.prescription
+            ?.takeIf { BusinessCenterStore.isCanonicalPrescription(it) }
+            ?.let { prescriptionToRoutineBlocks(it) }
+            .orEmpty()
+    }
+    val hasPlan = planInfos.isNotEmpty() && associatedSession != null
     val subtitle = if (start != null) {
         "${dateFmt.format(start).replaceFirstChar { it.uppercase() }} · ${dayFmt.format(start)}"
     } else {
@@ -494,6 +532,24 @@ private fun ClassDetailPage(
             ) {
                 TextButton(onClick = onClose) { Text("Cerrar") }
                 Spacer(Modifier.weight(1f))
+                if (hasPlan) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { onStartClassPlan(associatedSession!!) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Comenzar entreno",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
                 ClassBookingCircleButton(
                     booked = booking != null,
                     enabled = if (booking != null) !submitting else canTap && !submitting,
@@ -569,6 +625,22 @@ private fun ClassDetailPage(
                     }
                 }
 
+                // Bloques como entreno programado (RoutinePlanBreakdown); solo si hay ejercicios.
+                if (hasPlan) {
+                    associatedSession?.instructions?.takeIf { it.isNotBlank() }?.let { notes ->
+                        Text(
+                            notes,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    RoutinePlanBreakdown(
+                        blocks = planInfos,
+                        exerciseCatalog = exerciseCatalog,
+                        onOpenExercise = onOpenExercise
+                    )
+                }
+
                 if (!loadingRoster && roster?.coach != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
@@ -622,6 +694,48 @@ private fun ClassDetailPage(
                 }
             }
         }
+    }
+}
+
+/** Prescripción canónica → bloques del preview de entreno programado. */
+internal fun prescriptionToRoutineBlocks(prescription: JSONObject): List<RoutineBlockInfo> {
+    val blocks = prescription.optJSONArray("blocks") ?: return emptyList()
+    return (0 until blocks.length()).mapNotNull { i ->
+        val b = blocks.optJSONObject(i) ?: return@mapNotNull null
+        val wod = b.optString("kind") == "wod"
+        val raw = b.optJSONArray(if (wod) "movements" else "exercises") ?: JSONArray()
+        val entries = (0 until raw.length()).mapNotNull { j ->
+            val e = raw.optJSONObject(j) ?: return@mapNotNull null
+            val sets = e.optJSONArray("plannedSets")
+            val setCount = sets?.length()?.takeIf { it > 0 } ?: 1
+            val quantity = when {
+                sets != null && sets.length() > 0 -> sets.getJSONObject(0).optInt("targetReps", 0)
+                e.has("reps") && !e.isNull("reps") -> e.optInt("reps")
+                else -> 0
+            }
+            val catalogKey = e.optString("catalogKey").removePrefix("catalog:")
+            RoutineBlockEntryInfo(
+                exerciseId = catalogKey,
+                name = e.optString("name").ifBlank { "Ejercicio" },
+                quantity = quantity,
+                sets = setCount,
+                weightKg = sets?.optJSONObject(0)?.takeIf {
+                    it.has("targetWeightKg") && !it.isNull("targetWeightKg")
+                }?.optDouble("targetWeightKg"),
+                id = e.optString("id").ifBlank { null }
+            )
+        }
+        if (entries.isEmpty()) return@mapNotNull null
+        RoutineBlockInfo(
+            title = b.optString("title").ifBlank {
+                if (wod) "WOD" else "Fuerza"
+            },
+            format = if (wod) b.optString("wodFormat", "emom") else "",
+            timeCapMinutes = b.optInt("timeCapMinutes", 12).takeIf { it > 0 } ?: 12,
+            rounds = b.optInt("rounds", 1).coerceAtLeast(1),
+            entries = entries,
+            id = b.optString("id").ifBlank { null }
+        )
     }
 }
 
@@ -719,6 +833,19 @@ private fun AvatarInitials(name: String, hint: String? = null) {
 @Composable
 private fun CenterAvatar(center: BusinessCenterStore.Organization?, size: androidx.compose.ui.unit.Dp) {
     val name = center?.name.orEmpty()
+    val avatarUrl = center?.avatarUrl
+    val remote by produceState<android.graphics.Bitmap?>(null, avatarUrl) {
+        val url = avatarUrl?.takeIf { it.startsWith("https://") }
+        if (url.isNullOrBlank()) {
+            value = null
+            return@produceState
+        }
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                java.net.URL(url).openStream().use { android.graphics.BitmapFactory.decodeStream(it) }
+            }.getOrNull()
+        }
+    }
     val initials = name.split(" ")
         .filter { it.isNotBlank() }
         .take(2)
@@ -732,12 +859,21 @@ private fun CenterAvatar(center: BusinessCenterStore.Organization?, size: androi
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            initials,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = (size.value * 0.32f).sp
-        )
+        if (remote != null) {
+            Image(
+                bitmap = remote!!.asImageBitmap(),
+                contentDescription = name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Text(
+                initials,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value * 0.32f).sp
+            )
+        }
     }
 }
 
@@ -1010,7 +1146,7 @@ private fun ClassHistoryRow(
 private fun CenterHeroCard(center: BusinessCenterStore.Organization) {
     val email = center.publicEmail?.trim().orEmpty()
     val phone = center.phone?.trim().orEmpty()
-    val uriHandler = LocalUriHandler.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     ReperaCard(Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(16.dp),
@@ -1027,7 +1163,16 @@ private fun CenterHeroCard(center: BusinessCenterStore.Organization) {
                         email,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { uriHandler.openUri("mailto:$email") }
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_SENDTO,
+                                    android.net.Uri.parse("mailto:${android.net.Uri.encode(email)}")
+                                )
+                                runCatching { context.startActivity(intent) }
+                            }
                     )
                 }
                 if (phone.isNotBlank()) {
@@ -1036,9 +1181,16 @@ private fun CenterHeroCard(center: BusinessCenterStore.Organization) {
                         phone,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable(enabled = digits.isNotBlank()) {
-                            uriHandler.openUri("tel:$digits")
-                        }
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = digits.isNotBlank()) {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_DIAL,
+                                    android.net.Uri.parse("tel:$digits")
+                                )
+                                runCatching { context.startActivity(intent) }
+                            }
                     )
                 }
             }
@@ -1241,11 +1393,6 @@ private fun PlanCard(
                     }
                 }
             }
-            Text(
-                "Para renovar, habla con tu centro; te asignarán el siguiente plan cuando cobren fuera de Repera.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

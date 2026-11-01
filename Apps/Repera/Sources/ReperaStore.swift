@@ -2128,17 +2128,42 @@ final class ReperaStore: NSObject {
     private func professionalWorkoutForWatch(onDayKey key: String) -> WorkoutSession? {
         guard let assigned = BusinessDataStore.shared.trainingSessions.first(where: {
             $0.scheduledDate == key && $0.status == "scheduled" &&
-            $0.prescription?.schemaVersion == 1 && $0.prescription?.blocks.isEmpty == false
+            $0.prescription?.isCanonicalV1 == true
         }), let prescription = assigned.prescription else { return nil }
+        let scheduled = parseBusinessDayKey(key) ?? Date()
+        guard let routine = routineFromProfessionalPrescription(
+            prescription,
+            id: assigned.id,
+            title: assigned.title,
+            scheduledDate: scheduled,
+            scheduledTimeMinutes: assigned.scheduledTimeMinutes
+        ) else { return nil }
+        let preview = SessionController.from(routine: routine, exercises: state.exercises)
+        return preview.exercises.isEmpty ? nil : preview
+    }
 
-        // The coach's immutable prescription can be read offline on Watch,
-        // without introducing coach exercises into the athlete's personal catalog.
+    /// Convierte una prescripción de entrenador/clase en `Routine` ejecutable (Play / Watch).
+    /// No muta el catálogo del atleta más allá de ejercicios custom temporales en memoria.
+    func routineFromProfessionalPrescription(
+        _ prescription: BusinessPrescription,
+        id: UUID,
+        title: String,
+        scheduledDate: Date?,
+        scheduledTimeMinutes: Int? = nil
+    ) -> Routine? {
+        guard prescription.isCanonicalV1 else { return nil }
+
         var catalog = state.exercises
         var blocks: [RoutineBlock] = []
         func resolvedExercise(_ entry: BusinessPrescriptionEntry) -> Exercise {
             if let key = entry.catalogKey,
                let uuid = UUID(uuidString: key),
                let found = catalog.first(where: { $0.id == uuid }) { return found }
+            if let key = entry.catalogKey,
+               key.hasPrefix("catalog:"),
+               let found = catalog.first(where: {
+                   ExerciseEquivalence.sameName($0.name, String(key.dropFirst("catalog:".count)))
+               }) { return found }
             if let found = catalog.first(where: {
                 ExerciseEquivalence.sameName($0.name, entry.name)
             }) { return found }
@@ -2176,12 +2201,14 @@ final class ReperaStore: NSObject {
                         restSeconds: max(5, entry.restSeconds ?? 60),
                         notes: entry.notes
                     )
-                    // Misma regla que PlanView.insertRest: REST en WOD; si viene en fuerza → bloque aparte.
                     if isWOD { movements.append(movement) }
                     else { deferredRests.append(movement) }
                     continue
                 }
                 let exercise = resolvedExercise(entry)
+                if !state.exercises.contains(where: { $0.id == exercise.id }) {
+                    state.exercises.append(exercise)
+                }
                 let sets = entry.plannedSets?.map {
                     PlannedSet(id: $0.id, targetReps: max(0, $0.targetReps),
                                targetWeightKg: $0.targetWeightKg,
@@ -2218,13 +2245,24 @@ final class ReperaStore: NSObject {
             }
         }
         guard !blocks.isEmpty else { return nil }
-        let scheduled = parseBusinessDayKey(key) ?? Date()
-        let routine = Routine(
-            id: assigned.id, title: assigned.title,
-            scheduledDate: scheduled, blocks: blocks, progression: .off
+        return Routine(
+            id: id,
+            title: title,
+            scheduledDate: scheduledDate,
+            scheduledTimeMinutes: scheduledTimeMinutes,
+            blocks: blocks,
+            progression: .off
         )
-        let preview = SessionController.from(routine: routine, exercises: catalog)
-        return preview.exercises.isEmpty ? nil : preview
+    }
+
+    /// Persiste la rutina de clase/entrenador como one-off si aún no está en la biblioteca.
+    @discardableResult
+    func ensureProfessionalRoutineInLibrary(_ routine: Routine) -> Routine {
+        if let existing = state.routines.first(where: { $0.id == routine.id }) {
+            return existing
+        }
+        _ = saveRoutine(routine)
+        return state.routines.first(where: { $0.id == routine.id }) ?? routine
     }
 
     private func parseBusinessDayKey(_ key: String) -> Date? {
@@ -2277,8 +2315,7 @@ final class ReperaStore: NSObject {
         let overdueBusiness = BusinessDataStore.shared.trainingSessions
             .compactMap { assigned -> (Date, String)? in
                 guard assigned.status == "scheduled",
-                      assigned.prescription?.schemaVersion == 1,
-                      assigned.prescription?.blocks.isEmpty == false,
+                      assigned.prescription?.isCanonicalV1 == true,
                       let day = parseBusinessDayKey(assigned.scheduledDate)
                 else { return nil }
                 let start = cal.startOfDay(for: day)

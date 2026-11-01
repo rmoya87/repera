@@ -120,7 +120,7 @@ struct RootTabView: View {
                 systemImage: tab == .plus ? "plus.circle.fill" : "plus.circle",
                 value: AppTab.plus
             ) {
-                PlusHubView()
+                PlusHubView(onStartRoutine: openRoutinePreview)
             }
 
             SwiftUI.Tab(

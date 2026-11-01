@@ -1,5 +1,7 @@
 import {APP_CATALOG} from './exercise-catalog.js';
+import {WOD_CATALOG} from '../data/wod-catalog.js';
 // Editor de prescripciones Repera Business. Formato serializable compartido con iOS/Android.
+// Paridad PlanView: Sin formato, + Ejercicio / Descanso / Movimiento libre, Añadir bloque, Elegir WOD.
 // App solo entiende bloques strength|wod; descansos = movimientos isRest dentro de WOD
 // (o bloque WOD «Descanso»), nunca dentro de strength.
 const CURATED = [
@@ -45,8 +47,9 @@ const CURATED = [
 ].map(([id,name,group,art])=>({id,name,group,art}));
 export const MOVEMENTS=[...CURATED,...APP_CATALOG.filter(item=>!CURATED.some(base=>base.art===item.art&&base.name.toLowerCase().startsWith(item.name.toLowerCase())))];
 const TYPES={strength:'Fuerza',wod:'WOD / Metcon',warmup:'Calentamiento',accessory:'Accesorios'};
-// Formatos alineados con WODFormat de ReperaDomain (apps).
+// Formatos alineados con WODFormat de ReperaDomain (apps). «none» = Sin formato (como PlanView).
 const FORMATS={
+ none:'Sin formato',
  sets:'Series (fuerza)',
  amrap:'AMRAP',
  emom:'EMOM / Every',
@@ -57,6 +60,9 @@ const FORMATS={
  chipper:'Chipper',
  every:'Every / Intervalos'
 };
+const WOD_FORMAT_KEYS=new Set(['amrap','emom','tabata','rft','fortime','circuit','chipper','every']);
+function normalizeFormat(f){return f==null||f===''||f==='none'?'none':f;}
+function isWodFormat(f){return WOD_FORMAT_KEYS.has(normalizeFormat(f));}
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
 const integer=(v,def=0)=>Number.isFinite(Number(v))?Math.round(Number(v)):def;
 export const EXERCISE_ART_BASE='../assets/exercises';
@@ -69,6 +75,19 @@ export function exerciseThumbHTML(m,{size=''}={}){
  return `<img class="${cls}" loading="lazy" decoding="async" src="${exerciseArtUrl(m.art)}" alt="" onerror="this.classList.add('is-broken');this.removeAttribute('src')">`;
 }
 const thumb=m=>exerciseThumbHTML(m);
+/** Resuelve ficha de catálogo por id, catalogKey o nombre (miniaturas tras round-trip canónico). */
+export function resolveMovement(x){
+ if(!x)return null;
+ const id=String(x.id||'').trim();
+ const byId=id&&MOVEMENTS.find(m=>m.id===id);
+ if(byId)return byId;
+ const key=id.replace(/^catalog:/i,'').trim().toLowerCase();
+ const name=String(x.name||key||'').trim().toLowerCase();
+ if(!name)return null;
+ return MOVEMENTS.find(m=>m.name.toLowerCase()===name)
+  ||MOVEMENTS.find(m=>m.name.toLowerCase().startsWith(name)||name.startsWith(m.name.toLowerCase()))
+  ||null;
+}
 
 /** Plantillas Mis entrenos disponibles en el picker del bloque. */
 let libraryTemplates=[];
@@ -77,7 +96,49 @@ let editorUI={pickerBlock:-1,panel:null};
 export function emptyPrescription(){return {version:1,blocks:[]};}
 /** Bloque inicial vacío con biblioteca lista (Mis entrenos / programar cliente). */
 export function starterPrescription(){
- return {version:1,blocks:[{kind:'strength',format:'sets',title:'Fuerza',rounds:1,timeCap:0,exercises:[]}]};
+ return {version:1,blocks:[{kind:'strength',format:'none',title:'Bloque 1',rounds:1,timeCap:0,exercises:[]}]};
+}
+/** Meta de sesión (lugar / favorito / duración) — opcional en wire; apps la ignoran hasta consumo. */
+export function sessionMetaMarkup(meta={}){
+ const loc=escapeHTML(meta.location||'');
+ const dur=integer(meta.durationMinutes,45);
+ const fav=meta.favorite===true;
+ return `<section class="editor-session-meta" data-session-meta-card>
+  <div class="editor-session-meta-grid">
+   <label class="editor-number"><span>Duración</span><input data-session-meta="durationMinutes" type="number" min="5" max="720" step="5" value="${dur}"><small>min</small></label>
+   <label class="editor-session-place"><span>Añadir lugar</span><input data-session-meta="location" maxlength="250" placeholder="Sala, box, pista…" value="${loc}"></label>
+   <label class="editor-session-fav"><span>Favorito</span><input data-session-meta="favorite" type="checkbox" ${fav?'checked':''}></label>
+  </div>
+ </section>`;
+}
+export function readSessionMeta(form){
+ if(!form)return {};
+ const get=k=>form.querySelector(`[data-session-meta="${k}"]`)?.value;
+ const fav=form.querySelector('[data-session-meta="favorite"]');
+ return {
+  location:String(get('location')||'').trim().slice(0,250),
+  durationMinutes:Math.max(0,Math.min(720,integer(get('durationMinutes'),0))),
+  favorite:fav?.checked===true,
+ };
+}
+export function withSessionMeta(prescription,meta){
+ if(!prescription)return prescription;
+ const m=meta||{};
+ const has=m.location||m.favorite||m.durationMinutes;
+ if(!has){
+  const rest={...prescription};
+  delete rest.meta;
+  return rest;
+ }
+ return {...prescription,meta:{
+  ...(m.location?{location:m.location}:{}),
+  ...(m.favorite?{favorite:true}:{}),
+  ...(m.durationMinutes?{durationMinutes:m.durationMinutes}:{}),
+ }};
+}
+export function visualSessionMeta(prescription){
+ const m=prescription?.meta||{};
+ return {location:m.location||'',durationMinutes:integer(m.durationMinutes,45),favorite:m.favorite===true};
 }
 /** Abre la biblioteca dentro del primer bloque (al entrar a «Añadir entreno»). */
 export function openStarterLibrary(){editorUI={pickerBlock:0,panel:'library'};}
@@ -96,7 +157,8 @@ function timerWorkItem(){
 export function validatePrescription(value){
  if(!value||value.version!==1||!Array.isArray(value.blocks)||value.blocks.length>24)throw Error('Estructura de entrenamiento no válida');
  const blocks=value.blocks.map(b=>{
-  if(!TYPES[b.kind]||!FORMATS[b.format]||!Array.isArray(b.exercises)||b.exercises.length>40)throw Error('Bloque de entrenamiento no válido');
+  const format=normalizeFormat(b.format);
+  if(!TYPES[b.kind]||!FORMATS[format]||!Array.isArray(b.exercises)||b.exercises.length>40)throw Error('Bloque de entrenamiento no válido');
   const exercises=b.exercises.map(x=>{
    const label=String(x.name||'').trim().slice(0,120);
    if(!label)throw Error('Cada ejercicio debe tener un nombre');
@@ -104,10 +166,12 @@ export function validatePrescription(value){
    if(sets<1||sets>50||reps<0||reps>1000||rir<0||rir>10||!Number.isFinite(weight)||weight<0||weight>1000||duration<0||duration>3600)throw Error('Revisa series, repeticiones, RIR, peso o duración');
    const row={id:String(x.id||'custom').slice(0,80),name:label,sets,reps,rir,weight,duration,notes:String(x.notes||'').slice(0,400)};
    if(isRestMovement(x)){row.id='rest';row.itemKind='rest';row.isRest=true;}
+   if(x.itemKind==='free'||x.source==='free'){row.itemKind='free';row.source='free';}
    return row;
   });
   if(!exercises.length)throw Error('Añade al menos un ejercicio o descanso a cada bloque');
-  return {kind:b.kind,format:b.format,title:String(b.title||TYPES[b.kind]).slice(0,120),rounds:Math.max(1,Math.min(100,integer(b.rounds,1))),timeCap:Math.max(0,Math.min(720,integer(b.timeCap,0))),exercises};
+  const kind=isWodFormat(format)&&b.kind!=='warmup'&&b.kind!=='accessory'?'wod':b.kind;
+  return {kind,format,title:String(b.title||TYPES[kind]||'Bloque').slice(0,120),rounds:Math.max(1,Math.min(100,integer(b.rounds,1))),timeCap:Math.max(0,Math.min(720,integer(b.timeCap,0))),exercises};
  });
  if(!blocks.length)throw Error('Añade un bloque de fuerza, calentamiento o WOD');
  return {version:1,blocks};
@@ -115,15 +179,23 @@ export function validatePrescription(value){
 function num(value, min, max, label, key, step=1){return `<label class="editor-number"><span>${label}</span><input data-editor-field="${key}" type="number" value="${escapeHTML(value)}" min="${min}" max="${max}" step="${step}"></label>`;}
 function select(value,choices,key){return `<select data-editor-field="${key}" aria-label="${key}">${Object.entries(choices).map(([v,t])=>`<option value="${v}" ${v===value?'selected':''}>${t}</option>`).join('')}</select>`;}
 
+function removeBtn(i,label){
+ return `<button type="button" class="editor-icon-button is-danger" data-editor-action="remove-exercise" data-exercise="${i}" title="${escapeHTML(label)}" aria-label="${escapeHTML(label)}">
+  <span aria-hidden="true">⌫</span></button>`;
+}
 function movementMarkup(x,i){
- const known=MOVEMENTS.find(m=>m.id===x.id);
+ const known=resolveMovement(x);
  if(isRestMovement(x)){
-  return `<article class="editor-exercise is-rest" data-editor-exercise data-id="rest" data-name="Descanso" data-item-kind="rest"><div class="editor-exercise-head"><span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">⏱</span><div class="exercise-title"><strong>Descanso</strong><small>Pausa (como en la app)</small></div><button type="button" class="editor-icon-button" data-editor-action="remove-exercise" data-exercise="${i}" title="Eliminar descanso" aria-label="Eliminar descanso">×</button></div><div class="editor-values">
+  return `<article class="editor-exercise is-rest" data-editor-exercise data-id="rest" data-name="Descanso" data-item-kind="rest"><div class="editor-exercise-head"><span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">⏱</span><div class="exercise-title"><strong>Descanso</strong><small>Pausa (como en la app)</small></div>${removeBtn(i,'Eliminar descanso')}</div><div class="editor-values">
  ${num(x.duration??60,5,3600,'Segundos','duration')}
  </div><label class="editor-notes">Notas<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Opcional"></label>
  <input type="hidden" data-editor-field="sets" value="1"><input type="hidden" data-editor-field="reps" value="0"><input type="hidden" data-editor-field="rir" value="0"><input type="hidden" data-editor-field="weight" value="0"></article>`;
  }
- return `<article class="editor-exercise" data-editor-exercise data-id="${escapeHTML(x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="exercise"><div class="editor-exercise-head">${thumb(known)}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(known?.group||'Movimiento personalizado')}</small></div><button type="button" class="editor-icon-button" data-editor-action="remove-exercise" data-exercise="${i}" title="Eliminar ejercicio" aria-label="Eliminar ${escapeHTML(x.name)}">×</button></div><div class="editor-values">
+ const free=x.itemKind==='free'||x.source==='free';
+ const kind=free?'free':'exercise';
+ const subtitle=free?'Movimiento libre':(known?.group||'Movimiento personalizado');
+ const art=free?`<span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">＋</span>`:thumb(known||{art:null});
+ return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
  ${num(x.sets??3,1,50,'Series','sets')}${num(x.reps??8,0,1000,'Reps','reps')}${num(x.rir??2,0,10,'RIR','rir')}
  ${num(x.weight??0,0,1000,'Kg','weight',.5)}${num(x.duration??0,0,3600,'Seg.','duration')}
  </div><label class="editor-notes">Indicaciones<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Tempo, alternativa…"></label></article>`;
@@ -177,14 +249,56 @@ function timerPanel(blockIndex){
   </div>
  </div>`;
 }
+function freeMovementPanel(blockIndex){
+ return `<div class="editor-block-panel" data-block-panel="free">
+  <div class="editor-picker-head"><div><strong>Movimiento libre</strong><small>Sin ficha de catálogo (como en la app)</small></div>
+   <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
+  <label class="connected-field">Nombre<input data-free-name maxlength="120" placeholder="Ej. Farmer carry maleta" required></label>
+  <div class="editor-timer-grid">
+   <label class="connected-field">Reps / cantidad<input type="number" data-free-reps min="1" max="1000" value="10"></label>
+   <label class="connected-field">Series<input type="number" data-free-sets min="1" max="50" value="3"></label>
+  </div>
+  <button type="button" class="editor-add" data-editor-action="add-free-movement" data-index="${blockIndex}">Añadir movimiento libre</button>
+ </div>`;
+}
+function wodCatalogPanel(blockIndex){
+ const rows=WOD_CATALOG.map(w=>{
+  const search=`${w.name} ${w.format} ${w.notes||''} ${(w.movements||[]).map(m=>m.name).join(' ')}`.toLowerCase();
+  return `<button type="button" class="editor-movement" data-editor-action="insert-wod-template" data-id="${escapeHTML(w.id)}" data-index="${blockIndex}" data-search="${escapeHTML(search)}">
+  <span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">☰</span>
+  <span><strong>${escapeHTML(w.name)}</strong><small>${escapeHTML(FORMATS[w.format]||w.format)}${w.timeCap?` · ${w.timeCap}'`:''}${w.notes?` · ${escapeHTML(w.notes)}`:''}</small></span>
+  <span aria-hidden="true">＋</span>
+ </button>`;
+ }).join('');
+ return `<div class="editor-block-panel" data-block-panel="wod-catalog">
+  <div class="editor-picker-head"><div><strong>Elegir WOD</strong><small>Benchmarks conocidos (Girls, Heroes…)</small></div>
+   <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
+  <input data-editor-search type="search" placeholder="Buscar Fran, Cindy, Murph…" aria-label="Buscar WOD">
+  <div class="editor-picker-results">${rows}</div>
+ </div>`;
+}
 
 function blockAddBar(i){
  return `<div class="editor-block-addbar" role="toolbar" aria-label="Añadir al bloque">
   <button type="button" class="editor-add" data-editor-action="open-library" data-index="${i}">+ Ejercicio</button>
-  <button type="button" class="editor-add subtle" data-editor-action="add-rest-in-block" data-index="${i}">+ Descanso</button>
-  <button type="button" class="editor-add subtle" data-editor-action="open-timer" data-index="${i}">+ Temporizador</button>
-  <button type="button" class="editor-add subtle" data-editor-action="open-templates" data-index="${i}">+ Mis entrenos</button>
-  <button type="button" class="editor-add subtle" data-editor-action="add-block-after" data-index="${i}" data-kind="wod">+ Bloque WOD</button>
+  <button type="button" class="editor-add subtle" data-editor-action="add-rest-in-block" data-index="${i}">Descanso</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-free" data-index="${i}">+ Movimiento libre</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-timer" data-index="${i}">Temporizador</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-templates" data-index="${i}">Mis entrenos</button>
+ </div>`;
+}
+function editorFooterActions(){
+ return `<div class="editor-footer-actions" role="toolbar" aria-label="Añadir al entreno">
+  <button type="button" class="editor-footer-btn" data-editor-action="add-block" data-kind="strength">
+   <span aria-hidden="true">▦</span> Añadir bloque</button>
+  <button type="button" class="editor-footer-btn" data-editor-action="open-global-wod">
+   <span aria-hidden="true">☰</span> Elegir WOD</button>
+  <button type="button" class="editor-footer-btn" data-editor-action="open-global-templates">
+   <span aria-hidden="true">★</span> Mis entrenos</button>
+  <button type="button" class="editor-footer-btn" data-editor-action="open-accessories">
+   <span aria-hidden="true">＋</span> Accesorios</button>
+  <button type="button" class="editor-footer-btn is-muted" data-editor-action="scan-board" title="OCR de pizarra: fase posterior en Business">
+   <span aria-hidden="true">▢</span> Escanear pizarra</button>
  </div>`;
 }
 
@@ -198,31 +312,41 @@ function panelForBlock(i,exercises){
  return null;
 }
 
-export function editorMarkup(value=emptyPrescription()){
+export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false}={}){
  const blocks=Array.isArray(value?.blocks)?value.blocks:[];
  const open=editorUI.pickerBlock;
  const panel=editorUI.panel;
+ const metaHTML=showMeta?sessionMetaMarkup(meta||visualSessionMeta(value)): '';
  return `<div class="workout-editor" data-picker-block="${open}" data-panel="${escapeHTML(panel||'')}">
- <div class="editor-topline"><div><strong>Constructor de entrenamiento</strong><small>Misma estructura que Repera en iPhone y Android (fuerza + WOD)</small></div>
-  <div class="editor-toolbar">
-   <button type="button" data-editor-action="add-block" data-kind="strength">+ Fuerza</button>
-   <button type="button" data-editor-action="add-block" data-kind="wod">+ WOD</button>
-   <button type="button" data-editor-action="add-block" data-kind="warmup">+ Calentamiento</button>
-   <button type="button" data-editor-action="add-block" data-kind="accessory">+ Accesorios</button>
-  </div>
- </div>
+ <div class="editor-topline"><div><strong>Constructor de entrenamiento</strong><small>Misma estructura que Repera en iPhone y Android</small></div></div>
+ ${metaHTML}
  <div class="editor-blocks">${blocks.length?blocks.map((b,i)=>{
   const active=panelForBlock(i,b.exercises);
-  const panelHTML=active==='library'?libraryPanel(i):active==='templates'?templatesPanel(i):active==='timer'?timerPanel(i):'';
+  const panelHTML=active==='library'?libraryPanel(i)
+   :active==='templates'?templatesPanel(i)
+   :active==='timer'?timerPanel(i)
+   :active==='free'?freeMovementPanel(i)
+   :active==='wod-catalog'?wodCatalogPanel(i)
+   :'';
   const picking=active!=null;
+  const fmt=normalizeFormat(b.format);
+  const showCaps=isWodFormat(fmt);
   return `<section class="editor-block ${picking?'is-picking':''}" data-editor-block data-index="${i}">
- <header class="editor-block-header"><span class="editor-block-count">${i+1}</span>${select(b.kind||'strength',TYPES,'kind')}${select(b.format||'sets',FORMATS,'format')}<button type="button" class="editor-icon-button" data-editor-action="remove-block" title="Eliminar bloque" aria-label="Eliminar bloque">×</button></header>
- <div class="editor-block-settings"><label>Nombre del bloque<input data-editor-field="title" maxlength="120" value="${escapeHTML(b.title||TYPES[b.kind]||'Entrenamiento')}"></label>${num(b.rounds??1,1,100,'Rondas','rounds')}${num(b.timeCap??0,0,720,'Límite (min)','timeCap')}</div>
- <div class="editor-exercises">${(b.exercises||[]).map(movementMarkup).join('')||(active==='library'?'':'<p class="editor-block-empty">Añade ejercicios, descansos o un temporizador.</p>')}</div>
+ <header class="editor-block-header">
+  <input class="editor-block-title" data-editor-field="title" maxlength="120" value="${escapeHTML(b.title||`Bloque ${i+1}`)}" aria-label="Nombre del bloque">
+  <button type="button" class="editor-icon-button is-danger" data-editor-action="remove-block" title="Eliminar bloque" aria-label="Eliminar bloque"><span aria-hidden="true">⌫</span></button>
+ </header>
+ <div class="editor-block-format-row"><span>Formato</span>${select(fmt,FORMATS,'format')}<input type="hidden" data-editor-field="kind" value="${escapeHTML(b.kind||'strength')}"></div>
+ ${showCaps?`<div class="editor-block-settings">${num(b.rounds??1,1,100,'Rondas','rounds')}${num(b.timeCap??0,0,720,'Límite (min)','timeCap')}</div>`
+  :`<input type="hidden" data-editor-field="rounds" value="${integer(b.rounds,1)}"><input type="hidden" data-editor-field="timeCap" value="${integer(b.timeCap,0)}">`}
+ <div class="editor-exercises">${(b.exercises||[]).map(movementMarkup).join('')||(active==='library'||active==='free'?'':'<p class="editor-block-empty">Añade ejercicios, descanso o movimiento libre.</p>')}</div>
  ${blockAddBar(i)}
  ${panelHTML}
  </section>`;
  }).join(''):'<div class="editor-empty">Crea un bloque para empezar a preparar la sesión.</div>'}</div>
+ ${editorFooterActions()}
+ ${panel==='wod-catalog'&&open<0?wodCatalogPanel(Math.max(0,blocks.length-1)):''}
+ ${panel==='templates'&&open<0?templatesPanel(Math.max(0,blocks.length-1)):''}
  </div>`;
 }
 
@@ -231,16 +355,23 @@ export function readPrescription(form){
  if(!editor)return emptyPrescription();
  return {version:1,blocks:[...editor.querySelectorAll('[data-editor-block]')].map(block=>{
   const get=(parent,key)=>parent.querySelector(`[data-editor-field="${key}"]`)?.value;
-  return {kind:get(block,'kind'),format:get(block,'format'),title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:integer(get(block,'timeCap')),exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
+  const format=normalizeFormat(get(block,'format'));
+  let kind=get(block,'kind')||'strength';
+  if(isWodFormat(format))kind='wod';
+  else if(format==='none'||format==='sets')kind=kind==='warmup'||kind==='accessory'?kind:'strength';
+  return {kind,format,title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:integer(get(block,'timeCap')),exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
     const row={id:el.dataset.id||'custom',name:el.dataset.name||el.querySelector('.exercise-title strong')?.textContent||'',sets:integer(get(el,'sets'),3),reps:integer(get(el,'reps'),8),rir:integer(get(el,'rir'),2),weight:Number(get(el,'weight')||0),duration:integer(get(el,'duration')),notes:get(el,'notes')||''};
     if(el.dataset.itemKind==='rest'||isRestMovement(row)){row.id='rest';row.itemKind='rest';row.isRest=true;}
+    if(el.dataset.itemKind==='free'){row.itemKind='free';row.source='free';}
     return row;
   })};
  })};
 }
 
 function refreshEditor(editor,current){
- editor.outerHTML=editorMarkup(current);
+ const showMeta=!!editor.querySelector('[data-session-meta-card]');
+ const meta=showMeta?readSessionMeta(editor.closest('form')||editor.parentElement||editor):null;
+ editor.outerHTML=editorMarkup(current,{meta,showMeta});
 }
 
 export function handleEditorClick(event){
@@ -263,19 +394,58 @@ export function handleEditorClick(event){
   return true;}
  if(action==='open-templates'){editorUI={pickerBlock:Number(node.dataset.index),panel:'templates'};refreshEditor(editor,readPrescription(editor));return true;}
  if(action==='open-timer'){editorUI={pickerBlock:Number(node.dataset.index),panel:'timer'};refreshEditor(editor,readPrescription(editor));return true;}
+ if(action==='open-free'){editorUI={pickerBlock:Number(node.dataset.index),panel:'free'};refreshEditor(editor,readPrescription(editor));return true;}
+ if(action==='open-wod-catalog'||action==='open-global-wod'){
+  const idx=action==='open-global-wod'?-1:Number(node.dataset.index);
+  editorUI={pickerBlock:idx>=0?idx:Math.max(0,(readPrescription(editor).blocks.length||1)-1),panel:'wod-catalog'};
+  refreshEditor(editor,readPrescription(editor));return true;}
+ if(action==='open-global-templates'){
+  const cur=readPrescription(editor);
+  editorUI={pickerBlock:Math.max(0,cur.blocks.length-1),panel:'templates'};
+  refreshEditor(editor,cur);return true;}
+ if(action==='open-accessories'){
+  const cur=readPrescription(editor);
+  const last=cur.blocks[cur.blocks.length-1];
+  if(last&&last.kind==='accessory'){
+   editorUI={pickerBlock:cur.blocks.length-1,panel:'library'};
+  }else{
+   cur.blocks.push({kind:'accessory',format:'sets',title:'Accesorios',rounds:1,timeCap:0,exercises:[]});
+   editorUI={pickerBlock:cur.blocks.length-1,panel:'library'};
+  }
+  refreshEditor(editor,cur);
+  const host=node.closest('form')||editor.parentElement;
+  queueMicrotask(()=>host?.querySelector?.(`[data-editor-block][data-index="${editorUI.pickerBlock}"] [data-editor-search]`)?.focus());
+  return true;}
+ if(action==='scan-board'){
+  const host=node.closest('form')||editor.parentElement;
+  let note=host?.querySelector?.('[data-scan-board-note]');
+  if(!note&&host){
+   note=document.createElement('p');
+   note.className='connected-hint';
+   note.dataset.scanBoardNote='1';
+   note.textContent='Escanear pizarra llegará a Business en una fase posterior (ahora está en la app).';
+   editor.after(note);
+  }
+  return true;}
 
  const current=readPrescription(editor);
  const focusBlock=Number(node.dataset.index??blockIndex);
 
  if(action==='add-block'){
   const kind=node.dataset.kind||'strength';
-  current.blocks.push({kind,format:kind==='wod'?'amrap':'sets',title:TYPES[kind]||'Bloque',rounds:1,timeCap:kind==='wod'?12:0,exercises:[]});
+  const n=current.blocks.length+1;
+  current.blocks.push({
+   kind,
+   format:kind==='wod'?'amrap':kind==='accessory'?'sets':'none',
+   title:kind==='accessory'?'Accesorios':kind==='warmup'?'Calentamiento':`Bloque ${n}`,
+   rounds:1,timeCap:kind==='wod'?12:0,exercises:[]
+  });
   editorUI={pickerBlock:current.blocks.length-1,panel:'library'};
  }
  else if(action==='add-block-after'){
   const kind=node.dataset.kind||'wod';
   const at=Math.min(current.blocks.length,focusBlock+1);
-  current.blocks.splice(at,0,{kind,format:kind==='wod'?'amrap':'sets',title:TYPES[kind]||'WOD',rounds:1,timeCap:kind==='wod'?12:0,exercises:[]});
+  current.blocks.splice(at,0,{kind,format:kind==='wod'?'amrap':'none',title:kind==='wod'?'WOD':`Bloque ${at+1}`,rounds:1,timeCap:kind==='wod'?12:0,exercises:[]});
   editorUI={pickerBlock:at,panel:'library'};
  }
  else if(action==='add-rest-in-block'){
@@ -315,6 +485,34 @@ export function handleEditorClick(event){
   current.blocks=current.blocks.slice(0,24);
   editorUI={pickerBlock:-1,panel:null};
  }
+ else if(action==='insert-wod-template'){
+  const wod=WOD_CATALOG.find(w=>w.id===node.dataset.id);if(!wod)return true;
+  const block={
+   kind:'wod',format:wod.format||'fortime',title:wod.name,
+   rounds:wod.rounds||1,timeCap:wod.timeCap||0,
+   exercises:(wod.movements||[]).map(m=>({
+    id:'custom',name:m.name,sets:1,reps:m.reps||1,rir:0,
+    weight:m.weightMaleKg||0,duration:0,
+    notes:m.meters?`${m.meters} m`:(wod.notes||''),
+    itemKind:'free',source:'free'
+   }))
+  };
+  if(!block.exercises.length)block.exercises.push(timerWorkItem());
+  const at=current.blocks[focusBlock]?focusBlock+1:current.blocks.length;
+  current.blocks.splice(at,0,block);
+  current.blocks=current.blocks.slice(0,24);
+  editorUI={pickerBlock:-1,panel:null};
+ }
+ else if(action==='add-free-movement'){
+  const idx=focusBlock;if(!current.blocks[idx])return true;
+  const panelRoot=node.closest('.editor-block-panel');
+  const name=String(panelRoot?.querySelector('[data-free-name]')?.value||'').trim().slice(0,120);
+  if(!name)return true;
+  const reps=Math.max(1,Math.min(1000,Number(panelRoot?.querySelector('[data-free-reps]')?.value||10)));
+  const sets=Math.max(1,Math.min(50,Number(panelRoot?.querySelector('[data-free-sets]')?.value||3)));
+  current.blocks[idx].exercises.push({id:'custom',name,sets,reps,rir:0,weight:0,duration:0,notes:'',itemKind:'free',source:'free'});
+  editorUI={pickerBlock:idx,panel:'free'};
+ }
  else if(action==='remove-block'){current.blocks.splice(blockIndex,1);editorUI={pickerBlock:-1,panel:null};}
  else if(action==='remove-exercise'){const exercise=Number(node.dataset.exercise);current.blocks[blockIndex].exercises.splice(exercise,1);}
  else if(action==='pick-exercise'||action==='add-custom'){
@@ -344,7 +542,7 @@ export function handleEditorSearch(event){
 }
 
 const WOD_FORMAT_WIRE={
- sets:'strength',amrap:'amrap',emom:'emom',every:'emom',rft:'forTime',fortime:'forTime',
+ none:null,sets:'strength',amrap:'amrap',emom:'emom',every:'emom',rft:'forTime',fortime:'forTime',
  tabata:'tabata',circuit:'circuit',chipper:'chipper'
 };
 
@@ -358,7 +556,8 @@ export function canonicalPrescription(prescription,catalog=[]){
   // Separar descansos colados en fuerza → bloque WOD «Descanso» (paridad PlanView.insertRest).
   let work=b.exercises.filter(e=>!isRestMovement(e));
   let rests=b.exercises.filter(isRestMovement);
-  if(b.kind!=='wod'&&rests.length){
+  const asWod=b.kind==='wod'||isWodFormat(b.format);
+  if(!asWod&&rests.length){
    if(work.length){
     out.push(canonicalBlock({...b,exercises:work},entries,uid,false));
    }
@@ -367,17 +566,19 @@ export function canonicalPrescription(prescription,catalog=[]){
    }
    continue;
   }
-  if(b.kind==='wod')work=b.exercises;
+  if(asWod)work=b.exercises;
   if(!work.length&&!rests.length)continue;
-  out.push(canonicalBlock({...b,exercises:work.length?work:b.exercises},entries,uid,b.kind==='wod'));
+  out.push(canonicalBlock({...b,exercises:work.length?work:b.exercises},entries,uid,asWod));
  }
  if(!out.length)throw Error('Añade al menos un bloque con contenido');
  if(out.length>24)throw Error('Demasiados bloques (máx. 24)');
- return {schemaVersion:1,blocks:out};
+ const wire={schemaVersion:1,blocks:out};
+ if(prescription?.meta&&typeof prescription.meta==='object')wire.meta=prescription.meta;
+ return wire;
 }
 
 function canonicalBlock(b,entries,uid,forceWod){
- const wod=forceWod||b.kind==='wod';
+ const wod=forceWod||b.kind==='wod'||isWodFormat(b.format);
  const exercises=b.exercises.map(e=>{
   const rest=isRestMovement(e);
   const known=rest?null:entries.get(e.name.toLowerCase());
@@ -405,33 +606,46 @@ function canonicalBlock(b,entries,uid,forceWod){
  const canonical={id:uid(),title:b.title.length>1?b.title:(wod?(onlyRest?'Descanso':'WOD'):'Fuerza'),
   kind:wod?'wod':'strength',exercises:wod?[]:exercises,
   movements:wod?exercises:[],notes:''};
- if(wod&&!onlyRest){
-  canonical.wodFormat=WOD_FORMAT_WIRE[b.format]||'forTime';
-  canonical.rounds=b.rounds;
-  canonical.timeCapMinutes=b.timeCap||null;
- }else if(wod&&onlyRest){
-  canonical.rounds=1;
-  canonical.timeCapMinutes=null;
+ if(wod){
+  const wired=WOD_FORMAT_WIRE[normalizeFormat(b.format)];
+  // validate_professional_prescription exige wodFormat en todo bloque WOD (también Descanso).
+  canonical.wodFormat=onlyRest?'forTime':(wired||'forTime');
+  canonical.rounds=onlyRest?1:b.rounds;
+  canonical.timeCapMinutes=onlyRest?null:(b.timeCap||null);
+ }
+ // catalogKey null rompe algunos clientes JSON; solo enviar clave cuando hay catálogo.
+ for(const list of [canonical.exercises,canonical.movements]){
+  for(const e of list){
+   if(e.catalogKey==null)delete e.catalogKey;
+  }
  }
  return canonical;
 }
 
 export function visualPrescription(prescription){
- if(prescription?.version===1)return prescription;
+ if(prescription?.version===1){
+  const copy={...prescription,blocks:(prescription.blocks||[]).map(b=>({...b,format:normalizeFormat(b.format)}))};
+  return copy;
+ }
  if(prescription?.schemaVersion!==1)return emptyPrescription();
- return {version:1,blocks:(prescription.blocks||[]).map(b=>{
+ const out={version:1,blocks:(prescription.blocks||[]).map(b=>{
   const wod=b.kind==='wod',entries=(wod?b.movements:b.exercises)||[];
   const formatWire=b.wodFormat||'';
   return {kind:wod?'wod':(b.kind==='warmup'?'warmup':b.kind==='accessory'?'accessory':'strength'),
-   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',circuit:'circuit',chipper:'chipper',strength:'sets'})[formatWire]||'fortime':'sets',
+   format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',circuit:'circuit',chipper:'chipper',strength:'sets'})[formatWire]||'fortime'
+    :(formatWire?'sets':'none'),
    title:b.title,rounds:b.rounds||1,timeCap:b.timeCapMinutes||0,
    exercises:entries.map(e=>{
     if(e.isRest)return restItem(e.restSeconds||60);
+    const free=e.source==='free'||!e.catalogKey;
     return {id:e.catalogKey||'custom',name:e.name,
      sets:wod?1:Math.max(1,e.plannedSets?.length||1),
      reps:wod?e.reps||1:e.plannedSets?.[0]?.targetReps||8,
      rir:wod?0:e.plannedSets?.[0]?.targetRir??2,
-     weight:wod?0:e.plannedSets?.[0]?.targetWeightKg||0,duration:0,notes:e.notes||''};
+     weight:wod?0:e.plannedSets?.[0]?.targetWeightKg||0,duration:0,notes:e.notes||'',
+     ...(free?{itemKind:'free',source:'free'}:{})};
    })};
  })};
+ if(prescription.meta)out.meta=prescription.meta;
+ return out;
 }

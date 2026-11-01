@@ -30,6 +30,15 @@
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- Centro: abrir correo / marcador desde ficha de contacto -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
     </queries>
     <application
         android:label="Repera"

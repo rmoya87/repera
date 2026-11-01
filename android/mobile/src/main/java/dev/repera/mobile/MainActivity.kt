@@ -1053,6 +1053,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         BusinessCenterStore().loadClassRoster(session, occurrenceId)
                     }
                 },
+                onMaterializeProfessionalRoutine = materialize@{ session ->
+                    val account = profile?.uniqueId ?: return@materialize null
+                    runCatching {
+                        WorkoutRepository(this@MainActivity, account)
+                            .ensureProfessionalRoutineInLibrary(session)
+                    }.getOrNull()?.also {
+                        lifecycleScope.launch { reloadFor(account) }
+                    }
+                },
                 sharingByCenter = sharingByCenter,
                 sharingUpdating = sharingUpdating,
                 onSetSharing = ::setSharing,

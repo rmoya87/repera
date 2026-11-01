@@ -1,9 +1,13 @@
+import ReperaDomain
 import SwiftUI
+import UIKit
 
 /// Tab «+» entre Comenzar y Progreso: Clases del día | Centro (plan, contacto, historiales).
 struct PlusHubView: View {
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(BusinessDataStore.self) private var business
+    /// Abre preview/Play de una prescripción de clase (mismo flujo que entreno programado).
+    var onStartRoutine: (Routine) -> Void = { _ in }
 
     private enum HubTab: String, CaseIterable, Identifiable {
         case classes, center
@@ -67,7 +71,8 @@ struct PlusHubView: View {
                     occurrence: occurrence,
                     onRequestCancel: { booking in
                         bookingPendingCancellation = booking
-                    }
+                    },
+                    onStartRoutine: onStartRoutine
                 )
             }
             .navigationDestination(for: PlusHubCenterListPage.self) { page in
@@ -211,6 +216,18 @@ struct PlusHubView: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(OG.label2)
                             }
+                            let planLabel = business.classPlanSummary(
+                                for: occurrence,
+                                clientId: booking?.clientId
+                            )
+                            Label(
+                                planLabel ?? "Sin entreno aún",
+                                systemImage: planLabel == nil
+                                    ? "dumbbell"
+                                    : "figure.strengthtraining.traditional"
+                            )
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(planLabel == nil ? OG.label2 : OG.accent)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -364,29 +381,30 @@ struct PlusHubView: View {
                     if hasEmail || hasPhone {
                         VStack(alignment: .leading, spacing: 8) {
                             if let email, hasEmail {
-                                if let url = URL(string: "mailto:\(email)") {
-                                    Link(destination: url) {
-                                        Label(email, systemImage: "envelope.fill")
-                                            .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(OG.label)
-                                    }
-                                } else {
+                                Button {
+                                    openMailCompose(to: email)
+                                } label: {
                                     Label(email, systemImage: "envelope.fill")
                                         .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(OG.label)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Abre el correo para escribir a este centro")
                             }
                             if let phone, hasPhone {
-                                let digits = phone.filter { $0.isNumber || $0 == "+" }
-                                if let url = URL(string: "tel:\(digits)"), !digits.isEmpty {
-                                    Link(destination: url) {
-                                        Label(phone, systemImage: "phone.fill")
-                                            .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(OG.label)
-                                    }
-                                } else {
+                                Button {
+                                    openPhoneDial(phone)
+                                } label: {
                                     Label(phone, systemImage: "phone.fill")
                                         .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(OG.label)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Llama a este número")
                             }
                         }
                     }
@@ -394,6 +412,24 @@ struct PlusHubView: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+
+    private func openMailCompose(to email: String) {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = email
+        guard let url = components.url else { return }
+        UIApplication.shared.open(url)
+    }
+
+    private func openPhoneDial(_ phone: String) {
+        let digits = phone.filter { $0.isNumber || $0 == "+" }
+        guard !digits.isEmpty else { return }
+        var components = URLComponents()
+        components.scheme = "tel"
+        components.path = digits
+        guard let url = components.url else { return }
+        UIApplication.shared.open(url)
     }
 
     @ViewBuilder
@@ -568,10 +604,6 @@ struct PlusHubView: View {
                             .foregroundStyle(OG.label2)
                     }
                 }
-
-                Text("Para renovar, habla con tu centro; te asignarán el siguiente plan cuando cobren fuera de Repera.")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
             }
         }
     }
@@ -742,26 +774,76 @@ private struct CenterClassHistoryListPage: View {
 
 struct ClassOccurrenceDetailPage: View {
     @Environment(BusinessDataStore.self) private var business
+    @Environment(ReperaStore.self) private var store
     let occurrence: BusinessOccurrence
     var onRequestCancel: (BusinessBooking) -> Void
+    /// Abre SessionPreview → Play (mismo flujo que un entreno programado).
+    var onStartRoutine: (Routine) -> Void = { _ in }
 
     @State private var roster: BusinessClassRoster?
     @State private var loadingRoster = false
+    @State private var startFailureMessage: String?
+    @State private var openExerciseId: UUID?
 
     private var booking: BusinessBooking? { business.booking(for: occurrence.id) }
     private var places: Int? { business.remainingPlaces(for: occurrence) }
     private var color: Color { Color(plusHubHex: occurrence.color ?? "#22834d") ?? OG.accent }
 
+    /// Prescripción publicada por el centro para esta clase (si existe).
+    private var associatedSession: BusinessProfessionalTrainingSession? {
+        if let booking {
+            if let match = business.trainingSessions.first(where: {
+                $0.sourceOccurrenceId == occurrence.id && $0.clientId == booking.clientId
+            }) { return match }
+        }
+        return business.trainingSessions.first { $0.sourceOccurrenceId == occurrence.id }
+    }
+
+    /// Rutina ejecutable; nil si no hay bloques (entonces no se pinta la sección).
+    private var planRoutine: Routine? {
+        let minutes: Int? = {
+            if let start = BusinessDataStore.date(occurrence.startsAt) {
+                let cal = Calendar.current
+                return cal.component(.hour, from: start) * 60 + cal.component(.minute, from: start)
+            }
+            return nil
+        }()
+        let day = BusinessDataStore.date(occurrence.startsAt)
+        let built: Routine?
+        if let session = associatedSession, let prescription = session.prescription {
+            built = store.routineFromProfessionalPrescription(
+                prescription,
+                id: session.id,
+                title: session.title.isEmpty ? occurrence.title : session.title,
+                scheduledDate: day ?? Self.parseDayKey(session.scheduledDate),
+                scheduledTimeMinutes: minutes ?? session.scheduledTimeMinutes
+            )
+        } else if let prescription = occurrence.prescription, prescription.isCanonicalV1 {
+            let title = (occurrence.trainingTitle?.isEmpty == false)
+                ? occurrence.trainingTitle!
+                : occurrence.title
+            built = store.routineFromProfessionalPrescription(
+                prescription,
+                id: occurrence.id,
+                title: title,
+                scheduledDate: day,
+                scheduledTimeMinutes: minutes
+            )
+        } else {
+            built = nil
+        }
+        guard let built, !built.blocks.isEmpty else { return nil }
+        return built
+    }
+
     private var daySubtitle: String {
         guard let start = BusinessDataStore.date(occurrence.startsAt) else { return "" }
-        // Misma localización ES que Inicio / Historial (no FormatStyle del locale del dispositivo).
         return "\(SpanishDate.long(start)) · \(SpanishDate.time(start))"
     }
 
     var body: some View {
         List {
-            // Título y fecha en filas separadas: la fecha usa ogSessionDateListRow
-            // para no recortar el primer glifo (mismo arreglo que Historial / entreno).
+            // Clase: título + meta (como ficha de reserva).
             OGScrollablePageTitle(occurrence.title)
                 .ogScrollingTitleListRow()
             if !daySubtitle.isEmpty {
@@ -807,6 +889,24 @@ struct ClassOccurrenceDetailPage: View {
                 }
             }
 
+            // Entreno programado: mismos bloques que SessionPreviewView (solo si hay ejercicios).
+            if let plan = planRoutine {
+                Section {
+                    let instructions = associatedSession?.instructions
+                        ?? occurrence.trainingInstructions
+                    if let instructions, !instructions.isEmpty {
+                        Text(instructions)
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                    }
+                    OGRoutineBlocksList(
+                        blocks: plan.blocks,
+                        opensExerciseDetail: true,
+                        onOpenExercise: { openExerciseId = $0 }
+                    )
+                }
+            }
+
             if shouldShowCoach, let coach = roster?.coach {
                 Section("Entrenador") {
                     personRow(name: coach.displayName, avatar: coach.avatarUrl, subtitle: "Impartirá la clase", large: true)
@@ -834,16 +934,55 @@ struct ClassOccurrenceDetailPage: View {
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .navigationDestination(item: $openExerciseId) { exerciseId in
+            ExerciseDetailView(exerciseId: exerciseId)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 bookingToolbarButton
             }
+            if planRoutine != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        beginClassPlan()
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Comenzar entreno")
+                }
+            }
+        }
+        .alert("No se ha podido iniciar el entreno", isPresented: Binding(
+            get: { startFailureMessage != nil },
+            set: { if !$0 { startFailureMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { startFailureMessage = nil }
+        } message: {
+            Text(startFailureMessage ?? "")
         }
         .task {
             loadingRoster = true
             roster = await business.loadClassRoster(for: occurrence.id)
             loadingRoster = false
         }
+    }
+
+    private func beginClassPlan() {
+        guard let plan = planRoutine else { return }
+        let saved = store.ensureProfessionalRoutineInLibrary(plan)
+        onStartRoutine(saved)
+    }
+
+    private static func parseDayKey(_ key: String) -> Date? {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = .current
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.date(from: key)
     }
 
     private var shouldShowCoach: Bool {

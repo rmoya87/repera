@@ -1,6 +1,6 @@
 import {renderSharedAthleteSessions} from './athlete-activity.js';
 import {renderAthleteInsights,renderAthleteGuidanceCircle} from './athlete-insights.js';
-import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
+import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,visualSessionMeta} from './workout-editor.js';
 import {passProvenanceLabel} from './gym-pass-panel.js';
 import {renderClientPassesPanel} from './client-passes.js';
 import {renderClientChatThread} from './business-chat.js';
@@ -275,8 +275,21 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
    </div></div>`;
   }).join('')||note('Nadie inscrito todavía.')}
   ${manager&&future&&o.status==='active'?`<form data-connected="enroll-client" class="business-form"><input type="hidden" name="occurrence" value="${esc(o.id)}">${select('Cliente con bono válido','pass',eligible.flatMap(c=>available.filter(p=>p.client_id===c.id).map(p=>[p.id,`${c.name} · ${p.remaining_credits} sesiones`])))}<button class="connected-primary" ${!eligible.length||activeSeats.length>=o.capacity?'disabled':''}>Añadir participante</button></form>${note('Inscribir consume un crédito; quitar lo devuelve. Asistió / no presentado no vuelven a descontar.')}`:''}</div>
-  <div class="business-detail-panel"><h3>Planificación de la sesión</h3>${note('Publica el WOD para inscritos vinculados. Sus entrenos siguen siendo individuales.')} ${manager&&booked.length?button('Preparar movimientos','publish-class-plan',o.id):''}
-  ${manager&&classEditor?`<form data-connected="publish-class-plan" class="business-form"><input type="hidden" name="occurrence" value="${esc(o.id)}">${input('Título del entrenamiento','title',o.title,'text','required minlength="2" maxlength="120"')}${editorMarkup(emptyPrescription())}<label class="connected-field">Indicaciones<textarea name="instructions" rows="3" maxlength="10000"></textarea></label><button class="connected-primary" type="submit">Publicar para los inscritos vinculados</button></form>`:''}</div>
+  <div class="business-detail-panel"><h3>Entreno de la clase</h3>
+  ${note('Puedes crear un entreno nuevo o usar una plantilla de Mis entrenos. Los inscritos con app lo verán en el detalle y podrán Comenzarlo. Quitar entreno solo afecta a esta clase (no borra plantillas de Mis entrenos).')}
+  ${(()=>{
+    const blocks=(visualPrescription(meta.prescription||emptyPrescription()).blocks||[]);
+    const hasPlan=blocks.length>0;
+    const summary=hasPlan
+      ?`<p><strong>${esc(meta.training_title||o.title)}</strong> · ${blocks.length} bloque${blocks.length===1?'':'s'}</p>`
+      :note(meta.training_title?'Sin bloques todavía.':'Todavía no hay entreno asociado.');
+    if(!(manager&&future&&o.status==='active'))return summary;
+    return `${summary}<div class="pt-gym-action-row">
+      ${primary(hasPlan?'Editar entreno':'Crear / asociar entreno','publish-class-plan',o.id)}
+      ${hasPlan?`<button type="button" class="connected-secondary pt-danger-btn" data-action="clear-class-plan" data-id="${esc(o.id)}">Quitar entreno</button>`:''}
+     </div>`;
+  })()}
+  </div>
   <div class="business-detail-panel"><h3>Información</h3><p>Tipo: ${o.kind==='class'?'Clase grupal':'Cita individual'}</p><p>Repetición: ${esc(meta.repeat_rule||'Sin repetir')}</p>${meta.image_url?`<img class="business-class-image" src="${esc(meta.image_url)}" loading="lazy" alt="">`:''}</div></div>`);
  }
  const active=occurrences.filter(o=>o.status==='active');
@@ -407,6 +420,141 @@ export function renderNewClassModal({coaches=[],busy=false,day=''}={}){
     <label class="connected-field">Notas (opcional)<textarea name="description" rows="2" maxlength="2000"></textarea></label>
     <button type="submit" class="connected-primary" ${busy?'disabled':''}>Crear en el calendario</button>
    </form>
+  </div>
+ </section></div>`;
+}
+
+/** Modal: asociar / crear entreno de una clase (plantilla Mis entrenos o editor). */
+export function renderPublishClassPlanModal({
+ occurrence=null,detail={},busy=false,seedPrescription=null,templates=[],templateId='',
+ occurrences=[],details=[],assignScope='one',
+}={}){
+ if(!occurrence)return '';
+ const day=new Date(occurrence.starts_at).toLocaleDateString('sv-SE');
+ const pool=occurrences.length?occurrences:[occurrence];
+ const dets=details.length?details:[detail];
+ return renderAssignClassTrainingModal({
+  day,
+  occurrences:pool,
+  details:dets,
+  templates,
+  preselectedIds:[occurrence.id],
+  busy,
+  seedPrescription:seedPrescription||detail.prescription||null,
+  titleSeed:detail.training_title||occurrence.title||'',
+  instructionsSeed:detail.training_instructions||'',
+  templateId,
+  lockSelection:true,
+  assignScope,
+ });
+}
+
+/**
+ * Asignar un entreno a una o varias clases del día (checkboxes + plantilla / editor).
+ * @param {{day:string,occurrences:object[],details?:object[],templates?:object[],preselectedIds?:string[],onlyWithoutPlan?:boolean,busy?:boolean,seedPrescription?:object|null,titleSeed?:string,instructionsSeed?:string,lockSelection?:boolean,templateId?:string,assignScope?:string}} opts
+ */
+export function renderAssignClassTrainingModal({
+ day='',
+ occurrences=[],
+ details=[],
+ templates=[],
+ preselectedIds=[],
+ onlyWithoutPlan=false,
+ busy=false,
+ seedPrescription=null,
+ titleSeed='',
+ instructionsSeed='',
+ lockSelection=false,
+ templateId='',
+ assignScope='one',
+}={}){
+ const detailMap=new Map((details||[]).map(d=>[d.occurrence_id,d]));
+ const hasPlan=o=>{
+  const d=detailMap.get(o.id)||{};
+  const p=d.prescription;
+  return Boolean(p&&(p.schemaVersion===1||p.version===1)&&Array.isArray(p.blocks)&&p.blocks.length>0);
+ };
+ const now=Date.now();
+ // Edición de una sola clase: no filtrar por «futuro» hasta pintar el aviso;
+ // el guardado sigue bloqueado si ya empezó.
+ const eligible=(occurrences||[]).filter(o=>{
+  if(o.kind!=='class'||o.status!=='active')return false;
+  if(day&&new Date(o.starts_at).toLocaleDateString('sv-SE')!==day)return false;
+  if(lockSelection)return true;
+  return new Date(o.starts_at).getTime()>now;
+ });
+ const futureActive=eligible.filter(o=>new Date(o.starts_at).getTime()>now);
+ const listed=onlyWithoutPlan?futureActive.filter(o=>!hasPlan(o))
+  :(lockSelection?eligible:futureActive);
+ const selected=new Set(
+  (preselectedIds||[]).filter(id=>listed.some(o=>o.id===id))
+ );
+ if(!selected.size&&listed.length&&!lockSelection){
+  listed.forEach(o=>selected.add(o.id));
+ }
+ if(lockSelection&&listed[0])selected.add(listed[0].id);
+ const seedTpl=templates.find(t=>t.id===templateId);
+ const rawSeed=seedPrescription||seedTpl?.prescription||null;
+ const seed=rawSeed?visualPrescription(rawSeed):starterPrescription();
+ const title=titleSeed||seedTpl?.name||(listed[0]?.title||'Entreno del día');
+ const dayLabel=day
+  ?new Date(day+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})
+  :'Clases seleccionadas';
+ const target=listed[0]||null;
+ const targetEditable=Boolean(target&&new Date(target.starts_at).getTime()>now);
+ const targetHasPlan=Boolean(target&&hasPlan(target));
+ const replacing=[...selected].some(id=>hasPlan({id}))||targetHasPlan;
+ const list=listed.length?listed.map(o=>{
+  const d=detailMap.get(o.id)||{};
+  const planned=hasPlan(o);
+  const time=new Date(o.starts_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const loc=d.location?` · ${d.location}`:'';
+  const started=new Date(o.starts_at).getTime()<=now;
+  return `<label class="pt-assign-class-row ${planned?'has-plan':''}">
+   <input type="checkbox" name="occurrences" value="${esc(o.id)}" ${selected.has(o.id)?'checked':''} ${lockSelection||started?'disabled':''}>
+   <span><strong>${esc(o.title)}</strong><small>${esc(time)}${esc(loc)} · ${started?'Ya empezó':(planned?'Con entreno':'Sin entreno')}</small></span>
+  </label>`;
+ }).join(''):'<p class="business-empty">No hay clases futuras en este día.</p>';
+ const tplOptions=[['','Crear ahora (editor abajo)'],
+  ...templates.map(t=>[t.id,`${t.name} · ${(visualPrescription(t.prescription).blocks||[]).length} bloq.`])];
+ const scopeField=replacing&&targetEditable?`<fieldset class="pt-assign-scope"><legend>Alcance al guardar</legend>
+  <label class="pt-radio-card"><input type="radio" name="assignScope" value="one" ${assignScope==='one'?'checked':''}>
+   <span><strong>Esta clase</strong><small>Solo la selección actual</small></span></label>
+  <label class="pt-radio-card"><input type="radio" name="assignScope" value="series" ${assignScope==='series'?'checked':''}>
+   <span><strong>Esta serie (futuras)</strong><small>Mismo título, día y hora hacia delante</small></span></label>
+  <label class="pt-radio-card"><input type="radio" name="assignScope" value="day" ${assignScope==='day'?'checked':''}>
+   <span><strong>Todas las del día</strong><small>Clases futuras de ${esc(dayLabel)}</small></span></label>
+ </fieldset>`:`<input type="hidden" name="assignScope" value="one">`;
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-workout-dialog" role="dialog" aria-modal="true" aria-label="Asignar entreno a clases">
+  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Clases</span><h2>${lockSelection?(replacing?'Editar entreno de la clase':'Entreno de la clase'):'Asignar entreno'}</h2></div>
+  <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   <p class="connected-hint">${esc(dayLabel)}. Elige un entreno de Mis entrenos o créalo aquí; el plan llega a los inscritos con app.</p>
+   ${lockSelection&&target&&!targetEditable?'<p class="connected-error" role="alert">Esta clase ya ha empezado: no se puede editar ni quitar el entreno.</p>':''}
+   <form data-connected="publish-class-plan-bulk" class="business-form pt-sheet-form" data-assign-class-form>
+    <input type="hidden" name="day" value="${esc(day)}">
+    ${lockSelection&&target?`<input type="hidden" name="occurrences" value="${esc(target.id)}">`:''}
+    ${!lockSelection?`<fieldset class="pt-assign-class-list"><legend>Clases del día</legend>
+     <label class="pt-assign-filter"><input type="checkbox" name="onlyWithout" value="1" data-action="assign-only-without" ${onlyWithoutPlan?'checked':''}> Solo las que aún no tienen entreno</label>
+     <div class="pt-assign-class-checks">${list}</div>
+     ${listed.length?`<div class="pt-assign-quick">
+      <button type="button" class="connected-secondary" data-action="assign-select-all">Todas</button>
+      <button type="button" class="connected-secondary" data-action="assign-select-none">Ninguna</button>
+     </div>`:''}
+    </fieldset>`:''}
+    <fieldset class="pt-assign-origin"><legend>Origen del entreno</legend>
+     ${templates.length?select('Usar Mis entrenos o crear ahora','templateId',tplOptions,templateId)
+      :'<p class="connected-hint">Aún no hay plantillas: crea el entreno abajo o guarda uno en Mis entrenos.</p>'}
+    </fieldset>
+    ${scopeField}
+    ${input('Título del entrenamiento','title',title,'text','required minlength="2" maxlength="120"')}
+    ${editorMarkup(seed,{meta:visualSessionMeta(rawSeed||{}),showMeta:true})}
+    <label class="connected-field">Indicaciones<textarea name="instructions" rows="3" maxlength="10000">${esc(instructionsSeed)}</textarea></label>
+    <button type="submit" class="connected-primary" ${busy||!listed.length||(lockSelection&&!targetEditable)?'disabled':''}>${lockSelection?'Guardar entreno de la clase':'Asignar a las clases marcadas'}</button>
+   </form>
+   ${lockSelection&&targetHasPlan&&targetEditable?`<div class="pt-class-danger pt-class-danger-row">
+     <button type="button" class="connected-secondary pt-danger-btn" data-action="clear-class-plan" data-id="${esc(target.id)}" ${busy?'disabled':''}>Quitar entreno de la clase</button>
+    </div>`:''}
   </div>
  </section></div>`;
 }

@@ -27,4 +27,6 @@ Implementación en `feat/repera-light-structured-training`. Migración real `202
 
 ## Limitaciones
 
-No se asignan automáticamente resultados a una sesión concreta del plan del entrenador hasta que el deportista ejecute una prescripción desde Diario; los resultados compartidos son por deportista y fecha, no una vinculación fiable por ID de sesión profesional. Tampoco se refleja en el perfil médico o Salut de Supabase. Sin E2E de dispositivos no presentar esta funcionalidad como garantía de backup total.
+No se asignan automáticamente resultados a una sesión concreta del plan del entrenador ni a un `service_occurrence` de clase: el atleta puede **Comenzar** una prescripción publicada (`source_occurrence_id` / sesión profesional) desde el detalle de clase unificado (Inicio o + → Clases) como un entreno programado local; al guardar, el espejo Supabase sigue las reglas de consentimiento existentes, por deportista y fecha, **sin** vínculo forzado workout↔occurrence. Tampoco se refleja en el perfil médico o Salud de Supabase. Sin E2E de dispositivos no presentar esta funcionalidad como garantía de backup total.
+
+Última actualización: 2026-11-01 (asignación flexible multi-clase).

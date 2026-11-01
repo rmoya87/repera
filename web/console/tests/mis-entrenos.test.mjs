@@ -59,13 +59,16 @@ test('panel insertar y merge de bloques',()=>{
  assert.equal(merged.blocks[0].exercises[0].name,'Sentadilla');
 });
 
-test('editor: barra in-block con ejercicio, descanso, temporizador y Mis entrenos',()=>{
- const html=editorMarkup({version:1,blocks:[{kind:'strength',format:'sets',title:'Fuerza',rounds:1,timeCap:0,exercises:[]}]});
+test('editor: barra in-block con ejercicio, descanso, movimiento libre y footer app',()=>{
+ const html=editorMarkup({version:1,blocks:[{kind:'strength',format:'none',title:'Bloque 1',rounds:1,timeCap:0,exercises:[]}]});
  assert.match(html,/data-editor-action="open-library"/);
  assert.match(html,/data-editor-action="add-rest-in-block"/);
+ assert.match(html,/data-editor-action="open-free"/);
  assert.match(html,/data-editor-action="open-timer"/);
  assert.match(html,/data-editor-action="open-templates"/);
- assert.match(html,/data-kind="accessory"/);
+ assert.match(html,/data-editor-action="open-accessories"/);
+ assert.match(html,/Elegir WOD|open-global-wod/);
+ assert.match(html,/Escanear pizarra|scan-board/);
 });
 
 test('descanso en fuerza se publica como bloque WOD isRest (paridad app)',()=>{

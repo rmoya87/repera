@@ -1,0 +1,922 @@
+// Benchmarks alineados con CatalogWods (iOS/Android).
+export const WOD_CATALOG = [
+  {
+    "id": "fran",
+    "name": "Fran",
+    "format": "fortime",
+    "timeCap": 10,
+    "rounds": 1,
+    "notes": "21-15-9 thrusters + pull-ups",
+    "movements": [
+      {
+        "name": "Thruster",
+        "reps": 21,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 21
+      },
+      {
+        "name": "Thruster",
+        "reps": 15,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 15
+      },
+      {
+        "name": "Thruster",
+        "reps": 9,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 9
+      }
+    ]
+  },
+  {
+    "id": "cindy",
+    "name": "Cindy",
+    "format": "amrap",
+    "timeCap": 20,
+    "rounds": 1,
+    "notes": "AMRAP 20'",
+    "movements": [
+      {
+        "name": "Dominadas",
+        "reps": 5
+      },
+      {
+        "name": "Flexiones",
+        "reps": 10
+      },
+      {
+        "name": "Air squat",
+        "reps": 15
+      }
+    ]
+  },
+  {
+    "id": "helen",
+    "name": "Helen",
+    "format": "fortime",
+    "timeCap": 15,
+    "rounds": 3,
+    "notes": "3 RFT",
+    "movements": [
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 400
+      },
+      {
+        "name": "Swing kettlebell",
+        "reps": 21,
+        "weightMaleKg": 24.0,
+        "weightFemaleKg": 16.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 12
+      }
+    ]
+  },
+  {
+    "id": "grace",
+    "name": "Grace",
+    "format": "fortime",
+    "timeCap": 10,
+    "rounds": 1,
+    "notes": "30 clean & jerk",
+    "movements": [
+      {
+        "name": "Cargada y envión",
+        "reps": 30,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      }
+    ]
+  },
+  {
+    "id": "isabel",
+    "name": "Isabel",
+    "format": "fortime",
+    "timeCap": 10,
+    "rounds": 1,
+    "notes": "30 snatches",
+    "movements": [
+      {
+        "name": "Arrancada",
+        "reps": 30,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      }
+    ]
+  },
+  {
+    "id": "annie",
+    "name": "Annie",
+    "format": "fortime",
+    "timeCap": 12,
+    "rounds": 1,
+    "notes": "50-40-30-20-10 DU + sit-ups",
+    "movements": [
+      {
+        "name": "Dobles de comba",
+        "reps": 50
+      },
+      {
+        "name": "Sit-up",
+        "reps": 50
+      },
+      {
+        "name": "Dobles de comba",
+        "reps": 40
+      },
+      {
+        "name": "Sit-up",
+        "reps": 40
+      },
+      {
+        "name": "Dobles de comba",
+        "reps": 30
+      },
+      {
+        "name": "Sit-up",
+        "reps": 30
+      },
+      {
+        "name": "Dobles de comba",
+        "reps": 20
+      },
+      {
+        "name": "Sit-up",
+        "reps": 20
+      },
+      {
+        "name": "Dobles de comba",
+        "reps": 10
+      },
+      {
+        "name": "Sit-up",
+        "reps": 10
+      }
+    ]
+  },
+  {
+    "id": "karen",
+    "name": "Karen",
+    "format": "fortime",
+    "timeCap": 15,
+    "rounds": 1,
+    "notes": "150 wall balls",
+    "movements": [
+      {
+        "name": "Wall ball",
+        "reps": 150,
+        "weightMaleKg": 9.0,
+        "weightFemaleKg": 6.0
+      }
+    ]
+  },
+  {
+    "id": "diane",
+    "name": "Diane",
+    "format": "fortime",
+    "timeCap": 12,
+    "rounds": 1,
+    "notes": "21-15-9 deadlift + HSPU",
+    "movements": [
+      {
+        "name": "Peso muerto",
+        "reps": 21,
+        "weightMaleKg": 102.0,
+        "weightFemaleKg": 70.0
+      },
+      {
+        "name": "HSPU",
+        "reps": 21
+      },
+      {
+        "name": "Peso muerto",
+        "reps": 15,
+        "weightMaleKg": 102.0,
+        "weightFemaleKg": 70.0
+      },
+      {
+        "name": "HSPU",
+        "reps": 15
+      },
+      {
+        "name": "Peso muerto",
+        "reps": 9,
+        "weightMaleKg": 102.0,
+        "weightFemaleKg": 70.0
+      },
+      {
+        "name": "HSPU",
+        "reps": 9
+      }
+    ]
+  },
+  {
+    "id": "chelsea",
+    "name": "Chelsea",
+    "format": "emom",
+    "timeCap": 30,
+    "rounds": 1,
+    "notes": "EMOM 30' · 5/10/15",
+    "movements": [
+      {
+        "name": "Dominadas",
+        "reps": 5
+      },
+      {
+        "name": "Flexiones",
+        "reps": 10
+      },
+      {
+        "name": "Air squat",
+        "reps": 15
+      }
+    ]
+  },
+  {
+    "id": "barbara",
+    "name": "Barbara",
+    "format": "fortime",
+    "timeCap": 40,
+    "rounds": 5,
+    "notes": "5 rounds · 3' rest entre rondas",
+    "movements": [
+      {
+        "name": "Dominadas",
+        "reps": 20
+      },
+      {
+        "name": "Flexiones",
+        "reps": 30
+      },
+      {
+        "name": "Sit-up",
+        "reps": 40
+      },
+      {
+        "name": "Air squat",
+        "reps": 50
+      }
+    ]
+  },
+  {
+    "id": "angie",
+    "name": "Angie",
+    "format": "fortime",
+    "timeCap": 30,
+    "rounds": 1,
+    "notes": "100 de cada",
+    "movements": [
+      {
+        "name": "Dominadas",
+        "reps": 100
+      },
+      {
+        "name": "Flexiones",
+        "reps": 100
+      },
+      {
+        "name": "Sit-up",
+        "reps": 100
+      },
+      {
+        "name": "Air squat",
+        "reps": 100
+      }
+    ]
+  },
+  {
+    "id": "nancy",
+    "name": "Nancy",
+    "format": "fortime",
+    "timeCap": 20,
+    "rounds": 5,
+    "notes": "5 RFT",
+    "movements": [
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 400
+      },
+      {
+        "name": "Overhead squat",
+        "reps": 15,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      }
+    ]
+  },
+  {
+    "id": "jackie",
+    "name": "Jackie",
+    "format": "fortime",
+    "timeCap": 15,
+    "rounds": 1,
+    "notes": "1000m row + 50 thrusters + 30 pull-ups",
+    "movements": [
+      {
+        "name": "Remo",
+        "reps": 1,
+        "meters": 1000
+      },
+      {
+        "name": "Thruster",
+        "reps": 50,
+        "weightMaleKg": 20.0,
+        "weightFemaleKg": 15.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 30
+      }
+    ]
+  },
+  {
+    "id": "linda",
+    "name": "Linda",
+    "format": "fortime",
+    "timeCap": 30,
+    "rounds": 1,
+    "notes": "1.5× BW",
+    "movements": [
+      {
+        "name": "Peso muerto",
+        "reps": 10
+      },
+      {
+        "name": "Press banca",
+        "reps": 10
+      },
+      {
+        "name": "Cargada",
+        "reps": 10
+      },
+      {
+        "name": "Peso muerto",
+        "reps": 9
+      },
+      {
+        "name": "Press banca",
+        "reps": 9
+      },
+      {
+        "name": "Cargada",
+        "reps": 9
+      }
+    ]
+  },
+  {
+    "id": "mary",
+    "name": "Mary",
+    "format": "amrap",
+    "timeCap": 20,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "HSPU",
+        "reps": 5
+      },
+      {
+        "name": "Pistol squat",
+        "reps": 10
+      },
+      {
+        "name": "Dominadas",
+        "reps": 15
+      }
+    ]
+  },
+  {
+    "id": "amanda",
+    "name": "Amanda",
+    "format": "fortime",
+    "timeCap": 12,
+    "rounds": 1,
+    "notes": "9-7-5 muscle-up + snatch",
+    "movements": [
+      {
+        "name": "Muscle-up anulllas",
+        "reps": 9
+      },
+      {
+        "name": "Arrancada",
+        "reps": 9,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      },
+      {
+        "name": "Muscle-up anulllas",
+        "reps": 7
+      },
+      {
+        "name": "Arrancada",
+        "reps": 7,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      },
+      {
+        "name": "Muscle-up anulllas",
+        "reps": 5
+      },
+      {
+        "name": "Arrancada",
+        "reps": 5,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      }
+    ]
+  },
+  {
+    "id": "kelly",
+    "name": "Kelly",
+    "format": "fortime",
+    "timeCap": 30,
+    "rounds": 5,
+    "notes": "5 RFT",
+    "movements": [
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 400
+      },
+      {
+        "name": "Salto al cajón",
+        "reps": 30
+      },
+      {
+        "name": "Wall ball",
+        "reps": 30,
+        "weightMaleKg": 9.0,
+        "weightFemaleKg": 6.0
+      }
+    ]
+  },
+  {
+    "id": "elizabeth",
+    "name": "Elizabeth",
+    "format": "fortime",
+    "timeCap": 12,
+    "rounds": 1,
+    "notes": "21-15-9 clean + ring dips",
+    "movements": [
+      {
+        "name": "Cargada",
+        "reps": 21,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      },
+      {
+        "name": "Fondos en anulllas",
+        "reps": 21
+      },
+      {
+        "name": "Cargada",
+        "reps": 15,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      },
+      {
+        "name": "Fondos en anulllas",
+        "reps": 15
+      },
+      {
+        "name": "Cargada",
+        "reps": 9,
+        "weightMaleKg": 61.0,
+        "weightFemaleKg": 43.0
+      },
+      {
+        "name": "Fondos en anulllas",
+        "reps": 9
+      }
+    ]
+  },
+  {
+    "id": "murph",
+    "name": "Murph",
+    "format": "fortime",
+    "timeCap": 60,
+    "rounds": 1,
+    "notes": "Chaleco 9/6 kg opcional · partición 20 rondas 5/10/15",
+    "movements": [
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 1600
+      },
+      {
+        "name": "Dominadas",
+        "reps": 100
+      },
+      {
+        "name": "Flexiones",
+        "reps": 200
+      },
+      {
+        "name": "Air squat",
+        "reps": 300
+      },
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 1600
+      }
+    ]
+  },
+  {
+    "id": "dt",
+    "name": "DT",
+    "format": "fortime",
+    "timeCap": 15,
+    "rounds": 5,
+    "notes": "5 RFT · 155/105 lb",
+    "movements": [
+      {
+        "name": "Peso muerto",
+        "reps": 12,
+        "weightMaleKg": 70.0,
+        "weightFemaleKg": 48.0
+      },
+      {
+        "name": "Hang power clean",
+        "reps": 9,
+        "weightMaleKg": 70.0,
+        "weightFemaleKg": 48.0
+      },
+      {
+        "name": "Push jerk",
+        "reps": 6,
+        "weightMaleKg": 70.0,
+        "weightFemaleKg": 48.0
+      }
+    ]
+  },
+  {
+    "id": "fight-gone-bad",
+    "name": "Fight Gone Bad",
+    "format": "amrap",
+    "timeCap": 17,
+    "rounds": 3,
+    "notes": "1' max",
+    "movements": [
+      {
+        "name": "Wall ball",
+        "reps": 1,
+        "weightMaleKg": 9.0,
+        "weightFemaleKg": 6.0
+      },
+      {
+        "name": "Sumo deadlift high pull",
+        "reps": 1,
+        "weightMaleKg": 34.0,
+        "weightFemaleKg": 25.0
+      },
+      {
+        "name": "Salto al cajón",
+        "reps": 1
+      },
+      {
+        "name": "Push press",
+        "reps": 1,
+        "weightMaleKg": 34.0,
+        "weightFemaleKg": 25.0
+      },
+      {
+        "name": "Remo",
+        "reps": 1
+      }
+    ]
+  },
+  {
+    "id": "randy",
+    "name": "Randy",
+    "format": "fortime",
+    "timeCap": 10,
+    "rounds": 1,
+    "notes": "75 power snatches",
+    "movements": [
+      {
+        "name": "Arrancada de potencia",
+        "reps": 75,
+        "weightMaleKg": 34.0,
+        "weightFemaleKg": 25.0
+      }
+    ]
+  },
+  {
+    "id": "nate",
+    "name": "Nate",
+    "format": "amrap",
+    "timeCap": 20,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "Muscle-up anulllas",
+        "reps": 2
+      },
+      {
+        "name": "HSPU",
+        "reps": 4
+      },
+      {
+        "name": "Swing kettlebell",
+        "reps": 8,
+        "weightMaleKg": 32.0,
+        "weightFemaleKg": 24.0
+      }
+    ]
+  },
+  {
+    "id": "tommy-v",
+    "name": "Tommy V",
+    "format": "fortime",
+    "timeCap": 25,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "Thruster",
+        "reps": 21,
+        "weightMaleKg": 52.0,
+        "weightFemaleKg": 34.0
+      },
+      {
+        "name": "Toes to bar",
+        "reps": 12
+      },
+      {
+        "name": "Thruster",
+        "reps": 15,
+        "weightMaleKg": 52.0,
+        "weightFemaleKg": 34.0
+      },
+      {
+        "name": "Toes to bar",
+        "reps": 9
+      },
+      {
+        "name": "Thruster",
+        "reps": 9,
+        "weightMaleKg": 52.0,
+        "weightFemaleKg": 34.0
+      },
+      {
+        "name": "Toes to bar",
+        "reps": 6
+      }
+    ]
+  },
+  {
+    "id": "open-12-3",
+    "name": "Open 12.3",
+    "format": "amrap",
+    "timeCap": 18,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "Salto al cajón",
+        "reps": 15
+      },
+      {
+        "name": "Push press",
+        "reps": 12,
+        "weightMaleKg": 52.0,
+        "weightFemaleKg": 34.0
+      },
+      {
+        "name": "Toes to bar",
+        "reps": 9
+      }
+    ]
+  },
+  {
+    "id": "open-13-4",
+    "name": "Open 13.4",
+    "format": "amrap",
+    "timeCap": 7,
+    "rounds": 1,
+    "notes": "Escalera +3 cada ronda",
+    "movements": [
+      {
+        "name": "Cargada",
+        "reps": 3,
+        "weightMaleKg": 102.0,
+        "weightFemaleKg": 70.0
+      },
+      {
+        "name": "Toes to bar",
+        "reps": 3
+      }
+    ]
+  },
+  {
+    "id": "open-14-5",
+    "name": "Open 14.5",
+    "format": "fortime",
+    "timeCap": 20,
+    "rounds": 1,
+    "notes": "21-18-15-12-9-6-3",
+    "movements": [
+      {
+        "name": "Thruster",
+        "reps": 21,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 21
+      },
+      {
+        "name": "Thruster",
+        "reps": 18,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 18
+      },
+      {
+        "name": "Thruster",
+        "reps": 15,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 15
+      },
+      {
+        "name": "Thruster",
+        "reps": 12,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 12
+      },
+      {
+        "name": "Thruster",
+        "reps": 9,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 9
+      },
+      {
+        "name": "Thruster",
+        "reps": 6,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 6
+      },
+      {
+        "name": "Thruster",
+        "reps": 3,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Bar facing burpee",
+        "reps": 3
+      }
+    ]
+  },
+  {
+    "id": "chipper-classic",
+    "name": "Chipper clásico",
+    "format": "chipper",
+    "timeCap": 25,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "Cinta / carrera",
+        "reps": 1,
+        "meters": 800
+      },
+      {
+        "name": "Thruster",
+        "reps": 40,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Dominadas",
+        "reps": 30
+      },
+      {
+        "name": "Sit-up",
+        "reps": 50
+      },
+      {
+        "name": "Dobles de comba",
+        "reps": 100
+      }
+    ]
+  },
+  {
+    "id": "tabata-something",
+    "name": "Tabata Something Else",
+    "format": "tabata",
+    "timeCap": 16,
+    "rounds": 8,
+    "notes": "4' Tabata",
+    "movements": [
+      {
+        "name": "Dominadas",
+        "reps": 1
+      },
+      {
+        "name": "Flexiones",
+        "reps": 1
+      },
+      {
+        "name": "Sit-up",
+        "reps": 1
+      },
+      {
+        "name": "Air squat",
+        "reps": 1
+      }
+    ]
+  },
+  {
+    "id": "death-by-burpees",
+    "name": "Death by Burpees",
+    "format": "fortime",
+    "timeCap": 20,
+    "rounds": 1,
+    "notes": "Min 1: 1 · Min 2: 2 · …",
+    "movements": [
+      {
+        "name": "Burpee",
+        "reps": 1
+      }
+    ]
+  },
+  {
+    "id": "21-15-9-thruster-bjo",
+    "name": "21-15-9 Thruster + BJO",
+    "format": "fortime",
+    "timeCap": 12,
+    "rounds": 1,
+    "notes": "",
+    "movements": [
+      {
+        "name": "Thruster",
+        "reps": 21,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Box jump over",
+        "reps": 21
+      },
+      {
+        "name": "Thruster",
+        "reps": 15,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Box jump over",
+        "reps": 15
+      },
+      {
+        "name": "Thruster",
+        "reps": 9,
+        "weightMaleKg": 43.0,
+        "weightFemaleKg": 29.0
+      },
+      {
+        "name": "Box jump over",
+        "reps": 9
+      }
+    ]
+  }
+];

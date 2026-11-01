@@ -1,5 +1,8 @@
 // Mis entrenos: biblioteca de plantillas del entrenador personal.
-import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,readPrescription,validatePrescription,canonicalPrescription,setEditorLibraryTemplates} from './workout-editor.js';
+import {
+ editorMarkup,emptyPrescription,starterPrescription,visualPrescription,visualSessionMeta,
+ setEditorLibraryTemplates,readPrescription,validatePrescription,canonicalPrescription,
+} from './workout-editor.js';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const blocksLabel=p=>{
@@ -19,6 +22,7 @@ export function renderTrainerWorkoutsLibrary({templates=[],templateId=null,busy=
   <div><strong>${esc(t.name)}</strong><small>${esc(t.description||'Plantilla reutilizable')} · ${blocksLabel(t.prescription)}</small></div>
   <div class="pt-lib-row-actions">
    <button type="button" class="connected-secondary" data-action="edit-library-template" data-id="${esc(t.id)}">Editar</button>
+   ${manager&&audience==='gym'?`<button type="button" class="connected-primary" data-action="assign-template-to-classes" data-id="${esc(t.id)}">Asignar a clases</button>`:''}
    ${manager?`<button type="button" class="connected-secondary" data-action="delete-library-template" data-id="${esc(t.id)}">Eliminar</button>`:''}
   </div>
  </article>`).join(''):`<p class="business-empty">Crea tu primera plantilla para reutilizarla al programar ${who}.</p>`;
@@ -37,9 +41,9 @@ export function renderTrainerWorkoutsLibrary({templates=[],templateId=null,busy=
      ${selected?`<input type="hidden" name="template" value="${esc(selected.id)}">`:''}
      <label class="connected-field">Nombre<input name="name" minlength="2" maxlength="120" required value="${esc(selected?.name||'')}" placeholder="Ej. Full Body A"></label>
      <label class="connected-field">Descripción<input name="description" maxlength="1000" value="${esc(selected?.description||'')}" placeholder="Objetivo, material, nivel…"></label>
-     ${editorMarkup(prescription)}
+     ${editorMarkup(prescription,{meta:visualSessionMeta(selected?.prescription||{}),showMeta:true})}
      <div class="planning-submit"><button type="submit" class="connected-primary" ${busy?'disabled':''}>${selected?'Guardar cambios':'Guardar en Mis entrenos'}</button></div>
-     <p class="connected-hint">Guardar no asigna el entreno a ningún cliente. Eso se hace desde la ficha o la agenda.</p>
+     <p class="connected-hint">Guardar no asigna el entreno. En gimnasio usa «Asignar a clases» (día / selección). En PT, desde la ficha o la agenda.</p>
     </form>`:'<p class="connected-hint">No tienes permiso para editar la biblioteca.</p>'}
    </section>
   </div>

@@ -6,12 +6,13 @@ import {renderServicesPanel} from './connected-services.js';
 import {renderProfessionalPlanning,renderClientWorkoutFullscreen} from './connected-planning.js';
 import {navIcon} from './nav-icons.js';
 import {renderPlatformAdmin,paymentCSV} from './platform-admin.js';
-import {renderBusinessHome,renderClient360,renderClasses360,renderNewGroupModal,renderNewClassModal,renderEditClassModal,renderEnrollClassModal,parseWeekSlotKey,weekSlotGrid} from './management-360.js';
+import {renderBusinessHome,renderClient360,renderClasses360,renderNewGroupModal,renderNewClassModal,renderEditClassModal,renderEnrollClassModal,renderPublishClassPlanModal,renderAssignClassTrainingModal,parseWeekSlotKey,weekSlotGrid} from './management-360.js';
 import {renderTrainerPassPanel,trainerSeatInfo,timeToMinute,renderPassOfferModal} from './trainer-pass-panel.js';
 import {renderGymPassPanel} from './gym-pass-panel.js';
 import {renderAssignPassModal} from './client-passes.js';
 import {renderBillingDashboard} from './billing-dashboard.js';
-import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup,MOVEMENTS,exerciseThumbHTML,resetEditorPanels} from './workout-editor.js';
+import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup,MOVEMENTS,exerciseThumbHTML,resetEditorPanels,readSessionMeta,withSessionMeta} from './workout-editor.js';
+import {resolveAssignScopeIds} from './assign-scope.js';
 import {
  pendingAthleteInvite,parseWhatsappE164,renderServicesSettings,
  beginInvitationWhatsappPopup,finishInvitationWhatsappPopup,
@@ -28,7 +29,7 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],passEvents=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,inviteDraft={name:'',email:'',phone:''},inviteEmailError='',gymAssignments=[],quickWorkoutClient='',seedPrescription=null,copyBrowseClientId='',libraryTemplateId=null,draftSessionMeta=null,whatsappDraft=null,agendaRoom='',expandedOccurrenceId='',selectedOfferId='';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],passEvents=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,inviteDraft={name:'',email:'',phone:''},inviteEmailError='',gymAssignments=[],quickWorkoutClient='',seedPrescription=null,copyBrowseClientId='',libraryTemplateId=null,draftSessionMeta=null,whatsappDraft=null,agendaRoom='',expandedOccurrenceId='',selectedOfferId='',assignClassDay='',assignTemplateId='',assignOnlyWithout=false,assignPreselectedIds=[],assignScope='one';
 const inviteEmailIssue=raw=>{
  const t=String(raw||'');
  if(/CLIENT_ALREADY_LINKED/i.test(t)||/vinculado a una cuenta/i.test(t))
@@ -427,6 +428,52 @@ function enhanceWorkspace(own){
  if(businessDialog==='enroll-class'&&selectedClassId){
   const occ=occurrences.find(o=>o.id===selectedClassId);
   if(occ)root.insertAdjacentHTML('beforeend',renderEnrollClassModal({occurrence:occ,clients,passes,busy}));
+ }
+ if(businessDialog==='publish-class-plan'&&selectedClassId){
+  const occ=occurrences.find(o=>o.id===selectedClassId);
+  const det=classDetails.find(d=>d.occurrence_id===selectedClassId)||{};
+  const linkedSession=professionalSessions.find(s=>s.source_occurrence_id===selectedClassId&&s.prescription);
+  const tpl=templates.find(t=>t.id===assignTemplateId);
+  // Preferir borrador en memoria (edición en curso / error de guardado) sobre plantilla o detalle.
+  const classSeed=seedPrescription||tpl?.prescription||det.prescription||linkedSession?.prescription||null;
+  if(occ)root.insertAdjacentHTML('beforeend',renderPublishClassPlanModal({
+   occurrence:occ,
+   detail:{
+    ...det,
+    training_title:draftSessionMeta?.title||det.training_title,
+    training_instructions:draftSessionMeta?.instructions??det.training_instructions,
+   },
+   occurrences,
+   details:classDetails,
+   busy,
+   templates,
+   templateId:assignTemplateId,
+   seedPrescription:classSeed,
+   assignScope,
+  }));
+ }
+ if(businessDialog==='assign-class-training'){
+  const day=assignClassDay||agendaDay||todayISO();
+  const dayOcc=occurrences.filter(o=>
+   o.kind==='class'&&o.status==='active'
+   &&new Date(o.starts_at).toLocaleDateString('sv-SE')===day
+  );
+  const tpl=templates.find(t=>t.id===assignTemplateId);
+  root.insertAdjacentHTML('beforeend',renderAssignClassTrainingModal({
+   day,
+   occurrences,
+   details:classDetails,
+   templates,
+   preselectedIds:assignPreselectedIds.length?assignPreselectedIds:dayOcc.map(o=>o.id),
+   onlyWithoutPlan:assignOnlyWithout,
+   busy,
+   seedPrescription:seedPrescription||tpl?.prescription||null,
+   titleSeed:draftSessionMeta?.title||tpl?.name||'',
+   instructionsSeed:draftSessionMeta?.instructions||'',
+   templateId:assignTemplateId,
+   lockSelection:false,
+   assignScope,
+  }));
  }
  if(businessDialog==='create-plan'||businessDialog==='edit-plan'){
   const offer=businessDialog==='edit-plan'?offers.find(o=>o.id===selectedOfferId):null;
@@ -1306,6 +1353,9 @@ app.addEventListener('click',async event=>{
   return;
  }
  if(action==='close-business-dialog'||action==='close-invite-share'){
+  if(['publish-class-plan','assign-class-training'].includes(businessDialog)){
+   seedPrescription=null;draftSessionMeta=null;assignScope='one';resetEditorPanels();
+  }
   businessDialog='';render();return;
  }
  if(trainer&&action==='back-classes'){
@@ -1402,7 +1452,74 @@ app.addEventListener('click',async event=>{
   first.setDate(1);first.setMonth(first.getMonth()+(action==='calendar-next'?1:-1));
   calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
  }
- if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else{activeTab='overview';businessDialog='edit-class';}render();return;}
+ if(action==='publish-class-plan'){
+  classEditorId=actionable.dataset.id;
+  selectedClassId=actionable.dataset.id;
+  expandedOccurrenceId=selectedClassId;
+  assignClassDay='';
+  assignTemplateId='';
+  assignOnlyWithout=false;
+  assignPreselectedIds=[actionable.dataset.id];
+  assignScope='one';
+  seedPrescription=null;
+  draftSessionMeta=null;
+  resetEditorPanels();
+  businessDialog='publish-class-plan';
+  if(!trainer)activeTab='overview';
+  render();
+  return;
+ }
+ if(action==='clear-class-plan'&&!busy){
+  const occurrenceId=actionable.dataset.id;
+  if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||'')){error='Clase inválida';render();return;}
+  if(!confirm('¿Quitar el entreno de esta clase? Los inscritos dejarán de verlo en la app. No se borra ninguna plantilla de Mis entrenos.'))return;
+  busy=true;error=notice='';render();
+  try{
+   const n=await auth.clearClassTraining({occurrenceId});
+   businessDialog='';
+   await loadSelectedOrg();
+   notice=Number(n)>0
+    ?`Entreno quitado de la clase (${n} publicación${Number(n)===1?'':'es'} cancelada${Number(n)===1?'':'s'} a inscritos).`
+    :'Entreno quitado de la clase.';
+  }catch(e){error=e.message||'No se pudo quitar el entreno';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='assign-day-class-training'){
+  assignClassDay=actionable.dataset.day||agendaDay||todayISO();
+  agendaDay=assignClassDay;
+  assignTemplateId='';
+  assignOnlyWithout=false;
+  assignPreselectedIds=[];
+  assignScope='one';
+  seedPrescription=null;
+  draftSessionMeta=null;
+  resetEditorPanels();
+  businessDialog='assign-class-training';
+  activeTab='overview';
+  render();
+  return;
+ }
+ if(action==='assign-template-to-classes'){
+  const tpl=templates.find(t=>t.id===actionable.dataset.id);
+  if(!tpl){error='Plantilla no encontrada';render();return;}
+  assignClassDay=agendaDay||todayISO();
+  assignTemplateId=tpl.id;
+  assignOnlyWithout=false;
+  assignPreselectedIds=[];
+  seedPrescription=tpl.prescription||null;
+  businessDialog='assign-class-training';
+  activeTab='overview';
+  render();
+  return;
+ }
+ if(action==='assign-select-all'||action==='assign-select-none'){
+  const form=actionable.closest('form[data-assign-class-form]');
+  form?.querySelectorAll('input[name="occurrences"]').forEach(inp=>{
+   if(!inp.disabled)inp.checked=action==='assign-select-all';
+  });
+  return;
+ }
  if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='overview';notice='Abre una clase en Inicio y pulsa Añadir participante.';render();return;}
  if(action==='refresh-enrollments'&&!busy&&selectedOrg){
   busy=true;error='';render();
@@ -1605,6 +1722,31 @@ app.addEventListener('input',event=>{
  }
 });
 app.addEventListener('change',async event=>{
+ if(event.target.closest('form[data-assign-class-form]')){
+  const form=event.target.closest('form[data-assign-class-form]');
+  const stayDialog=businessDialog==='publish-class-plan'?'publish-class-plan':'assign-class-training';
+  if(event.target.name==='templateId'){
+   assignTemplateId=event.target.value||'';
+   const tpl=templates.find(t=>t.id===assignTemplateId);
+   seedPrescription=tpl?.prescription||null;
+   const checked=[...form.querySelectorAll('input[name="occurrences"]:checked')].map(i=>i.value);
+   const locked=[...form.querySelectorAll('input[name="occurrences"][type="hidden"]')].map(i=>i.value);
+   assignPreselectedIds=checked.length?checked:locked;
+   assignOnlyWithout=!!form.querySelector('[name="onlyWithout"]')?.checked;
+   assignClassDay=form.querySelector('[name="day"]')?.value||assignClassDay;
+   businessDialog=stayDialog;
+   render();
+   return;
+  }
+  if(event.target.name==='onlyWithout'||event.target.matches('[data-action="assign-only-without"]')){
+   assignOnlyWithout=!!event.target.checked;
+   assignPreselectedIds=[];
+   assignClassDay=form.querySelector('[name="day"]')?.value||assignClassDay;
+   businessDialog='assign-class-training';
+   render();
+   return;
+  }
+ }
  if(event.target.closest('form[data-connected="quick-workout"]')&&
     (event.target.matches('[data-quick-mode], [name="weekdays"], [name="date"], [name="end"], [name="weeks"]')||
      event.target.name==='mode')){
@@ -1780,7 +1922,23 @@ app.addEventListener('submit',async event=>{
   }
  }
  let prescription=null;
- try{if(['publish-session','publish-class-plan','bulk-custom','save-workout-template'].includes(action))prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){
+ const stashWorkoutDraft=()=>{
+  draftSessionMeta={
+   ...(draftSessionMeta||{}),
+   title:String(data.get('title')||data.get('name')||draftSessionMeta?.title||''),
+   instructions:String(data.get('instructions')||draftSessionMeta?.instructions||''),
+   date:String(data.get('date')||draftSessionMeta?.date||''),
+  };
+ };
+ try{if(['publish-session','publish-class-plan','publish-class-plan-bulk','bulk-custom','save-workout-template'].includes(action)){
+  const visual=validatePrescription(readPrescription(f));
+  // Conservar borrador visual antes de busy/render (si falla el RPC no debe «resetear» el editor).
+  seedPrescription=visual;
+  stashWorkoutDraft();
+  prescription=withSessionMeta(canonicalPrescription(visual),readSessionMeta(f));
+ }}catch(e){
+  try{seedPrescription=readPrescription(f);}catch{/* ignore */}
+  stashWorkoutDraft();
   const preview=f.querySelector('[data-custom-preview]');if(preview){preview.textContent=e.message;preview.classList.add('is-invalid');return;}
   error=e.message;notice='';render();return;
  }
@@ -1924,7 +2082,36 @@ app.addEventListener('submit',async event=>{
   }
   if(action==='publish-class-plan'){
    const count=await auth.publishClassTraining({occurrenceId:data.get('occurrence'),title:data.get('title'),instructions:data.get('instructions'),prescription});
-   classEditorId=null;await loadSelectedOrg();notice='Entrenamiento publicado para '+count+' participantes vinculados.';
+   classEditorId=null;businessDialog='';
+   await loadSelectedOrg();
+   notice=count>0
+    ?`Entreno de la clase guardado y publicado a ${count} inscrito${count===1?'':'s'} con app.`
+    :'Entreno de la clase guardado. Se enviará a cada socio cuando se apunte (con cuenta vinculada).';
+  }
+  if(action==='publish-class-plan-bulk'){
+   const selected=data.getAll('occurrences').filter(Boolean);
+   if(!selected.length)throw Error('Marca al menos una clase');
+   const scope=String(data.get('assignScope')||'one');
+   const day=String(data.get('day')||assignClassDay||'');
+   const ids=resolveAssignScopeIds({
+    scope,baseId:selected[0],day,occurrences,selectedIds:selected,
+   });
+   if(!ids.length)throw Error('No hay clases en el alcance elegido');
+   const raw=await auth.publishClassTrainingBulk({
+    occurrenceIds:ids,
+    title:data.get('title'),
+    instructions:data.get('instructions')||'',
+    prescription,
+   });
+   const result=Array.isArray(raw)?raw[0]:raw;
+   const occN=Number(result?.occurrences||ids.length);
+   const athN=Number(result?.athletes||0);
+   businessDialog='';assignClassDay='';assignTemplateId='';assignPreselectedIds=[];assignScope='one';seedPrescription=null;draftSessionMeta=null;
+   await loadSelectedOrg();
+   const scopeLabel=scope==='series'?' (serie)':scope==='day'?' (día)':'';
+   notice=athN>0
+    ?`Entreno asignado a ${occN} clase${occN===1?'':'s'}${scopeLabel} · ${athN} inscrito${athN===1?'':'s'} con app.`
+    :`Entreno asignado a ${occN} clase${occN===1?'':'s'}${scopeLabel}. Se enviará a quien se apunte con cuenta vinculada.`;
   }
   if(action==='service-occurrence'){
    const kind=data.get('kind')||'appointment';
@@ -2359,17 +2546,33 @@ app.addEventListener('submit',async event=>{
   }
   if(action==='rename'){
     const orgId=data.get('id');
+    const pending=[];
     await auth.renameOrganization(orgId,data.get('name'));
     await auth.updateOrganizationBranding({orgId,tagline:data.get('tagline'),isDiscoverable:data.get('discoverable')==='on'});
-    if(data.get('avatarFile')?.size)await auth.uploadBrandImage({orgId,kind:organizations.find(o=>o.id===orgId)?.kind,file:data.get('avatarFile')});
-    await reload();notice='Identidad visual actualizada.';
+    // Foto primero / aislada: no debe fallar por permisos de organization_legal_profiles.
+    if(data.get('avatarFile')?.size){
+     try{await auth.uploadBrandImage({orgId,kind:organizations.find(o=>o.id===orgId)?.kind,file:data.get('avatarFile')});}
+     catch(e){pending.push('imagen ('+(e.message||'error')+')');}
+    }
+    await reload();
+    notice=pending.length?'Identidad actualizada con avisos: '+pending.join(', '):'Identidad visual actualizada.';
    }
   if(action==='settings'){
     const values=Object.fromEntries(data.entries());
+    const pending=[];
     await auth.updateOrganization({orgId:selectedOrg,name:data.get('name'),publicValues:values});
-    await auth.upsertLegalProfile(selectedOrg,values);
-    if(data.get('avatarFile')?.size)await auth.uploadBrandImage({orgId:selectedOrg,kind:organizations.find(o=>o.id===selectedOrg)?.kind,file:data.get('avatarFile')});
-    await reload();notice='Perfil y datos legales actualizados.';
+    // Subir foto antes del bloque fiscal: el permiso denegado de legal_profiles
+    // no debe impedir guardar el logotipo / foto del entrenador.
+    if(data.get('avatarFile')?.size){
+     try{await auth.uploadBrandImage({orgId:selectedOrg,kind:organizations.find(o=>o.id===selectedOrg)?.kind,file:data.get('avatarFile')});}
+     catch(e){pending.push('imagen ('+(e.message||'error')+')');}
+    }
+    try{await auth.upsertLegalProfile(selectedOrg,values);}
+    catch(e){pending.push('datos fiscales ('+(e.message||'error')+')');}
+    await reload();
+    notice=pending.length
+     ?'Perfil guardado con avisos: '+pending.join(', ')
+     :'Perfil y datos legales actualizados.';
    }
   if(action==='whatsapp-connect'){
    const digits=parseWhatsappE164(whatsappDraft||data.get('whatsapp'));

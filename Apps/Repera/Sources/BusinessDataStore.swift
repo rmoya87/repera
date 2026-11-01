@@ -100,6 +100,10 @@ struct BusinessOccurrence: Decodable, Identifiable, Hashable {
     var color: String?
     var location: String?
     var coachUserId: UUID?
+    /// Prescripción asociada a la clase (plantilla del occurrence).
+    var trainingTitle: String?
+    var trainingInstructions: String?
+    var prescription: BusinessPrescription?
 
     enum CodingKeys: String, CodingKey {
         case id, kind, title, capacity, status, color, location
@@ -124,19 +128,37 @@ struct BusinessOccurrence: Decodable, Identifiable, Hashable {
         if let embedded = try? c.decodeIfPresent(OccurrenceDetailsEmbed.self, forKey: .details) {
             color = embedded.color
             location = embedded.location
+            trainingTitle = embedded.trainingTitle
+            trainingInstructions = embedded.trainingInstructions
+            prescription = embedded.prescription
         } else if let list = try? c.decodeIfPresent([OccurrenceDetailsEmbed].self, forKey: .details),
                   let first = list.first {
             color = first.color
             location = first.location
+            trainingTitle = first.trainingTitle
+            trainingInstructions = first.trainingInstructions
+            prescription = first.prescription
         } else {
             color = try c.decodeIfPresent(String.self, forKey: .color)
             location = try c.decodeIfPresent(String.self, forKey: .location)
+            trainingTitle = nil
+            trainingInstructions = nil
+            prescription = nil
         }
     }
 
     private struct OccurrenceDetailsEmbed: Decodable {
         let color: String?
         let location: String?
+        let trainingTitle: String?
+        let trainingInstructions: String?
+        let prescription: BusinessPrescription?
+
+        enum CodingKeys: String, CodingKey {
+            case color, location, prescription
+            case trainingTitle = "training_title"
+            case trainingInstructions = "training_instructions"
+        }
     }
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
@@ -262,6 +284,20 @@ struct BusinessBooking: Decodable, Identifiable {
 struct BusinessPrescription: Decodable {
     let schemaVersion: Int?
     let blocks: [BusinessPrescriptionBlock]
+
+    /// Prescripción ejecutable en Play (clase o entreno profesional).
+    var isCanonicalV1: Bool { schemaVersion == 1 && !blocks.isEmpty }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, version, blocks
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion)
+            ?? c.decodeIfPresent(Int.self, forKey: .version)
+        blocks = try c.decodeIfPresent([BusinessPrescriptionBlock].self, forKey: .blocks) ?? []
+    }
 }
 struct BusinessPrescriptionBlock: Decodable, Identifiable {
     let id: UUID
@@ -273,6 +309,22 @@ struct BusinessPrescriptionBlock: Decodable, Identifiable {
     let rounds: Int?
     let timeCapMinutes: Int?
     var entries: [BusinessPrescriptionEntry] { kind == "wod" ? movements : exercises }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, kind, exercises, movements, wodFormat, rounds, timeCapMinutes
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        kind = try c.decode(String.self, forKey: .kind)
+        exercises = try c.decodeIfPresent([BusinessPrescriptionEntry].self, forKey: .exercises) ?? []
+        movements = try c.decodeIfPresent([BusinessPrescriptionEntry].self, forKey: .movements) ?? []
+        wodFormat = try c.decodeIfPresent(String.self, forKey: .wodFormat)
+        rounds = try c.decodeIfPresent(Int.self, forKey: .rounds)
+        timeCapMinutes = try c.decodeIfPresent(Int.self, forKey: .timeCapMinutes)
+    }
 }
 struct BusinessPrescriptionEntry: Decodable, Identifiable {
     let id: UUID
@@ -297,7 +349,7 @@ struct BusinessProfessionalTrainingSession: Decodable, Identifiable {
     let id: UUID
     let orgId: UUID
     let clientId: UUID
-    let coachUserId: UUID
+    let coachUserId: UUID?
     let scheduledDate: String  // yyyy-MM-dd, date-only (never UTC-shifted)
     let scheduledTimeMinutes: Int?
     let sourceOccurrenceId: UUID?
@@ -509,7 +561,7 @@ final class BusinessDataStore {
             // FK explícita: hay dos relaciones (occurrence_id PK y (org_id,occurrence_id)).
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
-                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id,service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location)")
+                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id,service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location,training_title,training_instructions,prescription)")
                 .execute().value
             let fetchedPasses: [BusinessPass] = try await client
                 .from("service_passes")
@@ -575,6 +627,37 @@ final class BusinessDataStore {
         }
     }
 
+    /// Sesión materializada de una clase (fan-out) para el cliente apuntado, si existe.
+    func classTrainingSession(for occurrenceId: UUID, clientId: UUID? = nil) -> BusinessProfessionalTrainingSession? {
+        if let clientId,
+           let match = trainingSessions.first(where: {
+               $0.sourceOccurrenceId == occurrenceId && $0.clientId == clientId
+           }) {
+            return match
+        }
+        return trainingSessions.first { $0.sourceOccurrenceId == occurrenceId }
+    }
+
+    /// Prescripción de clase: sesión personal o plantilla en `service_occurrence_details`.
+    func classPrescription(for occurrence: BusinessOccurrence, clientId: UUID? = nil) -> BusinessPrescription? {
+        if let session = classTrainingSession(for: occurrence.id, clientId: clientId),
+           let rx = session.prescription, rx.isCanonicalV1 {
+            return rx
+        }
+        if let rx = occurrence.prescription, rx.isCanonicalV1 { return rx }
+        return nil
+    }
+
+    /// Resumen corto para fichas de Inicio / Clases.
+    func classPlanSummary(for occurrence: BusinessOccurrence, clientId: UUID? = nil) -> String? {
+        guard let rx = classPrescription(for: occurrence, clientId: clientId) else { return nil }
+        let title = classTrainingSession(for: occurrence.id, clientId: clientId)?.title
+            ?? occurrence.trainingTitle
+            ?? occurrence.title
+        let n = rx.blocks.count
+        return "\(title) · \(n) bloq."
+    }
+
     /// Mensaje corto para UI: nunca volcar JSON/PostgREST crudo.
     private static func friendlyCentersLoadError(_ error: Error) -> String {
         let raw = error.localizedDescription
@@ -603,6 +686,15 @@ final class BusinessDataStore {
         fmt.timeZone = .current
         fmt.dateFormat = "yyyy-MM-dd"
         return fmt.string(from: date)
+    }
+
+    static func parseDayKey(_ key: String) -> Date? {
+        let fmt = DateFormatter()
+        fmt.calendar = Calendar(identifier: .gregorian)
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = .current
+        fmt.dateFormat = "yyyy-MM-dd"
+        return fmt.date(from: key)
     }
 
     func centerName(_ id: UUID) -> String {

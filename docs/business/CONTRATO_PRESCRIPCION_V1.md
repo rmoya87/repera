@@ -47,10 +47,14 @@ El formato JSON se guarda en `professional_training_sessions.prescription` y se 
 
 - Fuerza: `exercises` (series, repeticiones, kg, RIR). **No** lleva `isRest` dentro de `exercises` (paridad `PlanView.insertRest`).
 - WOD: `wodFormat` según `WODFormat` nativo, rondas, time cap, intervalos, movimientos en orden con reps y escala opcional.
-- Descanso: movimiento WOD con `isRest: true` y `restSeconds` (mín. 5). Si el editor web añade descanso desde un bloque de fuerza, se publica como bloque WOD «Descanso» aparte. iOS (`ReperaStore`) y Android (`WorkoutRepository`) proyectan esos movimientos a `WODMovement.isRest`.
+- Descanso: movimiento WOD con `isRest: true` y `restSeconds` (mín. 5). Si el editor web añade descanso desde un bloque de fuerza, se publica como bloque WOD «Descanso» aparte con **`wodFormat: "forTime"`** (obligatorio: sin formato el RPC `validate_professional_prescription` rechaza el guardado). iOS (`ReperaStore`) y Android (`WorkoutRepository`) proyectan esos movimientos a `WODMovement.isRest`.
 - Bloques/ejercicios/movimientos tienen IDs estables por publicación; versiones: cada publicación/cancelación conserva historial separado.
 - Se conserva `instructions` para versiones antiguas y resumen. A partir de v1, web y iOS leen primordialmente `prescription`.
 - La base de datos valida estructura, pertenencia y existencia de ejercicios de catálogo; **ningún entrenador puede leer historiales personales** por publicar un plan.
 - Lectura y vista detallada en Inicio/Diario solo para la cuenta vinculada, con RLS existente.
 
-**Límites actuales:** los bloques profesionales se muestran como planificación de solo lectura en iOS; no se importan automáticamente al historial local ni a HealthKit. Faltan edición/republicación de un día sin duplicar y tests E2E en dispositivos con Apple.
+**Metadatos de sesión (web, 01/11/2026):** el editor Business puede añadir `meta` opcional al wire (`location`, `favorite`, `durationMinutes`). La validación SQL solo exige `schemaVersion` + `blocks`; claves extra no invalidan. Las apps móviles las ignoran hasta un consumo explícito.
+
+**Límites actuales:** los bloques profesionales se muestran como planificación de solo lectura en iOS; no se importan automáticamente al historial local ni a HealthKit. OCR de pizarra en Business web queda pendiente. Tests E2E en dispositivos con Apple pendientes.
+
+Última actualización: 2026-11-01.

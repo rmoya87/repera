@@ -14,7 +14,11 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -155,6 +159,14 @@ internal fun HomeTab(
     modifier: Modifier = Modifier,
     focusDay: java.time.LocalDate? = null,
     professionalSessions:List<BusinessCenterStore.ProfessionalSession> = emptyList(),
+    centerSnapshot: BusinessCenterStore.Snapshot? = null,
+    centerSubmitting: Boolean = false,
+    loadClassRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)? = null,
+    onBookClass: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit = { _, _ -> },
+    onCancelClassBooking: (BusinessCenterStore.Booking) -> Unit = {},
+    onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    exerciseCatalog: List<ExerciseEntry> = emptyList(),
+    onOpenExercise: (String) -> Unit = {},
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
     onOpenHistory:()->Unit = {},
@@ -164,6 +176,12 @@ internal fun HomeTab(
 ) {
     var homeDateIso by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var showDayPlus by rememberSaveable(accountId) { mutableStateOf(false) }
+    var detailOccurrence by remember {
+        mutableStateOf<BusinessCenterStore.Occurrence?>(null)
+    }
+    var pendingClassCancellation by remember {
+        mutableStateOf<BusinessCenterStore.Booking?>(null)
+    }
     LaunchedEffect(focusDay) { focusDay?.let { homeDateIso=it.toString() } }
     LaunchedEffect(restoreDayPlus) {
         if (restoreDayPlus) {
@@ -236,16 +254,43 @@ internal fun HomeTab(
                                 (it.scheduledDate == null &&
                                     it.weekday == day.dayOfWeek.value)))
                 }
+                val dayBookingsEarly = remember(centerSnapshot, homeDateIso) {
+                    val snap = centerSnapshot ?: return@remember emptyList()
+                    val zone = java.time.ZoneId.systemDefault()
+                    snap.bookings.mapNotNull { booking ->
+                        if (booking.status != "booked" && booking.status != "waitlist") {
+                            return@mapNotNull null
+                        }
+                        val occ = snap.occurrences.firstOrNull { it.id == booking.occurrenceId }
+                            ?: return@mapNotNull null
+                        val occDay = runCatching {
+                            java.time.Instant.parse(occ.startsAt).atZone(zone).toLocalDate()
+                        }.getOrNull() ?: return@mapNotNull null
+                        if (occDay.toString() != homeDateIso) return@mapNotNull null
+                        booking to occ
+                    }
+                }
+                val classPlanIds = remember(dayBookingsEarly, centerSnapshot) {
+                    buildSet {
+                        dayBookingsEarly.forEach { (booking, occ) ->
+                            if (occ.kind != "class") return@forEach
+                            add(occ.id)
+                            centerSnapshot?.classTrainingSession(occ.id, booking.clientId)
+                                ?.id?.let { add(it) }
+                        }
+                    }
+                }
                 val visibleRoutines = HomePlannedFilter.visible(
                     dayRoutines, { it.id },
                     HomePlannedFilter.completedRoutineIds(
                         overview?.completeHistory.orEmpty(), day
                     ),
                     activeWorkout?.routineId, day, LocalDate.now()
-                )
+                ).filter { it.id !in classPlanIds }
                 val dayWorkouts = overview?.completeHistory.orEmpty().filter { entry ->
                     entry.startedAtIso?.let { BodyWeightHistory.day(it) } == day
                 }.sortedBy { it.startedAtIso ?: "" }
+                val completedRoutineIds = dayWorkouts.mapNotNull { it.routineId }.toSet()
                 val dayExternal = overview?.externalHealthHistory.orEmpty().filter { entry ->
                     java.time.Instant.ofEpochMilli(entry.startMillis)
                         .atZone(java.time.ZoneId.systemDefault()).toLocalDate() == day
@@ -323,19 +368,118 @@ internal fun HomeTab(
                             }
                         }
                     }
-                    professionalSessions.filter { it.scheduledDate == homeDateIso }.forEach { session ->
-                        ProfessionalSessionCard(session, centerName(session.orgId), true)
+                    val dayBookings = dayBookingsEarly
+                    // Fan-out de clase: solo con reserva; la ficha la pinta el booking.
+                    val dayProfessional = professionalSessions.filter { session ->
+                        session.scheduledDate == homeDateIso &&
+                            session.sourceOccurrenceId == null
+                    }
+                    dayProfessional.forEach { session ->
+                        val center = centerName(session.orgId)
+                        val time = session.scheduledTimeMinutes?.let {
+                            "%d:%02d".format(it / 60, it % 60)
+                        }
+                        val caption = buildString {
+                            append(homeDayTimeCaption(day, time))
+                            if (center.isNotBlank()) {
+                                append(" · ")
+                                append(center)
+                            }
+                        }
+                        val planBlocks = session.prescription
+                            ?.let { prescriptionToRoutineBlocks(it) }
+                            .orEmpty()
+                        val isClassPlan = session.sourceOccurrenceId != null
+                        val chips = buildList {
+                            add(
+                                (if (isClassPlan) Icons.Outlined.Groups else Icons.Outlined.Person) to
+                                    (if (isClassPlan) "Clase" else "Entrenador")
+                            )
+                            if (planBlocks.isNotEmpty()) {
+                                add(Icons.Outlined.Layers to "${planBlocks.size} bloq.")
+                                planBlocks.firstOrNull { it.format.isNotBlank() }?.let { block ->
+                                    add(Icons.Outlined.Timer to homeWodChipLabel(block))
+                                }
+                            }
+                        }
+                        HomeDayRegisterCard(
+                            caption = caption,
+                            title = session.title,
+                            leadingIcon = Icons.Outlined.FitnessCenter,
+                            chips = chips,
+                            onClick = { onStartClassPlan(session) },
+                            leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    dayBookings.forEach { (booking, occurrence) ->
+                        val isClass = occurrence.kind == "class"
+                        val center = centerName(occurrence.orgId)
+                        val time = homeTimeFromIso(occurrence.startsAt)
+                        val caption = buildString {
+                            append(homeDayTimeCaption(day, time))
+                            if (isClass && center.isNotBlank()) {
+                                append(" · ")
+                                append(center)
+                            }
+                        }
+                        val session = if (isClass) {
+                            centerSnapshot?.asClassPlanSession(occurrence, booking.clientId)
+                        } else null
+                        val planBlocks = session?.prescription
+                            ?.let { prescriptionToRoutineBlocks(it) }
+                            .orEmpty()
+                        val planId = session?.id
+                        val planDone = planId != null && planId in completedRoutineIds
+                        // Terminada: solo el resumen de workout (arriba). Sin ficha pendiente.
+                        if (isClass && planDone) return@forEach
+                        val chips = when {
+                            !isClass -> listOf(Icons.Outlined.FitnessCenter to "Cita confirmada")
+                            planBlocks.isNotEmpty() -> buildList {
+                                add(Icons.Outlined.Groups to "Clase")
+                                add(Icons.Outlined.Layers to "${planBlocks.size} bloq.")
+                                planBlocks.firstOrNull { it.format.isNotBlank() }?.let {
+                                    add(Icons.Outlined.Timer to homeWodChipLabel(it))
+                                }
+                            }
+                            else -> listOf(Icons.Outlined.FitnessCenter to "Reserva confirmada")
+                        }
+                        val title = when {
+                            !isClass || planBlocks.isEmpty() -> occurrence.title
+                            !session?.title.isNullOrBlank() -> session!!.title
+                            else -> occurrence.title
+                        }
+                        val card = @Composable {
+                            HomeDayRegisterCard(
+                                caption = caption,
+                                title = title,
+                                leadingIcon = Icons.Outlined.FitnessCenter,
+                                chips = chips,
+                                onClick = { detailOccurrence = occurrence },
+                                leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        // Plan del centro: sin editar; swipe = cancelar reserva.
+                        if (isClass && planBlocks.isNotEmpty()) {
+                            HomeSwipeRevealCard(
+                                key = booking.id,
+                                busy = busy,
+                                onDelete = { pendingClassCancellation = booking },
+                                onEdit = null,
+                                deleteContentDescription = "Cancelar reserva de clase",
+                                askDeleteConfirm = false
+                            ) { card() }
+                        } else {
+                            card()
+                        }
                     }
                     if (activeWorkout == null && dayWorkouts.isEmpty() && visibleRoutines.isEmpty()
                         && dayExternal.isEmpty()
-                        && professionalSessions.none { it.scheduledDate == homeDateIso }
+                        && dayProfessional.isEmpty()
+                        && dayBookings.isEmpty()
                     ) {
                         HomeEmptyDayCard(day)
                     }
                     if (activeWorkout == null) {
-                        androidx.compose.foundation.layout.Spacer(
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
                         HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
                     }
                     if (showDayPlus) {
@@ -445,5 +589,44 @@ internal fun HomeTab(
 
         // Play / Comenzar en curso: solo ficha EN CURSO arriba + Continuar sobre el menú.
     }
+    }
+
+    val zone = remember { java.time.ZoneId.systemDefault() }
+    val es = remember { java.util.Locale("es", "ES") }
+    val dayFmt = remember {
+        java.time.format.DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
+    }
+    val dateFmt = remember {
+        java.time.format.DateTimeFormatter.ofPattern("EEEE d MMM", es).withZone(zone)
+    }
+    detailOccurrence?.let { occurrence ->
+        ClassDetailPage(
+            occurrence = occurrence,
+            snapshot = centerSnapshot,
+            dayFmt = dayFmt,
+            dateFmt = dateFmt,
+            submitting = centerSubmitting,
+            loadRoster = loadClassRoster,
+            onBook = onBookClass,
+            onRequestCancel = { pendingClassCancellation = it },
+            onStartClassPlan = onStartClassPlan,
+            exerciseCatalog = exerciseCatalog,
+            onOpenExercise = onOpenExercise,
+            onClose = { detailOccurrence = null }
+        )
+    }
+    pendingClassCancellation?.let { booking ->
+        ReperaConfirmSheet(
+            title = "¿Cancelar la reserva?",
+            message = "Se te desapunta y, si tenías plaza confirmada, se te devuelve la sesión al plan.",
+            confirmTitle = "Confirmar cancelación",
+            onConfirm = {
+                pendingClassCancellation = null
+                onCancelClassBooking(booking)
+            },
+            onCancel = { pendingClassCancellation = null },
+            icon = Icons.Outlined.EventBusy,
+            confirmDestructive = true
+        )
     }
 }

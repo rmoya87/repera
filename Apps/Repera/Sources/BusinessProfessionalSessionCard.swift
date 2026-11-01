@@ -9,7 +9,7 @@ struct BusinessProfessionalSessionCard: View {
     var compact: Bool = false
 
     private var blocks: [BusinessPrescriptionBlock] {
-        session.prescription?.schemaVersion == 1 ? session.prescription?.blocks ?? [] : []
+        session.prescription?.isCanonicalV1 == true ? session.prescription?.blocks ?? [] : []
     }
 
     var body: some View {
@@ -116,25 +116,100 @@ struct BusinessProfessionalSessionCard: View {
     }
 }
 
-
-/// Native detail destination: never duplicates or mutates the athlete's local training log.
+/// Detalle de entreno profesional: mismos bloques que un entreno programado + Play.
 struct BusinessProfessionalSessionDetailView: View {
     @Environment(BusinessDataStore.self) private var businessData
+    @Environment(ReperaStore.self) private var store
     let session: BusinessProfessionalTrainingSession
+    var onStartRoutine: (Routine) -> Void = { _ in }
+    @State private var startFailureMessage: String?
+    @State private var openExerciseId: UUID?
+
+    private var planRoutine: Routine? {
+        guard let prescription = session.prescription, prescription.isCanonicalV1 else { return nil }
+        let built = store.routineFromProfessionalPrescription(
+            prescription,
+            id: session.id,
+            title: session.title,
+            scheduledDate: BusinessDataStore.parseDayKey(session.scheduledDate),
+            scheduledTimeMinutes: session.scheduledTimeMinutes
+        )
+        guard let built, !built.blocks.isEmpty else { return nil }
+        return built
+    }
+
+    private var daySubtitle: String {
+        let center = businessData.centerName(session.orgId)
+        if let date = BusinessDataStore.parseDayKey(session.scheduledDate) {
+            return "\(center) · \(SpanishDate.long(date))"
+        }
+        return center
+    }
 
     var body: some View {
-        ScrollView {
-            BusinessProfessionalSessionCard(
-                session: session,
-                centerName: businessData.centerName(session.orgId),
-                compact: false
-            )
-            .padding(OG.pad)
+        List {
+            OGScrollablePageTitle(session.title)
+                .ogScrollingTitleListRow()
+            Text(daySubtitle)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+                .ogSessionDateListRow()
+
+            if !session.instructions.isEmpty {
+                Section {
+                    Text(session.instructions)
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+
+            if let plan = planRoutine {
+                Section {
+                    OGRoutineBlocksList(
+                        blocks: plan.blocks,
+                        opensExerciseDetail: true,
+                        onOpenExercise: { openExerciseId = $0 }
+                    )
+                }
+            }
         }
-        .background(OG.bg)
-        .navigationTitle("Entreno")
-        .navigationBarTitleDisplayMode(.inline)
-        .ogTransparentNav()
+        .ogListChrome()
+        .ogScrollingTitleNav()
+        .navigationDestination(item: $openExerciseId) { exerciseId in
+            ExerciseDetailView(exerciseId: exerciseId)
+        }
+        .toolbar {
+            if planRoutine != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        beginPlan()
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Comenzar")
+                }
+            }
+        }
+        .alert("No se ha podido iniciar el entreno", isPresented: Binding(
+            get: { startFailureMessage != nil },
+            set: { if !$0 { startFailureMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { startFailureMessage = nil }
+        } message: {
+            Text(startFailureMessage ?? "")
+        }
+    }
+
+    private func beginPlan() {
+        guard let plan = planRoutine else {
+            startFailureMessage = "Este entreno no tiene bloques para ejecutar."
+            return
+        }
+        onStartRoutine(store.ensureProfessionalRoutineInLibrary(plan))
     }
 }
 
@@ -142,10 +217,13 @@ struct BusinessProfessionalSessionDetailView: View {
 /// trainer-published prescription attached to its source occurrence.
 struct BusinessBookedOccurrenceDetailView: View {
     @Environment(BusinessDataStore.self) private var businessData
+    @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let booking: BusinessBooking
     let occurrence: BusinessOccurrence
+    var onStartRoutine: (Routine) -> Void = { _ in }
     @State private var confirmCancellation = false
+    @State private var openExerciseId: UUID?
 
     private var associatedSession: BusinessProfessionalTrainingSession? {
         businessData.trainingSessions.first {
@@ -153,59 +231,101 @@ struct BusinessBookedOccurrenceDetailView: View {
         }
     }
 
+    private var planRoutine: Routine? {
+        let day = BusinessDataStore.date(occurrence.startsAt)
+        let minutes: Int? = {
+            guard let start = day else { return nil }
+            let cal = Calendar.current
+            return cal.component(.hour, from: start) * 60 + cal.component(.minute, from: start)
+        }()
+        if let session = associatedSession, let rx = session.prescription, rx.isCanonicalV1 {
+            let built = store.routineFromProfessionalPrescription(
+                rx,
+                id: session.id,
+                title: session.title.isEmpty ? occurrence.title : session.title,
+                scheduledDate: day ?? BusinessDataStore.parseDayKey(session.scheduledDate),
+                scheduledTimeMinutes: minutes ?? session.scheduledTimeMinutes
+            )
+            guard let built, !built.blocks.isEmpty else { return nil }
+            return built
+        }
+        if let rx = occurrence.prescription, rx.isCanonicalV1 {
+            let built = store.routineFromProfessionalPrescription(
+                rx,
+                id: occurrence.id,
+                title: occurrence.trainingTitle ?? occurrence.title,
+                scheduledDate: day,
+                scheduledTimeMinutes: minutes
+            )
+            guard let built, !built.blocks.isEmpty else { return nil }
+            return built
+        }
+        return nil
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                OGCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(occurrence.title)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(OG.label)
-                        Label(businessData.centerName(occurrence.orgId),
-                              systemImage: "building.2")
-                            .foregroundStyle(OG.label2)
-                        if let start = BusinessDataStore.date(occurrence.startsAt) {
-                            Label(start.formatted(date: .abbreviated, time: .shortened),
-                                  systemImage: "calendar")
-                                .foregroundStyle(OG.label)
-                        }
-                        if let finish = BusinessDataStore.date(occurrence.endsAt) {
-                            Label("Finaliza a las " + finish.formatted(date: .omitted, time: .shortened),
-                                  systemImage: "clock")
-                                .foregroundStyle(OG.label2)
-                        }
-                        Label("Reserva confirmada", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(OG.accent)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        List {
+            OGScrollablePageTitle(occurrence.title)
+                .ogScrollingTitleListRow()
+            if let start = BusinessDataStore.date(occurrence.startsAt) {
+                Text("\(businessData.centerName(occurrence.orgId)) · \(SpanishDate.long(start))")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(OG.label2)
+                    .ogSessionDateListRow()
+            }
+
+            Section {
+                Label("Reserva confirmada", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(OG.accent)
+                if let start = BusinessDataStore.date(occurrence.startsAt) {
+                    detailRow(icon: "calendar", title: "Inicio", value: SpanishDate.format(start, date: .abbreviated, time: .shortened))
                 }
-                if let associatedSession {
-                    BusinessProfessionalSessionCard(
-                        session: associatedSession,
-                        centerName: businessData.centerName(occurrence.orgId),
-                        compact: false
+                if let finish = BusinessDataStore.date(occurrence.endsAt) {
+                    detailRow(icon: "clock", title: "Fin", value: SpanishDate.format(finish, date: .omitted, time: .shortened))
+                }
+            }
+
+            if let plan = planRoutine {
+                Section {
+                    OGRoutineBlocksList(
+                        blocks: plan.blocks,
+                        opensExerciseDetail: true,
+                        onOpenExercise: { openExerciseId = $0 }
                     )
-                } else {
-                    OGCard {
-                        Text("El entrenador todavía no ha publicado ejercicios para esta sesión.")
-                            .foregroundStyle(OG.label2)
-                    }
                 }
+            }
+
+            Section {
                 Button("Cancelar reserva", role: .destructive) {
                     confirmCancellation = true
                 }
                 .disabled(businessData.isSubmitting)
-                .frame(maxWidth: .infinity, alignment: .center)
                 if let error = businessData.errorMessage {
                     Text(error).font(.footnote).foregroundStyle(OG.red)
                 }
             }
-            .padding(OG.pad)
         }
-        .background(OG.bg)
-        .navigationTitle(occurrence.kind == "class" ? "Clase" : "Cita")
-        .navigationBarTitleDisplayMode(.inline)
-        .ogTransparentNav()
+        .ogListChrome()
+        .ogScrollingTitleNav()
+        .navigationDestination(item: $openExerciseId) { exerciseId in
+            ExerciseDetailView(exerciseId: exerciseId)
+        }
+        .toolbar {
+            if planRoutine != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        guard let plan = planRoutine else { return }
+                        onStartRoutine(store.ensureProfessionalRoutineInLibrary(plan))
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .accessibilityLabel("Comenzar")
+                }
+            }
+        }
         .confirmationDialog("¿Cancelar esta reserva?", isPresented: $confirmCancellation) {
             Button("Cancelar reserva", role: .destructive) {
                 Task {
@@ -218,6 +338,23 @@ struct BusinessBookedOccurrenceDetailView: View {
             Button("Volver", role: .cancel) {}
         } message: {
             Text("La devolución del crédito depende de las condiciones de cancelación del centro.")
+        }
+    }
+
+    private func detailRow(icon: String, title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(OG.accent)
+                .frame(width: 18)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+            Spacer(minLength: 10)
+            Text(value)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(OG.label)
+                .multilineTextAlignment(.trailing)
         }
     }
 }

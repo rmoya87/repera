@@ -195,6 +195,8 @@ fun ReperaMobileScreen(
     onCenterBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCenterCancel: (BusinessCenterStore.Booking) -> Unit,
     onLoadClassRoster: suspend (String) -> BusinessCenterStore.ClassRoster? = { null },
+    /** Persiste la prescripción de clase/entrenador y devuelve el id de rutina. */
+    onMaterializeProfessionalRoutine: (BusinessCenterStore.ProfessionalSession) -> String? = { null },
     sharingByCenter: Map<String, Boolean>,
     sharingUpdating: Boolean,
     onSetSharing: (String, Boolean) -> Unit,
@@ -662,6 +664,19 @@ fun ReperaMobileScreen(
                         onOpenSettings=openSettings,
                         onOpenRecoverySettings=openSettings,
                         professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
+                        centerSnapshot = centerSnapshot,
+                        centerSubmitting = centerSubmitting,
+                        loadClassRoster = onLoadClassRoster,
+                        onBookClass = onCenterBook,
+                        onCancelClassBooking = onCenterCancel,
+                        onStartClassPlan = { session ->
+                            val id = onMaterializeProfessionalRoutine(session) ?: return@onStartClassPlan
+                            navController.navigate("preview/" + Uri.encode(id))
+                        },
+                        exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                        onOpenExercise = { exerciseId ->
+                            navController.navigate("ejercicio/$exerciseId")
+                        },
                         centerName={id -> centerSnapshot?.centerName(id) ?: "Centro"},
                         onOpenMessages={navController.navigate("mensajes")},
                         onOpenHistory={navController.navigate("historial")},
@@ -1117,7 +1132,15 @@ fun ReperaMobileScreen(
                         onRefresh = onCenterRefresh,
                         onBook = onCenterBook,
                         onCancel = onCenterCancel,
-                        loadRoster = onLoadClassRoster
+                        loadRoster = onLoadClassRoster,
+                        onStartClassPlan = { session ->
+                            val id = onMaterializeProfessionalRoutine(session) ?: return@onStartClassPlan
+                            navController.navigate("preview/" + Uri.encode(id))
+                        },
+                        exerciseCatalog = overview?.exerciseEntries.orEmpty(),
+                        onOpenExercise = { exerciseId ->
+                            navController.navigate("ejercicio/$exerciseId")
+                        }
                     )
                 }
                 composable("en-vivo") {
