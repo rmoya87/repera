@@ -3369,6 +3369,15 @@ extension ReperaStore: PhoneConnectivityDelegate {
             recorder.resume()
             sendWatchContextNow()
             return true
+        case "cancel":
+            // La X del reloj descarta en el dueño de la actividad (iPhone).
+            // No crear WorkoutSession ni ruta ni registrar un HKWorkout.
+            guard recorder.phase == .recording || recorder.phase == .paused else {
+                return false
+            }
+            recorder.discard()
+            sendWatchContextNow()
+            return true
         case "finish":
             guard !isAutoSavingWatchActivity else { return false }
             isAutoSavingWatchActivity = true

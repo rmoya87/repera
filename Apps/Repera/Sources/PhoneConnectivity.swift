@@ -218,7 +218,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             guard let raw = message["sessionId"] as? String,
                   let id = UUID(uuidString: raw),
                   let command = message["command"] as? String,
-                  ["pause", "resume", "finish"].contains(command) else {
+                  ["pause", "resume", "finish", "cancel"].contains(command) else {
                 return ["ok": false]
             }
             let applied = await delegate?.phoneConnectivityDidReceiveLiveCommand(

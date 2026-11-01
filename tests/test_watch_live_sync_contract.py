@@ -31,6 +31,42 @@ class WatchLiveSyncContractTests(unittest.TestCase):
         self.assertIn("liveActivityView", watch)
         self.assertIn('controlLiveActivity("finish")', watch)
 
+    def test_cancelar_x_con_confirmacion_y_sin_guardar_en_watch_e_iphone(self):
+        native = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
+        view = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        watch_link = read("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+        phone_link = read("Apps/Repera/Sources/PhoneConnectivity.swift")
+        phone = read("Apps/Repera/Sources/ReperaStore.swift")
+
+        for screen in (native, view):
+            self.assertIn('Image(systemName: "xmark")', screen)
+            self.assertIn('.accessibilityLabel("Cancelar actividad")', screen)
+            self.assertIn('Button("Descartar sin guardar", role: .destructive)', screen)
+            self.assertIn('Button("Continuar actividad", role: .cancel)', screen)
+            self.assertIn('Image(systemName: "flag.checkered")', screen)
+        self.assertIn("hub.cancelWatchLive()", native)
+        self.assertIn('hub.controlLiveActivity("cancel")', view)
+
+        # watchOS debe descartar la sesión HK y las rutas, sin llamar a finish.
+        cancel_start = hub.index("func cancelWatchLive()")
+        cancel_end = hub.index("func finishWatchLive()", cancel_start)
+        native_cancel = hub[cancel_start:cancel_end]
+        self.assertIn("health.discard()", native_cancel)
+        self.assertIn("clearWatchLive()", native_cancel)
+        self.assertIn("publishComplicationSnapshot(force: true)", native_cancel)
+        self.assertNotIn("sendFinished(", native_cancel)
+        self.assertNotIn("health.finish(", native_cancel)
+
+        self.assertIn('command: "cancel"', hub)
+        self.assertIn("cancelledCompanionSessionID", hub)
+        self.assertIn('["pause", "resume", "finish", "cancel"]', watch_link)
+        self.assertIn('["pause", "resume", "finish", "cancel"]', phone_link)
+        cancel = phone.split('case "cancel":', 1)[1].split('case "finish":', 1)[0]
+        self.assertIn("recorder.discard()", cancel)
+        self.assertIn("sendWatchContextNow()", cancel)
+        self.assertNotIn("saveWorkout(", cancel)
+
     def test_wear_does_not_discard_watch_owned_work_on_empty_phone_context(self):
         reconciliation = read("android/domain/src/main/java/dev/repera/domain/WatchSessionReconciliation.kt")
         self.assertIn("if (incomingId.isNullOrBlank()) return true", reconciliation)

@@ -63,3 +63,10 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 - Mediciones de las capturas suministradas: con offset 0, «Caminata» estaba ~17 px por debajo del centro de la hora; con offset -23, ~19 px por encima. Se interpola un offset de **-11 puntos** para alinear los centros visuales.
 - Solo cambia el desplazamiento vertical de `ToolbarItem(.topBarLeading)` en `WatchSessionView.swift`; se conservan Inicio, los controles de silencio/temporizador y las complicaciones.
 - La alineación en el reloj debe comprobarse visualmente tras instalar la nueva build, ya que el cálculo entre capturas no equivale a una prueba de simulador.
+
+### Botones de cierre de actividad en Apple Watch (01/11/2026)
+- Al final de una actividad deportiva se muestra **X · Cancelar** a la izquierda y **bandera · Finalizar** a la derecha, tanto si el Watch graba con HealthKit/GPS como si actúa de mando para Comenzar del iPhone. Ya no se muestra Pausar/Reanudar en esa fila.
+- La X abre `confirmationDialog` de descarte, con confirmación destructiva «Descartar sin guardar» y opción «Continuar actividad». No se descarta por tocar la X accidentalmente.
+- En grabación local, `WatchSessionHub.cancelWatchLive()` desecha la sesión HealthKit, detiene GPS/cronómetro, descarta ruta y limpia el estado, sin `sendFinished` ni resumen. **Finalizar** conserva su lógica existente.
+- En grabación propiedad del iPhone, se envía `liveCommand("cancel")` con UUID de sesión. El iPhone verifica identidad y fase, ejecuta `LiveActivityRecorder.discard()` y publica estado vacío. El Watch no abandona la sesión hasta el ACK; si el iPhone está desconectado, muestra un error y permite reintentar. Se ignoran snapshots retrasados del UUID cancelado.
+- Se añadieron pruebas de contrato; falta validación con build watchOS y iPhone reales.

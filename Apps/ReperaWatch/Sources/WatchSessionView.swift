@@ -8,6 +8,7 @@ struct WatchSessionView: View {
     @State private var showOutline = false
     @State private var showSetDetails = false
     @State private var showTimer = false
+    @State private var showCancelCompanionConfirmation = false
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
     // Filled accent buttons use OG.onAccent: black.
@@ -77,6 +78,18 @@ struct WatchSessionView: View {
                     WatchStandaloneTimerView()
                 }
             }
+            .confirmationDialog(
+                "¿Cancelar actividad?",
+                isPresented: $showCancelCompanionConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Descartar sin guardar", role: .destructive) {
+                    hub.controlLiveActivity("cancel")
+                }
+                Button("Continuar actividad", role: .cancel) {}
+            } message: {
+                Text("La actividad se descartará también en el iPhone, sin guardarse.")
+            }
         }
         .tint(accent)
         .onChange(of: hub.complicationOpenEpoch) { _, _ in
@@ -84,6 +97,7 @@ struct WatchSessionView: View {
             showTimer = false
             showOutline = false
             showSetDetails = false
+            showCancelCompanionConfirmation = false
         }
     }
 
@@ -174,8 +188,8 @@ struct WatchSessionView: View {
                     Text(message).font(.caption2).foregroundStyle(.orange)
                 }
 
-                // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar
-                // quedan al final (nunca «atrapado» solo con Condiciones).
+                // Condiciones antes de Cancelar/Finalizar; requieren ir al final
+                // del scroll y Cancelar solicita confirmación antes de descartar.
                 WatchActivityConditionsBlock(
                     conditions: live.conditions,
                     loading: false
@@ -184,16 +198,16 @@ struct WatchSessionView: View {
                 if live.phase != .review {
                     HStack(spacing: 10) {
                         Button {
-                            hub.controlLiveActivity(live.phase == .paused ? "resume" : "pause")
+                            showCancelCompanionConfirmation = true
                         } label: {
-                            Image(systemName: live.phase == .paused ? "play.fill" : "pause.fill")
+                            Image(systemName: "xmark")
                                 .font(.title3.weight(.bold))
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
-                        .accessibilityLabel(live.phase == .paused ? "Reanudar" : "Pausar")
+                        .accessibilityLabel("Cancelar actividad")
                         Button {
                             hub.controlLiveActivity("finish")
                         } label: {

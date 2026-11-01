@@ -27,6 +27,8 @@ final class WatchSessionHub: NSObject {
     private(set) var lastHubItemID: String?
     /// Tras Finalizar companion, ignorar snapshots de revisión del iPhone hasta nil.
     private(set) var suppressCompanionLive = false
+    /// Evita reabrir una sesión descartada por un snapshot retrasado del iPhone.
+    private var cancelledCompanionSessionID: UUID?
     /// Esperando snapshot del iPhone tras startLive ok.
     private(set) var pendingCompanionSport: WatchLiveSport?
     private(set) var watchLiveSport: WatchLiveSport?
@@ -479,6 +481,41 @@ final class WatchSessionHub: NSObject {
 
     func controlLiveActivity(_ command: String) {
         guard let live = liveActivity else { return }
+        if command == "cancel" {
+            guard !isFinishingCompanionLive else { return }
+            liveCommandError = nil
+            // No ocultar la actividad antes del ACK: si falla la conexión,
+            // los datos del iPhone deben permanecer intactos y reintentables.
+            let sent = connectivity.sendLiveCommand(
+                sessionId: live.id, command: "cancel"
+            ) { [weak self] cancelled in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    guard self.liveActivity?.id == live.id || self.liveActivity == nil else {
+                        return // Se inició otra actividad: no tocarla.
+                    }
+                    guard cancelled else {
+                        self.liveCommandError = "No se pudo cancelar en iPhone. Reintenta."
+                        return
+                    }
+                    self.cancelledCompanionSessionID = live.id
+                    self.suppressCompanionLive = true
+                    self.liveActivity = nil
+                    self.pendingCompanionSport = nil
+                    self.liveCommandError = nil
+                    if self.companionSensorID == live.id {
+                        self.health.discard()
+                        self.companionSensorID = nil
+                    }
+                    self.publishComplicationSnapshot(force: true)
+                    self.save()
+                }
+            }
+            if !sent {
+                liveCommandError = "Conecta el iPhone para cancelar esta actividad"
+            }
+            return
+        }
         if command == "finish" {
             guard !isFinishingCompanionLive else { return }
             // La revisión del iPhone solo puede existir tras un primer intento
@@ -642,6 +679,20 @@ final class WatchSessionHub: NSObject {
             locationManager.stopUpdatingLocation()
         }
         publishComplicationSnapshot(force: true)
+    }
+
+    /// Cancela una actividad grabada por el reloj sin crear resultados,
+    /// sin enviar un entrenamiento terminado y descartando su HealthKit.
+    func cancelWatchLive() {
+        guard watchLiveSport != nil else { return }
+        health.discard()
+        clearWatchLive() // Detiene GPS y el temporizador, descarta puntos y estado de pausa.
+        watchLiveElapsedSeconds = 0
+        watchLiveDistanceMeters = 0
+        watchLiveElevationGainMeters = 0
+        summaryDismissed = true
+        publishComplicationSnapshot(force: true)
+        save()
     }
 
     /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
@@ -1644,6 +1695,12 @@ final class WatchSessionHub: NSObject {
 extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
         Task { @MainActor in
+            // Puede llegar un snapshot .recording antiguo después del ACK de
+            // cancelación: nunca reabrir exactamente la sesión descartada.
+            if snapshot?.id == self.cancelledCompanionSessionID { return }
+            if let snapshot, snapshot.id != self.cancelledCompanionSessionID {
+                self.cancelledCompanionSessionID = nil
+            }
             if self.suppressCompanionLive {
                 guard let snapshot else {
                     self.suppressCompanionLive = false

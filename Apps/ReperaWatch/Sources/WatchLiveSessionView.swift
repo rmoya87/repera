@@ -11,6 +11,7 @@ struct WatchLiveSessionView: View {
     @State private var conditions: ActivityConditionsSnapshot?
     @State private var conditionsLoading = false
     @State private var lastConditionsFetch = Date.distantPast
+    @State private var showCancelConfirmation = false
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
@@ -62,8 +63,8 @@ struct WatchLiveSessionView: View {
                         .foregroundStyle(.orange)
                 }
 
-                // Condiciones antes de controles: al hacer scroll, Pausar/Finalizar
-                // quedan al final (nunca «atrapado» solo con Condiciones).
+                // Condiciones antes de controles: Cancelar/Finalizar quedan al final
+                // y no se pueden pulsar accidentalmente durante el scroll.
                 WatchActivityConditionsBlock(
                     conditions: conditions,
                     loading: conditionsLoading
@@ -71,16 +72,16 @@ struct WatchLiveSessionView: View {
 
                 HStack(spacing: 10) {
                     Button {
-                        hub.toggleWatchLivePause()
+                        showCancelConfirmation = true
                     } label: {
-                        Image(systemName: hub.watchLivePaused ? "play.fill" : "pause.fill")
+                        Image(systemName: "xmark")
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
-                    .accessibilityLabel(hub.watchLivePaused ? "Reanudar" : "Pausar")
+                    .accessibilityLabel("Cancelar actividad")
 
                     Button {
                         hub.finishWatchLive()
@@ -98,8 +99,20 @@ struct WatchLiveSessionView: View {
             }
             .padding(.horizontal, 6)
         }
+        .confirmationDialog(
+            "¿Cancelar actividad?",
+            isPresented: $showCancelConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Descartar sin guardar", role: .destructive) {
+                hub.cancelWatchLive()
+            }
+            Button("Continuar actividad", role: .cancel) {}
+        } message: {
+            Text("Se perderán el recorrido y los datos registrados en esta actividad.")
+        }
         .toolbar {
-            // Mute: círculo accent del tint del NavigationStack; icono negro (como Pausar/Finalizar).
+            // Mute: círculo accent del tint del NavigationStack; icono negro.
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     hub.toggleAudioMuted()

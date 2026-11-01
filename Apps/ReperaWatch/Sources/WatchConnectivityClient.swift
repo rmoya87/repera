@@ -53,7 +53,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendLiveCommand(
         sessionId: UUID, command: String, onResult: ((Bool) -> Void)? = nil
     ) -> Bool {
-        guard ["pause", "resume", "finish"].contains(command),
+        guard ["pause", "resume", "finish", "cancel"].contains(command),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
               WCSession.default.isReachable else { return false }
