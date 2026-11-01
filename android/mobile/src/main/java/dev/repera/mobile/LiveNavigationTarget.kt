@@ -6,6 +6,7 @@ internal object LiveNavigationTarget {
     fun route(host:String?):String? = when(host) {
         "live" -> "en-vivo"
         "workout" -> "entreno-activo"
+        "invitation" -> "center"
         else -> null
     }
     fun resolvedRoute(route:String,hasActiveWorkout:Boolean):String =

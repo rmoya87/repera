@@ -426,3 +426,23 @@
  .business-profile-header{flex-wrap:wrap}
  .business-profile-actions{margin-left:0;width:100%}
 }
+
+/* Chat 1:1 + avisos masivos + QR invitaciones (F1–F9 2026-11-01) */
+.business-chat-panel{display:grid;gap:12px;margin-top:12px}
+.business-chat-thread{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding:12px;border:1px solid #dfeae3;border-radius:16px;background:#f7fbf8}
+.business-chat-bubble{max-width:min(92%,420px);padding:10px 12px;border-radius:16px;background:#fff;border:1px solid #e3eee6}
+.business-chat-bubble.is-staff{align-self:flex-end;background:#e8f7ec;border-color:#bfe9cb}
+.business-chat-bubble.is-athlete{align-self:flex-start}
+.business-chat-bubble p{margin:0;font-size:14px;line-height:1.4;color:#1d3a28;white-space:pre-wrap}
+.business-chat-bubble small{display:block;margin-top:6px;color:#6d8474;font-size:11px}
+.business-chat-compose{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.business-chat-compose textarea{min-height:52px;resize:vertical}
+.business-broadcast{margin:18px 0}
+.business-broadcast-pick{border:1px solid #dfeae1;border-radius:14px;padding:12px;background:#fbfdfb}
+.business-invite-share{margin:0 0 18px}
+.business-invite-share-grid{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:start}
+.business-invite-qr{border-radius:12px;border:1px solid #dfeae3;background:#fff}
+.business-invite-hint{font-size:12px;color:#6d8474;margin:8px 0 0}
+.business-invite-links{display:grid;gap:10px}
+.business-invite-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:720px){.business-invite-share-grid{grid-template-columns:1fr}.business-chat-compose{grid-template-columns:1fr}}

@@ -1,6 +1,6 @@
 # Contratos móviles — iOS/Android/backend
-Última actualización: 2026-10-20.
-Estado: propuesta; **no hay integración móvil publicada**.
+Última actualización: 2026-11-01.
+Estado: contratos chat/Center/entitlements/push en apps; staging pendiente de migraciones.
 
 ## Principio
 No sustituir `AppState` local ni el espejo iCloud de iOS. Supabase guardará principalmente identidad, organizaciones, relaciones, planes **compartidos** y asignaciones; no transferir automáticamente sesiones/series/salud. Android usará solución local-first y sync nativo a definir sin perder interoperabilidad.
@@ -35,4 +35,4 @@ Las **clases** consumen los derechos del producto de clases y las **citas indivi
 
 `BusinessDataStore.swift` consulta `organizations`, `organization_invitations`, `clients` (para filtrar las fichas del usuario), `service_occurrences`, `service_passes` y `service_bookings` directamente con la sesión Supabase autenticada. RLS sigue siendo la frontera de seguridad; la selección local adicional por `client_id` es para evitar mostrar reservas ajenas a un usuario que también administre un centro.
 
-`CenterView`: selección Clases/Citas, acciones aceptar invitación, reservar por bono compatible y cancelar; `HomeView`: reservas confirmadas del día; `SettingsView`: centros y saldos por tipo de servicio. La programación profesional en Diario y el histórico de entrenamientos permanecen sin sincronizar hasta publicar versiones de planes. No se suben entrenamientos privados.
+`CenterView` (hub desde Inicio): Clases/Citas/Agenda, bonos, aforo, aceptar/rechazar invitación, chat; `MessagesInboxView` / Android `CenterMessagesScreen`: hilo `business_list_thread` + `business_send_message`; deep link `repera://invitation/{id}`; entitlements `get_my_effective_entitlements`; push token `register_push_device`. `HomeView`: reservas del día + accesos Center/Mensajes. `SettingsView`: «Incluido por [negocio]» si patrocinio B2B. No se suben entrenamientos privados.

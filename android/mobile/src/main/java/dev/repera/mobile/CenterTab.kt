@@ -58,6 +58,7 @@ internal fun CenterTab(
     snapshot: BusinessCenterStore.Snapshot?,
     onRefresh: () -> Unit,
     onAccept: (BusinessCenterStore.Invitation) -> Unit,
+    onDecline: (BusinessCenterStore.Invitation) -> Unit = {},
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCancel: (BusinessCenterStore.Booking) -> Unit,
     sharingByCenter: Map<String, Boolean> = emptyMap(),
@@ -167,15 +168,33 @@ internal fun CenterTab(
                             "vinculará tu cuenta, pero no compartirá tu historial " +
                             "deportivo personal.",
                             style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick = { onAccept(invitation) },
-                            enabled = !submitting) { Text("Aceptar invitación") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { onAccept(invitation) },
+                                enabled = !submitting) { Text("Aceptar") }
+                            TextButton(onClick = { onDecline(invitation) },
+                                enabled = !submitting) { Text("Rechazar") }
+                        }
                     }
                 }
             }
             items(centers) { center ->
+                val wallets = snapshot?.activePasses(center.id).orEmpty()
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick={detail=center}) {Text(center.name, modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleSmall)}
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        TextButton(onClick = { detail = center }) {
+                            Text(center.name, style = MaterialTheme.typography.titleSmall)
+                        }
+                        if (wallets.isEmpty()) {
+                            Text("Sin bono activo", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            wallets.forEach { pass ->
+                                Text(
+                                    "${pass.remainingCredits} de ${pass.totalCredits} · ${pass.kind}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
                 }
             }
             // Privacidad (paridad iOS BusinessCenterViews): consentimiento

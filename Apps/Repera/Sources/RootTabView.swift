@@ -22,6 +22,8 @@ struct RootTabView: View {
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
+    @State private var pendingInvitationId: UUID?
+    @State private var showInvitationSheet = false
 
     enum AppTab: Hashable {
         case home, start, stats, exercises
@@ -227,9 +229,23 @@ struct RootTabView: View {
                     flowPath = []
                     tab = .home
                 }
+            case "invitation":
+                // repera://invitation/{uuid}
+                let idString = url.pathComponents.dropFirst().first ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                if let id = UUID(uuidString: idString) {
+                    pendingInvitationId = id
+                    showInvitationSheet = true
+                    tab = .home
+                }
             default:
                 break
             }
+        }
+        .sheet(isPresented: $showInvitationSheet) {
+            InvitationDeepLinkSheet(
+                invitationId: pendingInvitationId,
+                onDone: { showInvitationSheet = false; pendingInvitationId = nil }
+            )
         }
         .sheet(isPresented: Binding(
             get: { store.pendingSessionReview != nil },
@@ -516,5 +532,79 @@ private struct ContinueAccessoryThumb: View {
             }
             image = await ThumbImageLoader.shared.load(named: name, maxPixel: 120)
         }
+    }
+}
+
+/// Aceptar / rechazar invitación abierta por `repera://invitation/{id}`.
+private struct InvitationDeepLinkSheet: View {
+    let invitationId: UUID?
+    var onDone: () -> Void
+    @Environment(BusinessDataStore.self) private var business
+    @Environment(BusinessAuthStore.self) private var auth
+    @State private var status = ""
+
+    private var invitation: BusinessInvitation? {
+        guard let invitationId else { return nil }
+        return business.invitations.first { $0.id == invitationId }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                if !auth.isConnected {
+                    Text("Inicia sesión con la cuenta invitada para aceptar o rechazar.")
+                        .foregroundStyle(OG.label2)
+                } else if let invitation {
+                    Text("Te han invitado a unirte a un centro o entrenador.")
+                        .font(.headline)
+                    Text("Perfil: \(invitation.invitedRole)")
+                        .foregroundStyle(OG.label2)
+                    HStack(spacing: 12) {
+                        Button("Aceptar") {
+                            Task {
+                                await business.accept(invitation)
+                                status = "Invitación aceptada."
+                                onDone()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(OG.accent)
+                        .disabled(business.isSubmitting)
+                        Button("Rechazar", role: .destructive) {
+                            Task {
+                                await business.decline(invitation)
+                                status = "Invitación rechazada."
+                                onDone()
+                            }
+                        }
+                        .disabled(business.isSubmitting)
+                    }
+                } else {
+                    Text("Buscando invitación…")
+                        .foregroundStyle(OG.label2)
+                    Text("Si no aparece, ábrela desde el correo o pide un enlace nuevo.")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+                if !status.isEmpty {
+                    Text(status).foregroundStyle(OG.accent)
+                }
+                Spacer()
+            }
+            .padding(OG.pad)
+            .navigationTitle("Invitación")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar", action: onDone)
+                }
+            }
+            .task {
+                if auth.isConnected {
+                    await business.refresh()
+                }
+            }
+        }
+        .ogSheetChrome(detents: [.medium])
     }
 }

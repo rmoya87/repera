@@ -41,6 +41,8 @@ class BusinessCenterStore(
     data class Booking(val id: String, val orgId: String, val clientId: String,
         val occurrenceId: String, val status: String)
     data class Notice(val id:String,val orgId:String,val clientId:String,val title:String,val body:String,val createdAt:String)
+    data class ChatMessage(val id:String,val orgId:String,val clientId:String,val senderUserId:String,
+        val senderRole:String,val body:String,val createdAt:String,val batchId:String?)
     data class ProfessionalSession(val id:String,val orgId:String,val clientId:String,val coachUserId:String,
         val scheduledDate:String,val title:String,val instructions:String,val status:String,val prescription:JSONObject?)
     data class Availability(val occurrenceId: String, val capacity: Int,
@@ -50,11 +52,13 @@ class BusinessCenterStore(
         val centers: List<Organization> = emptyList(),
         val invitations: List<Invitation> = emptyList(),
         val athleteCenterIds: Set<String> = emptySet(),
+        val clientLinks: List<ClientLink> = emptyList(),
         val occurrences: List<Occurrence> = emptyList(),
         val passes: List<Pass> = emptyList(),
         val bookings: List<Booking> = emptyList(),
         val availability: Map<String, Availability> = emptyMap(),
         val notices:List<Notice> = emptyList(),
+        val chatMessages: List<ChatMessage> = emptyList(),
         val trainingSessions:List<ProfessionalSession> = emptyList()
     ) {
         val isLinkedOrInvited: Boolean
@@ -63,6 +67,11 @@ class BusinessCenterStore(
         fun centerName(id: String): String =
             centers.firstOrNull { it.id == id }?.name ?: "Centro"
 
+        fun clientIdFor(orgId: String): String? =
+            clientLinks.firstOrNull { it.orgId == orgId }?.id
+                ?: passes.firstOrNull { it.orgId == orgId }?.clientId
+                ?: notices.firstOrNull { it.orgId == orgId }?.clientId
+
         fun bookingFor(occurrenceId: String): Booking? =
             bookings.firstOrNull { it.occurrenceId == occurrenceId && it.status == "booked" }
 
@@ -70,6 +79,9 @@ class BusinessCenterStore(
             val item = availability[occurrence.id] ?: return null
             return (item.capacity - item.reserved).coerceAtLeast(0)
         }
+
+        fun activePasses(orgId: String): List<Pass> =
+            passes.filter { it.orgId == orgId && it.status == "active" }
 
         fun availablePasses(occurrence: Occurrence): List<Pass> {
             val begins = parseInstant(occurrence.startsAt) ?: return emptyList()
@@ -131,8 +143,8 @@ class BusinessCenterStore(
             val invitations = parseInvitations(get(session, "organization_invitations",
                 "id,organization_id,invited_role,expires_at,accepted_at,cancelled_at"))
             val links = parseLinks(get(session, "clients", "id,org_id,user_id"))
-            val ownedClientIds = links.filter { it.userId == currentUser }
-                .map { it.id }.toSet()
+            val myLinks = links.filter { it.userId == currentUser }
+            val ownedClientIds = myLinks.map { it.id }.toSet()
             val occurrences = parseOccurrences(get(session, "service_occurrences",
                 "id,org_id,kind,title,starts_at,ends_at,capacity,status"))
             val passes = parsePasses(get(session, "service_passes",
@@ -161,8 +173,8 @@ class BusinessCenterStore(
                     it.acceptedAt == null && it.cancelledAt == null &&
                         (parseInstant(it.expiresAt) ?: Instant.MAX) > now
                 },
-                athleteCenterIds = links.filter { it.userId == currentUser }
-                    .map { it.orgId }.toSet(),
+                athleteCenterIds = myLinks.map { it.orgId }.toSet(),
+                clientLinks = myLinks,
                 occurrences = occurrences.filter { it.status == "active" },
                 passes = passes.filter { it.clientId in ownedClientIds },
                 bookings = bookings.filter { it.clientId in ownedClientIds },
@@ -191,6 +203,11 @@ class BusinessCenterStore(
             JSONObject().put("p_invitation_id", invitation.id))
     }
 
+    fun decline(session: SupabaseIdentity.Session, invitation: Invitation) {
+        rpc(session, "decline_org_invitation",
+            JSONObject().put("p_invitation_id", invitation.id))
+    }
+
     fun book(session: SupabaseIdentity.Session, occurrence: Occurrence, pass: Pass) {
         rpc(session, "book_service_occurrence", JSONObject()
             .put("p_occurrence", occurrence.id)
@@ -205,10 +222,45 @@ class BusinessCenterStore(
     }
 
     fun sendMessage(session:SupabaseIdentity.Session,orgId:String,title:String,body:String) {
+        // Compat: avisos legacy; el chat nativo usa sendChatMessage.
         require(orgId.isNotBlank() && body.trim().length>=2)
         rpc(session,"athlete_send_org_message",JSONObject().put("p_org",orgId)
             .put("p_title",title.trim().ifEmpty {"Mensaje"}).put("p_body",body.trim()))
     }
+
+    fun loadThread(session: SupabaseIdentity.Session, orgId: String, clientId: String): List<ChatMessage> {
+        val rows = rpc(session, "business_list_thread", JSONObject()
+            .put("p_org", orgId).put("p_client", clientId).put("p_limit", 80))
+        return parseChatMessages(rows).sortedBy { it.createdAt }
+    }
+
+    fun sendChatMessage(session: SupabaseIdentity.Session, orgId: String, clientId: String, body: String) {
+        require(body.trim().isNotEmpty())
+        rpc(session, "business_send_message", JSONObject()
+            .put("p_org", orgId).put("p_client", clientId).put("p_body", body.trim()))
+    }
+
+    fun markThreadRead(session: SupabaseIdentity.Session, orgId: String, clientId: String) {
+        rpc(session, "business_mark_thread_read",
+            JSONObject().put("p_org", orgId).put("p_client", clientId))
+    }
+
+    fun registerPushToken(session: SupabaseIdentity.Session, token: String, platform: String = "android") {
+        if (token.length < 10) return
+        rpc(session, "register_push_device", JSONObject()
+            .put("p_platform", platform).put("p_token", token).put("p_environment", "production"))
+    }
+
+    private fun parseChatMessages(data: JSONArray): List<ChatMessage> =
+        (0 until data.length()).map { i ->
+            val r = data.getJSONObject(i)
+            ChatMessage(
+                r.getString("id"), r.getString("org_id"), r.getString("client_id"),
+                r.getString("sender_user_id"), r.optString("sender_role"),
+                r.getString("body"), r.getString("created_at"),
+                r.optString("batch_id").ifBlank { null }
+            )
+        }
     internal fun ownedNotices(rows:List<Notice>,owned:Set<String>)=rows.filter {it.clientId in owned}
     internal fun ownedTraining(rows:List<ProfessionalSession>,owned:Set<String>)=rows.filter {it.clientId in owned && it.status=="scheduled"}.sortedBy {it.scheduledDate}
     internal fun parseNotices(data:JSONArray):List<Notice> = (0 until data.length()).map { i ->

@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Supabase
+import UserNotifications
 
 /// Professional data read through the verified Supabase Auth session and row-level security.
 /// Only athlete-owned completed-workout results are mirrored to Supabase
@@ -207,7 +208,77 @@ struct BusinessClientNotification: Decodable, Identifiable {
     }
 }
 
-private struct BusinessClientLink: Decodable {
+struct BusinessConversationMessage: Decodable, Identifiable, Hashable {
+    let id: UUID
+    let orgId: UUID
+    let clientId: UUID
+    let senderUserId: UUID
+    let senderRole: String
+    let body: String
+    let createdAt: String
+    let readAt: String?
+    let batchId: UUID?
+
+    enum CodingKeys: String, CodingKey {
+        case id, body
+        case orgId = "org_id"
+        case clientId = "client_id"
+        case senderUserId = "sender_user_id"
+        case senderRole = "sender_role"
+        case createdAt = "created_at"
+        case readAt = "read_at"
+        case batchId = "batch_id"
+    }
+
+    var isFromStaff: Bool { senderRole == "staff" }
+}
+
+struct BusinessEntitlementSponsor: Decodable, Identifiable, Hashable {
+    let orgId: UUID
+    let orgName: String
+    let kind: String?
+    let validUntil: String?
+    let reason: String?
+
+    var id: UUID { orgId }
+
+    enum CodingKeys: String, CodingKey {
+        case orgId = "org_id"
+        case orgName = "org_name"
+        case kind
+        case validUntil = "valid_until"
+        case reason
+    }
+}
+
+struct BusinessEntitlements: Decodable {
+    let effectivePro: Bool
+    let storePro: Bool
+    let businessSponsoredPro: Bool
+    let storeGatePending: Bool
+    let sponsors: [BusinessEntitlementSponsor]
+
+    enum CodingKeys: String, CodingKey {
+        case effectivePro = "effective_pro"
+        case storePro = "store_pro"
+        case businessSponsoredPro = "business_sponsored_pro"
+        case storeGatePending = "store_gate_pending"
+        case sponsors
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        effectivePro = try c.decodeIfPresent(Bool.self, forKey: .effectivePro) ?? false
+        storePro = try c.decodeIfPresent(Bool.self, forKey: .storePro) ?? false
+        businessSponsoredPro = try c.decodeIfPresent(Bool.self, forKey: .businessSponsoredPro) ?? false
+        storeGatePending = try c.decodeIfPresent(Bool.self, forKey: .storeGatePending) ?? true
+        sponsors = try c.decodeIfPresent([BusinessEntitlementSponsor].self, forKey: .sponsors) ?? []
+    }
+
+    var primarySponsorName: String? { sponsors.first?.orgName }
+}
+
+struct BusinessClientLink: Decodable, Identifiable {
     let id: UUID
     let orgId: UUID
     let userId: UUID?
@@ -236,6 +307,9 @@ final class BusinessDataStore {
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var personalNotices: [BusinessClientNotification] = []
+    private(set) var conversationMessages: [BusinessConversationMessage] = []
+    private(set) var entitlements: BusinessEntitlements?
+    private(set) var clientLinks: [BusinessClientLink] = []
     private(set) var directory: [BusinessOrganization] = []
     private(set) var isLoading = false
     private(set) var isSearchingDirectory = false
@@ -244,7 +318,10 @@ final class BusinessDataStore {
     private(set) var isSubmitting = false
 
     /// Acceso completo en la app mientras el deportista está vinculado a un centro/entrenador.
-    var grantsFullAppAccess: Bool { !athleteCenterIds.isEmpty }
+    /// Pro patrocinado B2B vía entitlements de servidor (no basta con estar vinculado).
+    var grantsFullAppAccess: Bool {
+        entitlements?.businessSponsoredPro == true
+    }
 
     private init() {}
 
@@ -263,6 +340,9 @@ final class BusinessDataStore {
         trainingSessions = []
         NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
         personalNotices = []
+        conversationMessages = []
+        entitlements = nil
+        clientLinks = []
         directory = []
         errorMessage = nil
     }
@@ -340,8 +420,10 @@ final class BusinessDataStore {
 
             availability = counts
             centers = fetchedCenters
-            athleteCenterIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.orgId))
+            clientLinks = fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }
+            athleteCenterIds = Set(clientLinks.map(\.orgId))
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
+            await refreshEntitlements()
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             passOffers = fetchedOffers.filter {
@@ -476,6 +558,7 @@ final class BusinessDataStore {
                                           "p_pass": pass.id.uuidString,
                                           "p_request": request]).execute()
             await refresh()
+            await requestPushPermissionAfterBookingIfNeeded()
         } catch {
             errorMessage = "No se ha podido confirmar la reserva: \(error.localizedDescription)"
         }
@@ -559,6 +642,10 @@ final class BusinessDataStore {
     }
 
     func sendMessage(to orgId: UUID, title: String, body: String) async -> Bool {
+        // Prefer chat RPC; fall back to legacy notice title+body for older backends.
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        if await sendChatMessage(to: orgId, body: trimmed) { return true }
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return false }
         isSubmitting = true
         defer { isSubmitting = false }
@@ -568,7 +655,7 @@ final class BusinessDataStore {
                 params: [
                     "p_org": orgId.uuidString,
                     "p_title": title,
-                    "p_body": body,
+                    "p_body": trimmed,
                 ]
             ).execute()
             await refresh()
@@ -577,5 +664,115 @@ final class BusinessDataStore {
             errorMessage = "No se ha podido enviar el mensaje: \(error.localizedDescription)"
             return false
         }
+    }
+
+    func clientId(for orgId: UUID) -> UUID? {
+        if let link = clientLinks.first(where: { $0.orgId == orgId }) { return link.id }
+        if let fromPass = passes.first(where: { $0.orgId == orgId })?.clientId { return fromPass }
+        if let fromNotice = personalNotices.first(where: { $0.orgId == orgId })?.clientId { return fromNotice }
+        if let fromBooking = bookings.first(where: { $0.orgId == orgId })?.clientId { return fromBooking }
+        return nil
+    }
+
+    func loadThread(orgId: UUID) async {
+        guard let client = BusinessAuthStore.shared.apiClient,
+              let clientId = clientId(for: orgId) else {
+            conversationMessages = []
+            return
+        }
+        do {
+            struct ThreadParams: Encodable {
+                let p_org: String
+                let p_client: String
+                let p_limit: Int
+            }
+            let rows: [BusinessConversationMessage] = try await client.rpc(
+                "business_list_thread",
+                params: ThreadParams(p_org: orgId.uuidString, p_client: clientId.uuidString, p_limit: 80)
+            ).execute().value
+            conversationMessages = rows.sorted { $0.createdAt < $1.createdAt }
+            struct ReadParams: Encodable {
+                let p_org: String
+                let p_client: String
+            }
+            _ = try? await client.rpc(
+                "business_mark_thread_read",
+                params: ReadParams(p_org: orgId.uuidString, p_client: clientId.uuidString)
+            ).execute()
+        } catch {
+            conversationMessages = []
+        }
+    }
+
+    func sendChatMessage(to orgId: UUID, body: String) async -> Bool {
+        guard let client = BusinessAuthStore.shared.apiClient,
+              let clientId = clientId(for: orgId),
+              !isSubmitting else { return false }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc(
+                "business_send_message",
+                params: [
+                    "p_org": orgId.uuidString,
+                    "p_client": clientId.uuidString,
+                    "p_body": body,
+                ]
+            ).execute()
+            await loadThread(orgId: orgId)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    func decline(_ invitation: BusinessInvitation) async {
+        guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await client.rpc(
+                "decline_org_invitation",
+                params: ["p_invitation_id": invitation.id.uuidString]
+            ).execute()
+            invitations.removeAll { $0.id == invitation.id }
+        } catch {
+            errorMessage = "No se ha podido rechazar la invitación: \(error.localizedDescription)"
+        }
+    }
+
+    func refreshEntitlements() async {
+        guard let client = BusinessAuthStore.shared.apiClient else { return }
+        do {
+            entitlements = try await client.rpc("get_my_effective_entitlements").execute().value
+        } catch {
+            entitlements = nil
+        }
+    }
+
+    func activePasses(for orgId: UUID) -> [BusinessPass] {
+        passes.filter { $0.orgId == orgId && $0.status == "active" }
+    }
+
+    /// Registra token FCM/APNs vía RPC; sin secretos de envío la cola sigue siendo válida.
+    func registerPushToken(_ token: String, platform: String = "ios", environment: String = "production") async {
+        guard let client = BusinessAuthStore.shared.apiClient,
+              token.count >= 10 else { return }
+        struct Params: Encodable {
+            let p_platform: String
+            let p_token: String
+            let p_environment: String
+        }
+        _ = try? await client.rpc(
+            "register_push_device",
+            params: Params(p_platform: platform, p_token: token, p_environment: environment)
+        ).execute()
+    }
+
+    private func requestPushPermissionAfterBookingIfNeeded() async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .notDetermined else { return }
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 }

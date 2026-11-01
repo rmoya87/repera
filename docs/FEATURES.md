@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-10-31 (Duo: tabs nativos sin overlay UIWindow)
+Última actualización: 2026-11-01 (Business F1–F9: chat, Center hub, invites QR/push outbox; sin Stripe)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 
@@ -140,7 +140,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 - **Android R7 (29/10/2026):** Lugar mapa a sangre (sin scrim); reloj LED con status bar negra; Pro con insets status/nav; Comenzar panel idle con `navigationBarsPadding`+holgura tab (sin solape); sombras suaves sobre mapa; toolbar glass touch 48 / círculo 44 / icono 24; marcar 1 serie no marca todas; Temporizador mantiene tab bar; `configChanges=uiMode`.
 - **Android R9 residuales (29/10/2026):** Comenzar REVIEW con mapa + franja Tiempo/Humedad/Viento (Open-Meteo) y subtítulo de inicio; «Editar entreno» abre página full (`historial-editar`); preview de rutina con miniaturas 44 dp y título «Entreno»; reloj AMRAP/WOD con arte de ejercicio; catálogo remoto aplica caché aunque no haya eventos nuevos; guardar live escribe Health Connect y espejo Supabase; notificación FGS con métricas + Pausar/Finalizar; botones glass Material translúcidos. Sin sync nube de rutas (solo local). Maps: Google si `REPERA_GOOGLE_MAPS_API_KEY` en `~/.gradle`.
 
-- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; icono de **mensajes** (liquid glass, solo si hay centro/entrenador vinculado) + avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
+- Topbar fijo arriba (`ogFixedTopBar`): «repera» + fecha; iconos liquid glass de **Center** (centros/clases/reservas) y **mensajes** (chat burbujas 1:1 con el centro) si hay vínculo o invitación; avatar → Ajustes. Sin «+» en Inicio (el alta va por **Añadir entreno** / tab Crear).
 - **Carrusel de días**: swipe horizontal (o chevrons) entre semanas; al cambiar de semana se conserva el weekday. Al tocar un día pinta al instante sin esperar HealthKit.
 - Card **Racha de N semanas**: cuenta Repera **y** Apple Salud; toque → **Historial** unificado.
 - Métricas del día: **tiempo reconciliado entre entrenos registrados y Salud** y **kcal de Apple Salud exclusivamente** (`activeEnergyBurned` de fuentes externas a Repera). Cuando no existe medición, el tile muestra **«—»**: nunca deriva calorías de minutos, kg, repeticiones ni estimaciones almacenadas. Tras **borrar** la última sesión del día, el tile **Tiempo** se invalida (sin fallback a minutos HK crudos stale) y se recalcula; si no quedan entrenos/actividades conciliados muestra **«—»**. Los **chips kcal de entrenos Repera** solo aparecen tras verificar que el workout enlazado es de una fuente de Salud/Watch ajena a Repera y trae energía real. **Tiempo mostrado = inicio→fin**. La migración (v2026_10_22_health_only) limpia estimaciones locales históricas sin borrar entrenos. Las tarjetas **Kcal, Tiempo y Nota** muestran el nombre a la derecha de su icono y el valor debajo, con números de 28 pt y espaciado equilibrado respecto a los bordes.
@@ -192,11 +192,11 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 ### Center (`CenterView`)
 
 - Solo visible en la tab bar si hay vínculo (o invitación) a un centro/entrenador. Selector **Clases · Citas**.
-- **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC segura cuando existe sesión Supabase. Lista de espera aún pendiente.
-- **Citas**: horarios de sesiones individuales ofrecidas por entrenadores, reservas/cancelaciones y bono independiente del de clases; pendiente validación real iOS/Apple Auth.
-- **Estado real actual:** siete migraciones Supabase desplegadas; consulta iOS nativa desde `BusinessDataStore` implementada pero sin validación compilada/Apple OAuth E2E. No muestra horarios ni cuotas ficticios.
-- Los centros vinculados, plazas, reservas confirmadas/espera y saldos se integrarán en esta vista cuando existan los endpoints autenticados y controles RLS.
-- Las **clases y citas individuales confirmadas** deberán reflejarse también en **Inicio** al completar la integración. No está operativo todavía.
+- Hub desde Inicio: bonos, aforo, reservas, agenda (clases/citas/entrenos prescritos), chat y decline de invitaciones. Deep link `repera://invitation/{id}`.
+- **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC. Lista de espera aún pendiente (P1).
+- **Citas**: sesiones individuales con bono independiente; aforo vía `get_service_availability`.
+- **Estado real actual:** migraciones chat/cupos/push en repo (aplicar staging); Center enlazado en navegación iOS/Android. Push 60 min en cola; delivery solo con secretos FCM/APNs. Sin Stripe.
+- Clases/citas confirmadas también en Inicio (`businessDayCard`).
 
 ### Progreso (`StatsView`)
 

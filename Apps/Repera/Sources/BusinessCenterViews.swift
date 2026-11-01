@@ -231,6 +231,23 @@ struct LinkedCenterDetailView: View {
             }
 
             Section {
+                NavigationLink {
+                    MessagesInboxView(initialOrgId: center.id)
+                } label: {
+                    Label("Abrir chat", systemImage: "bubble.left.and.bubble.right")
+                        .foregroundStyle(OG.label)
+                }
+                NavigationLink {
+                    CenterView()
+                } label: {
+                    Label("Clases, citas y reservas", systemImage: "calendar")
+                        .foregroundStyle(OG.label)
+                }
+            } header: {
+                Text("Contacto y reservas")
+            }
+
+            Section {
                 if orgPasses.isEmpty {
                     Text("No tienes bonos activos con este entrenador o centro.")
                         .foregroundStyle(OG.label2)

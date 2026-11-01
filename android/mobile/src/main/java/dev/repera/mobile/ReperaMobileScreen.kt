@@ -275,6 +275,10 @@ fun ReperaMobileScreen(
     dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null},
     onUpdateProfile:(ProfileSettings)->Unit = {},
     onSendCenterMessage:(String,String,String)->Unit = {_,_,_->},
+    onSendCenterChat:(String,String)->Unit = {_,_->},
+    onCenterDecline:(BusinessCenterStore.Invitation)->Unit = {},
+    centerChatThread:List<BusinessCenterStore.ChatMessage> = emptyList(),
+    onLoadCenterThread:(String)->Unit = {},
     onUpdateHealthGoals:(HealthGoals)->Unit = {},
     onUpdateRotation:(dev.repera.domain.RotationPlan?)->Unit = {},
     onUpdateTrainingSettings: (TrainingSettings) -> Unit = {},
@@ -452,7 +456,7 @@ fun ReperaMobileScreen(
                     connected = centerConnected, loading = centerLoading, submitting = centerSubmitting,
                     errorMessage = centerError, snapshot = centerSnapshot, onRefresh = onCenterRefresh,
                     sharingByCenter = sharingByCenter, sharingUpdating = sharingUpdating,
-                    onSetSharing = onSetSharing, onAccept = onCenterAccept,
+                    onSetSharing = onSetSharing, onAccept = onCenterAccept, onDecline = onCenterDecline,
                     onBook = onCenterBook, onCancel = onCenterCancel,
                     directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
                     onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter)
@@ -1125,6 +1129,7 @@ fun ReperaMobileScreen(
                         sharingUpdating = sharingUpdating,
                         onSetSharing = onSetSharing,
                         onAccept = onCenterAccept,
+                        onDecline = onCenterDecline,
                         onBook = onCenterBook,
                         onCancel = onCenterCancel,
                         directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
@@ -1420,8 +1425,36 @@ fun ReperaMobileScreen(
                     )
                 }
                 composable("mensajes") {
-                    LaunchedEffect(Unit) {onCenterRefresh()}
-                    CenterMessagesScreen(centerConnected,centerLoading,centerSubmitting,centerError,centerSnapshot,onCenterRefresh,onSendCenterMessage)
+                    var selectedOrg by remember { mutableStateOf<String?>(null) }
+                    LaunchedEffect(Unit) { onCenterRefresh() }
+                    LaunchedEffect(selectedOrg, centerSnapshot?.athleteCenterIds) {
+                        val org = selectedOrg
+                            ?: centerSnapshot?.centers?.firstOrNull {
+                                it.id in centerSnapshot.athleteCenterIds
+                            }?.id
+                        if (org != null) {
+                            selectedOrg = org
+                            onLoadCenterThread(org)
+                        }
+                    }
+                    CenterMessagesScreen(
+                        connected = centerConnected,
+                        loading = centerLoading,
+                        submitting = centerSubmitting,
+                        error = centerError,
+                        snapshot = centerSnapshot,
+                        thread = centerChatThread,
+                        selectedOrgId = selectedOrg,
+                        onSelectOrg = {
+                            selectedOrg = it
+                            onLoadCenterThread(it)
+                        },
+                        onRefresh = {
+                            onCenterRefresh()
+                            selectedOrg?.let(onLoadCenterThread)
+                        },
+                        onSendChat = onSendCenterChat
+                    )
                 }
                 composable("programas-ia") {
                     LaunchedEffect(Unit) { onAIProgramsRefresh() }

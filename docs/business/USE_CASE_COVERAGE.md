@@ -15,7 +15,7 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 | A04 | sí | Deportista | Email invitación ≠ cuenta | join | accept RPC | rechazo | pendiente E2E | parcial |
 | A05 | no | Deportista | Apple Private Relay | join / iOS | accept | pendiente dispositivo | pendiente | pendiente |
 | A06 | sí | Negocio | Segunda invitación mismo email | Clientes | issue cancela pendiente previa | aviso | SQL | parcial |
-| A07 | no | Deportista | Invita abierta | join | (rechazo UI) | — | — | pendiente (no hay decline RPC dedicada en UI) |
+| A07 | no | Deportista | Invita abierta | Center / deep link | `decline_org_invitation` | rechazar | UI iOS/Android + SQL | hecho (código; E2E staging pendiente) |
 | A08 | sí | Deportista | Varias orgs | Ajustes app / varias fichas | accept × N | vínculos aislados | SQL multi-org | parcial |
 | A09 | sí | Negocio | Solicitud desde app | Inicio «Quieren entrenar» | `business_decide_enrollment` | accept/reject | UI+RPC | hecho (backend) |
 | A10 | sí | Deportista | Email no verificado | join | accept exige verificado | error | SQL | parcial |
@@ -49,18 +49,19 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 | C16–C25 | mixto | — | Varios | — | — | — | — | pendiente |
 | D01–D04 | sí | PT | Cliente vinculado | Ficha Entrenamientos | publish/update/cancel session | — | UI+RPC | parcial |
 | D05–D18 | mixto | Atleta/PT | Consentimiento | app + `get_shared_athlete_results` | — | — | — | parcial / pendiente |
-| E01–E18 | — | — | Pro / B2B | — | RevenueCat / trials | — | — | **aplazado** (gate tiendas) |
-| F01–F08 | — | Sistema | Push 60 min | — | outbox no en migraciones | — | — | **aplazado** |
-| F09 | parcial | Negocio | Email invite | Edge Resend | — | — | — | parcial |
+| E01–E18 | — | — | Pro / B2B | Ajustes «Incluido por…» | `get_my_effective_entitlements` + store | sin paywall si efectivo | unit SQL + UI | parcial (gate App Store/Play pendiente; sin Stripe) |
+| F01–F08 | — | Sistema | Push 60 min | Edge cron | `notification_outbox` + `repera-business-push` | cola/métricas; no fingir envío | migración+Edge | parcial (secretos FCM/APNs opcionales) |
+| F09 | parcial | Negocio | Email + QR invite | Edge Resend + `invitation-share.js` | — | QR/copiar/revocar | unit invite | parcial |
+| CHAT | sí | Staff/atleta | Vínculo activo | Ficha / Inicio Mensajes | `business_*_thread/message/broadcast` | burbujas + masivo | `business-chat-invite.test.mjs` | hecho (código; Realtime opcional) |
 | F10–F12 | sí | Admin | Delegación / roles / RLS | platform-admin | delegate RPCs | — | SQL | parcial |
 | F13–F18 | no | — | RGPD / offline / i18n | — | — | — | — | pendiente |
 
 ## Inventario rápido backend (2026-11-01)
 
-**Migraciones aplicadas (`supabase/migrations/`):** foundation, clients, invitations, booking wallets, 360 ops, groups/recurrence, pass offers, trainer offline pass + attendance PT, platform admin, enrollments, archive guards, Play billing ownership.
+**Migraciones en repo (`supabase/migrations/`):** foundation… + `20261101120000` asistencia, `20261101140000` chat/decline, `20261101150000` cupos/entitlements, `20261101160000` push outbox. **Staging:** aplicar las nuevas antes de E2E.
 
-**Greenfield NO aplicado (`supabase/repera-greenfield/`):** `notification_outbox`, `classes`/`class_bookings`, `org_members` — no usar como verdad de producción.
+**Greenfield NO aplicado (`supabase/repera-greenfield/`):** no usar como verdad de producción (outbox real está en migraciones 160000).
 
-**Edge Functions Business:** `repera-business-invite` (email). No hay Stripe webhook ni worker push.
+**Edge Functions Business:** `repera-business-invite` (email), `repera-business-push` (claim+FCM opcional). Sin Stripe webhook.
 
-**Consola:** `web/console/` SPA ES modules; orquestador `connected.js`; 360 `management-360.js`; bonos PT `trainer-pass-panel.js`.
+**Consola:** `connected.js` + `management-360.js` + `business-chat.js` + `invitation-share.js` + bonos PT/gym.

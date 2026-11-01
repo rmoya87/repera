@@ -95,6 +95,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var lastCatalogCheckAt = 0L
     private var catalogRefreshRunning = false
     private var centerSnapshot by mutableStateOf<BusinessCenterStore.Snapshot?>(null)
+    private var centerChatThread by mutableStateOf<List<BusinessCenterStore.ChatMessage>>(emptyList())
     private var centerLoading by mutableStateOf(false)
     private var centerSubmitting by mutableStateOf(false)
     private var centerDirectory by mutableStateOf<List<BusinessCenterStore.Organization>>(emptyList())
@@ -994,6 +995,39 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerError = centerError,
                 centerSnapshot = centerSnapshot,
                 onSendCenterMessage = { org,title,body -> centerAction { s -> sendMessage(s,org,title,body) } },
+                onSendCenterChat = sendChat@{ org, body ->
+                    val session = verifiedSupabase ?: return@sendChat
+                    val clientId = centerSnapshot?.clientIdFor(org) ?: return@sendChat
+                    if (centerSubmitting) return@sendChat
+                    centerSubmitting = true
+                    lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                val store = BusinessCenterStore()
+                                store.sendChatMessage(session, org, clientId, body)
+                                store.loadThread(session, org, clientId)
+                            }
+                        }
+                        result.onSuccess { centerChatThread = it }
+                        centerError = result.exceptionOrNull()?.localizedMessage
+                        centerSubmitting = false
+                    }
+                },
+                onCenterDecline = { inv -> centerAction { s -> decline(s, inv) } },
+                centerChatThread = centerChatThread,
+                onLoadCenterThread = loadThread@{ org ->
+                    val session = verifiedSupabase ?: return@loadThread
+                    val clientId = centerSnapshot?.clientIdFor(org) ?: return@loadThread
+                    lifecycleScope.launch {
+                        val rows = withContext(Dispatchers.IO) {
+                            val store = BusinessCenterStore()
+                            store.loadThread(session, org, clientId).also {
+                                runCatching { store.markThreadRead(session, org, clientId) }
+                            }
+                        }
+                        centerChatThread = rows
+                    }
+                },
                 onExerciseCatalogRefreshRequest = { requestExerciseCatalogRefresh() },
                 onCenterRefresh = {
                     refreshCenter()

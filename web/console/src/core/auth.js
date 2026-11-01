@@ -565,6 +565,33 @@ export class ReperaAuthAPI {
  async sendClientNotice({orgId,clientId,title,body}){
   return this.#authorized('rpc/send_business_client_notice',{method:'POST',body:{p_org:orgId,p_client:clientId,p_title:title,p_body:body}});
  }
+ async listThread({orgId,clientId,before=null,limit=50}){
+  if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Hilo inválido');
+  return this.#authorized('rpc/business_list_thread',{method:'POST',body:{
+   p_org:orgId,p_client:clientId,p_before:before,p_limit:limit}});
+ }
+ async sendChatMessage({orgId,clientId,body}){
+  if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||String(body||'').trim().length<1)
+   throw Error('Mensaje inválido');
+  return this.#authorized('rpc/business_send_message',{method:'POST',body:{
+   p_org:orgId,p_client:clientId,p_body:String(body).trim()}});
+ }
+ async sendBroadcast({orgId,body,allActive=false,clientIds=null,occurrenceId=null,groupId=null}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||String(body||'').trim().length<1)throw Error('Aviso inválido');
+  return this.#authorized('rpc/business_send_broadcast',{method:'POST',body:{
+   p_org:orgId,p_body:String(body).trim(),p_all_active:!!allActive,
+   p_client_ids:clientIds,p_occurrence:occurrenceId,p_group:groupId}});
+ }
+ async markThreadRead({orgId,clientId}){
+  return this.#authorized('rpc/business_mark_thread_read',{method:'POST',body:{p_org:orgId,p_client:clientId}});
+ }
+ async declineInvitation(id){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Invitación inválida');
+  return this.#authorized('rpc/decline_org_invitation',{method:'POST',body:{p_invitation_id:id}});
+ }
+ async effectiveEntitlements(){
+  return this.#authorized('rpc/get_my_effective_entitlements',{method:'POST',body:{}});
+ }
  async archivedAthleteResults({orgId,clientId}){
   if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Cliente histórico inválido');
   // RLS grants ONLY active professional staff read-only access.

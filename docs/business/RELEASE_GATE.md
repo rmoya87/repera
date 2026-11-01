@@ -1,5 +1,5 @@
 # Repera Business — puerta de salida a producción
-Última actualización: 2026-10-19. **NO APTO PARA FUSIÓN NI DESPLIEGUE DE PAGO**.
+Última actualización: 2026-11-01. **NO APTO PARA FUSIÓN NI DESPLIEGUE DE PAGO** (F1–F9 chat/hub en rama; sin Stripe; sin merge `main`).
 
 Este documento es el criterio operativo para cerrar `feat/repera-business-platform` y autorizar
 `origin/main`. No confundir interfaz implementada, pruebas SQL aisladas y servicios validados

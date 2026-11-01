@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-01 (Business V3 P0 UX consola + cobertura casos)
+Última actualización: 2026-11-01 (Business F1–F9 chat/hub + P0 UX; sin Stripe/prod)
 
 ## Regla de oro
 

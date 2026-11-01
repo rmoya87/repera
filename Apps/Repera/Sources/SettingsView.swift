@@ -203,9 +203,23 @@ struct SettingsView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Acceso completo")
                                 .font(.headline)
-                            Text("Incluido con tu centro o entrenador")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                businessData.entitlements?.primarySponsorName.map { "Incluido por \($0)" }
+                                    ?? "Incluido con tu centro o entrenador"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            if let until = businessData.entitlements?.sponsors.first?.validUntil,
+                               let end = BusinessDataStore.date(until) {
+                                Text("Válido hasta \(end.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if businessData.entitlements?.storeGatePending == true {
+                                Text("Cumplimiento App Store / Play pendiente de gate de producto.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         Spacer()
                         Image(systemName: "checkmark.seal.fill")

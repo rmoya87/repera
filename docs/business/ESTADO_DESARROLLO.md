@@ -1,3 +1,15 @@
+## Business F1–F9 (sin Stripe) + chat + hub — 2026-11-01
+
+- Rama: `feature/business-v3-ux-p0`. **Sin** merge a `main`, **sin** IONOS/prod, **sin** Stripe.
+- Migraciones locales: `20261101140000` chat+decline, `20261101150000` cupos comerciales+entitlements, `20261101160000` push outbox/tokens. Edge `repera-business-push` (FCM opcional; sin secretos no afirma delivery).
+- Chat 1:1 + broadcast (todos/clase/grupo/selección) en consola (`business-chat.js`) e iOS/Android burbujas en Inicio.
+- Center hub enlazado desde Inicio (iOS) / Center tab (Android): bono, aforo, reservas, agenda, contactar/chat, decline invitación.
+- F1: QR + copiar enlace/deep link `repera://invitation/{id}` en consola; sheet aceptar/rechazar en iOS.
+- F2/F3: cupo por clientes con bono elegible; `get_my_effective_entitlements` (Pro patrocinado; gate App Store/Play pendiente).
+- F4: agenda unificada en Center (clases/citas/entrenos prescritos); lista de espera sigue P1.
+- F5: outbox + claim Edge + `register_push_device`; permiso contextual post-reserva iOS.
+- Tests: `web/console/tests/business-chat-invite.test.mjs`. Staging: aplicar migraciones y secretos APNs/FCM/Resend aparte.
+
 ## Business V3 — Fase 0 + P0 UX web (2026-11-01)
 
 - Rama de trabajo: `feature/business-v3-ux-p0`. Sin merge a `main` ni producción en esta tanda.
@@ -5,7 +17,7 @@
 - **Existe:** invitaciones RPC+Edge, clientes 360, bonos offline PT, reservas/clases con ledger, enrollments app, platform admin.
 - **Hecho en rama (código local):** Inicio recepción gym + Inicio PT; ficha con Bonos y pagos; `renderGymPassPanel` + asignación offline; RPC/UI asistencia clase (`20261101120000_business_class_attendance.sql`). Tests `web/console/tests/business-360.test.mjs`.
 - **Pendiente operativo:** aplicar migración en Supabase staging; E2E con dos cuentas; email Resend con secretos.
-- **Aplazado:** Pro patrocinado (gate tiendas), push 60 min (`notification_outbox` solo greenfield), Stripe B2B/B2C, lista de espera.
+- **Aplazado en esta tanda:** Stripe B2B/B2C Connect/Billing; lista de espera; afirmación de cumplimiento tiendas para Pro patrocinado.
 - **Greenfield no aplicado:** no usar `supabase/repera-greenfield/` ni tablas de `backend.js` demo como esquema real.
 
 ## Administración global de Repera — 27/10/2026

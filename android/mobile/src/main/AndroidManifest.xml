@@ -59,6 +59,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="repera" android:host="live" />
                 <data android:scheme="repera" android:host="workout" />
+                <data android:scheme="repera" android:host="invitation" />
             </intent-filter>
         </activity>
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />

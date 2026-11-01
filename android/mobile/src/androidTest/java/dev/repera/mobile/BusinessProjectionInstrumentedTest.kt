@@ -30,21 +30,24 @@ class BusinessProjectionInstrumentedTest {
         capture("profesional_solo_lectura")
     }
     @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun messagesSelectLinkedRecipientAndOnlyExplicitSendCallsCallback() {
-        var sent:Triple<String,String,String>?=null
-        val snapshot=BusinessCenterStore.Snapshot(centers=listOf(
-            BusinessCenterStore.Organization("org","Centro sintético","gym",null,null,null)),athleteCenterIds=setOf("org"),
+        var chatOrg:String?=null;var chatBody:String?=null
+        val snap=BusinessCenterStore.Snapshot(
+            centers=listOf(BusinessCenterStore.Organization("org","Centro sintético","gym",null,null,null)),
+            athleteCenterIds=setOf("org"),
+            clientLinks=listOf(BusinessCenterStore.ClientLink("c","org","user")),
             notices=listOf(BusinessCenterStore.Notice("m","org","c","Aviso sintético","Hola","2026-10-25T20:00:00Z")))
-        compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize()) {CenterMessagesScreen(true,false,false,null,snapshot,{}, {org,title,body -> sent=Triple(org,title,body)})}}}
-        compose.onNodeWithText("Aviso sintético").assertIsDisplayed()
+        val thread=listOf(BusinessCenterStore.ChatMessage("m","org","c","u","staff","Hola","2026-10-25T20:00:00Z",null))
+        compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Surface(Modifier.fillMaxSize()) {
+            CenterMessagesScreen(true,false,false,null,snap,thread,"org",{},{},{org,body -> chatOrg=org;chatBody=body})
+        }}}
+        compose.onNodeWithText("Hola").assertIsDisplayed()
         capture("mensajes_bandeja")
-        compose.onNodeWithText("Escribir mensaje").performClick()
-        compose.onNodeWithText("Enviar").assertIsNotEnabled()
-        compose.onNodeWithText("Asunto").performTextInput("Consulta")
         compose.onNodeWithText("Mensaje").performTextInput("Prueba local")
         capture("mensajes_borrador")
-        assertNull(sent)
+        assertNull(chatBody)
         compose.onNodeWithText("Enviar").performClick()
-        assertEquals(Triple("org","Consulta","Prueba local"),sent)
+        assertEquals("org",chatOrg)
+        assertEquals("Prueba local",chatBody)
     }
     @Test fun professionalWearPlanIsFallbackAndNeverPersistsCatalogOrRoutine() {
         val ctx=InstrumentationRegistry.getInstrumentation().targetContext

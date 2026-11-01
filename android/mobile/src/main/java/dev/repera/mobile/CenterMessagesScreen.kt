@@ -1,48 +1,134 @@
 package dev.repera.mobile
-import androidx.compose.runtime.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-@Composable internal fun CenterMessagesScreen(connected:Boolean,loading:Boolean,submitting:Boolean,error:String?,snapshot:BusinessCenterStore.Snapshot?,onRefresh:()->Unit,onSend:(String,String,String)->Unit) {
-    var compose by remember {mutableStateOf(false)}
-    var title by remember {mutableStateOf("")};var body by remember {mutableStateOf("")}
-    val linked=snapshot?.centers.orEmpty().filter {it.id in snapshot?.athleteCenterIds.orEmpty()}
-    var target by remember {mutableStateOf<String?>(null)}
-    var awaited by remember {mutableStateOf(false)}
-    var sawSubmitting by remember {mutableStateOf(false)}
-    LaunchedEffect(submitting,error) {
-        if(awaited && submitting) sawSubmitting=true
-        if(awaited && sawSubmitting && !submitting) {
-            if(error==null) {compose=false;body="";title=""}
-            awaited=false;sawSubmitting=false
+@Composable
+internal fun CenterMessagesScreen(
+    connected: Boolean,
+    loading: Boolean,
+    submitting: Boolean,
+    error: String?,
+    snapshot: BusinessCenterStore.Snapshot?,
+    thread: List<BusinessCenterStore.ChatMessage>,
+    selectedOrgId: String?,
+    onSelectOrg: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onSendChat: (String, String) -> Unit,
+) {
+    var draft by remember { mutableStateOf("") }
+    val linked = snapshot?.centers.orEmpty().filter { it.id in snapshot?.athleteCenterIds.orEmpty() }
+    val orgId = selectedOrgId ?: linked.firstOrNull()?.id
+    val clientId = orgId?.let { snapshot?.clientIdFor(it) }
+
+    Column(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item { ReperaPageHeader(title = "Mensajes") }
+            if (!connected || linked.isEmpty()) {
+                item {
+                    Text(
+                        if (linked.isEmpty())
+                            "Vincúlate a un centro o entrenador en Ajustes para chatear."
+                        else "Conecta tu cuenta para ver mensajes."
+                    )
+                }
+            } else {
+                if (linked.size > 1) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            linked.forEach { org ->
+                                ReperaFilterChip(
+                                    selected = orgId == org.id,
+                                    enabled = !submitting,
+                                    onClick = { onSelectOrg(org.id) },
+                                    label = { Text(org.name) }
+                                )
+                            }
+                        }
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = onRefresh, enabled = !loading) { Text("Actualizar") }
+                }
+                error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+                if (thread.isEmpty()) {
+                    item { Text("Todavía no hay mensajes. Escribe el primero.") }
+                }
+                items(thread, key = { it.id }) { message ->
+                    val mine = message.senderRole != "staff"
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start
+                    ) {
+                        Column(
+                            Modifier
+                                .widthIn(max = 280.dp)
+                                .background(
+                                    if (mine) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                message.body,
+                                color = if (mine) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                buildString {
+                                    if (message.batchId != null) append("Aviso · ")
+                                    append(noticeTime(message.createdAt))
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (mine) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (connected && linked.isNotEmpty() && orgId != null && clientId != null) {
+            Row(
+                Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Mensaje") },
+                    enabled = !submitting,
+                    maxLines = 4
+                )
+                Button(
+                    enabled = !submitting && draft.trim().isNotEmpty(),
+                    onClick = {
+                        val body = draft.trim()
+                        draft = ""
+                        onSendChat(orgId, body)
+                    }
+                ) { Text(if (submitting) "…" else "Enviar") }
+            }
         }
     }
-    LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item {ReperaPageHeader(title = "Mensajes")}
-        if(!connected || linked.isEmpty()) item {Text("Vincúlate a un centro o entrenador en Ajustes para enviar y recibir mensajes.")}
-        item {OutlinedButton(onClick=onRefresh,enabled=!loading) {Text("Actualizar")}}
-        error?.let {item {Text(it,color=MaterialTheme.colorScheme.error)}}
-        if(connected && linked.isNotEmpty() && snapshot?.notices.orEmpty().isEmpty()) item {Text("Todavía no hay mensajes.")}
-        items(snapshot?.notices.orEmpty()) {n -> Card {Column(Modifier.padding(12.dp)) {
-            Text(n.title,style=MaterialTheme.typography.titleMedium);Text(n.body)
-            Text("${snapshot?.centerName(n.orgId)} · ${noticeTime(n.createdAt)}",style=MaterialTheme.typography.bodySmall)
-        }}}
-        if(linked.isNotEmpty()) item {OutlinedButton(onClick={target=linked.first().id;title="";body="";compose=true}) {Text("Escribir mensaje")}}
-    }
-    if(compose) AlertDialog(onDismissRequest={if(!submitting) compose=false},title={Text("Nuevo mensaje")},text={Column {
-        Text("Para")
-        linked.forEach {org -> ReperaFilterChip(selected=target==org.id,enabled=!submitting,onClick={target=org.id},label={Text(org.name)})}
-        ReperaMetaTextField(caption="Asunto",value=title,onValueChange={title=it},enabled=!submitting)
-        ReperaMetaTextField(caption="Mensaje",value=body,onValueChange={body=it},enabled=!submitting,singleLine=false)
-        error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-    }},confirmButton={TextButton(enabled=!submitting && body.trim().length>=2 && target in linked.map {it.id},onClick={target?.let {awaited=true;sawSubmitting=false;onSend(it,title,body)}}) {Text(if(submitting) "Enviando" else "Enviar")}},dismissButton={TextButton(enabled=!submitting,onClick={compose=false}) {Text("Cancelar")}})
 }
 
-private fun noticeTime(raw:String):String = runCatching {
+private fun noticeTime(raw: String): String = runCatching {
     java.time.Instant.parse(raw).atZone(java.time.ZoneId.systemDefault()).format(
-        java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm",java.util.Locale("es")))
-}.getOrElse {raw}
+        java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm", java.util.Locale("es"))
+    )
+}.getOrElse { raw }

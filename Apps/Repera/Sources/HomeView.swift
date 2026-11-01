@@ -375,6 +375,21 @@ struct HomeView: View {
 
     @ViewBuilder
     private var homeTopBarActions: some View {
+                if !businessData.athleteCenterIds.isEmpty || !businessData.invitations.isEmpty {
+                    NavigationLink {
+                        CenterView()
+                    } label: {
+                        Image(systemName: "building.2")
+                            .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .symbolRenderingMode(.monochrome)
+                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
+                            .contentShape(Circle())
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Mis centros, clases y reservas")
+                }
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()
@@ -387,7 +402,7 @@ struct HomeView: View {
                                 .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
                                 .contentShape(Circle())
                                 .glassEffect(.regular.interactive(), in: .circle)
-                            if !businessData.personalNotices.isEmpty {
+                            if !businessData.conversationMessages.isEmpty || !businessData.personalNotices.isEmpty {
                                 Circle()
                                     .fill(OG.label)
                                     .frame(width: 8, height: 8)

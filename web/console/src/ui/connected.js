@@ -10,6 +10,7 @@ import {renderBusinessHome,renderClient360,renderClasses360} from './management-
 import {renderTrainerPassPanel,trainerSeatInfo} from './trainer-pass-panel.js';
 import {renderGymPassPanel} from './gym-pass-panel.js';
 import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup} from './workout-editor.js';
+import {renderInvitationShareCard} from './invitation-share.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -20,7 +21,7 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null;
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
 const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
@@ -161,8 +162,8 @@ function enhanceWorkspace(own){
  root.querySelector('[data-workspace-section="clients"]')?.remove();
  root.querySelector('[data-workspace-section="services"]')?.remove();
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
- attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes}));
- attach('clients',renderClient360({clients,selected:selectedClientId,passes,offers,bookings,occurrences,sessions:professionalSessions,notices,sharedHistory,attendance,trainerActivityMonth,trainerActivityDay,manager,trainer,busy,seat,role:own.get(selectedOrg),clientSection})+(trainer&&selectedClientId&&!clients.find(c=>c.id===selectedClientId)?.account_deleted_at&&clientSection==='training'&&clientEditorOpen?renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients:clients.filter(c=>!c.account_deleted_at),memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId,embedded:true,preferredDate:planningSelectedDay}):''));
+ attach('overview',(lastInviteShare?renderInvitationShareCard(lastInviteShare):'')+renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes,groups,busy}));
+ attach('clients',renderClient360({clients,selected:selectedClientId,passes,offers,bookings,occurrences,sessions:professionalSessions,notices,chatMessages,sharedHistory,attendance,trainerActivityMonth,trainerActivityDay,manager,trainer,busy,seat,role:own.get(selectedOrg),clientSection})+(trainer&&selectedClientId&&!clients.find(c=>c.id===selectedClientId)?.account_deleted_at&&clientSection==='training'&&clientEditorOpen?renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients:clients.filter(c=>!c.account_deleted_at),memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId,embedded:true,preferredDate:planningSelectedDay}):''));
  const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
  // A pre-registration center has no real owner/staff yet. The real actor can operate
  // its workspace as Repera support; we never label this account as the future trainer.
@@ -568,7 +569,17 @@ app.addEventListener('click',async event=>{
      :await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});
    }catch(e){error='El historial histórico o privado no está disponible para este profesional.';}render();return;}
  if(action==='back-clients'){sharedHistory=[];clientEditorOpen=false;selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;activeTab='clients';setWorkspaceRoute();render();return;}
- if(action==='client-section'){clientSection=actionable.dataset.section||'training';clientEditorOpen=false;render();return;}
+ if(action==='client-section'){
+  clientSection=actionable.dataset.section||'training';clientEditorOpen=false;render();
+  if(clientSection==='chat'&&selectedClientId&&selectedOrg){
+   try{
+    chatMessages=await auth.listThread({orgId:selectedOrg,clientId:selectedClientId})||[];
+    await auth.markThreadRead({orgId:selectedOrg,clientId:selectedClientId}).catch(()=>{});
+   }catch(e){error=e.message||'No se pudo cargar la conversación';chatMessages=[];}
+   render();
+  }
+  return;
+ }
  if(action==='trainer-day'&&trainer){trainerActivityDay=actionable.dataset.day;trainerActivityMonth=trainerActivityDay.slice(0,7);clientEditorOpen=false;render();return;}
  if(action==='trainer-month'&&trainer){const month=trainerActivityMonth||new Date().toLocaleDateString('sv-SE').slice(0,7);const d=new Date(month+'-01T12:00:00');d.setMonth(d.getMonth()+(Number(actionable.dataset.step)||0));trainerActivityMonth=d.toLocaleDateString('sv-SE').slice(0,7);trainerActivityDay=trainerActivityMonth+'-01';clientEditorOpen=false;render();return;}
  if(action==='close-client-editor'&&trainer){clientEditorOpen=false;selectedTemplateId=null;editingSessionId=null;render();return;}
@@ -627,6 +638,13 @@ app.addEventListener('click',async event=>{
   finally{busy=false;render();}
   return;
  }
+ if((action==='copy-invite-link'||action==='copy-invite-deep')&&actionable.dataset.url){
+  try{await navigator.clipboard.writeText(actionable.dataset.url);notice='Enlace copiado.';render();}
+  catch{error='No se pudo copiar el enlace.';render();}return;}
+ if(action==='cancel-invitation'&&!busy){
+  busy=true;error=notice='';render();
+  try{await auth.cancelInvitation(actionable.dataset.id);lastInviteShare=null;await reload();notice='Invitación revocada.';}
+  catch(e){error=e.message||'No se pudo revocar';}finally{busy=false;render();}return;}
  if(action==='invite-client'&&!busy){const c=clients.find(c=>c.id===actionable.dataset.id);
   if(!c||c.user_id)return;busy=true;render();
   try{
@@ -634,9 +652,11 @@ app.addEventListener('click',async event=>{
    let emailResult={sent:false,reason:'Envío pendiente'};
    try{emailResult=await auth.sendInvitationEmail(id);}
    catch(e){emailResult={sent:false,reason:e.message||'Envío no confirmado'};}
+   lastInviteShare={invitationId:id,email:c.email,sent:!!emailResult.sent,reason:emailResult.reason||''};
+   activeTab='overview';
    await reload();
-   notice=emailResult.sent?'Invitación enviada por correo. La vinculación queda pendiente de aceptación.':
-    'Invitación creada, pero no enviada: '+emailResult.reason+'. La persona podrá aceptarla desde su cuenta verificada.';
+   notice=emailResult.sent?'Invitación enviada. Comparte el QR o el enlace si hace falta.':
+    'Invitación creada. Usa el QR o copia el enlace; correo: '+emailResult.reason+'.';
   }catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='toggle-pass-offer'&&!busy){
   busy=true;error=notice='';render();
@@ -880,9 +900,11 @@ app.addEventListener('submit',async event=>{
    const id=await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:data.get('role')});
    let delivery={sent:false,reason:'Envío pendiente'};
    try{delivery=await auth.sendInvitationEmail(id);}catch(e){delivery={sent:false,reason:e.message||'Envío no confirmado'};}
+   lastInviteShare={invitationId:id,email:data.get('email'),sent:!!delivery.sent,reason:delivery.reason||''};
+   activeTab='overview';
    await reload();
-   notice=delivery.sent?'Invitación enviada. Solo se vinculará tras la aceptación del destinatario.':
-    'Invitación guardada, pero no enviada: '+delivery.reason+'. El usuario puede aceptarla desde su cuenta.';
+   notice=delivery.sent?'Invitación enviada. QR y enlace listos para compartir.':
+    'Invitación guardada. Comparte el QR o el enlace; correo: '+delivery.reason+'.';
   }
   if(action==='publish-session'){
    if(intent==='template'){
@@ -971,6 +993,29 @@ app.addEventListener('submit',async event=>{
    await auth.issueOfflinePass({orgId:selectedOrg,clientId:data.get('client'),offerId:data.get('offer')});
    await loadSelectedOrg();notice='Bono asignado. Registrado como gestión externa; no se ha efectuado ningún cobro en Repera.';
   }
+  if(action==='chat-send'){
+   await auth.sendChatMessage({orgId:selectedOrg,clientId:data.get('client'),body:data.get('body')});
+   chatMessages=await auth.listThread({orgId:selectedOrg,clientId:data.get('client')})||[];
+   clientSection='chat';selectedClientId=data.get('client');
+   notice='Mensaje enviado.';
+  }
+  if(action==='chat-broadcast'){
+   const scope=data.get('scope');
+   const body=data.get('body');
+   const picked=[...f.querySelectorAll('input[name="clients"]:checked')].map(n=>n.value);
+   if(scope==='all')await auth.sendBroadcast({orgId:selectedOrg,body,allActive:true});
+   else if(scope==='occurrence'){
+    if(!data.get('occurrence'))throw Error('Elige una clase o cita.');
+    await auth.sendBroadcast({orgId:selectedOrg,body,occurrenceId:data.get('occurrence')});
+   }else if(scope==='group'){
+    if(!data.get('group'))throw Error('Elige un grupo.');
+    await auth.sendBroadcast({orgId:selectedOrg,body,groupId:data.get('group')});
+   }else{
+    if(!picked.length)throw Error('Selecciona al menos un cliente.');
+    await auth.sendBroadcast({orgId:selectedOrg,body,clientIds:picked});
+   }
+   notice='Aviso enviado a los destinatarios elegidos.';
+  }
   if(action==='trainer-attendance'){
    await auth.recordTrainerAttendance({orgId:selectedOrg,
      clientId:passes.find(p=>p.id===data.get('pass'))?.client_id,
@@ -990,12 +1035,14 @@ app.addEventListener('submit',async event=>{
    let delivery={sent:false,reason:'Invitación sin enviar'};
    try{
     const invitation=await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:'athlete'});
-    try{delivery=await auth.sendInvitationEmail(invitation);}
-    catch(e){delivery={sent:false,reason:e.message||'Envío no confirmado'};}
+    lastInviteShare={invitationId:invitation,email:data.get('email'),sent:false,reason:''};
+    try{delivery=await auth.sendInvitationEmail(invitation);lastInviteShare.sent=!!delivery.sent;lastInviteShare.reason=delivery.reason||'';}
+    catch(e){delivery={sent:false,reason:e.message||'Envío no confirmado'};lastInviteShare.reason=delivery.reason;}
    }catch(e){delivery={sent:false,reason:e.message||'No se pudo preparar la invitación'};}
    clients=await auth.clients(selectedOrg);
-   notice=delivery.sent?'Cliente pendiente e invitación enviada. La vinculación requiere su aceptación.':
-    'Ficha creada. El cliente sigue pendiente; email sin confirmar: '+delivery.reason+'.';
+   if(lastInviteShare)activeTab='overview';
+   notice=delivery.sent?'Cliente pendiente e invitación enviada. QR y enlace listos.':
+    'Ficha creada. Comparte el QR o el enlace; email: '+delivery.reason+'.';
   }
   if(action==='rename'){
     const orgId=data.get('id');

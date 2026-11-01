@@ -2,6 +2,7 @@ import {renderSharedAthleteSessions,renderAthleteActivity} from './athlete-activ
 import {renderAthleteInsights,renderAthleteGuidance} from './athlete-insights.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 import {renderAssignOfflinePassForm,passProvenanceLabel} from './gym-pass-panel.js';
+import {renderClientChatThread,renderBroadcastPanel} from './business-chat.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateTime=x=>x?new Date(x).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):'Sin fecha';
@@ -104,11 +105,12 @@ function renderGymReceptionHome({clients,occurrences,bookings,requests,manager,p
   <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length}/${o.capacity} plazas</small></button>`).join(''):'<p class="business-empty">Sin próximas clases programadas.</p>'}</div>`)}`;
 }
 
-export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],escapeHTML=esc}){
+export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],groups=[],busy=false,escapeHTML=esc}){
  const waiting=requests.filter(r=>r.status==='pending');
  const inbox=enrollmentInbox(manager,waiting);
- if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth,manager});
- return renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes});
+ const broadcast=manager?renderBroadcastPanel({clients,occurrences,groups,manager,busy}):'';
+ if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth,manager})+broadcast;
+ return renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes})+broadcast;
 }
 const localDay=x=>{
  if(!x)return '';
@@ -128,7 +130,7 @@ function trainerDays({sharedHistory,sessions,attendance}){
  return [...counts.entries()].map(([day,count])=>({day,count}));
 }
 
-export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training'}){
+export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],chatMessages=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training'}){
  if(!selected)return show(`<div class="business-panel-head" id="invite-client-anchor"><div>
  <span class="connected-eyebrow">DEPORTISTAS</span><h2>Clientes</h2>
  <p>Las operaciones se hacen en la ficha. La vinculación solo se completa al aceptar la invitación.</p></div>
@@ -163,7 +165,7 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
  }).filter(Boolean).filter(x=>new Date(x.o.starts_at)>=new Date()).sort((a,b)=>a.o.starts_at.localeCompare(b.o.starts_at))[0];
  const logged=athleteLoggedRows(sharedHistory);
  const ownAttendance=attendance.filter(a=>a.client_id===c.id);
- const tabDefs=[['training','Entrenamientos'],['passes','Bonos y pagos'],...(trainer?[['agenda','Agenda']]:[['bookings','Reservas']]),['data','Datos']];
+ const tabDefs=[['training','Entrenamientos'],['passes','Bonos y pagos'],['chat','Mensajes'],...(trainer?[['agenda','Agenda']]:[['bookings','Reservas']]),['data','Datos']];
  const section=tabDefs.some(([id])=>id===clientSection)?clientSection:'training';
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
  ${tabDefs.map(([id,name])=>
@@ -215,6 +217,11 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
    ${renderSharedAthleteSessions(sharedHistory)}`:
    note('Solo actividades autorizadas por el atleta.')}</div></div>`;
   }
+ }
+ if(section==='chat'){
+  body=`<div class="business-detail-panel"><h3>Conversación</h3>
+  <p class="connected-hint">Chat con el cliente. Los avisos masivos aparecen marcados como «Aviso».</p>
+  ${renderClientChatThread({messages:chatMessages,clientId:c.id,busy})}</div>`;
  }
  if(section==='passes'){
   body=`<div class="business-360-grid">
