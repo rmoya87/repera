@@ -60,10 +60,11 @@ struct WatchSessionView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.68)
                             .frame(maxWidth: 112, alignment: .leading)
-                            // En watchOS, topBarLeading se sitúa por debajo
-                            // de la hora. Compensar ese desplazamiento para
-                            // compartir con ella la línea superior.
-                            .offset(y: -23)
+                            // Calibrado sobre capturas reales del Watch:
+                            // 0 pt = título ~17 px por debajo de la hora;
+                            // -23 pt = título ~19 px por encima.
+                            // -11 pt centra ambos rótulos en la misma línea.
+                            .offset(y: -11)
                     }
                 }
             }

@@ -88,7 +88,7 @@ class WatchComplicationTests(unittest.TestCase):
         self.assertIn(".overlay(alignment: .bottomTrailing)", home)
         self.assertEqual(home.count(".offset(y: 10)"), 2)
         self.assertIn("ToolbarItem(placement: .topBarLeading)", root)
-        self.assertIn(".offset(y: -23)", root)
+        self.assertIn(".offset(y: -11)", root)
         self.assertIn('.navigationTitle("")', root)
         self.assertNotIn(".navigationTitle(sport.title)", live)
 

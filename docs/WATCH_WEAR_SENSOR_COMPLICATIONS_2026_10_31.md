@@ -58,3 +58,8 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 - **Actividad:** el título `pageTitle` continúa en `ToolbarItem(.topBarLeading)`, pero se compensa 23 pt hacia arriba para alinearlo visualmente con la hora nativa. Color blanco y ancho máximo de 112 pt para evitar invadir el reloj.
 - **Controles inferiores:** se retiran los 13 pt de separación inferior y se desplazan 10 pt adicionales hacia el bisel en ambas esquinas; el desplazamiento total respecto de la compilación previa es de 23 pt.
 - Pendiente verificación visual de estos ajustes en reloj y simulador watchOS; tests estáticos no sustituyen la comprobación del layout en un dispositivo.
+
+### Alineación de nombre de actividad con hora de watchOS (01/11/2026)
+- Mediciones de las capturas suministradas: con offset 0, «Caminata» estaba ~17 px por debajo del centro de la hora; con offset -23, ~19 px por encima. Se interpola un offset de **-11 puntos** para alinear los centros visuales.
+- Solo cambia el desplazamiento vertical de `ToolbarItem(.topBarLeading)` en `WatchSessionView.swift`; se conservan Inicio, los controles de silencio/temporizador y las complicaciones.
+- La alineación en el reloj debe comprobarse visualmente tras instalar la nueva build, ya que el cálculo entre capturas no equivale a una prueba de simulador.
