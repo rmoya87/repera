@@ -37,10 +37,19 @@ struct WatchHomeHubView: View {
                 VStack(spacing: 6) {
                     Spacer(minLength: 0)
                     if let selected {
+                        // En Inicio, el nombre acompaña al pictograma central;
+                        // no debe compartir la franja horaria de watchOS.
                         Image(systemName: selected.symbolName)
                             .font(.system(size: 39, weight: .semibold))
                             .foregroundStyle(accent)
                             .accessibilityHidden(true)
+                        Text(selected.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                            .minimumScaleFactor(0.68)
+                            .lineLimit(2)
+                            .padding(.horizontal, 22)
                     } else {
                         ProgressView()
                         Text("Cargando…")
@@ -51,7 +60,7 @@ struct WatchHomeHubView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 30)
-                .padding(.bottom, 42)
+                .padding(.bottom, 50)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -61,21 +70,6 @@ struct WatchHomeHubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Anclar controles al bisel físico, no a la parte alta del safe area.
         .ignoresSafeArea(.container, edges: .bottom)
-        .overlay(alignment: .topLeading) {
-            if let selected {
-                Text(selected.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.68)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 12)
-                    .padding(.trailing, 66) // Hueco para la hora del reloj
-                    .padding(.top, 3)
-                    .allowsHitTesting(false)
-                    .accessibilityAddTraits(.isHeader)
-            }
-        }
         .overlay(alignment: .bottomLeading) {
             cornerCircleButton(
                 systemName: hub.audioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
@@ -85,14 +79,19 @@ struct WatchHomeHubView: View {
             }
             // Inset del bisel redondo (HIG): evitar recorte del círculo Liquid Glass.
             .padding(.leading, 12)
-            .padding(.bottom, 13)
+            // El NavigationStack deja más espacio bajo el área útil del Watch.
+            // Desde esa zona inferior descendemos el control, manteniendo
+            // el margen lateral suficiente para el cristal redondeado.
+            .padding(.bottom, 0)
+            .offset(y: 10)
         }
         .overlay(alignment: .bottomTrailing) {
             cornerCircleButton(systemName: "timer", label: "Temporizador") {
                 showTimer = true
             }
             .padding(.trailing, 12)
-            .padding(.bottom, 13)
+            .padding(.bottom, 0)
+            .offset(y: 10)
         }
         .focusable(true)
         .focused($crownFocused)

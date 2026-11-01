@@ -78,14 +78,17 @@ class WatchComplicationTests(unittest.TestCase):
         home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
         root = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         live = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
+        # En Inicio el título vuelve bajo el pictograma; no en la esquina
+        # superior, que es la posición reservada para la actividad en curso.
         self.assertEqual(home.count("Text(selected.title)"), 1)
-        self.assertIn(".overlay(alignment: .topLeading)", home)
-        self.assertIn(".padding(.trailing, 66)", home)
+        self.assertIn('Image(systemName: selected.symbolName)', home)
+        self.assertNotIn(".overlay(alignment: .topLeading)", home)
         self.assertIn(".ignoresSafeArea(.container, edges: .bottom)", home)
         self.assertIn(".overlay(alignment: .bottomLeading)", home)
         self.assertIn(".overlay(alignment: .bottomTrailing)", home)
-        self.assertEqual(home.count(".padding(.bottom, 13)"), 2)
+        self.assertEqual(home.count(".offset(y: 10)"), 2)
         self.assertIn("ToolbarItem(placement: .topBarLeading)", root)
+        self.assertIn(".offset(y: -23)", root)
         self.assertIn('.navigationTitle("")', root)
         self.assertNotIn(".navigationTitle(sport.title)", live)
 

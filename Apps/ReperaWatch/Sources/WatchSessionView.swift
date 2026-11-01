@@ -56,9 +56,14 @@ struct WatchSessionView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Text(pageTitle)
                             .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.68)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 112, alignment: .leading)
+                            // En watchOS, topBarLeading se sitúa por debajo
+                            // de la hora. Compensar ese desplazamiento para
+                            // compartir con ella la línea superior.
+                            .offset(y: -23)
                     }
                 }
             }
