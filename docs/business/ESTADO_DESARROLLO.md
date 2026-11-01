@@ -1,14 +1,18 @@
+## Rediseño PT Business (agenda-first) — 2026-11-01
+
+- Consola PT: nav **Agenda + Clientes**; ajustes al tocar identidad (sin ítem Config/⚙). Favicon = AppIcon iOS.
+- Agenda mes/día primero (`trainer-agenda.js`): crear cita, invitar modal, sin caja «Próximas citas». Clientes con buscador + modal invitar.
+- Ficha: toolbar (añadir entreno / finalizar), agenda unificada en Entrenamientos, Mensajes, Bonos, Datos; modal entreno rápido.
+- Tarifas: `billing_model` session_pack / monthly / unlimited (9999 créditos internos). Sin Stripe.
+- Clases de gym asignadas al coach: `coach_ack`, `list_my_coach_assignments`, aceptar/rechazar; mover/cancelar con `coach_reschedule_occurrence` / `coach_cancel_occurrence` (migraciones `20261101170000`, `20261101180000`).
+- **App:** el atleta ve horarios/cancelaciones vía `service_occurrences` + Center (cancelar reserva ya existía). **No** hay panel coach en iOS/Android: gestionar clases asignadas es solo consola web.
+- Tests: `pt-agenda-gym.test.mjs`, `personal-trainer-experience.test.mjs`, `business-360.test.mjs`. Staging: aplicar migraciones nuevas.
+
 ## Business F1–F9 (sin Stripe) + chat + hub — 2026-11-01
 
-- Rama: `feature/business-v3-ux-p0`. **Sin** merge a `main`, **sin** IONOS/prod, **sin** Stripe.
-- Migraciones locales: `20261101140000` chat+decline, `20261101150000` cupos comerciales+entitlements, `20261101160000` push outbox/tokens. Edge `repera-business-push` (FCM opcional; sin secretos no afirma delivery).
-- Chat 1:1 + broadcast (todos/clase/grupo/selección) en consola (`business-chat.js`) e iOS/Android burbujas en Inicio.
-- Center hub enlazado desde Inicio (iOS) / Center tab (Android): bono, aforo, reservas, agenda, contactar/chat, decline invitación.
-- F1: QR + copiar enlace/deep link `repera://invitation/{id}` en consola; sheet aceptar/rechazar en iOS.
-- F2/F3: cupo por clientes con bono elegible; `get_my_effective_entitlements` (Pro patrocinado; gate App Store/Play pendiente).
-- F4: agenda unificada en Center (clases/citas/entrenos prescritos); lista de espera sigue P1.
-- F5: outbox + claim Edge + `register_push_device`; permiso contextual post-reserva iOS.
-- Tests: `web/console/tests/business-chat-invite.test.mjs`. Staging: aplicar migraciones y secretos APNs/FCM/Resend aparte.
+- Migraciones: `20261101140000` chat+decline, `20261101150000` cupos+entitlements, `20261101160000` push outbox/tokens. Edge `repera-business-push` (FCM opcional).
+- Chat 1:1 + broadcast en consola e iOS/Android; Center hub; invites QR/`repera://invitation/`; entitlements; push token.
+- Tests: `web/console/tests/business-chat-invite.test.mjs`. Staging: secretos APNs/FCM/Resend aparte.
 
 ## Business V3 — Fase 0 + P0 UX web (2026-11-01)
 

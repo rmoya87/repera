@@ -36,7 +36,13 @@ El plan maestro V3 y la revisión UX exigen Fase 0 antes de features. Esta tanda
 - Marcar `attended` / `no_show` es transición de estado de la reserva **sin segundo descuento**.
 - Cancelar clase/reserva sigue las reglas de crédito existentes.
 
-### 6. Stack UI
+### 6. Consola PT agenda-first (2026-11-01)
+
+- Nav PT: Agenda + Clientes; ajustes solo vía identidad clicable.
+- Clases de gym asignadas al coach: `coach_ack` + RPCs list/ack/reschedule/cancel; cobro de tarifas externo con `billing_model`.
+- App móvil: atleta ve cambios de horario/cancelación; sin panel de gestión coach.
+
+### 7. Stack UI
 
 - Se mantiene la SPA vanilla en `web/console/` (sin React).
 - Skills de diseño aplicadas: `emil-design-eng` (jerarquía, una CTA, sin animación ornamental). `break-ui` se usará en revisión de formularios críticos.

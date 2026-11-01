@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-01 (Business F1–F9 chat/hub + P0 UX; sin Stripe/prod)
+Última actualización: 2026-11-01 (PT agenda-first + coach clases gym; F1–F9; sin Stripe/prod)
 
 ## Regla de oro
 

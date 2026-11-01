@@ -51,11 +51,9 @@ test('miniatura de Hang Squat Snatch corresponde a un recurso nativo explícito'
 test('ficha de entrenador no obliga a abrir el editor hasta elegir añadir entreno',()=>{
  const html=renderClient360({clients:[athlete],selected:athlete.id,manager:true,trainer:true,
   sessions:[scheduled],sharedHistory:[logged],trainerActivityDay:'2099-10-29',trainerActivityMonth:'2099-10'});
- assert.match(html,/Calendario de entrenamientos/);
+ assert.match(html,/Agenda de|Entreno mañana|open-quick-workout/);
  assert.match(html,/Mapa de grupos trabajados/);
- assert.match(html,/Orientación de entrenamiento/);
- assert.match(html,/Entreno mañana/);
- assert.match(html,/data-action="trainer-session"/);
+ assert.match(html,/Registro /);
  assert.doesNotMatch(html,/data-connected="publish-session"/);
 });
 

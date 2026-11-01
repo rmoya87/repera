@@ -36,7 +36,7 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-11-01 (Business F1–F9 chat/Center hub; sin Stripe)
+Última actualización: 2026-11-01 (PT agenda-first + coach_ack clases gym; F1–F9; sin Stripe)
 
 ## Series de movilidad (iOS)
 
@@ -275,6 +275,8 @@ Guía manual: [TESTING_GUIDE.md](TESTING_GUIDE.md).
 ## Datos reales de Centro/bonos en iOS
 `BusinessDataStore.swift` es un overlay `@Observable` alimentado por Supabase SDK autenticado. `CenterView` lee Clases/Citas/Agenda, bonos y reservas; `FindCenterTrainerView` / `LinkedCenterDetailView` directorio, vínculo, bono, chat y desvinculación; `MessagesInboxView` chat nativo (`business_list_thread` / `business_send_message`); entitlements `get_my_effective_entitlements`; push `register_push_device`. Avisos operativos legacy (`athlete_send_org_message`) coexisten. No se fusiona con el JSON local ni iCloud.
 
+Consola Business PT (`web/console`): `trainer-agenda.js` + `management-360.js` / `connected.js`. RPCs coach gym: `list_my_coach_assignments`, `coach_ack_occurrence`, `coach_reschedule_occurrence`, `coach_cancel_occurrence`; ofertas con `billing_model`.
+
 ## Puente de identidad iOS/Repera Business
 `BusinessAuthStore.swift` usa SDK `supabase-swift` (2.55.4 exacta). **Primer login = ID token Apple o Google + nonce → `signInWithIdToken` Supabase**. Arranque: onboarding + (`isConnected` | refresh Keychain | binding) → `RootTabView`, aunque Apple Keychain esté vacío (p. ej. wipe histórico por `.revoked` espurio). Identidad Apple se espeja en UserDefaults; no se borra Keychain en `getCredentialState(.revoked)`. Trazas: Consola `com.app.repera` / `AuthSession` y DEBUG `🔐 AUTH`.
 
@@ -405,7 +407,7 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-11-01 (Business F1–F9 chat/Center hub; sin Stripe)
+Última actualización: 2026-11-01 (PT agenda-first + coach_ack clases gym; F1–F9; sin Stripe)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

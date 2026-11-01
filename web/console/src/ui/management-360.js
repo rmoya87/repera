@@ -1,8 +1,9 @@
 import {renderSharedAthleteSessions,renderAthleteActivity} from './athlete-activity.js';
-import {renderAthleteInsights,renderAthleteGuidance} from './athlete-insights.js';
+import {renderAthleteInsights,renderAthleteGuidanceLine} from './athlete-insights.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
 import {renderAssignOfflinePassForm,passProvenanceLabel} from './gym-pass-panel.js';
 import {renderClientChatThread,renderBroadcastPanel} from './business-chat.js';
+import {renderTrainerAgenda,collectDayEvents,todayISO} from './trainer-agenda.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateTime=x=>x?new Date(x).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):'Sin fecha';
@@ -21,10 +22,10 @@ const bookingStatusLabel={booked:['Reservado','info'],attended:['Asistió','ok']
 function enrollmentInbox(manager,waiting){
  if(!manager)return show('<h2>Quieren entrenar contigo</h2>'+note('No tienes permiso para gestionar solicitudes.'));
  return show(`<div class="business-panel-head">
- <div><span class="connected-eyebrow">Solicitudes</span><h2>Quieren entrenar contigo</h2>
- <p>Peticiones desde la app. Aceptar vincula al cliente; no concede bono ni Pro.</p></div>
- <div class="business-inbox-tools"><span class="business-inbox-count">${waiting.length} pendientes</span>
- <button type="button" data-action="refresh-enrollments" class="connected-secondary" aria-label="Actualizar solicitudes">Actualizar</button></div></div>
+ <div><h2>Solicitudes</h2>
+ <p>Piden entrenar contigo desde la app. Aceptar vincula; no da bono ni Pro.</p></div>
+ <div class="business-inbox-tools"><span class="business-inbox-count">${waiting.length}</span>
+ <button type="button" data-action="refresh-enrollments" class="connected-secondary" aria-label="Actualizar">Actualizar</button></div></div>
  ${waiting.length?`<div class="business-inbox-list">${waiting.map(r=>`
  <article class="business-enrollment-row">
  <div class="business-enrollment-avatar">${/^https:\/\//.test(r.avatar_url||'')?`<img src="${esc(r.avatar_url)}" alt="" loading="lazy">`:esc(initials(r.name))}</div>
@@ -37,31 +38,16 @@ function enrollmentInbox(manager,waiting){
  '<div class="business-inbox-empty">No hay solicitudes. Cuando alguien pida vincularse desde la app, aparecerá aquí.</div>'}`);
 }
 
-function renderTrainerOverview({inbox,clients,occurrences,bookings,sessions,calendarMonth,manager}){
- const now=new Date(),today=new Date().toLocaleDateString('sv-SE');
- const visits=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>=now).map(o=>({at:o.starts_at,kind:o.kind==='appointment'?'Cita':'Grupo',title:o.title,id:o.id,action:'detail-occurrence',detail:`${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length} reservas`}));
- const plans=sessions.filter(s=>s.status==='scheduled'&&s.scheduled_date>=today).map(s=>({at:s.scheduled_date+'T12:00:00',kind:'Entrenamiento · sin hora',title:s.title,id:s.client_id,action:'detail-client',detail:clients.find(c=>c.id===s.client_id)?.name||'Deportista'}));
- const upcoming=[...visits,...plans].sort((a,b)=>a.at.localeCompare(b.at)).slice(0,8);
- const attention=clients.filter(c=>!c.account_deleted_at&&(!c.user_id||c.status==='lead'||c.status==='trial')).slice(0,6);
- const month=/^\d{4}-\d{2}$/.test(calendarMonth||'')?calendarMonth:today.slice(0,7);
- const [y,m]=month.split('-').map(Number),first=(new Date(y,m-1,1).getDay()+6)%7,n=new Date(y,m,0).getDate();
- const title=new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
- const cells=Array.from({length:first+n},(_,i)=>{const d=i-first+1;if(d<1)return '<span class="business-calendar-empty" aria-hidden="true"></span>';
- const iso=month+'-'+String(d).padStart(2,'0');
- const matches=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at).toLocaleDateString('sv-SE')===iso);
- return `<div class="business-calendar-cell"><button class="business-calendar-day" type="button" data-action="new-date-appointment" data-day="${iso}" aria-label="Añadir cita el ${d}">${d}</button>
- ${matches.map(o=>`<button type="button" class="business-calendar-event" data-action="detail-occurrence" data-id="${esc(o.id)}"><span>${o.kind==='appointment'?'Cita':'Grupo'}</span> ${esc(new Date(o.starts_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))} ${esc(o.title)}</button>`).join('')}</div>`;}).join('');
- return `<div class="business-home-toolbar"><div><span class="connected-eyebrow">${esc(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}))}</span>
- <h2 class="business-home-title">Inicio</h2></div>
- ${manager?primary('Invitar cliente','go-invite-client'):''}</div>
- <div class="business-home-columns">
- ${inbox}
- ${show(`<div class="business-panel-head"><div><h2>Próximas citas</h2><p>Con hora concreta. Los entrenamientos sin hora no son citas.</p></div>${manager?button('Crear cita','new-date-appointment','',`data-day="${today}"`):''}</div>
- <div class="business-upcoming">${upcoming.map(o=>`<button class="business-upcoming-item" type="button" data-action="${o.action}" data-id="${esc(o.id)}"><small>${esc(o.kind)} · ${o.kind.includes('sin hora')?day(o.at):dateTime(o.at)}</small><strong>${esc(o.title)}</strong><span>${esc(o.detail)}</span></button>`).join('')||'<p class="business-empty">No hay próximas citas. '+ (manager?'Crea la primera o invita a un cliente.':'') +'</p>'}</div>
- ${attention.length?`<div class="business-attention"><h3>Clientes a atender</h3>${attention.map(c=>`<button type="button" class="business-line-btn" data-action="detail-client" data-id="${esc(c.id)}"><strong>${esc(c.name)}</strong><small>${c.user_id?'Sin bono o en prueba':'Pendiente de aceptar'}</small></button>`).join('')}</div>`:''}`)}
- </div>
- ${show(`<div class="business-panel-head"><div><h2>Agenda</h2><p>Día libre → nueva cita. Evento → detalle.</p></div><div class="heading-actions">${button('‹','calendar-prev')}${button(esc(title),'calendar-today')}${button('›','calendar-next')}</div></div>
- <div class="business-calendar-weekdays">${['L','M','X','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div><div class="business-calendar-grid">${cells}</div>`)}`;
+function renderTrainerOverview({inbox,clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',gymAssignments=[]}){
+ return renderTrainerAgenda({
+  clients,occurrences,bookings,sessions,gymAssignments,calendarMonth,agendaView,agendaDay,manager,
+  inboxHtml:compactEnrollmentInbox(inbox),
+ });
+}
+function compactEnrollmentInbox(inboxHtml){
+ // El inbox ya es HTML de enrollmentInbox; lo envolvemos más denso bajo la agenda.
+ if(!inboxHtml||!String(inboxHtml).includes('Solicitudes'))return inboxHtml||'';
+ return `<div class="pt-inbox-wrap">${inboxHtml}</div>`;
 }
 
 function renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes=[]}){
@@ -105,11 +91,11 @@ function renderGymReceptionHome({clients,occurrences,bookings,requests,manager,p
   <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length}/${o.capacity} plazas</small></button>`).join(''):'<p class="business-empty">Sin próximas clases programadas.</p>'}</div>`)}`;
 }
 
-export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],groups=[],busy=false,escapeHTML=esc}){
+export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],groups=[],busy=false,escapeHTML=esc,agendaView='month',agendaDay='',gymAssignments=[]}){
  const waiting=requests.filter(r=>r.status==='pending');
  const inbox=enrollmentInbox(manager,waiting);
  const broadcast=manager?renderBroadcastPanel({clients,occurrences,groups,manager,busy}):'';
- if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,requests,clients,occurrences,bookings,sessions,calendarMonth,manager})+broadcast;
+ if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView,agendaDay,gymAssignments})+broadcast;
  return renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes})+broadcast;
 }
 const localDay=x=>{
@@ -130,30 +116,34 @@ function trainerDays({sharedHistory,sessions,attendance}){
  return [...counts.entries()].map(([day,count])=>({day,count}));
 }
 
-export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],chatMessages=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training'}){
- if(!selected)return show(`<div class="business-panel-head" id="invite-client-anchor"><div>
- <span class="connected-eyebrow">DEPORTISTAS</span><h2>Clientes</h2>
- <p>Las operaciones se hacen en la ficha. La vinculación solo se completa al aceptar la invitación.</p></div>
- ${manager?primary('Invitar cliente','focus-invite-form'):''}</div>
+export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],chatMessages=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training',clientQuery='',gymAssignments=[]}){
+ if(!selected){
+  const q=String(clientQuery||'').trim().toLowerCase();
+  const filtered=clients.filter(c=>{
+   if(!q)return true;
+   const hay=((c.name||'')+' '+(c.email||'')).toLowerCase();
+   return hay.includes(q);
+  });
+  return show(`<div class="business-panel-head pt-clients-head"><div>
+ <h2>Clientes</h2></div>
+ ${manager?primary('Invitar cliente','open-invite-modal'):''}</div>
+ <label class="connected-field pt-client-search">Buscar
+  <input type="search" data-client-filter value="${esc(clientQuery||'')}" placeholder="Nombre o correo" autocomplete="off">
+ </label>
  <div class="business-client-table-wrap"><table class="business-client-table"><thead><tr>
  <th>Cliente</th><th>Correo</th><th>Vinculación</th><th>Bono</th><th>Estado</th></tr></thead><tbody>
- ${clients.map(c=>{
+ ${filtered.map(c=>{
   const p=passes.filter(x=>x.client_id===c.id&&x.status==='active').sort((a,b)=>b.remaining_credits-a.remaining_credits)[0];
   return `<tr role="link" tabindex="0" data-action="detail-client" data-id="${esc(c.id)}">
  <td><div class="business-client-person"><span class="business-avatar">${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?
  `<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}</span>
  <strong>${esc(c.name)}</strong></div></td><td>${esc(c.email||'—')}</td>
  <td>${c.account_deleted_at?'Histórico':c.user_id?'Vinculado':'Pendiente'}</td>
- <td>${p?`${p.remaining_credits}/${p.total_credits}`:'—'}</td>
+ <td>${p?(p.remaining_credits>=9000?'Ilimitado':`${p.remaining_credits}/${p.total_credits}`):'—'}</td>
  <td>${c.account_deleted_at?'Solo lectura':statusBadge(c.status,c.status==='active'?'ok':c.status==='cancelled'?'muted':'info')}</td></tr>`;}).join('')||
  '<tr><td colspan="5"><p class="business-empty">Todavía no hay clientes. Invita al primero.</p></td></tr>'}
- </tbody></table></div>
- ${manager?`<form data-connected="client" class="business-client-add" id="invite-client-form">
- <h3>Invitar cliente</h3>
- ${input('Nombre','name','','text','required minlength="2" maxlength="120"')}
- ${input('Correo electrónico','email','','email','required')}
- <button type="submit" class="connected-primary">Crear ficha y preparar invitación</button>
- <p class="connected-hint">Pendiente hasta aceptación con correo verificado. Si el email no se envía, podrás copiar el enlace.</p></form>`:''}`);
+ </tbody></table></div>`);
+ }
  const c=clients.find(x=>x.id===selected);if(!c)return show('La persona seleccionada no está autorizada para este centro.');
   const archived=Boolean(c.account_deleted_at);
  const ownPasses=passes.filter(p=>p.client_id===c.id),
@@ -165,45 +155,63 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
  }).filter(Boolean).filter(x=>new Date(x.o.starts_at)>=new Date()).sort((a,b)=>a.o.starts_at.localeCompare(b.o.starts_at))[0];
  const logged=athleteLoggedRows(sharedHistory);
  const ownAttendance=attendance.filter(a=>a.client_id===c.id);
- const tabDefs=[['training','Entrenamientos'],['passes','Bonos y pagos'],['chat','Mensajes'],...(trainer?[['agenda','Agenda']]:[['bookings','Reservas']]),['data','Datos']];
- const section=tabDefs.some(([id])=>id===clientSection)?clientSection:'training';
+ // Agenda fusionada en Entrenamientos para PT; Mensajes y Datos aparte.
+ const tabDefs=[['training','Entrenamientos'],['passes','Bonos'],['chat','Mensajes'],...(trainer?[]:[['bookings','Reservas']]),['data','Datos']];
+ const section=tabDefs.some(([id])=>id===clientSection)?clientSection:(clientSection==='agenda'?'training':clientSection);
+ const safeSection=tabDefs.some(([id])=>id===section)?section:'training';
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
  ${tabDefs.map(([id,name])=>
- `<button type="button" data-action="client-section" data-section="${id}" class="${section===id?'active':''}"
- aria-current="${section===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
+ `<button type="button" data-action="client-section" data-section="${id}" class="${safeSection===id?'active':''}"
+ aria-current="${safeSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
  const linkLabel=archived?'Cuenta eliminada':c.user_id?'Vinculado':'Invitación pendiente';
- const head=`${button('← Volver a clientes','back-clients')}<div class="business-profile-header"><span class="business-avatar large">
+ const head=`<div class="pt-client-topbar">
+  ${button('← Clientes','back-clients')}
+  <div class="pt-client-top-actions">
+   ${!archived&&manager?primary('Añadir entreno',trainer?'open-quick-workout':'plan-client',c.id):''}
+   ${!archived&&manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}
+   ${!archived&&manager&&trainer&&c.status!=='cancelled'?button('Finalizar','end-client',c.id):''}
+  </div>
+ </div>
+ <div class="business-profile-header pt-profile-header"><span class="business-avatar large">
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
  </span><div><h2>${esc(c.name)}</h2>
  <p>${esc(c.email||'—')} · ${statusBadge(linkLabel,archived?'muted':c.user_id?'ok':'info')}
- ${activePass?` · ${activePass.remaining_credits}/${activePass.total_credits} créditos · ${passProvenanceLabel(activePass)}`:''}
- ${nextBooking?` · Próximo: ${esc(nextBooking.o.title)} ${dateTime(nextBooking.o.starts_at)}`:''}</p></div>
- ${trainer?`<div class="business-profile-orientation"><span class="pa-eyebrow">Orientación</span>${renderAthleteGuidance(logged,sharedHistory.length)}</div>`:''}
- <div class="business-profile-actions">
- ${!archived&&manager&&section==='training'?primary('Añadir entreno',trainer?'add-planning':'plan-client',c.id):''}
- ${!archived&&manager&&section==='passes'?primary('Asignar bono','client-section','','data-section="passes"'):''}
- ${!archived&&manager&&trainer&&c.status==='active'&&section==='agenda'?button('Registrar sesión','trainer-session',c.id):''}
- ${!archived&&manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}
- ${!archived&&manager&&trainer&&c.status!=='cancelled'?button('Finalizar relación','end-client',c.id):''}
+ ${activePass?` · ${activePass.remaining_credits>=9000?'Ilimitado':`${activePass.remaining_credits}/${activePass.total_credits}`} · ${passProvenanceLabel(activePass)}`:''}
+ ${nextBooking?` · Próximo: ${esc(nextBooking.o.title)} ${dateTime(nextBooking.o.starts_at)}`:''}</p>
+ ${trainer?renderAthleteGuidanceLine(logged,sharedHistory.length):''}
  </div></div>`;
  let body='';
- if(section==='training'){
+ if(safeSection==='training'){
   if(trainer){
    const currentMonth=/^\d{4}-\d{2}$/.test(trainerActivityMonth)?trainerActivityMonth:new Date().toLocaleDateString('sv-SE').slice(0,7);
-   const currentDay=/^\d{4}-\d{2}-\d{2}$/.test(trainerActivityDay)?trainerActivityDay:new Date().toLocaleDateString('sv-SE');
+   const currentDay=/^\d{4}-\d{2}-\d{2}$/.test(trainerActivityDay)?trainerActivityDay:todayISO();
+   const dayEvents=collectDayEvents({
+    day:currentDay,clients:[c],
+    occurrences:occurrences.filter(o=>ownBookings.some(b=>b.occurrence_id===o.id)||o.kind==='appointment'),
+    bookings:ownBookings,sessions:ownSessions,gymAssignments:[],
+   });
    const daily=logged.filter(w=>localDay(w.started_at||w.finished_at)===currentDay);
    const planned=ownSessions.filter(s=>s.scheduled_date===currentDay);
-   body=`<div class="trainer-client-actions">
-    <p>Actividad compartida y entrenamientos programados. Sin consentimiento no se muestra el historial personal.</p>
-    ${manager&&!archived?button('Crear planificación','add-planning',c.id):''}</div>
+   body=`<div class="pt-client-agenda">
+    <div class="business-panel-head"><div><h3>Agenda de ${esc(c.name)}</h3>
+     <p>Citas y entrenos de este cliente.</p></div>
+     ${manager&&!archived?button('Añadir entreno','open-quick-workout',c.id):''}</div>
     <div class="pa-athlete-training-grid trainer-client-grid">
     ${renderAthleteActivity({month:currentMonth,selectedDay:currentDay,
       days:trainerDays({sharedHistory,sessions:ownSessions,attendance:ownAttendance}),
       workouts:daily,plannedSessions:planned,athleteId:c.id,actionNamespace:'trainer',
-      canPlan:manager&&!archived,emptyText:'Días con actividad compartida, entrenos programados o sesiones presenciales.'})}</div>
+      canPlan:manager&&!archived,emptyText:'Elige un día para ver o programar.'})}</div>
+    <div class="pt-day-events">${dayEvents.length?dayEvents.map(ev=>`<article class="pt-event-card">
+      <button type="button" class="pt-event-main" data-action="${esc(ev.action)}" data-id="${esc(ev.id)}">
+       <strong>${esc(ev.title)}</strong><small>${esc(ev.subtitle)}</small></button>
+      ${ev.kind==='entreno'&&manager?button('Editar','edit-session',ev.id):''}
+      ${ev.kind==='cita'&&manager&&ownBookings.find(b=>b.occurrence_id===ev.id&&b.status==='booked')?
+        button('Cancelar reserva','remove-booking',ownBookings.find(b=>b.occurrence_id===ev.id&&b.status==='booked').id):''}
+     </article>`).join(''):'<p class="business-empty">Nada este día.</p>'}</div>
     ${ownAttendance.length?`<section class="business-detail-panel trainer-attendance-history"><h3>Sesiones presenciales</h3>
       <div class="business-attendance-rows">${ownAttendance.slice(0,12).map(a=>`<div class="business-line"><strong>${dateTime(a.performed_at)}</strong><small>${esc(a.note||'Sesión con el entrenador')}</small></div>`).join('')}</div></section>`:''}
-    ${renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false})}`;
+    ${renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false})}
+   </div>`;
   }else{
    body=`<div class="business-360-grid">
    <div class="business-detail-panel"><div class="business-panel-head"><h3>Entrenamientos</h3>
@@ -218,12 +226,11 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
    note('Solo actividades autorizadas por el atleta.')}</div></div>`;
   }
  }
- if(section==='chat'){
-  body=`<div class="business-detail-panel"><h3>Conversación</h3>
-  <p class="connected-hint">Chat con el cliente. Los avisos masivos aparecen marcados como «Aviso».</p>
+ if(safeSection==='chat'){
+  body=`<div class="pt-chat-shell business-detail-panel">
   ${renderClientChatThread({messages:chatMessages,clientId:c.id,busy})}</div>`;
  }
- if(section==='passes'){
+ if(safeSection==='passes'){
   body=`<div class="business-360-grid">
   <div class="business-detail-panel"><h3>Saldo y bonos</h3>
   ${ownPasses.length?ownPasses.map(p=>`<article class="business-line">
@@ -242,22 +249,23 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
   <p class="connected-hint">Procedencia: Confirmado por el centro (manual). No es verificación bancaria.</p>
   </div></div>`;
  }
- if(section==='data'){
-  body=`<div class="business-360-grid">
- <div class="business-detail-panel"><h3>Datos</h3>
- <dl class="business-client-summary"><dt>Nombre</dt><dd>${esc(c.name)}</dd>
- <dt>Correo</dt><dd>${esc(c.email||'—')}</dd>
- <dt>Cuenta Repera</dt><dd>${archived?'Eliminada (histórico)':c.user_id?'Vinculada':'Pendiente'}</dd>
- <dt>Estado</dt><dd>${archived?'Histórico':esc(c.status)}</dd></dl>
-  ${archived?'<p class="connected-hint">Registro congelado. Consulta histórica sin nuevas operaciones.</p>':''}
- ${manager&&!archived?`<form data-connected="client-profile" class="business-form">
+ if(safeSection==='data'){
+  body=`<div class="pt-data-card business-detail-panel">
+ <div class="pt-data-grid">
+  <div><span class="pt-data-label">Nombre</span><strong>${esc(c.name)}</strong></div>
+  <div><span class="pt-data-label">Correo</span><strong>${esc(c.email||'—')}</strong></div>
+  <div><span class="pt-data-label">Cuenta</span><strong>${archived?'Eliminada':c.user_id?'Vinculada':'Pendiente'}</strong></div>
+  <div><span class="pt-data-label">Estado</span><strong>${archived?'Histórico':esc(c.status)}</strong></div>
+ </div>
+ ${archived?'<p class="connected-hint">Registro histórico, solo lectura.</p>':''}
+ ${manager&&!archived?`<form data-connected="client-profile" class="business-form pt-data-form">
  ${input('Nombre','name',c.name,'text','required minlength="2" maxlength="120"')}
  ${input('Correo','email',c.email,'email','required')}
  ${select('Estado','status',['lead','trial','active','paused',...(trainer&&c.status!=='cancelled'?[]:['cancelled'])].map(v=>[v,v]),c.status)}
  <input type="hidden" name="client" value="${esc(c.id)}">
- <button type="submit" class="connected-primary">Guardar</button></form>`:''}</div></div>`;
+ <button type="submit" class="connected-primary">Guardar</button></form>`:''}</div>`;
  }
- if(section==='bookings'||section==='agenda'){
+ if(safeSection==='bookings'){
   body=`<div class="business-360-grid">
  <div class="business-detail-panel"><div class="business-panel-head"><h3>${trainer?'Agenda y citas':'Reservas'}</h3>
  ${!archived&&manager&&!trainer?button('Inscribir en clase','find-class-for-client',c.id):''}

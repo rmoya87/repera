@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-11-01 (Business F1–F9: chat, Center hub, invites QR/push outbox; sin Stripe)
+Última actualización: 2026-11-01 (PT Business agenda-first + F1–F9 chat/hub; sin Stripe)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 
@@ -327,6 +327,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 ## Ajustes: centros, entrenadores y contratos
 
 - **Centro y entrenador**: la conexión Business reutiliza automáticamente la sesión Supabase obtenida al iniciar sesión con Apple; no hay un segundo botón «Conectar con Apple» ni en Ajustes, ni en el buscador, ni en Center. Si se pierde el token, se intenta restaurar desde Keychain y se ofrece «Reintentar» sin volver a pedir Sign in with Apple. Se mantienen búsqueda, invitaciones, vinculación, selección de bono y desvinculación. Las secciones de Cuenta y Centro y entrenador no muestran pies explicativos redundantes.
+- **Repera Business (web, PT)**: inicio = agenda mes/día (citas, entrenos, clases de gym asignadas); nav Agenda/Clientes; ajustes vía avatar/nombre; tarifas bono/mensual/ilimitado; ficha con entreno rápido y chat. Gym conserva recepción + menú completo. Gestión coach de clases asignadas solo en web; la app refleja horarios y cancelaciones al atleta.
 - La vinculación conserva los beneficios de acceso completo mientras el vínculo sea válido y revoca ese acceso al desvincular, salvo suscripción Repera Pro.
 - Ficha del centro vinculado: avatar, bonos/sesiones, planificación, compartir resultados y desvincular.
 - **Sincronización automática** al iniciar sesión y volver al primer plano: iCloud, datos Business, espejo privado y catálogo de ejercicios.

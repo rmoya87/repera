@@ -32,15 +32,21 @@ export function renderTrainerPassPanel({clients=[],passes=[],offers=[],attendanc
  <div class="trainer-seats"><strong>${seat.used} / ${seat.max===Infinity?'∞':seat.max} clientes vinculados</strong>
  <span>${esc(seat.label)} · ${seat.left===Infinity?'Sin límite de plazas':seat.left+' plazas disponibles'}</span></div>
  <h3>Mis bonos</h3>${offerRows||'<p>No has creado ningún bono todavía.</p>'}
- ${manager?`<details class="trainer-expander"><summary>+ Crear una tarifa o bono</summary>
+ ${manager?`<details class="trainer-expander"><summary>+ Crear tarifa</summary>
  <form data-connected="create-pass-offer" class="business-form">
- <label class="connected-field">Nombre<input name="name" minlength="2" maxlength="120" placeholder="Bono de 10 sesiones" required></label>
+ <label class="connected-field">Nombre<input name="name" minlength="2" maxlength="120" placeholder="Bono 10 · Mensual · Ilimitado" required></label>
+ <label class="connected-field">Tipo de tarifa<select name="billing" required>
+  <option value="session_pack">Bono por sesiones</option>
+  <option value="monthly">Pago mensual</option>
+  <option value="unlimited">Sesiones ilimitadas</option>
+ </select></label>
  <div class="trainer-form-cols">
- <label class="connected-field">Sesiones<input name="credits" type="number" min="1" max="1000" value="10" required></label>
+ <label class="connected-field">Sesiones (ignorado si ilimitado)<input name="credits" type="number" min="1" max="9999" value="10"></label>
  <label class="connected-field">Validez en días<input name="validityDays" type="number" min="1" max="730" value="90" required></label>
- <label class="connected-field">Precio total (€)<input name="price" type="number" min="0" max="100000" step=".01" required></label></div>
+ <label class="connected-field">Precio (€)<input name="price" type="number" min="0" max="100000" step=".01" required></label></div>
  <input name="kind" type="hidden" value="appointment">
- <button class="connected-primary" ${busy?'disabled':''}>Guardar bono</button></form></details>`:''}
+ <p class="connected-hint">El cobro es externo. «Ilimitado» registra 9999 créditos de cupo interno.</p>
+ <button class="connected-primary" ${busy?'disabled':''}>Guardar tarifa</button></form></details>`:''}
  </section>
  <section class="connected-card"><h2>Asignar bono a un cliente</h2><p>El bono permite descontar sesiones.
  Si el cobro se ha hecho fuera de Repera, regístralo como gestión externa; la app no verificará ese pago.</p>

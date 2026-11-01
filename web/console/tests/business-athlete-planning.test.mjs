@@ -50,7 +50,7 @@ test('Las solicitudes llegan a la portada con decisiones explícitas y actualiza
  const html=renderBusinessHome({org:{id:org,name:'Centro',kind:'gym'},manager:true,
   clients:[],occurrences:[],sessions:[],
   requests:[{id:'request',name:'Aspirante',email:'a@example.org',pass_kind:'class',note:'Me interesa',status:'pending'}]});
- assert.match(html,/Quieren entrenar contigo/);
+ assert.match(html,/Solicitudes/);
  assert.match(html,/data-action="approve-enrollment"/);
  assert.match(html,/data-action="reject-enrollment"/);
  assert.match(html,/data-action="refresh-enrollments"/);

@@ -350,15 +350,34 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('business_pass_offers?select=id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active&org_id=eq.'+orgId+'&order=created_at.desc');
  }
- async createServicePassOffer({orgId,name,kind,credits,validityDays,priceCents}){
+ async createServicePassOffer({orgId,name,kind,credits,validityDays,priceCents,billingModel='session_pack'}){
   name=String(name||'').trim();
+  const billing=['session_pack','monthly','unlimited'].includes(billingModel)?billingModel:'session_pack';
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||
-     !['class','appointment'].includes(kind)||!Number.isInteger(credits)||credits<1||credits>1000||
+     !['class','appointment'].includes(kind)||!Number.isInteger(credits)||credits<1||credits>9999||
      !Number.isInteger(validityDays)||validityDays<1||validityDays>730||
      !Number.isInteger(priceCents)||priceCents<0||priceCents>10000000)
     throw Error('Datos de bono o tarifa inválidos');
   return this.#authorized('business_pass_offers?select=id,name',{method:'POST',prefer:'return=representation',
-   body:{org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,currency:'EUR',is_active:true}});
+   body:{org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,currency:'EUR',is_active:true,billing_model:billing}});
+ }
+ async listCoachAssignments(){
+  return this.#authorized('rpc/list_my_coach_assignments',{method:'POST',body:{}});
+ }
+ async coachAckOccurrence({occurrenceId,ack}){
+  if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||'')||!['accepted','declined'].includes(ack))
+   throw Error('Asignación inválida');
+  return this.#authorized('rpc/coach_ack_occurrence',{method:'POST',body:{p_occurrence:occurrenceId,p_ack:ack}});
+ }
+ async coachRescheduleOccurrence({occurrenceId,start,end}){
+  if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||'')||!start||!end)
+   throw Error('Horario de clase inválido');
+  return this.#authorized('rpc/coach_reschedule_occurrence',{method:'POST',body:{
+   p_occurrence:occurrenceId,p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString()}});
+ }
+ async coachCancelOccurrence(occurrenceId){
+  if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||''))throw Error('Clase inválida');
+  return this.#authorized('rpc/coach_cancel_occurrence',{method:'POST',body:{p_occurrence:occurrenceId}});
  }
  async issueOfflinePass({orgId,clientId,offerId,requestId=globalThis.crypto?.randomUUID?.()}){
   if(![orgId,clientId,offerId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))

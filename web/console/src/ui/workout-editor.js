@@ -41,7 +41,7 @@ const CURATED = [
  ['hspu','Handstand Push-ups','Gimnasia','art_cf_hspu'],
  ['muscle-up','Muscle-ups','Gimnasia','art_cf_mu_rings']
 ].map(([id,name,group,art])=>({id,name,group,art}));
-const MOVEMENTS=[...CURATED,...APP_CATALOG.filter(item=>!CURATED.some(base=>base.art===item.art&&base.name.toLowerCase().startsWith(item.name.toLowerCase())))];
+export const MOVEMENTS=[...CURATED,...APP_CATALOG.filter(item=>!CURATED.some(base=>base.art===item.art&&base.name.toLowerCase().startsWith(item.name.toLowerCase())))];
 const TYPES={strength:'Fuerza',wod:'WOD / Metcon',warmup:'Calentamiento',accessory:'Accesorios'};
 const FORMATS={sets:'Series',amrap:'AMRAP',emom:'EMOM',rft:'RFT',every:'Every / Intervalos',fortime:'For Time'};
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));

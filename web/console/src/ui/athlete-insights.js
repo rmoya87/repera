@@ -138,6 +138,12 @@ export function renderAthleteGuidance(workouts=[],total=null){
  <div class="pa-insight-stats"><span>${d.uniqueDays} días</span><span>${d.logged} series anotadas</span><span>${d.muscles.length} grupos</span></div>
  <details><summary>Orientación de entrenamiento</summary><ul>${d.recommendations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul><p class="pa-muted">Basado solo en el historial compartido.</p></details></div>`;
 }
+/** Una sola línea bajo el nombre del cliente (ficha PT). */
+export function renderAthleteGuidanceLine(workouts=[],total=null){
+ const d=deriveCoachingInsights(workouts,total);
+ const tip=d.recommendations[0]||'Sin historial compartido aún.';
+ return `<p class="pt-guidance-line"><strong>Registro ${esc(d.label)} · ${d.rating}/100</strong> — ${esc(tip)}</p>`;
+}
 export function renderAthleteInsights(workouts=[],total=null,{showGuidance=true}={}){
  const d=deriveCoachingInsights(workouts,total);
  return `<div class="pa-athlete-insights">

@@ -446,3 +446,56 @@
 .business-invite-links{display:grid;gap:10px}
 .business-invite-actions{display:flex;flex-wrap:wrap;gap:8px}
 @media(max-width:720px){.business-invite-share-grid{grid-template-columns:1fr}.business-chat-compose{grid-template-columns:1fr}}
+
+/* —— PT redesign 2026-11-01 —— */
+.pt-identity{display:flex;align-items:center;gap:12px;border:0;background:transparent;cursor:pointer;text-align:left;padding:4px 0;max-width:min(100%,340px)}
+.pt-identity-avatar{width:42px;height:42px;border-radius:50%;overflow:hidden;background:#e4f5e9;display:grid;place-items:center;flex:none;font-weight:800;color:#1f7a43}
+.pt-identity-avatar img{width:100%;height:100%;object-fit:cover}
+.pt-identity-text{min-width:0;display:grid;gap:1px}
+.pt-identity-text strong{font-size:15px;color:#163e24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-identity-text small{font-size:12px;color:#6d8474;white-space:nowrap}
+.business-navigation.is-pt{gap:6px}
+.pt-home-toolbar,.pt-clients-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:0 0 14px}
+.pt-home-title{margin:2px 0 0;font-size:28px;letter-spacing:-.5px;color:#143820}
+.pt-home-actions{display:flex;flex-wrap:wrap;gap:8px}
+.pt-agenda-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.pt-view-toggle{display:inline-flex;border:1px solid #d5e9db;border-radius:12px;overflow:hidden;background:#fff}
+.pt-view-toggle button{border:0;background:transparent;padding:9px 14px;font-weight:700;font-size:13px;cursor:pointer;color:#4a6754}
+.pt-view-toggle button[aria-selected="true"]{background:#e8f7ec;color:#167840}
+.pt-agenda-nav{display:flex;align-items:center;gap:6px}
+.pt-month-label{border:0;background:transparent;font-weight:800;color:#1b3926;cursor:pointer}
+.pt-agenda-shell{padding:18px!important}
+.pt-cal-cell.is-today .business-calendar-day{outline:2px solid #2fbc5c}
+.pt-cal-cell.is-selected{background:#f0faf3}
+.pt-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#2fbc5c;margin-left:4px;vertical-align:middle}
+.pt-day-rail{margin-top:18px;padding-top:16px;border-top:1px solid #e3eee6}
+.pt-day-events{display:grid;gap:10px}
+.pt-event-card{display:flex;gap:10px;align-items:stretch;border:1px solid #e1eee5;border-radius:14px;background:#fff;overflow:hidden}
+.pt-event-main{flex:1;border:0;background:transparent;text-align:left;padding:12px 14px;cursor:pointer;display:grid;gap:2px}
+.pt-event-kind{font-size:10px;letter-spacing:1px;font-weight:800;color:#239c51;text-transform:uppercase}
+.pt-event-actions{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px;border-left:1px solid #eef5f0}
+.pt-inbox-wrap .connected-card{margin-top:16px}
+.pt-gym-inbox{margin-top:16px}
+.pt-gym-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #eef5f0;flex-wrap:wrap}
+.pt-gym-actions{display:flex;gap:8px}
+.pt-client-search{max-width:420px;margin:0 0 14px}
+.pt-client-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.pt-client-top-actions{display:flex;flex-wrap:wrap;gap:8px}
+.pt-profile-header{align-items:flex-start}
+.pt-guidance-line{margin:6px 0 0;font-size:13px;color:#516f5a;line-height:1.35}
+.pt-chat-shell{padding:0!important;border:0!important;background:transparent!important}
+.pt-chat-shell .business-chat-panel{margin:0}
+.pt-data-card{padding:18px}
+.pt-data-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.pt-data-label{display:block;font-size:11px;font-weight:700;color:#7a9082;margin-bottom:2px}
+.pt-settings-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.pt-settings-card{margin-bottom:16px}
+.pt-plan-wrap .business-subscriptions{box-shadow:none;border:1px solid #dfeae3;border-radius:18px}
+.pt-profile-form .business-onboarding-group:nth-child(2){display:none} /* legales → otra pestaña */
+.pt-profile-form select[name="kind"]{pointer-events:none;opacity:.7}
+.connected-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+@media(max-width:720px){
+ .pt-data-grid{grid-template-columns:1fr}
+ .pt-event-card{flex-direction:column}
+ .pt-event-actions{flex-direction:row;border-left:0;border-top:1px solid #eef5f0}
+}

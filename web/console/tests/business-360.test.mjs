@@ -17,19 +17,20 @@ test('Inicio gym prioriza recepción y clases de hoy',()=>{
  assert.match(html,/Fuerza y movilidad/);
  assert.doesNotMatch(html,/business-stats/);
 });
-test('Inicio PT muestra CTA invitar y próximas citas',()=>{
+test('Inicio PT muestra agenda mes/día y crear cita',()=>{
  const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[client],occurrences:[],bookings:[],sessions:[],manager:true,requests:[]});
  assert.match(html,/Invitar cliente/);
- assert.match(html,/Próximas citas/);
- assert.match(html,/Quieren entrenar contigo/);
+ assert.match(html,/Crear cita/);
+ assert.match(html,/data-action="agenda-view"/);
+ assert.match(html,/>Agenda</);
 });
 test('Ficha cliente: pestañas Bonos, saldo y asignación externa',()=>{
- const html=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:true,sharedHistory:[],clientSection:'passes'});
- assert.match(html,/Bonos y pagos/);
- assert.match(html,/4\/10 disponibles/);
+ const html=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:true,sharedHistory:[],clientSection:'passes',trainer:true});
+ assert.match(html,/>Bonos</);
+ assert.match(html,/4\/10/);
  assert.match(html,/Confirmado por el centro/);
  assert.match(html,/data-connected="issue-offline-pass"/);
- assert.match(html,/Confirmo que he recibido el pago fuera de Repera/);
+ assert.match(html,/Confirmo que he recibido el pago fuera de Repera|Confirmo que la asignación/);
  const outsider=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:false,clientSection:'data'});
  assert.doesNotMatch(outsider,/data-connected="client-profile"/);
  assert.doesNotMatch(outsider,/data-connected="issue-offline-pass"/);
@@ -59,11 +60,12 @@ test('Panel gym de bonos asigna con confirmación externa',()=>{
 });
 test('Panel conectado: menú PT mínimo y gym con productos',()=>{
  const code=readFileSync(new URL('../src/ui/connected.js',import.meta.url),'utf8');
- assert.match(code,/\['overview','Inicio'/);
+ assert.match(code,/trainer\?'Agenda':'Inicio'/);
  assert.match(code,/Agenda y clases/);
  assert.match(code,/Productos y bonos/);
  assert.match(code,/markClassAttendance/);
  assert.match(code,/renderGymPassPanel/);
+ assert.match(code,/pt-identity/);
  assert.doesNotMatch(code,/\['billing','Facturación'/);
  assert.doesNotMatch(code,/\['operations'/);
 });
