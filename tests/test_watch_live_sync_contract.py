@@ -47,6 +47,10 @@ class WatchLiveSyncContractTests(unittest.TestCase):
         discard = root.index('Text("Descartar")')
         self.assertLess(confirm, discard, "Confirmar debe ir encima de Descartar")
         self.assertIn("onConfirm: confirmActivityCancellation", root)
+        modal = root.split("private struct WatchActivityCancelOverlay: View", 1)[1]
+        self.assertIn('.background(accent, in: Capsule())', modal)
+        self.assertIn('.background(Color.white.opacity(0.18), in: Capsule())', modal)
+        self.assertEqual(modal.count('.contentShape(Capsule())'), 2)
         self.assertIn("onDiscard:", root)
         self.assertIn('hub.cancelWatchLive()', root)
         self.assertIn('hub.cancelCompanionLive()', root)

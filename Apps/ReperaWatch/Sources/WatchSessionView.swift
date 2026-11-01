@@ -1427,7 +1427,8 @@ private struct WatchActivityCancelOverlay: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.black)
-                .background(accent, in: RoundedRectangle(cornerRadius: 13))
+                .background(accent, in: Capsule())
+                .contentShape(Capsule())
 
                 Button(action: onDiscard) {
                     Text("Descartar")
@@ -1436,7 +1437,8 @@ private struct WatchActivityCancelOverlay: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.white)
-                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 13))
+                .background(Color.white.opacity(0.18), in: Capsule())
+                .contentShape(Capsule())
             }
             .padding(.horizontal, 15)
             .padding(.vertical, 10)
