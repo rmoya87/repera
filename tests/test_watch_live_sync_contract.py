@@ -31,36 +31,51 @@ class WatchLiveSyncContractTests(unittest.TestCase):
         self.assertIn("liveActivityView", watch)
         self.assertIn('controlLiveActivity("finish")', watch)
 
-    def test_cancelar_x_con_confirmacion_y_sin_guardar_en_watch_e_iphone(self):
+    def test_cancelar_x_modal_opaco_confirmar_primero_descartar_despues(self):
         native = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
-        view = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        root = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn('Image(systemName: "xmark")', native)
+        self.assertIn('Image(systemName: "xmark")', root)
+        self.assertIn('onCancelRequest()', native)
+        self.assertIn('WatchLiveSessionView(sport: sport) {', root)
+        self.assertIn('WatchActivityCancelOverlay(', root)
+        self.assertIn('Color.black', root)
+        self.assertIn('.ignoresSafeArea(.container, edges: .all)', root)
+        self.assertNotIn('.confirmationDialog(', root)
+        self.assertNotIn('.confirmationDialog(', native)
+        confirm = root.index('Text("Confirmar")')
+        discard = root.index('Text("Descartar")')
+        self.assertLess(confirm, discard, "Confirmar debe ir encima de Descartar")
+        self.assertIn("onConfirm: confirmActivityCancellation", root)
+        self.assertIn("onDiscard:", root)
+        self.assertIn('hub.cancelWatchLive()', root)
+        self.assertIn('hub.cancelCompanionLive()', root)
+        self.assertIn('Image(systemName: "flag.checkered")', root)
+        self.assertIn('Image(systemName: "flag.checkered")', native)
+
+    def test_cancelacion_local_y_del_iphone_efectiva_sin_guardar(self):
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
         watch_link = read("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
         phone_link = read("Apps/Repera/Sources/PhoneConnectivity.swift")
         phone = read("Apps/Repera/Sources/ReperaStore.swift")
-
-        for screen in (native, view):
-            self.assertIn('Image(systemName: "xmark")', screen)
-            self.assertIn('.accessibilityLabel("Cancelar actividad")', screen)
-            self.assertIn('Button("Descartar sin guardar", role: .destructive)', screen)
-            self.assertIn('Button("Continuar actividad", role: .cancel)', screen)
-            self.assertIn('Image(systemName: "flag.checkered")', screen)
-        self.assertIn("hub.cancelWatchLive()", native)
-        self.assertIn('hub.controlLiveActivity("cancel")', view)
-
-        # watchOS debe descartar la sesión HK y las rutas, sin llamar a finish.
         cancel_start = hub.index("func cancelWatchLive()")
         cancel_end = hub.index("func finishWatchLive()", cancel_start)
         native_cancel = hub[cancel_start:cancel_end]
         self.assertIn("health.discard()", native_cancel)
         self.assertIn("clearWatchLive()", native_cancel)
-        self.assertIn("publishComplicationSnapshot(force: true)", native_cancel)
+        self.assertIn("returnToHome()", native_cancel)
         self.assertNotIn("sendFinished(", native_cancel)
         self.assertNotIn("health.finish(", native_cancel)
-
-        self.assertIn('command: "cancel"', hub)
-        self.assertIn("cancelledCompanionSessionID", hub)
-        self.assertIn('["pause", "resume", "finish", "cancel"]', watch_link)
+        companion_cancel = hub.split("func cancelCompanionLive()", 1)[1].split(
+            "func controlLiveActivity", 1
+        )[0]
+        self.assertIn("connectivity.enqueueLiveCancellation(sessionId: live.id)", companion_cancel)
+        self.assertIn("cancelledCompanionSessionID = live.id", companion_cancel)
+        self.assertIn("returnToHome()", companion_cancel)
+        self.assertIn("if snapshot?.id == self.cancelledCompanionSessionID { return }", hub)
+        self.assertIn("func enqueueLiveCancellation(sessionId: UUID)", watch_link)
+        self.assertIn("wc.transferUserInfo(message)", watch_link)
+        self.assertIn("flushPendingLiveCancellations()", watch_link)
         self.assertIn('["pause", "resume", "finish", "cancel"]', phone_link)
         cancel = phone.split('case "cancel":', 1)[1].split('case "finish":', 1)[0]
         self.assertIn("recorder.discard()", cancel)

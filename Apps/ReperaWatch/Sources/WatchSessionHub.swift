@@ -479,43 +479,31 @@ final class WatchSessionHub: NSObject {
         connectivity.refreshToday()
     }
 
+    /// Cancela una actividad cuyo dueño es el iPhone. La instrucción se entrega
+    /// de forma durable por WatchConnectivity, incluso si el iPhone está offline.
+    /// El cierre de la vista es inmediato una vez aceptada por la cola local.
+    @discardableResult
+    func cancelCompanionLive() -> Bool {
+        guard let live = liveActivity, !isFinishingCompanionLive else { return false }
+        guard connectivity.enqueueLiveCancellation(sessionId: live.id) else {
+            liveCommandError = "No se pudo programar la cancelación en el iPhone."
+            return false
+        }
+        cancelledCompanionSessionID = live.id
+        suppressCompanionLive = true
+        pendingCompanionSport = nil
+        liveCommandError = nil
+        if companionSensorID == live.id {
+            health.discard()
+            companionSensorID = nil
+        }
+        returnToHome()
+        save()
+        return true
+    }
+
     func controlLiveActivity(_ command: String) {
         guard let live = liveActivity else { return }
-        if command == "cancel" {
-            guard !isFinishingCompanionLive else { return }
-            liveCommandError = nil
-            // No ocultar la actividad antes del ACK: si falla la conexión,
-            // los datos del iPhone deben permanecer intactos y reintentables.
-            let sent = connectivity.sendLiveCommand(
-                sessionId: live.id, command: "cancel"
-            ) { [weak self] cancelled in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    guard self.liveActivity?.id == live.id || self.liveActivity == nil else {
-                        return // Se inició otra actividad: no tocarla.
-                    }
-                    guard cancelled else {
-                        self.liveCommandError = "No se pudo cancelar en iPhone. Reintenta."
-                        return
-                    }
-                    self.cancelledCompanionSessionID = live.id
-                    self.suppressCompanionLive = true
-                    self.liveActivity = nil
-                    self.pendingCompanionSport = nil
-                    self.liveCommandError = nil
-                    if self.companionSensorID == live.id {
-                        self.health.discard()
-                        self.companionSensorID = nil
-                    }
-                    self.publishComplicationSnapshot(force: true)
-                    self.save()
-                }
-            }
-            if !sent {
-                liveCommandError = "Conecta el iPhone para cancelar esta actividad"
-            }
-            return
-        }
         if command == "finish" {
             guard !isFinishingCompanionLive else { return }
             // La revisión del iPhone solo puede existir tras un primer intento
@@ -691,7 +679,7 @@ final class WatchSessionHub: NSObject {
         watchLiveDistanceMeters = 0
         watchLiveElevationGainMeters = 0
         summaryDismissed = true
-        publishComplicationSnapshot(force: true)
+        returnToHome()
         save()
     }
 

@@ -70,3 +70,10 @@ Registrar el App Group `group.com.app.repera.watch` en Apple Developer y habilit
 - En grabación local, `WatchSessionHub.cancelWatchLive()` desecha la sesión HealthKit, detiene GPS/cronómetro, descarta ruta y limpia el estado, sin `sendFinished` ni resumen. **Finalizar** conserva su lógica existente.
 - En grabación propiedad del iPhone, se envía `liveCommand("cancel")` con UUID de sesión. El iPhone verifica identidad y fase, ejecuta `LiveActivityRecorder.discard()` y publica estado vacío. El Watch no abandona la sesión hasta el ACK; si el iPhone está desconectado, muestra un error y permite reintentar. Se ignoran snapshots retrasados del UUID cancelado.
 - Se añadieron pruebas de contrato; falta validación con build watchOS y iPhone reales.
+
+### Cancelación definitiva con modal opaco (01/11/2026)
+- El diálogo `.confirmationDialog` se sustituye por `WatchActivityCancelOverlay` de **fondo negro 100 % opaco**, presentado sobre el `NavigationStack` tanto en actividades nativas como espejo de iPhone. Botón principal **Confirmar**; debajo **Descartar** (solo cierra la modal y continúa el entrenamiento).
+- **Confirmar** en una sesión grabada en Watch ejecuta `health.discard()`, detiene GPS/reloj, elimina la ruta sin guardar y fuerza `returnToHome()`.
+- **Confirmar** en una sesión cuyo propietario es iPhone encola `liveCommand(cancel)` con el UUID exacto mediante `WCSession.transferUserInfo` (persistente aunque el iPhone no esté alcanzable), intenta `sendMessage` inmediato cuando hay conexión y regresa a Inicio. El iPhone verifica UUID y descarta mediante `LiveActivityRecorder.discard()`. La entrega diferida puede tardar hasta que ambos dispositivos vuelvan a conectarse.
+- `Descartar` no envía mensajes ni modifica HealthKit: cierra la capa y vuelve a la actividad. Los snapshots tardíos del mismo UUID cancelado se ignoran.
+- Los tests de contrato verifican orden de botones, opacidad, retorno a Inicio y canal duradero, pero es necesaria una prueba funcional en dispositivos.

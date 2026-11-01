@@ -20,6 +20,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
     private let pendingKey = "repera.watch.completedOutbox.v1"
+    private let pendingLiveCancelKey = "repera.watch.pendingLiveCancels.v1"
     private var lastInboundLive: Data?
     private var lastInboundSession: Data?
     private var lastInboundSessionRevision = -1
@@ -69,6 +70,51 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             onResult?(false)
         }
         return true
+    }
+
+    /// Encola cancelaciones por UUID: transferUserInfo entrega en segundo plano
+    /// aunque el iPhone no esté accesible cuando se pulse Confirmar.
+    /// La misma orden se envía por sendMessage para respuesta inmediata.
+    /// Las dos copias son seguras: el iPhone comprueba sessionId.
+    @discardableResult
+    func enqueueLiveCancellation(sessionId: UUID) -> Bool {
+        guard WCSession.isSupported() else { return false }
+        var ids = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
+        if !ids.contains(sessionId.uuidString) {
+            ids.append(sessionId.uuidString)
+            UserDefaults.standard.set(ids, forKey: pendingLiveCancelKey)
+        }
+        let wc = WCSession.default
+        if wc.activationState == .activated {
+            flushPendingLiveCancellations()
+        } else {
+            wc.activate()
+        }
+        return true
+    }
+
+    private func flushPendingLiveCancellations() {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated else { return }
+        let wc = WCSession.default
+        let pending = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
+        for rawID in pending {
+            guard let sessionID = UUID(uuidString: rawID) else { continue }
+            let message: [String: Any] = [
+                "action": "liveCommand",
+                "sessionId": sessionID.uuidString,
+                "command": "cancel",
+                "actionId": UUID().uuidString
+            ]
+            // La transferencia queda retenida por watchOS incluso al cerrar Repera.
+            wc.transferUserInfo(message)
+            if wc.isReachable {
+                wc.sendMessage(message, replyHandler: nil) { [weak self] error in
+                    self?.logger.debug("Live cancel deferred: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: pendingLiveCancelKey)
     }
 
     /// Pide al iPhone iniciar Comenzar con el deporte elegido en el hub.
@@ -228,6 +274,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         if let error { logger.error("Activation failed: \(error.localizedDescription, privacy: .public)") }
         applyContext(session.receivedApplicationContext)
         flushPending()
+        flushPendingLiveCancellations()
         let manual = pendingManualRefresh
         pendingManualRefresh = false
         requestToday(deferIfOffline: manual)

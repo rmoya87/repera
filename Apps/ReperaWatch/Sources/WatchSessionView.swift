@@ -8,7 +8,8 @@ struct WatchSessionView: View {
     @State private var showOutline = false
     @State private var showSetDetails = false
     @State private var showTimer = false
-    @State private var showCancelCompanionConfirmation = false
+    @State private var showCancelConfirmation = false
+    @State private var cancelConfirmationError: String?
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
     // Filled accent buttons use OG.onAccent: black.
@@ -29,7 +30,10 @@ struct WatchSessionView: View {
                     }
                 } else if let sport = hub.watchLiveSport {
                     // Solo con sesión live real: no usar selección suelta (Volver reabría la actividad).
-                    WatchLiveSessionView(sport: sport)
+                    WatchLiveSessionView(sport: sport) {
+                        cancelConfirmationError = nil
+                        showCancelConfirmation = true
+                    }
                 } else if hub.isFinishingCompanionLive {
                     ProgressView("Guardando en iPhone…")
                 } else if let live = hub.liveActivity {
@@ -78,26 +82,50 @@ struct WatchSessionView: View {
                     WatchStandaloneTimerView()
                 }
             }
-            .confirmationDialog(
-                "¿Cancelar actividad?",
-                isPresented: $showCancelCompanionConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Descartar sin guardar", role: .destructive) {
-                    hub.controlLiveActivity("cancel")
-                }
-                Button("Continuar actividad", role: .cancel) {}
-            } message: {
-                Text("La actividad se descartará también en el iPhone, sin guardarse.")
-            }
+
         }
         .tint(accent)
+        .overlay {
+            if showCancelConfirmation {
+                WatchActivityCancelOverlay(
+                    error: cancelConfirmationError,
+                    onConfirm: confirmActivityCancellation,
+                    onDiscard: {
+                        cancelConfirmationError = nil
+                        showCancelConfirmation = false
+                    }
+                )
+                .zIndex(100)
+            }
+        }
         .onChange(of: hub.complicationOpenEpoch) { _, _ in
             // Pulsar la esfera debe abrir inicio/actividad, no un sheet anterior.
             showTimer = false
             showOutline = false
             showSetDetails = false
-            showCancelCompanionConfirmation = false
+            showCancelConfirmation = false
+            cancelConfirmationError = nil
+        }
+    }
+
+    /// Confirmar cancela de verdad y navega a Inicio, también sin iPhone
+    /// alcanzable: la orden de cancelación se mantiene en la cola WCSession.
+    private func confirmActivityCancellation() {
+        if hub.watchLiveSport != nil {
+            hub.cancelWatchLive()
+            cancelConfirmationError = nil
+            showCancelConfirmation = false
+        } else if hub.liveActivity != nil {
+            if hub.cancelCompanionLive() {
+                cancelConfirmationError = nil
+                showCancelConfirmation = false
+            } else {
+                cancelConfirmationError = "No se pudo enviar la cancelación al iPhone."
+            }
+        } else {
+            // La actividad pudo terminar mientras estaba abierta la confirmación.
+            showCancelConfirmation = false
+            cancelConfirmationError = nil
         }
     }
 
@@ -198,7 +226,8 @@ struct WatchSessionView: View {
                 if live.phase != .review {
                     HStack(spacing: 10) {
                         Button {
-                            showCancelCompanionConfirmation = true
+                            cancelConfirmationError = nil
+                            showCancelConfirmation = true
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.title3.weight(.bold))
@@ -1354,5 +1383,67 @@ struct WatchExerciseThumb: View {
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .accessibilityHidden(true)
+    }
+}
+/// Diálogo propio de watchOS: evita la transparencia Liquid Glass y conserva
+/// la intención de los botones independientemente de confirmationDialog.
+private struct WatchActivityCancelOverlay: View {
+    let error: String?
+    let onConfirm: () -> Void
+    let onDiscard: () -> Void
+
+    private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea(.container, edges: .all)
+
+            VStack(spacing: 10) {
+                Text("¿Cancelar actividad?")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+
+                Text("Se perderán los datos de esta actividad.")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let error {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
+
+                Button(action: onConfirm) {
+                    Text("Confirmar")
+                        .font(.callout.weight(.bold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.black)
+                .background(accent, in: RoundedRectangle(cornerRadius: 13))
+
+                Button(action: onDiscard) {
+                    Text("Descartar")
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(Color.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 13))
+            }
+            .padding(.horizontal, 15)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+        .ignoresSafeArea(.container, edges: .all)
     }
 }

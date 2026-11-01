@@ -8,10 +8,10 @@ import WatchKit
 struct WatchLiveSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     let sport: WatchLiveSport
+    var onCancelRequest: () -> Void
     @State private var conditions: ActivityConditionsSnapshot?
     @State private var conditionsLoading = false
     @State private var lastConditionsFetch = Date.distantPast
-    @State private var showCancelConfirmation = false
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
@@ -72,7 +72,7 @@ struct WatchLiveSessionView: View {
 
                 HStack(spacing: 10) {
                     Button {
-                        showCancelConfirmation = true
+                        onCancelRequest()
                     } label: {
                         Image(systemName: "xmark")
                             .font(.title3.weight(.bold))
@@ -98,18 +98,6 @@ struct WatchLiveSessionView: View {
                 .padding(.bottom, 4)
             }
             .padding(.horizontal, 6)
-        }
-        .confirmationDialog(
-            "¿Cancelar actividad?",
-            isPresented: $showCancelConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Descartar sin guardar", role: .destructive) {
-                hub.cancelWatchLive()
-            }
-            Button("Continuar actividad", role: .cancel) {}
-        } message: {
-            Text("Se perderán el recorrido y los datos registrados en esta actividad.")
         }
         .toolbar {
             // Mute: círculo accent del tint del NavigationStack; icono negro.
