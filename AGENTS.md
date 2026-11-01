@@ -31,7 +31,7 @@ Si el cambio es solo tipográfico o de estilo sin cambio de producto, no hace fa
 
 Referencia oficial: https://github.com/emilkowalski/skills
 
-Instalación en el entorno del agente (si aún no están disponibles, tras revisar el alcance y el entorno): `npx skills@latest add emilkowalski/skills`.
+Las skills viven versionadas en `.agents/skills/` (lock en `skills-lock.json`). Si faltan en el entorno local: `npx skills@latest add emilkowalski/skills`. Para actualizar el set vendored: mismo comando y revisar el diff antes de commit.
 
 - Antes de proponer, diseñar o implementar cambios de UI, UX, componentes visuales, transiciones o animaciones, **identificar las skills pertinentes**, abrir y leer sus archivos `SKILL.md` y aplicar sus criterios al cambio concreto.
 - Seleccionar según el trabajo: `emil-design-eng` (calidad visual e interacciones), `write-swift` (Swift moderno), `animate`, `review-animations`, `improve-animations`, `remove-animations` y `animation-performance` (movimiento justificado, revisión y fluidez), `apple-design` (principios de Apple adaptados a web), `mobile-native` (experiencia web móvil), `break-ui` (casos extremos) y `pick-ui-library` (priorizar soluciones maduras frente a componentes improvisados).
