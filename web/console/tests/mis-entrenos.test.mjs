@@ -66,9 +66,12 @@ test('editor: barra in-block con ejercicio, descanso, movimiento libre y footer 
  assert.match(html,/data-editor-action="open-free"/);
  assert.match(html,/data-editor-action="open-timer"/);
  assert.match(html,/data-editor-action="open-templates"/);
- assert.match(html,/data-editor-action="open-accessories"/);
- assert.match(html,/Elegir WOD|open-global-wod/);
- assert.match(html,/Escanear pizarra|scan-board/);
+ assert.match(html,/editor-block-addbar/);
+ assert.match(html,/data-editor-action="open-global-wod"/);
+ assert.match(html,/data-editor-action="add-block"/);
+ assert.match(html,/editor-footer-actions/);
+ assert.doesNotMatch(html,/data-editor-action="open-accessories"/);
+ assert.doesNotMatch(html,/scan-board/);
 });
 
 test('descanso en fuerza se publica como bloque WOD isRest (paridad app)',()=>{

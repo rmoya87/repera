@@ -65,13 +65,12 @@ export function renderBillingDashboard({clients=[],passes=[],offers=[],attendanc
  }).join(''):'<p class="business-empty">Sin movimientos de cobro.</p>';
 
  return `<div class="pt-billing-dashboard">
-  <section class="connected-card">
-   <div class="business-panel-head"><div><h2>Facturación</h2>
-    <p>Totales de cobros externos que has registrado al asignar bonos. Repera no cobra ni factura por ti.</p></div></div>
+  <section class="connected-card pt-bill-summary">
    <div class="pt-bill-hero">
     <div class="pt-bill-stat is-hero"><span class="pt-data-label">Facturado en total</span><strong>${money(s.totalBilled)}</strong></div>
     <div class="pt-bill-stat"><span class="pt-data-label">Bonos de pago</span><strong>${s.chargedCount}</strong></div>
     <div class="pt-bill-stat"><span class="pt-data-label">Cortesías</span><strong>${s.courtesyCount}</strong></div>
+    <div class="pt-bill-stat"><span class="pt-data-label">Clientes con movimiento</span><strong>${s.perClient.length}</strong></div>
    </div>
    ${methods?`<div class="pt-bill-methods">${methods}</div>`:''}
   </section>

@@ -4,6 +4,19 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const dayLabel=iso=>new Date(iso+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
 const timeOf=iso=>iso?new Date(iso).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'';
 const dateTime=iso=>iso?new Date(iso).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}):'—';
+const initials=s=>String(s||'?').trim().split(/\s+/).slice(0,2).map(t=>t[0]||'').join('').toUpperCase()||'?';
+function attendeeRowHTML(a,{canEdit=false}={}){
+ const avatar=a.avatarUrl&&/^https:\/\//.test(a.avatarUrl)
+  ?`<img src="${esc(a.avatarUrl)}" alt="" loading="lazy">`
+  :`<span>${esc(initials(a.name))}</span>`;
+ return `<li class="pt-attendee-row">
+  <button type="button" class="pt-attendee-link" data-action="detail-client" data-id="${esc(a.clientId)}" ${a.clientId?'':'disabled'} title="Ver ficha">
+   <span class="pt-attendee-avatar" aria-hidden="true">${avatar}</span>
+   <strong class="pt-attendee-name">${esc(a.name)}</strong>
+  </button>
+  ${canEdit?`<button type="button" class="pt-attendee-remove" data-action="remove-booking" data-id="${esc(a.bookingId)}" aria-label="Quitar a ${esc(a.name)}" title="Quitar">×</button>`:''}
+ </li>`;
+}
 
 export function todayISO(){return new Date().toLocaleDateString('sv-SE');}
 
@@ -33,20 +46,32 @@ export function collectDayEvents({
    :`${activeBooked.length}/${o.capacity} plazas`;
   const coachBit=coach?` · ${coach}`:'';
   const blocked=o.status==='cancelled';
+  const kindUi=o.kind==='appointment'?'cita':o.kind==='class'?'clase':'grupo';
+  // Clase: editar horario/serie en modal (no navegar a ficha 360).
+  const action=o.kind==='class'?'open-edit-class-modal':'detail-occurrence';
   events.push({
-   sort:o.starts_at,kind:o.kind==='appointment'?'cita':'grupo',
+   sort:o.starts_at,kind:kindUi,
    title:o.title,
    subtitle:blocked
     ?`${timeOf(o.starts_at)} · Cancelada (bloqueada)`
     :`${timeOf(o.starts_at)} · ${who}${coachBit}${clientBooking?` · ${clientBooking.status==='waitlist'?'En lista':'Apuntado'}`:''}`,
-   action:'detail-occurrence',id:o.id,source:'own',
+   action,id:o.id,source:'own',
    clientId:o.kind==='appointment'?activeBooked[0]?.client_id:'',
    coachLabel:coach,
    color:meta.color||'#22834d',
    location,
    capacity:o.capacity,
    bookedCount:activeBooked.length,
-   attendees:activeBooked.map(b=>({bookingId:b.id,clientId:b.client_id,name:people[b.client_id]||'Socio',status:b.status})),
+   attendees:activeBooked.map(b=>{
+   const person=clients.find(c=>c.id===b.client_id);
+   return {
+    bookingId:b.id,clientId:b.client_id,
+    name:people[b.client_id]||person?.name||'Socio',
+    status:b.status,
+    avatarUrl:person?.avatar_url||'',
+    email:person?.email||'',
+   };
+  }),
    blocked,
    startsAt:o.starts_at,
    endsAt:o.ends_at,
@@ -65,27 +90,6 @@ export function collectDayEvents({
    classPlanInstructions:meta.training_instructions||'',
   });
  }
-
-function classPlanPreviewHTML(ev){
- if(!ev?.hasClassPlan||!ev.classPlanPrescription){
-  return `<p class="business-empty">Esta clase aún no tiene entreno asociado.</p>`;
- }
- const visual=visualPrescription(ev.classPlanPrescription);
- const blocks=visual.blocks||[];
- const title=ev.classPlanTitle?`<strong class="pt-class-plan-preview-title">${esc(ev.classPlanTitle)}</strong>`:'';
- const notes=ev.classPlanInstructions
-  ?`<p class="connected-hint">${esc(ev.classPlanInstructions)}</p>`:'';
- const list=blocks.length?blocks.map((b,i)=>{
-  const n=(b.exercises||[]).length;
-  const fmt=b.format&&b.format!=='none'&&b.format!=='sets'?String(b.format).toUpperCase():'';
-  const moves=(b.exercises||[]).slice(0,6).map(x=>esc(x.name)).join(' · ');
-  const more=n>6?` · +${n-6}`:'';
-  return `<li><span class="pt-class-plan-block-idx">${i+1}</span>
-   <div><strong>${esc(b.title||`Bloque ${i+1}`)}</strong>
-   <small>${esc([fmt,n?`${n} mov.`:''].filter(Boolean).join(' · '))}${moves?`<br>${moves}${more}`:''}</small></div></li>`;
- }).join(''):'<li><p class="business-empty">Sin bloques.</p></li>';
- return `<div class="pt-class-plan-preview">${title}${notes}<ul class="pt-class-plan-blocks">${list}</ul></div>`;
-}
  for(const s of sessions.filter(s=>s.status==='scheduled'&&s.scheduled_date===day)){
   events.push({
    sort:s.scheduled_date+'T23:59:00',kind:'entreno',
@@ -108,6 +112,29 @@ function classPlanPreviewHTML(ev){
  return events.sort((a,b)=>String(a.sort).localeCompare(String(b.sort)));
 }
 
+function classPlanPreviewHTML(ev){
+ if(!ev?.hasClassPlan||!ev.classPlanPrescription){
+  return `<p class="business-empty">Esta clase aún no tiene entreno asociado.</p>`;
+ }
+ let visual;
+ try{visual=visualPrescription(ev.classPlanPrescription);}
+ catch{return `<p class="business-empty">No se pudo leer el entreno de esta clase.</p>`;}
+ const blocks=visual.blocks||[];
+ const title=ev.classPlanTitle?`<strong class="pt-class-plan-preview-title">${esc(ev.classPlanTitle)}</strong>`:'';
+ const notes=ev.classPlanInstructions
+  ?`<p class="connected-hint">${esc(ev.classPlanInstructions)}</p>`:'';
+ const list=blocks.length?blocks.map((b,i)=>{
+  const n=(b.exercises||[]).length;
+  const fmt=b.format&&b.format!=='none'&&b.format!=='sets'?String(b.format).toUpperCase():'';
+  const moves=(b.exercises||[]).slice(0,6).map(x=>esc(x.name)).join(' · ');
+  const more=n>6?` · +${n-6}`:'';
+  return `<li><span class="pt-class-plan-block-idx">${i+1}</span>
+   <div><strong>${esc(b.title||`Bloque ${i+1}`)}</strong>
+   <small>${esc([fmt,n?`${n} mov.`:''].filter(Boolean).join(' · '))}${moves?`<br>${moves}${more}`:''}</small></div></li>`;
+ }).join(''):'<li><p class="business-empty">Sin bloques.</p></li>';
+ return `<div class="pt-class-plan-preview">${title}${notes}<ul class="pt-class-plan-blocks">${list}</ul></div>`;
+}
+
 export function listClassRooms(details=[]){
  const rooms=[...new Set((details||[]).map(d=>String(d.location||'').trim()).filter(Boolean))];
  return rooms.sort((a,b)=>a.localeCompare(b,'es'));
@@ -117,11 +144,40 @@ export function listClassRooms(details=[]){
  * @param {'home'|'client'} mode
  * clientId: filtra acciones a ese cliente (ficha).
  */
+/** Selector mes/día para anclar en el menú principal o en las pestañas del socio. */
+export function agendaMonthChromeHTML({
+ calendarMonth='',agendaDay='',agendaView='month',variant='trainer',
+}={}){
+ const today=todayISO();
+ const day=/^\d{4}-\d{2}-\d{2}$/.test(agendaDay)?agendaDay:today;
+ const month=/^\d{4}-\d{2}$/.test(calendarMonth)?calendarMonth:day.slice(0,7);
+ const [y,m]=month.split('-').map(Number);
+ const title=new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+ const isGym=variant==='gym';
+ if(isGym){
+  return `<div class="pt-agenda-nav pt-nav-chrome" role="group" aria-label="Mes del calendario">
+   ${buttonNav('‹','calendar-prev')}<button type="button" class="pt-month-label" data-action="calendar-today">${esc(title)}</button>${buttonNav('›','calendar-next')}
+  </div>`;
+ }
+ return `<div class="pt-nav-chrome pt-nav-agenda-chrome" role="group" aria-label="Calendario">
+  <div class="pt-view-toggle" role="tablist" aria-label="Vista de agenda">
+   <button type="button" role="tab" data-action="agenda-view" data-agenda-view="month" aria-selected="${agendaView==='month'}">Mes</button>
+   <button type="button" role="tab" data-action="agenda-view" data-agenda-view="day" aria-selected="${agendaView==='day'}">Día</button>
+  </div>
+  <div class="pt-agenda-nav">
+   ${agendaView==='month'
+     ?`${buttonNav('‹','calendar-prev')}<button type="button" class="pt-month-label" data-action="calendar-today">${esc(title)}</button>${buttonNav('›','calendar-next')}`
+     :`${buttonNav('‹','agenda-day-prev')}<button type="button" class="pt-month-label" data-action="agenda-day-today">${esc(dayLabel(day))}</button>${buttonNav('›','agenda-day-next')}`}
+  </div>
+ </div>`;
+}
+
 export function renderTrainerAgenda({
  clients=[],occurrences=[],bookings=[],sessions=[],gymAssignments=[],
  calendarMonth='',agendaView='month',agendaDay='',manager=false,
  mode='home',clientId='',clientName='',requestCount=0,archived=false,
  coaches=[],variant='trainer',details=[],roomFilter='',expandedOccurrenceId='',
+ chromeInMenu=false,
 }){
  const today=todayISO();
  const day=/^\d{4}-\d{2}-\d{2}$/.test(agendaDay)?agendaDay:today;
@@ -173,7 +229,10 @@ export function renderTrainerAgenda({
       ${rooms.map(r=>`<option value="${esc(r)}" ${r===room?'selected':''}>${esc(r)}</option>`).join('')}
      </select></label>`
   :'';
- const viewToggle=isGym
+ // Con chromeInMenu el selector de mes vive en el menú; aquí solo queda el filtro de sala.
+ const viewToggle=chromeInMenu
+  ?(gymRoomFilter?`<div class="pt-agenda-bar pt-agenda-bar-slim">${gymRoomFilter}</div>`:'')
+  :(isGym
   ?`<div class="pt-agenda-bar">
    <div class="pt-agenda-bar-lead">${gymRoomFilter||'<span class="pt-agenda-bar-spacer" aria-hidden="true"></span>'}</div>
    <div class="pt-agenda-nav">
@@ -190,7 +249,7 @@ export function renderTrainerAgenda({
      ?`${buttonNav('‹','calendar-prev')}<button type="button" class="pt-month-label" data-action="calendar-today">${esc(title)}</button>${buttonNav('›','calendar-next')}`
      :`${buttonNav('‹','agenda-day-prev')}<button type="button" class="pt-month-label" data-action="agenda-day-today">${esc(dayLabel(day))}</button>${buttonNav('›','agenda-day-next')}`}
   </div>
- </div>`;
+ </div>`);
 
  const useMonth=isGym||agendaView==='month';
  let body='';
@@ -207,13 +266,16 @@ export function renderTrainerAgenda({
      <button type="button" class="business-calendar-day" data-action="agenda-select-day" data-day="${iso}" aria-label="Ver ${d} de ${esc(title)} en el detalle" aria-pressed="${iso===day?'true':'false'}">${d}${marks.has(iso)?'<span class="pt-dot" aria-hidden="true"></span>':''}</button>
      ${canEdit?`<button type="button" class="pt-cal-add" data-action="${addAction}" data-day="${iso}" ${clientId?`data-client="${esc(clientId)}"`:''} aria-label="Añadir el día ${d}">+</button>`:''}
     </div>
-    ${dayEvents.map(ev=>isGym
-      ?`<button type="button" class="business-calendar-event pt-cal-class ${ev.blocked?'is-blocked':''}" style="--class-color:${esc(ev.color||'#22834d')}" data-action="${esc(ev.action)}" data-id="${esc(ev.id)}">
+    ${dayEvents.filter(ev=>!isGym||ev.kind==='clase').map(ev=>{
+      // Gym: abrir detalle (no editar directo). Editar / entreno van en la ficha del día.
+      const chipAction=isGym?'toggle-occurrence-detail':ev.action;
+      return isGym
+      ?`<button type="button" class="business-calendar-event pt-cal-class ${ev.blocked?'is-blocked':''}" style="--class-color:${esc(ev.color||'#22834d')}" data-action="${esc(chipAction)}" data-id="${esc(ev.id)}">
          <span class="pt-cal-swatch" aria-hidden="true"></span>
          <span class="pt-cal-class-text"><strong>${esc(ev.title)}</strong>${ev.coachLabel?`<small>${esc(ev.coachLabel)}</small>`:''}</span>
        </button>`
-      :`<button type="button" class="business-calendar-event pt-ev-${esc(ev.kind)}" data-action="${esc(ev.action)}" data-id="${esc(ev.id)}"><span>${esc(ev.kind)}</span> ${esc(ev.title)}</button>`
-    ).join('')}
+      :`<button type="button" class="business-calendar-event pt-ev-${esc(ev.kind)}" data-action="${esc(chipAction)}" data-id="${esc(ev.id)}"><span>${esc(labelKind(ev.kind))}</span> ${esc(ev.title)}</button>`;
+    }).join('')}
     ${more>0?`<button type="button" class="pt-more-day" data-action="agenda-select-day" data-day="${iso}">+${more}</button>`:''}
    </div>`;
   }).join('');
@@ -267,7 +329,11 @@ function renderDayList(events,{canEdit=false,day='',clientId='',isGym=false,isCl
   return `<div class="pt-day-empty"><p class="business-empty">Nada programado este día.</p></div>`;
  }
  if(isGym){
-  return `<div class="pt-day-events pt-gym-day-events">${events.map(ev=>{
+  const classEvents=events.filter(ev=>ev.kind==='clase');
+  if(!classEvents.length){
+   return `<div class="pt-day-empty"><p class="business-empty">Nada programado este día.</p></div>`;
+  }
+  return `<div class="pt-day-events pt-gym-day-events">${classEvents.map(ev=>{
    const open=expandedOccurrenceId===ev.id;
    const metaBits=[
     timeOf(ev.startsAt)+(ev.endsAt?`–${timeOf(ev.endsAt)}`:''),
@@ -284,10 +350,9 @@ function renderDayList(events,{canEdit=false,day='',clientId='',isGym=false,isCl
     ?`<button type="button" class="connected-secondary" data-action="remove-booking" data-id="${esc(ev.clientBookingId)}">Cancelar</button>`
     :'';
    const detailBtn=`<button type="button" class="connected-secondary pt-class-detail-btn" data-action="toggle-occurrence-detail" data-id="${esc(ev.id)}" aria-expanded="${open?'true':'false'}">${open?'Ocultar':'Detalle'}</button>`;
+   // Entreno se configura dentro de «Editar clase» (no botones sueltos aquí).
    const staffLeft=!isClient
-    ?`${canEdit?`<button type="button" class="connected-secondary" data-action="open-edit-class-modal" data-id="${esc(ev.id)}">Editar clase</button>`:''}
-      ${canEdit&&!ev.blocked?`<button type="button" class="connected-secondary" data-action="publish-class-plan" data-id="${esc(ev.id)}">${ev.hasClassPlan?'Editar entreno':'Añadir entreno'}</button>`:''}
-      ${canEdit&&!ev.blocked&&ev.hasClassPlan?`<button type="button" class="connected-secondary pt-danger-btn" data-action="clear-class-plan" data-id="${esc(ev.id)}">Quitar entreno</button>`:''}`
+    ?`${canEdit?`<button type="button" class="connected-secondary" data-action="open-edit-class-modal" data-id="${esc(ev.id)}">${ev.hasClassPlan?'Editar clase / entreno':'Editar clase'}</button>`:''}`
     :'';
    return `<article class="pt-event-card pt-gym-class-card ${ev.blocked?'is-blocked':''} ${open?'is-open':''} ${ev.clientBooked?'is-client-booked':''} ${ev.hasClassPlan?'has-class-plan':''}" style="--class-color:${esc(ev.color||'#22834d')}">
     <div class="pt-gym-class-head">
@@ -305,21 +370,22 @@ function renderDayList(events,{canEdit=false,day='',clientId='',isGym=false,isCl
     </div>
     ${open?`<div class="pt-gym-attendees">
       ${isClient?`<h4>Qué incluye la clase</h4>${classPlanPreviewHTML(ev)}`
-       :`<h4>Apuntados</h4>
+       :`<div class="pt-attendee-panel">
+      <div class="pt-attendee-panel-head">
+       <h4>Apuntados <span class="pt-attendee-count">${esc(String(ev.attendees?.length||0))}/${esc(String(ev.capacity||0))}</span></h4>
+       ${canEdit&&!ev.blocked?`<button type="button" class="connected-primary" data-action="open-enroll-class" data-id="${esc(ev.id)}">Añadir</button>`:''}
+      </div>
       ${ev.attendees?.length
-        ?`<ul>${ev.attendees.map(a=>`<li><span>${esc(a.name)}</span>${canEdit?`<button type="button" class="connected-secondary" data-action="remove-booking" data-id="${esc(a.bookingId)}">Quitar</button>`:''}</li>`).join('')}</ul>`
+        ?`<ul class="pt-attendee-list">${ev.attendees.map(a=>attendeeRowHTML(a,{canEdit})).join('')}</ul>`
         :`<p class="business-empty">Nadie apuntado todavía.</p>`}
-      ${canEdit&&!ev.blocked?`<div class="pt-gym-add-after">
-        <button type="button" class="connected-primary" data-action="open-enroll-class" data-id="${esc(ev.id)}">Añadir</button>
-        <p class="connected-hint">Inscribe a un socio manualmente; cuenta igual que si se hubiera apuntado desde la app.</p>
-       </div>`:''}
-      <div class="pt-gym-add-after">
-        <h4>Entreno de la clase</h4>
+      ${canEdit&&!ev.blocked?`<p class="connected-hint">Inscribe a un socio manualmente; cuenta igual que si se hubiera apuntado desde la app.</p>`:''}
+      </div>
+      <div class="pt-gym-add-after pt-class-plan-summary">
+        <div class="pt-attendee-panel-head">
+         <h4>Entreno de la clase</h4>
+         ${canEdit&&!ev.blocked?`<button type="button" class="connected-secondary" data-action="open-edit-class-modal" data-id="${esc(ev.id)}">${ev.hasClassPlan?'Editar entreno':'Añadir entreno'}</button>`:''}
+        </div>
         ${classPlanPreviewHTML(ev)}
-        ${canEdit&&!ev.blocked?`<div class="pt-gym-action-row" style="margin-top:10px">
-         <button type="button" class="connected-primary" data-action="publish-class-plan" data-id="${esc(ev.id)}">${ev.hasClassPlan?'Editar entreno':'Crear / asociar entreno'}</button>
-         ${ev.hasClassPlan?`<button type="button" class="connected-secondary pt-danger-btn" data-action="clear-class-plan" data-id="${esc(ev.id)}">Quitar entreno</button>`:''}
-        </div>`:''}
        </div>`}
      </div>`:''}
    </article>`;
@@ -333,6 +399,7 @@ function renderDayList(events,{canEdit=false,day='',clientId='',isGym=false,isCl
   </button>
   <div class="pt-event-actions">
    ${ev.kind==='entreno'&&canEdit?`<button type="button" class="connected-secondary" data-action="edit-session" data-id="${esc(ev.id)}">Editar</button>`:''}
+   ${ev.kind==='clase'&&canEdit?`<button type="button" class="connected-secondary" data-action="open-edit-class-modal" data-id="${esc(ev.id)}">Editar clase</button>`:''}
    ${(ev.kind==='cita'||ev.kind==='grupo')&&canEdit?`<button type="button" class="connected-secondary" data-action="detail-occurrence" data-id="${esc(ev.id)}">Abrir</button>`:''}
    ${ev.source==='gym'&&ev.ack==='pending'?`<button type="button" class="connected-primary" data-action="coach-ack" data-id="${esc(ev.id)}" data-ack="accepted">Aceptar</button>`:''}
    ${ev.source==='gym'&&ev.ack==='accepted'&&canEdit?`<button type="button" class="connected-secondary" data-action="reschedule-occurrence" data-id="${esc(ev.id)}">Mover</button>
@@ -342,7 +409,7 @@ function renderDayList(events,{canEdit=false,day='',clientId='',isGym=false,isCl
 }
 
 function labelKind(k){
- return ({cita:'Cita',grupo:'Grupo',entreno:'Entreno','clase-gym':'Clase centro'})[k]||k;
+ return ({cita:'Cita',grupo:'Grupo',clase:'Clase',entreno:'Entreno','clase-gym':'Clase centro'})[k]||k;
 }
 
 export function renderGymAssignmentDialog(assignment){

@@ -4,7 +4,7 @@ import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,vi
 import {passProvenanceLabel} from './gym-pass-panel.js';
 import {renderClientPassesPanel} from './client-passes.js';
 import {renderClientChatThread} from './business-chat.js';
-import {renderTrainerAgenda,todayISO} from './trainer-agenda.js';
+import {renderTrainerAgenda,agendaMonthChromeHTML,todayISO} from './trainer-agenda.js';
 import {pendingAthleteInvite,renderInvitationShareCard} from './invitation-share.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -71,7 +71,7 @@ export function parseWeekSlotKey(key){
 function renderTrainerOverview({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',gymAssignments=[],requestCount=0}){
  return renderTrainerAgenda({
   clients,occurrences,bookings,sessions,gymAssignments,calendarMonth,agendaView,agendaDay,manager,
-  mode:'home',requestCount,
+  mode:'home',requestCount,chromeInMenu:true,
  });
 }
 
@@ -79,10 +79,13 @@ function pendingEnrollmentRequests(requests=[]){
  const list=Array.isArray(requests)?requests:[];
  return list.filter(r=>!r.status||r.status==='pending');
 }
-function renderGymHome({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',coaches=[],requestCount=0,details=[],roomFilter='',expandedOccurrenceId=''}){
+function renderGymHome({clients,occurrences,bookings,calendarMonth,manager,agendaView='month',agendaDay='',coaches=[],requestCount=0,details=[],roomFilter='',expandedOccurrenceId=''}){
+ // Solo clases del calendario: los fan-out a inscritos no deben pintarse como “otra clase”
+ // (provocaban «No se encontró esa clase» al pulsar Editar).
  return renderTrainerAgenda({
-  clients,occurrences,bookings,sessions,gymAssignments:[],calendarMonth,agendaView,agendaDay,manager,
+  clients,occurrences,bookings,sessions:[],gymAssignments:[],calendarMonth,agendaView,agendaDay,manager,
   mode:'home',requestCount,coaches,variant:'gym',details,roomFilter,expandedOccurrenceId,
+  chromeInMenu:true,
  });
 }
 
@@ -110,7 +113,6 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
    const hay=((c.name||'')+' '+(c.email||'')).toLowerCase();
    return hay.includes(q);
   });
-  const peopleLabel=trainer?'Clientes':'Socios';
   const groupsBlock=`<div class="business-detail-panel pt-groups-panel"><div class="business-panel-head"><div>
   <h3>Grupos para avisos</h3>
   <p class="connected-hint">Listas de ${trainer?'clientes':'socios'} para mensajes (nivel/programa). No son clases del calendario.</p></div>
@@ -120,10 +122,7 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
    return `<button type="button" class="business-group-row" data-action="detail-group" data-id="${esc(g.id)}"><strong>${esc(g.name)}</strong><small>${esc(g.description||`${n} miembro${n===1?'':'s'}`)}</small><span>Gestionar →</span></button>`;
   }).join('')||note(manager?'Crea un grupo solo si quieres avisar a un subconjunto.':'Sin grupos.')}
   </div>`;
-  return show(`<div class="business-panel-head pt-clients-head"><div>
- <h2>${peopleLabel}</h2></div>
- ${manager?primary(trainer?'Invitar cliente':'Invitar socio','open-invite-modal'):''}</div>
- <label class="connected-field pt-client-search">Buscar
+  return show(`<label class="connected-field pt-client-search pt-client-search-flush">Buscar
   <input type="search" data-client-filter value="${esc(clientQuery||'')}" placeholder="Nombre o correo" autocomplete="off">
  </label>
  <div class="business-client-table-wrap"><table class="business-client-table"><thead><tr>
@@ -155,10 +154,22 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
  const tabDefs=[['training','Entrenamientos'],['passes','Bonos'],['chat','Mensajes'],['data','Datos']];
  const section=tabDefs.some(([id])=>id===clientSection)?clientSection:(clientSection==='agenda'||clientSection==='bookings'?'training':clientSection);
  const safeSection=tabDefs.some(([id])=>id===section)?section:'training';
- const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
+ const monthChrome=safeSection==='training'?agendaMonthChromeHTML({
+  calendarMonth:calendarMonth||trainerActivityMonth,
+  agendaDay:agendaDay||trainerActivityDay||todayISO(),
+  agendaView:trainer?agendaView:'month',
+  variant:trainer?'trainer':'gym',
+ }):'';
+ const passChrome=safeSection==='passes'&&!archived&&manager
+  ?`<button type="button" class="connected-primary pt-tab-chrome-btn" data-action="open-assign-pass" data-id="${esc(c.id)}" data-mode="${activePass?'renew':'new'}">Alta bono</button>`
+  :'';
+ const tabs=`<div class="business-client-tabs-row">
+ <nav class="business-client-tabs" aria-label="Ficha de cliente">
  ${tabDefs.map(([id,name])=>
  `<button type="button" data-action="client-section" data-section="${id}" class="${safeSection===id?'active':''}"
- aria-current="${safeSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
+ aria-current="${safeSection===id?'page':'false'}">${name}</button>`).join('')}</nav>
+ <div class="pt-client-tab-chrome">${monthChrome}${passChrome}</div>
+ </div>`;
  const linkLabel=archived?'Cuenta eliminada':c.user_id?'Vinculado':'Invitación pendiente';
  const pendingInvite=!archived&&!c.user_id?pendingAthleteInvite({invitations,orgId,email:c.email}):null;
  const shareInvite=pendingInvite
@@ -191,7 +202,7 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
     calendarMonth:calendarMonth||trainerActivityMonth,agendaView:trainer?agendaView:'month',
     agendaDay:agendaDay||trainerActivityDay||todayISO(),
     manager,mode:'client',clientId:c.id,clientName:c.name,archived,
-    variant:trainer?'trainer':'gym',
+    variant:trainer?'trainer':'gym',chromeInMenu:true,
    })}
    ${logged.length?`<section class="connected-card pt-client-history"><h3>Actividad compartida</h3>
      ${logged.some(w=>(w.exercises||[]).length)?renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false}):''}
@@ -206,7 +217,7 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
  if(safeSection==='passes'){
   body=renderClientPassesPanel({
    client:c,passes,offers,attendance,bookings,occurrences,passEvents,
-   manager,trainer,busy,archived,
+   manager,trainer,busy,archived,hideHead:true,
   });
  }
  if(safeSection==='data'){
@@ -267,8 +278,15 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
   <div class="business-360-grid"><div class="business-detail-panel"><h3>Configuración de la clase</h3>${manager&&future&&o.status==='active'?`<form data-connected="edit-occurrence" class="business-form"><input type="hidden" name="id" value="${esc(o.id)}">${input('Nombre','title',o.title,'text','required minlength="2" maxlength="120"')}${input('Inicio','start',new Date(o.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Fin','end',new Date(o.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Aforo','capacity',o.capacity,'number',`min="${Math.max(1,activeSeats.length)}" max="200" required`)}${input('Lugar','location',meta.location||'','text','maxlength="250"')}${colorSwatches(meta.color||'#22834d')}${input('Imagen (URL)','image',meta.image_url||'','url','maxlength="2000"')}<label class="connected-field">Descripción<textarea name="description" rows="3" maxlength="2000">${esc(meta.description||'')}</textarea></label><button class="connected-primary">Guardar cambios</button></form><p>${button('Cancelar clase y devolver bonos','cancel-occurrence',o.id)}</p>`:`<p>${esc(meta.description||'Sin descripción')}</p><p>Estado: ${esc(o.status)}</p>`}</div>
   <div class="business-detail-panel"><h3>Asistentes (${roster.length})</h3>${roster.map(b=>{
    const st=bookingStatusLabel[b.status]||[b.status,'neutral'];
-   return `<div class="business-roster"><span class="business-avatar">${esc(initials(clients.find(c=>c.id===b.client_id)?.name))}</span>
-   <div><strong>${esc(clients.find(c=>c.id===b.client_id)?.name||'Deportista')}</strong><small>${statusBadge(st[0],st[1])}</small></div>
+   const person=clients.find(c=>c.id===b.client_id);
+   const avatar=person?.avatar_url&&/^https:\/\//.test(person.avatar_url)
+    ?`<img src="${esc(person.avatar_url)}" alt="" loading="lazy">`
+    :esc(initials(person?.name));
+   return `<div class="business-roster">
+   <button type="button" class="pt-attendee-link business-roster-person" data-action="detail-client" data-id="${esc(b.client_id||'')}" ${b.client_id?'':'disabled'}>
+    <span class="business-avatar pt-attendee-avatar">${avatar}</span>
+    <div><strong>${esc(person?.name||'Deportista')}</strong><small>${statusBadge(st[0],st[1])}</small></div>
+   </button>
    <div class="business-roster-actions">
    ${manager&&b.status==='booked'?`${button('Asistió','mark-booking-attended',b.id)}${button('No presentado','mark-booking-noshow',b.id)}`:''}
    ${manager&&future&&b.status==='booked'?button('Quitar','remove-booking',b.id):''}
@@ -276,7 +294,7 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
   }).join('')||note('Nadie inscrito todavía.')}
   ${manager&&future&&o.status==='active'?`<form data-connected="enroll-client" class="business-form"><input type="hidden" name="occurrence" value="${esc(o.id)}">${select('Cliente con bono válido','pass',eligible.flatMap(c=>available.filter(p=>p.client_id===c.id).map(p=>[p.id,`${c.name} · ${p.remaining_credits} sesiones`])))}<button class="connected-primary" ${!eligible.length||activeSeats.length>=o.capacity?'disabled':''}>Añadir participante</button></form>${note('Inscribir consume un crédito; quitar lo devuelve. Asistió / no presentado no vuelven a descontar.')}`:''}</div>
   <div class="business-detail-panel"><h3>Entreno de la clase</h3>
-  ${note('Puedes crear un entreno nuevo o usar una plantilla de Mis entrenos. Los inscritos con app lo verán en el detalle y podrán Comenzarlo. Quitar entreno solo afecta a esta clase (no borra plantillas de Mis entrenos).')}
+  ${note('Configura el entreno dentro de Editar clase: plantilla de Mis entrenos o crear de cero. Quitar entreno solo afecta a esta clase.')}
   ${(()=>{
     const blocks=(visualPrescription(meta.prescription||emptyPrescription()).blocks||[]);
     const hasPlan=blocks.length>0;
@@ -285,8 +303,7 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
       :note(meta.training_title?'Sin bloques todavía.':'Todavía no hay entreno asociado.');
     if(!(manager&&future&&o.status==='active'))return summary;
     return `${summary}<div class="pt-gym-action-row">
-      ${primary(hasPlan?'Editar entreno':'Crear / asociar entreno','publish-class-plan',o.id)}
-      ${hasPlan?`<button type="button" class="connected-secondary pt-danger-btn" data-action="clear-class-plan" data-id="${esc(o.id)}">Quitar entreno</button>`:''}
+      ${primary(hasPlan?'Editar clase / entreno':'Editar clase','open-edit-class-modal',o.id)}
      </div>`;
   })()}
   </div>
@@ -353,8 +370,106 @@ export function renderNewGroupModal({busy=false}={}){
  </section></div>`;
 }
 
-/** Modal nueva clase: única (fecha/hora/duración) o repetitiva (semana tipo). */
-export function renderNewClassModal({coaches=[],busy=false,day=''}={}){
+/** Bloque Entreno compartido (nueva / editar clase). */
+function classTrainingSection({
+ templates=[],templateId='',seedPrescription=null,detail={},
+ titleFallback='',assignScope='one',hasPlan=false,editable=true,
+ busy=false,occurrenceId='',showClear=false,saveDefault=false,
+}={}){
+ const seedTpl=templates.find(t=>t.id===templateId);
+ const rawSeed=seedPrescription||seedTpl?.prescription||detail.prescription||null;
+ const seed=rawSeed?visualPrescription(rawSeed):starterPrescription();
+ const trainingTitle=detail.training_title||seedTpl?.name||titleFallback||'';
+ const tplOptions=[['','Crear de cero (editor abajo)'],
+  ...templates.map(t=>[t.id,`${t.name} · ${(visualPrescription(t.prescription).blocks||[]).length} bloq.`])];
+ const scopeTraining=hasPlan&&editable?`<fieldset class="pt-assign-scope"><legend>Alcance del entreno</legend>
+  <label class="pt-radio-card"><input type="radio" name="assignScope" value="one" ${assignScope==='one'?'checked':''}>
+   <span><strong>Solo esta clase</strong><small>No cambia el resto de la serie</small></span></label>
+  <label class="pt-radio-card"><input type="radio" name="assignScope" value="series" ${assignScope==='series'?'checked':''}>
+   <span><strong>Esta y las siguientes</strong><small>Mismo título, día y hora hacia delante</small></span></label>
+ </fieldset>`:`<input type="hidden" name="assignScope" value="one">`;
+ return `<section class="pt-edit-class-col pt-edit-training" aria-label="Entreno de la clase">
+  <div class="pt-edit-training-head">
+   <h3 class="pt-edit-col-title">Entreno</h3>
+   ${hasPlan?`<span class="pt-class-plan-chip">Publicado</span>`:`<span class="pt-class-plan-chip is-empty">Opcional</span>`}
+  </div>
+  <p class="connected-hint">Plantilla de Mis entrenos o crear de cero. Si eliges plantilla, editas una copia solo para esta clase.</p>
+  ${!editable
+    ?'<p class="connected-hint">No se puede cambiar el entreno de una clase pasada o cancelada.</p>'
+    :`${templates.length?select('Usar Mis entrenos o crear de cero','templateId',tplOptions,templateId)
+       :'<p class="connected-hint">Aún no hay plantillas: crea el entreno abajo o guarda uno en Mis entrenos.</p>'}
+     ${scopeTraining}
+     ${input('Título del entrenamiento','trainingTitle',trainingTitle,'text','maxlength="120"')}
+     <div class="pt-edit-training-editor">${editorMarkup(seed,{meta:visualSessionMeta(rawSeed||{}),showMeta:true})}</div>
+     <label class="connected-field">Indicaciones<textarea name="instructions" rows="2" maxlength="10000">${esc(detail.training_instructions||'')}</textarea></label>
+     <label class="pt-check-row"><input type="checkbox" name="saveTraining" value="1" ${saveDefault?'checked':''}>
+      <span>Incluir este entreno al guardar</span></label>
+     ${showClear&&hasPlan&&occurrenceId?`<button type="button" class="connected-secondary pt-danger-btn pt-clear-training-btn" data-action="clear-class-plan" data-id="${esc(occurrenceId)}" ${busy?'disabled':''}>Quitar entreno de la clase</button>`:''}`}
+ </section>`;
+}
+
+/** Modal crear entreno para un cliente/socio (misma maqueta 2 cols que Nueva clase). */
+export function renderNewClientWorkoutModal({
+ client=null,clients=[],day='',busy=false,templates=[],templateId='',seedPrescription=null,
+}={}){
+ const pool=(clients||[]).filter(c=>!c.account_deleted_at&&['active','trial','paused','lead'].includes(c.status));
+ const selected=client||pool.find(c=>c.id)||null;
+ const clientId=selected?.id||'';
+ const seedTpl=templates.find(t=>t.id===templateId);
+ const rawSeed=seedPrescription||seedTpl?.prescription||null;
+ const seed=rawSeed?visualPrescription(rawSeed):starterPrescription();
+ const seedHasWork=Boolean(rawSeed&&(visualPrescription(rawSeed).blocks||[]).some(b=>(b.exercises||[]).length));
+ const trainingTitle=seedTpl?.name||'';
+ const seedDay=/^\d{4}-\d{2}-\d{2}$/.test(day)?day:todayISO();
+ const tplOptions=[['','Crear de cero (editor abajo)'],
+  ...templates.map(t=>[t.id,`${t.name} · ${(visualPrescription(t.prescription).blocks||[]).length} bloq.`])];
+ const formId='new-client-workout-form';
+ const who=selected?.name||'cliente';
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-edit-class-dialog pt-new-client-workout-dialog" role="dialog" aria-modal="true" aria-label="Nuevo entreno">
+  <div class="business-dialog-header pt-sheet-head">
+   <div><span class="pt-sheet-kicker">Programación</span><h2>Entreno para ${esc(who)}</h2></div>
+   <div class="pt-sheet-head-actions">
+    <button type="submit" form="${formId}" class="connected-primary" data-intent="publish" ${busy||!clientId?'disabled':''}>Publicar entreno</button>
+    <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button>
+   </div>
+  </div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   <form id="${formId}" data-connected="publish-session" class="business-form pt-sheet-form pt-edit-class-form" data-assign-class-form>
+    <div class="pt-edit-class-layout">
+     <section class="pt-edit-class-col pt-edit-class-meta" aria-label="Datos del entreno">
+      <h3 class="pt-edit-col-title">Sesión</h3>
+      ${selected
+        ?`<input type="hidden" name="client" value="${esc(clientId)}">
+          <div class="pt-client-locked"><span class="pt-data-label">Para</span><strong>${esc(selected.name)}</strong>
+           <small>${esc(selected.email||'')}</small></div>`
+        :select('Cliente','client',pool.map(c=>[c.id,c.name]),'')}
+      <div class="pt-sheet-grid">
+       ${input('Fecha','date',seedDay,'date','required')}
+       ${input('Hora (opcional)','time','','time','')}
+      </div>
+      ${input('Título','title',trainingTitle,'text','required minlength="2" maxlength="120" placeholder="Fuerza · tren inferior"')}
+      <label class="connected-field">Indicaciones<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo, tempo, material…"></textarea></label>
+     </section>
+     <section class="pt-edit-class-col pt-edit-training" aria-label="Contenido del entreno">
+      <div class="pt-edit-training-head">
+       <h3 class="pt-edit-col-title">Entreno</h3>
+       <span class="pt-class-plan-chip ${seedHasWork?'':'is-empty'}">${seedHasWork?'Desde plantilla':'Crear ahora'}</span>
+      </div>
+      <p class="connected-hint">Misma estructura que en Nueva clase: plantilla de Mis entrenos o crear de cero.</p>
+      ${templates.length?select('Usar Mis entrenos o crear de cero','templateId',tplOptions,templateId)
+        :'<p class="connected-hint">Aún no hay plantillas: crea el entreno abajo o guarda uno en Mis entrenos.</p>'}
+      <div class="pt-edit-training-editor">${editorMarkup(seed,{meta:visualSessionMeta(rawSeed||{}),showMeta:true})}</div>
+     </section>
+    </div>
+   </form>
+  </div>
+ </section></div>`;
+}
+
+/** Modal nueva clase: única / repetitiva + entreno opcional. */
+export function renderNewClassModal({
+ coaches=[],busy=false,day='',templates=[],templateId='',seedPrescription=null,
+}={}){
  const staff=coaches.filter(c=>c.user_id&&!/Administrador Repera/i.test(c.label||''));
  const seed=new Set();
  const today=new Date().toLocaleDateString('sv-SE');
@@ -365,60 +480,78 @@ export function renderNewClassModal({coaches=[],busy=false,day=''}={}){
   seed.add(weekSlotKey(iso,9*60));
  }
  const uniqueStart=`${seedDay}T09:00`;
- return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-new-class-dialog" role="dialog" aria-modal="true" aria-label="Nueva clase">
-  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Agenda</span><h2>Nueva clase</h2></div>
-   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+ const seedTpl=templates.find(t=>t.id===templateId);
+ const rawSeed=seedPrescription||seedTpl?.prescription||null;
+ const seedHasWork=Boolean(rawSeed&&(visualPrescription(rawSeed).blocks||[]).some(b=>(b.exercises||[]).length));
+ const formId='new-class-form';
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-edit-class-dialog pt-new-class-dialog" role="dialog" aria-modal="true" aria-label="Nueva clase">
+  <div class="business-dialog-header pt-sheet-head">
+   <div><span class="pt-sheet-kicker">Agenda</span><h2>Nueva clase</h2></div>
+   <div class="pt-sheet-head-actions">
+    <button type="submit" form="${formId}" class="connected-primary" ${busy?'disabled':''}>Crear en el calendario</button>
+    <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button>
+   </div>
+  </div>
   <div class="business-dialog-scroll pt-sheet-body">
-   <form data-connected="service-occurrence" class="business-form pt-sheet-form" data-class-create data-class-week-create>
+   <form id="${formId}" data-connected="service-occurrence" class="business-form pt-sheet-form pt-edit-class-form" data-class-create data-class-week-create data-assign-class-form>
     <input type="hidden" name="kind" value="class">
-    ${input('Nombre de la clase','title','','text','required minlength="2" maxlength="120" placeholder="Spinning · HIIT · Yoga…"')}
-    ${colorSwatches('#22834d')}
-    <label class="connected-field">Tipo
-     <select name="scheduleMode" data-class-schedule-mode>
-      <option value="unique" selected>Clase única</option>
-      <option value="weekly">Repetitiva</option>
-     </select>
-    </label>
-    <div class="pt-sheet-grid">
-     <label class="connected-field">Duración (min)
-      <input name="duration" type="number" min="15" max="240" step="5" value="60" required data-week-duration>
-     </label>
-     ${input('Aforo','capacity','12','number','min="1" max="200" required')}
-    </div>
-    <label class="connected-field">Entrenador (opcional)
-     <select name="coach">
-      <option value="">Sin asignar</option>
-      ${staff.map(c=>`<option value="${esc(c.user_id)}">${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
-     </select>
-    </label>
-    ${input('Sala / ubicación (opcional)','location','','text','maxlength="250"')}
-    <div data-class-panel="unique">
-     <div class="pt-sheet-grid">
-      ${input('Fecha y hora','start',uniqueStart,'datetime-local','required')}
-     </div>
-    </div>
-    <div data-class-panel="weekly" hidden>
-     <div class="pt-sheet-grid">
-      ${input('Comienza el','seriesStart',seedDay,'date','required')}
-     </div>
-     <fieldset class="pt-until-field">
-      <legend>Fin de la serie</legend>
-      <div class="pt-until-options">
-       <label class="pt-radio-card"><input type="radio" name="untilMode" value="indefinite" checked>
-        <span><strong>Sin fecha de fin</strong></span></label>
-       <label class="pt-radio-card"><input type="radio" name="untilMode" value="date">
-        <span><strong>Hasta una fecha</strong>
-         <input name="untilDate" type="date" min="${esc(today)}">
-        </span></label>
+    <div class="pt-edit-class-layout">
+     <section class="pt-edit-class-col pt-edit-class-meta" aria-label="Datos de la clase">
+      <h3 class="pt-edit-col-title">Clase</h3>
+      ${input('Nombre de la clase','title','','text','required minlength="2" maxlength="120" placeholder="Spinning · HIIT · Yoga…"')}
+      ${colorSwatches('#22834d')}
+      <label class="connected-field">Tipo
+       <select name="scheduleMode" data-class-schedule-mode>
+        <option value="unique" selected>Clase única</option>
+        <option value="weekly">Repetitiva</option>
+       </select>
+      </label>
+      <div class="pt-sheet-grid">
+       <label class="connected-field">Duración (min)
+        <input name="duration" type="number" min="15" max="240" step="5" value="60" required data-week-duration>
+       </label>
+       ${input('Aforo','capacity','12','number','min="1" max="200" required')}
       </div>
-     </fieldset>
-     <div class="connected-field pt-week-slot-field" data-week-slot-host>
-      <span>Días y franjas</span>
-      ${weekSlotGrid(seed,{durationMin:60,color:'#22834d'})}
-     </div>
+      <label class="connected-field">Entrenador (opcional)
+       <select name="coach">
+        <option value="">Sin asignar</option>
+        ${staff.map(c=>`<option value="${esc(c.user_id)}">${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
+       </select>
+      </label>
+      ${input('Sala / ubicación (opcional)','location','','text','maxlength="250"')}
+      <div data-class-panel="unique">
+       <div class="pt-sheet-grid">
+        ${input('Fecha y hora','start',uniqueStart,'datetime-local','required')}
+       </div>
+      </div>
+      <div data-class-panel="weekly" hidden>
+       <div class="pt-sheet-grid">
+        ${input('Comienza el','seriesStart',seedDay,'date','required')}
+       </div>
+       <fieldset class="pt-until-field">
+        <legend>Fin de la serie</legend>
+        <div class="pt-until-options">
+         <label class="pt-radio-card"><input type="radio" name="untilMode" value="indefinite" checked>
+          <span><strong>Sin fecha de fin</strong></span></label>
+         <label class="pt-radio-card"><input type="radio" name="untilMode" value="date">
+          <span><strong>Hasta una fecha</strong>
+           <input name="untilDate" type="date" min="${esc(today)}">
+          </span></label>
+        </div>
+       </fieldset>
+       <div class="connected-field pt-week-slot-field" data-week-slot-host>
+        <span>Días y franjas</span>
+        ${weekSlotGrid(seed,{durationMin:60,color:'#22834d'})}
+       </div>
+      </div>
+      <label class="connected-field">Notas (opcional)<textarea name="description" rows="2" maxlength="2000"></textarea></label>
+     </section>
+     ${classTrainingSection({
+      templates,templateId,seedPrescription,detail:{},
+      titleFallback:'',assignScope:'one',hasPlan:false,editable:true,
+      busy,saveDefault:Boolean(templateId)||seedHasWork,
+     })}
     </div>
-    <label class="connected-field">Notas (opcional)<textarea name="description" rows="2" maxlength="2000"></textarea></label>
-    <button type="submit" class="connected-primary" ${busy?'disabled':''}>Crear en el calendario</button>
    </form>
   </div>
  </section></div>`;
@@ -559,54 +692,102 @@ export function renderAssignClassTrainingModal({
  </section></div>`;
 }
 
-/** Editar clase existente: este evento o toda la serie (estilo Outlook). */
-export function renderEditClassModal({occurrence=null,detail={},coaches=[],busy=false}={}){
+/** ¿Hay más clases futuras homólogas (misma serie práctica)? */
+export function occurrenceLooksLikeSeries(occurrence,occurrences=[],detail={}){
+ if(!occurrence)return false;
+ if(String(detail.repeat_rule||'none')!=='none')return true;
+ const oldStart=new Date(occurrence.starts_at);
+ return (occurrences||[]).some(o=>{
+  if(o.id===occurrence.id||o.status!=='active'||o.kind!=='class')return false;
+  if(o.org_id&&occurrence.org_id&&o.org_id!==occurrence.org_id)return false;
+  if(o.title!==occurrence.title)return false;
+  const s=new Date(o.starts_at);
+  if(s<=oldStart)return false;
+  if(s.getDay()!==oldStart.getDay())return false;
+  if(s.getHours()!==oldStart.getHours()||s.getMinutes()!==oldStart.getMinutes())return false;
+  return true;
+ });
+}
+
+/** Editar clase existente: este evento o toda la serie (estilo Outlook) + entreno. */
+export function renderEditClassModal({
+ occurrence=null,detail={},coaches=[],busy=false,occurrences=[],
+ templates=[],templateId='',seedPrescription=null,assignScope='one',
+}={}){
  if(!occurrence)return '';
  const staff=coaches.filter(c=>c.user_id&&!/Administrador Repera/i.test(c.label||''));
  const start=new Date(occurrence.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16);
  const end=new Date(occurrence.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16);
  const future=new Date(occurrence.starts_at)>new Date();
  const blocked=occurrence.status==='cancelled';
- const isSeries=String(detail.repeat_rule||'none')!=='none';
- return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-new-class-dialog" role="dialog" aria-modal="true" aria-label="Editar clase">
-  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Agenda</span><h2>Editar clase</h2></div>
-   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+ const isSeries=occurrenceLooksLikeSeries(occurrence,occurrences,detail);
+ const hasPlan=Boolean(
+  detail?.prescription
+  &&(detail.prescription.schemaVersion===1||detail.prescription.version===1)
+  &&Array.isArray(detail.prescription.blocks)
+  &&detail.prescription.blocks.length>0
+ );
+ const seedTpl=templates.find(t=>t.id===templateId);
+ const rawSeed=seedPrescription||seedTpl?.prescription||detail.prescription||null;
+ const seedHasWork=Boolean(rawSeed&&(visualPrescription(rawSeed).blocks||[]).some(b=>(b.exercises||[]).length));
+ const saveTrainingDefault=hasPlan||Boolean(templateId)||seedHasWork;
+ const formId='edit-class-form';
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-edit-class-dialog" role="dialog" aria-modal="true" aria-label="Editar clase">
+  <div class="business-dialog-header pt-sheet-head">
+   <div><span class="pt-sheet-kicker">Agenda</span><h2>Editar clase</h2>
+    <p class="pt-sheet-sub">${esc(occurrence.title||'Clase')} · ${esc(new Date(occurrence.starts_at).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}))}</p></div>
+   <div class="pt-sheet-head-actions">
+    <button type="submit" form="${formId}" class="connected-primary" ${busy||!future?'disabled':''}>Guardar cambios</button>
+    <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button>
+   </div>
+  </div>
   <div class="business-dialog-scroll pt-sheet-body">
    ${blocked?'<p class="connected-hint">Esta clase está cancelada: permanece en el calendario bloqueada y no admite nuevas inscripciones.</p>':''}
-   <form data-connected="edit-occurrence" class="business-form pt-sheet-form">
+   <form id="${formId}" data-connected="edit-occurrence" class="business-form pt-sheet-form pt-edit-class-form" data-assign-class-form>
     <input type="hidden" name="id" value="${esc(occurrence.id)}">
-    ${isSeries?`<fieldset class="pt-edit-scope">
-     <legend>¿Qué quieres cambiar?</legend>
-     <label class="pt-radio-card"><input type="radio" name="editScope" value="one" checked>
-      <span><strong>Solo este evento</strong><small>${esc(new Date(occurrence.starts_at).toLocaleString('es-ES',{dateStyle:'full',timeStyle:'short'}))}</small></span></label>
-     <label class="pt-radio-card"><input type="radio" name="editScope" value="series">
-      <span><strong>Este y los siguientes</strong><small>Mismo nombre, día de la semana y hora (como Outlook)</small></span></label>
-    </fieldset>`:`<input type="hidden" name="editScope" value="one">`}
-    ${input('Nombre de la clase','title',occurrence.title||'','text','required minlength="2" maxlength="120"')}
-    ${colorSwatches(detail.color||'#22834d')}
-    <div class="pt-sheet-grid">
-     ${input('Inicio','start',start,'datetime-local','required')}
-     ${input('Fin','end',end,'datetime-local','required')}
+    <input type="hidden" name="occurrences" value="${esc(occurrence.id)}">
+    <div class="pt-edit-class-layout">
+     <section class="pt-edit-class-col pt-edit-class-meta" aria-label="Datos de la clase">
+      <h3 class="pt-edit-col-title">Clase</h3>
+      ${isSeries?`<fieldset class="pt-edit-scope">
+       <legend>¿Qué quieres cambiar del horario?</legend>
+       <label class="pt-radio-card"><input type="radio" name="editScope" value="one" checked>
+        <span><strong>Solo este evento</strong><small>${esc(new Date(occurrence.starts_at).toLocaleString('es-ES',{dateStyle:'full',timeStyle:'short'}))}</small></span></label>
+       <label class="pt-radio-card"><input type="radio" name="editScope" value="series">
+        <span><strong>Este y los siguientes</strong><small>Mismo nombre, día de la semana y hora</small></span></label>
+      </fieldset>`:`<input type="hidden" name="editScope" value="one">`}
+      ${input('Nombre de la clase','title',occurrence.title||'','text','required minlength="2" maxlength="120"')}
+      ${colorSwatches(detail.color||'#22834d')}
+      <div class="pt-sheet-grid">
+       ${input('Inicio','start',start,'datetime-local','required')}
+       ${input('Fin','end',end,'datetime-local','required')}
+      </div>
+      ${input('Aforo','capacity',occurrence.capacity||12,'number',`min="1" max="200" required`)}
+      <label class="connected-field">Entrenador (opcional)
+       <select name="coach" disabled title="El cambio de entrenador se gestiona al crear la serie">
+        <option value="">${occurrence.coach_user_id?'Asignado':'Sin asignar'}</option>
+        ${staff.map(c=>`<option value="${esc(c.user_id)}" ${c.user_id===occurrence.coach_user_id?'selected':''}>${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
+       </select>
+      </label>
+      ${input('Sala / ubicación','location',detail.location||'','text','maxlength="250"')}
+      <label class="connected-field">Notas<textarea name="description" rows="2" maxlength="2000">${esc(detail.description||'')}</textarea></label>
+      <input type="hidden" name="image" value="${esc(detail.image_url||'')}">
+      ${future&&!blocked?`<div class="pt-edit-class-danger">
+        <button type="button" class="connected-secondary" data-action="cancel-occurrence" data-id="${esc(occurrence.id)}">Cancelar clase</button>
+        <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar</button>
+       </div>`:''}
+      ${future&&blocked?`<div class="pt-edit-class-danger">
+        <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar del calendario</button>
+       </div>`:''}
+     </section>
+     ${classTrainingSection({
+      templates,templateId,seedPrescription,detail,
+      titleFallback:occurrence.title||'',assignScope,hasPlan,
+      editable:future&&!blocked,busy,occurrenceId:occurrence.id,
+      showClear:true,saveDefault:saveTrainingDefault,
+     })}
     </div>
-    ${input('Aforo','capacity',occurrence.capacity||12,'number',`min="1" max="200" required`)}
-    <label class="connected-field">Entrenador (opcional)
-     <select name="coach" disabled title="El cambio de entrenador se gestiona al crear la serie">
-      <option value="">${occurrence.coach_user_id?'Asignado':'Sin asignar'}</option>
-      ${staff.map(c=>`<option value="${esc(c.user_id)}" ${c.user_id===occurrence.coach_user_id?'selected':''}>${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
-     </select>
-    </label>
-    ${input('Sala / ubicación','location',detail.location||'','text','maxlength="250"')}
-    <label class="connected-field">Notas<textarea name="description" rows="2" maxlength="2000">${esc(detail.description||'')}</textarea></label>
-    <input type="hidden" name="image" value="${esc(detail.image_url||'')}">
-    <button type="submit" class="connected-primary" ${busy||!future?'disabled':''}>Guardar cambios</button>
    </form>
-   ${future&&!blocked?`<div class="pt-class-danger pt-class-danger-row">
-     <button type="button" class="connected-secondary" data-action="cancel-occurrence" data-id="${esc(occurrence.id)}">Cancelar clase</button>
-     <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar</button>
-    </div>`:''}
-   ${future&&blocked?`<div class="pt-class-danger pt-class-danger-row">
-     <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar del calendario</button>
-    </div>`:''}
   </div>
  </section></div>`;
 }

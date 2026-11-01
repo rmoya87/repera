@@ -1,9 +1,9 @@
 import {APP_CATALOG} from './exercise-catalog.js';
 import {WOD_CATALOG} from '../data/wod-catalog.js';
 // Editor de prescripciones Repera Business. Formato serializable compartido con iOS/Android.
-// Paridad PlanView: Sin formato, + Ejercicio / Descanso / Movimiento libre, Añadir bloque, Elegir WOD.
-// App solo entiende bloques strength|wod; descansos = movimientos isRest dentro de WOD
-// (o bloque WOD «Descanso»), nunca dentro de strength.
+// Paridad UI: barra del bloque = contenido DENTRO (ejercicio/descanso/libre/timer/plantilla).
+// Pie negro = bloque NUEVO (Añadir bloque / WOD / Mis entrenos).
+// Al publicar, descansos en fuerza se separan a bloque WOD «Descanso» (canonicalPrescription).
 const CURATED = [
  ['sentadilla','Sentadilla / Back Squat','Pierna','art_sentadilla'],
  ['sentadilla-frontal','Sentadilla frontal / Front Squat','Pierna','art_sentadilla_frontal'],
@@ -47,6 +47,33 @@ const CURATED = [
 ].map(([id,name,group,art])=>({id,name,group,art}));
 export const MOVEMENTS=[...CURATED,...APP_CATALOG.filter(item=>!CURATED.some(base=>base.art===item.art&&base.name.toLowerCase().startsWith(item.name.toLowerCase())))];
 const TYPES={strength:'Fuerza',wod:'WOD / Metcon',warmup:'Calentamiento',accessory:'Accesorios'};
+/** Filtros de biblioteca (paridad aproximada con LibraryView iOS). */
+const LIBRARY_FILTERS=[
+ {id:'all',label:'Todos'},
+ {id:'warmup',label:'Calentamiento'},
+ {id:'accessory',label:'Accesorios'},
+ {id:'weightlifting',label:'Halterofilia'},
+ {id:'crossfit',label:'CrossFit'},
+ {id:'gymnastics',label:'Gimnasia'},
+ {id:'cardio',label:'Cardio'},
+ {id:'hyrox',label:'HYROX'},
+];
+function movementMatchesFilter(m,filter='all'){
+ if(!filter||filter==='all')return true;
+ const g=String(m.group||'').toLowerCase();
+ const hay=`${m.name||''} ${m.group||''} ${m.art||''} ${m.id||''}`.toLowerCase();
+ switch(filter){
+  case 'weightlifting':return g.includes('halterofilia');
+  case 'crossfit':return g.includes('crossfit');
+  case 'gymnastics':return g.includes('gimnasia')||g.includes('gimnást');
+  case 'cardio':return g.includes('cardio')||/remo erg|bici|carrera|cinta|ski|air bike|echo|comba|double under|shuttle|bike|rowing|running/.test(hay);
+  case 'hyrox':return /sled|ski.?erg|farmer|wall.?ball|sandbag|yoke|burpee.*box|walking lunge|walk_lunge|shuttle|lunges camin/.test(hay);
+  case 'warmup':return g.includes('core')||/plancha|crunch|hollow|arch hold|sit-?up|v-up|movilidad|estiramiento|circles|air squat/.test(hay);
+  case 'accessory':return /brazo|bíceps|biceps|tríceps|triceps|curl|elevaciones|pájaros|pajaros|face pull|aperturas|pullover|predicador|martillo|fondos en banco|gemelos/.test(hay)
+   ||(['hombro','brazo'].includes(g));
+  default:return true;
+ }
+}
 // Formatos alineados con WODFormat de ReperaDomain (apps). «none» = Sin formato (como PlanView).
 const FORMATS={
  none:'Sin formato',
@@ -92,7 +119,8 @@ export function resolveMovement(x){
 /** Plantillas Mis entrenos disponibles en el picker del bloque. */
 let libraryTemplates=[];
 export function setEditorLibraryTemplates(rows=[]){libraryTemplates=Array.isArray(rows)?rows:[];}
-let editorUI={pickerBlock:-1,panel:null};
+let editorUI={pickerBlock:-1,panel:null,libraryFilter:'all',globalInsert:false};
+const withUI=(patch)=>({...editorUI,...patch});
 export function emptyPrescription(){return {version:1,blocks:[]};}
 /** Bloque inicial vacío con biblioteca lista (Mis entrenos / programar cliente). */
 export function starterPrescription(){
@@ -105,9 +133,15 @@ export function sessionMetaMarkup(meta={}){
  const fav=meta.favorite===true;
  return `<section class="editor-session-meta" data-session-meta-card>
   <div class="editor-session-meta-grid">
-   <label class="editor-number"><span>Duración</span><input data-session-meta="durationMinutes" type="number" min="5" max="720" step="5" value="${dur}"><small>min</small></label>
-   <label class="editor-session-place"><span>Añadir lugar</span><input data-session-meta="location" maxlength="250" placeholder="Sala, box, pista…" value="${loc}"></label>
-   <label class="editor-session-fav"><span>Favorito</span><input data-session-meta="favorite" type="checkbox" ${fav?'checked':''}></label>
+   <label class="editor-session-field editor-session-duration"><span>Duración</span>
+    <span class="editor-session-control"><input data-session-meta="durationMinutes" type="number" min="5" max="720" step="5" value="${dur}"><small>min</small></span>
+   </label>
+   <label class="editor-session-field editor-session-place"><span>Añadir lugar</span>
+    <input data-session-meta="location" maxlength="250" placeholder="Sala, box, pista…" value="${loc}">
+   </label>
+   <label class="editor-session-field editor-session-fav"><span>Favorito</span>
+    <span class="editor-session-control is-check"><input data-session-meta="favorite" type="checkbox" ${fav?'checked':''}></span>
+   </label>
   </div>
  </section>`;
 }
@@ -141,8 +175,8 @@ export function visualSessionMeta(prescription){
  return {location:m.location||'',durationMinutes:integer(m.durationMinutes,45),favorite:m.favorite===true};
 }
 /** Abre la biblioteca dentro del primer bloque (al entrar a «Añadir entreno»). */
-export function openStarterLibrary(){editorUI={pickerBlock:0,panel:'library'};}
-export function resetEditorPanels(){editorUI={pickerBlock:-1,panel:null};}
+export function openStarterLibrary(){editorUI=withUI({pickerBlock:0,panel:'library',libraryFilter:editorUI.libraryFilter||'all',globalInsert:false});}
+export function resetEditorPanels(){editorUI={pickerBlock:-1,panel:null,libraryFilter:'all',globalInsert:false};}
 
 export function isRestMovement(x){
  return x?.itemKind==='rest'||String(x?.id||'')==='rest'||/^descanso$/i.test(String(x?.name||'').trim())||x?.isRest===true;
@@ -202,35 +236,46 @@ function movementMarkup(x,i){
 }
 
 function libraryPanel(blockIndex){
+ const filter=LIBRARY_FILTERS.some(f=>f.id===editorUI.libraryFilter)?editorUI.libraryFilter:'all';
+ const filters=LIBRARY_FILTERS.map(f=>`<button type="button" class="editor-library-filter ${f.id===filter?'is-on':''}" data-editor-action="library-filter" data-filter="${f.id}" aria-pressed="${f.id===filter?'true':'false'}">${escapeHTML(f.label)}</button>`).join('');
+ const rows=MOVEMENTS.filter(m=>movementMatchesFilter(m,filter)).map(m=>`<button type="button" class="editor-movement" data-editor-action="pick-exercise" data-id="${m.id}" data-search="${escapeHTML((m.name+' '+m.group+' '+m.id).toLowerCase())}" data-filter-group="${escapeHTML(m.group||'')}">${thumb(m)}<span><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.group)}</small></span><span aria-hidden="true">＋</span></button>`).join('')
+  ||'<p class="connected-hint">No hay movimientos en esta categoría.</p>';
  return `<div class="editor-block-panel" data-block-panel="library">
   <div class="editor-picker-head"><div><strong>Biblioteca de ejercicios</strong><small>Se añaden a este bloque</small></div>
    <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
-  <input data-editor-search type="search" placeholder="Buscar sentadilla, deadlift, burpee…" aria-label="Buscar ejercicios">
-  <div class="editor-picker-results">${MOVEMENTS.map(m=>`<button type="button" class="editor-movement" data-editor-action="pick-exercise" data-id="${m.id}" data-search="${escapeHTML((m.name+' '+m.group+' '+m.id).toLowerCase())}">${thumb(m)}<span><strong>${escapeHTML(m.name)}</strong><small>${escapeHTML(m.group)}</small></span><span aria-hidden="true">＋</span></button>`).join('')}</div>
-  <label class="editor-custom">Ejercicio personalizado<input data-editor-custom maxlength="120" placeholder="Nombre del movimiento"></label>
-  <button type="button" class="editor-add" data-editor-action="add-custom">Añadir personalizado</button>
+  <div class="editor-library-layout">
+   <nav class="editor-library-filters" aria-label="Categorías">${filters}</nav>
+   <div class="editor-library-main">
+    <input data-editor-search type="search" placeholder="Buscar sentadilla, deadlift, burpee…" aria-label="Buscar ejercicios">
+    <div class="editor-picker-results">${rows}</div>
+    <label class="editor-custom">Ejercicio personalizado<input data-editor-custom maxlength="120" placeholder="Nombre del movimiento"></label>
+    <button type="button" class="editor-add" data-editor-action="add-custom">Añadir personalizado</button>
+   </div>
+  </div>
  </div>`;
 }
 function templatesPanel(blockIndex){
+ const global=editorUI.globalInsert===true;
  const rows=libraryTemplates.length?libraryTemplates.map(t=>{
   const n=(visualPrescription(t.prescription).blocks||[]).length;
   return `<article class="editor-template-row">
    <div><strong>${escapeHTML(t.name)}</strong><small>${escapeHTML(t.description||'Plantilla')} · ${n} bloque${n===1?'':'s'}</small></div>
    <div class="editor-template-actions">
-    <button type="button" class="connected-secondary" data-editor-action="insert-template-into-block" data-id="${escapeHTML(t.id)}">En este bloque</button>
-    <button type="button" class="connected-secondary" data-editor-action="insert-template-blocks" data-id="${escapeHTML(t.id)}">Como bloques</button>
+    ${global
+      ?`<button type="button" class="connected-primary" data-editor-action="insert-template-blocks" data-id="${escapeHTML(t.id)}">Añadir como bloques nuevos</button>`
+      :`<button type="button" class="connected-primary" data-editor-action="insert-template-into-block" data-id="${escapeHTML(t.id)}" data-index="${blockIndex}">Añadir a este bloque</button>`}
    </div>
   </article>`;
  }).join(''):'<p class="connected-hint">Aún no hay plantillas en Mis entrenos.</p>';
  return `<div class="editor-block-panel" data-block-panel="templates">
-  <div class="editor-picker-head"><div><strong>Mis entrenos</strong><small>Insertar plantilla en este punto</small></div>
+  <div class="editor-picker-head"><div><strong>Mis entrenos</strong><small>${global?'Añade plantillas como bloques nuevos al entreno':'Se insertan en este bloque'}</small></div>
    <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
   <div class="editor-template-list">${rows}</div>
  </div>`;
 }
 function timerPanel(blockIndex){
  return `<div class="editor-block-panel" data-block-panel="timer">
-  <div class="editor-picker-head"><div><strong>Temporizador</strong><small>Crea un bloque WOD con reloj (como en la app)</small></div>
+  <div class="editor-picker-head"><div><strong>Temporizador</strong><small>Formato y reloj de este bloque</small></div>
    <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
   <div class="editor-timer-grid">
    <label class="connected-field">Formato<select data-timer-format>
@@ -244,8 +289,7 @@ function timerPanel(blockIndex){
    <label class="connected-field">Rondas<input type="number" data-timer-rounds min="1" max="100" value="8"></label>
   </div>
   <div class="editor-template-actions">
-   <button type="button" class="connected-secondary" data-editor-action="apply-timer-in-block">Aplicar a este bloque</button>
-   <button type="button" class="connected-primary" data-editor-action="apply-timer-new-block">Nuevo bloque temporizador</button>
+   <button type="button" class="connected-primary" data-editor-action="apply-timer-in-block" data-index="${blockIndex}">Aplicar a este bloque</button>
   </div>
  </div>`;
 }
@@ -271,34 +315,32 @@ function wodCatalogPanel(blockIndex){
  </button>`;
  }).join('');
  return `<div class="editor-block-panel" data-block-panel="wod-catalog">
-  <div class="editor-picker-head"><div><strong>Elegir WOD</strong><small>Benchmarks conocidos (Girls, Heroes…)</small></div>
+  <div class="editor-picker-head"><div><strong>WOD</strong><small>${editorUI.globalInsert?'Se añadirá como bloque nuevo':'Benchmarks conocidos (Girls, Heroes…)'}</small></div>
    <button type="button" class="editor-icon-button" data-editor-action="close-panel" aria-label="Cerrar">×</button></div>
   <input data-editor-search type="search" placeholder="Buscar Fran, Cindy, Murph…" aria-label="Buscar WOD">
   <div class="editor-picker-results">${rows}</div>
  </div>`;
 }
 
+/** Acciones DENTRO del bloque (paridad app: ejercicio / descanso / libre + temporizador / plantilla en bloque). */
 function blockAddBar(i){
- return `<div class="editor-block-addbar" role="toolbar" aria-label="Añadir al bloque">
-  <button type="button" class="editor-add" data-editor-action="open-library" data-index="${i}">+ Ejercicio</button>
-  <button type="button" class="editor-add subtle" data-editor-action="add-rest-in-block" data-index="${i}">Descanso</button>
-  <button type="button" class="editor-add subtle" data-editor-action="open-free" data-index="${i}">+ Movimiento libre</button>
-  <button type="button" class="editor-add subtle" data-editor-action="open-timer" data-index="${i}">Temporizador</button>
-  <button type="button" class="editor-add subtle" data-editor-action="open-templates" data-index="${i}">Mis entrenos</button>
+ return `<div class="editor-block-addbar" role="toolbar" aria-label="Añadir dentro de este bloque">
+  <button type="button" class="editor-add" data-editor-action="open-library" data-index="${i}">＋ Ejercicio</button>
+  <button type="button" class="editor-add subtle" data-editor-action="add-rest-in-block" data-index="${i}">＋ Descanso</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-free" data-index="${i}">＋ Mov. libre</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-timer" data-index="${i}">＋ Temporizador</button>
+  <button type="button" class="editor-add subtle" data-editor-action="open-templates" data-index="${i}">＋ Mis entrenos</button>
  </div>`;
 }
+/** Acciones de ENTRENO: crean el siguiente bloque (como en iOS/Android). */
 function editorFooterActions(){
- return `<div class="editor-footer-actions" role="toolbar" aria-label="Añadir al entreno">
-  <button type="button" class="editor-footer-btn" data-editor-action="add-block" data-kind="strength">
-   <span aria-hidden="true">▦</span> Añadir bloque</button>
-  <button type="button" class="editor-footer-btn" data-editor-action="open-global-wod">
-   <span aria-hidden="true">☰</span> Elegir WOD</button>
-  <button type="button" class="editor-footer-btn" data-editor-action="open-global-templates">
-   <span aria-hidden="true">★</span> Mis entrenos</button>
-  <button type="button" class="editor-footer-btn" data-editor-action="open-accessories">
-   <span aria-hidden="true">＋</span> Accesorios</button>
-  <button type="button" class="editor-footer-btn is-muted" data-editor-action="scan-board" title="OCR de pizarra: fase posterior en Business">
-   <span aria-hidden="true">▢</span> Escanear pizarra</button>
+ return `<div class="editor-footer-actions" role="toolbar" aria-label="Añadir el siguiente bloque">
+  <button type="button" class="editor-footer-btn" data-editor-action="add-block" data-kind="strength" title="Crea un bloque nuevo vacío">
+   <span aria-hidden="true">＋</span> Añadir bloque</button>
+  <button type="button" class="editor-footer-btn" data-editor-action="open-global-wod" title="Añade un WOD como bloque nuevo">
+   <span aria-hidden="true">＋</span> WOD</button>
+  <button type="button" class="editor-footer-btn" data-editor-action="open-global-templates" title="Añade una plantilla como bloques nuevos">
+   <span aria-hidden="true">＋</span> Mis entrenos</button>
  </div>`;
 }
 
@@ -383,53 +425,76 @@ export function handleEditorClick(event){
 
  if(action==='close-panel'){
   const idx=blockIndex>=0?blockIndex:editorUI.pickerBlock;
-  editorUI={pickerBlock:idx,panel:'none'};
-  refreshEditor(editor,readPrescription(editor));return true;}
+  const cur=readPrescription(editor);
+  // Si se cancela el WOD del footer sin elegir, quita el bloque vacío recién creado.
+  if(editorUI.globalInsert&&editorUI.panel==='wod-catalog'&&cur.blocks[idx]
+   &&cur.blocks[idx].kind==='wod'&&!(cur.blocks[idx].exercises||[]).length){
+   cur.blocks.splice(idx,1);
+   editorUI=withUI({pickerBlock:-1,panel:null,globalInsert:false});
+   refreshEditor(editor,cur);return true;
+  }
+  editorUI=withUI({pickerBlock:idx,panel:'none',globalInsert:false});
+  refreshEditor(editor,cur);return true;}
+ if(action==='library-filter'){
+  const next=LIBRARY_FILTERS.some(f=>f.id===node.dataset.filter)?node.dataset.filter:'all';
+  editorUI=withUI({
+   pickerBlock:blockIndex>=0?blockIndex:editorUI.pickerBlock,
+   panel:'library',
+   libraryFilter:next,
+  });
+  refreshEditor(editor,readPrescription(editor));
+  const host=node.closest('form')||editor.parentElement;
+  const q=host?.querySelector?.(`[data-editor-block][data-index="${editorUI.pickerBlock}"] [data-editor-search]`);
+  if(q?.value)handleEditorSearch({target:q});
+  return true;}
  if(action==='open-library'){
   const idx=Number(node.dataset.index);
   const host=node.closest('form')||editor.parentElement;
-  editorUI={pickerBlock:idx,panel:'library'};
+  editorUI=withUI({pickerBlock:idx,panel:'library',globalInsert:false});
   refreshEditor(editor,readPrescription(editor));
   queueMicrotask(()=>host?.querySelector?.(`[data-editor-block][data-index="${idx}"] [data-editor-search]`)?.focus());
   return true;}
- if(action==='open-templates'){editorUI={pickerBlock:Number(node.dataset.index),panel:'templates'};refreshEditor(editor,readPrescription(editor));return true;}
- if(action==='open-timer'){editorUI={pickerBlock:Number(node.dataset.index),panel:'timer'};refreshEditor(editor,readPrescription(editor));return true;}
- if(action==='open-free'){editorUI={pickerBlock:Number(node.dataset.index),panel:'free'};refreshEditor(editor,readPrescription(editor));return true;}
- if(action==='open-wod-catalog'||action==='open-global-wod'){
-  const idx=action==='open-global-wod'?-1:Number(node.dataset.index);
-  editorUI={pickerBlock:idx>=0?idx:Math.max(0,(readPrescription(editor).blocks.length||1)-1),panel:'wod-catalog'};
+ if(action==='open-templates'){
+  editorUI=withUI({pickerBlock:Number(node.dataset.index),panel:'templates',globalInsert:false});
   refreshEditor(editor,readPrescription(editor));return true;}
+ if(action==='open-timer'){
+  editorUI=withUI({pickerBlock:Number(node.dataset.index),panel:'timer',globalInsert:false});
+  refreshEditor(editor,readPrescription(editor));return true;}
+ if(action==='open-free'){
+  editorUI=withUI({pickerBlock:Number(node.dataset.index),panel:'free',globalInsert:false});
+  refreshEditor(editor,readPrescription(editor));return true;}
+ // Footer «WOD»: crea bloque nuevo y abre catálogo (paridad app Elegir WOD).
+ if(action==='open-global-wod'){
+  const cur=readPrescription(editor);
+  cur.blocks.push({kind:'wod',format:'amrap',title:'WOD',rounds:1,timeCap:12,exercises:[]});
+  cur.blocks=cur.blocks.slice(0,24);
+  editorUI=withUI({pickerBlock:cur.blocks.length-1,panel:'wod-catalog',globalInsert:true});
+  refreshEditor(editor,cur);return true;}
+ if(action==='open-wod-catalog'){
+  editorUI=withUI({pickerBlock:Number(node.dataset.index),panel:'wod-catalog',globalInsert:false});
+  refreshEditor(editor,readPrescription(editor));return true;}
+ // Footer «Mis entrenos»: plantillas como bloques nuevos al final.
  if(action==='open-global-templates'){
   const cur=readPrescription(editor);
-  editorUI={pickerBlock:Math.max(0,cur.blocks.length-1),panel:'templates'};
+  editorUI=withUI({pickerBlock:Math.max(0,cur.blocks.length-1),panel:'templates',globalInsert:true});
   refreshEditor(editor,cur);return true;}
  if(action==='open-accessories'){
   const cur=readPrescription(editor);
   const last=cur.blocks[cur.blocks.length-1];
   if(last&&last.kind==='accessory'){
-   editorUI={pickerBlock:cur.blocks.length-1,panel:'library'};
+   editorUI=withUI({pickerBlock:cur.blocks.length-1,panel:'library'});
   }else{
    cur.blocks.push({kind:'accessory',format:'sets',title:'Accesorios',rounds:1,timeCap:0,exercises:[]});
-   editorUI={pickerBlock:cur.blocks.length-1,panel:'library'};
+   editorUI=withUI({pickerBlock:cur.blocks.length-1,panel:'library'});
   }
   refreshEditor(editor,cur);
   const host=node.closest('form')||editor.parentElement;
   queueMicrotask(()=>host?.querySelector?.(`[data-editor-block][data-index="${editorUI.pickerBlock}"] [data-editor-search]`)?.focus());
   return true;}
- if(action==='scan-board'){
-  const host=node.closest('form')||editor.parentElement;
-  let note=host?.querySelector?.('[data-scan-board-note]');
-  if(!note&&host){
-   note=document.createElement('p');
-   note.className='connected-hint';
-   note.dataset.scanBoardNote='1';
-   note.textContent='Escanear pizarra llegará a Business en una fase posterior (ahora está en la app).';
-   editor.after(note);
-  }
-  return true;}
-
  const current=readPrescription(editor);
- const focusBlock=Number(node.dataset.index??blockIndex);
+ const rawIdx=node.dataset.index!==undefined&&node.dataset.index!==''?Number(node.dataset.index)
+  :(blockIndex>=0?blockIndex:editorUI.pickerBlock);
+ const focusBlock=Number.isFinite(rawIdx)?rawIdx:-1;
 
  if(action==='add-block'){
   const kind=node.dataset.kind||'strength';
@@ -440,50 +505,51 @@ export function handleEditorClick(event){
    title:kind==='accessory'?'Accesorios':kind==='warmup'?'Calentamiento':`Bloque ${n}`,
    rounds:1,timeCap:kind==='wod'?12:0,exercises:[]
   });
-  editorUI={pickerBlock:current.blocks.length-1,panel:'library'};
+  editorUI=withUI({pickerBlock:current.blocks.length-1,panel:'library',globalInsert:false});
  }
  else if(action==='add-block-after'){
   const kind=node.dataset.kind||'wod';
   const at=Math.min(current.blocks.length,focusBlock+1);
   current.blocks.splice(at,0,{kind,format:kind==='wod'?'amrap':'none',title:kind==='wod'?'WOD':`Bloque ${at+1}`,rounds:1,timeCap:kind==='wod'?12:0,exercises:[]});
-  editorUI={pickerBlock:at,panel:'library'};
+  editorUI=withUI({pickerBlock:at,panel:'library'});
  }
  else if(action==='add-rest-in-block'){
   const idx=focusBlock;if(!current.blocks[idx])return true;
-  const rest=restItem(60);
-  // Paridad app: REST solo en WOD; en fuerza se inserta bloque WOD «Descanso» a continuación.
-  if(current.blocks[idx].kind==='wod')current.blocks[idx].exercises.push(rest);
-  else current.blocks.splice(idx+1,0,{kind:'wod',format:'fortime',title:'Descanso',rounds:1,timeCap:0,exercises:[rest]});
-  editorUI={pickerBlock:-1,panel:null};
+  // Siempre dentro del bloque (UI). Al guardar, canonical separa descansos de fuerza.
+  current.blocks[idx].exercises.push(restItem(60));
+  editorUI=withUI({pickerBlock:idx,panel:'none',globalInsert:false});
  }
  else if(action==='apply-timer-in-block'||action==='apply-timer-new-block'){
+  // Desde la barra del bloque solo se aplica A ESTE bloque (nunca crea otro).
+  const idx=focusBlock;if(!current.blocks[idx])return true;
   const panelRoot=node.closest('.editor-block-panel');
   const format=panelRoot?.querySelector('[data-timer-format]')?.value||'tabata';
   const minutes=Math.max(1,Math.min(120,Number(panelRoot?.querySelector('[data-timer-minutes]')?.value||8)));
   const rounds=Math.max(1,Math.min(100,Number(panelRoot?.querySelector('[data-timer-rounds]')?.value||8)));
-  const timerBlock={kind:'wod',format,title:FORMATS[format]||'Temporizador',rounds,timeCap:minutes,exercises:[timerWorkItem()]};
-  if(action==='apply-timer-in-block'&&current.blocks[focusBlock]){
-   Object.assign(current.blocks[focusBlock],{kind:'wod',format,title:timerBlock.title,rounds,timeCap:minutes});
-   if(!current.blocks[focusBlock].exercises.length)current.blocks[focusBlock].exercises.push(timerWorkItem());
-  }else{
-   const at=current.blocks[focusBlock]?focusBlock+1:current.blocks.length;
-   current.blocks.splice(at,0,timerBlock);
-  }
-  editorUI={pickerBlock:-1,panel:null};
+  Object.assign(current.blocks[idx],{
+   kind:'wod',format,title:FORMATS[format]||current.blocks[idx].title||'Temporizador',
+   rounds,timeCap:minutes
+  });
+  if(!current.blocks[idx].exercises.length)current.blocks[idx].exercises.push(timerWorkItem());
+  editorUI=withUI({pickerBlock:idx,panel:'none',globalInsert:false});
  }
  else if(action==='insert-template-blocks'||action==='insert-template-into-block'){
   const tpl=libraryTemplates.find(t=>t.id===node.dataset.id);if(!tpl)return true;
   const extra=visualPrescription(tpl.prescription);
-  if(action==='insert-template-into-block'&&current.blocks[focusBlock]){
-   const first=extra.blocks[0];
-   if(first?.exercises?.length)current.blocks[focusBlock].exercises.push(...first.exercises.slice(0,40-current.blocks[focusBlock].exercises.length));
-   if(extra.blocks.length>1)current.blocks.splice(focusBlock+1,0,...extra.blocks.slice(1));
-  }else{
-   const at=current.blocks[focusBlock]?focusBlock+1:current.blocks.length;
-   current.blocks.splice(at,0,...extra.blocks);
-  }
+  if(editorUI.globalInsert||action==='insert-template-blocks'){
+   current.blocks.push(...extra.blocks);
+   editorUI=withUI({pickerBlock:-1,panel:null,globalInsert:false});
+  }else if(current.blocks[focusBlock]){
+   const room=40-(current.blocks[focusBlock].exercises||[]).length;
+   const moved=[];
+   for(const b of extra.blocks){
+    if(!b?.exercises?.length)continue;
+    moved.push(...b.exercises);
+   }
+   current.blocks[focusBlock].exercises.push(...moved.slice(0,Math.max(0,room)));
+   editorUI=withUI({pickerBlock:focusBlock,panel:'none',globalInsert:false});
+  }else{return true;}
   current.blocks=current.blocks.slice(0,24);
-  editorUI={pickerBlock:-1,panel:null};
  }
  else if(action==='insert-wod-template'){
   const wod=WOD_CATALOG.find(w=>w.id===node.dataset.id);if(!wod)return true;
@@ -498,10 +564,15 @@ export function handleEditorClick(event){
    }))
   };
   if(!block.exercises.length)block.exercises.push(timerWorkItem());
-  const at=current.blocks[focusBlock]?focusBlock+1:current.blocks.length;
-  current.blocks.splice(at,0,block);
+  // Footer WOD: rellena el bloque vacío recién creado. En bloque: inserta el siguiente.
+  if(editorUI.globalInsert&&current.blocks[focusBlock]&&!(current.blocks[focusBlock].exercises||[]).length){
+   current.blocks[focusBlock]=block;
+  }else{
+   const at=current.blocks[focusBlock]?focusBlock+1:current.blocks.length;
+   current.blocks.splice(at,0,block);
+  }
   current.blocks=current.blocks.slice(0,24);
-  editorUI={pickerBlock:-1,panel:null};
+  editorUI=withUI({pickerBlock:-1,panel:null,globalInsert:false});
  }
  else if(action==='add-free-movement'){
   const idx=focusBlock;if(!current.blocks[idx])return true;
@@ -511,9 +582,9 @@ export function handleEditorClick(event){
   const reps=Math.max(1,Math.min(1000,Number(panelRoot?.querySelector('[data-free-reps]')?.value||10)));
   const sets=Math.max(1,Math.min(50,Number(panelRoot?.querySelector('[data-free-sets]')?.value||3)));
   current.blocks[idx].exercises.push({id:'custom',name,sets,reps,rir:0,weight:0,duration:0,notes:'',itemKind:'free',source:'free'});
-  editorUI={pickerBlock:idx,panel:'free'};
+  editorUI=withUI({pickerBlock:idx,panel:'free'});
  }
- else if(action==='remove-block'){current.blocks.splice(blockIndex,1);editorUI={pickerBlock:-1,panel:null};}
+ else if(action==='remove-block'){current.blocks.splice(blockIndex,1);editorUI=withUI({pickerBlock:-1,panel:null});}
  else if(action==='remove-exercise'){const exercise=Number(node.dataset.exercise);current.blocks[blockIndex].exercises.splice(exercise,1);}
  else if(action==='pick-exercise'||action==='add-custom'){
   const idx=editorUI.pickerBlock>=0?editorUI.pickerBlock:blockIndex;
@@ -524,7 +595,7 @@ export function handleEditorClick(event){
   if(!current.blocks[idx])return true;
   current.blocks[idx].exercises.push({id,name,sets:3,reps:8,rir:2,weight:0,duration:0,notes:''});
   // Mantener biblioteca abierta para añadir varios.
-  editorUI={pickerBlock:idx,panel:'library'};
+  editorUI=withUI({pickerBlock:idx,panel:'library'});
  }else{return false;}
  refreshEditor(editor,current);
  return true;

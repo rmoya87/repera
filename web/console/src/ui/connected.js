@@ -2,11 +2,10 @@ import {SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY} from '../core/config.js';
 import {ReperaAuthAPI} from '../core/auth.js';
 import {slugFromName,uniqueSlug,visiblePlans,priceLabel} from '../core/business-profile.js';
 import {renderPlanOptions,renderOrganizationFields,renderOrganizationCreateForm,renderPlanAdministration} from './business-onboarding.js';
-import {renderServicesPanel} from './connected-services.js';
 import {renderProfessionalPlanning,renderClientWorkoutFullscreen} from './connected-planning.js';
 import {navIcon} from './nav-icons.js';
 import {renderPlatformAdmin,paymentCSV} from './platform-admin.js';
-import {renderBusinessHome,renderClient360,renderClasses360,renderNewGroupModal,renderNewClassModal,renderEditClassModal,renderEnrollClassModal,renderPublishClassPlanModal,renderAssignClassTrainingModal,parseWeekSlotKey,weekSlotGrid} from './management-360.js';
+import {renderBusinessHome,renderClient360,renderClasses360,renderNewGroupModal,renderNewClassModal,renderNewClientWorkoutModal,renderEditClassModal,renderEnrollClassModal,renderPublishClassPlanModal,renderAssignClassTrainingModal,parseWeekSlotKey,weekSlotGrid} from './management-360.js';
 import {renderTrainerPassPanel,trainerSeatInfo,timeToMinute,renderPassOfferModal} from './trainer-pass-panel.js';
 import {renderGymPassPanel} from './gym-pass-panel.js';
 import {renderAssignPassModal} from './client-passes.js';
@@ -17,7 +16,10 @@ import {
  pendingAthleteInvite,parseWhatsappE164,renderServicesSettings,
  beginInvitationWhatsappPopup,finishInvitationWhatsappPopup,
 } from './invitation-share.js';
-import {renderInviteModal,renderQuickWorkoutModal,renderGymAssignmentDialog,renderNotificationsDrawer,todayISO,countQuickWorkoutSessions} from './trainer-agenda.js';
+import {
+ renderInviteModal,renderQuickWorkoutModal,renderGymAssignmentDialog,renderNotificationsDrawer,
+ todayISO,countQuickWorkoutSessions,agendaMonthChromeHTML,
+} from './trainer-agenda.js';
 import {renderTrainerWorkoutsLibrary,mergePrescriptionBlocks} from './trainer-workouts.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
@@ -101,7 +103,7 @@ const scrubFlashDupes=root=>{
  root.querySelectorAll('[data-workspace-flash],[data-heading-flash],[data-dialog-flash]').forEach(el=>el.remove());
  // Restos sueltos bajo el menú / en el workspace (nunca dentro de forms/cards de contenido).
  [...root.children].forEach(el=>{
-  if(el.matches?.('.connected-error,.connected-notice,.business-navigation'))el.remove();
+  if(el.matches?.('.connected-error,.connected-notice,.business-navigation,.pt-nav-row'))el.remove();
  });
  root.querySelectorAll(':scope > .connected-error, :scope > .connected-notice').forEach(el=>el.remove());
 };
@@ -245,6 +247,10 @@ function trainerDialogMarkup({manager,members}){
  }else if(businessDialog==='group'){
   title='Datos del grupo';
   inner=renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,coaches:members,selectedGroup:selectedGroupId,manager});
+ }else{
+  // edit-class / publish-class-plan / new-class / etc. los pinta enhanceWorkspace.
+  // No devolver un overlay vacío: tapa el modal real y parece «otra página».
+  return '';
  }
  return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Repera</span><h2>${title}</h2></div><button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div><div class="business-dialog-scroll pt-sheet-body">${inner}</div></section></div>`;
 }
@@ -289,15 +295,35 @@ function enhanceWorkspace(own){
  if(activeTab==='settings'){/* permitido vía identidad */}
  else if(!tabs.some(t=>t[0]===activeTab))activeTab='overview';
  scrubFlashDupes(root);
- root.querySelectorAll('.business-navigation').forEach(el=>el.remove());
+ root.querySelectorAll('.business-navigation, .pt-nav-row').forEach(el=>el.remove());
  const nav=document.createElement('nav');nav.className='business-navigation is-pro';nav.setAttribute('aria-label','Menú profesional');
  nav.innerHTML=tabs.map(([id,label,icon])=>`<button type="button" data-workspace="${id}" aria-current="${activeTab===id?'page':'false'}">${navIcon(icon)}${escapeHTML(label)}</button>`).join('');
  if(visibleOrganizations.length>1){
-  const picker=document.createElement('label');picker.className='connected-field';picker.style.cssText='margin-left:auto;min-width:160px;max-width:240px';
+  const picker=document.createElement('label');picker.className='connected-field pt-nav-org-picker';
   picker.innerHTML=`<span class="sr-only">Organización activa</span><select id="workspace-org-select"><option value="">Selecciona un negocio</option>${visibleOrganizations.map(o=>`<option value="${escapeHTML(o.id)}" ${o.id===selectedOrg?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select>`;
   nav.append(picker);
  }
- root.querySelector('.connected-heading')?.insertAdjacentElement('afterend',nav);
+ // Fuera del menú (misma altura, a la derecha): mes / Invitar / Nueva plantilla.
+ const orgKind=org?.kind;
+ const isTrainerNav=orgKind==='personal_trainer';
+ let navChrome='';
+ if(org&&activeTab==='overview'){
+  navChrome=agendaMonthChromeHTML({calendarMonth,agendaDay,agendaView,variant:isTrainerNav?'trainer':'gym'});
+ }else if(org&&activeTab==='clients'&&!selectedClientId&&!clientEditorOpen&&manager){
+  navChrome=`<button type="button" class="connected-primary pt-nav-action" data-action="open-invite-modal" ${busy?'disabled':''}>${isTrainerNav?'Invitar cliente':'Invitar socio'}</button>`;
+ }else if(org&&activeTab==='workouts'&&manager){
+  navChrome=`<button type="button" class="connected-primary pt-nav-action" data-action="new-library-template" ${busy?'disabled':''}>+ Nueva plantilla</button>`;
+ }
+ const navRow=document.createElement('div');
+ navRow.className='pt-nav-row';
+ navRow.append(nav);
+ if(navChrome){
+  const rail=document.createElement('div');
+  rail.className='pt-nav-chrome-rail';
+  rail.innerHTML=navChrome;
+  navRow.append(rail);
+ }
+ root.querySelector('.connected-heading')?.insertAdjacentElement('afterend',navRow);
  if(!org){
   if(platformRole==='platform_admin'){
    const sec=document.createElement('section');sec.dataset.workspaceSection='platform';sec.className='connected-card';
@@ -336,9 +362,9 @@ function enhanceWorkspace(own){
   ${flash}
   <div class="pt-heading-actions">${exit}${gymHeaderActions}</div>`;
  }
- root.querySelector('.connected-grid')?.remove();
- root.querySelector('[data-workspace-section="clients"]')?.remove();
- root.querySelector('[data-workspace-section="services"]')?.remove();
+ // Quitar TODO el HTML legacy del shell (Invitar/Programación/onboarding) antes de montar la app.
+ root.querySelectorAll('[data-workspace-section], .connected-grid, .connected-next, .business-overlay, .pt-overlay, [data-trial-banner]')
+  .forEach(el=>el.remove());
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
  // Coach de clase/cita debe ser miembro real (FK). No inyectar admin de soporte.
  const coachOptions=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Yo (mi cuenta)':'Profesional '+m.user_id.slice(0,8)}));
@@ -418,12 +444,41 @@ function enhanceWorkspace(own){
   root.insertAdjacentHTML('beforeend',renderNewGroupModal({busy}));
  }
  if(businessDialog==='new-class'){
-  root.insertAdjacentHTML('beforeend',renderNewClassModal({coaches:members,busy,day:dialogDay}));
+  root.insertAdjacentHTML('beforeend',renderNewClassModal({
+   coaches:members,busy,day:dialogDay,
+   templates,templateId:assignTemplateId,
+   seedPrescription,
+  }));
+ }
+ if(businessDialog==='new-client-workout'){
+  const cwId=quickWorkoutClient||selectedClientId||'';
+  const cw=clients.find(c=>c.id===cwId)||null;
+  root.insertAdjacentHTML('beforeend',renderNewClientWorkoutModal({
+   client:cw,clients,day:planningSelectedDay||agendaDay||dialogDay||todayISO(),
+   busy,templates,templateId:assignTemplateId||selectedTemplateId||'',seedPrescription,
+  }));
  }
  if(businessDialog==='edit-class'&&selectedClassId){
-  const occ=occurrences.find(o=>o.id===selectedClassId);
+  const occ=occurrences.find(o=>o.id===selectedClassId&&o.kind==='class');
   const det=classDetails.find(d=>d.occurrence_id===selectedClassId)||{};
-  if(occ)root.insertAdjacentHTML('beforeend',renderEditClassModal({occurrence:occ,detail:det,coaches:members,busy}));
+  if(occ){
+   // Al final del workspace (fuera de secciones ocultas) para que el sheet sea visible.
+   root.insertAdjacentHTML('beforeend',renderEditClassModal({
+    occurrence:occ,
+    detail:{
+     ...det,
+     training_title:draftSessionMeta?.title||det.training_title,
+     training_instructions:draftSessionMeta?.instructions??det.training_instructions,
+    },
+    coaches:members,busy,occurrences,
+    templates,templateId:assignTemplateId,
+    seedPrescription:seedPrescription||det.prescription||null,
+    assignScope,
+   }));
+  }else{
+   businessDialog='';
+   error='No se pudo abrir el editor de la clase.';
+  }
  }
  if(businessDialog==='enroll-class'&&selectedClassId){
   const occ=occurrences.find(o=>o.id===selectedClassId);
@@ -652,10 +707,11 @@ function renderTeamWorkspace({org,memberships=[],invitations=[],manager=false,bu
   &&['admin','coach','reception'].includes(i.invited_role));
  const roleName={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción'};
  const roleOptions=[['coach','Entrenador'],['reception','Recepción'],['admin','Administrador']];
- return `<div class="pt-team-workspace">
-  <section class="connected-card"><div class="business-panel-head"><div>
-   <h2>Equipo</h2><p>Crea, cambia el rol o retira a coaches y recepción.</p></div>
-   ${manager?`<button type="button" class="connected-primary" data-action="open-team-invite">Invitar</button>`:''}</div>
+ return `<div class="pt-team-workspace pt-team-split">
+  <section class="connected-card pt-team-col">
+   <div class="business-panel-head"><div><h2>Equipo</h2>
+    <p>Roles y acceso del personal.</p></div>
+    ${manager?`<button type="button" class="connected-primary" data-action="open-team-invite">Invitar</button>`:''}</div>
    <div class="pt-team-list">${staff.map(m=>{
     const self=m.user_id===userId;
     const label=self?'Tú':('Profesional '+escapeHTML((m.user_id||'').slice(0,8)));
@@ -672,7 +728,7 @@ function renderTeamWorkspace({org,memberships=[],invitations=[],manager=false,bu
     </article>`;
    }).join('')||'<p class="business-empty">Todavía no hay miembros de equipo.</p>'}</div>
   </section>
-  ${manager?`<section class="connected-card" id="team-invite-panel"><h2>Invitar al equipo</h2>
+  ${manager?`<section class="connected-card pt-team-col" id="team-invite-panel"><h2>Invitar al equipo</h2>
    <form data-connected="invite" class="business-form">
     <label class="connected-field">Correo del invitado<input name="email" type="email" required autocomplete="email"></label>
     <label class="connected-field">Perfil<select name="role">
@@ -686,7 +742,7 @@ function renderTeamWorkspace({org,memberships=[],invitations=[],manager=false,bu
     <small>${escapeHTML(roleName[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div>
     <button type="button" class="connected-secondary" data-action="cancel-team-invite" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Anular</button>
    </article>`).join('')}`:''}
-  </section>`:'<section class="connected-card"><p class="connected-hint">Solo propietarios y administradores gestionan el equipo.</p></section>'}
+  </section>`:'<section class="connected-card pt-team-col"><p class="connected-hint">Solo propietarios y administradores gestionan el equipo.</p></section>'}
  </div>`;
 }
 function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
@@ -784,8 +840,21 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
   shellKind==='personal_trainer'?'is-pt-app':'',
   shellKind==='gym'||shellKind==='sports_center'?'is-gym-app':'',
  ].filter(Boolean).join(' ');
- app.innerHTML=`<div class="${shellClass}"><main class="connected-workspace"><div class="connected-heading"><img class="pt-repera-mark" src="./favicon.png" width="36" height="36" alt="Repera"><div><h1>Tu espacio</h1><p>${escapeHTML(user.email||'Cuenta Repera')}${platformRole==='platform_admin'?' · Admin Repera':''}</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Salir</button></div>${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div>${['owner','admin'].includes(own.get(o.id))?`<div class="connected-org-brand">${o.avatar_url?`<img class="connected-org-avatar" src="${escapeHTML(o.avatar_url)}" alt="" loading="lazy">`:`<span class="connected-org-avatar placeholder">${escapeHTML((o.name||'R').slice(0,1).toUpperCase())}</span>`}<form data-connected="rename" class="connected-inline"><input type="hidden" name="id" value="${escapeHTML(o.id)}"><label>Nombre<input name="name" value="${escapeHTML(o.name)}" maxlength="120" required></label><label>${o.kind==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio'}<input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Eslogan<input name="tagline" value="${escapeHTML(o.tagline||'')}" maxlength="160"></label><label class="connected-check"><input type="checkbox" name="discoverable" ${o.is_discoverable!==false?'checked':''}> Visible para deportistas</label><button class="connected-secondary" ${busy?'disabled':''}>Guardar</button></form></div>`:''}</article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section><section class="connected-card" data-workspace-section="clients" style="margin-top:22px"><h2>Clientes reales</h2><label class="connected-field">Organización<select id="connected-org-select"><option value="">Selecciona una organización</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${selectedOrg===o.id?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select></label>${selectedOrg?`<div style="margin-top:20px">${clients.length?clients.map(c=>`<article class="connected-org"><div><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email)} · ${escapeHTML(c.status)}</small></div></article>`).join(''):'<p>Sin clientes registrados en esta organización.</p>'}${['owner','admin'].includes(own.get(selectedOrg))?`<form data-connected="client">${field('Nombre del cliente','name','text','minlength="2" maxlength="120"')}${field('Correo electrónico','email','email')}<button class="connected-primary">Añadir cliente potencial</button></form>`:''}</div>`:''}</section>${selectedOrg&&["owner","admin"].includes(own.get(selectedOrg))?`<section class="connected-card" data-workspace-section="team" style="margin-top:22px"><h2>Invitar a mi organización</h2><p>La persona debe registrarse con el mismo correo verificado. Podrá aceptar la invitación al iniciar sesión. Aún no se envían correos automáticos.</p><form data-connected="invite">${field('Correo del invitado','email','email')}<label class="connected-field">Perfil<select name="role"><option value="athlete">Deportista</option><option value="coach">Entrenador</option><option value="reception">Recepción</option><option value="admin">Administrador</option></select></label><button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button></form>${pendingInvites.filter(i=>i.organization_id===selectedOrg).length?`<p>Invitaciones pendientes: ${pendingInvites.filter(i=>i.organization_id===selectedOrg).length}</p>`:''}</section>`:''}${trainerActive()?'':renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:planningClientId,preferredDate:planningSelectedDay})}<div data-workspace-section="services">${renderServicesPanel({selectedOrg,role:own.get(selectedOrg),occurrences,passes,bookings,clients,memberships,busy,escapeHTML})}</div><section class="connected-next"><h2>Próximos módulos</h2><p>Asignación operativa de entrenadores, planes publicados, compra de bonos y reservas desde las apps móviles aún no están conectados. No se muestran datos ficticios en este espacio autenticado.</p></section></main></div>`;
- enhanceWorkspace(own);
+ // Shell mínimo: enhanceWorkspace monta menú, pestañas y modales.
+ // No incrustar Invitar/Programación legacy aquí (si enhanceWorkspace falla, tapaban Inicio).
+ const bootstrap=!selectedOrg
+  ?`<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div></article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section>`
+  :'';
+ app.innerHTML=`<div class="${shellClass}"><main class="connected-workspace"><div class="connected-heading"><img class="pt-repera-mark" src="./favicon.png" width="36" height="36" alt="Repera"><div><h1>Tu espacio</h1><p>${escapeHTML(user.email||'Cuenta Repera')}${platformRole==='platform_admin'?' · Admin Repera':''}</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Salir</button></div>${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}${bootstrap}</main></div>`;
+ try{enhanceWorkspace(own);}
+ catch(e){
+  console.error('enhanceWorkspace',e);
+  error=error||('Error de interfaz: '+(e.message||'recarga la página'));
+  const root=app.querySelector('.connected-workspace');
+  if(root&&!root.querySelector('[data-workspace-section="overview"]')){
+   root.insertAdjacentHTML('beforeend',`<section data-workspace-section="overview" class="connected-card"><p class="connected-error">${escapeHTML(error)}</p><button type="button" class="connected-secondary" data-action="dismiss-flash">Reintentar</button></section>`);
+  }
+ }
 }
 const PENDING_REGISTRATION_KEY='repera-business-pending-professional-v1';
 // El slug se genera desde el nombre comercial.
@@ -1172,12 +1241,36 @@ app.addEventListener('click',async event=>{
  }
  if(action==='open-new-class-modal'){
   dialogDay=actionable.dataset.day||'';
+  assignTemplateId='';
+  assignScope='one';
+  seedPrescription=null;
+  draftSessionMeta=null;
   businessDialog='new-class';render();return;
  }
  if(action==='open-edit-class-modal'){
-  selectedClassId=actionable.dataset.id||'';
-  expandedOccurrenceId=selectedClassId;
-  businessDialog='edit-class';render();return;
+  const id=String(actionable.dataset.id||'').trim();
+  const o=occurrences.find(x=>x.id===id&&x.kind==='class');
+  if(!o){
+   // Suele pasar si el clic era un fan-out de entreno (sesión), no la clase.
+   error='Esa fila no es una clase del calendario. Abre la clase (Detalle) y pulsa Editar clase.';
+   notice='';render();return;
+  }
+  selectedClassId=o.id;
+  classEditorId=null;
+  clientEditorOpen=false;
+  expandedOccurrenceId=o.id;
+  activeTab='overview';
+  assignTemplateId='';
+  assignScope='one';
+  const det=classDetails.find(d=>d.occurrence_id===o.id)||{};
+  seedPrescription=det.prescription||null;
+  draftSessionMeta={
+   title:det.training_title||'',
+   instructions:det.training_instructions||'',
+  };
+  businessDialog='edit-class';
+  agendaDay=new Date(o.starts_at).toLocaleDateString('sv-SE');
+  render();return;
  }
  if(action==='open-enroll-class'){
   selectedClassId=actionable.dataset.id||'';
@@ -1290,7 +1383,19 @@ app.addEventListener('click',async event=>{
    box.insertAdjacentHTML('afterbegin','<p class="pt-session-empty">Toca un ejercicio de la biblioteca para armar la sesión.</p>');
   return;
  }
- if(action==='open-quick-workout'||action==='quick-plan-day'||action==='plan-client'){
+ if(action==='open-quick-workout'){
+  quickWorkoutClient=actionable.dataset.id||selectedClientId||'';
+  selectedClientId=actionable.dataset.id||selectedClientId||quickWorkoutClient||null;
+  planningClientId=selectedClientId;
+  if(actionable.dataset.day){agendaDay=actionable.dataset.day;planningSelectedDay=actionable.dataset.day;dialogDay=actionable.dataset.day;}
+  else if(!planningSelectedDay){planningSelectedDay=agendaDay||todayISO();dialogDay=planningSelectedDay;}
+  selectedTemplateId=null;editingSessionId=null;seedPrescription=null;assignTemplateId='';
+  copyBrowseClientId='';clientEditorOpen=false;clientSection='training';
+  businessDialog='new-client-workout';activeTab='clients';
+  resetEditorPanels();
+  setWorkspaceRoute();render();return;
+ }
+ if(action==='quick-plan-day'||action==='plan-client'){
   quickWorkoutClient=actionable.dataset.id||selectedClientId||'';
   selectedClientId=actionable.dataset.id||selectedClientId||quickWorkoutClient||null;
   planningClientId=selectedClientId;
@@ -1301,7 +1406,7 @@ app.addEventListener('click',async event=>{
   activeTab='clients';
   resetEditorPanels();
   setWorkspaceRoute();render();return;
-}
+ }
  if(action==='coach-ack'&&!busy){
   busy=true;error=notice='';render();
   try{
@@ -1435,11 +1540,24 @@ app.addEventListener('click',async event=>{
  if(action==='back-groups'){selectedGroupId=null;activeTab='clients';businessDialog='';render();return;}
  if(action==='detail-occurrence'){
   selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;
+  const occ=occurrences.find(x=>x.id===selectedClassId);
+  // Clases grupales: modal Editar (esta / serie), sin saltar a otra pantalla 360.
+  if(occ?.kind==='class'){
+   agendaDay=new Date(occ.starts_at).toLocaleDateString('sv-SE');
+   activeTab='overview';
+   expandedOccurrenceId=occ.id;
+   assignTemplateId='';
+   assignScope='one';
+   const det=classDetails.find(d=>d.occurrence_id===occ.id)||{};
+   seedPrescription=det.prescription||null;
+   draftSessionMeta={title:det.training_title||'',instructions:det.training_instructions||''};
+   businessDialog='edit-class';
+   render();return;
+  }
   if(trainer){businessDialog='occurrence';}
   else{
    expandedOccurrenceId=selectedClassId;
-   const o=occurrences.find(x=>x.id===selectedClassId);
-   if(o)agendaDay=new Date(o.starts_at).toLocaleDateString('sv-SE');
+   if(occ)agendaDay=new Date(occ.starts_at).toLocaleDateString('sv-SE');
    activeTab='overview';
   }
   render();return;
@@ -1724,11 +1842,16 @@ app.addEventListener('input',event=>{
 app.addEventListener('change',async event=>{
  if(event.target.closest('form[data-assign-class-form]')){
   const form=event.target.closest('form[data-assign-class-form]');
-  const stayDialog=businessDialog==='publish-class-plan'?'publish-class-plan':'assign-class-training';
+  const stayDialog=businessDialog==='edit-class'||businessDialog==='new-class'||businessDialog==='new-client-workout'?businessDialog
+   :businessDialog==='publish-class-plan'?'publish-class-plan':'assign-class-training';
   if(event.target.name==='templateId'){
    assignTemplateId=event.target.value||'';
    const tpl=templates.find(t=>t.id===assignTemplateId);
-   seedPrescription=tpl?.prescription||null;
+   // Copia de la plantilla para esta clase (no se edita la plantilla original).
+   seedPrescription=tpl?.prescription?structuredClone(tpl.prescription):null;
+   if(tpl&&(businessDialog==='edit-class'||businessDialog==='new-class'||businessDialog==='new-client-workout')){
+    draftSessionMeta={title:tpl.name||'',instructions:draftSessionMeta?.instructions||''};
+   }
    const checked=[...form.querySelectorAll('input[name="occurrences"]:checked')].map(i=>i.value);
    const locked=[...form.querySelectorAll('input[name="occurrences"][type="hidden"]')].map(i=>i.value);
    assignPreselectedIds=checked.length?checked:locked;
@@ -1736,6 +1859,10 @@ app.addEventListener('change',async event=>{
    assignClassDay=form.querySelector('[name="day"]')?.value||assignClassDay;
    businessDialog=stayDialog;
    render();
+   return;
+  }
+  if(event.target.name==='assignScope'){
+   assignScope=event.target.value||'one';
    return;
   }
   if(event.target.name==='onlyWithout'||event.target.matches('[data-action="assign-only-without"]')){
@@ -1930,7 +2057,8 @@ app.addEventListener('submit',async event=>{
    date:String(data.get('date')||draftSessionMeta?.date||''),
   };
  };
- try{if(['publish-session','publish-class-plan','publish-class-plan-bulk','bulk-custom','save-workout-template'].includes(action)){
+ try{if(['publish-session','publish-class-plan','publish-class-plan-bulk','bulk-custom','save-workout-template'].includes(action)
+  ||((action==='edit-occurrence'||action==='service-occurrence')&&data.get('saveTraining')==='1'&&f.querySelector('.workout-editor'))){
   const visual=validatePrescription(readPrescription(f));
   // Conservar borrador visual antes de busy/render (si falla el RPC no debe «resetear» el editor).
   seedPrescription=visual;
@@ -2054,7 +2182,11 @@ app.addEventListener('submit',async event=>{
     selectedTemplateId=null;seedPrescription=null;notice='Entrenamiento profesional publicado.';
    }
    await reload();
-   if(intent==='publish'){clientEditorOpen=false;copyBrowseClientId='';draftSessionMeta=null;}
+   if(intent==='publish'){
+    clientEditorOpen=false;copyBrowseClientId='';draftSessionMeta=null;
+    assignTemplateId='';seedPrescription=null;
+    if(businessDialog==='new-client-workout')businessDialog='';
+   }
   }
   if(action==='bulk-custom'){
    const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
@@ -2235,16 +2367,34 @@ app.addEventListener('submit',async event=>{
      assignHint='No había bono usable para asignar la reserva.';
     }
    }
+   let trainingNotice='';
+   if(kind==='class'&&data.get('saveTraining')==='1'&&prescription){
+    const occIds=[...new Set(ids.map(x=>typeof x==='string'?x:x?.id).filter(id=>/^[0-9a-f-]{36}$/i.test(id||'')))];
+    if(occIds.length){
+     const trainingTitle=String(data.get('trainingTitle')||data.get('title')||'').trim();
+     if(trainingTitle.length<2)throw Error('Pon un título al entrenamiento (o desmarca incluir entreno).');
+     const raw=await auth.publishClassTrainingBulk({
+      occurrenceIds:occIds.slice(0,40),
+      title:trainingTitle,
+      instructions:data.get('instructions')||'',
+      prescription,
+     });
+     const result=Array.isArray(raw)?raw[0]:raw;
+     const occN=Number(result?.occurrences||Math.min(40,occIds.length));
+     trainingNotice=occN>1?` · Entreno publicado en ${occN} clases.`:' · Entreno publicado.';
+     assignTemplateId='';seedPrescription=null;draftSessionMeta=null;
+    }
+   }
    await loadSelectedOrg();businessDialog='';
    notice=assigned
     ?'Cita creada y asignada. El cliente la verá en la app como sesión personal contigo.'
-    :'Sesiones creadas: '+(ids.length||1)+(assignHint?' · '+assignHint:'');
+    :'Sesiones creadas: '+(ids.length||1)+(assignHint?' · '+assignHint:'')+trainingNotice;
   }
   if(action==='edit-occurrence'){
    const id=data.get('id');
    const scope=data.get('editScope')||'one';
    const payload={title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:data.get('capacity'),description:data.get('description'),location:data.get('location'),color:data.get('color'),image:data.get('image')};
-   const base=occurrences.find(o=>o.id===id);
+   const base=occurrences.find(o=>o.id===id&&o.kind==='class');
    if(!base)throw Error('Clase no encontrada');
    const oldStart=new Date(base.starts_at);
    const newStart=new Date(payload.start);
@@ -2255,7 +2405,7 @@ app.addEventListener('submit',async event=>{
     ?occurrences.filter(o=>{
       if(o.org_id&&base.org_id&&o.org_id!==base.org_id)return false;
       if(o.id===id)return true;
-      if(o.status!=='active')return false;
+      if(o.status!=='active'||o.kind!=='class')return false;
       if(o.title!==base.title)return false;
       const s=new Date(o.starts_at);
       if(s<oldStart)return false;
@@ -2279,8 +2429,28 @@ app.addEventListener('submit',async event=>{
      image:payload.image,
     });
    }
+   let trainingNotice='';
+   if(data.get('saveTraining')==='1'&&prescription){
+    const trainingTitle=String(data.get('trainingTitle')||payload.title||'').trim();
+    if(trainingTitle.length<2)throw Error('Pon un título al entrenamiento (o desmarca guardar entreno).');
+    const trainScope=String(data.get('assignScope')||'one');
+    const trainIds=resolveAssignScopeIds({
+     scope:trainScope,baseId:id,day:new Date(base.starts_at).toLocaleDateString('sv-SE'),
+     occurrences,selectedIds:[id],
+    });
+    const raw=await auth.publishClassTrainingBulk({
+     occurrenceIds:trainIds.length?trainIds:[id],
+     title:trainingTitle,
+     instructions:data.get('instructions')||'',
+     prescription,
+    });
+    const result=Array.isArray(raw)?raw[0]:raw;
+    const occN=Number(result?.occurrences||trainIds.length||1);
+    trainingNotice=occN>1?` · Entreno publicado en ${occN} clases.`:' · Entreno de la clase guardado.';
+    assignTemplateId='';seedPrescription=null;draftSessionMeta=null;
+   }
    await loadSelectedOrg();businessDialog='';
-   notice=targets.length>1?`Serie actualizada (${targets.length} clases).`:'Clase actualizada.';
+   notice=(targets.length>1?`Serie actualizada (${targets.length} clases).`:'Clase actualizada.')+trainingNotice;
   }
   if(action==='coach-reschedule'){
    await auth.coachRescheduleOccurrence({occurrenceId:data.get('id'),start:data.get('start'),end:data.get('end')});

@@ -20,8 +20,9 @@ test('resumen de facturación suma cobros y saldo restante por cliente',()=>{
 
 test('panel Facturación muestra total y clientes',()=>{
  const html=renderBillingDashboard({clients:[client],passes:[pass],offers:[offer],attendance:[],manager:true});
- assert.match(html,/Facturación/);
  assert.match(html,/Facturado en total/);
+ assert.match(html,/Clientes con movimiento/);
+ assert.match(html,/pt-bill-hero/);
  assert.match(html,/Ana/);
  assert.match(html,/Transferencia/);
  assert.match(html,/data-action="detail-client-passes"/);
@@ -34,6 +35,10 @@ test('ficha Bonos muestra forma de pago y permite descontar',()=>{
  });
  assert.match(html,/Transferencia/);
  assert.match(html,/data-connected="trainer-attendance"/);
- assert.match(html,/data-connected="issue-offline-pass"/);
- assert.match(html,/name="paymentMethod"/);
+ assert.match(html,/Alta bono|open-assign-pass/);
+ const hidden=renderClientPassesPanel({
+  client,passes:[pass],offers:[offer],attendance:[],bookings:[],occurrences:[],passEvents:[],
+  manager:true,trainer:true,busy:false,hideHead:true,
+ });
+ assert.doesNotMatch(hidden,/<h3>Bonos<\/h3>/);
 });

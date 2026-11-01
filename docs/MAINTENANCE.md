@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-01 (fix assert_business_trial old.status)
+Última actualización: 2026-11-01 (chrome fuera del menú; botones planos)
 
 ## Regla de oro
 

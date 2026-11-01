@@ -62,7 +62,7 @@ function buildActivity({clientId,passes=[],attendance=[],bookings=[],occurrences
  */
 export function renderClientPassesPanel({
  client,passes=[],offers=[],attendance=[],bookings=[],occurrences=[],passEvents=[],
- manager=false,trainer=false,busy=false,archived=false,
+ manager=false,trainer=false,busy=false,archived=false,hideHead=false,
 }){
  if(!client)return '';
  const own=passes.filter(p=>p.client_id===client.id)
@@ -133,11 +133,11 @@ export function renderClientPassesPanel({
  </article>`).join('')}</div>`:'<p class="business-empty">Sin movimientos todavía.</p>';
 
  return `<div class="pt-client-passes">
-  <div class="business-panel-head pt-pass-head">
+  ${hideHead?'':`<div class="business-panel-head pt-pass-head">
    <div><h3>Bonos</h3>
     <p>${active.length?`${active.length} activo${active.length===1?'':'s'}`:'Ninguno activo'}</p></div>
    ${!archived&&manager?`<button type="button" class="connected-primary" data-action="open-assign-pass" data-id="${esc(client.id)}" data-mode="${active.length?'renew':'new'}">Alta bono</button>`:''}
-  </div>
+  </div>`}
   ${archived?'<p class="connected-hint">Cuenta archivada: solo lectura.</p>':''}
   <div class="pt-pass-split">
    <section class="pt-pass-col pt-pass-col-left" aria-label="Bonos del cliente">

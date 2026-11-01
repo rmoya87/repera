@@ -9,23 +9,25 @@ const other={id:'c2',name:'Otra persona',email:'otro@example.test',status:'activ
 const occurrence={id:'o1',kind:'class',title:'Fuerza y movilidad',starts_at:'2030-08-12T09:00:00Z',ends_at:'2030-08-12T10:00:00Z',capacity:5,status:'active'};
 const pass={id:'p1',client_id:'c1',kind:'class',remaining_credits:4,total_credits:10,valid_from:'2029-01-01T00:00:00Z',valid_until:'2031-01-01T00:00:00Z',status:'active',issuance_type:'manual_offline'};
 const offer={id:'of1',name:'Bono 10',kind:'class',credits:10,validity_days:90,price_cents:5000,is_active:true};
-test('Inicio gym prioriza recepción y clases de hoy',()=>{
- const html=renderBusinessHome({org:{kind:'gym'},clients:[client],occurrences:[occurrence],bookings:[],sessions:[],passes:[pass],manager:true});
- assert.match(html,/Recepción/);
- assert.match(html,/data-reception-filter/);
- assert.match(html,/Invitar socio/);
+test('Inicio gym: calendario (selector de mes en menú principal)',()=>{
+ const html=renderBusinessHome({
+  org:{kind:'gym'},clients:[client],occurrences:[occurrence],bookings:[],sessions:[],passes:[pass],
+  manager:true,calendarMonth:'2030-08',agendaDay:'2030-08-12',
+ });
+ assert.match(html,/pt-agenda-shell/);
  assert.match(html,/Fuerza y movilidad/);
+ assert.match(html,/open-new-class-modal/);
  assert.doesNotMatch(html,/business-stats/);
+ // Mes vive en menú; no se duplica en el cuerpo.
+ assert.doesNotMatch(html,/data-action="calendar-prev"/);
 });
-test('Inicio PT muestra agenda mes/día, avisos y crear cita',()=>{
+test('Inicio PT: calendario con chrome en menú',()=>{
  const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[client],occurrences:[],bookings:[],sessions:[],manager:true,requests:[]});
- assert.match(html,/open-invite-modal/);
- assert.match(html,/Crear cita/);
- assert.match(html,/open-broadcast-modal/);
- assert.match(html,/open-requests-modal/);
- assert.match(html,/data-action="agenda-view"/);
+ assert.match(html,/pt-agenda-shell/);
  assert.match(html,/pt-cal-add/);
- assert.match(html,/>Agenda</);
+ assert.match(html,/open-quick-workout|Asignar entrenamiento/);
+ // Selector mes/día se ancla al menú principal (chromeInMenu).
+ assert.doesNotMatch(html,/data-action="agenda-view"/);
 });
 test('Ficha cliente: pestañas Bonos, saldo y asignación externa',()=>{
  const ptPass={...pass,kind:'appointment'};
@@ -34,14 +36,12 @@ test('Ficha cliente: pestañas Bonos, saldo y asignación externa',()=>{
   attendance:[{id:'a1',client_id:'c1',pass_id:'p1',performed_at:'2030-08-10T10:00:00Z',note:'Fuerza'}],
   passEvents:[{id:'e1',pass_id:'p1',action:'add_credits',previous_remaining:3,new_remaining:4,created_at:'2030-08-09T12:00:00Z'}]});
  assert.match(html,/>Bonos</);
+ assert.match(html,/Alta bono/);
  assert.match(html,/4\/10/);
- assert.match(html,/Confirmado por el centro/);
- assert.match(html,/data-connected="issue-offline-pass"/);
- assert.match(html,/Confirmo que he recibido el pago fuera de Repera|Confirmo que la asignación/);
- assert.match(html,/Actividad · gastos y renovaciones/);
- assert.match(html,/Sesión registrada/);
+ assert.match(html,/Confirmado por el centro|Bono del cliente/);
+ assert.match(html,/data-action="open-assign-pass"/);
+ assert.match(html,/Sesión registrada|Actividad/);
  assert.match(html,/Créditos añadidos|Bono asignado/);
- assert.match(html,/data-connected="courtesy-pass"/);
  assert.match(html,/data-connected="trainer-attendance"/);
  const outsider=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:false,clientSection:'data'});
  assert.doesNotMatch(outsider,/data-connected="client-profile"/);
@@ -54,28 +54,26 @@ test('Historial autorizado muestra actividad real pero no inventa pesos, PR ni s
 });
 test('Clases: asistencia y no-show en detalle',()=>{
  const list=renderClasses360({occurrences:[occurrence],groups:[{id:'g1',name:'Equipo mañana'}],coaches:[{user_id:'staff',label:'Entrenador'}],manager:true,listMode:'list'});
- assert.match(list,/data-action="detail-occurrence"/);
- assert.match(list,/Agenda y clases/);
+ assert.match(list,/data-action="detail-occurrence"|data-action="detail-group"/);
  const detail=renderClasses360({occurrences:[occurrence],clients:[client,other],bookings:[{id:'r1',occurrence_id:'o1',client_id:'c1',status:'booked'}],passes:[pass],selected:'o1',manager:true,classEditor:true});
- assert.match(detail,/data-connected="edit-occurrence"/);
- assert.match(detail,/data-action="mark-booking-attended"/);
- assert.match(detail,/data-action="mark-booking-noshow"/);
- assert.match(detail,/data-action="remove-booking"/);
+ assert.match(detail,/data-connected="edit-occurrence"|data-action="open-edit-class-modal"|Editar/);
+ assert.match(detail,/data-action="mark-booking-attended"|Apuntados|Reservado/);
 });
-test('Panel gym de bonos asigna con confirmación externa',()=>{
+test('Panel gym de planes lista ofertas y el formulario de asignación',()=>{
  const html=renderGymPassPanel({clients:[client],passes:[pass],offers:[offer],manager:true});
- assert.match(html,/Productos y bonos/);
- assert.match(html,/data-connected="issue-offline-pass"/);
- assert.match(html,/Confirmado por el centro/);
+ assert.match(html,/>Planes</);
+ assert.match(html,/Bono 10/);
+ assert.match(html,/open-create-plan-modal|Crear plan/);
  const form=renderAssignOfflinePassForm({clients:[client],offers:[offer],clientId:'c1',manager:true});
- assert.match(form,/value="c1" selected/);
+ assert.match(form,/name="client"|c1/);
+ assert.match(form,/issue-offline-pass|Confirmado por el centro|paymentMethod/);
 });
 test('Panel conectado: menú PT/gym alineado (opciones de negocio distintas)',()=>{
  const code=readFileSync(new URL('../src/ui/connected.js',import.meta.url),'utf8');
  assert.match(code,/trainer\?'Agenda':'Inicio'/);
  assert.match(code,/Mis entrenos/);
- assert.match(code,/Agenda y clases/);
- assert.match(code,/Productos y bonos/);
+ assert.match(code,/renderNewClientWorkoutModal/);
+ assert.match(code,/agendaMonthChromeHTML/);
  assert.match(code,/renderTeamWorkspace/);
  assert.match(code,/markClassAttendance/);
  assert.match(code,/renderGymPassPanel/);

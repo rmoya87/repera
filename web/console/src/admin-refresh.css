@@ -94,7 +94,8 @@ table td{border-color:#e6ede7}tr:hover td{background:#f9fbfa}
 .editor-picker-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:265px;overflow:auto;margin:12px 0}
 .editor-block.is-picking{box-shadow:0 0 0 2px #bfe9cb,0 10px 28px #14301d10}
 .editor-block-empty{margin:0;padding:10px 12px;border:1px dashed #d4e4d8;border-radius:12px;color:#6d8474;font-size:13px}
-.editor-block-addbar{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
+.editor-block-addbar{display:flex;flex-wrap:nowrap;gap:6px;padding-top:4px;overflow-x:auto}
+.editor-block-addbar .editor-add{flex:0 0 auto;padding:8px 10px;font-size:12.5px;white-space:nowrap}
 .editor-add.subtle{background:#f3f8f4;color:#2a6b42;border:1px solid #d5e6da}
 .editor-block-panel{background:#f7faf8;border:1px solid #d6e6db;padding:14px;border-radius:14px;display:grid;gap:10px}
 .editor-block-panel .editor-picker-results{max-height:220px;margin:0}

@@ -28,10 +28,6 @@ export function renderTrainerWorkoutsLibrary({templates=[],templateId=null,busy=
  </article>`).join(''):`<p class="business-empty">Crea tu primera plantilla para reutilizarla al programar ${who}.</p>`;
 
  return `<div class="pt-mis-entrenos">
-  <div class="pt-home-toolbar pt-lib-toolbar">
-   <h2 class="pt-lib-heading">Tus plantillas <span>${templates.length}</span></h2>
-   ${manager?`<button type="button" class="connected-primary" data-action="new-library-template">+ Nueva plantilla</button>`:''}
-  </div>
   <div class="pt-lib-layout">
    <section class="connected-card pt-lib-list">${list}</section>
    <section class="connected-card pt-lib-composer">
