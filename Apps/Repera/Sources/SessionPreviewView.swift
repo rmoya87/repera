@@ -53,15 +53,15 @@ struct SessionPreviewView: View {
         List {
             // Título y fecha forman parte del contenido desplazable,
             // nunca de la barra de navegación ni de un safeAreaInset fijo.
-            VStack(alignment: .leading, spacing: 8) {
-                OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
-                if active == nil, !dayLabel.isEmpty {
-                    Text("Entreno · \(dayLabel)")
-                        .font(.system(size: 15))
-                        .foregroundStyle(OG.label2)
-                }
+            OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
+                .ogScrollingTitleListRow()
+            if active == nil, !dayLabel.isEmpty {
+                Text("Entreno · \(dayLabel)")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .ogSessionDateListRow()
             }
-            .ogScrollingTitleListRow()
 
             if let active {
                 Section {

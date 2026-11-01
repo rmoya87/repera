@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,12 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EventBusy
-import androidx.compose.material.icons.outlined.FitnessCenter
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Place
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -88,14 +85,15 @@ internal fun PlusHubTab(
         mutableStateOf<BusinessCenterStore.Booking?>(null)
     }
     val zone = remember { ZoneId.systemDefault() }
+    val es = remember { Locale("es", "ES") }
     val dayFmt = remember {
-        DateTimeFormatter.ofPattern("HH:mm", Locale("es")).withZone(zone)
+        DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
     }
     val weekdayFmt = remember {
-        DateTimeFormatter.ofPattern("EE", Locale("es"))
+        DateTimeFormatter.ofPattern("EE", es)
     }
     val dateFmt = remember {
-        DateTimeFormatter.ofPattern("EEEE d MMMM", Locale("es")).withZone(zone)
+        DateTimeFormatter.ofPattern("EEEE d MMM", es).withZone(zone)
     }
 
     LaunchedEffect(Unit) { onRefresh() }
@@ -292,7 +290,6 @@ private fun ClassesPane(
             val availability = snapshot?.availability?.get(occurrence.id)
             ClassDayCard(
                 occurrence = occurrence,
-                selectedDay = selectedDay,
                 centerName = snapshot?.centerName(occurrence.orgId).orEmpty(),
                 booking = snapshot?.bookingFor(occurrence.id),
                 places = snapshot?.remainingPlaces(occurrence),
@@ -314,7 +311,6 @@ private fun ClassesPane(
 @Composable
 private fun ClassDayCard(
     occurrence: BusinessCenterStore.Occurrence,
-    selectedDay: LocalDate,
     centerName: String,
     booking: BusinessCenterStore.Booking?,
     places: Int?,
@@ -329,88 +325,120 @@ private fun ClassDayCard(
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
 ) {
+    val accent = parseClassColor(occurrence.color)
     val full = (places ?: 1) == 0
     val canTap = canBook && !full && passes.isNotEmpty()
-    val start = runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
-    val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
-    val timeLabel = start?.let { homeTimeFromIso(occurrence.startsAt) }
-    var caption = homeDayTimeCaption(selectedDay, timeLabel)
-    if (centerName.isNotBlank()) caption += " · $centerName"
     val aforo = aforoLabel(capacity = capacity, remaining = places, reserved = reserved)
-    val chips = buildList {
-        if (start != null && end != null) add(Icons.Outlined.Timer to durationLabel(start, end))
-        if (aforo != null) add(Icons.Outlined.Person to aforo)
-        occurrence.location?.takeIf { it.isNotBlank() }?.let {
-            add(Icons.Outlined.Place to it)
-        }
-        if (booking != null) {
-            add(
-                Icons.Outlined.Check to
-                    if (booking.status == "waitlist") "Lista de espera" else "Apuntado"
-            )
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HomeDayRegisterCard(
-            caption = caption,
-            title = occurrence.title,
-            leadingIcon = Icons.Outlined.FitnessCenter,
-            chips = chips,
-            onClick = { onOpenDetail(occurrence) },
-            leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        if (booking != null) {
-            Row(
+    ReperaCard(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+        ) {
+            Box(
                 Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .width(5.dp)
+                    .fillMaxHeight()
+                    .background(accent)
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                TextButton(
-                    onClick = { onRequestCancel(booking) },
-                    enabled = !submitting,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenDetail(occurrence) },
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Cancelar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    Text(occurrence.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    if (centerName.isNotBlank()) {
+                        Text(centerName, style = MaterialTheme.typography.bodySmall)
+                    }
+                    runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()?.let { start ->
+                        val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                        Text(
+                            buildString {
+                                append(dayFmt.format(start))
+                                if (end != null) {
+                                    append(" – ")
+                                    append(dayFmt.format(end))
+                                    append(" · ")
+                                    append(durationLabel(start, end))
+                                }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    occurrence.location?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (aforo != null) {
+                        Text(
+                            aforo,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (booking != null) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        TextButton(
+                            onClick = { onRequestCancel(booking) },
+                            enabled = !submitting,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("Cancelar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            val pass = passes.firstOrNull() ?: return@Button
+                            onBook(occurrence, pass)
+                        },
+                        enabled = canTap && !submitting,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.Black,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (full) "Completa" else "Apuntarme", fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        when {
+                            opensAt != null -> "Inscripción desde ${dayFmt.format(opensAt)}"
+                            full -> "Sin plazas libres"
+                            places != null -> "$places plaza${if (places == 1) "" else "s"} libre${if (places == 1) "" else "s"}"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        } else {
-            Button(
-                onClick = {
-                    val pass = passes.firstOrNull() ?: return@Button
-                    onBook(occurrence, pass)
-                },
-                enabled = canTap && !submitting,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.Black,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (full) "Completa" else "Apuntarme", fontWeight = FontWeight.Bold)
-            }
-            Text(
-                when {
-                    opensAt != null -> "Inscripción desde ${dayFmt.format(opensAt)}"
-                    full -> "Sin plazas libres"
-                    places != null -> "$places plaza${if (places == 1) "" else "s"} libre${if (places == 1) "" else "s"}"
-                    else -> ""
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -434,23 +462,13 @@ private fun ClassDetailPage(
     val open = snapshot?.canBookNow(occurrence) == true
     val full = (places ?: 1) == 0
     val passes = snapshot?.availablePasses(occurrence).orEmpty()
-    val center = snapshot?.centers?.firstOrNull { it.id == occurrence.orgId }
     val start = runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
     val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
     val canTap = open && !full && passes.isNotEmpty()
-    val centerName = center?.name ?: snapshot?.centerName(occurrence.orgId).orEmpty()
-    val subtitle = buildString {
-        append("Clase")
-        if (start != null) {
-            append(" · ")
-            append(dateFmt.format(start).replaceFirstChar { it.uppercase() })
-            append(" · ")
-            append(dayFmt.format(start))
-        }
-        if (centerName.isNotBlank()) {
-            append(" · ")
-            append(centerName)
-        }
+    val subtitle = if (start != null) {
+        "${dateFmt.format(start).replaceFirstChar { it.uppercase() }} · ${dayFmt.format(start)}"
+    } else {
+        ""
     }
 
     LaunchedEffect(occurrence.id) {
@@ -499,46 +517,32 @@ private fun ClassDetailPage(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "Clase",
+                        occurrence.title,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (subtitle.isNotBlank()) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 ReperaCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            HomeRegisterLeadingIcon(
-                                Icons.Outlined.FitnessCenter,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    occurrence.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (booking != null) {
-                                    Text(
-                                        if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (booking.status == "waitlist") {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        } else {
-                                            MaterialTheme.colorScheme.primary
-                                        }
-                                    )
+                        if (booking != null) {
+                            Text(
+                                if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (booking.status == "waitlist") {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.primary
                                 }
-                            }
+                            )
                         }
                         if (start != null) {
                             DetailRow("Fecha", dateFmt.format(start).replaceFirstChar { it.uppercase() })

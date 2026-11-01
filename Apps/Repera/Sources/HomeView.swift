@@ -1211,7 +1211,8 @@ struct HomeView: View {
             ForEach(professionalPlans) { session in
                 businessDayCard(
                     title: session.title,
-                    label: "Entreno " + businessData.centerName(session.orgId),
+                    subtitle: "Entreno " + businessData.centerName(session.orgId),
+                    captionSuffix: nil,
                     time: session.scheduledTimeMinutes.map { SpanishDate.time(minutesFromMidnight: $0) },
                     symbol: "figure.strengthtraining.traditional",
                     summary: session.prescription.map { "\($0.blocks.count) bloq." } ?? "Entrenador",
@@ -1221,12 +1222,18 @@ struct HomeView: View {
             }
             ForEach(businessBookings) { booking in
                 if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
+                    let isClass = occurrence.kind == "class"
+                    let center = businessData.centerName(occurrence.orgId)
                     businessDayCard(
                         title: occurrence.title,
-                        label: (occurrence.kind == "class" ? "Clase " : "Entreno ") + businessData.centerName(occurrence.orgId),
+                        // Clase: centro a la derecha de la hora (caption); sin línea bajo el título.
+                        subtitle: isClass ? nil : ("Entreno " + center),
+                        captionSuffix: isClass ? center : nil,
                         time: BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) },
-                        symbol: occurrence.kind == "class" ? "figure.group" : "person.crop.circle",
-                        summary: occurrence.kind == "class" ? "Reserva confirmada" : "Cita confirmada",
+                        symbol: isClass
+                            ? "figure.strengthtraining.traditional"
+                            : "person.crop.circle",
+                        summary: isClass ? "Reserva confirmada" : "Cita confirmada",
                         action: { openBusinessBookingId = booking.id }
                     )
                     .frame(minHeight: singleWorkoutMinHeight, alignment: .center)
@@ -1255,30 +1262,40 @@ struct HomeView: View {
     /// A read-only, tappable professional card in the native daily workout design.
     private func businessDayCard(
         title: String,
-        label: String,
+        subtitle: String?,
+        captionSuffix: String?,
         time: String?,
         symbol: String,
         summary: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        let captionBase = WorkoutListCaption.dayTimeLine(for: selectedDay, time: time)
+        let caption: String = {
+            guard let suffix = captionSuffix?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !suffix.isEmpty else { return captionBase }
+            return "\(captionBase) · \(suffix)"
+        }()
+        return Button(action: action) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .top, spacing: 12) {
                     OGRegisterLeadingIcon(systemName: symbol, tint: OG.label2)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: time))
+                        Text(caption)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
+                            .lineLimit(2)
                         Text(title)
                             .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                        Text(label + (time.map { " – " + $0 } ?? ""))
-                            .font(.system(size: 12))
-                            .foregroundStyle(OG.label2)
-                            .lineLimit(2)
+                        if let subtitle, !subtitle.isEmpty {
+                            Text(subtitle)
+                                .font(.system(size: 12))
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(2)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right")

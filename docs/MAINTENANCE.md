@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-01 (aforo + ver más pagos/historial)
+Última actualización: 2026-11-01 (Inicio clases + listado color)
 
 ## Regla de oro
 
