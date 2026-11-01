@@ -13,7 +13,7 @@ El e1RM y la puntuación de actividad son estimaciones operativas: no constituye
 
 ## Solicitudes, calendario y planificación masiva — 27/10/2026
 
-Las nuevas RPCs validan actor mediante `auth.uid()`, email confirmado y roles reales. La tabla `organization_athlete_requests` habilita RLS para consultas de solicitante y responsables del centro; el navegador no tiene permisos INSERT/UPDATE directos. `business_decide_enrollment` valida la solicitud pendiente y su organización, impide vinculaciones a otra cuenta y crea membresía `athlete` y ficha vinculada en una transacción.
+Las nuevas RPCs validan actor mediante `auth.uid()`, email confirmado y roles reales. La tabla `organization_athlete_requests` habilita RLS para consultas de solicitante y responsables del centro; el navegador no tiene permisos INSERT/UPDATE directos. `business_decide_enrollment` valida la solicitud pendiente y su organización, impide vinculaciones a otra cuenta y crea membresía `athlete` y ficha vinculada en una transacción; solo owner/admin deciden. El cupo PT (`enforce_trainer_client_limit`) usa cupo de arranque 5 si no hay fila en `organization_trials`; con trial/plan caducado sigue bloqueando.
 
 `business_bulk_training_batches` mantiene el control de idempotencia protegido por RLS y sin escrituras directas de `authenticated`; su función privada valida template y prescripción, atletas vinculados y activos, días y límites, y utiliza la función existente `private.publish_professional_session_v2` para aplicar los permisos al profesional. Nunca se escribe sobre historiales privados de entrenamientos realizados.
 
@@ -69,7 +69,7 @@ La delegación exige organización existente, motivo de 12–300 caracteres, dur
 El advisor de seguridad del proyecto notificó otros avisos no introducidos por este panel (vista `training_exercise_catalog`, función `search_discoverable_organizations`, protección de contraseñas filtradas); resolver por separado antes de considerar producción endurecida.
 
 # Seguridad multiempresa — Repera
-Última actualización: 2026-10-20 (avatar profiles).
+Última actualización: 2026-11-01 (decide enrollment + cupo PT sin fila trial).
 
 ## Controles implantados
 - RLS en **todas las once** tablas publicadas, política explícita `TO authenticated` y predicados de propietario / membresía.

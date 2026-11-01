@@ -51,9 +51,8 @@ test('miniatura de Hang Squat Snatch corresponde a un recurso nativo explícito'
 test('ficha de entrenador no obliga a abrir el editor hasta elegir añadir entreno',()=>{
  const html=renderClient360({clients:[athlete],selected:athlete.id,manager:true,trainer:true,
   sessions:[scheduled],sharedHistory:[logged],trainerActivityDay:'2099-10-29',trainerActivityMonth:'2099-10'});
- assert.match(html,/Agenda de|Entreno mañana|open-quick-workout/);
- assert.match(html,/Mapa de grupos trabajados/);
- assert.match(html,/Registro /);
+ assert.match(html,/Agenda de|pt-agenda-shell|open-quick-workout/);
+ assert.match(html,/Entreno mañana|pt-client-history|Actividad compartida|Sin actividad/);
  assert.doesNotMatch(html,/data-connected="publish-session"/);
 });
 
@@ -77,7 +76,13 @@ test('bonos permiten emitir y registrar sesiones distinguiendo pagos externos',(
  const html=renderTrainerPassPanel({clients:[athlete],passes:[p],offers:[offer],
   attendance:[],occurrences:[],seat,manager:true});
  assert.match(html,/data-connected="create-pass-offer"/);
+ assert.match(html,/data-billing-select/);
+ assert.match(html,/value="time_slot"/);
+ assert.match(html,/data-billing-fields="session_pack"/);
+ assert.match(html,/data-billing-fields="unlimited"/);
  assert.match(html,/data-connected="issue-offline-pass"/);
+ assert.match(html,/name="paymentMethod"/);
+ assert.match(html,/name="paidAt"/);
  assert.match(html,/data-connected="trainer-attendance"/);
  assert.match(html,/fuera de Repera/);
  assert.match(html,/3\/10 sesiones/);

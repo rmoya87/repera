@@ -164,13 +164,12 @@ internal fun CenterTab(
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Invitación a un centro",
                             style = MaterialTheme.typography.titleSmall)
-                        Text("Perfil: ${invitation.invitedRole}. Aceptar la invitación " +
-                            "vinculará tu cuenta, pero no compartirá tu historial " +
-                            "deportivo personal.",
+                        Text("Acepta la vinculación para ver clases, bonos y mensajes " +
+                            "de ese centro. Tu historial personal no se comparte.",
                             style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { onAccept(invitation) },
-                                enabled = !submitting) { Text("Aceptar") }
+                                enabled = !submitting) { Text("Aceptar vinculación") }
                             TextButton(onClick = { onDecline(invitation) },
                                 enabled = !submitting) { Text("Rechazar") }
                         }

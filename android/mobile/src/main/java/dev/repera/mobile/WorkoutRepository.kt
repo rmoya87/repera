@@ -2053,8 +2053,21 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             if(format.isNotEmpty() && format!="null") block.put("wodFormat",format)
             listOf("rounds","timeCapMinutes").forEach {key -> if(prescribed.has(key) && !prescribed.isNull(key)) block.put(key,prescribed.get(key))}
             val entries=prescribed.optJSONArray(if(wod) "movements" else "exercises") ?: JSONArray()
+            val deferredRests=JSONArray()
             for(j in 0 until entries.length()) {
                 val entry=entries.getJSONObject(j)
+                // Paridad iOS: REST prescrito como isRest en WOD (nunca fuerza).
+                if(entry.optBoolean("isRest")) {
+                    val rest=JSONObject()
+                        .put("id",entry.getString("id"))
+                        .put("name",entry.optString("name").ifBlank { "REST" })
+                        .put("isRest",true)
+                        .put("restSeconds",entry.optInt("restSeconds",60).coerceAtLeast(5))
+                    if(entry.has("notes") && !entry.isNull("notes")) rest.put("notes",entry.get("notes"))
+                    if(wod) block.getJSONArray("movements").put(rest)
+                    else deferredRests.put(rest)
+                    continue
+                }
                 val known=(0 until catalog.length()).map {catalog.getJSONObject(it)}
                 val resolved=known.firstOrNull {it.optString("id")==entry.optString("catalogKey")} ?:
                     known.firstOrNull {dev.repera.domain.ExerciseEquivalence.sameName(it.optString("name"),entry.optString("name"))} ?:
@@ -2073,7 +2086,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     item.put("plannedSets",planned);block.getJSONArray("exercises").put(item)
                 }
             }
-            blocks.put(block)
+            val hasContent=if(wod) block.getJSONArray("movements").length()>0 else block.getJSONArray("exercises").length()>0
+            if(hasContent) blocks.put(block)
+            for(r in 0 until deferredRests.length()) {
+                blocks.put(JSONObject().put("id",UUID.randomUUID().toString()).put("title","Descanso")
+                    .put("kind","wod").put("exercises",JSONArray())
+                    .put("movements",JSONArray().put(deferredRests.getJSONObject(r))))
+            }
         }
         val projected=JSONObject().put("id",assigned.id).put("title",assigned.title).put("blocks",blocks).put("progression","off")
         return runCatching {assembleSession(temporary,projected,allowAdvanced=false)}.getOrNull()

@@ -124,22 +124,18 @@ struct CenterView: View {
         .navigationDestination(item: $chatOrgId) { orgId in
             MessagesInboxView(initialOrgId: orgId)
         }
-        .confirmationDialog(
-            "¿Cancelar la reserva?",
-            isPresented: Binding(
-                get: { bookingPendingCancellation != nil },
-                set: { if !$0 { bookingPendingCancellation = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            if let booking = bookingPendingCancellation {
-                Button("Confirmar cancelación", role: .destructive) {
+        .sheet(item: $bookingPendingCancellation) { booking in
+            OGConfirmSheet(
+                systemImage: "calendar.badge.minus",
+                title: "¿Cancelar la reserva?",
+                message: cancellationNotice,
+                confirmTitle: "Confirmar cancelación",
+                onConfirm: {
                     bookingPendingCancellation = nil
                     Task { await business.cancel(booking) }
-                }
-            }
-        } message: {
-            Text(cancellationNotice)
+                },
+                onCancel: { bookingPendingCancellation = nil }
+            )
         }
     }
 
@@ -285,22 +281,37 @@ struct CenterView: View {
                         .font(.subheadline)
                 }
                 if let booking = business.booking(for: occurrence.id) {
-                    Label("Reservado · También en Inicio", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(OG.accent)
+                    Label(
+                        booking.status == "waitlist"
+                            ? "Lista de espera · te avisamos si hay plaza"
+                            : "Reservado · También en Inicio",
+                        systemImage: booking.status == "waitlist" ? "clock.badge.checkmark" : "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(OG.accent)
                     Button("Cancelar reserva", role: .destructive) {
                         bookingPendingCancellation = booking
                     }
                     .disabled(business.isSubmitting)
-                    Text("Cancelar con más de 12 h suele devolver el crédito; dentro de 12 h, no.")
+                    Text(booking.status == "waitlist"
+                         ? "En espera no se descuenta crédito hasta confirmar plaza."
+                         : "Cancelar con más de 12 h suele devolver el crédito; dentro de 12 h, no.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 } else if let places = business.remainingPlaces(for: occurrence), places == 0 {
                     Label("Completo", systemImage: "xmark.circle")
                         .font(.subheadline)
                         .foregroundStyle(OG.label2)
-                    Text("No quedan plazas. La lista de espera aún no está habilitada.")
+                    Text("Sin plazas. Puedes apuntarte a la lista de espera; te avisaremos si se libera una.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
+                    let wallets = business.availablePasses(for: occurrence)
+                    if let pass = wallets.first {
+                        Button("Entrar en lista de espera") {
+                            Task { await business.book(occurrence, using: pass) }
+                        }
+                        .disabled(business.isSubmitting)
+                        .foregroundStyle(OG.accent)
+                    }
                 } else if let places = business.remainingPlaces(for: occurrence) {
                     Text(occurrence.kind == "appointment"
                          ? "Horario disponible"

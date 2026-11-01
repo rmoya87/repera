@@ -39,6 +39,8 @@ El plan maestro V3 y la revisión UX exigen Fase 0 antes de features. Esta tanda
 ### 6. Consola PT agenda-first (2026-11-01)
 
 - Nav PT: Agenda + Clientes; ajustes solo vía identidad clicable.
+- Agenda mes/día (`data-agenda-view`); cita 1:1 asignable con enroll/cortesía para la app del cliente.
+- Modales `pt-sheet` (Avisos, Solicitudes, Invitar, Crear cita, Entreno).
 - Clases de gym asignadas al coach: `coach_ack` + RPCs list/ack/reschedule/cancel; cobro de tarifas externo con `billing_model`.
 - App móvil: atleta ve cambios de horario/cancelación; sin panel de gestión coach.
 

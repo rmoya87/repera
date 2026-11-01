@@ -1,18 +1,85 @@
-import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
+import {editorMarkup,emptyPrescription,starterPrescription,visualPrescription,setEditorLibraryTemplates} from './workout-editor.js';
 import {renderMainProfessionalPlanning} from './connected-planning-main.js';
+import {renderWorkoutInsertPanel} from './trainer-workouts.js';
 const dateToday=()=>new Date().toLocaleDateString('sv-SE');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function sessionComposerForm({canEdit,allowedClients,currentSession,selectedTemplate,prescription,sessionTitle,sessionDay,sessionTime,escapeHTML,busy,showTemplateSave=true,clientId='',instructions='',templates=[]}){
+ if(!canEdit)return '<p>La gestión de entrenamientos requiere permisos de entrenador o administración.</p>';
+ if(!allowedClients.length)return '<p>Invita al deportista y espera a que acepte y vincule su cuenta para poder publicarle entrenamientos.</p>';
+ const options=(rows,fn)=>rows.map(fn).join('');
+ const selectedClient=currentSession?.client_id||clientId||'';
+ const notes=instructions!==''&&instructions!=null?instructions:(currentSession?.instructions||'');
+ setEditorLibraryTemplates(templates);
+ const visual=visualPrescription(prescription);
+ const compose=visual.blocks?.length?visual:starterPrescription();
+ return `<form data-connected="publish-session" class="planning-form" id="client-workout-editor">
+ <div class="planning-form-heading"><h3>${currentSession?'Editar entreno individual':selectedTemplate?'Partir de plantilla':'Preparar entrenamiento'}</h3>${currentSession||selectedTemplate?'<button type="button" data-action="new-workout" class="connected-secondary">Empezar de cero</button>':''}</div>
+ <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(allowedClients,c=>`<option value="${escapeHTML(c.id)}" ${c.id===selectedClient?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
+ ${currentSession?`<input type="hidden" name="client" value="${escapeHTML(selectedClient)}">`:''}
+ <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" ${currentSession?'':`min="${dateToday()}"`} required></label><label class="connected-field">Hora (opcional)<input type="time" name="time" value="${escapeHTML(sessionTime)}"></label></div>
+ <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
+ ${editorMarkup(compose)}
+ <label class="connected-field">Indicaciones para el deportista<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo y recomendaciones">${escapeHTML(notes)}</textarea></label>
+ ${showTemplateSave?`<div class="planning-template-save"><label class="connected-field">Nombre para guardar como plantilla<input name="templateName" minlength="2" maxlength="120" value="${escapeHTML(selectedTemplate?.name||sessionTitle||'')}" placeholder="Ej. Full Body A"></label>
+ <label class="connected-field">Descripción de la plantilla<input name="templateDescription" maxlength="1000" value="${escapeHTML(selectedTemplate?.description||'')}" placeholder="Objetivos, equipo, nivel…"></label></div>`:''}
+ <div class="planning-submit">${showTemplateSave?`<button type="submit" class="connected-secondary" data-intent="template" ${busy?'disabled':''}>${selectedTemplate?'Actualizar plantilla':'Guardar en Mis entrenos'}</button>`:''}<button type="submit" class="connected-primary" data-intent="publish" ${busy?'disabled':''}>${currentSession?'Guardar cambios del cliente':'Publicar para deportista'}</button></div>
+ <p class="connected-hint">Insertar o copiar añade bloques al editor. Publicar solo afecta a este deportista; el origen no se modifica.</p>
+ </form>`;
+}
+
+/** Pantalla completa PT: programar / editar sesión de un cliente. */
+export function renderClientWorkoutFullscreen({
+ orgId,role,sessions=[],templates=[],clients=[],escapeHTML=esc,busy=false,
+ templateId=null,sessionId=null,clientId=null,preferredDate='',seedPrescription=null,
+ copyClientId='',clientName='',draftTitle='',draftInstructions='',
+}){
+ if(!orgId)return '';
+ const canEdit=['owner','admin','coach'].includes(role);
+ const pool=clients.filter(c=>!c.account_deleted_at&&['active','trial','paused','lead'].includes(c.status));
+ const linked=pool.filter(c=>c.user_id&&c.status==='active');
+ let ensure=linked.slice();
+ if(clientId){
+  const mine=pool.find(c=>c.id===clientId);
+  ensure=mine?[mine,...linked.filter(c=>c.id!==clientId)]:linked;
+ }
+ const currentSession=sessions.find(s=>s.id===sessionId);
+ const selectedTemplate=templates.find(t=>t.id===templateId);
+ const prescription=seedPrescription||currentSession?.prescription||selectedTemplate?.prescription||emptyPrescription();
+ const sessionTitle=draftTitle||currentSession?.title||(seedPrescription?'':selectedTemplate?.name)||'';
+ const sessionDay=currentSession?.scheduled_date||preferredDate||dateToday();
+ const sessionTime=Number.isInteger(currentSession?.scheduled_time_minutes)
+  ?String(Math.floor(currentSession.scheduled_time_minutes/60)).padStart(2,'0')+':'+String(currentSession.scheduled_time_minutes%60).padStart(2,'0'):'';
+ const titleName=clientName||clients.find(c=>c.id===clientId)?.name||'cliente';
+ return `<div class="pt-workout-fullscreen">
+  <div class="pt-workout-full-bar">
+   <button type="button" class="connected-secondary" data-action="close-client-editor">← Volver</button>
+   <div><span class="connected-eyebrow">Programación</span><h1 class="pt-home-title">Entreno de ${escapeHTML(titleName)}</h1></div>
+  </div>
+  <div class="pt-workout-full-grid">
+   ${renderWorkoutInsertPanel({templates,sessions,clients:pool,clientId:currentSession?.client_id||clientId||'',copyClientId,busy})}
+   <section class="connected-card pt-workout-full-main">
+    ${sessionComposerForm({canEdit,allowedClients:ensure.length?ensure:linked,currentSession,selectedTemplate:seedPrescription?null:selectedTemplate,prescription,sessionTitle,sessionDay,sessionTime,escapeHTML,busy,showTemplateSave:true,clientId:currentSession?.client_id||clientId||'',instructions:draftInstructions,templates})}
+   </section>
+  </div>
+ </div>`;
+}
+
 export function renderProfessionalPlanning(props) {
  if(Object.prototype.hasOwnProperty.call(props,'draft'))return renderMainProfessionalPlanning(props);
- const {orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null,preferredDate='',embedded=false,bulkOnly=false}=props;
+ const {orgId,role,sessions=[],templates=[],clients=[],memberships=[],escapeHTML,busy=false,templateId=null,sessionId=null,clientId=null,preferredDate='',embedded=false,bulkOnly=false,seedPrescription=null,copyClientId='',fullscreen=false,clientName=''}=props;
+ if(fullscreen)return renderClientWorkoutFullscreen({orgId,role,sessions,templates,clients,escapeHTML,busy,templateId,sessionId,clientId,preferredDate,seedPrescription,copyClientId,clientName});
  if(!orgId)return '';
  const canEdit=['owner','admin','coach'].includes(role),manager=['owner','admin'].includes(role);
  const linked=clients.filter(c=>c.user_id&&c.status==='active');
- const allowedClients=embedded?linked.filter(c=>c.id===clientId):linked;
+ const allowedClients=embedded&&clientId
+  ?(linked.filter(c=>c.id===clientId).length?linked.filter(c=>c.id===clientId):clients.filter(c=>c.id===clientId))
+  :linked;
  const coaches=memberships.filter(m=>m.organization_id===orgId&&m.role==='coach'&&m.status==='active');
  const options=(rows,fn)=>rows.map(fn).join('');
- const currentSession=sessions.find(s=>s.id===sessionId&&(!embedded||s.client_id===clientId)),selectedTemplate=templates.find(t=>t.id===templateId);
- const prescription=currentSession?.prescription||selectedTemplate?.prescription||emptyPrescription();
- const sessionTitle=currentSession?.title||selectedTemplate?.name||'';
+ const currentSession=sessions.find(s=>s.id===sessionId&&(!embedded||!clientId||s.client_id===clientId)),selectedTemplate=templates.find(t=>t.id===templateId);
+ const prescription=seedPrescription||currentSession?.prescription||selectedTemplate?.prescription||emptyPrescription();
+ const sessionTitle=currentSession?.title||(seedPrescription?'':selectedTemplate?.name)||'';
  const sessionDay=currentSession?.scheduled_date||preferredDate||dateToday();
  const sessionTime=Number.isInteger(currentSession?.scheduled_time_minutes)
   ?String(Math.floor(currentSession.scheduled_time_minutes/60)).padStart(2,'0')+':'+String(currentSession.scheduled_time_minutes%60).padStart(2,'0'):'';
@@ -71,7 +138,7 @@ export function renderProfessionalPlanning(props) {
  <div class="planning-form-row"><label class="connected-field">Deportista<select name="client" ${currentSession?'disabled':''}>${options(allowedClients,c=>`<option value="${escapeHTML(c.id)}" ${c.id===(currentSession?.client_id||clientId)?'selected':''}>${escapeHTML(c.name)}</option>`)}</select></label>
  <label class="connected-field">Fecha<input type="date" name="date" value="${escapeHTML(sessionDay)}" ${currentSession?'':`min="${dateToday()}"`} required></label><label class="connected-field">Hora (opcional)<input type="time" name="time" value="${escapeHTML(sessionTime)}"></label></div>
  <label class="connected-field">Título de la sesión<input name="title" minlength="2" maxlength="120" value="${escapeHTML(sessionTitle)}" required placeholder="Ej. Fuerza + AMRAP 12'"></label>
- ${editorMarkup(visualPrescription(prescription))}
+ ${(()=>{setEditorLibraryTemplates(templates);return editorMarkup(visualPrescription(prescription));})()}
  <label class="connected-field">Indicaciones para el deportista<textarea name="instructions" rows="3" maxlength="10000" placeholder="Objetivo y recomendaciones">${escapeHTML(currentSession?.instructions||'')}</textarea></label>
  <div class="planning-template-save"><label class="connected-field">Nombre para guardar como plantilla<input name="templateName" minlength="2" maxlength="120" value="${escapeHTML(selectedTemplate?.name||sessionTitle||'')}" placeholder="Ej. Full Body A"></label>
  <label class="connected-field">Descripción de la plantilla<input name="templateDescription" maxlength="1000" value="${escapeHTML(selectedTemplate?.description||'')}" placeholder="Objetivos, equipo, nivel…"></label></div>

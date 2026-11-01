@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderClientChatThread,renderBroadcastPanel} from '../src/ui/business-chat.js';
-import {invitationWebUrl,invitationDeepLink,renderInvitationShareCard} from '../src/ui/invitation-share.js';
+import {invitationWebUrl,invitationDeepLink,renderInvitationShareCard,renderInviteShareDialog,pendingAthleteInvite} from '../src/ui/invitation-share.js';
 
 const chatSql=readFileSync(new URL('../../../supabase/migrations/20261101140000_business_chat_and_decline.sql',import.meta.url),'utf8');
 const quotaSql=readFileSync(new URL('../../../supabase/migrations/20261101150000_business_quotas_entitlements.sql',import.meta.url),'utf8');
@@ -68,4 +68,14 @@ test('tarjeta invitación con QR, web y deep link',()=>{
  assert.match(card,/data-action="copy-invite-link"/);
  assert.match(card,/data-action="cancel-invitation"/);
  assert.match(card,/repera:\/\/invitation\//);
+ const dialog=renderInviteShareDialog({invitationId:id,email:'a@b.com',sent:false,reason:'sin correo'});
+ assert.match(dialog,/Comparte el enlace/);
+ assert.match(dialog,/business-invite-qr/);
+ assert.match(dialog,/data-action="close-invite-share"/);
+ const pending=pendingAthleteInvite({
+  orgId:'org-1',email:'a@b.com',
+  invitations:[{id,organization_id:'org-1',email:'a@b.com',invited_role:'athlete',
+   expires_at:'2099-01-01T00:00:00Z',accepted_at:null,cancelled_at:null}],
+ });
+ assert.equal(pending?.id,id);
 });

@@ -14,10 +14,17 @@ struct BusinessOrganization: Decodable, Identifiable, Hashable {
     let slug: String?
     let avatarUrl: String?
     let tagline: String?
+    /// Contacto público del centro (visible al atleta vinculado).
+    var publicEmail: String?
+    var phone: String?
+    /// Horas antes del inicio en las que se puede apuntar (default 168 = 7 días).
+    var classBookingOpenHours: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, kind, slug, tagline
+        case id, name, kind, slug, tagline, phone
         case avatarUrl = "avatar_url"
+        case publicEmail = "public_email"
+        case classBookingOpenHours = "class_booking_open_hours"
     }
 
     var kindLabel: String {
@@ -48,7 +55,39 @@ struct BusinessInvitation: Decodable, Identifiable {
         case cancelledAt = "cancelled_at"
     }
 }
-struct BusinessOccurrence: Decodable, Identifiable {
+
+/// Preview segura de una invitación (nombre del centro) para Ajustes / deep link.
+struct BusinessInvitationPreview: Decodable, Hashable {
+    let invitationId: UUID
+    let organizationId: UUID
+    let organizationName: String
+    let organizationKind: String
+    let organizationAvatarUrl: String?
+    let organizationTagline: String?
+    let invitedRole: String
+    let expiresAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case invitationId = "invitation_id"
+        case organizationId = "organization_id"
+        case organizationName = "organization_name"
+        case organizationKind = "organization_kind"
+        case organizationAvatarUrl = "organization_avatar_url"
+        case organizationTagline = "organization_tagline"
+        case invitedRole = "invited_role"
+        case expiresAt = "expires_at"
+    }
+
+    var kindLabel: String {
+        switch organizationKind {
+        case "personal_trainer": return "Entrenador"
+        case "gym": return "Gimnasio"
+        case "sports_center": return "Centro deportivo"
+        default: return "Centro"
+        }
+    }
+}
+struct BusinessOccurrence: Decodable, Identifiable, Hashable {
     let id: UUID
     let orgId: UUID
     let kind: String
@@ -57,13 +96,51 @@ struct BusinessOccurrence: Decodable, Identifiable {
     let endsAt: String
     let capacity: Int
     let status: String
+    /// Color del calendario (`service_occurrence_details.color`).
+    var color: String?
+    var location: String?
+    var coachUserId: UUID?
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, title, capacity, status
+        case id, kind, title, capacity, status, color, location
         case orgId = "org_id"
         case startsAt = "starts_at"
         case endsAt = "ends_at"
+        case coachUserId = "coach_user_id"
+        case details = "service_occurrence_details"
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        orgId = try c.decode(UUID.self, forKey: .orgId)
+        kind = try c.decode(String.self, forKey: .kind)
+        title = try c.decode(String.self, forKey: .title)
+        startsAt = try c.decode(String.self, forKey: .startsAt)
+        endsAt = try c.decode(String.self, forKey: .endsAt)
+        capacity = try c.decode(Int.self, forKey: .capacity)
+        status = try c.decode(String.self, forKey: .status)
+        coachUserId = try c.decodeIfPresent(UUID.self, forKey: .coachUserId)
+        if let embedded = try? c.decodeIfPresent(OccurrenceDetailsEmbed.self, forKey: .details) {
+            color = embedded.color
+            location = embedded.location
+        } else if let list = try? c.decodeIfPresent([OccurrenceDetailsEmbed].self, forKey: .details),
+                  let first = list.first {
+            color = first.color
+            location = first.location
+        } else {
+            color = try c.decodeIfPresent(String.self, forKey: .color)
+            location = try c.decodeIfPresent(String.self, forKey: .location)
+        }
+    }
+
+    private struct OccurrenceDetailsEmbed: Decodable {
+        let color: String?
+        let location: String?
+    }
+
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: BusinessOccurrence, rhs: BusinessOccurrence) -> Bool { lhs.id == rhs.id }
 }
 struct BusinessPass: Decodable, Identifiable {
     let id: UUID
@@ -75,6 +152,11 @@ struct BusinessPass: Decodable, Identifiable {
     let validFrom: String
     let validUntil: String
     let status: String
+    var issuanceType: String?
+    var paymentMethod: String?
+    var paidAt: String?
+    var paidAmountCents: Int?
+    var offerId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id, kind, status
@@ -84,6 +166,46 @@ struct BusinessPass: Decodable, Identifiable {
         case remainingCredits = "remaining_credits"
         case validFrom = "valid_from"
         case validUntil = "valid_until"
+        case issuanceType = "issuance_type"
+        case paymentMethod = "payment_method"
+        case paidAt = "paid_at"
+        case paidAmountCents = "paid_amount_cents"
+        case offerId = "offer_id"
+    }
+}
+
+struct BusinessClassRosterPerson: Decodable, Hashable, Identifiable {
+    var id: String { "\(displayName)-\(avatarUrl ?? "")-\(status ?? "")" }
+    let displayName: String
+    let avatarUrl: String?
+    let status: String?
+
+    enum CodingKeys: String, CodingKey {
+        case displayName = "display_name"
+        case avatarUrl = "avatar_url"
+        case status
+    }
+}
+
+struct BusinessClassRoster: Decodable, Hashable {
+    let occurrenceId: UUID?
+    let coach: BusinessClassRosterPerson?
+    let attendees: [BusinessClassRosterPerson]
+    let capacity: Int?
+    let reserved: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case occurrenceId = "occurrence_id"
+        case coach, attendees, capacity, reserved
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        occurrenceId = try c.decodeIfPresent(UUID.self, forKey: .occurrenceId)
+        coach = try c.decodeIfPresent(BusinessClassRosterPerson.self, forKey: .coach)
+        attendees = try c.decodeIfPresent([BusinessClassRosterPerson].self, forKey: .attendees) ?? []
+        capacity = try c.decodeIfPresent(Int.self, forKey: .capacity)
+        reserved = try c.decodeIfPresent(Int.self, forKey: .reserved)
     }
 }
 struct BusinessPassOffer: Decodable, Identifiable {
@@ -160,6 +282,9 @@ struct BusinessPrescriptionEntry: Decodable, Identifiable {
     let plannedSets: [BusinessPrescriptionSet]?
     let reps: Int?
     let notes: String?
+    /// Paridad con WODMovement: descansos prescritos por el entrenador.
+    let isRest: Bool?
+    let restSeconds: Int?
 }
 struct BusinessPrescriptionSet: Decodable, Identifiable {
     let id: UUID
@@ -300,6 +425,10 @@ final class BusinessDataStore {
     private(set) var centers: [BusinessOrganization] = []
     private(set) var athleteCenterIds: Set<UUID> = []
     private(set) var invitations: [BusinessInvitation] = []
+    /// Previews por id de invitación (nombre del centro antes de aceptar).
+    private(set) var invitationPreviews: [UUID: BusinessInvitationPreview] = [:]
+    /// Tras aceptar por deep link, Ajustes puede abrir el centro recién vinculado.
+    var pendingOpenLinkedCenterId: UUID?
     private(set) var occurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
     private(set) var passOffers: [BusinessPassOffer] = []
@@ -332,6 +461,8 @@ final class BusinessDataStore {
         centers = []
         athleteCenterIds = []
         invitations = []
+        invitationPreviews = [:]
+        pendingOpenLinkedCenterId = nil
         occurrences = []
         passes = []
         passOffers = []
@@ -364,7 +495,7 @@ final class BusinessDataStore {
             let currentUser = user.id
             let fetchedCenters: [BusinessOrganization] = try await client
                 .from("organizations")
-                .select("id,name,kind,slug,avatar_url,tagline")
+                .select("id,name,kind,slug,avatar_url,tagline,public_email,phone,class_booking_open_hours")
                 .execute().value
             let fetchedInvitations: [BusinessInvitation] = try await client
                 .from("organization_invitations")
@@ -375,13 +506,14 @@ final class BusinessDataStore {
                 .select("id,org_id,user_id,status")
                 .execute().value
             let ownedClientIds = Set(fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }.map(\.id))
+            // FK explícita: hay dos relaciones (occurrence_id PK y (org_id,occurrence_id)).
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
-                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status")
+                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id,service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location)")
                 .execute().value
             let fetchedPasses: [BusinessPass] = try await client
                 .from("service_passes")
-                .select("id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status")
+                .select("id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type,payment_method,paid_at,paid_amount_cents,offer_id")
                 .execute().value
             let fetchedOffers: [BusinessPassOffer] = try await client
                 .from("business_pass_offers")
@@ -423,6 +555,7 @@ final class BusinessDataStore {
             clientLinks = fetchedLinks.filter { $0.userId == currentUser && $0.status == "active" }
             athleteCenterIds = Set(clientLinks.map(\.orgId))
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
+            await loadInvitationPreviews(for: invitations.map(\.id))
             await refreshEntitlements()
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
@@ -438,8 +571,23 @@ final class BusinessDataStore {
             // A failed request belonging to a prior session cannot reset the new session.
             guard revision == refreshRevision else { return }
             clear()
-            errorMessage = "No se han podido cargar tus centros y reservas. \(error.localizedDescription)"
+            errorMessage = Self.friendlyCentersLoadError(error)
         }
+    }
+
+    /// Mensaje corto para UI: nunca volcar JSON/PostgREST crudo.
+    private static func friendlyCentersLoadError(_ error: Error) -> String {
+        let raw = error.localizedDescription
+        if raw.localizedCaseInsensitiveContains("PGRST201")
+            || raw.localizedCaseInsensitiveContains("more than one relationship") {
+            return "No se han podido cargar tus centros y reservas. Actualiza la app e inténtalo de nuevo."
+        }
+        if raw.localizedCaseInsensitiveContains("PGRST")
+            || raw.contains("\"code\"")
+            || raw.count > 140 {
+            return "No se han podido cargar tus centros y reservas. Comprueba la conexión e inténtalo de nuevo."
+        }
+        return "No se han podido cargar tus centros y reservas."
     }
 
     static func date(_ value: String) -> Date? {
@@ -516,12 +664,28 @@ final class BusinessDataStore {
     }
 
     func booking(for occurrenceId: UUID) -> BusinessBooking? {
-        bookings.first { $0.occurrenceId == occurrenceId && $0.status == "booked" }
+        bookings.first {
+            $0.occurrenceId == occurrenceId && ($0.status == "booked" || $0.status == "waitlist")
+        }
     }
 
     func remainingPlaces(for occurrence: BusinessOccurrence) -> Int? {
         guard let item = availability[occurrence.id] else { return nil }
         return max(0, item.capacity - item.reserved)
+    }
+
+    /// `nil` = abierta; si hay fecha, aún no se puede apuntar hasta entonces.
+    func bookingOpensAt(for occurrence: BusinessOccurrence) -> Date? {
+        guard let start = Self.date(occurrence.startsAt) else { return nil }
+        let hours = centers.first(where: { $0.id == occurrence.orgId })?.classBookingOpenHours ?? 168
+        let opens = start.addingTimeInterval(-TimeInterval(max(1, hours)) * 3600)
+        return opens > Date() ? opens : nil
+    }
+
+    func canBookNow(_ occurrence: BusinessOccurrence) -> Bool {
+        bookingOpensAt(for: occurrence) == nil
+            && (Self.date(occurrence.startsAt) ?? .distantPast) > Date()
+            && occurrence.status == "active"
     }
 
     func availablePasses(for occurrence: BusinessOccurrence) -> [BusinessPass] {
@@ -534,6 +698,43 @@ final class BusinessDataStore {
         }
     }
 
+    func loadClassRoster(for occurrenceId: UUID) async -> BusinessClassRoster? {
+        guard let client = BusinessAuthStore.shared.apiClient else { return nil }
+        do {
+            let response = try await client
+                .rpc("class_occurrence_roster", params: ["p_occurrence": occurrenceId.uuidString])
+                .execute()
+            return try JSONDecoder().decode(BusinessClassRoster.self, from: response.data)
+        } catch {
+            return nil
+        }
+    }
+
+    func pastBookings(for orgId: UUID) -> [BusinessBooking] {
+        let occById = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.id, $0) })
+        return bookings.filter { booking in
+            guard booking.orgId == orgId,
+                  let occ = occById[booking.occurrenceId],
+                  let start = Self.date(occ.startsAt) else { return false }
+            return start < Date() || ["attended", "cancelled", "no_show"].contains(booking.status)
+        }
+        .sorted { a, b in
+            let da = Self.date(occById[a.occurrenceId]?.startsAt ?? "") ?? .distantPast
+            let db = Self.date(occById[b.occurrenceId]?.startsAt ?? "") ?? .distantPast
+            return da > db
+        }
+    }
+
+    func paymentHistory(for orgId: UUID) -> [BusinessPass] {
+        passes.filter { $0.orgId == orgId }
+            .sorted { (Self.date($0.paidAt ?? $0.validFrom) ?? .distantPast) > (Self.date($1.paidAt ?? $1.validFrom) ?? .distantPast) }
+    }
+
+    func offerName(for pass: BusinessPass) -> String? {
+        guard let oid = pass.offerId else { return nil }
+        return passOffers.first(where: { $0.id == oid })?.name
+    }
+
     func accept(_ invitation: BusinessInvitation) async {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
         isSubmitting = true
@@ -541,10 +742,43 @@ final class BusinessDataStore {
         do {
             try await client.rpc("accept_org_invitation",
                                  params: ["p_invitation_id": invitation.id.uuidString]).execute()
+            pendingOpenLinkedCenterId = invitation.organizationId
             await refresh()
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.openSettingsLinkedCenter"),
+                object: invitation.organizationId
+            )
         } catch {
             errorMessage = "No se ha podido aceptar la invitación: \(error.localizedDescription)"
         }
+    }
+
+    func invitationPreview(for id: UUID) -> BusinessInvitationPreview? {
+        invitationPreviews[id]
+    }
+
+    func loadInvitationPreview(id: UUID) async -> BusinessInvitationPreview? {
+        if let cached = invitationPreviews[id] { return cached }
+        await loadInvitationPreviews(for: [id])
+        return invitationPreviews[id]
+    }
+
+    private func loadInvitationPreviews(for ids: [UUID]) async {
+        guard let client = BusinessAuthStore.shared.apiClient, !ids.isEmpty else { return }
+        var next = invitationPreviews
+        for id in ids {
+            if next[id] != nil { continue }
+            do {
+                let row: BusinessInvitationPreview = try await client
+                    .rpc("get_my_invitation_preview", params: ["p_invitation_id": id.uuidString])
+                    .execute()
+                    .value
+                next[row.invitationId] = row
+            } catch {
+                // Sin preview: la ficha genérica sigue siendo usable.
+            }
+        }
+        invitationPreviews = next
     }
 
     func book(_ occurrence: BusinessOccurrence, using pass: BusinessPass) async {
@@ -560,7 +794,20 @@ final class BusinessDataStore {
             await refresh()
             await requestPushPermissionAfterBookingIfNeeded()
         } catch {
-            errorMessage = "No se ha podido confirmar la reserva: \(error.localizedDescription)"
+            let raw = error.localizedDescription
+            if raw.localizedCaseInsensitiveContains("BOOKING_NOT_OPEN_YET") {
+                errorMessage = "Todavía no está abierta la inscripción a esta clase. Vuelve más cerca de la fecha."
+            } else if raw.localizedCaseInsensitiveContains("PASS_OUTSIDE_SLOT") {
+                errorMessage = "Tu plan no cubre esta clase. Pide a tu centro un plan de clases o revisa la franja de tu bono."
+            } else if raw.localizedCaseInsensitiveContains("NO_VALID_PASS") {
+                errorMessage = "No tienes un plan activo con crédito para esta clase."
+            } else if raw.localizedCaseInsensitiveContains("NO_AVAILABILITY") {
+                errorMessage = "La clase está completa."
+            } else if raw.localizedCaseInsensitiveContains("ALREADY_BOOKED") {
+                errorMessage = "Ya estás apuntado a esta clase."
+            } else {
+                errorMessage = "No se ha podido confirmar la reserva: \(raw)"
+            }
         }
     }
 

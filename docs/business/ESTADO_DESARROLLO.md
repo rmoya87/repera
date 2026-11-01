@@ -1,12 +1,29 @@
 ## Rediseño PT Business (agenda-first) — 2026-11-01
 
+- **PASS_OUTSIDE_SLOT (2026-11-01):** bonos session_pack/monthly/unlimited de clases ya no se bloquean por `access_scope=trainer_appointments` por defecto; migración `20261101270000` + al crear plan de clases se fuerza `gym_access`. Radios de formularios (fin de serie / editar / invitar) dejan de heredar `width:100%` del form.
+- **Nueva clase (2026-11-01):** selector única/repetitiva; única con fecha-hora y duración en minutos; repetitiva con fecha de inicio, fin de serie compacto y rejilla de franjas sin textos de ayuda. Editar: Cancelar/Borrar en fila. Bonos ficha: Renovar + Finalizar en fila. Mis entrenos sin eyebrow/lead.
+- **Invitar cliente (2026-11-01):** al invitar, si WhatsApp está conectado se abre `wa.me` automáticamente con el mensaje (sin formulario). QR + copiar enlace solo en ficha → Datos mientras la invitación esté pendiente; al aceptar desaparece. Sin modal de compartir ni tarjeta en Inicio. Acceso al invitar: radios compactos (texto junto al control).
+- **Clases / grupos (2026-11-01):** coach opcional (`coach_user_id` nullable); colores con swatches; grupos de avisos en Socios/Clientes (fuera de Agenda); flash corto junto al nombre del centro.
+- **Paridad PT ↔ gym (2026-11-01):** mismo shell (`is-pro`), Mis entrenos, Facturación, ficha con agenda + fullscreen, modales Invitar/Solicitudes/Avisos, Ajustes solo vía identidad. Gym añade Inicio recepción, Agenda/clases, Equipo (invites staff) y Productos con `kind` clase/cita + registrar visita. Rutas legacy `planning`/`bonos` redirigen a `workouts`/`tarifas`.
+- **Delegación admin (soporte):** mismo shell PT/gym; icono Repera en la fila de identidad (sin cabecera «para profesionales» ni avisos de modo soporte); **Volver al admin** en esa fila.
+- UI app personal (`business-app-shell.css`): tipografía Plus Jakarta Sans, atmósfera suave, nav con radio 18px, botones redondos, sin tags de “panel admin”. Sheets `pt-sheet` (kickers, hero, overlay blur). Boot no cierra sesión por fallos de datos (solo 401/403). Invitar: aviso bajo menú + tarjeta QR aunque falle Resend.
 - Consola PT: nav **Agenda + Clientes**; ajustes al tocar identidad (sin ítem Config/⚙). Favicon = AppIcon iOS.
-- Agenda mes/día primero (`trainer-agenda.js`): crear cita, invitar modal, sin caja «Próximas citas». Clientes con buscador + modal invitar.
-- Ficha: toolbar (añadir entreno / finalizar), agenda unificada en Entrenamientos, Mensajes, Bonos, Datos; modal entreno rápido.
-- Tarifas: `billing_model` session_pack / monthly / unlimited (9999 créditos internos). Sin Stripe.
-- Clases de gym asignadas al coach: `coach_ack`, `list_my_coach_assignments`, aceptar/rechazar; mover/cancelar con `coach_reschedule_occurrence` / `coach_cancel_occurrence` (migraciones `20261101170000`, `20261101180000`).
-- **App:** el atleta ve horarios/cancelaciones vía `service_occurrences` + Center (cancelar reserva ya existía). **No** hay panel coach en iOS/Android: gestionar clases asignadas es solo consola web.
-- Tests: `pt-agenda-gym.test.mjs`, `personal-trainer-experience.test.mjs`, `business-360.test.mjs`. Staging: aplicar migraciones nuevas.
+- Agenda mes: calendario + **rail del día a la derecha** (`pt-month-layout`). Pulsar un día actualiza el rail (no abre vista día completa; esa queda en el tab Día). Crear cita / Añadir entreno solo en el panel del día (sin duplicar en toolbar). Toolbar: Avisos / Solicitudes / Invitar.
+- Ficha: indicador de registro (Amateur/Medio/Avanzado) en **círculo a la derecha** de la cabecera.
+- Menú PT **Mis entrenos**: biblioteca de plantillas (`professional_workout_templates`). Añadir entreno abre **pantalla completa**. Dentro de cada bloque: biblioteca de ejercicios, descanso, temporizador, plantillas Mis entrenos y bloque WOD adicional; panel lateral Insertar (plantilla / sesión propia / otro cliente). Publicación `schemaVersion:1` con `isRest`/`restSeconds` alineado a iOS/Android.
+- Menú PT **Tarifas** + **Facturación**: catálogo de ofertas; al asignar bono se registra `payment_method` / `paid_at` / `paid_amount_cents` (migración `20261101165000`). Facturación agrega cobros externos y saldo restante por cliente (no es pasarela).
+- Tarifas `billing_model`: `session_pack` | `monthly` | `unlimited` | `time_slot` (+ `access_scope`, `slot_weekdays`, minutos). Migración `20261101171000` aplicada en remoto; reservas validan franja en `book_service_occurrence` / `enroll_managed_client`.
+- Chat: migración `20261101164500` reexpone RPCs de mensajes + `notify pgrst`.
+- Añadir entreno: modos Un día / Semanal / Plan completo; biblioteca con miniaturas (`../assets/exercises`, mismo arte que iOS); sesión en tarjetas visuales; `business_publish_custom_training_bulk` para multi-día.
+- Chat ficha: si falta RPC `business_list_thread` en schema cache → mensaje claro; migración `20261101210000` la reexpone.
+- Cita individual: asignar cliente + bono (o cortesía 1 si está vinculado/activo) → `enroll_managed_client` para que la vea en la app como sesión personal.
+- Solicitudes app: `request_org_athlete_link` crea fila pending (`20261101190000`); bandeja Inicio/Solicitudes refresca al abrir. No auto-vínculo.
+- Aceptar solicitud: `business_decide_enrollment` (`20261101200000`) devuelve `{org_id,client_id}`; cupo PT no bloquea si falta fila de trial (cupo arranque 5). Consola recarga clientes primero, cierra modal y navega a Clientes con la ficha. Pendiente aplicar migración en Supabase si el token CLI/MCP no está vigente.
+- Ficha cliente: misma agenda mes/día que el inicio (`mode=client`), crear cita / añadir entreno del cliente; Bonos, Mensajes, Datos.
+- Ficha → Bonos (`client-passes.js`): saldo/historial de todos los bonos, alta/renovación (`issue-offline-pass`), cortesía, gestión de cortesía (sumar/ampliar/restaurar), registro de sesión gastada (PT) y timeline de gasto/renovaciones (asistencia, reservas, `service_pass_management_events`).
+- Tarifas: campos por tipología (bono = sesiones+validez+precio; mensual/ilimitado = periodo+precio, sin sesiones). Asignar muestra formulario o CTAs claros si faltan clientes/tarifas.
+- Clases gym asignadas: ack / reschedule / cancel (`20261101170000`, `20261101180000`). App atleta solo consume horarios; sin panel coach nativo.
+- Tests: `pt-agenda-gym.test.mjs`, `personal-trainer-experience.test.mjs`. Staging: aplicar migraciones.
 
 ## Business F1–F9 (sin Stripe) + chat + hub — 2026-11-01
 
@@ -103,10 +120,10 @@
 
 ## Alta empresarial y catálogo comercial — 20/10/2026
 
-Se incorpora al panel conectado un formulario de alta con identificador derivado del nombre, ficha comercial, datos fiscales privados y foto/logotipo opcional, además de edición desde Ajustes. Los planes dejan de estar fijados en el frontend: catálogo `business_plans` configurable por administración verificada, con separación entrenador/gimnasio y visibilidad configurable. La selección de plan no equivale a compra ni cambia `paid_plan`/entitlement. La migración crea `organization_legal_profiles` con RLS de propietario/admin y bucket de imágenes públicas `business-branding`, con escritura restringida a miembros gerentes. **Pendiente**: validar alta real y carga de archivos en navegadores, comprobar reglas de imagen y conciliación comercial antes de producción.
+Se incorpora al panel conectado un formulario de alta con identificador derivado del nombre, ficha comercial, datos fiscales privados y foto/logotipo opcional, además de edición desde Ajustes. Los planes dejan de estar fijados en el frontend: catálogo `business_plans` configurable por administración verificada, con separación entrenador/gimnasio y visibilidad configurable. La selección de plan no equivale a compra ni cambia `paid_plan`/entitlement. `organization_legal_profiles` tiene RLS owner/admin, grants de columna a `authenticated` y upsert vía RPC `upsert_organization_legal_profile` (consola `auth.upsertLegalProfile`). Bucket `business-branding` con escritura restringida a gerentes. **Pendiente**: validar carga de archivos en navegadores y conciliación comercial antes de producción.
 
 # Estado de desarrollo — Repera Business
-Última actualización: 2026-10-20.
+Última actualización: 2026-11-01 (legal profiles RPC + Plus detalle).
 
 ## App iOS (2026-10-20)
 - Ajustes: buscar/vincular centro o entrenador + bono; acceso completo mientras vinculado; ficha con bonos/sesiones/desvincular; sync unificado; acentos negros.

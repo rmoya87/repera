@@ -92,6 +92,7 @@ struct HomeView: View {
     @State private var stepsCacheRevision = -1
     @State private var isExpandedLayout = false
     @State private var showSettingsPanel = false
+    @State private var openSettingsFromInvite = false
     @State private var cachedAvatarJPEG: Data?
     @State private var cachedAvatarImage: UIImage?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
@@ -264,6 +265,9 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             homeDeletionSheets
+                .navigationDestination(isPresented: $openSettingsFromInvite) {
+                    SettingsView()
+                }
         }
         .ogTrailingColumnPanel(
             isPresented: isExpandedLayout && showSettingsPanel,
@@ -360,6 +364,15 @@ struct HomeView: View {
             .onChange(of: scheduledCalendarSignature) { _, _ in
                 rebuildWeekChrome()
             }
+            .onReceive(NotificationCenter.default.publisher(
+                for: Notification.Name("repera.openSettingsForInvitation")
+            )) { _ in
+                if isExpandedLayout {
+                    showSettingsPanel = true
+                } else {
+                    openSettingsFromInvite = true
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("repera.professionalPlansChanged"))) { _ in
                 rebuildWeekChrome()
             }
@@ -375,21 +388,7 @@ struct HomeView: View {
 
     @ViewBuilder
     private var homeTopBarActions: some View {
-                if !businessData.athleteCenterIds.isEmpty || !businessData.invitations.isEmpty {
-                    NavigationLink {
-                        CenterView()
-                    } label: {
-                        Image(systemName: "building.2")
-                            .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .symbolRenderingMode(.monochrome)
-                            .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                            .contentShape(Circle())
-                            .glassEffect(.regular.interactive(), in: .circle)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Mis centros, clases y reservas")
-                }
+                // Clases/centros viven en el tab «+» del menú principal (entre Comenzar y Progreso).
                 if !businessData.athleteCenterIds.isEmpty {
                     NavigationLink {
                         MessagesInboxView()

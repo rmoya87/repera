@@ -144,6 +144,23 @@ export function renderAthleteGuidanceLine(workouts=[],total=null){
  const tip=d.recommendations[0]||'Sin historial compartido aún.';
  return `<p class="pt-guidance-line"><strong>Registro ${esc(d.label)} · ${d.rating}/100</strong> — ${esc(tip)}</p>`;
 }
+/** Anillo a la derecha de la cabecera: no alarga el bloque de nombre. */
+export function renderAthleteGuidanceCircle(workouts=[],total=null){
+ const d=deriveCoachingInsights(workouts,total);
+ const tip=d.recommendations[0]||'Sin historial compartido aún.';
+ const pct=Math.max(0,Math.min(100,d.rating));
+ const tone=pct<35?'amateur':pct<70?'medio':'avanzado';
+ const title=`Registro ${d.label} · ${d.rating}/100 — ${tip}`;
+ return `<div class="pt-guidance-circle tone-${tone}" role="img" aria-label="${esc(title)}" title="${esc(title)}">
+  <svg viewBox="0 0 36 36" aria-hidden="true">
+   <circle class="pt-guidance-track" cx="18" cy="18" r="15.5" fill="none" stroke-width="3"/>
+   <circle class="pt-guidance-progress" cx="18" cy="18" r="15.5" fill="none" stroke-width="3"
+    stroke-dasharray="${(pct/100)*97.4} 97.4" transform="rotate(-90 18 18)"/>
+  </svg>
+  <span class="pt-guidance-score"><strong>${d.rating}</strong><small>/100</small></span>
+  <span class="pt-guidance-label">${esc(d.label)}</span>
+ </div>`;
+}
 export function renderAthleteInsights(workouts=[],total=null,{showGuidance=true}={}){
  const d=deriveCoachingInsights(workouts,total);
  return `<div class="pa-athlete-insights">

@@ -11,7 +11,7 @@ Las tres migraciones están **aplicadas** en Supabase Repera. La función Edge `
 
 ## Vinculación atleta-centro y calendario de actividades — 27/10/2026
 
-- `organization_athlete_requests`: `org_id`, `athlete_id`, `pass_kind`, `note`, estado `pending/accepted/rejected/cancelled` y datos de decisión. Una solicitud pendiente por atleta/centro. RPCs `request_org_athlete_link`, `business_enrollment_requests` y `business_decide_enrollment`; las escrituras requieren funciones validadas, sin DML directo desde el navegador.
+- `organization_athlete_requests`: `org_id`, `athlete_id`, `pass_kind`, `note`, estado `pending/accepted/rejected/cancelled` y datos de decisión. Una solicitud pendiente por atleta/centro. RPCs `request_org_athlete_link`, `business_enrollment_requests` y `business_decide_enrollment` (retorno `jsonb` con `client_id` tras aceptar, migración `20261101200000`); las escrituras requieren funciones validadas, sin DML directo desde el navegador.
 - `private.platform_admin_directory` devuelve `status` (operativo active/suspended) por separado de `registration_status` (pending/claimed).
 - `platform_admin_athlete_activity(uuid,date)` lista días y contadores del mes de `athlete_workouts`, con huso `Europe/Madrid`; `platform_admin_athlete_day(uuid,date)` entrega el detalle de hasta 100 registros del día con bloques, ejercicios, series y resultados, autorizado y auditado.
 - `business_bulk_training_batches`: clave de idempotencia y resultados de publicación. `business_publish_training_bulk` valida permisos del centro, clientes activos y vinculados, plantilla real, fechas, días laborales, hasta 20 clientes, 56 días y 120 sesiones; invoca al publicador nativo de prescripciones. Todo en una transacción, sin escritura de workout completado.
@@ -68,7 +68,7 @@ Los wrappers de lectura y acciones en `public` son invoker; la lógica privilegi
 Pendiente: integración Stripe Billing/Connect, webhooks verificados, almacenamiento/conciliación de cobros de clientes B2C, facturación fiscal y tests E2E de tenant con JWT reales.
 
 # Base de datos — Repera
-Última actualización: 2026-10-20 (profiles.avatar_url; ensure search_discoverable_organizations).
+Última actualización: 2026-11-01 (business_decide_enrollment → jsonb client_id; cupo trial).
 
 **Proyecto autorizado:** `uvzgujlrqohreoucirms` (eu-west-1, PostgreSQL 17).
 **Migraciones aplicadas:** `20261019190623_business_foundation_secure`, `20261019193414_business_clients_scoped`, `20261019201141_business_org_invitations_consent` y `20261019201248_business_invitation_private_rpc`, `20261019201914_business_services_booking_wallets`, `20261019203258_business_professional_training_sessions` y `20261019210032_business_service_availability`.

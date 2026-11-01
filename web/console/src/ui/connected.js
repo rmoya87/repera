@@ -3,15 +3,21 @@ import {ReperaAuthAPI} from '../core/auth.js';
 import {slugFromName,uniqueSlug,visiblePlans,priceLabel} from '../core/business-profile.js';
 import {renderPlanOptions,renderOrganizationFields,renderOrganizationCreateForm,renderPlanAdministration} from './business-onboarding.js';
 import {renderServicesPanel} from './connected-services.js';
-import {renderProfessionalPlanning} from './connected-planning.js';
+import {renderProfessionalPlanning,renderClientWorkoutFullscreen} from './connected-planning.js';
 import {navIcon} from './nav-icons.js';
 import {renderPlatformAdmin,paymentCSV} from './platform-admin.js';
-import {renderBusinessHome,renderClient360,renderClasses360} from './management-360.js';
-import {renderTrainerPassPanel,trainerSeatInfo} from './trainer-pass-panel.js';
+import {renderBusinessHome,renderClient360,renderClasses360,renderNewGroupModal,renderNewClassModal,renderEditClassModal,renderEnrollClassModal,parseWeekSlotKey,weekSlotGrid} from './management-360.js';
+import {renderTrainerPassPanel,trainerSeatInfo,timeToMinute,renderPassOfferModal} from './trainer-pass-panel.js';
 import {renderGymPassPanel} from './gym-pass-panel.js';
-import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup,MOVEMENTS} from './workout-editor.js';
-import {renderInvitationShareCard} from './invitation-share.js';
-import {renderInviteModal,renderQuickWorkoutModal,renderGymAssignmentDialog,todayISO} from './trainer-agenda.js';
+import {renderAssignPassModal} from './client-passes.js';
+import {renderBillingDashboard} from './billing-dashboard.js';
+import {handleEditorClick,handleEditorSearch,readPrescription,validatePrescription,canonicalPrescription,emptyPrescription,editorMarkup,MOVEMENTS,exerciseThumbHTML,resetEditorPanels} from './workout-editor.js';
+import {
+ pendingAthleteInvite,parseWhatsappE164,renderServicesSettings,
+ beginInvitationWhatsappPopup,finishInvitationWhatsappPopup,
+} from './invitation-share.js';
+import {renderInviteModal,renderQuickWorkoutModal,renderGymAssignmentDialog,renderNotificationsDrawer,todayISO,countQuickWorkoutSessions} from './trainer-agenda.js';
+import {renderTrainerWorkoutsLibrary,mergePrescriptionBlocks} from './trainer-workouts.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -22,10 +28,82 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,gymAssignments=[],quickWorkoutClient='';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],passEvents=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,inviteDraft={name:'',email:'',phone:''},inviteEmailError='',gymAssignments=[],quickWorkoutClient='',seedPrescription=null,copyBrowseClientId='',libraryTemplateId=null,draftSessionMeta=null,whatsappDraft=null,agendaRoom='',expandedOccurrenceId='',selectedOfferId='';
+const inviteEmailIssue=raw=>{
+ const t=String(raw||'');
+ if(/CLIENT_ALREADY_LINKED/i.test(t)||/vinculado a una cuenta/i.test(t))
+  return 'Este correo ya está vinculado a una cuenta en tu centro. Ábrelo desde Socios o pídele que use ese acceso.';
+ if(/ALREADY_A_MEMBER/i.test(t)||/ya forma parte/i.test(t))
+  return 'Esta persona ya forma parte de tu centro.';
+ if(/clients_org_email_uq|duplicate key.*clients_org_email|ya tiene ficha/i.test(t))
+  return 'Este correo ya tiene ficha en tu centro. Ábrela en Socios para reenviar la invitación.';
+ if(/INVALID_EMAIL|correo electrónico/i.test(t))return 'Revisa el correo electrónico.';
+ return '';
+};
 const kindLabel={gym:'Gimnasio',personal_trainer:'Entrenador personal',sports_center:'Gimnasio'};
 const roleLabel={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción',athlete:'Deportista'};
-const message=()=>`${error?`<p class="connected-error" role="alert">${escapeHTML(error)}</p>`:''}${notice?`<p class="connected-notice" role="status">${escapeHTML(notice)}</p>`:''}`;
+/** Errores de reserva / apuntar a clase (Business). */
+const friendlyPassBookError=raw=>{
+ const t=String(raw||'');
+ if(/PASS_OUTSIDE_SLOT/i.test(t))
+  return 'Ese plan no cubre esta clase (franja o tipo de acceso). Revisa el plan del socio o crea uno de clases.';
+ if(/NO_VALID_PASS/i.test(t))return 'No hay un plan activo con crédito válido para esa clase.';
+ if(/NO_AVAILABILITY|CLASS_FULL/i.test(t))return 'La clase está completa.';
+ if(/ALREADY_BOOKED|CLASS_FULL_OR_DUPLICATE/i.test(t))return 'Ya está apuntado a esta clase.';
+ if(/OCCURRENCE_UNAVAILABLE|CLASS_UNAVAILABLE/i.test(t))return 'Esa clase ya no admite inscripción.';
+ if(/BOOKING_NOT_OPEN_YET/i.test(t))return 'Todavía no está abierta la inscripción a esta clase.';
+ if(/NOT_A_MEMBER|NOT_OWN_PASS|NOT_AUTHORIZED/i.test(t))return 'Sin permiso para apuntar con ese plan.';
+ return '';
+};
+/** Mensajes cortos para UI (sin volcado SQL/PostgREST). */
+const shortFlash=raw=>{
+ const t=String(raw||'').trim();
+ if(!t)return '';
+ const book=friendlyPassBookError(t);if(book)return book;
+ if(/null value in column ["']?description/i.test(t))return 'No se pudo guardar la clase.';
+ if(/null value in column ["']?location/i.test(t))return 'No se pudo guardar la ubicación.';
+ if(/COACH_NOT_AUTHORIZED|Elige un entrenador/i.test(t))return 'Elige un entrenador del equipo.';
+ if(/COACH_TIME_OVERLAP/i.test(t))return 'Ese entrenador ya tiene clase en ese horario.';
+ if(/INVALID_SERIES/i.test(t))return 'Revisa horario, duración o repetición.';
+ if(/NOT_AUTHORIZED|42501/i.test(t))return 'Sin permiso para esta acción.';
+ if(/WHATSAPP_INVALID|Número de WhatsApp inválido/i.test(t))
+  return 'Número de WhatsApp inválido. Usa prefijo país, p. ej. +34600111222.';
+ if(/CLIENT_ALREADY_LINKED/i.test(t))return 'Este correo ya está vinculado a una cuenta en tu centro.';
+ if(/ALREADY_A_MEMBER/i.test(t))return 'Esta persona ya forma parte de tu centro.';
+ if(/clients_org_email_uq|duplicate key.*clients_org_email/i.test(t))
+  return 'Este correo ya tiene ficha en tu centro.';
+ if(/violates not-null|duplicate key|PGRST|postgres|sqlstate/i.test(t))
+  return t.split(/[\n.]/).map(s=>s.trim()).find(Boolean)?.slice(0,120)||'No se pudo completar.';
+ return t.length>140?t.slice(0,137)+'…':t;
+};
+/** Un solo chip (error gana a aviso). Usado en login/auth; en workspace preferir flashChip. */
+const message=()=>{
+ const kind=error?'error':(notice?'notice':'');
+ if(!kind)return '';
+ const text=shortFlash(error||notice);
+ return `<p class="connected-${kind}" role="${kind==='error'?'alert':'status'}">${escapeHTML(text)}</p>`;
+};
+/** Chip de cabecera/modal con × para cerrar. Evita .connected-notice suelto (duplicados visuales). */
+const flashChip=(where='heading')=>{
+ const kind=error?'error':(notice?'notice':'');
+ if(!kind)return '';
+ const text=shortFlash(error||notice);
+ const cls=where==='dialog'?'pt-dialog-flash':'pt-heading-flash';
+ const attr=where==='dialog'?'data-dialog-flash':'data-heading-flash';
+ return `<div ${attr} class="${cls} is-${kind}" role="${kind==='error'?'alert':'status'}">
+  <span class="pt-flash-text">${escapeHTML(text)}</span>
+  <button type="button" class="pt-flash-close" data-action="dismiss-flash" aria-label="Cerrar aviso">×</button>
+ </div>`;
+};
+const scrubFlashDupes=root=>{
+ if(!root)return;
+ root.querySelectorAll('[data-workspace-flash],[data-heading-flash],[data-dialog-flash]').forEach(el=>el.remove());
+ // Restos sueltos bajo el menú / en el workspace (nunca dentro de forms/cards de contenido).
+ [...root.children].forEach(el=>{
+  if(el.matches?.('.connected-error,.connected-notice,.business-navigation'))el.remove();
+ });
+ root.querySelectorAll(':scope > .connected-error, :scope > .connected-notice').forEach(el=>el.remove());
+};
 const field=(label,name,type='text',extra='')=>`<label class="connected-field">${label}<input name="${name}" type="${type}" autocomplete="${name==='email'?'email':name==='password'?'current-password':'off'}" required ${extra}></label>`;
 const redirectTo=()=>location.origin+location.pathname+location.search;
 const inviteId=new URLSearchParams(location.search).get('invitation')||'';
@@ -35,7 +113,8 @@ const trainerActive=()=>organizations.find(o=>o.id===selectedOrg)?.kind==='perso
 function restoreWorkspaceRoute(){
  const p=new URLSearchParams(location.search),section=p.get('seccion'),client=p.get('cliente'),org=p.get('espacio');
  if(org&&/^[0-9a-f-]{36}$/i.test(org))selectedOrg=org;
- if(['overview','clients','planning','services','bonos','team','settings'].includes(section||''))activeTab=section;
+ if(section==='services')activeTab='overview';
+ else if(['overview','clients','planning','bonos','tarifas','facturacion','team','settings','workouts'].includes(section||''))activeTab=section;
  else if(['billing','analytics'].includes(section||''))activeTab='overview';
  if(client&&/^[0-9a-f-]{36}$/i.test(client)){selectedClientId=client;planningClientId=client;activeTab='clients';}
  else if(section==='clients'){selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;}
@@ -49,9 +128,32 @@ function setWorkspaceRoute(replace=false){
  else uri.searchParams.delete('cliente');
  history[replace?'replaceState':'pushState'](null,'',uri.pathname+uri.search+uri.hash);
 }
+function defaultAppointmentSlot(dayIso){
+ const day=/^\d{4}-\d{2}-\d{2}$/.test(dayIso)?dayIso:todayISO();
+ const pad=n=>String(n).padStart(2,'0');
+ const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+ let start=new Date(`${day}T10:00:00`);
+ const now=new Date();
+ if(day===todayISO()){
+  start=new Date(now.getTime()+55*60*1000);
+  start.setSeconds(0,0);
+  start.setMinutes(start.getMinutes()<30?30:0);
+  if(start.getMinutes()===0)start.setHours(start.getHours()+1);
+  if(start.getHours()>=22){start.setDate(start.getDate()+1);start.setHours(10,0,0,0);}
+ }
+ const end=new Date(start.getTime()+60*60*1000);
+ return {start:fmt(start),end:fmt(end)};
+}
+function asUuid(value){
+ if(typeof value==='string'&&/^[0-9a-f-]{36}$/i.test(value))return value;
+ if(Array.isArray(value)&&value.length)return asUuid(value[0]);
+ if(value&&typeof value==='object')return asUuid(value.id||value.pass_id||value.invitation_id||'');
+ return '';
+}
+const asPassId=asUuid;
 function trainerDialogMarkup({manager,members}){
  if(!trainerActive()||!businessDialog)return '';
- const iso=/^\d{4}-\d{2}-\d{2}$/.test(dialogDay)?dialogDay:new Date().toLocaleDateString('sv-SE');
+ const iso=/^\d{4}-\d{2}-\d{2}$/.test(dialogDay)?dialogDay:todayISO();
  let title='',inner='';
  if(businessDialog==='bulk'){
   title='Crear planificación';
@@ -91,19 +193,51 @@ function trainerDialogMarkup({manager,members}){
   <label class="connected-field">Cita de agenda (opcional)<select name="occurrence"><option value="">Sin cita previa</option>${occurrences.filter(o=>o.kind==='appointment'&&o.status==='active').map(o=>`<option value="${escapeHTML(o.id)}">${escapeHTML(o.title)} · ${escapeHTML(new Date(o.starts_at).toLocaleDateString('es-ES'))}</option>`).join('')}</select></label>
   <label class="connected-field">Notas<textarea name="note" rows="2" maxlength="1000"></textarea></label>
   <button class="connected-primary" type="submit" ${eligible.length?'':'disabled'}>Confirmar sesión realizada</button>
-  ${eligible.length?'':'<p>No hay saldo disponible. Asigna un bono desde Bonos y tarifas.</p>'}</form>`:'<p>Cliente no encontrado.</p>';
+  ${eligible.length?'':'<p>No hay saldo disponible. Asigna un plan desde Planes.</p>'}</form>`:'<p>Cliente no encontrado.</p>';
  }else if(businessDialog==='new-appointment'){
-  title='Nueva cita o grupo';
-  inner=`<form data-connected="service-occurrence" class="business-form">
-  <label class="connected-field">Tipo<select name="kind"><option value="appointment">Cita individual</option><option value="class">Grupo</option></select></label>
-  <label class="connected-field">Nombre<input name="title" value="Sesión personal" minlength="2" maxlength="120" required></label>
-  <label class="connected-field">Inicio<input name="start" type="datetime-local" value="${iso}T10:00" required></label>
-  <label class="connected-field">Fin<input name="end" type="datetime-local" value="${iso}T11:00" required></label>
-  <label class="connected-field">Aforo: 1 para una cita individual<input name="capacity" type="number" min="1" max="200" value="1" required></label>
-  <label class="connected-field">Entrenador<select name="coach">${members.map(m=>`<option value="${escapeHTML(m.user_id)}">${escapeHTML(m.label)}</option>`).join('')}</select></label>
+  title='Nueva cita';
+  const pool=clients.filter(c=>!c.account_deleted_at&&['active','trial','paused'].includes(c.status))
+   .slice().sort((a,b)=>(b.user_id?1:0)-(a.user_id?1:0)||a.name.localeCompare(b.name,'es'));
+  const linked=pool.filter(c=>c.user_id&&c.status==='active');
+  const preClient=quickWorkoutClient||selectedClientId||'';
+  const clientPasses=passes.filter(p=>p.status==='active'&&p.kind==='appointment'&&p.remaining_credits>0&&Date.parse(p.valid_until)>Date.now());
+  const slot=defaultAppointmentSlot(iso);
+  inner=`<form data-connected="service-occurrence" class="business-form pt-sheet-form">
+  <div class="pt-sheet-hero"><p>Individual: elige cliente vinculado para que la vea en la app como sesión personal contigo.</p></div>
+  <label class="connected-field">Tipo<select name="kind" data-appt-kind>
+   <option value="appointment" selected>Individual · 1:1</option>
+   <option value="class">Grupo</option>
+  </select></label>
+  <label class="connected-field">Título<input name="title" value="Sesión personal" minlength="2" maxlength="120" required></label>
+  <div class="pt-sheet-grid">
+   <label class="connected-field">Inicio<input name="start" type="datetime-local" value="${slot.start}" required></label>
+   <label class="connected-field">Fin<input name="end" type="datetime-local" value="${slot.end}" required></label>
+  </div>
+  <div data-appt-group-fields hidden>
+   <label class="connected-field">Aforo<input name="capacity" type="number" min="2" max="200" value="8"></label>
+  </div>
+  <div data-appt-client-fields>
+   <label class="connected-field">Asignar a cliente<select name="client">
+    <option value="">Sin asignar (solo en tu agenda)</option>
+    ${pool.map(c=>{
+     const tag=!c.user_id?' · sin app':c.status!=='active'?' · '+c.status:'';
+     return `<option value="${escapeHTML(c.id)}" ${c.id===preClient?'selected':''}>${escapeHTML(c.name)}${tag}</option>`;
+    }).join('')}
+   </select></label>
+   <label class="connected-field">Bono a descontar<select name="pass" data-appt-pass>
+    <option value="">Automático · bono activo o cortesía 1 sesión</option>
+    ${clientPasses.map(p=>{
+     const who=clients.find(c=>c.id===p.client_id)?.name||'Cliente';
+     return `<option value="${escapeHTML(p.id)}" data-client="${escapeHTML(p.client_id)}">${escapeHTML(who)} · ${p.remaining_credits>=9000?'ilimitado':p.remaining_credits+' ses.'}</option>`;
+    }).join('')}
+   </select></label>
+   <p class="connected-hint">Al asignar: se reserva la plaza y el cliente la ve en Center como cita contigo. Sin bono y con vínculo activo se crea 1 crédito de cortesía.</p>
+  </div>
+  <label class="connected-field">Coach<select name="coach">${members.map(m=>`<option value="${escapeHTML(m.user_id)}">${escapeHTML(m.label)}</option>`).join('')}</select></label>
   <input type="hidden" name="repeat" value="none"><input type="hidden" name="repeatCount" value="1">
-  <p class="connected-hint">Después podrás inscribir al deportista desde el detalle utilizando un bono válido.</p>
-  <button type="submit" class="connected-primary" ${!manager||!members.length?'disabled':''}>Crear en agenda</button></form>`;
+  <button type="submit" class="connected-primary" ${!manager||!members.length?'disabled':''}>Crear cita</button>
+  ${!linked.length?'<p class="connected-hint">Para que aparezca en la app el cliente debe estar vinculado y activo.</p>':''}
+  </form>`;
  }else if(businessDialog==='occurrence'){
   title='Detalle de cita o grupo';
   inner=renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,manager});
@@ -111,7 +245,7 @@ function trainerDialogMarkup({manager,members}){
   title='Datos del grupo';
   inner=renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,coaches:members,selectedGroup:selectedGroupId,manager});
  }
- return `<div class="business-overlay"><section class="business-dialog" role="dialog" aria-modal="true" aria-label="${title}"><div class="business-dialog-header"><h2>${title}</h2><button type="button" class="icon-button" data-action="close-business-dialog" aria-label="Cerrar">×</button></div><div class="business-dialog-scroll">${inner}</div></section></div>`;
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Repera</span><h2>${title}</h2></div><button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div><div class="business-dialog-scroll pt-sheet-body">${inner}</div></section></div>`;
 }
 
 
@@ -125,7 +259,7 @@ function renderSubscriptions(org){
  const state=trialStatus(),trial=state.rec;
  const head=state.paid?`Plan ${escapeHTML(trial.paid_plan)} activo`:state.active?`Prueba gratuita · ${state.days} días restantes`:'Prueba finalizada · elige un plan';
  const rows=visiblePlans(planCatalog,org.kind).map(p=>`<article class="business-price"><h3>${escapeHTML(p.title)}</h3><strong>${escapeHTML(priceLabel(p.monthly_price_cents))}<small> / mes + IVA</small></strong><p>${escapeHTML(p.description||'')}${p.max_clients?` · Hasta ${p.max_clients} clientes`:' · Sin límite de clientes'}</p>${p.discount_percent&&p.discount_months?`<p>Promoción: ${p.discount_percent}% durante ${p.discount_months} meses.</p>`:''}<button type="button" class="connected-secondary" data-action="choose-plan" data-plan="${escapeHTML(p.plan_key)}">Seleccionar</button></article>`).join('');
- return `<section class="connected-card business-subscriptions"><span class="connected-tag">SUSCRIPCIÓN</span><h2>${head}</h2><p>Catálogo configurable por administración, precios sin IVA. Seleccionar solo registra el interés: no se cobra nada ni se activa el plan hasta integrar la pasarela de pago.</p><div class="business-prices">${rows||'<p>No hay planes publicados para esta actividad.</p>'}</div></section>`;
+ return `<section class="connected-card business-subscriptions"><h2>${head}</h2><p>Elige el plan que encaje contigo. Seleccionar solo guarda tu interés: aún no hay cobro en la plataforma.</p><div class="business-prices">${rows||'<p>No hay planes publicados ahora.</p>'}</div></section>`;
 }
 function enhanceWorkspace(own){
  const root=app.querySelector('.connected-workspace');if(!root)return;
@@ -134,16 +268,28 @@ function enhanceWorkspace(own){
  const kind=org?.kind,trainer=kind==='personal_trainer',manager=['owner','admin'].includes(own.get(selectedOrg));
  const seat=trainerSeatInfo({clients,trials:trialRows,plans:planCatalog});
  const visibleOrganizations=delegation?organizations.filter(x=>x.id===delegation.org_id):organizations;
- // PT: Inicio + Clientes; Ajustes vía identidad (sin ítem Config ni ⚙). Gym: menú completo.
+ const page=app.querySelector('.connected-page');
+ if(page){
+  page.classList.toggle('is-pt-app',!!trainer);
+  page.classList.toggle('is-gym-app',kind==='gym'||kind==='sports_center');
+ }
+ // Mismo patrón PT/gym: Ajustes solo vía identidad. Agenda del gym vive en Inicio.
+ if(activeTab==='planning'||activeTab==='bonos')activeTab=activeTab==='bonos'?'tarifas':'workouts';
+ if(activeTab==='services')activeTab='overview';
  const tabs=org?[
   ['overview',trainer?'Agenda':'Inicio','dashboard'],
   ['clients',trainer?'Clientes':'Socios','clients'],
-  ...(trainer?[]:[['planning','Entrenamientos','planning'],['services','Agenda y clases','calendar'],['bonos','Productos y bonos','products'],['team','Equipo','team'],['settings','Configuración','settings']]),
+  ['workouts','Mis entrenos','workouts'],
+  ['tarifas','Planes','products'],
+  ['facturacion','Facturación','billing'],
+  ...(!trainer?[['team','Equipo','team']]:[]),
   ...(platformRole==='platform_admin'&&!delegation?[['platform','Administración Repera','admin']]:[])
  ]:[['overview','Inicio','dashboard'],...(platformRole==='platform_admin'?[['platform','Administración Repera','admin']]:[])];
- if(trainer&&activeTab==='settings'){/* permitido vía identidad */}
- else if(!tabs.some(t=>t[0]===activeTab)&&!(trainer&&activeTab==='settings'))activeTab='overview';
- const nav=document.createElement('nav');nav.className='business-navigation'+(trainer?' is-pt':'');nav.setAttribute('aria-label','Menú profesional');
+ if(activeTab==='settings'){/* permitido vía identidad */}
+ else if(!tabs.some(t=>t[0]===activeTab))activeTab='overview';
+ scrubFlashDupes(root);
+ root.querySelectorAll('.business-navigation').forEach(el=>el.remove());
+ const nav=document.createElement('nav');nav.className='business-navigation is-pro';nav.setAttribute('aria-label','Menú profesional');
  nav.innerHTML=tabs.map(([id,label,icon])=>`<button type="button" data-workspace="${id}" aria-current="${activeTab===id?'page':'false'}">${navIcon(icon)}${escapeHTML(label)}</button>`).join('');
  if(visibleOrganizations.length>1){
   const picker=document.createElement('label');picker.className='connected-field';picker.style.cssText='margin-left:auto;min-width:160px;max-width:240px';
@@ -165,47 +311,336 @@ function enhanceWorkspace(own){
  if(heading){
   const logoURL=org.avatar_url&&/^https:\/\//.test(org.avatar_url)?escapeHTML(org.avatar_url):'';
   const avatar=logoURL?`<img src="${logoURL}" alt="">`:`<span>${escapeHTML((org.name||'?').slice(0,1).toUpperCase())}</span>`;
-  heading.innerHTML=`<button type="button" class="pt-identity" data-workspace="settings" aria-label="Abrir ajustes">
+  const exit=delegation
+   ?`<button type="button" class="business-delegate-exit" data-admin-action="exit-delegation" ${busy?'disabled':''}>Volver al admin</button>`
+   :'';
+  // Con modal abierta, el aviso va solo dentro del sheet.
+  const modalOpen=Boolean(businessDialog||showInviteModal);
+  const flash=(!modalOpen&&(error||notice))?flashChip('heading'):'';
+  const reqN=(Array.isArray(enrollmentRequests)?enrollmentRequests:[]).filter(r=>!r.status||r.status==='pending').length;
+  const gymHeaderActions=manager&&!trainer?`<button type="button" class="connected-secondary" data-action="open-invite-modal" ${busy?'disabled':''}>Invitar</button>
+   <button type="button" class="pt-icon-btn pt-bell-btn" data-action="open-notifications" aria-label="Notificaciones" title="Notificaciones" ${busy?'disabled':''}>
+    <span class="pt-bell-circle">${navIcon('notifications')}</span>
+    ${reqN>0?`<span class="pt-badge pt-bell-badge" aria-label="${reqN} pendientes">${reqN>99?'99+':reqN}</span>`:''}
+   </button>
+   <button type="button" class="pt-icon-btn pt-power-btn" data-action="logout" aria-label="Cerrar sesión" title="Cerrar sesión" ${busy?'disabled':''}>
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+   </button>`
+   :`<button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Cerrar sesión</button>`;
+  heading.innerHTML=`<img class="pt-repera-mark" src="./favicon.png" width="36" height="36" alt="Repera">
+  <button type="button" class="pt-identity" data-workspace="settings" aria-label="Abrir ajustes">
    <span class="pt-identity-avatar">${avatar}</span>
    <span class="pt-identity-text"><strong>${escapeHTML(org.name)}</strong><small>${escapeHTML(roleOneLine)}</small></span>
   </button>
-  <button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Cerrar sesión</button>`;
+  ${flash}
+  <div class="pt-heading-actions">${exit}${gymHeaderActions}</div>`;
  }
  root.querySelector('.connected-grid')?.remove();
  root.querySelector('[data-workspace-section="clients"]')?.remove();
  root.querySelector('[data-workspace-section="services"]')?.remove();
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
- attach('overview',(lastInviteShare?renderInvitationShareCard(lastInviteShare):'')+renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes,groups,busy,agendaView,agendaDay,gymAssignments}));
- attach('clients',renderClient360({clients,selected:selectedClientId,passes,offers,bookings,occurrences,sessions:professionalSessions,notices,chatMessages,sharedHistory,attendance,trainerActivityMonth,trainerActivityDay,manager,trainer,busy,seat,role:own.get(selectedOrg),clientSection,clientQuery,gymAssignments})+(trainer&&selectedClientId&&!clients.find(c=>c.id===selectedClientId)?.account_deleted_at&&clientSection==='training'&&clientEditorOpen?renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients:clients.filter(c=>!c.account_deleted_at),memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId,embedded:true,preferredDate:planningSelectedDay}):''));
- const members=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Mi cuenta':'Profesional '+m.user_id.slice(0,8)}));
- if(delegation&&!members.some(m=>m.user_id===user.id))members.unshift({user_id:user.id,label:'Administrador Repera · soporte'});
- if(!trainer)attach('services',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:members,selected:selectedClassId,classEditor:classEditorId===selectedClassId,listMode:classMode,calendarMonth,manager}));
- if(!trainer)attach('bonos',renderGymPassPanel({clients,passes,offers,manager,busy}));
+ // Coach de clase/cita debe ser miembro real (FK). No inyectar admin de soporte.
+ const coachOptions=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Yo (mi cuenta)':'Profesional '+m.user_id.slice(0,8)}));
+ attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes,groups,busy,agendaView,agendaDay,gymAssignments,coaches:coachOptions,details:classDetails,roomFilter:agendaRoom,expandedOccurrenceId}));
+ if(clientEditorOpen){
+  const cName=clients.find(c=>c.id===selectedClientId)?.name||'';
+  attach('clients',renderClientWorkoutFullscreen({
+   orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,
+   clients:clients.filter(c=>!c.account_deleted_at),escapeHTML,busy,
+   templateId:selectedTemplateId,sessionId:editingSessionId,clientId:selectedClientId||quickWorkoutClient||'',
+   preferredDate:draftSessionMeta?.date||planningSelectedDay||agendaDay||todayISO(),seedPrescription,copyClientId:copyBrowseClientId,clientName:cName,
+   draftTitle:draftSessionMeta?.title||'',draftInstructions:draftSessionMeta?.instructions||'',
+  }));
+ }else if(selectedGroupId&&!selectedClientId){
+  attach('clients',renderClasses360({occurrences,clients,bookings,passes,details:classDetails,groups,groupMembers,selectedGroup:selectedGroupId,coaches:coachOptions,manager}));
+ }else{
+  attach('clients',renderClient360({clients,selected:selectedClientId,passes,offers,bookings,occurrences,sessions:professionalSessions,notices,chatMessages,sharedHistory,attendance,passEvents,trainerActivityMonth,trainerActivityDay,manager,trainer,busy,seat,role:own.get(selectedOrg),clientSection,clientQuery,gymAssignments,agendaView,agendaDay,calendarMonth,invitations,orgId:selectedOrg,inviteShare:lastInviteShare,org,groups,groupMembers,details:classDetails,coaches:coachOptions}));
+ }
+ attach('workouts',renderTrainerWorkoutsLibrary({templates,templateId:libraryTemplateId,busy,manager,audience:trainer?'trainer':'gym'}));
+ attach('tarifas',trainer
+  ?renderTrainerPassPanel({clients,passes,offers,seat,manager})
+  :renderGymPassPanel({clients,passes,offers,manager}));
+ attach('facturacion',renderBillingDashboard({clients,passes,offers,attendance,manager}));
+ const members=coachOptions;
+ if(!trainer){
+  attach('team',renderTeamWorkspace({org,memberships,invitations,manager,busy,userId:user.id}));
+ }
  attach('platform',`<section class="connected-card"><h2>Administración Repera</h2><p>Resumen de organizaciones de la plataforma. No permite acceder al historial privado de los deportistas ni suplantar cuentas.</p><div class="table-scroll"><table><thead><tr><th>Organización</th><th>Tipo</th><th>Clientes</th><th>Prueba finaliza</th></tr></thead><tbody>${platformOrgs.map(o=>`<tr><td>${escapeHTML(o.name)}</td><td>${escapeHTML(o.kind)}</td><td>${Number(o.client_count||0)}</td><td>${escapeHTML(o.trial_ends_at?.slice(0,10)||'—')}</td></tr>`).join('')||'<tr><td colspan="4">No hay organizaciones</td></tr>'}</tbody></table></div></section>${platformRole==='platform_admin'?renderPlanAdministration(planCatalog):''}`);
  attach('settings',renderSettingsWorkspace({org,kind,trainer,manager,seat}));
- if(trainer)root.querySelector('[data-workspace-section="team"]')?.remove();
  const trial=trialStatus();
  if(!trial.active&&!delegation&&activeTab!=='settings'){
-  const banner=document.createElement('div');banner.className='connected-error';banner.innerHTML='<strong>Prueba finalizada.</strong> Elige un plan en Ajustes (toca tu nombre arriba). Los pagos todavía no están disponibles.';
+  const banner=document.createElement('div');banner.className='connected-error';banner.dataset.trialBanner='';
+  banner.innerHTML='<strong>Prueba finalizada.</strong> Elige un plan en Ajustes (toca tu nombre arriba). Los pagos todavía no están disponibles.';
   nav.insertAdjacentElement('afterend',banner);
  }
  root.querySelectorAll('[data-workspace-section]').forEach(el=>{el.style.display=el.dataset.workspaceSection===activeTab?'':'none';});
- if(trainer||true){root.querySelectorAll('[data-settings-panel]').forEach(el=>el.style.display=el.dataset.settingsPanel===settingsSection?'':'none');}
- if(trainer){
-  root.insertAdjacentHTML('beforeend',trainerDialogMarkup({manager,members}));
-  if(showInviteModal)root.insertAdjacentHTML('beforeend',renderInviteModal());
-  if(businessDialog==='quick-workout'){
-   const html=renderQuickWorkoutModal({clients:clients.filter(c=>!c.account_deleted_at),day:agendaDay||todayISO(),clientId:quickWorkoutClient||selectedClientId||''});
-   root.insertAdjacentHTML('beforeend',html);
-   const list=root.querySelector('#pt-movement-list');
-   if(list)list.innerHTML=MOVEMENTS.slice(0,120).map(m=>`<option value="${escapeHTML(m.name)}"></option>`).join('');
+ root.querySelectorAll('[data-settings-panel]').forEach(el=>el.style.display=el.dataset.settingsPanel===settingsSection?'':'none');
+ // Diálogos y sheets compartidos (PT y gym).
+ if(trainer)root.insertAdjacentHTML('beforeend',trainerDialogMarkup({manager,members}));
+ if(showInviteModal)root.insertAdjacentHTML('beforeend',renderInviteModal({
+  gym:!trainer,draft:inviteDraft,emailError:inviteEmailError,offers,busy,trainer,
+ }));
+ const invitePassForm=root.querySelector('[data-invite-pass-form]');
+ if(invitePassForm){
+  const syncInvitePass=()=>{
+   const mode=invitePassForm.querySelector('input[name="passMode"]:checked')?.value||'none';
+   invitePassForm.querySelectorAll('[data-invite-pass-panel]').forEach(el=>{
+    el.hidden=el.dataset.invitePassPanel!==mode;
+   });
+   const confirm=invitePassForm.querySelector('input[name="confirmed"]');
+   if(confirm)confirm.required=mode==='paid';
+  };
+  invitePassForm.querySelectorAll('[data-invite-pass-mode]').forEach(el=>{
+   el.addEventListener('change',syncInvitePass);
+  });
+  syncInvitePass();
+ }
+ if(businessDialog==='gym-assignment'){
+  const g=gymAssignments.find(x=>x.id===selectedClassId);
+  if(g)root.insertAdjacentHTML('beforeend',renderGymAssignmentDialog(g));
+ }
+ if(businessDialog==='notifications'||businessDialog==='requests'||businessDialog==='broadcast'){
+  const waiting=(Array.isArray(enrollmentRequests)?enrollmentRequests:[])
+   .filter(r=>!r.status||r.status==='pending');
+  root.insertAdjacentHTML('beforeend',renderNotificationsDrawer({
+   waiting,clients,occurrences,groups,manager,busy,
+   focus:businessDialog==='broadcast'?'broadcast':'requests',
+  }));
+ }
+ if(businessDialog==='assign-pass'&&selectedClientId){
+  const c=clients.find(x=>x.id===selectedClientId);
+  if(c)root.insertAdjacentHTML('beforeend',renderAssignPassModal({
+   client:c,offers,manager,busy,trainer,mode:dialogDay==='renew'?'renew':'new',
+  }));
+ }
+ if(businessDialog==='new-group'){
+  root.insertAdjacentHTML('beforeend',renderNewGroupModal({busy}));
+ }
+ if(businessDialog==='new-class'){
+  root.insertAdjacentHTML('beforeend',renderNewClassModal({coaches:members,busy,day:dialogDay}));
+ }
+ if(businessDialog==='edit-class'&&selectedClassId){
+  const occ=occurrences.find(o=>o.id===selectedClassId);
+  const det=classDetails.find(d=>d.occurrence_id===selectedClassId)||{};
+  if(occ)root.insertAdjacentHTML('beforeend',renderEditClassModal({occurrence:occ,detail:det,coaches:members,busy}));
+ }
+ if(businessDialog==='enroll-class'&&selectedClassId){
+  const occ=occurrences.find(o=>o.id===selectedClassId);
+  if(occ)root.insertAdjacentHTML('beforeend',renderEnrollClassModal({occurrence:occ,clients,passes,busy}));
+ }
+ if(businessDialog==='create-plan'||businessDialog==='edit-plan'){
+  const offer=businessDialog==='edit-plan'?offers.find(o=>o.id===selectedOfferId):null;
+  root.insertAdjacentHTML('beforeend',renderPassOfferModal({
+   busy,includeGymScope:!trainer,defaultKind:trainer?'appointment':'class',offer:offer||null,
+  }));
+ }
+ // Aviso del modal: solo dentro del sheet (nunca también en cabecera).
+ if((businessDialog||showInviteModal)&&(error||notice)){
+  const sheetBody=root.querySelector('.pt-overlay .pt-sheet-body, .pt-overlay .business-dialog-scroll, .pt-overlay .pt-notif-scroll');
+  if(sheetBody){
+   sheetBody.querySelectorAll('[data-dialog-flash]').forEach(el=>el.remove());
+   sheetBody.insertAdjacentHTML('afterbegin',flashChip('dialog'));
   }
-  if(businessDialog==='gym-assignment'){
-   const g=gymAssignments.find(x=>x.id===selectedClassId);
-   if(g)root.insertAdjacentHTML('beforeend',renderGymAssignmentDialog(g));
-  }
-  if(businessDialog==='bulk'){const bulk=root.querySelector('form[data-connected="bulk-training"]');if(bulk)refreshBulkPlanPreview(bulk);}
+ }
+ // Restos sueltos bajo el menú (no tocar el banner de prueba).
+ root.querySelectorAll('.business-navigation ~ .connected-notice, .business-navigation ~ .connected-error:not([data-trial-banner]), .business-navigation ~ [data-workspace-flash]').forEach(el=>el.remove());
+ if(businessDialog==='bulk'){const bulk=root.querySelector('form[data-connected="bulk-training"]');if(bulk)refreshBulkPlanPreview(bulk);}
+ const classCreate=root.querySelector('form[data-class-week-create]');
+ if(classCreate){
+  const bindWeekSlotInputs=scope=>{
+   scope.querySelectorAll('.pt-week-slot input').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+     const slot=inp.closest('.pt-week-slot');
+     slot?.classList.toggle('is-on',inp.checked);
+     const color=classCreate.querySelector('input[name="color"]:checked')?.value||'#22834d';
+     slot?.style.setProperty('--slot-color',color);
+    });
+   });
+  };
+  const syncSchedulePanels=()=>{
+   const mode=classCreate.querySelector('[data-class-schedule-mode]')?.value||'unique';
+   classCreate.querySelectorAll('[data-class-panel]').forEach(panel=>{
+    const on=panel.getAttribute('data-class-panel')===mode;
+    panel.hidden=!on;
+    panel.querySelectorAll('input,select,textarea').forEach(el=>{
+     if(el.name==='untilMode'||el.name==='untilDate'||el.name==='slot')return;
+     if(on)el.removeAttribute('disabled');
+     else el.setAttribute('disabled','disabled');
+    });
+   });
+   // Slots / until solo aplican en repetitiva.
+   classCreate.querySelectorAll('input[name="slot"], input[name="untilMode"], input[name="untilDate"]').forEach(el=>{
+    if(mode==='weekly')el.removeAttribute('disabled');
+    else el.setAttribute('disabled','disabled');
+   });
+  };
+  const rebuildWeekGrid=()=>{
+   const host=classCreate.querySelector('[data-week-slot-host]');
+   if(!host)return;
+   const color=classCreate.querySelector('input[name="color"]:checked')?.value||'#22834d';
+   const duration=Number(classCreate.querySelector('[data-week-duration]')?.value||60);
+   const selected=new Set([...classCreate.querySelectorAll('input[name="slot"]:checked')].map(i=>i.value));
+   const label=host.querySelector(':scope > span');
+   host.innerHTML='';
+   if(label)host.append(label);
+   else host.insertAdjacentHTML('afterbegin','<span>Días y franjas</span>');
+   host.insertAdjacentHTML('beforeend',weekSlotGrid(selected,{durationMin:duration,color}));
+   bindWeekSlotInputs(host);
+   syncSchedulePanels();
+  };
+  bindWeekSlotInputs(classCreate);
+  syncSchedulePanels();
+  classCreate.querySelector('[data-class-schedule-mode]')?.addEventListener('change',syncSchedulePanels);
+  classCreate.querySelector('[data-week-duration]')?.addEventListener('change',rebuildWeekGrid);
+  classCreate.querySelectorAll('input[name="color"]').forEach(el=>{
+   el.addEventListener('change',()=>{
+    const color=classCreate.querySelector('input[name="color"]:checked')?.value||'#22834d';
+    classCreate.querySelectorAll('.pt-week-slot, [data-week-slots]').forEach(node=>{
+     node.style.setProperty('--slot-color',color);
+    });
+   });
+  });
+ }
+ const roomSel=root.querySelector('select[data-action="agenda-room-filter"]');
+ if(roomSel){
+  roomSel.addEventListener('change',()=>{agendaRoom=roomSel.value||'';render();});
+ }
+ const planForm=root.querySelector('form[data-pass-offer-form]');
+ const planPreview=root.querySelector('.pt-plan-preview');
+ if(planForm&&planPreview){
+  const syncPreview=()=>{
+   const billing=planForm.querySelector('[name="billing"]:not([type="hidden"])')?.value
+    ||planForm.querySelector('input[name="billing"]')?.value||'session_pack';
+   const name=planForm.querySelector('[name="name"]')?.value?.trim()||'Vista previa';
+   let price=0,detail='Completa el formulario';
+   if(billing==='session_pack'){
+    price=Number(planForm.querySelector('[name="price"]')?.value||0);
+    detail=`${planForm.querySelector('[name="credits"]')?.value||'?'} sesiones · ${planForm.querySelector('[name="validityDays"]')?.value||'?'} días`;
+   }else if(billing==='monthly'){
+    price=Number(planForm.querySelector('[name="priceMonthly"]')?.value||0);
+    detail=`Mensual · ${planForm.querySelector('[name="validityDaysMonthly"]')?.value||'?'} días`;
+   }else if(billing==='unlimited'){
+    price=Number(planForm.querySelector('[name="priceUnlimited"]')?.value||0);
+    detail=`Ilimitado · ${planForm.querySelector('[name="validityDaysUnlimited"]')?.value||'?'} días`;
+   }else if(billing==='time_slot'){
+    price=Number(planForm.querySelector('[name="priceSlot"]')?.value||0);
+    detail=`Franja · ${planForm.querySelector('[name="validityDaysSlot"]')?.value||'?'} días`;
+   }
+   const money=new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(price||0);
+   planPreview.querySelector('h3').textContent=name;
+   planPreview.querySelector('strong').innerHTML=`${money}<small> · cobro externo</small>`;
+   planPreview.querySelector('p').textContent=detail;
+  };
+  planForm.addEventListener('input',syncPreview);
+  planForm.addEventListener('change',syncPreview);
+  syncPreview();
+ }
+ syncBillingFields(root);
 }
+function syncQuickWorkoutForm(form){
+ if(!form)return;
+ const mode=form.querySelector('input[name="mode"]:checked')?.value||'day';
+ const showMulti=mode==='weekly'||mode==='plan';
+ form.querySelector('[data-quick-weekdays]')?.toggleAttribute('hidden',!showMulti);
+ form.querySelector('[data-quick-weeks]')?.toggleAttribute('hidden',mode!=='weekly');
+ form.querySelector('[data-quick-end]')?.toggleAttribute('hidden',mode!=='plan');
+ const start=form.querySelector('[name="date"]')?.value||'';
+ let end=form.querySelector('[name="end"]')?.value||start;
+ const weeks=Number(form.querySelector('[name="weeks"]')?.value||4);
+ if(mode==='weekly'&&start){
+  const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+(Math.min(Math.max(weeks,1),8)*7)-1);
+  end=d.toLocaleDateString('sv-SE');
+  const endInput=form.querySelector('[name="end"]');if(endInput)endInput.value=end;
+ }
+ const weekdays=[...form.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
+ const n=countQuickWorkoutSessions({mode,start,end,weeks,weekdays});
+ const preview=form.querySelector('[data-quick-preview]');
+ if(preview){
+  if(mode==='day')preview.textContent=`1 sesión el ${start||'—'}`;
+  else if(mode==='weekly')preview.textContent=n?`${n} sesiones · ${weeks} semana${weeks===1?'':'s'} · días marcados`:'Marca al menos un día de la semana';
+  else preview.textContent=n?`${n} sesiones del ${start} al ${end}`:'Elige rango y días de entreno';
+ }
+}
+function syncBillingFields(root=app){
+ root.querySelectorAll('form[data-connected="create-pass-offer"],form[data-connected="update-pass-offer"]').forEach(form=>{
+  const billing=form.querySelector('[data-billing-select]')?.value||'session_pack';
+  form.querySelectorAll('[data-billing-fields]').forEach(block=>{
+   const show=block.dataset.billingFields===billing;
+   block.hidden=!show;
+   block.toggleAttribute('inert',!show);
+   block.querySelectorAll('input,select,textarea').forEach(inp=>{
+    inp.disabled=!show;
+    if(!show){inp.required=false;return;}
+    const need={
+     credits:billing==='session_pack'&&inp.name==='credits',
+     validityDays:billing==='session_pack'&&inp.name==='validityDays',
+     price:billing==='session_pack'&&inp.name==='price',
+     validityDaysMonthly:billing==='monthly'&&inp.name==='validityDaysMonthly',
+     priceMonthly:billing==='monthly'&&inp.name==='priceMonthly',
+     validityDaysUnlimited:billing==='unlimited'&&inp.name==='validityDaysUnlimited',
+     priceUnlimited:billing==='unlimited'&&inp.name==='priceUnlimited',
+     validityDaysSlot:billing==='time_slot'&&inp.name==='validityDaysSlot',
+     priceSlot:billing==='time_slot'&&inp.name==='priceSlot',
+     slotStart:billing==='time_slot'&&inp.name==='slotStart',
+     slotEnd:billing==='time_slot'&&inp.name==='slotEnd',
+    };
+    inp.required=!!need[inp.name];
+   });
+  });
+  const hints={
+   session_pack:'Bono: Nº de sesiones y validez. Cobro fuera de Repera.',
+   monthly:'Mensual: solo periodo y precio. Sin cupo de sesiones.',
+   unlimited:'Ilimitado: validez del acceso y precio. Sin límite práctico de sesiones.',
+   time_slot:'Franja: el cliente solo puede reservar citas (o gym) que empiecen en esos días y horas.',
+  };
+  const hint=form.querySelector('[data-billing-hint]');
+  if(hint)hint.textContent=hints[billing]||hints.session_pack;
+ });
+}
+function renderTeamWorkspace({org,memberships=[],invitations=[],manager=false,busy=false,userId=''}){
+ const staff=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'
+  &&['owner','admin','coach','reception'].includes(m.role));
+ const pending=invitations.filter(i=>i.organization_id===org.id&&!i.accepted_at&&!i.cancelled_at
+  &&new Date(i.expires_at).getTime()>Date.now()
+  &&['admin','coach','reception'].includes(i.invited_role));
+ const roleName={owner:'Propietario',admin:'Administrador',coach:'Entrenador',reception:'Recepción'};
+ const roleOptions=[['coach','Entrenador'],['reception','Recepción'],['admin','Administrador']];
+ return `<div class="pt-team-workspace">
+  <section class="connected-card"><div class="business-panel-head"><div>
+   <h2>Equipo</h2><p>Crea, cambia el rol o retira a coaches y recepción.</p></div>
+   ${manager?`<button type="button" class="connected-primary" data-action="open-team-invite">Invitar</button>`:''}</div>
+   <div class="pt-team-list">${staff.map(m=>{
+    const self=m.user_id===userId;
+    const label=self?'Tú':('Profesional '+escapeHTML((m.user_id||'').slice(0,8)));
+    return `<article class="pt-team-card">
+     <div class="pt-team-card-main"><strong>${label}</strong>
+      <small>${escapeHTML(roleName[m.role]||m.role)}</small></div>
+     ${manager&&!self&&m.role!=='owner'?`<form data-connected="manage-member" class="pt-team-edit">
+      <input type="hidden" name="user" value="${escapeHTML(m.user_id)}">
+      <input type="hidden" name="op" value="set_role">
+      <label class="connected-field">Rol<select name="role">${roleOptions.map(([v,t])=>`<option value="${v}" ${m.role===v?'selected':''}>${t}</option>`).join('')}</select></label>
+      <button type="submit" class="connected-secondary" ${busy?'disabled':''}>Guardar</button>
+      <button type="button" class="connected-secondary" data-action="revoke-member" data-id="${escapeHTML(m.user_id)}" ${busy?'disabled':''}>Quitar</button>
+     </form>`:(self||m.role==='owner'?'<p class="connected-hint">'+escapeHTML(m.role==='owner'?'Propietario del centro.':'Tu cuenta.')+'</p>':'')}
+    </article>`;
+   }).join('')||'<p class="business-empty">Todavía no hay miembros de equipo.</p>'}</div>
+  </section>
+  ${manager?`<section class="connected-card" id="team-invite-panel"><h2>Invitar al equipo</h2>
+   <form data-connected="invite" class="business-form">
+    <label class="connected-field">Correo del invitado<input name="email" type="email" required autocomplete="email"></label>
+    <label class="connected-field">Perfil<select name="role">
+     <option value="coach">Entrenador</option>
+     <option value="reception">Recepción</option>
+     <option value="admin">Administrador</option>
+    </select></label>
+    <button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button>
+   </form>
+   ${pending.length?`<h3>Pendientes</h3>${pending.map(i=>`<article class="business-line pt-team-pending"><div><strong>${escapeHTML(i.email||'')}</strong>
+    <small>${escapeHTML(roleName[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div>
+    <button type="button" class="connected-secondary" data-action="cancel-team-invite" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Anular</button>
+   </article>`).join('')}`:''}
+  </section>`:'<section class="connected-card"><p class="connected-hint">Solo propietarios y administradores gestionan el equipo.</p></section>'}
+ </div>`;
 }
 function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
  // Perfil sin desplegable de actividad (fija) ni bloque legal (va a su pestaña).
@@ -216,9 +651,9 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
  return `<div class="pt-settings">
   <nav class="business-settings-navigation pt-settings-nav" aria-label="Ajustes">
    <button data-settings-section="profile" type="button" aria-current="${settingsSection==='profile'?'page':'false'}">Perfil</button>
+   <button data-settings-section="services" type="button" aria-current="${settingsSection==='services'?'page':'false'}">Servicios</button>
    <button data-settings-section="legal" type="button" aria-current="${settingsSection==='legal'?'page':'false'}">Datos legales</button>
    <button data-settings-section="plan" type="button" aria-current="${settingsSection==='plan'?'page':'false'}">Plan</button>
-   ${trainer?`<button data-settings-section="passes" type="button" aria-current="${settingsSection==='passes'?'page':'false'}">Tarifas</button>`:''}
   </nav>
   <section data-settings-panel="profile" class="connected-card pt-settings-card">
    <h2>Perfil profesional</h2>
@@ -229,6 +664,7 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
     ${manager?'<button class="connected-primary business-form-submit" type="submit">Guardar perfil</button>':''}
    </form>
   </section>
+  ${renderServicesSettings({org,manager,busy,trainer,draft:whatsappDraft})}
   <section data-settings-panel="legal" class="connected-card pt-settings-card">
    <h2>Datos legales</h2>
    <p>Solo propietarios y administradores. No se muestran en el directorio público.</p>
@@ -243,7 +679,6 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
    </form>
   </section>
   <section data-settings-panel="plan" class="pt-settings-card pt-plan-wrap">${renderSubscriptions(org)}</section>
-  ${trainer?`<section data-settings-panel="passes" class="pt-settings-card">${renderTrainerPassPanel({clients,passes,offers,attendance,bookings,occurrences,seat,manager,busy})}</section>`:''}
  </div>`;
 }function render(){
  if(user&&platformRole==='platform_admin'&&!delegation&&view!=='password'){
@@ -258,19 +693,19 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
    filter:adminFilter,busy,error,notice,email:user.email||''});
   return;
  }
- const common=platformRole==='platform_admin'&&delegation?'':`<header class="connected-header"><div class="brand"><span class="brand-symbol">R</span><span><strong>repera</strong><small>Business</small></span></div></header>`;
  if(!user){
-  const title={login:invitationLink?'Acepta tu invitación a Repera':'Accede a tu negocio',join:'Crea tu cuenta de deportista',register:'Crear cuenta profesional',recover:'Recuperar acceso',password:'Establecer nueva contraseña'}[view];
+  const title={login:invitationLink?'Tu invitación':'Hola de nuevo',join:'Cuenta de deportista',register:'Empieza tu espacio',recover:'Recuperar acceso',password:'Nueva contraseña'}[view];
+  const intro={login:invitationLink?'Acepta la relación con tu centro o entrenador.':'Entra a tu agenda, clientes y mensajería.',join:'Después de verificar el correo podrás aceptar la invitación.',register:'Agenda, clientes y tarifas en un solo sitio. 7 días de prueba, sin tarjeta.',recover:'Te enviaremos un enlace para restablecer la contraseña.',password:'Elige una contraseña de al menos 8 caracteres.'}[view];
   const form=view==='login'
-   ?`${field('Correo electrónico','email','email')}${field('Contraseña','password','password','minlength="8"')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Entrar</button>`
+   ?`${field('Correo','email','email')}${field('Contraseña','password','password','minlength="8"')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Entrar</button>`
    :view==='join'
-   ?`${field('Correo electrónico','email','email')}${field('Contraseña (8 caracteres mínimo)','password','password','minlength="8"')}<p class="connected-hint">La aceptación se hace después de verificar el correo. Esta cuenta no crea un gimnasio ni convierte al atleta en entrenador.</p><button class="connected-primary" type="submit" ${busy?'disabled':''}>Crear cuenta de deportista</button>`
+   ?`${field('Correo','email','email')}${field('Contraseña (mín. 8)','password','password','minlength="8"')}<p class="connected-hint">No crea un negocio: solo tu cuenta de deportista.</p><button class="connected-primary" type="submit" ${busy?'disabled':''}>Crear cuenta</button>`
    :view==='register'
-   ?`${field('Correo electrónico','email','email')}${field('Contraseña (8 caracteres mínimo)','password','password','minlength="8"')}<label class="connected-field">Tipo de actividad<select name="businessKind" required><option value="personal_trainer">Entrenador personal</option><option value="gym">Gimnasio</option></select></label>${field('Nombre comercial','businessName','text','minlength="2" maxlength="120"')}<p class="connected-hint">7 días de prueba gratuitos. No se pide tarjeta. Tras la prueba podrás elegir un plan; los pagos todavía no están habilitados.</p><button class="connected-primary" type="submit" ${busy?'disabled':''}>Registrarme y empezar prueba</button>`
+   ?`${field('Correo','email','email')}${field('Contraseña (mín. 8)','password','password','minlength="8"')}<label class="connected-field">Soy<select name="businessKind" required><option value="personal_trainer">Entrenador personal</option><option value="gym">Gimnasio</option></select></label>${field('Nombre comercial','businessName','text','minlength="2" maxlength="120"')}<p class="connected-hint">Prueba 7 días. Los cobros en plataforma aún no están activos.</p><button class="connected-primary" type="submit" ${busy?'disabled':''}>Crear espacio</button>`
    :view==='recover'
-   ?`${field('Correo electrónico','email','email')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Enviar enlace</button>`
-   :`${field('Nueva contraseña (8 caracteres mínimo)','password','password','minlength="8"')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Actualizar contraseña</button>`;
-  app.innerHTML=`<div class="connected-page">${common}<main class="connected-auth"><div class="connected-card"><span class="connected-tag">PLATAFORMA PROFESIONAL</span><h1>${title}</h1><p class="connected-intro">Gestión real de organizaciones mediante Supabase. Tus entrenamientos personales permanecen en la app nativa.</p>${message()}<form data-connected="${view}">${form}</form><div class="connected-links">${view!=='login'?'<button type="button" data-view="login">Volver a iniciar sesión</button>':''}${view==='login'?`${invitationLink?'<button type="button" data-view="join">Soy nuevo: crear cuenta de deportista</button>':'<button type="button" data-view="register">Crear cuenta profesional</button>'}<button type="button" data-view="recover">Olvidé mi contraseña</button>`:''}</div></div></main></div>`;
+   ?`${field('Correo','email','email')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Enviar enlace</button>`
+   :`${field('Nueva contraseña','password','password','minlength="8"')}<button class="connected-primary" type="submit" ${busy?'disabled':''}>Guardar</button>`;
+  app.innerHTML=`<div class="connected-page"><main class="connected-auth"><div class="connected-card"><img class="pt-repera-mark auth" src="./favicon.png" width="44" height="44" alt="Repera"><h1>${title}</h1><p class="connected-intro">${intro}</p>${message()}<form data-connected="${view}">${form}</form><div class="connected-links">${view!=='login'?'<button type="button" data-view="login">Volver</button>':''}${view==='login'?`${invitationLink?'<button type="button" data-view="join">Soy nuevo</button>':'<button type="button" data-view="register">Crear espacio</button>'}<button type="button" data-view="recover">Olvidé la contraseña</button>`:''}</div></div></main></div>`;
   return;
  }
  const pendingInvites=invitations.filter(i=>!i.accepted_at&&!i.cancelled_at&&new Date(i.expires_at).getTime()>Date.now());
@@ -281,9 +716,8 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
    (invitationLink||ownInvites.length||[...own.values()].includes('athlete'))&&
    ![...own.values()].some(role=>['owner','admin','coach','reception'].includes(role))){
   app.innerHTML=`<div class="connected-page"><main class="connected-auth">
-   <section class="connected-card"><span class="connected-tag">REPERA · DEPORTISTAS</span>
-   <h1>Tus invitaciones</h1><p>Solo tu cuenta con correo verificado puede aceptar la relación.
-   No se comparten tus entrenamientos privados de forma automática.</p>${message()}
+   <section class="connected-card">
+   <h1>Invitaciones</h1><p>Acepta con tu correo verificado. Tus entrenos privados no se comparten solos.</p>${message()}
    ${ownInvites.length?ownInvites.map(i=>`<article class="connected-org">
     <div><strong>Invitación de tu centro</strong>
     <small>Perfil: ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)}
@@ -296,46 +730,15 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
    </section></main></div>`;
   return;
  }
- app.innerHTML=`<div class="connected-page ${delegation?'is-delegated':''}">${common}<main class="connected-workspace"><div class="connected-heading"><div><span class="connected-tag">SESIÓN AUTENTICADA · SUPABASE REPERA</span><h1>Mis organizaciones</h1><p>${escapeHTML(user.email||'Cuenta Repera')} · ${platformRole==='platform_admin'?'Administrador de plataforma · ':''}Solo se muestran negocios autorizados por la base de datos.</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Cerrar sesión</button></div>${message()}${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div>${['owner','admin'].includes(own.get(o.id))?`<div class="connected-org-brand">${o.avatar_url?`<img class="connected-org-avatar" src="${escapeHTML(o.avatar_url)}" alt="" loading="lazy">`:`<span class="connected-org-avatar placeholder">${escapeHTML((o.name||'R').slice(0,1).toUpperCase())}</span>`}<form data-connected="rename" class="connected-inline"><input type="hidden" name="id" value="${escapeHTML(o.id)}"><label>Nombre<input name="name" value="${escapeHTML(o.name)}" maxlength="120" required></label><label>${o.kind==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio'}<input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Eslogan<input name="tagline" value="${escapeHTML(o.tagline||'')}" maxlength="160"></label><label class="connected-check"><input type="checkbox" name="discoverable" ${o.is_discoverable!==false?'checked':''}> Visible para deportistas</label><button class="connected-secondary" ${busy?'disabled':''}>Guardar</button></form></div>`:''}</article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section><section class="connected-card" data-workspace-section="clients" style="margin-top:22px"><h2>Clientes reales</h2><label class="connected-field">Organización<select id="connected-org-select"><option value="">Selecciona una organización</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${selectedOrg===o.id?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select></label>${selectedOrg?`<div style="margin-top:20px">${clients.length?clients.map(c=>`<article class="connected-org"><div><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email)} · ${escapeHTML(c.status)}</small></div></article>`).join(''):'<p>Sin clientes registrados en esta organización.</p>'}${['owner','admin'].includes(own.get(selectedOrg))?`<form data-connected="client">${field('Nombre del cliente','name','text','minlength="2" maxlength="120"')}${field('Correo electrónico','email','email')}<button class="connected-primary">Añadir cliente potencial</button></form>`:''}</div>`:''}</section>${selectedOrg&&["owner","admin"].includes(own.get(selectedOrg))?`<section class="connected-card" data-workspace-section="team" style="margin-top:22px"><h2>Invitar a mi organización</h2><p>La persona debe registrarse con el mismo correo verificado. Podrá aceptar la invitación al iniciar sesión. Aún no se envían correos automáticos.</p><form data-connected="invite">${field('Correo del invitado','email','email')}<label class="connected-field">Perfil<select name="role"><option value="athlete">Deportista</option><option value="coach">Entrenador</option><option value="reception">Recepción</option><option value="admin">Administrador</option></select></label><button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button></form>${pendingInvites.filter(i=>i.organization_id===selectedOrg).length?`<p>Invitaciones pendientes: ${pendingInvites.filter(i=>i.organization_id===selectedOrg).length}</p>`:''}</section>`:''}${trainerActive()?'':renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:planningClientId,preferredDate:planningSelectedDay})}<div data-workspace-section="services">${renderServicesPanel({selectedOrg,role:own.get(selectedOrg),occurrences,passes,bookings,clients,memberships,busy,escapeHTML})}</div><section class="connected-next"><h2>Próximos módulos</h2><p>Asignación operativa de entrenadores, planes publicados, compra de bonos y reservas desde las apps móviles aún no están conectados. No se muestran datos ficticios en este espacio autenticado.</p></section></main></div>`;
+ const shellKind=organizations.find(o=>o.id===selectedOrg)?.kind;
+ const shellClass=[
+  'connected-page',
+  delegation?'is-delegated':'',
+  shellKind==='personal_trainer'?'is-pt-app':'',
+  shellKind==='gym'||shellKind==='sports_center'?'is-gym-app':'',
+ ].filter(Boolean).join(' ');
+ app.innerHTML=`<div class="${shellClass}"><main class="connected-workspace"><div class="connected-heading"><img class="pt-repera-mark" src="./favicon.png" width="36" height="36" alt="Repera"><div><h1>Tu espacio</h1><p>${escapeHTML(user.email||'Cuenta Repera')}${platformRole==='platform_admin'?' · Admin Repera':''}</p></div><button class="connected-secondary" data-action="logout" ${busy?'disabled':''}>Salir</button></div>${ownInvites.length?`<section class="connected-card" style="margin-bottom:22px"><h2>Invitaciones para ti</h2><p>Solo se vinculará tu cuenta con el profesional al aceptarla. No se compartirán tus datos privados de entrenamientos.</p>${ownInvites.map(i=>`<article class="connected-org"><div><strong>Organización ${escapeHTML(i.organization_id.slice(0,8))}</strong><small>Invitación para ${escapeHTML(roleLabel[i.invited_role]||i.invited_role)} · vence ${escapeHTML(i.expires_at.slice(0,10))}</small></div><button class="connected-primary" data-action="accept-invitation" data-id="${escapeHTML(i.id)}" ${busy?'disabled':''}>Aceptar</button></article>`).join('')}</section>`:''}<section data-workspace-section="overview" class="connected-grid connected-onboarding-grid"><div class="connected-card"><h2>Espacios de trabajo</h2>${organizations.length?organizations.map(o=>`<article class="connected-org"><div><strong>${escapeHTML(o.name)}</strong><small>${escapeHTML(kindLabel[o.kind]||o.kind)} · ${escapeHTML(roleLabel[own.get(o.id)]||'Miembro')}</small><code>${escapeHTML(o.slug)}</code></div>${['owner','admin'].includes(own.get(o.id))?`<div class="connected-org-brand">${o.avatar_url?`<img class="connected-org-avatar" src="${escapeHTML(o.avatar_url)}" alt="" loading="lazy">`:`<span class="connected-org-avatar placeholder">${escapeHTML((o.name||'R').slice(0,1).toUpperCase())}</span>`}<form data-connected="rename" class="connected-inline"><input type="hidden" name="id" value="${escapeHTML(o.id)}"><label>Nombre<input name="name" value="${escapeHTML(o.name)}" maxlength="120" required></label><label>${o.kind==='personal_trainer'?'Foto del entrenador':'Logotipo del gimnasio'}<input name="avatarFile" type="file" accept="image/jpeg,image/png,image/webp"></label><label>Eslogan<input name="tagline" value="${escapeHTML(o.tagline||'')}" maxlength="160"></label><label class="connected-check"><input type="checkbox" name="discoverable" ${o.is_discoverable!==false?'checked':''}> Visible para deportistas</label><button class="connected-secondary" ${busy?'disabled':''}>Guardar</button></form></div>`:''}</article>`).join(''):'<p class="connected-empty">Todavía no perteneces a ninguna organización. Crea tu primera empresa para comenzar.</p>'}</div><div class="connected-card">${renderOrganizationCreateForm(planCatalog,(()=>{try{return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY)||'null')||{};}catch{return {};}})())}</div></section><section class="connected-card" data-workspace-section="clients" style="margin-top:22px"><h2>Clientes reales</h2><label class="connected-field">Organización<select id="connected-org-select"><option value="">Selecciona una organización</option>${organizations.map(o=>`<option value="${escapeHTML(o.id)}" ${selectedOrg===o.id?'selected':''}>${escapeHTML(o.name)}</option>`).join('')}</select></label>${selectedOrg?`<div style="margin-top:20px">${clients.length?clients.map(c=>`<article class="connected-org"><div><strong>${escapeHTML(c.name)}</strong><small>${escapeHTML(c.email)} · ${escapeHTML(c.status)}</small></div></article>`).join(''):'<p>Sin clientes registrados en esta organización.</p>'}${['owner','admin'].includes(own.get(selectedOrg))?`<form data-connected="client">${field('Nombre del cliente','name','text','minlength="2" maxlength="120"')}${field('Correo electrónico','email','email')}<button class="connected-primary">Añadir cliente potencial</button></form>`:''}</div>`:''}</section>${selectedOrg&&["owner","admin"].includes(own.get(selectedOrg))?`<section class="connected-card" data-workspace-section="team" style="margin-top:22px"><h2>Invitar a mi organización</h2><p>La persona debe registrarse con el mismo correo verificado. Podrá aceptar la invitación al iniciar sesión. Aún no se envían correos automáticos.</p><form data-connected="invite">${field('Correo del invitado','email','email')}<label class="connected-field">Perfil<select name="role"><option value="athlete">Deportista</option><option value="coach">Entrenador</option><option value="reception">Recepción</option><option value="admin">Administrador</option></select></label><button class="connected-primary" ${busy?'disabled':''}>Crear invitación</button></form>${pendingInvites.filter(i=>i.organization_id===selectedOrg).length?`<p>Invitaciones pendientes: ${pendingInvites.filter(i=>i.organization_id===selectedOrg).length}</p>`:''}</section>`:''}${trainerActive()?'':renderProfessionalPlanning({orgId:selectedOrg,role:own.get(selectedOrg),sessions:professionalSessions,templates,clients,memberships,busy,escapeHTML,templateId:selectedTemplateId,sessionId:editingSessionId,clientId:planningClientId,preferredDate:planningSelectedDay})}<div data-workspace-section="services">${renderServicesPanel({selectedOrg,role:own.get(selectedOrg),occurrences,passes,bookings,clients,memberships,busy,escapeHTML})}</div><section class="connected-next"><h2>Próximos módulos</h2><p>Asignación operativa de entrenadores, planes publicados, compra de bonos y reservas desde las apps móviles aún no están conectados. No se muestran datos ficticios en este espacio autenticado.</p></section></main></div>`;
  enhanceWorkspace(own);
- if(delegation){
-  const org=organizations.find(o=>o.id===delegation.org_id);
-  const pendingCenter=adminDirectory.find(o=>o.id===delegation.org_id&&o.registration_status==='pending');
-  const hdr=app.querySelector('.connected-heading');
-  if(hdr){
-   const name=escapeHTML(org?.name||delegation.name||'Centro');
-   const logo=org?.avatar_url&&/^https:\/\//.test(org.avatar_url)?
-    `<img src="${escapeHTML(org.avatar_url)}" alt="" loading="lazy">`:
-    `<span>${escapeHTML((org?.name||'R').slice(0,1))}</span>`;
-   hdr.innerHTML=`<div class="business-delegate-identity"><div class="business-delegate-avatar">${logo}</div>
-    <div><span class="business-delegate-eyebrow">REPERA BUSINESS · MODO ADMINISTRADOR</span>
-    <h1>${name}</h1><p>${org?.kind==='personal_trainer'?'Entrenador personal':'Centro deportivo'}
-    ${pendingCenter?' · Registro del propietario pendiente':''}
-    · Acceso de soporte hasta ${escapeHTML(new Date(delegation.expires_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))}</p></div></div>
-    <button type="button" class="business-delegate-exit" data-admin-action="exit-delegation">Volver a administración</button>`;
-  }
-  const root=app.querySelector('.connected-workspace');
-  const nav=root?.querySelector('.business-navigation');
-  if(root&&nav){
-   root.classList.add('business-delegated-workspace');
-   nav.querySelector('#workspace-org-select')?.closest('label')?.remove();
-   const orgName=escapeHTML(org?.name||'Centro');
-   const logoURL=org?.avatar_url&&/^https:\/\//.test(org.avatar_url)?escapeHTML(org.avatar_url):'';
-   const avatar=logoURL?`<img src="${logoURL}" alt="">`:
-    `<span class="business-sidebar-avatar">${escapeHTML((org?.name||'C').slice(0,1).toUpperCase())}</span>`;
-   nav.insertAdjacentHTML('beforeend',`<div class="business-sidebar-account">
-    ${avatar}<div><strong>${orgName}</strong><small>${org?.kind==='personal_trainer'?'Entrenador personal':'Gimnasio'} · Vista de soporte</small></div>
-    <button type="button" data-workspace="settings" aria-label="Ajustes del centro" title="Ajustes del centro">⚙</button>
-   </div>
-   <div class="business-sidebar-actions">
-    <button type="button" data-admin-action="exit-delegation">Volver a Repera Admin</button>
-    <button type="button" data-action="logout">Cerrar sesión</button>
-   </div>`);
-   const content=document.createElement('div');content.className='business-delegate-content';
-   root.querySelectorAll('[data-workspace-section]').forEach(section=>content.append(section));
-   root.append(content);
-  }
- }
 }
 const PENDING_REGISTRATION_KEY='repera-business-pending-professional-v1';
 // El slug se genera desde el nombre comercial.
@@ -348,31 +751,44 @@ async function finalizePendingRegistration(){
    notice='Completa los datos de tu negocio, añade tu imagen y escoge un plan opcional para comenzar.';
  }catch{sessionStorage.removeItem(PENDING_REGISTRATION_KEY);}
 }
+async function soft(label,promise,fallback){
+ try{return await promise;}
+ catch(e){
+  if(e.status===401)throw e;
+  console.warn('[repera]',label,e.message||e);
+  return fallback;
+ }
+}
 async function loadSelectedOrg(){
- if(!selectedOrg){clients=[];occurrences=[];passes=[];offers=[];attendance=[];bookings=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
+ if(!selectedOrg){clients=[];occurrences=[];passes=[];offers=[];attendance=[];bookings=[];passEvents=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
  const role=delegation?'admin':
   memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
  const manager=['owner','admin'].includes(role);
- [clients,occurrences,passes,offers,bookings,professionalSessions,templates,trialRows,classDetails,groups,groupMembers,notices]=await Promise.all([
-  auth.clients(selectedOrg,{basic:!manager}),
-  auth.serviceOccurrences(selectedOrg),
-  auth.servicePasses(selectedOrg),
-  auth.servicePassOffers(selectedOrg),
-  auth.serviceBookings(selectedOrg),
-  auth.professionalSessions(selectedOrg),
-  ['owner','admin','coach'].includes(role)?auth.workoutTemplates(selectedOrg):Promise.resolve([]),
-  auth.organizationTrial(selectedOrg),
-  auth.classDetails(selectedOrg),
-  ['owner','admin','coach'].includes(role)?auth.groupList(selectedOrg):Promise.resolve([]),
-  ['owner','admin','coach'].includes(role)?auth.groupMembers(selectedOrg):Promise.resolve([]),
-  auth.clientNotifications(selectedOrg)]);
- const avatars=await auth.clientAvatars(selectedOrg).catch(()=>[]);
+ // Clientes primero y con error duro: tras aceptar una solicitud debe verse la ficha.
+ clients=await auth.clients(selectedOrg,{basic:!manager});
+ const rest=await Promise.all([
+  soft('occurrences',auth.serviceOccurrences(selectedOrg),[]),
+  soft('passes',auth.servicePasses(selectedOrg),[]),
+  soft('offers',auth.servicePassOffers(selectedOrg),[]),
+  soft('bookings',auth.serviceBookings(selectedOrg),[]),
+  soft('sessions',auth.professionalSessions(selectedOrg),[]),
+  soft('templates',['owner','admin','coach'].includes(role)?auth.workoutTemplates(selectedOrg):Promise.resolve([]),[]),
+  soft('trial',auth.organizationTrial(selectedOrg),[]),
+  soft('classDetails',auth.classDetails(selectedOrg),[]),
+  soft('groups',['owner','admin','coach'].includes(role)?auth.groupList(selectedOrg):Promise.resolve([]),[]),
+  soft('groupMembers',['owner','admin','coach'].includes(role)?auth.groupMembers(selectedOrg):Promise.resolve([]),[]),
+  soft('notices',auth.clientNotifications(selectedOrg),[]),
+  soft('passEvents',manager?auth.servicePassManagementEvents(selectedOrg):Promise.resolve([]),[]),
+ ]);
+ occurrences=rest[0];passes=rest[1];offers=rest[2];bookings=rest[3];professionalSessions=rest[4];
+ templates=rest[5];trialRows=rest[6];classDetails=rest[7];groups=rest[8];groupMembers=rest[9];notices=rest[10];
+ passEvents=rest[11];
+ const avatars=await soft('avatars',auth.clientAvatars(selectedOrg),[]);
  const byId=new Map(avatars.map(a=>[a.client_id,a.avatar_url]));
  clients=clients.map(c=>({...c,avatar_url:byId.get(c.id)||c.avatar_url}));
- attendance=organizations.find(o=>o.id===selectedOrg)?.kind==='personal_trainer'&&manager
-  ?await auth.trainerAttendance(selectedOrg).catch(()=>[]):[];
- legalProfile=manager?await auth.legalProfile(selectedOrg):null;
- enrollmentRequests=manager?await auth.enrollmentRequests(selectedOrg):[];
+ attendance=manager?await soft('attendance',auth.trainerAttendance(selectedOrg),[]):[];
+ legalProfile=manager?await soft('legal',auth.legalProfile(selectedOrg),null):null;
+ enrollmentRequests=manager?await soft('enrollments',auth.enrollmentRequests(selectedOrg),[]):[];
  if(organizations.find(o=>o.id===selectedOrg)?.kind==='personal_trainer')await loadGymAssignments();
  else gymAssignments=[];
 }
@@ -387,7 +803,7 @@ async function reload(){
  platformRole=profile?.role||null;
  adminAccount={...(profile||{}),avatar_url:profile?.avatar_url||user?.user_metadata?.avatar_url||null,
   display_name:profile?.display_name||user?.user_metadata?.name||''};
- planCatalog=await auth.businessPlans();
+ planCatalog=await auth.businessPlans().catch(()=>planCatalog||[]);
  if(platformRole==='platform_admin'){
   [delegation,adminDirectory,adminAthletes,adminFinances,adminPending,adminHistory,adminSettings]=await Promise.all([
    auth.platformAdminCurrentDelegation(),auth.platformAdminDirectory(),auth.platformAdminAthletes(),
@@ -401,7 +817,7 @@ async function reload(){
  }else{
   delegation=null;
   // Only the verified owner claims a prepared business, never a platform operator.
-  await auth.claimPlatformProvisioning();
+  try{await auth.claimPlatformProvisioning();}catch(e){if(e.status===401)throw e;}
   adminDirectory=[];adminAthletes=[];adminSettings={};adminFinances={payments:[],client_payments:[],intents:[]};
   adminPending=[];adminHistory=[];platformOrgs=[];
  }
@@ -483,7 +899,7 @@ app.addEventListener('click',async event=>{
    try{
     await auth.platformAdminDelegate({orgId:c.center_id,reason:'Planificación deportiva desde ficha de atleta'});
     selectedOrg=c.center_id;planningClientId=c.id;planningSelectedDay=platformButton.dataset.day||'';
-    activeTab='planning';adminSelectedAthlete='';adminAthleteDetail=null;
+    activeTab='clients';clientEditorOpen=true;clientSection='training';adminSelectedAthlete='';adminAthleteDetail=null;
     await reload();
     notice='Planifica los entrenamientos de '+(profile?.account?.name||'este atleta')+'.';
    }catch(e){error=e.message||'No se pudo abrir la planificación';}
@@ -562,7 +978,7 @@ app.addEventListener('click',async event=>{
    try{
     await auth.platformAdminDelegate({orgId,reason:'Acceso operativo desde Repera Admin'});
     adminSelectedOrg='';adminCenterDetail=null;adminSelectedAthlete='';selectedOrg=orgId;activeTab='overview';
-    notice='Acceso administrativo temporal iniciado; se registra automáticamente.';
+    notice='';
     await reload();
    }catch(e){error=e.message||'No se pudo entrar en el centro';}
    finally{busy=false;render();}
@@ -582,29 +998,210 @@ app.addEventListener('click',async event=>{
    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='repera-pagos-'+(adminFilter.paymentScope==='b2c'?'centros-b2c':'plataforma-b2b')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);return;
   }
   if(command==='exit-delegation'&&!busy){
-   busy=true;render();try{await auth.platformAdminEndDelegation();delegation=null;selectedOrg=null;activeTab='overview';adminTab='home';adminSelectedOrg='';await reload();notice='Has vuelto a la administración global.';}catch(e){error=e.message||'No se pudo cerrar la delegación';}finally{busy=false;render();}return;
+   busy=true;error=notice='';
+   try{
+    await auth.platformAdminEndDelegation();
+   }catch(e){
+    // Si el RPC falla pero no hay delegación activa, igual volvemos al panel global.
+    console.warn('[repera] end-delegation',e.message||e);
+   }
+   try{
+    delegation=null;selectedOrg=null;activeTab='overview';
+    adminTab='centers';adminSelectedOrg='';adminCenterDetail=null;
+    await reload();
+    if(delegation){
+     error='No se pudo cerrar la delegación. Inténtalo de nuevo.';
+    }else{
+     notice='Has vuelto a la administración global.';
+    }
+   }catch(e){error=e.message||'No se pudo volver a administración';}
+   finally{busy=false;render();}
+   return;
   }
  }
  if(handleEditorClick(event))return;
- const tab=event.target.closest('[data-workspace]');if(tab){activeTab=tab.dataset.workspace;businessDialog='';clientEditorOpen=false;setWorkspaceRoute();render();return;}
- const mode=event.target.closest('[data-view]');if(mode){view=mode.dataset.view;error=notice='';render();return;}
  const actionable=event.target.closest('[data-action]');const action=actionable?.dataset.action;
+ if(action==='dismiss-flash'){error=notice='';render();return;}
  const trainer=trainerActive();
+ // Agenda Mes/Día ANTES que [data-view] de auth (antes el toggle Día pisaba view=login).
+ // Pulsar un día del mes solo actualiza el rail derecho; la vista Día completa queda en el tab.
+ if(action==='agenda-view'){
+  const next=actionable.dataset.agendaView||actionable.dataset.view;
+  agendaView=next==='day'?'day':'month';
+  if(agendaView==='day'&&!/^\d{4}-\d{2}-\d{2}$/.test(agendaDay))agendaDay=todayISO();
+  if(agendaView==='day'){
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(agendaDay))agendaDay=todayISO();
+   calendarMonth=agendaDay.slice(0,7);
+   trainerActivityDay=agendaDay;trainerActivityMonth=calendarMonth;
+  }
+  render();return;
+ }
+ if(action==='agenda-open-day'||action==='agenda-select-day'){
+  agendaDay=actionable.dataset.day||todayISO();
+  calendarMonth=agendaDay.slice(0,7);
+  trainerActivityDay=agendaDay;trainerActivityMonth=calendarMonth;
+  agendaView='month';
+  render();return;
+ }
+ const tab=event.target.closest('[data-workspace]');if(tab){
+  const next=tab.dataset.workspace;
+  // Pulsar Clientes/Socios en el menú vuelve al listado (sin fila «Volver»).
+  if(next==='clients'){selectedClientId=null;clientSection='training';clientEditorOpen=false;sharedHistory=[];}
+  activeTab=next;businessDialog='';clientEditorOpen=false;setWorkspaceRoute();render();return;
+ }
+ const mode=event.target.closest('[data-view]');
+ if(mode&&!mode.closest('[data-action]')&&['login','join','register','recover','password'].includes(mode.dataset.view)){
+  view=mode.dataset.view;error=notice='';render();return;
+ }
  const setting=event.target.closest('[data-settings-section]');
  if(setting){
   const s=setting.dataset.settingsSection;
-  settingsSection=['plan','passes','profile','legal'].includes(s)?s:'profile';
+  settingsSection=['plan','profile','legal','services'].includes(s)?s:'profile';
   activeTab='settings';render();return;
  }
  if(action==='open-invite-modal'||action==='go-invite-client'||action==='focus-invite-form'){
-  showInviteModal=true;render();return;
+  showInviteModal=true;inviteEmailError='';inviteDraft={name:'',email:'',phone:''};error='';notice='';
+  render();return;
  }
- if(action==='close-invite-modal'){showInviteModal=false;render();return;}
- if(action==='agenda-view'){
-  agendaView=actionable.dataset.view==='day'?'day':'month';render();return;
+ if(action==='close-invite-modal'){
+  showInviteModal=false;inviteEmailError='';inviteDraft={name:'',email:'',phone:''};render();return;
  }
- if(action==='agenda-select-day'){
-  agendaDay=actionable.dataset.day||todayISO();agendaView='day';calendarMonth=agendaDay.slice(0,7);render();return;
+ if(action==='open-settings-services'){
+  businessDialog='';showInviteModal=false;activeTab='settings';settingsSection='services';
+  setWorkspaceRoute();render();return;
+ }
+ if(action==='disconnect-whatsapp'&&!busy){
+  if(!confirm('¿Desconectar WhatsApp de este espacio?'))return;
+  busy=true;error=notice='';render();
+  try{
+   const updated=await auth.disconnectOrgWhatsapp(selectedOrg);
+   whatsappDraft=null;
+   if(updated?.id){
+    organizations=organizations.map(o=>o.id===updated.id?{...o,...updated,whatsapp_e164:null,whatsapp_connected_at:null}:o);
+   }else{
+    organizations=await soft('organizations',auth.organizations(),organizations);
+   }
+   settingsSection='services';activeTab='settings';
+   notice='WhatsApp desconectado.';
+  }catch(e){error=e.message||'No se pudo desconectar';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='show-invite-share'&&!busy){
+  const id=actionable.dataset.id;
+  const email=actionable.dataset.email||'';
+  const inv=invitations.find(i=>i.id===id)||pendingAthleteInvite({invitations,orgId:selectedOrg,email});
+  if(!inv){error='Sin invitación pendiente';render();return;}
+  lastInviteShare={invitationId:inv.id,email:inv.email||email,sent:false,reason:''};
+  const client=clients.find(c=>String(c.email||'').toLowerCase()===String(inv.email||email).toLowerCase());
+  selectedClientId=client?.id||selectedClientId;
+  clientSection='data';activeTab='clients';businessDialog='';showInviteModal=false;render();return;
+ }
+ if(action==='open-assign-pass'){
+  selectedClientId=actionable.dataset.id||selectedClientId;
+  clientSection='passes';activeTab='clients';
+  dialogDay=actionable.dataset.mode==='renew'?'renew':'new';
+  businessDialog='assign-pass';render();return;
+ }
+ if(action==='finalize-pass'&&!busy){
+  if(!confirm('¿Finalizar este bono sin renovar? Quedará cancelado y no se podrá usar.'))return;
+  busy=true;render();
+  try{
+   await auth.finalizeServicePass(actionable.dataset.id);
+   if(actionable.dataset.client){selectedClientId=actionable.dataset.client;clientSection='passes';}
+   await loadSelectedOrg();notice='Bono finalizado. No se ha renovado.';
+  }catch(e){error=e.message||'No se pudo finalizar el bono';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='open-new-group-modal'){businessDialog='new-group';render();return;}
+ if(action==='open-create-plan-modal'){
+  selectedOfferId='';businessDialog='create-plan';error=notice='';render();return;
+ }
+ if(action==='open-edit-plan-modal'){
+  selectedOfferId=actionable.dataset.id||'';
+  if(!offers.some(o=>o.id===selectedOfferId))return;
+  businessDialog='edit-plan';error=notice='';render();return;
+ }
+ if(action==='open-new-class-modal'){
+  dialogDay=actionable.dataset.day||'';
+  businessDialog='new-class';render();return;
+ }
+ if(action==='open-edit-class-modal'){
+  selectedClassId=actionable.dataset.id||'';
+  expandedOccurrenceId=selectedClassId;
+  businessDialog='edit-class';render();return;
+ }
+ if(action==='open-enroll-class'){
+  selectedClassId=actionable.dataset.id||'';
+  expandedOccurrenceId=selectedClassId;
+  businessDialog='enroll-class';render();return;
+ }
+ if(action==='enroll-client-in-class'&&!busy){
+  const occurrenceId=actionable.dataset.id||'';
+  const clientId=actionable.dataset.client||selectedClientId||'';
+  const occ=occurrences.find(o=>o.id===occurrenceId);
+  if(!occ||!clientId)return;
+  const pass=passes.find(p=>p.client_id===clientId&&p.status==='active'&&p.kind===occ.kind&&p.remaining_credits>0&&Date.parse(p.valid_until)>Date.now());
+  if(!pass){error='Este socio no tiene un plan activo con crédito para esa clase.';render();return;}
+  busy=true;error='';render();
+  try{
+   await auth.enrollManagedClient({occurrenceId,clientId,passId:pass.id});
+   await loadSelectedOrg();
+   notice='Socio apuntado (igual que desde la app).';
+  }catch(e){error=friendlyPassBookError(e.message)||'No se pudo apuntar';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='toggle-occurrence-detail'){
+  const id=actionable.dataset.id||'';
+  expandedOccurrenceId=expandedOccurrenceId===id?'':id;
+  selectedClassId=expandedOccurrenceId||selectedClassId;
+  const o=occurrences.find(x=>x.id===id);
+  if(o)agendaDay=new Date(o.starts_at).toLocaleDateString('sv-SE');
+  render();return;
+ }
+ if(action==='open-team-invite'){
+  activeTab='team';render();
+  queueMicrotask(()=>app.querySelector('#team-invite-panel')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  return;
+ }
+ if(action==='delete-group'&&!busy){
+  if(!confirm('¿Borrar este grupo? Los socios no se eliminan.'))return;
+  busy=true;render();
+  try{await auth.deleteBusinessGroup(actionable.dataset.id);selectedGroupId=null;await loadSelectedOrg();notice='Grupo borrado.';}
+  catch(e){error=e.message||'No se pudo borrar el grupo';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='revoke-member'&&!busy){
+  if(!confirm('¿Quitar a este miembro del equipo?'))return;
+  busy=true;render();
+  try{
+   await auth.manageOrgMember({orgId:selectedOrg,userId:actionable.dataset.id,action:'revoke'});
+   memberships=await soft('memberships',auth.memberships(),memberships);
+   notice='Miembro retirado del equipo.';
+  }catch(e){error=e.message||'No se pudo retirar al miembro';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='cancel-team-invite'&&!busy){
+  busy=true;render();
+  try{await auth.cancelInvitation(actionable.dataset.id);invitations=await soft('invitations',auth.invitations(),invitations);notice='Invitación anulada.';}
+  catch(e){error=e.message||'No se pudo anular';}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='open-notifications'||action==='open-requests-modal'||action==='open-broadcast-modal'){
+  businessDialog='notifications';
+  if(selectedOrg&&!busy){
+   busy=true;error='';render();
+   try{enrollmentRequests=await auth.enrollmentRequests(selectedOrg);}
+   catch(e){error=e.message||'No se pudieron cargar las solicitudes';}
+   finally{busy=false;render();}
+   return;
+  }
+  render();return;
  }
  if(action==='agenda-day-prev'||action==='agenda-day-next'||action==='agenda-day-today'){
   const d=action==='agenda-day-today'?new Date():new Date((agendaDay||todayISO())+'T12:00:00');
@@ -612,25 +1209,52 @@ app.addEventListener('click',async event=>{
   if(action==='agenda-day-next')d.setDate(d.getDate()+1);
   agendaDay=d.toLocaleDateString('sv-SE');calendarMonth=agendaDay.slice(0,7);render();return;
  }
- if(action==='quick-add-movement'){
-  const box=app.querySelector('[data-quick-movements]');
-  const form=actionable.closest('form');
-  if(box&&form){
-   const mov=form.movement?.value?.trim();
-   if(mov){
-    const sets=form.sets?.value||3,reps=form.reps?.value||8,kg=form.weight?.value||0,rir=form.rir?.value||2;
-    box.insertAdjacentHTML('beforeend',`<div class="pt-quick-chip" data-extra-movement="${escapeHTML(mov)}" data-sets="${escapeHTML(sets)}" data-reps="${escapeHTML(reps)}" data-weight="${escapeHTML(kg)}" data-rir="${escapeHTML(rir)}">${escapeHTML(mov)} · ${escapeHTML(sets)}×${escapeHTML(reps)} <button type="button" data-action="quick-remove-chip" aria-label="Quitar">×</button></div>`);
-    form.movement.value='';
-   }
+ if(action==='quick-pick-exercise'){
+  const form=actionable.closest('form')||app.querySelector('form[data-connected="quick-workout"]');
+  const box=form?.querySelector('[data-quick-movements]');
+  if(form&&box){
+   const id=actionable.dataset.id||'custom';
+   const name=actionable.dataset.name||'Ejercicio';
+   const art=actionable.dataset.art||'';
+   const known=MOVEMENTS.find(m=>m.id===id)||{id,name,art};
+   const sets=form.sets?.value||3,reps=form.reps?.value||8,kg=form.weight?.value||0,rir=form.rir?.value||2;
+   box.querySelector('.pt-session-empty')?.remove();
+   box.insertAdjacentHTML('beforeend',`<article class="pt-session-card" data-quick-ex data-id="${escapeHTML(id)}" data-name="${escapeHTML(name)}" data-art="${escapeHTML(art)}">
+    ${exerciseThumbHTML(known,{size:'exercise-thumb-lg'})}
+    <div class="pt-session-card-body">
+     <strong>${escapeHTML(name)}</strong>
+     <div class="pt-quick-nums pt-session-nums">
+      <label>Series<input data-q-sets type="number" min="1" max="50" value="${escapeHTML(sets)}"></label>
+      <label>Reps<input data-q-reps type="number" min="0" max="1000" value="${escapeHTML(reps)}"></label>
+      <label>Kg<input data-q-weight type="number" min="0" max="1000" step="0.5" value="${escapeHTML(kg)}"></label>
+      <label>RIR<input data-q-rir type="number" min="0" max="10" value="${escapeHTML(rir)}"></label>
+     </div>
+    </div>
+    <button type="button" class="editor-icon-button" data-action="quick-remove-chip" aria-label="Quitar">×</button>
+   </article>`);
   }
   return;
  }
- if(action==='quick-remove-chip'){actionable.closest('.pt-quick-chip')?.remove();return;}
- if(action==='open-quick-workout'||action==='quick-plan-day'){
-  quickWorkoutClient=actionable.dataset.id||selectedClientId||'';
-  if(actionable.dataset.day)agendaDay=actionable.dataset.day;
-  businessDialog='quick-workout';render();return;
+ if(action==='quick-remove-chip'){
+  const card=actionable.closest('[data-quick-ex], .pt-quick-chip');
+  const box=card?.parentElement;
+  card?.remove();
+  if(box&&!box.querySelector('[data-quick-ex]'))
+   box.insertAdjacentHTML('afterbegin','<p class="pt-session-empty">Toca un ejercicio de la biblioteca para armar la sesión.</p>');
+  return;
  }
+ if(action==='open-quick-workout'||action==='quick-plan-day'||action==='plan-client'){
+  quickWorkoutClient=actionable.dataset.id||selectedClientId||'';
+  selectedClientId=actionable.dataset.id||selectedClientId||quickWorkoutClient||null;
+  planningClientId=selectedClientId;
+  if(actionable.dataset.day){agendaDay=actionable.dataset.day;planningSelectedDay=actionable.dataset.day;}
+  else if(!planningSelectedDay)planningSelectedDay=agendaDay||todayISO();
+  selectedTemplateId=null;editingSessionId=null;seedPrescription=null;copyBrowseClientId='';
+  clientEditorOpen=true;clientSection='training';businessDialog='';
+  activeTab='clients';
+  resetEditorPanels();
+  setWorkspaceRoute();render();return;
+}
  if(action==='coach-ack'&&!busy){
   busy=true;error=notice='';render();
   try{
@@ -681,49 +1305,105 @@ app.addEventListener('click',async event=>{
   finally{busy=false;render();}
   return;
  }
- if(action==='close-business-dialog'||trainer&&(action==='back-classes'||action==='back-groups')){businessDialog='';selectedClassId=null;selectedGroupId=null;render();return;}
+ if(action==='close-business-dialog'||action==='close-invite-share'){
+  businessDialog='';render();return;
+ }
+ if(trainer&&action==='back-classes'){
+  businessDialog='';selectedClassId=null;render();return;
+ }
  if(action==='trainer-session'&&trainer){selectedClientId=actionable.dataset.id;businessDialog='trainer-session';render();return;}
- if(action==='new-date-appointment'&&trainer){dialogDay=actionable.dataset.day;businessDialog='new-appointment';render();return;}
+ if(action==='new-date-appointment'&&trainer){
+  dialogDay=actionable.dataset.day||agendaDay||todayISO();
+  agendaDay=dialogDay;calendarMonth=dialogDay.slice(0,7);
+  if(actionable.dataset.client){selectedClientId=actionable.dataset.client;quickWorkoutClient=selectedClientId;}
+  businessDialog='new-appointment';render();return;
+ }
  if(action==='calendar-today'){calendarMonth='';render();return;}
  if(action==='bulk-mode'){bulkMode=actionable.dataset.mode==='template'?'template':'custom';render();return;}
  if(action==='add-planning'&&trainer){if(actionable.dataset.id){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;}bulkMode='custom';businessDialog='bulk';render();return;}
  if(action==='delete-session'&&!busy){if(!confirm('¿Eliminar este entrenamiento programado? No se borrarán actividades ya realizadas por el deportista.'))return;busy=true;render();try{await auth.cancelProfessionalSession(actionable.dataset.id);await loadSelectedOrg();notice='Entrenamiento retirado de la planificación.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='end-client'&&trainer&&!busy){const client=clients.find(c=>c.id===actionable.dataset.id);if(!client)return;if(!confirm('Confirma que el contrato profesional ya ha vencido. La cuenta personal del deportista y sus suscripciones independientes se conservarán.'))return;busy=true;render();try{await auth.updateClientProfile({orgId:selectedOrg,id:client.id,name:client.name,email:client.email,phone:client.phone||'',notes:client.notes||'',avatar:client.avatar_url||'',status:'cancelled'});await loadSelectedOrg();notice='Relación profesional finalizada; la cuenta personal no se ha cancelado.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
- if(action==='detail-client'){selectedClientId=actionable.dataset.id;planningClientId=selectedClientId;clientSection='training';clientEditorOpen=false;trainerActivityMonth='';trainerActivityDay='';sharedHistory=[];activeTab='clients';businessDialog='';setWorkspaceRoute();render();try{
+ if(action==='detail-client'){selectedClientId=actionable.dataset.id;selectedGroupId=null;planningClientId=selectedClientId;clientSection='training';clientEditorOpen=false;trainerActivityMonth='';trainerActivityDay='';sharedHistory=[];activeTab='clients';businessDialog='';setWorkspaceRoute();render();try{
     const client=clients.find(c=>c.id===selectedClientId);
     sharedHistory=client?.account_deleted_at
      ?await auth.archivedAthleteResults({orgId:selectedOrg,clientId:selectedClientId})
      :await auth.sharedClientHistory({orgId:selectedOrg,clientId:selectedClientId});
    }catch(e){error='El historial histórico o privado no está disponible para este profesional.';}render();return;}
- if(action==='back-clients'){sharedHistory=[];clientEditorOpen=false;selectedClientId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;activeTab='clients';setWorkspaceRoute();render();return;}
+ if(action==='back-clients'){sharedHistory=[];clientEditorOpen=false;selectedClientId=null;selectedGroupId=null;planningClientId=null;editingSessionId=null;selectedTemplateId=null;activeTab='clients';setWorkspaceRoute();render();return;}
  if(action==='client-section'){
   clientSection=actionable.dataset.section||'training';clientEditorOpen=false;render();
   if(clientSection==='chat'&&selectedClientId&&selectedOrg){
    try{
     chatMessages=await auth.listThread({orgId:selectedOrg,clientId:selectedClientId})||[];
     await auth.markThreadRead({orgId:selectedOrg,clientId:selectedClientId}).catch(()=>{});
-   }catch(e){error=e.message||'No se pudo cargar la conversación';chatMessages=[];}
+    error='';
+   }catch(e){
+    chatMessages=[];
+    error=e.message||'No se pudo cargar la conversación';
+   }
    render();
   }
   return;
  }
  if(action==='trainer-day'&&trainer){trainerActivityDay=actionable.dataset.day;trainerActivityMonth=trainerActivityDay.slice(0,7);clientEditorOpen=false;render();return;}
  if(action==='trainer-month'&&trainer){const month=trainerActivityMonth||new Date().toLocaleDateString('sv-SE').slice(0,7);const d=new Date(month+'-01T12:00:00');d.setMonth(d.getMonth()+(Number(actionable.dataset.step)||0));trainerActivityMonth=d.toLocaleDateString('sv-SE').slice(0,7);trainerActivityDay=trainerActivityMonth+'-01';clientEditorOpen=false;render();return;}
- if(action==='close-client-editor'&&trainer){clientEditorOpen=false;selectedTemplateId=null;editingSessionId=null;render();return;}
- if(action==='detail-group'){selectedGroupId=actionable.dataset.id;selectedClassId=null;if(trainer)businessDialog='group';else activeTab='services';render();return;}
- if(action==='back-groups'){selectedGroupId=null;activeTab='services';render();return;}
- if(action==='detail-occurrence'){selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else activeTab='services';render();return;}
- if(action==='back-classes'){classEditorId=null;selectedClassId=null;activeTab='services';render();return;}
- if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab=trainer?'overview':'services';setWorkspaceRoute();render();return;}
+ if(action==='close-client-editor'){clientEditorOpen=false;selectedTemplateId=null;editingSessionId=null;seedPrescription=null;copyBrowseClientId='';quickWorkoutClient='';draftSessionMeta=null;resetEditorPanels();render();return;}
+ if(action==='new-library-template'){libraryTemplateId=null;activeTab='workouts';resetEditorPanels();render();return;}
+ if(action==='edit-library-template'){libraryTemplateId=actionable.dataset.id;activeTab='workouts';render();return;}
+ if(action==='delete-library-template'&&!busy){
+  if(!confirm('¿Eliminar esta plantilla de Mis entrenos? No borra sesiones ya publicadas a clientes.'))return;
+  busy=true;error=notice='';render();
+  try{
+   await auth.deleteWorkoutTemplate({id:actionable.dataset.id,orgId:selectedOrg});
+   if(libraryTemplateId===actionable.dataset.id)libraryTemplateId=null;
+   templates=await auth.workoutTemplates(selectedOrg);notice='Plantilla eliminada.';
+  }catch(e){error=e.message||'No se pudo eliminar';}
+  finally{busy=false;render();}return;
+ }
+ if(action==='insert-template'||action==='copy-session'){
+  const form=app.querySelector('form[data-connected="publish-session"]');
+  const current=form?readPrescription(form):(seedPrescription||emptyPrescription());
+  draftSessionMeta={
+   title:form?.querySelector('[name="title"]')?.value||draftSessionMeta?.title||'',
+   date:form?.querySelector('[name="date"]')?.value||draftSessionMeta?.date||planningSelectedDay||'',
+   instructions:form?.querySelector('[name="instructions"]')?.value||draftSessionMeta?.instructions||'',
+  };
+  let extra=emptyPrescription();
+  if(action==='insert-template'){
+   const tpl=templates.find(t=>t.id===actionable.dataset.id);if(!tpl){error='Plantilla no encontrada';render();return;}
+   extra=tpl.prescription;notice='Plantilla añadida. Adáptala antes de publicar.';
+  }else{
+   const ses=professionalSessions.find(s=>s.id===actionable.dataset.id);if(!ses){error='Sesión no encontrada';render();return;}
+   extra=ses.prescription;notice='Entreno copiado. Adáptalo para este cliente.';
+   if(!String(draftSessionMeta.title||'').trim())draftSessionMeta.title=ses.title||'';
+  }
+  seedPrescription=mergePrescriptionBlocks(current,extra);
+  selectedTemplateId=null;
+  render();return;
+ }
+ if(action==='detail-group'){selectedGroupId=actionable.dataset.id;selectedClientId=null;selectedClassId=null;activeTab='clients';businessDialog=trainer?'group':'';render();return;}
+ if(action==='back-groups'){selectedGroupId=null;activeTab='clients';businessDialog='';render();return;}
+ if(action==='detail-occurrence'){
+  selectedGroupId=null;classEditorId=null;selectedClassId=actionable.dataset.id;
+  if(trainer){businessDialog='occurrence';}
+  else{
+   expandedOccurrenceId=selectedClassId;
+   const o=occurrences.find(x=>x.id===selectedClassId);
+   if(o)agendaDay=new Date(o.starts_at).toLocaleDateString('sv-SE');
+   activeTab='overview';
+  }
+  render();return;
+ }
+ if(action==='back-classes'){classEditorId=null;selectedClassId=null;expandedOccurrenceId='';activeTab='overview';render();return;}
+ if(action==='open-class-calendar'){selectedClassId=null;classMode='calendar';activeTab='overview';setWorkspaceRoute();render();return;}
  if(action==='calendar-mode'){classMode=actionable.dataset.mode==='list'?'list':'calendar';render();return;}
  if(action==='calendar-prev'||action==='calendar-next'){
   const first=(calendarMonth?new Date(calendarMonth+'-01T12:00:00'):new Date());
   first.setDate(1);first.setMonth(first.getMonth()+(action==='calendar-next'?1:-1));
   calendarMonth=first.toLocaleDateString('sv-SE').slice(0,7);render();return;
  }
- if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else activeTab='services';render();return;}
- if(action==='plan-client'){planningClientId=actionable.dataset.id;selectedClientId=planningClientId;clientSection='training';activeTab=trainer?'clients':'planning';clientEditorOpen=trainer;planningSelectedDay=actionable.dataset.day||trainerActivityDay||'';selectedTemplateId=null;editingSessionId=null;setWorkspaceRoute();render();if(trainer)app.querySelector('#client-workout-editor')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
- if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='services';classMode='list';notice='Selecciona una clase para inscribir a este deportista con un bono válido.';render();return;}
+ if(action==='publish-class-plan'){classEditorId=actionable.dataset.id;selectedClassId=actionable.dataset.id;if(trainer)businessDialog='occurrence';else{activeTab='overview';businessDialog='edit-class';}render();return;}
+ if(action==='find-class-for-client'){selectedClientId=actionable.dataset.id;selectedClassId=null;activeTab='overview';notice='Abre una clase en Inicio y pulsa Añadir participante.';render();return;}
  if(action==='refresh-enrollments'&&!busy&&selectedOrg){
   busy=true;error='';render();
   try{
@@ -734,13 +1414,43 @@ app.addEventListener('click',async event=>{
   return;
  }
  if((action==='approve-enrollment'||action==='reject-enrollment')&&!busy){
+  const accept=action==='approve-enrollment';
+  const requestId=actionable.dataset.id;
+  const pendingReq=enrollmentRequests.find(r=>r.id===requestId);
+  const athleteId=pendingReq?.athlete_id||null;
   busy=true;error=notice='';render();
   try{
-   await auth.decideEnrollment(actionable.dataset.id,action==='approve-enrollment');
-   await loadSelectedOrg();
-   notice=action==='approve-enrollment'?'Solicitud aceptada. El atleta ya está vinculado y aparecerá en Clientes.':
-    'Solicitud rechazada. Se ha registrado la decisión.';
-  }catch(e){error=e.message||'No se pudo procesar la solicitud';}
+   const decision=await auth.decideEnrollment(requestId,accept);
+   // Clientes primero: si falla el resto del panel, la ficha nueva igual se ve.
+   clients=await auth.clients(selectedOrg,{basic:false});
+   enrollmentRequests=await soft('enrollments',auth.enrollmentRequests(selectedOrg),[]);
+   await loadSelectedOrg().catch(e=>{if(e.status===401)throw e;});
+   businessDialog='';
+   if(accept){
+    let pick=decision.client_id?clients.find(c=>c.id===decision.client_id):null;
+    if(!pick&&athleteId)pick=clients.find(c=>c.user_id===athleteId);
+    if(!pick){
+     pick=clients.filter(c=>c.user_id&&c.status==='active'&&!c.account_deleted_at)
+      .sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')))[0]||null;
+    }
+    selectedClientId=pick?.id||decision.client_id||null;
+    planningClientId=selectedClientId;
+    clientSection='training';
+    clientEditorOpen=false;
+    activeTab='clients';
+    setWorkspaceRoute();
+    notice=pick
+     ?`Solicitud aceptada. ${pick.name} ya está en Clientes y vinculado.`
+     :'Solicitud aceptada. Si no ves al cliente, pulsa Actualizar o recarga.';
+   }else{
+    notice='Solicitud rechazada. Se ha registrado la decisión.';
+   }
+  }catch(e){
+   const msg=e.message||'No se pudo procesar la solicitud';
+   if(/TRAINER_CLIENT_LIMIT|TRIAL_EXPIRED/i.test(msg))
+    error='No se pudo aceptar: revisa el cupo de clientes o que la prueba/plan siga activo. '+msg;
+   else error=msg;
+  }
   finally{busy=false;render();}
   return;
  }
@@ -773,18 +1483,25 @@ app.addEventListener('click',async event=>{
   try{await auth.cancelInvitation(actionable.dataset.id);lastInviteShare=null;await reload();notice='Invitación revocada.';}
   catch(e){error=e.message||'No se pudo revocar';}finally{busy=false;render();}return;}
  if(action==='invite-client'&&!busy){const c=clients.find(c=>c.id===actionable.dataset.id);
-  if(!c||c.user_id)return;busy=true;render();
+  if(!c||c.user_id)return;
+  const orgRow=organizations.find(o=>o.id===selectedOrg);
+  const waWin=beginInvitationWhatsappPopup(orgRow);
+  busy=true;error=notice='';render();
   try{
-   const id=await auth.issueInvitation({orgId:selectedOrg,email:c.email,role:'athlete'});
-   let emailResult={sent:false,reason:'Envío pendiente'};
-   try{emailResult=await auth.sendInvitationEmail(id);}
-   catch(e){emailResult={sent:false,reason:e.message||'Envío no confirmado'};}
+   const existing=pendingAthleteInvite({invitations,orgId:selectedOrg,email:c.email});
+   let id=existing?.id||'';
+   let emailResult={sent:false,reason:''};
+   if(!id){
+    id=asUuid(await auth.issueInvitation({orgId:selectedOrg,email:c.email,role:'athlete'}));
+    if(!id)throw Error('No se pudo crear la invitación');
+    emailResult=await auth.sendInvitationEmail(id);
+   }
+   invitations=await soft('invitations',auth.invitations(),invitations);
    lastInviteShare={invitationId:id,email:c.email,sent:!!emailResult.sent,reason:emailResult.reason||''};
-   activeTab='overview';
-   await reload();
-   notice=emailResult.sent?'Invitación enviada. Comparte el QR o el enlace si hace falta.':
-    'Invitación creada. Usa el QR o copia el enlace; correo: '+emailResult.reason+'.';
-  }catch(e){error=e.message;}finally{busy=false;render();}return;}
+   businessDialog='';activeTab='clients';selectedClientId=c.id;clientSection='data';
+   const wa=finishInvitationWhatsappPopup(waWin,{org:orgRow,clientName:c.name,clientPhone:c.phone||'',invitationId:id});
+   notice=wa?'WhatsApp abierto':(emailResult.sent?'Invitación enviada':'QR en la ficha');
+  }catch(e){try{waWin?.close();}catch{/* ignore */}error=e.message;}finally{busy=false;render();}return;}
  if(action==='toggle-pass-offer'&&!busy){
   busy=true;error=notice='';render();
   try{
@@ -798,16 +1515,44 @@ app.addEventListener('click',async event=>{
   busy=true;render();try{await auth.subscriptionIntent({orgId:selectedOrg,planKey:actionable.dataset.plan,userId:user.id});notice='Plan seleccionado, pendiente de habilitar la pasarela de pago. No se ha efectuado ningún cargo ni se ha activado el plan.';}catch(e){error=e.message;}finally{busy=false;render();}return;
  }
  if(action==='cancel-occurrence'&&!busy){
-  if(!confirm('¿Cancelar esta clase y devolver automáticamente los créditos de todas las reservas?'))return;
-  busy=true;render();try{const credited=await auth.cancelManagedOccurrence(actionable.dataset.id);selectedClassId=null;await reload();notice='Clase cancelada. Reservas reembolsadas: '+credited;}catch(e){error=e.message;}finally{busy=false;render();}return;
+  if(!confirm('¿Cancelar esta clase? Se reembolsará a los apuntados y quedará bloqueada en el calendario.'))return;
+  busy=true;render();
+  try{
+   const credited=await auth.cancelManagedOccurrence(actionable.dataset.id);
+   businessDialog='';await reload();
+   notice='Clase cancelada. Reservas reembolsadas: '+credited;
+  }catch(e){error=e.message;}
+  finally{busy=false;render();}
+  return;
+ }
+ if(action==='delete-occurrence'&&!busy){
+  if(!confirm('¿Borrar esta clase del calendario? Se reembolsará a los apuntados y desaparecerá de la agenda.'))return;
+  busy=true;render();
+  try{
+   const credited=await auth.deleteManagedOccurrence(actionable.dataset.id);
+   selectedClassId=null;expandedOccurrenceId='';businessDialog='';await reload();
+   notice='Clase borrada. Reservas reembolsadas: '+credited;
+  }catch(e){error=e.message;}
+  finally{busy=false;render();}
+  return;
  }
  if(action==='remove-booking'&&!busy){
   if(!confirm('¿Quitar a este deportista y devolver el crédito de la reserva?'))return;
   busy=true;render();try{await auth.removeManagedClient(actionable.dataset.id);await loadSelectedOrg();notice='Participante retirado y crédito devuelto.';}catch(e){error=e.message;}finally{busy=false;render();}return;
  }
- if(action==='new-workout'){selectedTemplateId=null;editingSessionId=null;render();return;}
- if(action==='use-template'){selectedTemplateId=actionable.dataset.id;editingSessionId=null;clientEditorOpen=trainer;clientSection='training';activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();return;}
- if(action==='edit-session'){editingSessionId=actionable.dataset.id;selectedTemplateId=null;clientEditorOpen=trainer;const session=professionalSessions.find(s=>s.id===editingSessionId);if(trainer&&session){selectedClientId=session.client_id;planningClientId=selectedClientId;clientSection='training';}activeTab=trainer?'clients':'planning';setWorkspaceRoute();render();if(trainer)app.querySelector('#client-workout-editor')?.scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(action==='new-workout'){selectedTemplateId=null;editingSessionId=null;seedPrescription=null;render();return;}
+ if(action==='use-template'){
+  selectedTemplateId=actionable.dataset.id;editingSessionId=null;seedPrescription=null;
+  clientEditorOpen=true;clientSection='training';activeTab='clients';
+  setWorkspaceRoute();render();return;
+ }
+ if(action==='edit-session'){
+  editingSessionId=actionable.dataset.id;selectedTemplateId=null;seedPrescription=null;
+  const session=professionalSessions.find(s=>s.id===editingSessionId);
+  if(session){selectedClientId=session.client_id;planningClientId=selectedClientId;quickWorkoutClient=session.client_id;}
+  clientEditorOpen=true;clientSection='training';
+  activeTab='clients';setWorkspaceRoute();render();return;
+ }
  if(action==='accept-invitation'&&!busy){busy=true;error=notice='';render();try{await auth.acceptInvitation(actionable.dataset.id);await reload();notice='Invitación aceptada. Tu relación con el profesional ya consta en Supabase.';}catch(e){error=e.message;}finally{busy=false;render();}return;}
  if(action==='logout'){busy=true;render();try{if(delegation)await auth.platformAdminEndDelegation();await auth.signOut();delegation=null;user=null;organizations=[];memberships=[];invitations=[];view='login';notice='Sesión cerrada';}catch(e){user=null;organizations=[];memberships=[];view='login';notice='Sesión local cerrada. No se pudo confirmar el cierre remoto.';}finally{busy=false;render();}}
 });
@@ -845,6 +1590,14 @@ app.addEventListener('input',event=>{
   if(typeof at==='number')replacement?.setSelectionRange(at,at);
   return;
  }
+ if(event.target.matches('[data-quick-search]')){
+  const q=event.target.value.trim().toLowerCase();
+  const grid=event.target.closest('form')?.querySelector('[data-quick-picker]');
+  grid?.querySelectorAll('.pt-ex-tile').forEach(tile=>{
+   tile.hidden=!!(q&&!(tile.dataset.search||'').includes(q));
+  });
+  return;
+ }
  handleEditorSearch(event);
  if(event.target.name==='name'&&event.target.closest('form[data-connected="create"]')){
   const preview=event.target.closest('form').querySelector('[data-generated-slug]');
@@ -852,6 +1605,27 @@ app.addEventListener('input',event=>{
  }
 });
 app.addEventListener('change',async event=>{
+ if(event.target.closest('form[data-connected="quick-workout"]')&&
+    (event.target.matches('[data-quick-mode], [name="weekdays"], [name="date"], [name="end"], [name="weeks"]')||
+     event.target.name==='mode')){
+  syncQuickWorkoutForm(event.target.closest('form[data-connected="quick-workout"]'));
+  return;
+ }
+ if(event.target.matches('[data-billing-select]')){syncBillingFields();return;}
+ if(event.target.matches('[data-appt-kind]')){
+  const form=event.target.closest('form');
+  const isAppt=event.target.value==='appointment';
+  form?.querySelector('[data-appt-client-fields]')?.toggleAttribute('hidden',!isAppt);
+  form?.querySelector('[data-appt-group-fields]')?.toggleAttribute('hidden',isAppt);
+  if(isAppt){const cap=form?.querySelector('[name="capacity"]');if(cap)cap.value='1';}
+  return;
+ }
+ if(event.target.matches('[data-appt-pass]')&&event.target.selectedOptions[0]?.dataset.client){
+  const form=event.target.closest('form');
+  const client=form?.querySelector('[name="client"]');
+  if(client)client.value=event.target.selectedOptions[0].dataset.client;
+  return;
+ }
  if(event.target.matches('[data-admin-image-file]')){
   const preview=app.querySelector('[data-admin-image-preview]'),file=event.target.files?.[0];
   if(preview&&file&&['image/jpeg','image/png','image/webp'].includes(file.type)&&file.size<=8*1024*1024){
@@ -891,6 +1665,9 @@ app.addEventListener('change',async event=>{
     event.target.matches('[name="clients"],[name="template"],[name="weekdays"],[name="start"],[name="end"]')){
   refreshBulkPlanPreview(event.target.closest('form'));
   return;
+ }
+ if(event.target.matches('select[data-action="copy-browse-client"]')){
+  copyBrowseClientId=event.target.value||'';render();return;
  }
  const platformFilter=event.target.closest('[data-admin-filter]');
  if(platformFilter){adminFilter[platformFilter.dataset.adminFilter]=platformFilter.value;render();return;}
@@ -970,6 +1747,14 @@ app.addEventListener('submit',async event=>{
  }
  const f=event.target.closest('form[data-connected]');if(!f)return;event.preventDefault();if(busy)return;
  const action=f.dataset.connected,data=new FormData(f),intent=event.submitter?.dataset.intent||'publish';
+ // Validar WhatsApp antes del re-render (si no, el input vuelve al número antiguo y parece que «no deja» cambiarlo).
+ if(action==='whatsapp-connect'){
+  whatsappDraft=String(data.get('whatsapp')||'');
+  if(!parseWhatsappE164(whatsappDraft)){
+   error='Número de WhatsApp inválido. Usa prefijo país, p. ej. +34600111222.';
+   notice='';settingsSection='services';activeTab='settings';render();return;
+  }
+ }
  if(action==='bulk-custom'){
   const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
   const weekdays=[...f.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
@@ -995,10 +1780,38 @@ app.addEventListener('submit',async event=>{
   }
  }
  let prescription=null;
- try{if(['publish-session','publish-class-plan','bulk-custom'].includes(action))prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){
+ try{if(['publish-session','publish-class-plan','bulk-custom','save-workout-template'].includes(action))prescription=canonicalPrescription(validatePrescription(readPrescription(f)));}catch(e){
   const preview=f.querySelector('[data-custom-preview]');if(preview){preview.textContent=e.message;preview.classList.add('is-invalid');return;}
   error=e.message;notice='';render();return;
  }
+ // Conservar borrador de invitación antes del re-render (busy vacía el DOM).
+ if(action==='client'){
+  inviteDraft={
+   name:String(data.get('name')||'').trim(),
+   email:String(data.get('email')||'').trim().toLowerCase(),
+   phone:String(data.get('phone')||'').trim(),
+   passMode:String(data.get('passMode')||'none'),
+   trialCredits:String(data.get('trialCredits')||'3'),
+   trialDays:String(data.get('trialDays')||'30'),
+   trialKind:String(data.get('trialKind')||''),
+   offerId:String(data.get('offer')||''),
+   paymentMethod:String(data.get('paymentMethod')||'cash'),
+   paidAmount:String(data.get('paidAmount')||''),
+   paymentNote:String(data.get('paymentNote')||''),
+  };
+  inviteEmailError='';
+  showInviteModal=true;
+ }
+ // Capturar franjas antes de re-render (el form desaparece del DOM).
+ const classScheduleMode=action==='service-occurrence'&&f.hasAttribute('data-class-week-create')
+  ?String(data.get('scheduleMode')||'unique')
+  :'';
+ const weekClassSlots=classScheduleMode==='weekly'
+  ?data.getAll('slot').map(String).filter(Boolean)
+  :null;
+ const passOfferSlots=(action==='create-pass-offer'||action==='update-pass-offer')
+  ?[...f.querySelectorAll('input[name="slotWeekdays"]:checked')].map(x=>Number(x.value)).filter(n=>n>=1&&n<=7)
+  :null;
  busy=true;error=notice='';render();
  try{
   if(action==='login'){user=await auth.signIn(data.get('email'),data.get('password'));await reload();await finalizePendingRegistration();}
@@ -1033,32 +1846,57 @@ app.addEventListener('submit',async event=>{
      :'Negocio creado en Supabase. Puedes actualizar sus datos en Configuración.';
    }
   if(action==='invite'){
-   const id=await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:data.get('role')});
+   const email=String(data.get('email')||'').trim().toLowerCase();
+   const role=data.get('role');
+   const orgRow=organizations.find(o=>o.id===selectedOrg);
+   const waWin=role==='athlete'?beginInvitationWhatsappPopup(orgRow):null;
+   const id=asUuid(await auth.issueInvitation({orgId:selectedOrg,email,role}));
+   if(!id){try{waWin?.close();}catch{/* ignore */}throw Error('No se pudo crear la invitación');}
    let delivery={sent:false,reason:'Envío pendiente'};
    try{delivery=await auth.sendInvitationEmail(id);}catch(e){delivery={sent:false,reason:e.message||'Envío no confirmado'};}
-   lastInviteShare={invitationId:id,email:data.get('email'),sent:!!delivery.sent,reason:delivery.reason||''};
-   activeTab='overview';
+   invitations=await soft('invitations',auth.invitations(),invitations);
+   lastInviteShare=role==='athlete'?{invitationId:id,email,sent:!!delivery.sent,reason:delivery.reason||''}:null;
+   businessDialog='';
+   activeTab=role==='athlete'?'clients':'team';
+   if(role==='athlete'){
+    const client=clients.find(c=>String(c.email||'').toLowerCase()===email);
+    selectedClientId=client?.id||selectedClientId;
+    clientSection='data';
+    finishInvitationWhatsappPopup(waWin,{org:orgRow,clientName:client?.name||'',clientPhone:client?.phone||'',invitationId:id});
+   }
    await reload();
-   notice=delivery.sent?'Invitación enviada. QR y enlace listos para compartir.':
-    'Invitación guardada. Comparte el QR o el enlace; correo: '+delivery.reason+'.';
+   notice=delivery.sent?'Invitación enviada':(role==='athlete'?'QR en la ficha':'Invitación creada');
+  }
+  if(action==='save-workout-template'){
+   const name=String(data.get('name')||'').trim();
+   const id=data.get('template');
+   if(id)await auth.updateWorkoutTemplate({id,orgId:selectedOrg,name,description:data.get('description'),prescription});
+   else{
+    const created=await auth.createWorkoutTemplate({orgId:selectedOrg,name,description:data.get('description'),prescription,userId:user.id});
+    libraryTemplateId=created?.[0]?.id||created?.id||libraryTemplateId;
+   }
+   templates=await auth.workoutTemplates(selectedOrg);
+   notice='Plantilla guardada en Mis entrenos.';
+   activeTab='workouts';
   }
   if(action==='publish-session'){
    if(intent==='template'){
     const name=data.get('templateName')||data.get('title');
     if(selectedTemplateId)await auth.updateWorkoutTemplate({id:selectedTemplateId,orgId:selectedOrg,name,description:data.get('templateDescription'),prescription});
     else await auth.createWorkoutTemplate({orgId:selectedOrg,name,description:data.get('templateDescription'),prescription,userId:user.id});
-    selectedTemplateId=null;notice='Plantilla guardada en tu biblioteca.';
+    selectedTemplateId=null;seedPrescription=null;notice='Plantilla guardada en Mis entrenos.';
+    templates=await auth.workoutTemplates(selectedOrg);
    }else if(editingSessionId){
     await auth.updateProfessionalSession({id:editingSessionId,date:data.get('date'),title:data.get('title'),instructions:data.get('instructions'),prescription});
     await auth.setProfessionalSessionTime(editingSessionId,String(data.get('time')||''));
-    editingSessionId=null;notice='Cambios del entrenamiento individual guardados.';
+    editingSessionId=null;seedPrescription=null;notice='Cambios del entrenamiento individual guardados.';
    }else{
     const sessionId=await auth.publishProfessionalSession({orgId:selectedOrg,clientId:data.get('client'),date:data.get('date'),title:data.get('title'),instructions:data.get('instructions'),prescription});
     await auth.setProfessionalSessionTime(sessionId,String(data.get('time')||''));
-    selectedTemplateId=null;notice='Entrenamiento profesional publicado.';
+    selectedTemplateId=null;seedPrescription=null;notice='Entrenamiento profesional publicado.';
    }
    await reload();
-   if(trainerActive()&&intent==='publish')clientEditorOpen=false;
+   if(intent==='publish'){clientEditorOpen=false;copyBrowseClientId='';draftSessionMeta=null;}
   }
   if(action==='bulk-custom'){
    const ids=[...f.querySelectorAll('input[name="clients"]:checked')].map(x=>x.value);
@@ -1089,12 +1927,173 @@ app.addEventListener('submit',async event=>{
    classEditorId=null;await loadSelectedOrg();notice='Entrenamiento publicado para '+count+' participantes vinculados.';
   }
   if(action==='service-occurrence'){
-   const created=await auth.addClassSeries({orgId:selectedOrg,coachId:data.get('coach'),kind:data.get('kind'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:Number(data.get('capacity')),repeat:data.get('repeat')||'none',count:Number(data.get('repeatCount')||1)});
-   await loadSelectedOrg();businessDialog='';notice='Sesiones creadas: '+(Array.isArray(created)?created.length:1);
+   const kind=data.get('kind')||'appointment';
+   const capacity=kind==='appointment'?1:Math.max(1,Number(data.get('capacity')||8));
+   const coachRaw=String(data.get('coach')||'').trim();
+   const coachId=/^[0-9a-f-]{36}$/i.test(coachRaw)?coachRaw:null;
+   if(kind==='appointment'&&!coachId)throw Error('Elige un entrenador para la cita.');
+   let ids=[];
+   const pad=n=>String(n).padStart(2,'0');
+   const fmtLocal=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+   if(kind==='class'&&weekClassSlots){
+    const slots=weekClassSlots;
+    if(!slots.length)throw Error('Marca al menos un día y una franja en la semana.');
+    const durationMin=Math.min(12*60,Math.max(15,Number(data.get('duration')||60)));
+    const untilMode=data.get('untilMode')||'indefinite';
+    const untilRaw=String(data.get('untilDate')||'').trim();
+    const untilDate=untilMode==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(untilRaw)
+     ?new Date(untilRaw+'T23:59:59')
+     :new Date(Date.now()+62*7*24*60*60*1000);
+    if(!(untilDate>new Date()))throw Error('La fecha de fin debe ser posterior a hoy.');
+    const seriesRaw=String(data.get('seriesStart')||'').trim();
+    const seriesFloor=/^\d{4}-\d{2}-\d{2}$/.test(seriesRaw)
+     ?new Date(seriesRaw+'T00:00:00')
+     :new Date();
+    const nextStart=(isoDow,hour,minute=0)=>{
+     const floor=seriesFloor>new Date()?seriesFloor:new Date();
+     for(let i=0;i<28;i++){
+      const d=new Date(floor.getFullYear(),floor.getMonth(),floor.getDate()+i,hour,minute,0,0);
+      const dow=d.getDay()||7;
+      if(dow===isoDow&&d>new Date()&&d>=seriesFloor)return d;
+     }
+     return null;
+    };
+    const color=data.get('color')||'#22834d';
+    const location=data.get('location')||'';
+    const description=data.get('description')||'';
+    const title=data.get('title');
+    for(const key of slots){
+     const parsed=parseWeekSlotKey(key);
+     if(!parsed)continue;
+     const startAt=nextStart(parsed.isoDow,parsed.hour,parsed.minute);
+     if(!startAt)continue;
+     const endAt=new Date(startAt.getTime()+durationMin*60*1000);
+     const weeks=Math.min(62,Math.max(1,Math.ceil((untilDate-startAt)/(7*24*60*60*1000))));
+     const created=await auth.addClassSeries({
+      orgId:selectedOrg,coachId,kind:'class',title,
+      start:fmtLocal(startAt),end:fmtLocal(endAt),capacity,
+      repeat:weeks>1?'weekly':'none',count:weeks,
+      color,location,description,
+     });
+     const batch=Array.isArray(created)?created:(created?[created]:[]);
+     ids=ids.concat(batch);
+    }
+    if(!ids.length)throw Error('No se pudo crear ninguna sesión futura con esas franjas.');
+   }else if(kind==='class'&&classScheduleMode==='unique'){
+    const startAt=new Date(data.get('start'));
+    if(!Number.isFinite(startAt.getTime())||startAt<=new Date())throw Error('La clase debe empezar en el futuro (elige otra hora).');
+    const durationMin=Math.min(12*60,Math.max(15,Number(data.get('duration')||60)));
+    const endAt=new Date(startAt.getTime()+durationMin*60*1000);
+    const created=await auth.addClassSeries({
+     orgId:selectedOrg,coachId,kind:'class',title:data.get('title'),
+     start:fmtLocal(startAt),end:fmtLocal(endAt),capacity,
+     repeat:'none',count:1,
+     color:data.get('color')||'#22834d',
+     location:data.get('location')||'',
+     description:data.get('description')||'',
+    });
+    ids=Array.isArray(created)?created:(created?[created]:[]);
+   }else{
+    const startAt=new Date(data.get('start'));
+    if(!Number.isFinite(startAt.getTime())||startAt<=new Date())throw Error('La clase debe empezar en el futuro (elige otra hora).');
+    let repeat=data.get('repeat')||'none';
+    let intervalDays=null;
+    if(repeat==='every_n'){
+     intervalDays=Math.min(14,Math.max(1,Number(data.get('intervalDays')||2)));
+     repeat='daily';
+    }
+    let endValue=data.get('end');
+    if(!endValue){
+     const durationMin=Math.min(12*60,Math.max(15,Number(data.get('duration')||60)));
+     endValue=fmtLocal(new Date(startAt.getTime()+durationMin*60*1000));
+    }
+    const created=await auth.addClassSeries({
+     orgId:selectedOrg,coachId,kind,title:data.get('title'),
+     start:data.get('start'),end:endValue,capacity,
+     repeat,count:Number(data.get('repeatCount')||1),
+     color:data.get('color')||'#22834d',
+     intervalDays,
+     location:data.get('location')||'',
+     description:data.get('description')||'',
+    });
+    ids=Array.isArray(created)?created:(created?[created]:[]);
+   }
+   const occurrenceId=typeof ids[0]==='string'?ids[0]:ids[0]?.id;
+   let assigned=false;let assignHint='';
+   if(kind==='appointment'&&data.get('client')&&occurrenceId){
+    const clientId=data.get('client');
+    const client=clients.find(c=>c.id===clientId);
+    let passId=asPassId(data.get('pass'));
+    if(passId){
+     const pass=passes.find(p=>p.id===passId);
+     if(pass&&pass.client_id!==clientId)passId='';
+    }
+    if(!passId){
+     const own=passes.find(p=>p.client_id===clientId&&p.status==='active'&&p.kind==='appointment'&&p.remaining_credits>0&&Date.parse(p.valid_until)>Date.now());
+     passId=own?.id||'';
+    }
+    if(!passId&&client?.user_id&&client.status==='active'){
+     const until=new Date(data.get('end')||Date.now());
+     until.setDate(until.getDate()+14);
+     passId=asPassId(await auth.grantCourtesyPass({orgId:selectedOrg,clientId,kind:'appointment',credits:1,validUntil:until.toISOString()}));
+    }
+    if(passId){
+     await auth.enrollManagedClient({occurrenceId,clientId,passId});
+     assigned=true;
+    }else if(!client?.user_id){
+     assignHint='El cliente aún no tiene app vinculada: la cita queda solo en tu agenda.';
+    }else if(client.status!=='active'){
+     assignHint='Pon al cliente en estado activo o asígnale un bono antes de reservarle la cita.';
+    }else{
+     assignHint='No había bono usable para asignar la reserva.';
+    }
+   }
+   await loadSelectedOrg();businessDialog='';
+   notice=assigned
+    ?'Cita creada y asignada. El cliente la verá en la app como sesión personal contigo.'
+    :'Sesiones creadas: '+(ids.length||1)+(assignHint?' · '+assignHint:'');
   }
   if(action==='edit-occurrence'){
-   await auth.manageOccurrence({id:data.get('id'),title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:data.get('capacity'),description:data.get('description'),location:data.get('location'),color:data.get('color'),image:data.get('image')});
-   await loadSelectedOrg();notice='Clase actualizada.';
+   const id=data.get('id');
+   const scope=data.get('editScope')||'one';
+   const payload={title:data.get('title'),start:data.get('start'),end:data.get('end'),capacity:data.get('capacity'),description:data.get('description'),location:data.get('location'),color:data.get('color'),image:data.get('image')};
+   const base=occurrences.find(o=>o.id===id);
+   if(!base)throw Error('Clase no encontrada');
+   const oldStart=new Date(base.starts_at);
+   const newStart=new Date(payload.start);
+   const newEnd=new Date(payload.end);
+   const deltaStart=newStart-oldStart;
+   const deltaEnd=newEnd-new Date(base.ends_at);
+   const targets=scope==='series'
+    ?occurrences.filter(o=>{
+      if(o.org_id&&base.org_id&&o.org_id!==base.org_id)return false;
+      if(o.id===id)return true;
+      if(o.status!=='active')return false;
+      if(o.title!==base.title)return false;
+      const s=new Date(o.starts_at);
+      if(s<oldStart)return false;
+      if(s.getDay()!==oldStart.getDay())return false;
+      if(s.getHours()!==oldStart.getHours()||s.getMinutes()!==oldStart.getMinutes())return false;
+      return true;
+     })
+    :[base];
+   for(const o of targets){
+    const start=o.id===id?payload.start:new Date(new Date(o.starts_at).getTime()+deltaStart).toISOString();
+    const end=o.id===id?payload.end:new Date(new Date(o.ends_at).getTime()+deltaEnd).toISOString();
+    await auth.manageOccurrence({
+     id:o.id,
+     title:payload.title,
+     start:o.id===id?payload.start:start,
+     end:o.id===id?payload.end:end,
+     capacity:payload.capacity,
+     description:payload.description,
+     location:payload.location,
+     color:payload.color,
+     image:payload.image,
+    });
+   }
+   await loadSelectedOrg();businessDialog='';
+   notice=targets.length>1?`Serie actualizada (${targets.length} clases).`:'Clase actualizada.';
   }
   if(action==='coach-reschedule'){
    await auth.coachRescheduleOccurrence({occurrenceId:data.get('id'),start:data.get('start'),end:data.get('end')});
@@ -1103,10 +2102,13 @@ app.addEventListener('submit',async event=>{
   if(action==='enroll-client'){
    const pass=passes.find(p=>p.id===data.get('pass'));if(!pass)throw Error('Selecciona un cliente con bono válido');
    await auth.enrollManagedClient({occurrenceId:data.get('occurrence'),clientId:pass.client_id,passId:pass.id});
-   await loadSelectedOrg();notice='Deportista inscrito y crédito descontado del bono.';
+   selectedClassId=data.get('occurrence');expandedOccurrenceId=selectedClassId;
+   await loadSelectedOrg();businessDialog='';notice='Deportista inscrito y crédito descontado del bono.';
   }
   if(action==='manage-pass'){
    const op=data.get('op');await auth.changeCourtesyCredits(data.get('pass'),op,Number(data.get('amount')),data.get('until')||null);
+   const managed=passes.find(p=>p.id===data.get('pass'));
+   if(managed?.client_id){selectedClientId=managed.client_id;clientSection='passes';}
    await loadSelectedOrg();notice='Bono actualizado. La modificación quedó registrada para auditoría.';
   }
   if(action==='client-profile'){
@@ -1126,12 +2128,31 @@ app.addEventListener('submit',async event=>{
   }
   if(action==='create-group'){
    await auth.addGroup({orgId:selectedOrg,name:data.get('name'),description:data.get('description'),userId:user.id});
-   await loadSelectedOrg();notice='Grupo creado.';
+   businessDialog='';activeTab='clients';selectedClientId=null;selectedGroupId=null;
+   await loadSelectedOrg();notice='Grupo creado';
+  }
+  if(action==='manage-member'){
+   await auth.manageOrgMember({
+    orgId:selectedOrg,userId:data.get('user'),action:data.get('op')||'set_role',role:data.get('role')||null,
+   });
+   memberships=await soft('memberships',auth.memberships(),memberships);
+   notice='Rol del miembro actualizado.';
   }
   if(action==='issue-offline-pass'){
    if(data.get('confirmed')!=='yes')throw Error('Confirma la asignación fuera de Repera.');
-   await auth.issueOfflinePass({orgId:selectedOrg,clientId:data.get('client'),offerId:data.get('offer')});
-   await loadSelectedOrg();notice='Bono asignado. Registrado como gestión externa; no se ha efectuado ningún cobro en Repera.';
+   const paidRaw=data.get('paidAmount');
+   const paidAmountCents=paidRaw===''||paidRaw==null?null:Math.round(Number(paidRaw)*100);
+   if(paidAmountCents!=null&&(!Number.isFinite(paidAmountCents)||paidAmountCents<0))
+    throw Error('Importe de cobro no válido');
+   await auth.issueOfflinePass({
+    orgId:selectedOrg,clientId:data.get('client'),offerId:data.get('offer'),
+    paymentMethod:data.get('paymentMethod')||'other',
+    paidAt:data.get('paidAt')||null,
+    paidAmountCents,
+    paymentNote:data.get('paymentNote')||'',
+   });
+   selectedClientId=data.get('client');clientSection='passes';businessDialog='';
+   await loadSelectedOrg();notice='Bono asignado con el cobro registrado. No se ha cobrado nada en Repera.';
   }
   if(action==='chat-send'){
    await auth.sendChatMessage({orgId:selectedOrg,clientId:data.get('client'),body:data.get('body')});
@@ -1154,69 +2175,187 @@ app.addEventListener('submit',async event=>{
     if(!picked.length)throw Error('Selecciona al menos un cliente.');
     await auth.sendBroadcast({orgId:selectedOrg,body,clientIds:picked});
    }
+   businessDialog='';
    notice='Aviso enviado a los destinatarios elegidos.';
   }
   if(action==='trainer-attendance'){
+   const attendClient=passes.find(p=>p.id===data.get('pass'))?.client_id||data.get('client');
    await auth.recordTrainerAttendance({orgId:selectedOrg,
-     clientId:passes.find(p=>p.id===data.get('pass'))?.client_id,
+     clientId:attendClient,
      passId:data.get('pass'),occurrenceId:data.get('occurrence')||null,note:data.get('note')||''});
+   if(attendClient){selectedClientId=attendClient;clientSection='passes';}
    await loadSelectedOrg();businessDialog='';notice='Sesión realizada registrada. Se ha descontado un crédito solo si no había reserva ya descontada.';
   }
-  if(action==='create-pass-offer'){
+  if(action==='create-pass-offer'||action==='update-pass-offer'){
     const billing=data.get('billing')||'session_pack';
-    let credits=Number(data.get('credits'));
-    let validityDays=Number(data.get('validityDays'));
-    if(billing==='unlimited'){credits=9999;validityDays=validityDays||365;}
-    if(billing==='monthly'){validityDays=validityDays||30;if(!credits||credits<1)credits=30;}
-    await auth.createServicePassOffer({orgId:selectedOrg,name:data.get('name'),kind:data.get('kind')||'appointment',credits,validityDays,priceCents:Math.round(Number(data.get('price'))*100),billingModel:billing});
-    await loadSelectedOrg();notice='Tarifa publicada. El cobro sigue siendo externo a Repera.';
+    let credits=1,validityDays=30,price=0;
+    let accessScope='trainer_appointments';
+    let slotWeekdays=[1,2,3,4,5],slotStartMinute=540,slotEndMinute=720;
+    if(billing==='session_pack'){
+     credits=Number(data.get('credits'));
+     validityDays=Number(data.get('validityDays'));
+     price=Number(data.get('price'));
+    }else if(billing==='monthly'){
+     credits=9999;
+     validityDays=Number(data.get('validityDaysMonthly')||30);
+     price=Number(data.get('priceMonthly'));
+    }else if(billing==='unlimited'){
+     credits=9999;
+     validityDays=Number(data.get('validityDaysUnlimited')||365);
+     price=Number(data.get('priceUnlimited'));
+    }else if(billing==='time_slot'){
+     credits=9999;
+     validityDays=Number(data.get('validityDaysSlot')||90);
+     price=Number(data.get('priceSlot'));
+     accessScope=data.get('accessScope')==='gym_access'?'gym_access':'trainer_appointments';
+     slotWeekdays=Array.isArray(passOfferSlots)?passOfferSlots:[];
+     if(!slotWeekdays.length)throw Error('Elige al menos un día de la franja.');
+     slotStartMinute=timeToMinute(data.get('slotStart')||'09:00');
+     slotEndMinute=timeToMinute(data.get('slotEnd')||'12:00');
+     if(slotEndMinute<=slotStartMinute)throw Error('La hora «Hasta» debe ser posterior a «Desde».');
+    }
+    const kind=accessScope==='gym_access'?'class'
+     :(data.get('kind')==='class'?'class':'appointment');
+    // Fuera de franja horaria, el alcance sigue al kind (evita PASS_OUTSIDE_SLOT en clases).
+    if(billing!=='time_slot'){
+     accessScope=kind==='class'?'gym_access':'trainer_appointments';
+    }
+    if(action==='update-pass-offer'){
+     await auth.updateServicePassOffer({
+      id:data.get('id'),name:data.get('name'),kind,credits,validityDays,
+      priceCents:Math.round(price*100),isActive:data.get('isActive')!=='false',
+      billingModel:billing,accessScope,slotWeekdays,slotStartMinute,slotEndMinute,
+     });
+     selectedOfferId='';businessDialog='';
+     await loadSelectedOrg();notice='Plan actualizado. El cobro sigue siendo externo a Repera.';
+    }else{
+     await auth.createServicePassOffer({
+      orgId:selectedOrg,name:data.get('name'),kind,credits,validityDays,
+      priceCents:Math.round(price*100),billingModel:billing,accessScope,
+      slotWeekdays,slotStartMinute,slotEndMinute,
+     });
+     businessDialog='';
+     await loadSelectedOrg();notice='Plan publicado. El cobro sigue siendo externo a Repera.';
+    }
   }
   if(action==='quick-workout'){
    const mode=data.get('mode')||'day';
    const start=data.get('date');
    const clientId=data.get('client');
    const title=String(data.get('title')||'Entreno').trim();
-   const movement=String(data.get('movement')||'').trim();
-   const toEx=(name,sets,reps,rir,weight)=>{
-    const known=MOVEMENTS.find(m=>m.name===name)||{id:'custom',name};
-    return {id:known.id,name:known.name,sets:Number(sets||3),reps:Number(reps||8),rir:Number(rir||2),weight:Number(weight||0),duration:0,notes:''};
-   };
-   const exercises=[];
-   if(movement)exercises.push(toEx(movement,data.get('sets'),data.get('reps'),data.get('rir'),data.get('weight')));
-   f.querySelectorAll('[data-extra-movement]').forEach(chip=>{
-    exercises.push(toEx(chip.dataset.extraMovement,chip.dataset.sets,chip.dataset.reps,chip.dataset.rir,chip.dataset.weight));
+   const exercises=[...f.querySelectorAll('[data-quick-ex]')].map(card=>{
+    const id=card.dataset.id||'custom';
+    const known=MOVEMENTS.find(m=>m.id===id);
+    const name=card.dataset.name||known?.name||'Ejercicio';
+    return {
+     id,name,
+     sets:Number(card.querySelector('[data-q-sets]')?.value||3),
+     reps:Number(card.querySelector('[data-q-reps]')?.value||8),
+     rir:Number(card.querySelector('[data-q-rir]')?.value||2),
+     weight:Number(card.querySelector('[data-q-weight]')?.value||0),
+     duration:0,notes:'',
+    };
    });
-   if(!exercises.length)throw Error('Añade al menos un movimiento.');
-   const prescription=validatePrescription({version:1,blocks:[{kind:'strength',format:data.get('format')||'sets',title:'Fuerza',rounds:1,timeCap:0,exercises}]});
-   const dates=[];
-   const base=new Date(start+'T12:00:00');
-   if(mode==='week'){
-    for(let i=0;i<5;i++){const d=new Date(base);d.setDate(base.getDate()+i);dates.push(d.toLocaleDateString('sv-SE'));}
-   }else dates.push(start);
-   for(const day of dates){
-    await auth.publishProfessionalSession({orgId:selectedOrg,clientId,date:day,title,instructions:data.get('instructions')||'',prescription});
+   if(!exercises.length)throw Error('Añade al menos un movimiento desde la biblioteca.');
+   const prescription=canonicalPrescription(validatePrescription({version:1,blocks:[{kind:'strength',format:data.get('format')||'sets',title:'Fuerza',rounds:1,timeCap:0,exercises}]}));
+   const weekdays=[...f.querySelectorAll('input[name="weekdays"]:checked')].map(x=>Number(x.value));
+   const weeks=Math.min(Math.max(Number(data.get('weeks')||4),1),8);
+   let end=String(data.get('end')||start);
+   if(mode==='weekly'){
+    const d=new Date(start+'T12:00:00');d.setDate(d.getDate()+(weeks*7)-1);
+    end=d.toLocaleDateString('sv-SE');
+   }
+   if(mode==='day'){
+    await auth.publishProfessionalSession({orgId:selectedOrg,clientId,date:start,title,instructions:data.get('instructions')||'',prescription});
+    notice='Entreno programado.';
+   }else{
+    if(!weekdays.length)throw Error('Marca al menos un día de la semana.');
+    const n=countQuickWorkoutSessions({mode,start,end,weeks,weekdays});
+    if(!n)throw Error('No hay días de entreno en ese rango.');
+    if(n>120)throw Error('Demasiadas sesiones (máx. 120). Acorta el plan.');
+    const result=await auth.bulkPublishCustomTraining({
+     orgId:selectedOrg,clientIds:[clientId],start,end,weekdays,
+     title,instructions:data.get('instructions')||'',prescription,
+     requestId:crypto.randomUUID()});
+    notice=`Plan publicado: ${result.created||0} sesiones`+(result.skipped?` · ${result.skipped} ya existían`:'')+'.';
    }
    businessDialog='';await loadSelectedOrg();
-   notice=mode==='week'?`Entreno programado ${dates.length} días (lun–vie desde la fecha).`:'Entreno programado.';
   }
   if(action==='courtesy-pass'){
    await auth.grantCourtesyPass({orgId:selectedOrg,clientId:data.get('client'),kind:data.get('kind'),credits:Number(data.get('credits')),validUntil:data.get('until')+'T23:59:59'});
-   await reload();notice='Bono de cortesía registrado, sin cobro.';
+   selectedClientId=data.get('client');clientSection='passes';businessDialog='';
+   await loadSelectedOrg();notice='Bono de cortesía registrado, sin cobro.';
   }
   if(action==='client'){
-   await auth.addClient({orgId:selectedOrg,name:data.get('name'),email:data.get('email'),userId:user.id});
-   let delivery={sent:false,reason:'Invitación sin enviar'};
+   const clientName=inviteDraft.name||String(data.get('name')||'').trim();
+   const clientEmail=inviteDraft.email||String(data.get('email')||'').trim().toLowerCase();
+   const clientPhone=inviteDraft.phone||String(data.get('phone')||'').trim();
+   const passMode=inviteDraft.passMode||String(data.get('passMode')||'none');
+   const orgRow=organizations.find(o=>o.id===selectedOrg);
+   if(passMode==='paid'&&data.get('confirmed')!=='yes'){
+    inviteEmailError='';
+    error='Confirma que has cobrado fuera de Repera para asignar el bono.';
+    showInviteModal=true;return;
+   }
+   let result=null;
    try{
-    const invitation=await auth.issueInvitation({orgId:selectedOrg,email:data.get('email'),role:'athlete'});
-    lastInviteShare={invitationId:invitation,email:data.get('email'),sent:false,reason:''};
-    try{delivery=await auth.sendInvitationEmail(invitation);lastInviteShare.sent=!!delivery.sent;lastInviteShare.reason=delivery.reason||'';}
-    catch(e){delivery={sent:false,reason:e.message||'Envío no confirmado'};lastInviteShare.reason=delivery.reason;}
-   }catch(e){delivery={sent:false,reason:e.message||'No se pudo preparar la invitación'};}
-   clients=await auth.clients(selectedOrg);
+    const paidRaw=inviteDraft.paidAmount||data.get('paidAmount');
+    const paidAmountCents=paidRaw===''||paidRaw==null?null:Math.round(Number(paidRaw)*100);
+    result=await auth.inviteAthleteClient({
+     orgId:selectedOrg,name:clientName,email:clientEmail,phone:clientPhone,
+     passMode,
+     trialCredits:passMode==='trial'?Number(inviteDraft.trialCredits||data.get('trialCredits')||3):null,
+     trialKind:passMode==='trial'?(inviteDraft.trialKind||data.get('trialKind')||null):null,
+     trialDays:passMode==='trial'?Number(inviteDraft.trialDays||data.get('trialDays')||30):30,
+     offerId:passMode==='paid'?(inviteDraft.offerId||data.get('offer')||null):null,
+     paymentMethod:passMode==='paid'?(inviteDraft.paymentMethod||data.get('paymentMethod')||'cash'):'cash',
+     paidAmountCents:passMode==='paid'?paidAmountCents:null,
+     paymentNote:passMode==='paid'?(inviteDraft.paymentNote||data.get('paymentNote')||''):'',
+     passRequest:passMode==='paid'?(crypto.randomUUID?.()||null):null,
+    });
+   }catch(e){
+    const under=inviteEmailIssue(e.message||e.code||'');
+    showInviteModal=true;
+    if(under){
+     inviteEmailError=under;
+     error='';notice='';
+     return;
+    }
+    throw e;
+   }
+   const invitationId=asUuid(result?.invitation_id||result?.invitationId);
+   const clientId=asUuid(result?.client_id||result?.clientId);
+   const waWin=beginInvitationWhatsappPopup(orgRow);
+   let delivery={sent:false,reason:'Invitación sin enviar'};
+   if(invitationId){
+    lastInviteShare={invitationId,email:clientEmail,sent:false,reason:'',clientName,clientPhone};
+    try{
+     delivery=await auth.sendInvitationEmail(invitationId);
+     lastInviteShare.sent=!!delivery.sent;
+     lastInviteShare.reason=delivery.reason||'';
+    }catch(e){
+     delivery={sent:false,reason:e.message||'Envío no confirmado'};
+     lastInviteShare.reason=delivery.reason;
+    }
+   }
+   clients=await auth.clients(selectedOrg).catch(()=>clients);
+   invitations=await soft('invitations',auth.invitations(),invitations);
+   if(passMode!=='none')passes=await soft('passes',auth.servicePasses(selectedOrg),passes);
+   const created=clients.find(c=>c.id===clientId)
+    ||clients.find(c=>String(c.email||'').toLowerCase()===clientEmail);
    showInviteModal=false;
-   if(lastInviteShare)activeTab='overview';
-   notice=delivery.sent?'Cliente pendiente e invitación enviada. QR y enlace listos.':
-    'Ficha creada. Comparte el QR o el enlace; email: '+delivery.reason+'.';
+   inviteEmailError='';
+   inviteDraft={name:'',email:'',phone:''};
+   selectedClientId=created?.id||clientId||null;
+   clientSection=passMode==='none'?'data':'passes';
+   activeTab='clients';
+   businessDialog='';
+   const wa=finishInvitationWhatsappPopup(waWin,{org:orgRow,clientName,clientPhone,invitationId});
+   const passBit=passMode==='trial'?' · prueba lista':passMode==='paid'?' · bono asignado':'';
+   if(wa)notice='WhatsApp abierto'+passBit;
+   else if(delivery.sent)notice='Invitación enviada'+passBit;
+   else if(invitationId)notice=(result?.reused?'Invitación renovada':'Enlace app en la ficha')+passBit;
+   else notice='Ficha creada · sin invitación';
   }
   if(action==='rename'){
     const orgId=data.get('id');
@@ -1232,6 +2371,40 @@ app.addEventListener('submit',async event=>{
     if(data.get('avatarFile')?.size)await auth.uploadBrandImage({orgId:selectedOrg,kind:organizations.find(o=>o.id===selectedOrg)?.kind,file:data.get('avatarFile')});
     await reload();notice='Perfil y datos legales actualizados.';
    }
+  if(action==='whatsapp-connect'){
+   const digits=parseWhatsappE164(whatsappDraft||data.get('whatsapp'));
+   if(!digits)throw Error('Número de WhatsApp inválido. Usa prefijo país, p. ej. +34600111222.');
+   const wasConnected=Boolean(organizations.find(o=>o.id===selectedOrg)?.whatsapp_e164);
+   const updated=await auth.connectOrgWhatsapp({orgId:selectedOrg,e164:digits});
+   whatsappDraft=null;
+   if(updated?.id){
+    organizations=organizations.map(o=>o.id===updated.id?{...o,...updated}:o);
+   }else{
+    organizations=await soft('organizations',auth.organizations(),organizations);
+   }
+   settingsSection='services';activeTab='settings';
+   notice=wasConnected?'WhatsApp actualizado':'WhatsApp conectado';
+  }
+  if(action==='booking-window'){
+   const hours=Number(data.get('hours')||168);
+   await auth.updateOrgBookingWindow({orgId:selectedOrg,hours});
+   organizations=await soft('organizations',auth.organizations(),organizations);
+   settingsSection='services';activeTab='settings';
+   notice='Antelación de inscripción guardada.';
+  }
+  if(action==='whatsapp-invite'){
+   const invitationId=data.get('invitation');
+   if(!/^[0-9a-f-]{36}$/i.test(invitationId||''))throw Error('Invitación inválida');
+   const orgRow=organizations.find(o=>o.id===selectedOrg);
+   const win=beginInvitationWhatsappPopup(orgRow)||window.open('about:blank','_blank');
+   finishInvitationWhatsappPopup(win,{
+    org:orgRow,
+    clientName:data.get('clientName')||'',
+    clientPhone:data.get('toPhone')||'',
+    invitationId,
+   });
+   notice='WhatsApp abierto';
+  }
    if(action==='save-plan'||action==='new-plan'){
     if(platformRole!=='platform_admin')throw Error('No autorizado');
     await auth.saveBusinessPlan(Object.fromEntries(data.entries()),{newPlan:action==='new-plan'});
@@ -1248,8 +2421,31 @@ async function boot(){
   if(await auth.acceptRecoveryFragment(globalThis.location?.hash||'')){
    history.replaceState(null,'',location.pathname+location.search);view='password';
    // Recovery JWT is valid; keep password screen rather than normal admin UI.
-  }else{user=await auth.currentUser();if(user){await reload();await finalizePendingRegistration();}}
- }catch(e){auth.clear();error='No se ha podido recuperar la sesión. Inicia sesión nuevamente.';}
+  }else{
+   user=await auth.currentUser();
+   if(user){
+    try{
+     await reload();
+     await finalizePendingRegistration();
+    }catch(e){
+     // No tirar la sesión por un RPC/datos fallidos: solo por auth real.
+     if(e.status===401||e.status===403){
+      auth.clear();user=null;
+      error='No se ha podido recuperar la sesión. Inicia sesión nuevamente.';
+     }else{
+      error=e.message||'No se pudieron cargar todos los datos. Prueba a recargar.';
+     }
+    }
+   }
+  }
+ }catch(e){
+  if(e.status===401||e.status===403||!auth.session){
+   auth.clear();user=null;
+   error='No se ha podido recuperar la sesión. Inicia sesión nuevamente.';
+  }else{
+   error=e.message||'No se ha podido iniciar la consola.';
+  }
+ }
  finally{busy=false;render();}
 }
 boot();

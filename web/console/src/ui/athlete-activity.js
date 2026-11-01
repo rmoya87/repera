@@ -15,7 +15,7 @@ const exactArtNames = new Map(Object.entries(nativeExerciseArt).map(([name,file]
 function exerciseArt(name){
  const key=ascii(name);
  const art=exactArtNames.get(key);
- return art?'../assets/exercises/'+art+'.jpg':null;
+ return art?'../assets/exercises/'+encodeURIComponent(art)+'.jpg':null;
 }
 const setLine=(set,i,planned=false)=>{
  const reps=planned?set.targetReps??set.reps:set.reps??set.targetReps;

@@ -2165,7 +2165,22 @@ final class ReperaStore: NSObject {
             }()
             var strength: [RoutineExercise] = []
             var movements: [WODMovement] = []
+            var deferredRests: [WODMovement] = []
             for entry in prescribed.entries {
+                let rest = entry.isRest == true
+                if rest {
+                    let movement = WODMovement(
+                        id: entry.id,
+                        name: entry.name.isEmpty ? "REST" : entry.name,
+                        isRest: true,
+                        restSeconds: max(5, entry.restSeconds ?? 60),
+                        notes: entry.notes
+                    )
+                    // Misma regla que PlanView.insertRest: REST en WOD; si viene en fuerza → bloque aparte.
+                    if isWOD { movements.append(movement) }
+                    else { deferredRests.append(movement) }
+                    continue
+                }
                 let exercise = resolvedExercise(entry)
                 let sets = entry.plannedSets?.map {
                     PlannedSet(id: $0.id, targetReps: max(0, $0.targetReps),
@@ -2187,13 +2202,20 @@ final class ReperaStore: NSObject {
                     ))
                 }
             }
-            blocks.append(RoutineBlock(
-                id: prescribed.id, title: prescribed.title,
-                kind: isWOD ? .wod : .strength, exercises: strength,
-                movements: movements, wodFormat: format,
-                timeCapMinutes: prescribed.timeCapMinutes,
-                rounds: prescribed.rounds
-            ))
+            if isWOD ? !movements.isEmpty : !strength.isEmpty {
+                blocks.append(RoutineBlock(
+                    id: prescribed.id, title: prescribed.title,
+                    kind: isWOD ? .wod : .strength, exercises: strength,
+                    movements: movements, wodFormat: format,
+                    timeCapMinutes: prescribed.timeCapMinutes,
+                    rounds: prescribed.rounds
+                ))
+            }
+            for restMovement in deferredRests {
+                blocks.append(RoutineBlock(
+                    title: "Descanso", kind: .wod, movements: [restMovement]
+                ))
+            }
         }
         guard !blocks.isEmpty else { return nil }
         let scheduled = parseBusinessDayKey(key) ?? Date()

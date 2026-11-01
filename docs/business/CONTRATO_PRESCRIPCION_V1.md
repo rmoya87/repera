@@ -45,8 +45,9 @@ El formato JSON se guarda en `professional_training_sessions.prescription` y se 
 }
 ```
 
-- Fuerza: `exercises` (series, repeticiones, kg, RIR) y descanso opcional.
+- Fuerza: `exercises` (series, repeticiones, kg, RIR). **No** lleva `isRest` dentro de `exercises` (paridad `PlanView.insertRest`).
 - WOD: `wodFormat` según `WODFormat` nativo, rondas, time cap, intervalos, movimientos en orden con reps y escala opcional.
+- Descanso: movimiento WOD con `isRest: true` y `restSeconds` (mín. 5). Si el editor web añade descanso desde un bloque de fuerza, se publica como bloque WOD «Descanso» aparte. iOS (`ReperaStore`) y Android (`WorkoutRepository`) proyectan esos movimientos a `WODMovement.isRest`.
 - Bloques/ejercicios/movimientos tienen IDs estables por publicación; versiones: cada publicación/cancelación conserva historial separado.
 - Se conserva `instructions` para versiones antiguas y resumen. A partir de v1, web y iOS leen primordialmente `prescription`.
 - La base de datos valida estructura, pertenencia y existencia de ejercicios de catálogo; **ningún entrenador puede leer historiales personales** por publicar un plan.

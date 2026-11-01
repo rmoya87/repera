@@ -1047,6 +1047,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onCenterCancel = { booking ->
                     centerAction { s -> cancel(s, booking) }
                 },
+                onLoadClassRoster = load@{ occurrenceId ->
+                    val session = verifiedSupabase ?: return@load null
+                    withContext(Dispatchers.IO) {
+                        BusinessCenterStore().loadClassRoster(session, occurrenceId)
+                    }
+                },
                 sharingByCenter = sharingByCenter,
                 sharingUpdating = sharingUpdating,
                 onSetSharing = ::setSharing,
@@ -1781,9 +1787,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 runCatching {BusinessCenterStore().action(session)}.exceptionOrNull()
             }
             if(!centerGate.accepts(session.userId,revision)) return@launch
-            centerError=failure?.localizedMessage
+            centerError=failure?.let { friendlyCenterActionError(it) }
             centerSubmitting=false
             if(failure==null) refreshCenter()
+        }
+    }
+
+    private fun friendlyCenterActionError(error: Throwable): String {
+        val raw = error.localizedMessage.orEmpty()
+        return when {
+            raw.contains("PASS_OUTSIDE_SLOT", ignoreCase = true) ->
+                "Tu plan no cubre esta clase. Pide a tu centro un plan de clases o revisa la franja de tu bono."
+            raw.contains("NO_VALID_PASS", ignoreCase = true) ->
+                "No tienes un plan activo con crédito para esta clase."
+            raw.contains("NO_AVAILABILITY", ignoreCase = true) ||
+                raw.contains("CLASS_FULL", ignoreCase = true) ->
+                "La clase está completa."
+            raw.contains("ALREADY_BOOKED", ignoreCase = true) ->
+                "Ya estás apuntado a esta clase."
+            raw.contains("BOOKING_NOT_OPEN_YET", ignoreCase = true) ->
+                "Todavía no está abierta la inscripción a esta clase."
+            raw.contains("OCCURRENCE_UNAVAILABLE", ignoreCase = true) ||
+                raw.contains("CLASS_UNAVAILABLE", ignoreCase = true) ->
+                "Esa clase ya no admite inscripción."
+            raw.isBlank() -> "No se pudo completar la acción. Inténtalo de nuevo."
+            else -> raw
         }
     }
 

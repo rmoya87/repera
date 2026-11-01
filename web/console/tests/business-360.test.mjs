@@ -17,20 +17,32 @@ test('Inicio gym prioriza recepción y clases de hoy',()=>{
  assert.match(html,/Fuerza y movilidad/);
  assert.doesNotMatch(html,/business-stats/);
 });
-test('Inicio PT muestra agenda mes/día y crear cita',()=>{
+test('Inicio PT muestra agenda mes/día, avisos y crear cita',()=>{
  const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[client],occurrences:[],bookings:[],sessions:[],manager:true,requests:[]});
- assert.match(html,/Invitar cliente/);
+ assert.match(html,/open-invite-modal/);
  assert.match(html,/Crear cita/);
+ assert.match(html,/open-broadcast-modal/);
+ assert.match(html,/open-requests-modal/);
  assert.match(html,/data-action="agenda-view"/);
+ assert.match(html,/pt-cal-add/);
  assert.match(html,/>Agenda</);
 });
 test('Ficha cliente: pestañas Bonos, saldo y asignación externa',()=>{
- const html=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:true,sharedHistory:[],clientSection:'passes',trainer:true});
+ const ptPass={...pass,kind:'appointment'};
+ const ptOffer={...offer,kind:'appointment'};
+ const html=renderClient360({clients:[client],selected:'c1',passes:[ptPass],offers:[ptOffer],manager:true,sharedHistory:[],clientSection:'passes',trainer:true,
+  attendance:[{id:'a1',client_id:'c1',pass_id:'p1',performed_at:'2030-08-10T10:00:00Z',note:'Fuerza'}],
+  passEvents:[{id:'e1',pass_id:'p1',action:'add_credits',previous_remaining:3,new_remaining:4,created_at:'2030-08-09T12:00:00Z'}]});
  assert.match(html,/>Bonos</);
  assert.match(html,/4\/10/);
  assert.match(html,/Confirmado por el centro/);
  assert.match(html,/data-connected="issue-offline-pass"/);
  assert.match(html,/Confirmo que he recibido el pago fuera de Repera|Confirmo que la asignación/);
+ assert.match(html,/Actividad · gastos y renovaciones/);
+ assert.match(html,/Sesión registrada/);
+ assert.match(html,/Créditos añadidos|Bono asignado/);
+ assert.match(html,/data-connected="courtesy-pass"/);
+ assert.match(html,/data-connected="trainer-attendance"/);
  const outsider=renderClient360({clients:[client],selected:'c1',passes:[pass],offers:[offer],manager:false,clientSection:'data'});
  assert.doesNotMatch(outsider,/data-connected="client-profile"/);
  assert.doesNotMatch(outsider,/data-connected="issue-offline-pass"/);
@@ -58,16 +70,20 @@ test('Panel gym de bonos asigna con confirmación externa',()=>{
  const form=renderAssignOfflinePassForm({clients:[client],offers:[offer],clientId:'c1',manager:true});
  assert.match(form,/value="c1" selected/);
 });
-test('Panel conectado: menú PT mínimo y gym con productos',()=>{
+test('Panel conectado: menú PT/gym alineado (opciones de negocio distintas)',()=>{
  const code=readFileSync(new URL('../src/ui/connected.js',import.meta.url),'utf8');
  assert.match(code,/trainer\?'Agenda':'Inicio'/);
+ assert.match(code,/Mis entrenos/);
  assert.match(code,/Agenda y clases/);
  assert.match(code,/Productos y bonos/);
+ assert.match(code,/renderTeamWorkspace/);
  assert.match(code,/markClassAttendance/);
  assert.match(code,/renderGymPassPanel/);
  assert.match(code,/pt-identity/);
+ assert.match(code,/business-navigation is-pro/);
  assert.doesNotMatch(code,/\['billing','Facturación'/);
  assert.doesNotMatch(code,/\['operations'/);
+ assert.doesNotMatch(code,/\['settings','Configuración'/);
 });
 test('Migración de asistencia de clase existe y no descuenta de nuevo',()=>{
  const sql=readFileSync(new URL('../../../supabase/migrations/20261101120000_business_class_attendance.sql',import.meta.url),'utf8');

@@ -27,19 +27,31 @@ class BusinessCenterStore(
         .callTimeout(20, TimeUnit.SECONDS).build()
 ) {
     data class Organization(val id: String, val name: String, val kind: String,
-        val slug: String?, val avatarUrl: String?, val tagline: String?)
+        val slug: String?, val avatarUrl: String?, val tagline: String?,
+        val publicEmail: String? = null, val phone: String? = null,
+        val classBookingOpenHours: Int = 168)
     data class Invitation(val id: String, val organizationId: String,
         val invitedRole: String, val expiresAt: String?, val acceptedAt: String?,
         val cancelledAt: String?)
     data class ClientLink(val id: String, val orgId: String, val userId: String)
     data class Occurrence(val id: String, val orgId: String, val kind: String,
         val title: String, val startsAt: String, val endsAt: String?,
-        val capacity: Int?, val status: String)
+        val capacity: Int?, val status: String,
+        val color: String? = null, val location: String? = null)
     data class Pass(val id: String, val orgId: String, val clientId: String,
         val kind: String, val totalCredits: Int, val remainingCredits: Int,
-        val validFrom: String?, val validUntil: String?, val status: String)
+        val validFrom: String?, val validUntil: String?, val status: String,
+        val offerId: String? = null, val paidAt: String? = null,
+        val paidAmountCents: Int? = null, val paymentMethod: String? = null,
+        val issuanceType: String? = null)
+    data class PassOffer(val id: String, val orgId: String, val name: String,
+        val kind: String, val isActive: Boolean)
     data class Booking(val id: String, val orgId: String, val clientId: String,
         val occurrenceId: String, val status: String)
+    data class ClassRosterPerson(val displayName: String, val avatarUrl: String?,
+        val status: String? = null)
+    data class ClassRoster(val occurrenceId: String?, val coach: ClassRosterPerson?,
+        val attendees: List<ClassRosterPerson>, val capacity: Int?, val reserved: Int?)
     data class Notice(val id:String,val orgId:String,val clientId:String,val title:String,val body:String,val createdAt:String)
     data class ChatMessage(val id:String,val orgId:String,val clientId:String,val senderUserId:String,
         val senderRole:String,val body:String,val createdAt:String,val batchId:String?)
@@ -55,6 +67,7 @@ class BusinessCenterStore(
         val clientLinks: List<ClientLink> = emptyList(),
         val occurrences: List<Occurrence> = emptyList(),
         val passes: List<Pass> = emptyList(),
+        val passOffers: List<PassOffer> = emptyList(),
         val bookings: List<Booking> = emptyList(),
         val availability: Map<String, Availability> = emptyMap(),
         val notices:List<Notice> = emptyList(),
@@ -73,12 +86,26 @@ class BusinessCenterStore(
                 ?: notices.firstOrNull { it.orgId == orgId }?.clientId
 
         fun bookingFor(occurrenceId: String): Booking? =
-            bookings.firstOrNull { it.occurrenceId == occurrenceId && it.status == "booked" }
+            bookings.firstOrNull {
+                it.occurrenceId == occurrenceId && (it.status == "booked" || it.status == "waitlist")
+            }
 
         fun remainingPlaces(occurrence: Occurrence): Int? {
             val item = availability[occurrence.id] ?: return null
             return (item.capacity - item.reserved).coerceAtLeast(0)
         }
+
+        fun bookingOpensAt(occurrence: Occurrence): Instant? {
+            val start = parseInstant(occurrence.startsAt) ?: return null
+            val hours = centers.firstOrNull { it.id == occurrence.orgId }?.classBookingOpenHours ?: 168
+            val opens = start.minusSeconds(hours.coerceAtLeast(1).toLong() * 3600L)
+            return if (opens.isAfter(Instant.now())) opens else null
+        }
+
+        fun canBookNow(occurrence: Occurrence): Boolean =
+            bookingOpensAt(occurrence) == null &&
+                (parseInstant(occurrence.startsAt)?.isAfter(Instant.now()) == true) &&
+                occurrence.status == "active"
 
         fun activePasses(orgId: String): List<Pass> =
             passes.filter { it.orgId == orgId && it.status == "active" }
@@ -92,11 +119,48 @@ class BusinessCenterStore(
                     (parseInstant(pass.validUntil) ?: Instant.EPOCH) >= begins
             }
         }
+
+        fun offerName(pass: Pass): String? =
+            pass.offerId?.let { oid -> passOffers.firstOrNull { it.id == oid }?.name }
+
+        fun paymentHistory(orgId: String): List<Pass> =
+            passes.filter { it.orgId == orgId }
+                .sortedByDescending { parseInstant(it.paidAt ?: it.validFrom) ?: Instant.EPOCH }
+
+        fun pastBookings(orgId: String): List<Booking> {
+            val occById = occurrences.associateBy { it.id }
+            return bookings.filter { booking ->
+                if (booking.orgId != orgId) return@filter false
+                val occ = occById[booking.occurrenceId] ?: return@filter false
+                val start = parseInstant(occ.startsAt) ?: return@filter false
+                start.isBefore(Instant.now()) ||
+                    booking.status == "attended" ||
+                    booking.status == "cancelled" ||
+                    booking.status == "no_show"
+            }.sortedByDescending { booking ->
+                parseInstant(occById[booking.occurrenceId]?.startsAt) ?: Instant.EPOCH
+            }
+        }
     }
 
     sealed class LoadResult {
         data class Loaded(val snapshot: Snapshot) : LoadResult()
         data class Failed(val message: String) : LoadResult()
+    }
+
+    /** Mensaje corto para UI: nunca volcar JSON/PostgREST crudo. */
+    private fun friendlyCentersLoadError(error: Exception): String {
+        val raw = error.localizedMessage.orEmpty()
+        return when {
+            raw.contains("PGRST201", ignoreCase = true)
+                || raw.contains("more than one relationship", ignoreCase = true) ->
+                "No se han podido cargar tus centros y reservas. Actualiza la app e inténtalo de nuevo."
+            raw.contains("PGRST", ignoreCase = true)
+                || raw.contains("\"code\"")
+                || raw.length > 140 ->
+                "No se han podido cargar tus centros y reservas. Comprueba la conexión e inténtalo de nuevo."
+            else -> "No se han podido cargar tus centros y reservas."
+        }
     }
 
     private fun get(session: SupabaseIdentity.Session, table: String,
@@ -139,16 +203,20 @@ class BusinessCenterStore(
         return try {
             val currentUser = session.userId
             val centers = parseOrganizations(get(session, "organizations",
-                "id,name,kind,slug,avatar_url,tagline"))
+                "id,name,kind,slug,avatar_url,tagline,public_email,phone,class_booking_open_hours"))
             val invitations = parseInvitations(get(session, "organization_invitations",
                 "id,organization_id,invited_role,expires_at,accepted_at,cancelled_at"))
             val links = parseLinks(get(session, "clients", "id,org_id,user_id"))
             val myLinks = links.filter { it.userId == currentUser }
             val ownedClientIds = myLinks.map { it.id }.toSet()
             val occurrences = parseOccurrences(get(session, "service_occurrences",
-                "id,org_id,kind,title,starts_at,ends_at,capacity,status"))
+                "id,org_id,kind,title,starts_at,ends_at,capacity,status," +
+                    "service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location)"))
             val passes = parsePasses(get(session, "service_passes",
-                "id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status"))
+                "id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status," +
+                    "issuance_type,payment_method,paid_at,paid_amount_cents,offer_id"))
+            val offers = parseOffers(get(session, "business_pass_offers",
+                "id,org_id,name,kind,is_active"))
             val bookings = parseBookings(get(session, "service_bookings",
                 "id,org_id,client_id,occurrence_id,status"))
             val notices=parseNotices(get(session,"business_client_notifications","id,org_id,client_id,title,body,created_at"))
@@ -167,22 +235,48 @@ class BusinessCenterStore(
                 }
             }
             val now = Instant.now()
+            val linkedIds = myLinks.map { it.orgId }.toSet()
             LoadResult.Loaded(Snapshot(
                 centers = centers,
                 invitations = invitations.filter {
                     it.acceptedAt == null && it.cancelledAt == null &&
                         (parseInstant(it.expiresAt) ?: Instant.MAX) > now
                 },
-                athleteCenterIds = myLinks.map { it.orgId }.toSet(),
+                athleteCenterIds = linkedIds,
                 clientLinks = myLinks,
                 occurrences = occurrences.filter { it.status == "active" },
                 passes = passes.filter { it.clientId in ownedClientIds },
+                passOffers = offers.filter { it.isActive && it.orgId in linkedIds },
                 bookings = bookings.filter { it.clientId in ownedClientIds },
                 availability = counts,notices=ownedNotices(notices,ownedClientIds),
                 trainingSessions=ownedTraining(training,ownedClientIds)))
         } catch (error: Exception) {
-            LoadResult.Failed("No se han podido cargar tus centros y reservas. " +
-                (error.localizedMessage ?: ""))
+            LoadResult.Failed(friendlyCentersLoadError(error))
+        }
+    }
+
+    fun loadClassRoster(session: SupabaseIdentity.Session, occurrenceId: String): ClassRoster? {
+        return try {
+            val request = Request.Builder()
+                .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/class_occurrence_roster")
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
+                .post(JSONObject().put("p_occurrence", occurrenceId).toString()
+                    .toRequestBody("application/json".toMediaType()))
+                .build()
+            http.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful || body.isBlank()) return null
+                val root = when {
+                    body.startsWith("{") -> JSONObject(body)
+                    body.startsWith("[") -> JSONArray(body).optJSONObject(0) ?: return null
+                    else -> return null
+                }
+                parseRoster(root)
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -191,8 +285,10 @@ class BusinessCenterStore(
 
     fun requestLink(session:SupabaseIdentity.Session,organization:Organization,passKind:String,note:String?) {
         require(passKind in setOf("class","appointment","unlimited"))
+        // El backend solo acepta class|appointment; unlimited → appointment (PT).
+        val kind=if(passKind=="unlimited") "appointment" else passKind
         rpc(session,"request_org_athlete_link",JSONObject().put("p_org",organization.id)
-            .put("p_pass_kind",passKind).put("p_note",note.orEmpty()))
+            .put("p_pass_kind",kind).put("p_note",note.orEmpty()))
     }
     fun leave(session:SupabaseIdentity.Session,organization:Organization) {
         rpc(session,"leave_org_as_athlete",JSONObject().put("p_org",organization.id))
@@ -278,7 +374,10 @@ class BusinessCenterStore(
         Organization(row.getString("id"), row.optString("name"),
             row.optString("kind"), row.optString("slug").ifBlank { null },
             row.optString("avatar_url").ifBlank { null },
-            row.optString("tagline").ifBlank { null })
+            row.optString("tagline").ifBlank { null },
+            row.optString("public_email").ifBlank { null },
+            row.optString("phone").ifBlank { null },
+            row.optInt("class_booking_open_hours", 168))
     }
 
     private fun parseInvitations(data: JSONArray) = (0 until data.length()).map { i ->
@@ -297,12 +396,16 @@ class BusinessCenterStore(
 
     private fun parseOccurrences(data: JSONArray) = (0 until data.length()).map { i ->
         val row = data.getJSONObject(i)
+        val details = row.optJSONObject("service_occurrence_details")
+            ?: row.optJSONArray("service_occurrence_details")?.optJSONObject(0)
         Occurrence(row.getString("id"), row.getString("org_id"),
             row.optString("kind"), row.optString("title"),
             row.getString("starts_at"),
             row.optString("ends_at").ifBlank { null },
             row.optInt("capacity").takeIf { row.has("capacity") && !row.isNull("capacity") },
-            row.optString("status"))
+            row.optString("status"),
+            details?.optString("color")?.ifBlank { null } ?: row.optString("color").ifBlank { null },
+            details?.optString("location")?.ifBlank { null } ?: row.optString("location").ifBlank { null })
     }
 
     private fun parsePasses(data: JSONArray) = (0 until data.length()).map { i ->
@@ -312,7 +415,46 @@ class BusinessCenterStore(
             row.optInt("remaining_credits"),
             row.optString("valid_from").ifBlank { null },
             row.optString("valid_until").ifBlank { null },
-            row.optString("status"))
+            row.optString("status"),
+            row.optString("offer_id").ifBlank { null },
+            row.optString("paid_at").ifBlank { null },
+            row.optInt("paid_amount_cents").takeIf { row.has("paid_amount_cents") && !row.isNull("paid_amount_cents") },
+            row.optString("payment_method").ifBlank { null },
+            row.optString("issuance_type").ifBlank { null })
+    }
+
+    private fun parseOffers(data: JSONArray) = (0 until data.length()).map { i ->
+        val row = data.getJSONObject(i)
+        PassOffer(
+            row.getString("id"), row.getString("org_id"), row.optString("name"),
+            row.optString("kind"), row.optBoolean("is_active", true)
+        )
+    }
+
+    private fun parseRoster(root: JSONObject): ClassRoster {
+        val coachObj = root.optJSONObject("coach")
+        val coach = coachObj?.let {
+            ClassRosterPerson(
+                it.optString("display_name").ifBlank { "Entrenador" },
+                it.optString("avatar_url").ifBlank { null }
+            )
+        }
+        val attendeesArr = root.optJSONArray("attendees") ?: JSONArray()
+        val attendees = (0 until attendeesArr.length()).map { i ->
+            val p = attendeesArr.getJSONObject(i)
+            ClassRosterPerson(
+                p.optString("display_name").ifBlank { "Socio" },
+                p.optString("avatar_url").ifBlank { null },
+                p.optString("status").ifBlank { null }
+            )
+        }
+        return ClassRoster(
+            occurrenceId = root.optString("occurrence_id").ifBlank { null },
+            coach = coach,
+            attendees = attendees,
+            capacity = root.optInt("capacity").takeIf { root.has("capacity") && !root.isNull("capacity") },
+            reserved = root.optInt("reserved").takeIf { root.has("reserved") && !root.isNull("reserved") }
+        )
     }
 
     private fun parseBookings(data: JSONArray) = (0 until data.length()).map { i ->

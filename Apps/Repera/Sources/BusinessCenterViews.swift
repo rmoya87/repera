@@ -202,12 +202,16 @@ struct LinkedCenterDetailView: View {
     @State private var leaveSheetHeight: CGFloat = 310
     @Environment(\.dismiss) private var dismiss
 
-    private var orgPasses: [BusinessPass] {
-        businessData.passesForOrg(center.id)
+    private var payments: [BusinessPass] {
+        businessData.paymentHistory(for: center.id)
     }
 
-    private var orgOffers: [BusinessPassOffer] {
-        businessData.offersForOrg(center.id)
+    private var classHistory: [(booking: BusinessBooking, occurrence: BusinessOccurrence)] {
+        let occById = Dictionary(uniqueKeysWithValues: businessData.occurrences.map { ($0.id, $0) })
+        return businessData.pastBookings(for: center.id).compactMap { booking in
+            guard let occ = occById[booking.occurrenceId] else { return nil }
+            return (booking, occ)
+        }
     }
 
     var body: some View {
@@ -220,46 +224,32 @@ struct LinkedCenterDetailView: View {
                         Text(center.kindLabel)
                             .font(.subheadline)
                             .foregroundStyle(OG.label2)
-                        if let tagline = center.tagline, !tagline.isEmpty {
-                            Text(tagline)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
                     }
                 }
                 .padding(.vertical, 4)
             }
 
             Section {
-                NavigationLink {
-                    MessagesInboxView(initialOrgId: center.id)
-                } label: {
-                    Label("Abrir chat", systemImage: "bubble.left.and.bubble.right")
-                        .foregroundStyle(OG.label)
-                }
-                NavigationLink {
-                    CenterView()
-                } label: {
-                    Label("Clases, citas y reservas", systemImage: "calendar")
-                        .foregroundStyle(OG.label)
-                }
-            } header: {
-                Text("Contacto y reservas")
-            }
-
-            Section {
-                if orgPasses.isEmpty {
-                    Text("No tienes bonos activos con este entrenador o centro.")
+                if payments.isEmpty {
+                    Text("Todavía no hay pagos registrados con este centro.")
                         .foregroundStyle(OG.label2)
                 } else {
-                    ForEach(orgPasses) { pass in
+                    ForEach(payments) { pass in
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(pass.kind == "appointment" ? "Sesiones personales" : "Clases")
+                            Text(businessData.offerName(for: pass) ?? (pass.kind == "class" ? "Plan de clases" : "Plan de citas"))
                                 .font(.headline)
-                            Text("\(pass.remainingCredits) de \(pass.totalCredits) disponibles")
-                                .foregroundStyle(OG.label)
-                            if let end = BusinessDataStore.date(pass.validUntil) {
-                                Text("Caduca: \(end.formatted(date: .abbreviated, time: .omitted))")
+                            HStack {
+                                Text(linkedPaymentLabel(pass))
+                                Spacer()
+                                if let cents = pass.paidAmountCents {
+                                    Text((Double(cents) / 100).formatted(.currency(code: "EUR")))
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                            if let when = BusinessDataStore.date(pass.paidAt ?? pass.validFrom) {
+                                Text(when.formatted(date: .abbreviated, time: .omitted))
                                     .font(.caption)
                                     .foregroundStyle(OG.label2)
                             }
@@ -268,34 +258,33 @@ struct LinkedCenterDetailView: View {
                     }
                 }
             } header: {
-                Text("Mis bonos")
+                Text("Historial de pagos")
+            } footer: {
+                Text("Los cobros se confirman fuera de Repera; aquí solo ves el registro del centro.")
             }
 
             Section {
-                if orgOffers.isEmpty {
-                    Text("El entrenador todavía no ha publicado bonos disponibles.")
+                if classHistory.isEmpty {
+                    Text("Aún no has asistido ni reservado clases con este centro.")
                         .foregroundStyle(OG.label2)
                 } else {
-                    ForEach(orgOffers) { offer in
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(offer.name).font(.headline)
-                                Spacer()
-                                Text(offer.localizedPrice).font(.subheadline.weight(.semibold))
+                    ForEach(classHistory, id: \.booking.id) { row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(row.occurrence.title).font(.headline)
+                            if let start = BusinessDataStore.date(row.occurrence.startsAt) {
+                                Text(start.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
+                                    .foregroundStyle(OG.label2)
                             }
-                            Text("\(offer.credits) " +
-                                 (offer.kind == "appointment" ? "sesiones personales" : "clases") +
-                                 " · \(offer.validityDays) días de validez")
-                                .foregroundStyle(OG.label2)
-                                .font(.subheadline)
+                            Text(linkedBookingStatus(row.booking.status))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.accent)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 2)
                     }
                 }
             } header: {
-                Text("Bonos disponibles")
-            } footer: {
-                Text("La compra se habilitará cuando el centro configure una pasarela de pago verificada. Los bonos publicados no se activan sin confirmación del cobro.")
+                Text("Historial de clases")
             }
 
             if let error = businessData.errorMessage {
@@ -312,7 +301,7 @@ struct LinkedCenterDetailView: View {
                 }
                 .disabled(businessData.isSubmitting)
             } footer: {
-                Text("Al desvincularte pierdes el acceso completo asociado a este centro, salvo que tengas Repera Pro.")
+                Text("Al desvincularte pierdes el acceso asociado a este centro. Tu historial personal de Repera no se borra.")
             }
         }
         .listStyle(.insetGrouped)
@@ -329,7 +318,7 @@ struct LinkedCenterDetailView: View {
                         .frame(width: 48, height: 48)
                         .background(OG.red.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("¿Desvincularte de \\(center.name)?")
+                        Text("¿Desvincularte de \(center.name)?")
                             .font(.system(size: 19, weight: .semibold))
                             .foregroundStyle(OG.label)
                             .fixedSize(horizontal: false, vertical: true)
@@ -402,6 +391,30 @@ struct LinkedCenterDetailView: View {
             .presentationCornerRadius(26)
             .presentationBackground(OG.surface)
             .interactiveDismissDisabled(businessData.isSubmitting)
+        }
+    }
+
+    private func linkedPaymentLabel(_ pass: BusinessPass) -> String {
+        if pass.issuanceType == "complimentary" || pass.paymentMethod == "complimentary" {
+            return "Cortesía"
+        }
+        switch pass.paymentMethod {
+        case "cash": return "Efectivo"
+        case "transfer": return "Transferencia"
+        case "card": return "Tarjeta"
+        case "other": return "Otro cobro"
+        default: return pass.issuanceType == "manual_offline" ? "Cobro externo" : "Plan"
+        }
+    }
+
+    private func linkedBookingStatus(_ status: String) -> String {
+        switch status {
+        case "attended": return "Asististe"
+        case "booked": return "Reservada"
+        case "waitlist": return "Lista de espera"
+        case "cancelled": return "Cancelada"
+        case "no_show": return "No presentado"
+        default: return status
         }
     }
 }

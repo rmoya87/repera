@@ -26,7 +26,7 @@ export function renderOrganizationFields({kind='personal_trainer',values={},lega
  return publicFields+legalFields+planFields+(creation?'':'');
 }
 export function renderOrganizationCreateForm(plans=[],initial={}){
- return `<div class="business-onboarding"><span class="connected-tag">NUEVO PERFIL</span><h2>Añadir negocio</h2><p>Configura los datos una vez y podrás completar o editarlos desde Ajustes. El identificador web se crea automáticamente.</p><form data-connected="create" class="business-onboarding-form">${renderOrganizationFields({plans,creation:true,kind:['personal_trainer','gym'].includes(initial.kind)?initial.kind:'personal_trainer',values:{name:initial.name||''}})}<button class="connected-primary business-form-submit" type="submit">Crear negocio y comenzar prueba</button></form></div>`;
+ return `<div class="business-onboarding"><h2>Nuevo espacio</h2><p>Nombre, actividad e imagen. El enlace público se genera solo.</p><form data-connected="create" class="business-onboarding-form">${renderOrganizationFields({plans,creation:true,kind:['personal_trainer','gym'].includes(initial.kind)?initial.kind:'personal_trainer',values:{name:initial.name||''}})}<button class="connected-primary business-form-submit" type="submit">Crear y empezar prueba</button></form></div>`;
 }
 export function renderPlanAdministration(plans=[]){
  const rows=plans.map(p=>`<form class="business-plan-admin-form" data-connected="save-plan"><input type="hidden" name="plan_key" value="${e(p.plan_key)}"><h3>${e(p.title)} <small>${e(p.plan_key)}</small></h3><div class="business-onboarding-fields">

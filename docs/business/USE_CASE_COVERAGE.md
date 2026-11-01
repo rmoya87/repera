@@ -17,7 +17,7 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 | A06 | sí | Negocio | Segunda invitación mismo email | Clientes | issue cancela pendiente previa | aviso | SQL | parcial |
 | A07 | no | Deportista | Invita abierta | Center / deep link | `decline_org_invitation` | rechazar | UI iOS/Android + SQL | hecho (código; E2E staging pendiente) |
 | A08 | sí | Deportista | Varias orgs | Ajustes app / varias fichas | accept × N | vínculos aislados | SQL multi-org | parcial |
-| A09 | sí | Negocio | Solicitud desde app | Inicio «Quieren entrenar» | `business_decide_enrollment` | accept/reject | UI+RPC | hecho (backend) |
+| A09 | sí | Negocio | Solicitud desde app | Inicio «Quieren entrenar» | `business_decide_enrollment` → Clientes | accept → ficha; reject | UI+RPC | hecho (aplicar `20261101200000`) |
 | A10 | sí | Deportista | Email no verificado | join | accept exige verificado | error | SQL | parcial |
 | A11 | no | — | Menor / consentimiento edad | — | — | — | — | pendiente producto |
 | A12 | sí | Negocio | Org suspendida / owner pendiente | Workspace | trial/status guards | bloqueo altas | parcial | parcial |
@@ -29,8 +29,8 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 | A18 | sí | Sistema | Ya vinculado otra vía | invite/accept | anti-duplicado | — | SQL | parcial |
 | A19 | sí | Negocio | Fallo Resend | Invitar | Edge 503 | «no enviado» | unit auth | parcial |
 | A20 | no | Negocio | Cambio marca post-invite | — | branding | — | — | pendiente |
-| B01 | sí | Negocio | Cobro externo hecho | Ficha → Asignar bono / Productos y bonos | `business_issue_offline_pass` | confirmación manual | `business-360.test.mjs` | hecho (UI+RPC; email/E2E staging pendiente) |
-| B02–B06 | sí | Negocio/atleta | Varios/cero/caducado/futuro | Ficha / Center app | passes + book RPC | mensajes | booking smoke | parcial |
+| B01 | sí | Negocio | Cobro externo hecho | Ficha → Bonos (alta/renovar) / Productos y bonos | `business_issue_offline_pass` | confirmación manual | `business-360.test.mjs` | hecho (UI+RPC; email/E2E staging pendiente) |
+| B02–B06 | sí | Negocio/atleta | Varios/cero/caducado/futuro + timeline gasto | Ficha → Bonos / Center app | passes + attendance + bookings + `service_pass_management_events` | mensajes | booking smoke + business-360 | hecho UI ficha; smoke booking parcial iOS |
 | B07–B11 | no | Negocio | Cuota/congelación/devolución | — | ledger parcial | — | — | pendiente |
 | B12 | sí | Sistema | Reserva vs consumo | book/cancel | ledger `booking_debit` | — | smoke | hecho (provisional 12h) |
 | B13–B15 | sí | Atleta/gym | Cancel / no-show / clase cancelada | Clases 360 | cancel + mark attendance P0 | — | — | parcial |
@@ -64,4 +64,4 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 
 **Edge Functions Business:** `repera-business-invite` (email), `repera-business-push` (claim+FCM opcional). Sin Stripe webhook.
 
-**Consola:** `connected.js` + `management-360.js` + `business-chat.js` + `invitation-share.js` + bonos PT/gym.
+**Consola:** `connected.js` + `management-360.js` + `business-chat.js` + `invitation-share.js` + **Tarifas** / **Facturación** (`trainer-pass-panel`, `billing-dashboard`) + ficha Bonos con pago (método/fecha/importe) + `trainer-workouts.js` + composer in-block.

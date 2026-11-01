@@ -9,8 +9,7 @@ enum WorkoutFlowRoute: Hashable {
     case workout
 }
 
-/// Menú principal: Inicio · Comenzar · Progreso · Ejercicios.
-/// Las herramientas de Crear y los centros profesionales permanecen en sus secciones, no en el mapa de Comenzar.
+/// Menú principal: Inicio · Comenzar · + (Clases/Plan) · Progreso · Ejercicios.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -26,180 +25,39 @@ struct RootTabView: View {
     @State private var showInvitationSheet = false
 
     enum AppTab: Hashable {
-        case home, start, stats, exercises
+        case home, start, plus, stats, exercises
     }
 
     var body: some View {
         ZStack {
-            TabView(selection: $tab) {
-                SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
-                    HomeView(
-                        onOpenWorkout: openWorkout,
-                        focusDay: homeFocusDay,
-                        onStart: openTodayPreview,
-                        onStartRoutine: openRoutinePreview
-                    )
-                    
-                }
-
-                SwiftUI.Tab(
-                    "Comenzar",
-                    systemImage: tab == .start ? "play.circle.fill" : "play.circle",
-                    value: AppTab.start
-                ) {
-                    LiveActivityView(
-                        onSaved: { date in
-                            homeFocusDay = date
-                            tab = .home
-                            // Un registro de Comenzar guardado también es un
-                            // evento de refresco (fuera de la grabación activa).
-                            store.requestExerciseCatalogRefresh()
-                        },
-                        onOpenWorkout: openWorkout
-                    )
-                    
-                }
-
-                SwiftUI.Tab(
-                    "Progreso",
-                    systemImage: tab == .stats ? "chart.bar.fill" : "chart.bar",
-                    value: AppTab.stats
-                ) {
-                    StatsView()
-                        
-                }
-
-                SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
-                    LibraryView(onOpenedWorkout: openWorkout)
-                        
-                }
-            }
-            // Observe Equatable chrome — not the full `activeSession` graph.
-            // En Comenzar no se muestra Continuar de Live (ya estás ahí); sí el de Play.
-            .tabBarMinimizeBehavior(continueModelForCurrentTab != nil ? .onScrollDown : .never)
-            .modifier(ContinueAccessoryModifier(
-                model: continueModelForCurrentTab,
-                onContinue: {
-                    if store.continueAccessory?.isLiveActivity == true {
-                        flowPath = []
-                        tab = .start
-                    } else {
-                        previewRoutine = nil
-                        flowPath = [.sessionPreview(routineId: nil)]
-                    }
-                }
-            ))
-            // isExpanded adapta layouts anchos; el raíl de tabs es 100 % nativo.
-            .environment(duoRail)
-            // Continuar también cuando hay Comenzar activo (LiveActivityRecorder).
-            .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
-                store.refreshContinueChrome()
-                // Inicio desde Watch / grabación activa → mostrar Comenzar.
-                if phase == .recording || phase == .paused
-                    || (phase == .review && !store.isAutoSavingWatchActivity) {
-                    // Una finalización en Watch guarda en segundo plano: no
-                    // llevar al iPhone a una segunda pantalla de confirmación.
-                    flowPath = []
-                    tab = .start
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(
-                for: Notification.Name("repera.openComenzarFromWatch")
-            )) { _ in
-                flowPath = []
-                tab = .start
-            }
-            .task(id: LiveActivityRecorder.shared.isActive) {
-                store.refreshContinueChrome()
-                guard LiveActivityRecorder.shared.isActive else { return }
-                while !Task.isCancelled, LiveActivityRecorder.shared.isActive {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    store.refreshContinueChrome()
-                }
-            }
-
-            if let root = flowPath.first {
-                NavigationStack(path: flowTailBinding) {
-                    flowDestination(root)
-                        .navigationDestination(for: WorkoutFlowRoute.self) { route in
-                            flowDestination(route)
-                        }
-                }
-                .id(root)
-                .transition(.move(edge: .trailing))
-                .zIndex(1)
-            }
+            mainTabView
+            flowOverlay
         }
-        // No montar overlays en UIWindow sobre el raíl vertical del Duo:
-        // status + tabs comparten esa columna nativa; un host encima
-        // recorta iconos de pestaña e intercepta toques («no van»).
-        // Las acciones contextuales viven en el contenido / toolbar.
-        // Geometría del CONTENEDOR, no de la pestaña con ancho reducido.
         .onGeometryChange(for: CGSize.self, of: { $0.size }) { _, size in
             updateDuoLayout(availableSize: size)
         }
         .onChange(of: horizontalSizeClass) { _, _ in
             updateDuoLayout(availableSize: lastAvailableSize)
         }
-        // onGeometryChange puede ejecutarse antes de asociar la UIWindow.
-        // Reevaluar una vez ya montada evita quedar fijo en compacto.
-        .onAppear {
-            updateDuoLayout(availableSize: lastAvailableSize)
-        }
-        .sheet(isPresented: $showStartHub) {
-            // The former Crear tab remains available from Inicio, without losing tools.
-            StartHubSheet(
-                onOpenedWorkout: {
-                    showStartHub = false
-                    openWorkout()
-                },
-                onOpenSport: { sportID in
-                    guard let sport = LiveSport(rawValue: sportID) else {
-                        sportFavoriteOpenError = "No se reconoce el deporte de este favorito."
-                        return
-                    }
-                    guard LiveActivityRecorder.shared.phase == .idle,
-                          !LiveActivityRecorder.shared.isStartCountingDown else {
-                        sportFavoriteOpenError = "Termina o descarta la actividad actual antes de iniciar otra."
-                        return
-                    }
-                    LiveActivityRecorder.shared.choose(sport)
-                    showStartHub = false
-                    flowPath = []
-                    tab = .start
-                },
-                onSavedTimer: { date in
-                    // Misma transición que Comenzar: cerrar Crear, elegir Inicio
-                    // y seleccionar el día de inicio del registro recién guardado.
-                    homeFocusDay = date
-                    flowPath = []
-                    tab = .home
-                    showStartHub = false
-                }
+        .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
+        .sheet(isPresented: $showStartHub) { startHubSheet }
+        .alert(
+            "No se ha podido abrir la actividad",
+            isPresented: Binding(
+                get: { sportFavoriteOpenError != nil },
+                set: { if !$0 { sportFavoriteOpenError = nil } }
             )
-            .ogSheetChrome(detents: [.large])
-        }
-        .alert("No se ha podido abrir la actividad", isPresented: Binding(
-            get: { sportFavoriteOpenError != nil },
-            set: { if !$0 { sportFavoriteOpenError = nil } }
-        )) {
+        ) {
             Button("Aceptar", role: .cancel) { sportFavoriteOpenError = nil }
         } message: {
             Text(sportFavoriteOpenError ?? "")
         }
-        // Push/Pop should feel immediate; the former 320ms overlay animation
-        // made switching sections look like an application reload.
         .animation(.easeOut(duration: 0.18), value: flowPath.isEmpty)
         .tint(OG.accent)
         .onChange(of: tab) { _, newTab in
-            // Solo al entrar en Ejercicios, no mientras permanece abierta.
-            // El refresco es incremental y evita peticiones sucesivas en <60 s.
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
         }
         .task(id: store.isHydrated) {
-            // The route archive contains imported GPX and favorite flags
-            // not included in ReperaStore's regular workout iCloud snapshot.
-            // Migrate/download it without delaying the first Home frame.
             await LiveRoutesStore.shared.synchronizeWithICloud()
         }
         .onReceive(NotificationCenter.default.publisher(
@@ -207,44 +65,15 @@ struct RootTabView: View {
         )) { _ in
             LiveRoutesStore.shared.requestICloudSynchronization()
         }
-        .task {
-            // Nuevo proceso: volver a la pantalla real de grabación.
-            // No reabrir Inicio ni iniciar un entrenamiento distinto.
-            if store.state.activeSession != nil {
-                flowPath = [.workout]
-            } else if LiveActivityRecorder.shared.isActive {
-                tab = .start
-            }
-        }
-        .onOpenURL { url in
-            guard url.scheme == "repera" else { return }
-            switch url.host {
-            case "live":
-                flowPath = []
-                tab = .start
-            case "workout":
-                if store.hasActiveSession {
-                    openWorkout()
-                } else {
-                    flowPath = []
-                    tab = .home
-                }
-            case "invitation":
-                // repera://invitation/{uuid}
-                let idString = url.pathComponents.dropFirst().first ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                if let id = UUID(uuidString: idString) {
-                    pendingInvitationId = id
-                    showInvitationSheet = true
-                    tab = .home
-                }
-            default:
-                break
-            }
-        }
+        .task { restoreActiveSessionOnLaunch() }
+        .onOpenURL(perform: handleOpenURL)
         .sheet(isPresented: $showInvitationSheet) {
             InvitationDeepLinkSheet(
                 invitationId: pendingInvitationId,
-                onDone: { showInvitationSheet = false; pendingInvitationId = nil }
+                onDone: {
+                    showInvitationSheet = false
+                    pendingInvitationId = nil
+                }
             )
         }
         .sheet(isPresented: Binding(
@@ -257,9 +86,182 @@ struct RootTabView: View {
                 }
             }
         }
-        // También para destinos del flujo, sheets y fichas abiertas fuera
-        // del TabView (no solo para las cuatro pestañas).
         .environment(duoRail)
+    }
+
+    private var mainTabView: some View {
+        TabView(selection: $tab) {
+            SwiftUI.Tab("Inicio", systemImage: "house", value: AppTab.home) {
+                HomeView(
+                    onOpenWorkout: openWorkout,
+                    focusDay: homeFocusDay,
+                    onStart: openTodayPreview,
+                    onStartRoutine: openRoutinePreview
+                )
+            }
+
+            SwiftUI.Tab(
+                "Comenzar",
+                systemImage: tab == .start ? "play.circle.fill" : "play.circle",
+                value: AppTab.start
+            ) {
+                LiveActivityView(
+                    onSaved: { date in
+                        homeFocusDay = date
+                        tab = .home
+                        store.requestExerciseCatalogRefresh()
+                    },
+                    onOpenWorkout: openWorkout
+                )
+            }
+
+            SwiftUI.Tab(
+                "+",
+                systemImage: tab == .plus ? "plus.circle.fill" : "plus.circle",
+                value: AppTab.plus
+            ) {
+                PlusHubView()
+            }
+
+            SwiftUI.Tab(
+                "Progreso",
+                systemImage: tab == .stats ? "chart.bar.fill" : "chart.bar",
+                value: AppTab.stats
+            ) {
+                StatsView()
+            }
+
+            SwiftUI.Tab("Ejercicios", systemImage: "dumbbell", value: AppTab.exercises) {
+                LibraryView(onOpenedWorkout: openWorkout)
+            }
+        }
+        .tabBarMinimizeBehavior(continueModelForCurrentTab != nil ? .onScrollDown : .never)
+        .modifier(ContinueAccessoryModifier(
+            model: continueModelForCurrentTab,
+            onContinue: continueFromAccessory
+        ))
+        .environment(duoRail)
+        .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
+            handleLivePhase(phase)
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: Notification.Name("repera.openComenzarFromWatch")
+        )) { _ in
+            flowPath = []
+            tab = .start
+        }
+        .task(id: LiveActivityRecorder.shared.isActive) {
+            store.refreshContinueChrome()
+            guard LiveActivityRecorder.shared.isActive else { return }
+            while !Task.isCancelled, LiveActivityRecorder.shared.isActive {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                store.refreshContinueChrome()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var flowOverlay: some View {
+        if let root = flowPath.first {
+            NavigationStack(path: flowTailBinding) {
+                flowDestination(root)
+                    .navigationDestination(for: WorkoutFlowRoute.self, destination: flowDestination)
+            }
+            .id(root)
+            .transition(.move(edge: .trailing))
+            .zIndex(1)
+        }
+    }
+
+    @ViewBuilder
+    private var startHubSheet: some View {
+        StartHubSheet(
+            onOpenedWorkout: {
+                showStartHub = false
+                openWorkout()
+            },
+            onOpenSport: openSportFavorite(_:),
+            onSavedTimer: { date in
+                homeFocusDay = date
+                flowPath = []
+                tab = .home
+                showStartHub = false
+            }
+        )
+        .ogSheetChrome(detents: [.large])
+    }
+
+    private func continueFromAccessory() {
+        if store.continueAccessory?.isLiveActivity == true {
+            flowPath = []
+            tab = .start
+        } else {
+            previewRoutine = nil
+            flowPath = [.sessionPreview(routineId: nil)]
+        }
+    }
+
+    private func handleLivePhase(_ phase: LiveActivityRecorder.Phase) {
+        store.refreshContinueChrome()
+        if phase == .recording || phase == .paused
+            || (phase == .review && !store.isAutoSavingWatchActivity) {
+            flowPath = []
+            tab = .start
+        }
+    }
+
+    private func restoreActiveSessionOnLaunch() {
+        if store.state.activeSession != nil {
+            flowPath = [.workout]
+        } else if LiveActivityRecorder.shared.isActive {
+            tab = .start
+        }
+    }
+
+    private func openSportFavorite(_ sportID: String) {
+        guard let sport = LiveSport(rawValue: sportID) else {
+            sportFavoriteOpenError = "No se reconoce el deporte de este favorito."
+            return
+        }
+        guard LiveActivityRecorder.shared.phase == .idle,
+              !LiveActivityRecorder.shared.isStartCountingDown else {
+            sportFavoriteOpenError = "Termina o descarta la actividad actual antes de iniciar otra."
+            return
+        }
+        LiveActivityRecorder.shared.choose(sport)
+        showStartHub = false
+        flowPath = []
+        tab = .start
+    }
+
+    private func handleOpenURL(_ url: URL) {
+        guard url.scheme == "repera" else { return }
+        switch url.host {
+        case "live":
+            flowPath = []
+            tab = .start
+        case "workout":
+            if store.hasActiveSession {
+                openWorkout()
+            } else {
+                flowPath = []
+                tab = .home
+            }
+        case "invitation":
+            let idString = url.pathComponents.dropFirst().first
+                ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            if let id = UUID(uuidString: idString) {
+                pendingInvitationId = id
+                showInvitationSheet = true
+                tab = .home
+                NotificationCenter.default.post(
+                    name: Notification.Name("repera.openSettingsForInvitation"),
+                    object: id
+                )
+            }
+        default:
+            break
+        }
     }
 
     /// Detecta el espacio completo de la escena, no el viewport interno
@@ -542,6 +544,7 @@ private struct InvitationDeepLinkSheet: View {
     @Environment(BusinessDataStore.self) private var business
     @Environment(BusinessAuthStore.self) private var auth
     @State private var status = ""
+    @State private var preview: BusinessInvitationPreview?
 
     private var invitation: BusinessInvitation? {
         guard let invitationId else { return nil }
@@ -552,18 +555,28 @@ private struct InvitationDeepLinkSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 if !auth.isConnected {
-                    Text("Inicia sesión con la cuenta invitada para aceptar o rechazar.")
+                    Text("Inicia sesión en Repera con el correo de la invitación para aceptar la vinculación.")
                         .foregroundStyle(OG.label2)
                 } else if let invitation {
-                    Text("Te han invitado a unirte a un centro o entrenador.")
-                        .font(.headline)
-                    Text("Perfil: \(invitation.invitedRole)")
+                    Text(preview?.organizationName ?? "Centro o entrenador")
+                        .font(.title2.weight(.bold))
+                    if let preview {
+                        Text(preview.kindLabel)
+                            .foregroundStyle(OG.label2)
+                        if let tagline = preview.organizationTagline, !tagline.isEmpty {
+                            Text(tagline)
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                    Text("Al aceptar verás este centro en Ajustes, con tus clases, bonos y mensajes asociados.")
+                        .font(.subheadline)
                         .foregroundStyle(OG.label2)
                     HStack(spacing: 12) {
-                        Button("Aceptar") {
+                        Button("Aceptar vinculación") {
                             Task {
                                 await business.accept(invitation)
-                                status = "Invitación aceptada."
+                                status = "Vinculación aceptada. Abriendo Ajustes…"
                                 onDone()
                             }
                         }
@@ -582,7 +595,7 @@ private struct InvitationDeepLinkSheet: View {
                 } else {
                     Text("Buscando invitación…")
                         .foregroundStyle(OG.label2)
-                    Text("Si no aparece, ábrela desde el correo o pide un enlace nuevo.")
+                    Text("Si no aparece, inicia sesión con el correo invitado o pide un enlace nuevo.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 }
@@ -592,8 +605,13 @@ private struct InvitationDeepLinkSheet: View {
                 Spacer()
             }
             .padding(OG.pad)
-            .navigationTitle("Invitación")
+            .navigationTitle("Aceptar centro")
             .navigationBarTitleDisplayMode(.inline)
+            .task(id: invitationId) {
+                guard let invitationId else { return }
+                await business.refresh()
+                preview = await business.loadInvitationPreview(id: invitationId)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar", action: onDone)

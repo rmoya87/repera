@@ -31,6 +31,7 @@ struct SettingsView: View {
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
     @State private var googleLinkFeedback: String?
+    @State private var openLinkedCenter: BusinessOrganization?
     var body: some View {
         @Bindable var store = store
         Form {
@@ -174,6 +175,36 @@ struct SettingsView: View {
             }
 
             Section {
+                if !businessData.invitations.isEmpty {
+                    ForEach(businessData.invitations) { invite in
+                        let preview = businessData.invitationPreview(for: invite.id)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(preview?.organizationName ?? "Invitación pendiente")
+                                .font(.headline)
+                            Text(preview.map { "\($0.kindLabel) · aceptar para ver clases y bonos" }
+                                   ?? "Acepta para vincular tu cuenta con el centro")
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label2)
+                            HStack(spacing: 10) {
+                                Button("Aceptar") {
+                                    Task { await businessData.accept(invite) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(OG.accent)
+                                .disabled(businessData.isSubmitting)
+                                Button("Rechazar", role: .destructive) {
+                                    Task { await businessData.decline(invite) }
+                                }
+                                .disabled(businessData.isSubmitting)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .task {
+                            _ = await businessData.loadInvitationPreview(id: invite.id)
+                        }
+                    }
+                }
+
                 let linked = businessData.linkedCenters()
                 ForEach(linked) { center in
                     NavigationLink {
@@ -501,6 +532,28 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .ogScrollingTitleNav()
+        .navigationDestination(item: $openLinkedCenter) { center in
+            LinkedCenterDetailView(center: center)
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: Notification.Name("repera.openSettingsLinkedCenter")
+        )) { note in
+            let id = (note.object as? UUID) ?? businessData.pendingOpenLinkedCenterId
+            guard let id,
+                  let center = businessData.linkedCenters().first(where: { $0.id == id })
+                    ?? businessData.centers.first(where: { $0.id == id })
+            else { return }
+            businessData.pendingOpenLinkedCenterId = nil
+            openLinkedCenter = center
+        }
+        .task(id: businessData.pendingOpenLinkedCenterId) {
+            guard let id = businessData.pendingOpenLinkedCenterId,
+                  let center = businessData.linkedCenters().first(where: { $0.id == id })
+                    ?? businessData.centers.first(where: { $0.id == id })
+            else { return }
+            businessData.pendingOpenLinkedCenterId = nil
+            openLinkedCenter = center
+        }
         .alert(accessFeedbackTitle, isPresented: Binding(
             get: { restoreMessage != nil },
             set: { if !$0 { restoreMessage = nil } }

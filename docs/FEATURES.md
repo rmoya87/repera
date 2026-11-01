@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-11-01 (PT Business agenda-first + F1–F9 chat/hub; sin Stripe)
+Última actualización: 2026-11-01 (confirm cancel sheet + detalle clase)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 
@@ -327,9 +327,17 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 ## Ajustes: centros, entrenadores y contratos
 
 - **Centro y entrenador**: la conexión Business reutiliza automáticamente la sesión Supabase obtenida al iniciar sesión con Apple; no hay un segundo botón «Conectar con Apple» ni en Ajustes, ni en el buscador, ni en Center. Si se pierde el token, se intenta restaurar desde Keychain y se ofrece «Reintentar» sin volver a pedir Sign in with Apple. Se mantienen búsqueda, invitaciones, vinculación, selección de bono y desvinculación. Las secciones de Cuenta y Centro y entrenador no muestran pies explicativos redundantes.
-- **Repera Business (web, PT)**: inicio = agenda mes/día (citas, entrenos, clases de gym asignadas); nav Agenda/Clientes; ajustes vía avatar/nombre; tarifas bono/mensual/ilimitado; ficha con entreno rápido y chat. Gym conserva recepción + menú completo. Gestión coach de clases asignadas solo en web; la app refleja horarios y cancelaciones al atleta.
+- **Repera Business (web)**: shell PT/gym. **Gym Inicio** concentra el calendario (sin pestaña Agenda aparte). Header: **Invitar** suelto + campana **Notificaciones** (panel lateral con solicitudes + enviar aviso; badge si hay pendientes) + apagar. En el día: **Detalle | Editar** en la misma fila; tras apuntados, **Añadir** (inscripción manual = como desde la app). **Nueva clase:** combo **única / repetitiva**; única = fecha+hora+duración (min); repetitiva = comienza el + fin de serie (sin textos largos) + días/franjas. **Editar:** Cancelar y Borrar en la misma fila. **Ficha socio → Bonos:** Renovar/cambiar y Finalizar sin renovar en la misma fila. **Mis entrenos:** listado de plantillas sin cabecera «Biblioteca». **Ficha socio → Entrenamientos:** calendario de clases como Inicio, con Apuntar/Cancelar y **Crear entrenamiento**. **Planes:** grid 2×2, **Crear plan** a la derecha; asignados a la derecha. **Ajustes → Servicios:** antelación de inscripción. **Grupos** en Socios. **Invitaciones** WhatsApp. Waitlist al completar aforo.
+- **App Center (iOS):** carga de clases con embed desambiguado `service_occurrence_details!service_occurrence_details_occurrence_id_fkey` (evita PGRST201 por doble FK). Los fallos de carga muestran un aviso corto, sin JSON de PostgREST.
+- **Business WhatsApp:** se puede cambiar el número ya conectado; se normalizan `+34…`, `00…` y móvil ES local `6/7xxxxxxxx`. Si el formato falla, se conserva lo escrito y se muestra un aviso claro (no se revierte al número anterior en silencio).
+- **Invitar socio/cliente:** RPC `invite_athlete_client` reutiliza ficha lead del mismo centro y permite el mismo email en otro gimnasio. Si ya está vinculado a una cuenta aquí, la modal permanece abierta con aviso bajo el correo (sin volcar el error SQL `clients_org_email_uq`).
+- **Invitar con acceso:** en la modal se puede (1) solo invitar, (2) dejar N sesiones de prueba o (3) asignar un bono cobrado (forma de pago / importe). El bono se crea sobre la ficha lead y queda listo al aceptar.
+- **Enlace de invitación:** «Copiar enlace» usa `repera://invitation/{id}` (abre la app → Ajustes/aceptar centro). Preview del centro vía `get_my_invitation_preview`. Tras aceptar, Ajustes abre el centro vinculado (historial de pagos/clases).
+- **App iOS / Android:** menú Inicio · Comenzar · **+** · Progreso · Ejercicios. El tab **+** (`PlusHubView` / `PlusHubTab`) muestra **Clases** (franja de días; tarjeta con franja de color; horario → **Apuntarme** verde/texto negro → plazas; si estás inscrito **Apuntado | Cancelar** en la misma fila; **detalle**: nombre en tarjeta con color de clase, chip de estado, hora|duración en tiles, ✓/✕ glass; cancelar con `OGConfirmSheet` / `ReperaConfirmSheet` de abajo arriba; entrenador solo si hay) y **Centro** (avatar + nombre/tagline y mail/teléfono dentro de la misma ficha si el centro los publica; sin chip «Gimnasio»; **Plan**, próximas reservas, últimos pagos e historial de clases). Sin topbar «+»/actualizar. La antelación de inscripción la define el centro en Business → Ajustes → Servicios.
+- **Ficha de centro en Ajustes:** al abrir un gimnasio/entrenador vinculado solo se muestran historial de pagos, historial de clases y desvincular (sin chat/bonos/compartir en esa página).
+- **Repera Business (errores en modal):** si falla una acción de un sheet (p. ej. crear clase/cita), el aviso se muestra **dentro** del modal, no solo en la cabecera.
 - La vinculación conserva los beneficios de acceso completo mientras el vínculo sea válido y revoca ese acceso al desvincular, salvo suscripción Repera Pro.
-- Ficha del centro vinculado: avatar, bonos/sesiones, planificación, compartir resultados y desvincular.
+- Ficha del centro vinculado (Ajustes): cabecera + historial de pagos + historial de clases + desvincular. El plan activo vive en la tab **+ → Centro → Plan**.
 - **Sincronización automática** al iniciar sesión y volver al primer plano: iCloud, datos Business, espejo privado y catálogo de ejercicios.
 - Mensajes en Inicio (topbar), no en Ajustes. Avatares de org en app y en Repera Business.
 

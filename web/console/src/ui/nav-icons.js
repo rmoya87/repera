@@ -3,6 +3,7 @@ const paths={
  dashboard:'<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>',
  clients:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
  planning:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h3M8 18h3M15 14h2"/>',
+ workouts:'<path d="M6.5 6.5 4 9l3 3M17.5 6.5 20 9l-3 3"/><path d="M9 12h6"/><path d="M8 4h2l1.5 16h-2L8 4Zm6 0h2l-1.5 16h-2L14 4Z"/>',
  groups:'<circle cx="8" cy="8" r="3"/><path d="M2 21v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6M16 16a5 5 0 0 1 6 5"/>',
  agenda:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h3M8 18h6"/>',
  calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 15h3M15 15h3"/>',

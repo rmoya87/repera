@@ -80,6 +80,9 @@ test('El controlador mantiene validación y actualización sin borrar datos del 
  assert.match(source,/refreshBulkPlanPreview\(form\)/);
  assert.match(source,/preview\.textContent=valid\.message/);
  assert.match(source,/action==='refresh-enrollments'/);
+ assert.match(source,/activeTab='clients'/);
+ assert.match(source,/decision\.client_id/);
+ assert.match(source,/athleteId/);
  assert.match(source,/action==='bulk-training'/);
  assert.match(source,/action==='approve-enrollment'/);
 });
@@ -116,6 +119,7 @@ test('Las migraciones implementan inbox con RLS y publicación idempotente y aud
  const base=new URL('../../../supabase/migrations/',import.meta.url);
  const incoming=readFileSync(new URL('20261027181000_enrollments_and_operating_status.sql',base),'utf8');
  const training=readFileSync(new URL('20261027182000_athlete_activity_bulk_training.sql',base),'utf8');
+ const accept=readFileSync(new URL('20261101200000_enrollment_accept_returns_client.sql',base),'utf8');
  assert.match(incoming,/enable row level security/i);
  assert.match(incoming,/request_org_athlete_link/);
  assert.match(incoming,/business_decide_enrollment/);
@@ -124,4 +128,8 @@ test('Las migraciones implementan inbox con RLS y publicación idempotente y aud
  assert.match(training,/p_request/);
  assert.match(training,/v_skipped/);
  assert.match(training,/platform_admin_athlete_day/);
+ assert.match(accept,/returns jsonb/);
+ assert.match(accept,/client_id/);
+ assert.match(accept,/TRAINER_CLIENT_LIMIT_REACHED/);
+ assert.match(accept,/v_has_trial/);
 });

@@ -7,6 +7,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
@@ -47,7 +49,7 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
    ReperaMetaTextField(caption="Nota para el centro (opcional)",value=note,onValueChange={note=it})
    Text("El centro confirmará el bono solicitado.")
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Vincularme y continuar")}},
+  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Enviar solicitud")}},
   dismissButton={TextButton(onClick={clearSelection()}) {Text("Cancelar")}})}
 }
 @Composable
@@ -56,28 +58,40 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
  var confirm by remember {mutableStateOf(false)}
  var requestedLeave by remember {mutableStateOf(false)}
  LaunchedEffect(snapshot?.athleteCenterIds) {if(requestedLeave && snapshot!=null && org.id !in snapshot.athleteCenterIds) onClose()}
- AlertDialog(onDismissRequest=onClose,title={Text(org.name)},text={Column(Modifier.verticalScroll(rememberScrollState())) {
-  Text(org.tagline ?: org.kind)
-  Text("Bonos y sesiones")
+ AlertDialog(onDismissRequest=onClose,title={Text(org.name)},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+  Text(org.tagline ?: org.kind, style=MaterialTheme.typography.bodySmall)
+  Text("Historial de pagos", style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
   val passes=snapshot?.passes.orEmpty().filter {it.orgId==org.id}
-  if(passes.isEmpty()) ReperaEmptyState(
-    title = "Sin bonos activos",
-    subtitle = "El centro confirmará tu bono solicitado"
-  )
+  if(passes.isEmpty()) Text("Todavía no hay pagos registrados con este centro.", style=MaterialTheme.typography.bodySmall)
   passes.forEach {pass ->
-   Text(if(pass.kind=="appointment") "Sesiones personales" else if(pass.kind=="unlimited") "Acceso ilimitado" else "Clases")
-   Text("${pass.remainingCredits} de ${pass.totalCredits} disponibles")
-   pass.validUntil?.let {date ->
+   val offer=snapshot?.offerName(pass)
+   Text(offer ?: if(pass.kind=="appointment") "Plan de citas" else "Plan de clases", fontWeight=FontWeight.SemiBold)
+   val method=when {
+    pass.issuanceType=="complimentary" || pass.paymentMethod=="complimentary" -> "Cortesía"
+    pass.paymentMethod=="cash" -> "Efectivo"
+    pass.paymentMethod=="transfer" -> "Transferencia"
+    pass.paymentMethod=="card" -> "Tarjeta"
+    else -> "Plan"
+   }
+   val amount=pass.paidAmountCents?.let { String.format("%.2f €", it / 100.0) }
+   Text(listOfNotNull(method, amount).joinToString(" · "), style=MaterialTheme.typography.bodySmall)
+   (pass.paidAt ?: pass.validFrom)?.let {date ->
     val formatted=runCatching {java.time.Instant.parse(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter)}.getOrDefault(date)
-    Text("Caduca: $formatted")
+    Text(formatted, style=MaterialTheme.typography.labelSmall)
    }
   }
-  snapshot?.trainingSessions.orEmpty().filter {it.orgId==org.id}.take(12).forEach {Text("${it.title} · ${it.scheduledDate}")}
-  Row {
-   Switch(sharing,onCheckedChange=onSharing,enabled=!sharingBusy && !submitting)
-   Text("Compartir resultados")
+  Text("Historial de clases", style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
+  val past=snapshot?.bookings.orEmpty().filter {it.orgId==org.id}.take(20)
+  if(past.isEmpty()) Text("Aún no has asistido ni reservado clases con este centro.", style=MaterialTheme.typography.bodySmall)
+  past.forEach {booking ->
+   val occ=snapshot?.occurrences?.firstOrNull {it.id==booking.occurrenceId}
+   val title=occ?.title ?: "Clase"
+   val status=when(booking.status){
+    "attended"->"Asististe"; "booked"->"Reservada"; "waitlist"->"Lista de espera"
+    "cancelled"->"Cancelada"; "no_show"->"No presentado"; else -> booking.status
+   }
+   Text("$title · $status", style=MaterialTheme.typography.bodySmall)
   }
-  Text("Series, repeticiones y marcas con el equipo. Puedes desactivarlo.")
   error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
   TextButton(enabled=!submitting,onClick={confirm=true}) {Text("Desvincularme")}
  }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})

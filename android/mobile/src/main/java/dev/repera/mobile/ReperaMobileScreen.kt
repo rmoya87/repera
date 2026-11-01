@@ -194,6 +194,7 @@ fun ReperaMobileScreen(
     onLeaveCenter:(BusinessCenterStore.Organization)->Unit = {},
     onCenterBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onCenterCancel: (BusinessCenterStore.Booking) -> Unit,
+    onLoadClassRoster: suspend (String) -> BusinessCenterStore.ClassRoster? = { null },
     sharingByCenter: Map<String, Boolean>,
     sharingUpdating: Boolean,
     onSetSharing: (String, Boolean) -> Unit,
@@ -1105,6 +1106,19 @@ fun ReperaMobileScreen(
                             loadGuideProvider = loadGuideProvider
                         )
                     }
+                }
+                composable("plus") {
+                    PlusHubTab(
+                        connected = centerConnected,
+                        loading = centerLoading,
+                        submitting = centerSubmitting,
+                        errorMessage = centerError,
+                        snapshot = centerSnapshot,
+                        onRefresh = onCenterRefresh,
+                        onBook = onCenterBook,
+                        onCancel = onCenterCancel,
+                        loadRoster = onLoadClassRoster
+                    )
                 }
                 composable("en-vivo") {
                     LiveActivityScreen(accountId = accountId,

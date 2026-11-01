@@ -30,9 +30,22 @@ export class ReperaAuthAPI {
   let data=null;
   if(res.status!==204){const responseText=await res.text();if(responseText){try{data=JSON.parse(responseText);}catch{data=null;}}}
   if(!res.ok){
-   const reason=(data?.msg||data?.message||data?.error_description||data?.error||`Error HTTP ${res.status}`);
-   const err=new Error(res.status===401?'Tu sesión ha caducado':res.status===403?'No tienes permiso para esta operación':reason);
-   err.status=res.status;throw err;
+   const raw=String(data?.msg||data?.message||data?.error_description||data?.error||`Error HTTP ${res.status}`);
+   const mapped=res.status===401?'Tu sesión ha caducado'
+    :/TRIAL_EXPIRED/i.test(raw)?'La prueba del centro ha caducado. Renueva el plan en Ajustes → Plan.'
+    :/COACH_NOT_AUTHORIZED/i.test(raw)?'El entrenador elegido no es miembro activo del equipo. Elige un coach/owner de la lista (no uses cuentas de soporte).'
+    :/INVALID_SERIES/i.test(raw)?'Revisa horario (debe ser futuro), duración (máx. 12 h), repetición y aforo.'
+    :/NOT_AUTHORIZED/i.test(raw)?'No tienes permiso: solo propietario o administrador pueden crear clases.'
+    :/WHATSAPP_INVALID/i.test(raw)?'Número de WhatsApp inválido. Usa prefijo país, p. ej. +34600111222.'
+    :/CLIENT_ALREADY_LINKED/i.test(raw)?'Este correo ya está vinculado a una cuenta en tu centro.'
+    :/ALREADY_A_MEMBER/i.test(raw)?'Esta persona ya forma parte de tu centro.'
+    :/clients_org_email_uq|duplicate key.*clients_org_email/i.test(raw)?'Este correo ya tiene ficha en tu centro.'
+    :/INVALID_EMAIL/i.test(raw)?'Revisa el correo electrónico.'
+    :/INVALID_NAME/i.test(raw)?'Indica un nombre de al menos 2 caracteres.'
+    :res.status===403&&!raw? 'No tienes permiso para esta operación'
+    :raw;
+   const err=new Error(mapped);
+   err.status=res.status;err.code=raw;throw err;
   }
   return data;
  }
@@ -205,7 +218,9 @@ export class ReperaAuthAPI {
    body:{p_org:orgId,p_reason:String(reason).trim()}});
  }
  async platformAdminCurrentDelegation(){return this.#authorized('rpc/platform_admin_current_delegation',{method:'POST',body:{}});}
- async platformAdminEndDelegation(){return this.#authorized('rpc/platform_admin_end_delegation',{method:'POST',body:{}});}
+ async platformAdminEndDelegation(){
+  return this.#authorized('rpc/platform_admin_end_delegation',{method:'POST',body:{},prefer:'return=minimal'});
+ }
  async platformOverview(){
   return this.#authorized('rpc/platform_business_overview',{method:'POST',body:{}});
  }
@@ -215,15 +230,29 @@ export class ReperaAuthAPI {
   return rows?.[0]||null;
  }
  async organizations(){
-  return this.#authorized('organizations?select=id,name,slug,kind,avatar_url,tagline,is_discoverable,public_email,phone,website,address,description,timezone,created_at&order=created_at.desc');
+  return this.#authorized('organizations?select=id,name,slug,kind,avatar_url,tagline,is_discoverable,public_email,phone,website,address,description,timezone,whatsapp_e164,whatsapp_connected_at,class_booking_open_hours,created_at&order=created_at.desc');
  }
  async enrollmentRequests(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Centro inválido');
-  return this.#authorized('rpc/business_enrollment_requests',{method:'POST',body:{p_org:orgId}});
+  const raw=await this.#authorized('rpc/business_enrollment_requests',{method:'POST',body:{p_org:orgId}});
+  if(Array.isArray(raw))return raw;
+  if(typeof raw==='string'){
+   try{const parsed=JSON.parse(raw);return Array.isArray(parsed)?parsed:[];}catch{return [];}
+  }
+  return [];
  }
  async decideEnrollment(requestId,accept){
   if(!/^[0-9a-f-]{36}$/i.test(requestId||'')||typeof accept!=='boolean')throw Error('Solicitud inválida');
-  return this.#authorized('rpc/business_decide_enrollment',{method:'POST',body:{p_request:requestId,p_accept:accept}});
+  const raw=await this.#authorized('rpc/business_decide_enrollment',{method:'POST',body:{p_request:requestId,p_accept:accept}});
+  // Compat: migraciones antiguas devolvían uuid; la nueva devuelve {org_id,client_id,accepted}.
+  if(typeof raw==='string'&&/^[0-9a-f-]{36}$/i.test(raw))return {org_id:raw,client_id:null,accepted:!!accept};
+  if(raw&&typeof raw==='object')return {
+   org_id:raw.org_id||null,
+   client_id:raw.client_id||null,
+   accepted:raw.accepted===true||!!accept,
+   request_id:raw.request_id||requestId,
+  };
+  return {org_id:null,client_id:null,accepted:!!accept};
  }
  async bulkPublishCustomTraining({orgId,clientIds,start,end,weekdays,title,instructions='',prescription,requestId=globalThis.crypto?.randomUUID?.()}){
   const uid=id=>/^[0-9a-f-]{36}$/i.test(id||'');
@@ -254,18 +283,64 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   // Minimize the payload for non-manager workspaces. RLS enforces which
   // rows are visible; this endpoint also avoids loading notes/phone at all.
-  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,account_deleted_at,created_at':
-   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,account_deleted_at,created_at';
-  return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=created_at.desc');
+  const fields=basic?'id,org_id,user_id,name,email,avatar_url,status,account_deleted_at,created_at,updated_at':
+   'id,org_id,user_id,name,email,phone,notes,avatar_url,status,account_deleted_at,created_at,updated_at';
+  return this.#authorized('clients?select='+fields+'&org_id=eq.'+encodeURIComponent(orgId)+'&order=updated_at.desc');
  }
  async clientAvatars(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('rpc/business_client_avatars',{method:'POST',body:{p_org:orgId}});
  }
- async addClient({orgId,name,email,userId}){
+ async addClient({orgId,name,email,userId,phone=''}){
   name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
+  const phoneVal=String(phone||'').trim().slice(0,40);
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Revisa los datos del cliente');
-  return this.#authorized('clients?select=id,name,email,status',{method:'POST',prefer:'return=representation',body:{org_id:orgId,name,email,status:'lead',created_by:userId}});
+  const rows=await this.#authorized('clients?select=id,name,email,phone,status',{method:'POST',prefer:'return=representation',
+   body:{org_id:orgId,name,email,status:'lead',created_by:userId}});
+  const created=Array.isArray(rows)?rows[0]:rows;
+  if(created?.id&&phoneVal){
+   try{
+    await this.updateClientProfile({orgId,id:created.id,name,email,phone:phoneVal,status:created.status||'lead'});
+    created.phone=phoneVal;
+   }catch{/* phone opcional; la ficha ya existe */}
+  }
+  return rows;
+ }
+ /** Crea o reutiliza ficha lead + invitación athlete; opcional prueba o bono cobrado. */
+ async inviteAthleteClient({
+  orgId,name,email,phone='',
+  passMode='none',trialCredits=null,trialKind=null,trialDays=30,
+  offerId=null,paymentMethod='cash',paidAmountCents=null,paymentNote='',passRequest=null,
+ }={}){
+  name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
+  const phoneVal=String(phone||'').trim().slice(0,40);
+  const mode=String(passMode||'none');
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+   throw Error('Revisa los datos del cliente');
+  if(!['none','trial','paid'].includes(mode))throw Error('Elige cómo configurar el acceso');
+  const body={
+   p_org:orgId,p_name:name,p_email:email,p_phone:phoneVal||null,
+   p_pass_mode:mode,
+  };
+  if(mode==='trial'){
+   const credits=Number(trialCredits);
+   if(!Number.isInteger(credits)||credits<1||credits>100)throw Error('Indica de 1 a 100 sesiones de prueba');
+   body.p_trial_credits=credits;
+   body.p_trial_kind=['class','appointment'].includes(trialKind)?trialKind:null;
+   body.p_trial_days=Math.max(1,Math.min(365,Number(trialDays)||30));
+  }
+  if(mode==='paid'){
+   if(!/^[0-9a-f-]{36}$/i.test(offerId||''))throw Error('Elige un bono o tarifa');
+   if(!['card','transfer','cash','other'].includes(paymentMethod))throw Error('Forma de pago no válida');
+   body.p_offer_id=offerId;
+   body.p_payment_method=paymentMethod;
+   body.p_pass_request=passRequest||(globalThis.crypto?.randomUUID?.()||null);
+   if(!body.p_pass_request)throw Error('No se pudo preparar la asignación del bono');
+   if(paidAmountCents!=null&&Number.isFinite(Number(paidAmountCents)))
+    body.p_paid_amount_cents=Math.round(Number(paidAmountCents));
+   if(paymentNote)body.p_payment_note=String(paymentNote).slice(0,400);
+  }
+  return this.#authorized('rpc/invite_athlete_client',{method:'POST',body});
  }
  async invitations(){
   return this.#authorized('organization_invitations?select=id,organization_id,email,invited_role,expires_at,accepted_at,cancelled_at,created_at&order=created_at.desc');
@@ -289,11 +364,15 @@ export class ReperaAuthAPI {
   try{
    const result=await this.#request('/functions/v1/repera-business-invite',{
     method:'POST',token,body:{invitationId}});
-   return {sent:result?.sent===true};
+   if(result?.sent===true)return {sent:true,reason:''};
+   return {sent:false,reason:result?.error||'El servidor no confirmó el envío'};
   }catch(e){
-   if(e.status===503)return {sent:false,reason:'Proveedor de correo transaccional sin configurar'};
-   if(e.status===502)return {sent:false,reason:'El proveedor de correo no ha confirmado la entrega'};
-   throw e;
+   if(e.status===503)return {sent:false,reason:'Proveedor de correo (Resend) sin configurar en el servidor'};
+   if(e.status===502)return {sent:false,reason:'Resend no ha confirmado la entrega'};
+   if(e.status===401)return {sent:false,reason:'Sesión no válida para enviar el correo'};
+   if(e.status===403)return {sent:false,reason:'Sin permiso para enviar esta invitación'};
+   if(e.status===400)return {sent:false,reason:e.message||'Invitación no disponible'};
+   return {sent:false,reason:e.message||'Envío no confirmado'};
   }
  }
  async issueInvitation({orgId,email,role}){
@@ -340,26 +419,80 @@ export class ReperaAuthAPI {
  }
  async serviceOccurrences(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('service_occurrences?select=id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id&org_id=eq.'+orgId+'&order=starts_at.asc&limit=100');
+  return this.#authorized('service_occurrences?select=id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id&org_id=eq.'+orgId+'&status=neq.deleted&order=starts_at.asc&limit=500');
  }
  async servicePasses(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('service_passes?select=id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type&org_id=eq.'+orgId+'&order=created_at.desc');
+  const base='service_passes?select=id,org_id,client_id,offer_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type,created_at';
+  const pay=',payment_method,paid_at,paid_amount_cents,payment_note';
+  const slot=',billing_model,access_scope,slot_weekdays,slot_start_minute,slot_end_minute';
+  const tail='&org_id=eq.'+orgId+'&order=created_at.desc';
+  try{
+   return await this.#authorized(base+pay+slot+tail);
+  }catch(e){
+   const msg=String(e.message||e);
+   if(/billing_model|access_scope|slot_|column/i.test(msg)){
+    try{return await this.#authorized(base+pay+tail);}
+    catch(e2){
+     if(/payment_method|paid_at|paid_amount|column/i.test(String(e2.message||e2)))
+      return this.#authorized(base+tail);
+     throw e2;
+    }
+   }
+   if(/payment_method|paid_at|paid_amount|column/i.test(msg))
+    return this.#authorized(base+tail);
+   throw e;
+  }
+ }
+ async servicePassManagementEvents(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  return this.#authorized('service_pass_management_events?select=id,org_id,pass_id,action,previous_remaining,new_remaining,previous_expiry,new_expiry,created_at&org_id=eq.'+orgId+'&order=created_at.desc&limit=200');
  }
  async servicePassOffers(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
-  return this.#authorized('business_pass_offers?select=id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active&org_id=eq.'+orgId+'&order=created_at.desc');
+  const cols='id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active,billing_model,access_scope,slot_weekdays,slot_start_minute,slot_end_minute';
+  try{
+   return await this.#authorized('business_pass_offers?select='+cols+'&org_id=eq.'+orgId+'&order=created_at.desc');
+  }catch(e){
+   if(/billing_model|access_scope|slot_|column/i.test(String(e.message||e)))
+    return this.#authorized('business_pass_offers?select=id,org_id,name,kind,credits,validity_days,price_cents,currency,is_active&org_id=eq.'+orgId+'&order=created_at.desc');
+   throw e;
+  }
  }
- async createServicePassOffer({orgId,name,kind,credits,validityDays,priceCents,billingModel='session_pack'}){
+ async createServicePassOffer({orgId,name,kind,credits,validityDays,priceCents,billingModel='session_pack',
+  accessScope='trainer_appointments',slotWeekdays=[1,2,3,4,5],slotStartMinute=540,slotEndMinute=720}){
   name=String(name||'').trim();
-  const billing=['session_pack','monthly','unlimited'].includes(billingModel)?billingModel:'session_pack';
+  const billing=['session_pack','monthly','unlimited','time_slot'].includes(billingModel)?billingModel:'session_pack';
+  const scope=accessScope==='gym_access'?'gym_access':'trainer_appointments';
+  const days=[...new Set((slotWeekdays||[]).map(Number).filter(n=>n>=1&&n<=7))];
   if(!/^[0-9a-f-]{36}$/i.test(orgId||'')||name.length<2||name.length>120||
      !['class','appointment'].includes(kind)||!Number.isInteger(credits)||credits<1||credits>9999||
      !Number.isInteger(validityDays)||validityDays<1||validityDays>730||
      !Number.isInteger(priceCents)||priceCents<0||priceCents>10000000)
     throw Error('Datos de bono o tarifa inválidos');
-  return this.#authorized('business_pass_offers?select=id,name',{method:'POST',prefer:'return=representation',
-   body:{org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,currency:'EUR',is_active:true,billing_model:billing}});
+  if(billing==='time_slot'){
+   if(!days.length||!Number.isInteger(slotStartMinute)||!Number.isInteger(slotEndMinute)
+      ||slotStartMinute<0||slotEndMinute>1440||slotEndMinute<=slotStartMinute)
+    throw Error('Franja horaria no válida');
+  }
+  // RPC evita fallos de schema cache de PostgREST al INSERT con columnas nuevas.
+  try{
+   const id=await this.#authorized('rpc/business_create_pass_offer',{method:'POST',body:{
+    p_org:orgId,p_name:name,p_kind:kind,p_credits:credits,p_validity_days:validityDays,
+    p_price_cents:priceCents,p_billing_model:billing,p_access_scope:scope,
+    p_slot_weekdays:billing==='time_slot'?days:[1,2,3,4,5],
+    p_slot_start_minute:billing==='time_slot'?slotStartMinute:540,
+    p_slot_end_minute:billing==='time_slot'?slotEndMinute:720,
+   }});
+   return [{id}];
+  }catch(e){
+   const msg=String(e.message||e);
+   if(!/Could not find the function|PGRST202|schema cache/i.test(msg))throw e;
+   // Fallback legacy REST sin columnas nuevas (solo session_pack básico).
+   return this.#authorized('business_pass_offers?select=id,name',{method:'POST',prefer:'return=representation',body:{
+    org_id:orgId,name,kind,credits,validity_days:validityDays,price_cents:priceCents,
+    currency:'EUR',is_active:true}});
+  }
  }
  async listCoachAssignments(){
   return this.#authorized('rpc/list_my_coach_assignments',{method:'POST',body:{}});
@@ -379,11 +512,30 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||''))throw Error('Clase inválida');
   return this.#authorized('rpc/coach_cancel_occurrence',{method:'POST',body:{p_occurrence:occurrenceId}});
  }
- async issueOfflinePass({orgId,clientId,offerId,requestId=globalThis.crypto?.randomUUID?.()}){
+ async issueOfflinePass({orgId,clientId,offerId,requestId=globalThis.crypto?.randomUUID?.(),
+  paymentMethod='other',paidAt=null,paidAmountCents=null,paymentNote=''}){
   if(![orgId,clientId,offerId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))
    throw Error('Cliente, bono o solicitud no válidos');
-  return this.#authorized('rpc/business_issue_offline_pass',{method:'POST',body:{
-   p_org:orgId,p_client:clientId,p_offer:offerId,p_request:requestId}});
+  if(!['card','transfer','cash','other','complimentary'].includes(paymentMethod))
+   throw Error('Forma de pago no válida');
+  const body={
+   p_org:orgId,p_client:clientId,p_offer:offerId,p_request:requestId,
+   p_payment_method:paymentMethod,
+  };
+  if(paidAt)body.p_paid_at=new Date(paidAt).toISOString();
+  if(paidAmountCents!=null&&Number.isFinite(Number(paidAmountCents)))
+   body.p_paid_amount_cents=Math.round(Number(paidAmountCents));
+  if(paymentNote)body.p_payment_note=String(paymentNote).slice(0,400);
+  try{
+   return await this.#authorized('rpc/business_issue_offline_pass',{method:'POST',body});
+  }catch(e){
+   // Compat: RPC antiguo de 4 args si aún no está la migración de cobro.
+   if(/Could not find the function|PGRST202|payment_method/i.test(String(e.message||e))){
+    return this.#authorized('rpc/business_issue_offline_pass',{method:'POST',body:{
+     p_org:orgId,p_client:clientId,p_offer:offerId,p_request:requestId}});
+   }
+   throw e;
+  }
  }
  async recordTrainerAttendance({orgId,clientId,passId,occurrenceId=null,note='',requestId=globalThis.crypto?.randomUUID?.()}){
   if(![orgId,clientId,passId,requestId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||
@@ -404,9 +556,43 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
   return this.#authorized('business_trainer_attendance?select=id,org_id,client_id,pass_id,booking_id,occurrence_id,performed_at,note&org_id=eq.'+orgId+'&order=performed_at.desc&limit=200');
  }
+ async updateOrgBookingWindow({orgId,hours}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
+  const h=Number(hours);
+  if(!Number.isInteger(h)||h<1||h>8760)throw Error('Antelación no válida');
+  return this.#authorized('rpc/update_org_booking_window',{method:'POST',body:{p_org:orgId,p_hours:h}});
+ }
  async changeServicePassOffer({id,isActive}){
   if(!/^[0-9a-f-]{36}$/i.test(id||'')||typeof isActive!=='boolean')throw Error('Oferta inválida');
   return this.#authorized('business_pass_offers?id=eq.'+id,{method:'PATCH',prefer:'return=representation',body:{is_active:isActive}});
+ }
+ async updateServicePassOffer({
+  id,name,kind,credits,validityDays,priceCents,isActive,
+  billingModel='session_pack',accessScope='trainer_appointments',
+  slotWeekdays=[1,2,3,4,5],slotStartMinute=540,slotEndMinute=720,
+ }){
+  if(!/^[0-9a-f-]{36}$/i.test(id||''))throw Error('Plan inválido');
+  name=String(name||'').trim();
+  const billing=['session_pack','monthly','unlimited','time_slot'].includes(billingModel)?billingModel:'session_pack';
+  const scope=accessScope==='gym_access'?'gym_access':'trainer_appointments';
+  const days=[...new Set((slotWeekdays||[]).map(Number).filter(n=>n>=1&&n<=7))];
+  if(name.length<2||name.length>120||!['class','appointment'].includes(kind)||
+     !Number.isInteger(credits)||credits<1||credits>9999||
+     !Number.isInteger(validityDays)||validityDays<1||validityDays>730||
+     !Number.isInteger(priceCents)||priceCents<0||priceCents>10000000||
+     typeof isActive!=='boolean')
+   throw Error('Datos del plan inválidos');
+  if(billing==='time_slot'&&(!days.length||slotEndMinute<=slotStartMinute))
+   throw Error('Franja horaria no válida');
+  const body={
+   name,kind,credits,validity_days:validityDays,price_cents:priceCents,is_active:isActive,
+   billing_model:billing,access_scope:scope,
+   slot_weekdays:billing==='time_slot'?days:[1,2,3,4,5],
+   slot_start_minute:billing==='time_slot'?slotStartMinute:540,
+   slot_end_minute:billing==='time_slot'?slotEndMinute:720,
+   updated_at:new Date().toISOString(),
+  };
+  return this.#authorized('business_pass_offers?id=eq.'+id,{method:'PATCH',prefer:'return=representation',body});
  }
  async serviceBookings(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
@@ -491,11 +677,23 @@ export class ReperaAuthAPI {
   return this.#authorized('professional_workout_templates?id=eq.'+encodeURIComponent(id)+'&org_id=eq.'+encodeURIComponent(orgId),
     {method:'PATCH',prefer:'return=representation',body:{name:String(name||'').trim().slice(0,120),description:String(description).slice(0,1000),prescription,updated_at:new Date().toISOString()}});
  }
+ async deleteWorkoutTemplate({id,orgId}){
+  if(![id,orgId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Plantilla inválida');
+  return this.#authorized('professional_workout_templates?id=eq.'+encodeURIComponent(id)+'&org_id=eq.'+encodeURIComponent(orgId),{method:'DELETE'});
+ }
  async updateOrganization({orgId,name,publicEmail='',phone='',website='',address='',description='',timezone='Europe/Madrid',publicValues={}}){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Datos del negocio inválidos');
   const body=publicBusinessValues({name,public_email:publicEmail,phone,website,address,description,timezone,...publicValues});
-  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,public_email,phone,website,address,description,timezone',
+  return this.#authorized('organizations?id=eq.'+encodeURIComponent(orgId)+'&select=id,name,slug,kind,public_email,phone,website,address,description,timezone,whatsapp_e164,whatsapp_connected_at',
     {method:'PATCH',prefer:'return=representation',body});
+ }
+ async connectOrgWhatsapp({orgId,e164}){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  return this.#authorized('rpc/connect_org_whatsapp',{method:'POST',body:{p_org:orgId,p_e164:String(e164||'')}});
+ }
+ async disconnectOrgWhatsapp(orgId){
+  if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
+  return this.#authorized('rpc/disconnect_org_whatsapp',{method:'POST',body:{p_org:orgId}});
  }
  async legalProfile(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
@@ -504,8 +702,21 @@ export class ReperaAuthAPI {
  }
  async upsertLegalProfile(orgId,values){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Negocio inválido');
-  return this.#authorized('organization_legal_profiles?on_conflict=org_id',{method:'POST',
-   prefer:'resolution=merge-duplicates,return=representation',body:{org_id:orgId,...legalProfileValues(values)}});
+  const v=legalProfileValues(values);
+  return this.#authorized('rpc/upsert_organization_legal_profile',{method:'POST',body:{
+   p_org:orgId,
+   p_entity_type:v.entity_type,
+   p_legal_name:v.legal_name,
+   p_tax_id:v.tax_id,
+   p_representative_name:v.representative_name,
+   p_contact_name:v.contact_name,
+   p_billing_email:v.billing_email,
+   p_billing_address:v.billing_address,
+   p_postal_code:v.postal_code,
+   p_city:v.city,
+   p_province:v.province,
+   p_country:v.country
+  }});
  }
  async businessPlans(){
   return this.#authorized('business_plans?select=plan_key,audience,title,description,monthly_price_cents,max_clients,discount_percent,discount_months,is_active,display_order&order=audience.asc,display_order.asc');
@@ -577,6 +788,7 @@ export class ReperaAuthAPI {
   return this.#authorized('rpc/manage_service_occurrence',{method:'POST',body:{p_id:id,p_title:title,p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString(),p_capacity:Number(capacity),p_description:description,p_location:location,p_color:color,p_image:image||null}});
  }
  async cancelManagedOccurrence(id){return this.#authorized('rpc/cancel_managed_occurrence',{method:'POST',body:{p_id:id}});}
+ async deleteManagedOccurrence(id){return this.#authorized('rpc/delete_managed_occurrence',{method:'POST',body:{p_id:id}});}
  async enrollManagedClient({occurrenceId,clientId,passId,requestId=globalThis.crypto?.randomUUID?.()}){
   return this.#authorized('rpc/enroll_managed_client',{method:'POST',body:{p_occ:occurrenceId,p_client:clientId,p_pass:passId,p_request:requestId}});
  }
@@ -586,8 +798,17 @@ export class ReperaAuthAPI {
  }
  async listThread({orgId,clientId,before=null,limit=50}){
   if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Hilo inválido');
-  return this.#authorized('rpc/business_list_thread',{method:'POST',body:{
-   p_org:orgId,p_client:clientId,p_before:before,p_limit:limit}});
+  // No enviar p_before=null: PostgREST puede no casar la firma con defaults.
+  const body={p_org:orgId,p_client:clientId,p_limit:Math.min(Math.max(Number(limit)||50,1),100)};
+  if(before)body.p_before=before;
+  try{
+   return await this.#authorized('rpc/business_list_thread',{method:'POST',body});
+  }catch(e){
+   const msg=String(e.message||e);
+   if(/schema cache|Could not find the function.*business_list_thread/i.test(msg))
+    throw Error('El chat aún no está activo en este centro. Aplica la migración de mensajes o recarga el schema de PostgREST.');
+   throw e;
+  }
  }
  async sendChatMessage({orgId,clientId,body}){
   if(![orgId,clientId].every(id=>/^[0-9a-f-]{36}$/i.test(id||''))||String(body||'').trim().length<1)
@@ -630,13 +851,39 @@ export class ReperaAuthAPI {
  async changeCourtesyCredits(id,action,amount=0,until=null){
   return this.#authorized('rpc/manage_complimentary_pass',{method:'POST',body:{p_pass:id,p_action:action,p_amount:amount||null,p_until:until?new Date(until).toISOString():null}});
  }
+ async finalizeServicePass(passId){
+  if(!/^[0-9a-f-]{36}$/i.test(passId||''))throw Error('Bono inválido');
+  return this.#authorized('rpc/finalize_service_pass',{method:'POST',body:{p_pass:passId}});
+ }
+ async manageOrgMember({orgId,userId,action,role=null}){
+  if(![orgId,userId].every(id=>/^[0-9a-f-]{36}$/i.test(id||'')))throw Error('Miembro inválido');
+  if(!['set_role','revoke'].includes(action))throw Error('Acción no válida');
+  const body={p_org:orgId,p_user:userId,p_action:action};
+  if(action==='set_role')body.p_role=role;
+  return this.#authorized('rpc/manage_org_member',{method:'POST',body});
+ }
+ async deleteBusinessGroup(groupId){
+  if(!/^[0-9a-f-]{36}$/i.test(groupId||''))throw Error('Grupo inválido');
+  return this.#authorized('rpc/delete_business_group',{method:'POST',body:{p_group:groupId}});
+ }
  async publishClassTraining({occurrenceId,title,instructions='',prescription}){
   if(!/^[0-9a-f-]{36}$/i.test(occurrenceId||''))throw Error('Clase inválida');
   return this.#authorized('rpc/publish_class_training',{method:'POST',body:{p_occurrence:occurrenceId,p_title:title,p_instructions:instructions,p_prescription:prescription}});
  }
 
- async addClassSeries({orgId,coachId,kind,title,start,end,capacity,repeat='none',count=1}){
-  return this.#authorized('rpc/create_service_series',{method:'POST',body:{p_org:orgId,p_coach:coachId,p_kind:kind,p_title:title,p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString(),p_capacity:Number(capacity),p_repeat:repeat,p_count:Number(count)}});
+ async addClassSeries({orgId,coachId=null,kind,title,start,end,capacity,repeat='none',count=1,
+  color='#22834d',intervalDays=null,location='',description=''}){
+  const coach=/^[0-9a-f-]{36}$/i.test(coachId||'')?coachId:null;
+  const body={
+   p_org:orgId,p_coach:coach,p_kind:kind,p_title:title,
+   p_start:new Date(start).toISOString(),p_end:new Date(end).toISOString(),
+   p_capacity:Number(capacity),p_repeat:repeat,p_count:Number(count),
+   p_color:color||'#22834d',
+  };
+  if(intervalDays!=null&&Number(intervalDays)>0)body.p_interval_days=Number(intervalDays);
+  if(location)body.p_location=String(location).slice(0,250);
+  if(description)body.p_description=String(description).slice(0,2000);
+  return this.#authorized('rpc/create_service_series',{method:'POST',body});
  }
 
 }

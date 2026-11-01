@@ -1,9 +1,11 @@
-import {renderSharedAthleteSessions,renderAthleteActivity} from './athlete-activity.js';
-import {renderAthleteInsights,renderAthleteGuidanceLine} from './athlete-insights.js';
+import {renderSharedAthleteSessions} from './athlete-activity.js';
+import {renderAthleteInsights,renderAthleteGuidanceCircle} from './athlete-insights.js';
 import {editorMarkup,emptyPrescription,visualPrescription} from './workout-editor.js';
-import {renderAssignOfflinePassForm,passProvenanceLabel} from './gym-pass-panel.js';
-import {renderClientChatThread,renderBroadcastPanel} from './business-chat.js';
-import {renderTrainerAgenda,collectDayEvents,todayISO} from './trainer-agenda.js';
+import {passProvenanceLabel} from './gym-pass-panel.js';
+import {renderClientPassesPanel} from './client-passes.js';
+import {renderClientChatThread} from './business-chat.js';
+import {renderTrainerAgenda,todayISO} from './trainer-agenda.js';
+import {pendingAthleteInvite,renderInvitationShareCard} from './invitation-share.js';
 // Vistas 360 de Repera Business: nunca inventan estadísticas del atleta sin consentimiento.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateTime=x=>x?new Date(x).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}):'Sin fecha';
@@ -18,85 +20,78 @@ const note=t=>`<p class="connected-hint">${esc(t)}</p>`;
 const show=(html)=>`<section class="connected-card business-360">${html}</section>`;
 const statusBadge=(label,tone='neutral')=>`<span class="business-status-badge tone-${tone}"><span class="business-status-dot" aria-hidden="true"></span>${esc(label)}</span>`;
 const bookingStatusLabel={booked:['Reservado','info'],attended:['Asistió','ok'],no_show:['No presentado','warn'],cancelled:['Cancelado','muted']};
-
-function enrollmentInbox(manager,waiting){
- if(!manager)return show('<h2>Quieren entrenar contigo</h2>'+note('No tienes permiso para gestionar solicitudes.'));
- return show(`<div class="business-panel-head">
- <div><h2>Solicitudes</h2>
- <p>Piden entrenar contigo desde la app. Aceptar vincula; no da bono ni Pro.</p></div>
- <div class="business-inbox-tools"><span class="business-inbox-count">${waiting.length}</span>
- <button type="button" data-action="refresh-enrollments" class="connected-secondary" aria-label="Actualizar">Actualizar</button></div></div>
- ${waiting.length?`<div class="business-inbox-list">${waiting.map(r=>`
- <article class="business-enrollment-row">
- <div class="business-enrollment-avatar">${/^https:\/\//.test(r.avatar_url||'')?`<img src="${esc(r.avatar_url)}" alt="" loading="lazy">`:esc(initials(r.name))}</div>
- <div class="business-enrollment-text"><strong>${esc(r.name||'Atleta')}</strong><small>${esc(r.email||'—')} · ${r.pass_kind==='appointment'?'Entrenamiento personal':'Clases'}</small>
- ${r.note?`<p>${esc(r.note)}</p>`:''}</div>
- <div class="business-enrollment-actions">
-  <button type="button" class="connected-primary" data-action="approve-enrollment" data-id="${esc(r.id)}">Aceptar</button>
-  <button type="button" class="connected-secondary" data-action="reject-enrollment" data-id="${esc(r.id)}">Rechazar</button>
- </div></article>`).join('')}</div>`:
- '<div class="business-inbox-empty">No hay solicitudes. Cuando alguien pida vincularse desde la app, aparecerá aquí.</div>'}`);
+const CLASS_COLORS=[
+ ['#22834d','Verde'],['#1d6fb8','Azul'],['#c45c12','Naranja'],
+ ['#8b3a9e','Morado'],['#b91c1c','Rojo'],['#0f766e','Turquesa'],
+ ['#ca8a04','Ámbar'],['#db2777','Rosa'],['#4f46e5','Índigo'],
+ ['#0891b2','Cian'],['#65a30d','Lima'],['#78716c','Piedra'],
+];
+const colorSwatches=(selected='#22834d')=>`<fieldset class="pt-color-swatches"><legend>Color</legend>${CLASS_COLORS.map(([hex,label])=>`<label class="pt-color-swatch" title="${esc(label)}"><input type="radio" name="color" value="${esc(hex)}" ${String(selected||'#22834d').toLowerCase()===hex.toLowerCase()?'checked':''} required><span style="--swatch:${esc(hex)}"></span></label>`).join('')}</fieldset>`;
+const WEEK_DAYS=[['1','L'],['2','M'],['3','X'],['4','J'],['5','V'],['6','S'],['7','D']];
+/** Franjas según duración (minutos). Clave: `dow-HHMM` (p. ej. 1-0900). */
+function weekSlotMinutes(durationMin=60){
+ const step=Math.min(180,Math.max(15,Number(durationMin)||60));
+ const start=6*60,end=22*60;
+ const mins=[];
+ for(let m=start;m+step<=end;m+=step)mins.push(m);
+ return mins;
+}
+function formatSlotLabel(totalMin){
+ const h=Math.floor(totalMin/60),m=totalMin%60;
+ return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function weekSlotKey(dow,totalMin){
+ const h=Math.floor(totalMin/60),m=totalMin%60;
+ return `${dow}-${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}`;
+}
+export function weekSlotGrid(selected=new Set(),{durationMin=60,color='#22834d'}={}){
+ const mins=weekSlotMinutes(durationMin);
+ const accent=/^#[0-9a-fA-F]{6}$/.test(color||'')?color:'#22834d';
+ const head=WEEK_DAYS.map(([,label])=>`<span>${label}</span>`).join('');
+ const rows=mins.map(totalMin=>{
+  const label=formatSlotLabel(totalMin);
+  const cells=WEEK_DAYS.map(([dow])=>{
+   const key=weekSlotKey(dow,totalMin);
+   const on=selected.has(key)||selected.has(`${dow}-${String(Math.floor(totalMin/60)).padStart(2,'0')}`);
+   return `<label class="pt-week-slot ${on?'is-on':''}" title="${esc(label)}" style="--slot-color:${esc(accent)}"><input type="checkbox" name="slot" value="${esc(key)}" ${on?'checked':''}><span>${esc(label.slice(0,5))}</span></label>`;
+  }).join('');
+  return `<div class="pt-week-row"><span class="pt-week-hour">${esc(label)}</span><div class="pt-week-cells">${cells}</div></div>`;
+ }).join('');
+ return `<div class="pt-week-grid" data-week-slots data-duration="${esc(durationMin)}" style="--slot-color:${esc(accent)}">
+  <div class="pt-week-head"><span></span>${head}</div>
+  ${rows}
+ </div>`;
+}
+export function parseWeekSlotKey(key){
+ const m=String(key||'').match(/^([1-7])-(\d{2})(\d{2})?$/);
+ if(!m)return null;
+ return {isoDow:Number(m[1]),hour:Number(m[2]),minute:Number(m[3]||'0')};
 }
 
-function renderTrainerOverview({inbox,clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',gymAssignments=[]}){
+function renderTrainerOverview({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',gymAssignments=[],requestCount=0}){
  return renderTrainerAgenda({
   clients,occurrences,bookings,sessions,gymAssignments,calendarMonth,agendaView,agendaDay,manager,
-  inboxHtml:compactEnrollmentInbox(inbox),
+  mode:'home',requestCount,
  });
 }
-function compactEnrollmentInbox(inboxHtml){
- // El inbox ya es HTML de enrollmentInbox; lo envolvemos más denso bajo la agenda.
- if(!inboxHtml||!String(inboxHtml).includes('Solicitudes'))return inboxHtml||'';
- return `<div class="pt-inbox-wrap">${inboxHtml}</div>`;
+
+function pendingEnrollmentRequests(requests=[]){
+ const list=Array.isArray(requests)?requests:[];
+ return list.filter(r=>!r.status||r.status==='pending');
+}
+function renderGymHome({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView='month',agendaDay='',coaches=[],requestCount=0,details=[],roomFilter='',expandedOccurrenceId=''}){
+ return renderTrainerAgenda({
+  clients,occurrences,bookings,sessions,gymAssignments:[],calendarMonth,agendaView,agendaDay,manager,
+  mode:'home',requestCount,coaches,variant:'gym',details,roomFilter,expandedOccurrenceId,
+ });
 }
 
-function renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes=[]}){
- const today=new Date().toLocaleDateString('sv-SE');
- const todayClasses=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at).toLocaleDateString('sv-SE')===today)
-  .sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
- const waiting=requests.filter(r=>r.status==='pending');
- const openBookings=bookings.filter(b=>b.status==='booked');
- const soon=occurrences.filter(o=>o.status==='active'&&new Date(o.starts_at)>new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,6);
- const ops=`<section class="business-reception" aria-label="Recepción">
-  <div class="business-panel-head"><div><span class="connected-eyebrow">Operaciones de hoy</span><h2>Recepción</h2>
-  <p>Busca un socio y registra asistencia o asigna bono sin salir del contexto.</p></div>
-  ${manager?primary('Invitar socio','go-invite-client'):''}</div>
-  <label class="connected-field business-reception-search">Buscar socio
-   <input type="search" data-reception-filter placeholder="Nombre o correo" autocomplete="off" aria-controls="reception-results">
-  </label>
-  <div id="reception-results" class="business-reception-results" role="list">
-   ${clients.filter(c=>!c.account_deleted_at).slice(0,12).map(c=>{
-    const pass=passes.filter(p=>p.client_id===c.id&&p.status==='active').sort((a,b)=>b.remaining_credits-a.remaining_credits)[0];
-    const dayBooking=openBookings.find(b=>b.client_id===c.id&&occurrences.some(o=>o.id===b.occurrence_id&&new Date(o.starts_at).toLocaleDateString('sv-SE')===today));
-    return `<article class="business-reception-row" role="listitem" data-reception-name="${esc((c.name+' '+(c.email||'')).toLowerCase())}">
-     <div class="business-client-person"><span class="business-avatar">${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}</span>
-     <div><strong>${esc(c.name)}</strong><small>${esc(c.email||'—')} · ${pass?`${pass.remaining_credits} créditos`:'Sin bono activo'}${dayBooking?' · Reserva hoy':''}</small></div></div>
-     <div class="business-reception-actions">
-      ${manager&&dayBooking?button('Registrar asistencia','mark-booking-attended',dayBooking.id):''}
-      ${manager?button('Asignar bono','detail-client-passes',c.id):''}
-      ${button('Ver ficha','detail-client',c.id)}
-     </div></article>`;
-   }).join('')||'<p class="business-empty">Todavía no hay socios. Invita al primero.</p>'}
-  </div>
- </section>`;
- const todayPanel=show(`<div class="business-panel-head"><div><h2>Clases de hoy</h2><p>Aforo ocupado / capacidad. Abre el detalle para asistencia.</p></div>${button('Agenda completa','open-class-calendar')}</div>
-  <div class="business-cards">${todayClasses.length?todayClasses.map(o=>{
-   const n=bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length;
-   return `<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}">
-    <span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong>
-    <small>${o.kind==='appointment'?'Cita':'Clase'} · ${n}/${o.capacity} plazas ${n>=o.capacity?statusBadge('Completa','warn'):statusBadge('Plazas','ok')}</small>
-    <span class="business-tile-arrow">Gestionar →</span></button>`;
-  }).join(''):'<p class="business-empty">No hay clases hoy. '+ (manager?'Crea una en Agenda y clases.':'') +'</p>'}</div>`);
- return `${ops}${todayPanel}${enrollmentInbox(manager,waiting)}${show(`<div class="business-panel-head"><div><h2>Próximas clases</h2></div></div>
-  <div class="business-cards">${soon.length?soon.map(o=>`<button type="button" class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length}/${o.capacity} plazas</small></button>`).join(''):'<p class="business-empty">Sin próximas clases programadas.</p>'}</div>`)}`;
-}
-
-export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],groups=[],busy=false,escapeHTML=esc,agendaView='month',agendaDay='',gymAssignments=[]}){
- const waiting=requests.filter(r=>r.status==='pending');
- const inbox=enrollmentInbox(manager,waiting);
- const broadcast=manager?renderBroadcastPanel({clients,occurrences,groups,manager,busy}):'';
- if(org?.kind==='personal_trainer')return renderTrainerOverview({inbox,clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView,agendaDay,gymAssignments})+broadcast;
- return renderGymReceptionHome({clients,occurrences,bookings,requests,manager,passes})+broadcast;
+export function renderBusinessHome({org,clients=[],occurrences=[],bookings=[],sessions=[],templates=[],requests=[],manager=false,calendarMonth='',passes=[],groups=[],busy=false,escapeHTML=esc,agendaView='month',agendaDay='',gymAssignments=[],coaches=[],details=[],roomFilter='',expandedOccurrenceId=''}){
+ const waiting=pendingEnrollmentRequests(requests);
+ if(org?.kind==='personal_trainer'){
+  return renderTrainerOverview({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView,agendaDay,gymAssignments,requestCount:waiting.length});
+ }
+ return renderGymHome({clients,occurrences,bookings,sessions,calendarMonth,manager,agendaView,agendaDay,coaches,requestCount:waiting.length,details,roomFilter,expandedOccurrenceId});
 }
 const localDay=x=>{
  if(!x)return '';
@@ -107,16 +102,7 @@ function athleteLoggedRows(rows){
   exercises:Array.isArray(r.result?.exercises)?r.result.exercises:[],
   wod_results:Array.isArray(r.result?.wodResults)?r.result.wodResults:[]}));
 }
-function trainerDays({sharedHistory,sessions,attendance}){
- const counts=new Map();
- const push=d=>{if(d)counts.set(d,(counts.get(d)||0)+1);};
- sharedHistory.forEach(r=>push(localDay(r.started_at||r.finished_at)));
- sessions.forEach(s=>push(s.scheduled_date));
- attendance.forEach(a=>push(localDay(a.performed_at)));
- return [...counts.entries()].map(([day,count])=>({day,count}));
-}
-
-export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],chatMessages=[],sharedHistory=[],attendance=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training',clientQuery='',gymAssignments=[]}){
+export function renderClient360({clients=[],selected=null,passes=[],offers=[],bookings=[],occurrences=[],sessions=[],notices=[],chatMessages=[],sharedHistory=[],attendance=[],passEvents=[],trainerActivityMonth='',trainerActivityDay='',manager=false,role='',trainer=false,busy=false,escapeHTML=esc,clientSection='training',clientQuery='',gymAssignments=[],agendaView='month',agendaDay='',calendarMonth='',invitations=[],orgId='',inviteShare=null,org=null,groups=[],groupMembers=[],details=[],coaches=[]}){
  if(!selected){
   const q=String(clientQuery||'').trim().toLowerCase();
   const filtered=clients.filter(c=>{
@@ -124,25 +110,35 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
    const hay=((c.name||'')+' '+(c.email||'')).toLowerCase();
    return hay.includes(q);
   });
+  const peopleLabel=trainer?'Clientes':'Socios';
+  const groupsBlock=`<div class="business-detail-panel pt-groups-panel"><div class="business-panel-head"><div>
+  <h3>Grupos para avisos</h3>
+  <p class="connected-hint">Listas de ${trainer?'clientes':'socios'} para mensajes (nivel/programa). No son clases del calendario.</p></div>
+  ${manager?button('+ Grupo','open-new-group-modal'):''}</div>
+  ${groups.map(g=>{
+   const n=groupMembers.filter(x=>x.group_id===g.id).length;
+   return `<button type="button" class="business-group-row" data-action="detail-group" data-id="${esc(g.id)}"><strong>${esc(g.name)}</strong><small>${esc(g.description||`${n} miembro${n===1?'':'s'}`)}</small><span>Gestionar →</span></button>`;
+  }).join('')||note(manager?'Crea un grupo solo si quieres avisar a un subconjunto.':'Sin grupos.')}
+  </div>`;
   return show(`<div class="business-panel-head pt-clients-head"><div>
- <h2>Clientes</h2></div>
- ${manager?primary('Invitar cliente','open-invite-modal'):''}</div>
+ <h2>${peopleLabel}</h2></div>
+ ${manager?primary(trainer?'Invitar cliente':'Invitar socio','open-invite-modal'):''}</div>
  <label class="connected-field pt-client-search">Buscar
   <input type="search" data-client-filter value="${esc(clientQuery||'')}" placeholder="Nombre o correo" autocomplete="off">
  </label>
  <div class="business-client-table-wrap"><table class="business-client-table"><thead><tr>
- <th>Cliente</th><th>Correo</th><th>Vinculación</th><th>Bono</th><th>Estado</th></tr></thead><tbody>
+ <th>${trainer?'Cliente':'Socio'}</th><th>Correo</th><th>Vinculación</th><th>Bono</th><th></th></tr></thead><tbody>
  ${filtered.map(c=>{
   const p=passes.filter(x=>x.client_id===c.id&&x.status==='active').sort((a,b)=>b.remaining_credits-a.remaining_credits)[0];
   return `<tr role="link" tabindex="0" data-action="detail-client" data-id="${esc(c.id)}">
  <td><div class="business-client-person"><span class="business-avatar">${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?
  `<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}</span>
  <strong>${esc(c.name)}</strong></div></td><td>${esc(c.email||'—')}</td>
- <td>${c.account_deleted_at?'Histórico':c.user_id?'Vinculado':'Pendiente'}</td>
+ <td>${c.account_deleted_at?'Histórico':c.user_id?'Vinculado':statusBadge('Pendiente','info')}</td>
  <td>${p?(p.remaining_credits>=9000?'Ilimitado':`${p.remaining_credits}/${p.total_credits}`):'—'}</td>
- <td>${c.account_deleted_at?'Solo lectura':statusBadge(c.status,c.status==='active'?'ok':c.status==='cancelled'?'muted':'info')}</td></tr>`;}).join('')||
- '<tr><td colspan="5"><p class="business-empty">Todavía no hay clientes. Invita al primero.</p></td></tr>'}
- </tbody></table></div>`);
+ <td>${manager&&!c.user_id&&!c.account_deleted_at?`<button type="button" class="connected-secondary" data-action="invite-client" data-id="${esc(c.id)}" onclick="event.stopPropagation()">Invitar</button>`:''}</td></tr>`;}).join('')||
+ `<tr><td colspan="5"><p class="business-empty">Todavía no hay ${trainer?'clientes':'socios'}. Invita al primero.</p></td></tr>`}
+ </tbody></table></div>${groupsBlock}`);
  }
  const c=clients.find(x=>x.id===selected);if(!c)return show('La persona seleccionada no está autorizada para este centro.');
   const archived=Boolean(c.account_deleted_at);
@@ -154,103 +150,78 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
   const o=occurrences.find(o=>o.id===b.occurrence_id);return o?{b,o}:null;
  }).filter(Boolean).filter(x=>new Date(x.o.starts_at)>=new Date()).sort((a,b)=>a.o.starts_at.localeCompare(b.o.starts_at))[0];
  const logged=athleteLoggedRows(sharedHistory);
- const ownAttendance=attendance.filter(a=>a.client_id===c.id);
- // Agenda fusionada en Entrenamientos para PT; Mensajes y Datos aparte.
- const tabDefs=[['training','Entrenamientos'],['passes','Bonos'],['chat','Mensajes'],...(trainer?[]:[['bookings','Reservas']]),['data','Datos']];
- const section=tabDefs.some(([id])=>id===clientSection)?clientSection:(clientSection==='agenda'?'training':clientSection);
+ // Agenda fusionada en Entrenamientos; Mensajes y Datos aparte.
+ // Gym: Entrenamientos = calendario de clases (como Inicio) + crear entreno. Sin pestaña Reservas.
+ const tabDefs=[['training','Entrenamientos'],['passes','Bonos'],['chat','Mensajes'],['data','Datos']];
+ const section=tabDefs.some(([id])=>id===clientSection)?clientSection:(clientSection==='agenda'||clientSection==='bookings'?'training':clientSection);
  const safeSection=tabDefs.some(([id])=>id===section)?section:'training';
  const tabs=`<nav class="business-client-tabs" aria-label="Ficha de cliente">
  ${tabDefs.map(([id,name])=>
  `<button type="button" data-action="client-section" data-section="${id}" class="${safeSection===id?'active':''}"
  aria-current="${safeSection===id?'page':'false'}">${name}</button>`).join('')}</nav>`;
  const linkLabel=archived?'Cuenta eliminada':c.user_id?'Vinculado':'Invitación pendiente';
- const head=`<div class="pt-client-topbar">
-  ${button('← Clientes','back-clients')}
-  <div class="pt-client-top-actions">
-   ${!archived&&manager?primary('Añadir entreno',trainer?'open-quick-workout':'plan-client',c.id):''}
-   ${!archived&&manager&&!c.user_id?button('Preparar invitación','invite-client',c.id):''}
-   ${!archived&&manager&&trainer&&c.status!=='cancelled'?button('Finalizar','end-client',c.id):''}
-  </div>
- </div>
- <div class="business-profile-header pt-profile-header"><span class="business-avatar large">
+ const pendingInvite=!archived&&!c.user_id?pendingAthleteInvite({invitations,orgId,email:c.email}):null;
+ const shareInvite=pendingInvite
+  ||(inviteShare?.invitationId&&String(inviteShare.email||'').toLowerCase()===String(c.email||'').toLowerCase()
+   ?{id:inviteShare.invitationId,email:inviteShare.email}:null);
+ const head=`${!archived&&manager&&!c.user_id&&!shareInvite?`<div class="pt-client-topbar pt-client-topbar-slim">
+  <div class="pt-client-top-actions">${button('Crear invitación','invite-client',c.id)}</div>
+ </div>`:''}
+ <div class="business-profile-header pt-profile-header">
+ <span class="business-avatar large">
  ${c.avatar_url&&/^https:\/\//.test(c.avatar_url)?`<img src="${esc(c.avatar_url)}" alt="" loading="lazy">`:esc(initials(c.name))}
- </span><div><h2>${esc(c.name)}</h2>
+ </span>
+ <div class="pt-profile-main"><h2>${esc(c.name)}</h2>
  <p>${esc(c.email||'—')} · ${statusBadge(linkLabel,archived?'muted':c.user_id?'ok':'info')}
  ${activePass?` · ${activePass.remaining_credits>=9000?'Ilimitado':`${activePass.remaining_credits}/${activePass.total_credits}`} · ${passProvenanceLabel(activePass)}`:''}
  ${nextBooking?` · Próximo: ${esc(nextBooking.o.title)} ${dateTime(nextBooking.o.starts_at)}`:''}</p>
- ${trainer?renderAthleteGuidanceLine(logged,sharedHistory.length):''}
- </div></div>`;
+ </div>
+ ${renderAthleteGuidanceCircle(logged,sharedHistory.length)}
+ </div>`;
  let body='';
  if(safeSection==='training'){
-  if(trainer){
-   const currentMonth=/^\d{4}-\d{2}$/.test(trainerActivityMonth)?trainerActivityMonth:new Date().toLocaleDateString('sv-SE').slice(0,7);
-   const currentDay=/^\d{4}-\d{2}-\d{2}$/.test(trainerActivityDay)?trainerActivityDay:todayISO();
-   const dayEvents=collectDayEvents({
-    day:currentDay,clients:[c],
-    occurrences:occurrences.filter(o=>ownBookings.some(b=>b.occurrence_id===o.id)||o.kind==='appointment'),
-    bookings:ownBookings,sessions:ownSessions,gymAssignments:[],
-   });
-   const daily=logged.filter(w=>localDay(w.started_at||w.finished_at)===currentDay);
-   const planned=ownSessions.filter(s=>s.scheduled_date===currentDay);
-   body=`<div class="pt-client-agenda">
-    <div class="business-panel-head"><div><h3>Agenda de ${esc(c.name)}</h3>
-     <p>Citas y entrenos de este cliente.</p></div>
-     ${manager&&!archived?button('Añadir entreno','open-quick-workout',c.id):''}</div>
-    <div class="pa-athlete-training-grid trainer-client-grid">
-    ${renderAthleteActivity({month:currentMonth,selectedDay:currentDay,
-      days:trainerDays({sharedHistory,sessions:ownSessions,attendance:ownAttendance}),
-      workouts:daily,plannedSessions:planned,athleteId:c.id,actionNamespace:'trainer',
-      canPlan:manager&&!archived,emptyText:'Elige un día para ver o programar.'})}</div>
-    <div class="pt-day-events">${dayEvents.length?dayEvents.map(ev=>`<article class="pt-event-card">
-      <button type="button" class="pt-event-main" data-action="${esc(ev.action)}" data-id="${esc(ev.id)}">
-       <strong>${esc(ev.title)}</strong><small>${esc(ev.subtitle)}</small></button>
-      ${ev.kind==='entreno'&&manager?button('Editar','edit-session',ev.id):''}
-      ${ev.kind==='cita'&&manager&&ownBookings.find(b=>b.occurrence_id===ev.id&&b.status==='booked')?
-        button('Cancelar reserva','remove-booking',ownBookings.find(b=>b.occurrence_id===ev.id&&b.status==='booked').id):''}
-     </article>`).join(''):'<p class="business-empty">Nada este día.</p>'}</div>
-    ${ownAttendance.length?`<section class="business-detail-panel trainer-attendance-history"><h3>Sesiones presenciales</h3>
-      <div class="business-attendance-rows">${ownAttendance.slice(0,12).map(a=>`<div class="business-line"><strong>${dateTime(a.performed_at)}</strong><small>${esc(a.note||'Sesión con el entrenador')}</small></div>`).join('')}</div></section>`:''}
-    ${renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false})}
-   </div>`;
-  }else{
-   body=`<div class="business-360-grid">
-   <div class="business-detail-panel"><div class="business-panel-head"><h3>Entrenamientos</h3>
-   ${archived?'':primary('Añadir entreno','plan-client',c.id)}</div>
-   ${ownSessions.length?ownSessions.map(s=>`<article class="business-line"><strong>${esc(s.title)}</strong>
-   <small>${day(s.scheduled_date)} · ${(s.prescription?.blocks||[]).length} bloques</small>
-   ${archived?'':button('Editar','edit-session',s.id)}${!archived&&manager?button('Eliminar','delete-session',s.id):''}</article>`).join(''):
-   '<p class="business-empty">Aún no hay entrenamientos. Añade el primero.</p>'}</div>
-   <div class="business-detail-panel"><h3>Actividad compartida</h3>
-   ${sharedHistory.length?`<p>${sharedHistory.length} sesiones compartidas.</p>
-   ${renderSharedAthleteSessions(sharedHistory)}`:
-   note('Solo actividades autorizadas por el atleta.')}</div></div>`;
-  }
+  // Gym: todas las clases (como Inicio) + estado de inscripción del socio. PT: agenda propia.
+  const classOcc=trainer
+   ?occurrences.filter(o=>o.status==='active'&&(ownBookings.some(b=>b.occurrence_id===o.id)||o.kind==='appointment'))
+   :occurrences.filter(o=>o.status==='active'&&o.kind==='class');
+  body=`<div class="pt-client-agenda">
+   ${renderTrainerAgenda({
+    clients:trainer?[c]:clients,occurrences:classOcc,bookings,
+    sessions:ownSessions,gymAssignments:[],details,coaches,
+    calendarMonth:calendarMonth||trainerActivityMonth,agendaView:trainer?agendaView:'month',
+    agendaDay:agendaDay||trainerActivityDay||todayISO(),
+    manager,mode:'client',clientId:c.id,clientName:c.name,archived,
+    variant:trainer?'trainer':'gym',
+   })}
+   ${logged.length?`<section class="connected-card pt-client-history"><h3>Actividad compartida</h3>
+     ${logged.some(w=>(w.exercises||[]).length)?renderAthleteInsights(logged,sharedHistory.length,{showGuidance:false}):''}
+     ${renderSharedAthleteSessions(sharedHistory)}</section>`:
+     '<section class="connected-card"><p class="business-empty">Sin actividad compartida todavía.</p></section>'}
+  </div>`;
  }
  if(safeSection==='chat'){
   body=`<div class="pt-chat-shell business-detail-panel">
   ${renderClientChatThread({messages:chatMessages,clientId:c.id,busy})}</div>`;
  }
  if(safeSection==='passes'){
-  body=`<div class="business-360-grid">
-  <div class="business-detail-panel"><h3>Saldo y bonos</h3>
-  ${ownPasses.length?ownPasses.map(p=>`<article class="business-line">
-   <strong>${p.kind==='class'?'Clases':'Citas'}</strong>
-   <small>${p.remaining_credits}/${p.total_credits} disponibles · ${esc(passProvenanceLabel(p))} · hasta ${day(p.valid_until)}</small>
-   ${manager&&!archived&&p.issuance_type==='complimentary'?`<form data-connected="manage-pass" class="business-inline-form">
-    <input type="hidden" name="pass" value="${esc(p.id)}">
-    <input type="hidden" name="op" value="add_credits">
-    ${input('Añadir créditos (cortesía)','amount','1','number','min="1" max="100" required')}
-    <button type="submit" class="connected-secondary">Añadir</button></form>`:''}
-  </article>`).join(''):'<p class="business-empty">Sin bonos. Asigna uno tras confirmar el cobro fuera de Repera.</p>'}
-  </div>
-  <div class="business-detail-panel"><h3>Asignar bono</h3>
-  ${archived?note('Cuenta archivada: no se pueden asignar bonos.'):
-   renderAssignOfflinePassForm({clients:[c],offers,clientId:c.id,manager,busy})}
-  <p class="connected-hint">Procedencia: Confirmado por el centro (manual). No es verificación bancaria.</p>
-  </div></div>`;
+  body=renderClientPassesPanel({
+   client:c,passes,offers,attendance,bookings,occurrences,passEvents,
+   manager,trainer,busy,archived,
+  });
  }
  if(safeSection==='data'){
-  body=`<div class="pt-data-card business-detail-panel">
+  const inviteBlock=manager&&shareInvite
+   ?renderInvitationShareCard({
+    invitationId:shareInvite.id,
+    email:c.email||shareInvite.email||'',
+    sent:!!inviteShare?.sent&&inviteShare.invitationId===shareInvite.id,
+    reason:inviteShare?.invitationId===shareInvite.id?(inviteShare.reason||''):'',
+    compact:true,
+   })
+   :(manager&&!archived&&!c.user_id
+    ?`<section class="connected-card business-invite-share is-pending"><p>Todavía no hay invitación. Pulsa <strong>Crear invitación</strong> arriba.</p></section>`
+    :'');
+  body=`${inviteBlock}<div class="pt-data-card business-detail-panel">
  <div class="pt-data-grid">
   <div><span class="pt-data-label">Nombre</span><strong>${esc(c.name)}</strong></div>
   <div><span class="pt-data-label">Correo</span><strong>${esc(c.email||'—')}</strong></div>
@@ -265,22 +236,6 @@ export function renderClient360({clients=[],selected=null,passes=[],offers=[],bo
  <input type="hidden" name="client" value="${esc(c.id)}">
  <button type="submit" class="connected-primary">Guardar</button></form>`:''}</div>`;
  }
- if(safeSection==='bookings'){
-  body=`<div class="business-360-grid">
- <div class="business-detail-panel"><div class="business-panel-head"><h3>${trainer?'Agenda y citas':'Reservas'}</h3>
- ${!archived&&manager&&!trainer?button('Inscribir en clase','find-class-for-client',c.id):''}
- ${!archived&&manager&&trainer?button('Registrar sesión','trainer-session',c.id):''}</div>
- ${ownBookings.length?ownBookings.map(b=>{const o=occurrences.find(o=>o.id===b.occurrence_id);
- const st=bookingStatusLabel[b.status]||[b.status,'neutral'];
- return `<article class="business-line"><strong>${esc(o?.title||'Clase')}</strong>
- <small>${dateTime(o?.starts_at)} · ${statusBadge(st[0],st[1])}</small>
- ${manager&&b.status==='booked'?`<span class="business-line-actions">${button('Asistió','mark-booking-attended',b.id)}${button('No presentado','mark-booking-noshow',b.id)}</span>`:''}
- </article>`;}).join(''):'<p class="business-empty">Sin reservas.</p>'}</div>
- <div class="business-detail-panel"><h3>Entrenamientos fechados</h3>
- ${ownSessions.length?ownSessions.map(t=>`<article class="business-line"><strong>${esc(t.title)}</strong>
- <small>${day(t.scheduled_date)} · ${esc(t.status)}</small></article>`).join(''):
- '<p class="business-empty">Sin sesiones profesionales.</p>'}</div></div>`;
- }
  return show(head+tabs+body);
 }
 export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[],details=[],groups=[],groupMembers=[],selectedGroup=null,coaches=[],selected=null,classEditor=false,listMode='calendar',calendarMonth='',activeClient=null,manager=false,escapeHTML=esc}){
@@ -289,12 +244,13 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
   const g=groups.find(g=>g.id===selectedGroup);
   if(!g)return show('<p>Grupo no encontrado.</p>');
   const members=new Set(groupMembers.filter(x=>x.group_id===selectedGroup).map(x=>x.client_id));
-  return show(`${button('← Volver a clases y grupos','back-groups')}<div class="business-profile-header"><span class="business-avatar large">${esc(initials(g.name))}</span><div><h2>${esc(g.name)}</h2><p>${members.size} deportistas en este grupo</p></div></div>
+  return show(`${button('← Volver','back-groups')}<div class="business-profile-header"><span class="business-avatar large">${esc(initials(g.name))}</span><div><h2>${esc(g.name)}</h2><p>${members.size} deportistas · avisos</p></div></div>
   ${manager?`<form data-connected="edit-group" class="business-form"><input type="hidden" name="group" value="${esc(g.id)}">
    ${input('Nombre del grupo','name',g.name,'text','required minlength="2" maxlength="100"')}
    ${input('Descripción','description',g.description||'','text','maxlength="500"')}
    <h3>Participantes</h3><div class="business-group-members">${clients.map(c=>`<label><input type="checkbox" name="members" value="${esc(c.id)}" ${members.has(c.id)?'checked':''}><span class="business-avatar">${esc(initials(c.name))}</span><strong>${esc(c.name)}</strong></label>`).join('')}</div>
-   <button class="connected-primary">Guardar grupo y miembros</button></form>`:
+   <div class="pt-day-tools"><button class="connected-primary" type="submit">Guardar</button>
+    <button type="button" class="connected-secondary" data-action="delete-group" data-id="${esc(g.id)}">Borrar grupo</button></div></form>`:
    clients.filter(c=>members.has(c.id)).map(c=>`<div class="business-roster"><span class="business-avatar">${esc(initials(c.name))}</span><strong>${esc(c.name)}</strong></div>`).join('')}
   `);
  }
@@ -308,7 +264,7 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
   const available=passes.filter(p=>p.status==='active'&&p.kind===o.kind&&p.remaining_credits>0&&new Date(p.valid_from)<=new Date(o.starts_at)&&new Date(p.valid_until)>=new Date(o.starts_at));
   const eligible=clients.filter(c=>!c.account_deleted_at&&available.some(p=>p.client_id===c.id)&&!activeSeats.some(b=>b.client_id===c.id));
   return show(`${button('← Volver a clases','back-classes')}<div class="business-profile-header"><span class="business-class-mark" style="background:${/^#[0-9a-f]{6}$/i.test(meta.color||'')?meta.color:'#22834d'}"></span><div><h2>${esc(o.title)}</h2><p>${dateTime(o.starts_at)} · ${esc(meta.location||'Ubicación sin definir')} · ${activeSeats.length}/${o.capacity} plazas</p></div></div>
-  <div class="business-360-grid"><div class="business-detail-panel"><h3>Configuración de la clase</h3>${manager&&future&&o.status==='active'?`<form data-connected="edit-occurrence" class="business-form"><input type="hidden" name="id" value="${esc(o.id)}">${input('Nombre','title',o.title,'text','required minlength="2" maxlength="120"')}${input('Inicio','start',new Date(o.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Fin','end',new Date(o.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Aforo','capacity',o.capacity,'number',`min="${Math.max(1,activeSeats.length)}" max="200" required`)}${input('Lugar','location',meta.location||'','text','maxlength="250"')}${input('Color','color',meta.color||'#22834d','color')}${input('Imagen (URL)','image',meta.image_url||'','url','maxlength="2000"')}<label class="connected-field">Descripción<textarea name="description" rows="3" maxlength="2000">${esc(meta.description||'')}</textarea></label><button class="connected-primary">Guardar cambios</button></form><p>${button('Cancelar clase y devolver bonos','cancel-occurrence',o.id)}</p>`:`<p>${esc(meta.description||'Sin descripción')}</p><p>Estado: ${esc(o.status)}</p>`}</div>
+  <div class="business-360-grid"><div class="business-detail-panel"><h3>Configuración de la clase</h3>${manager&&future&&o.status==='active'?`<form data-connected="edit-occurrence" class="business-form"><input type="hidden" name="id" value="${esc(o.id)}">${input('Nombre','title',o.title,'text','required minlength="2" maxlength="120"')}${input('Inicio','start',new Date(o.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Fin','end',new Date(o.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16),'datetime-local','required')}${input('Aforo','capacity',o.capacity,'number',`min="${Math.max(1,activeSeats.length)}" max="200" required`)}${input('Lugar','location',meta.location||'','text','maxlength="250"')}${colorSwatches(meta.color||'#22834d')}${input('Imagen (URL)','image',meta.image_url||'','url','maxlength="2000"')}<label class="connected-field">Descripción<textarea name="description" rows="3" maxlength="2000">${esc(meta.description||'')}</textarea></label><button class="connected-primary">Guardar cambios</button></form><p>${button('Cancelar clase y devolver bonos','cancel-occurrence',o.id)}</p>`:`<p>${esc(meta.description||'Sin descripción')}</p><p>Estado: ${esc(o.status)}</p>`}</div>
   <div class="business-detail-panel"><h3>Asistentes (${roster.length})</h3>${roster.map(b=>{
    const st=bookingStatusLabel[b.status]||[b.status,'neutral'];
    return `<div class="business-roster"><span class="business-avatar">${esc(initials(clients.find(c=>c.id===b.client_id)?.name))}</span>
@@ -329,9 +285,180 @@ export function renderClasses360({occurrences=[],clients=[],bookings=[],passes=[
  const firstDay=(new Date(y,m-1,1).getDay()+6)%7;
  const countDays=new Date(y,m,0).getDate();
  const calendar=Array.from({length:firstDay+countDays},(_,i)=>i-firstDay+1).map(d=>d<1?'<span class="business-calendar-empty"></span>':`<div class="business-calendar-cell"><strong>${d}</strong>${active.filter(o=>{const date=new Date(o.starts_at);return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d}).map(o=>`<button type="button" style="--class-color:${esc(index.get(o.id)?.color||'#22834d')}" class="business-calendar-event" data-action="detail-occurrence" data-id="${esc(o.id)}">${esc(new Date(o.starts_at).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))} ${esc(o.title)}</button>`).join('')}</div>`).join('');
- return show(`<div class="business-panel-head"><div><h2>Agenda y clases</h2><p>Calendario o listado. En el detalle: aforo, inscritos y asistencia.</p></div><div class="heading-actions">${button('Calendario','calendar-mode','','data-mode="calendar"')}${button('Lista','calendar-mode','','data-mode="list"')}</div></div>
+ return show(`<div class="business-panel-head"><div><h2>Agenda</h2><p>Calendario o listado. En el detalle: aforo, inscritos y asistencia.</p></div>
+ <div class="heading-actions">
+  ${button('Calendario','calendar-mode','','data-mode="calendar"')}
+  ${button('Lista','calendar-mode','','data-mode="list"')}
+  ${manager?primary('Nueva clase','open-new-class-modal'):''}
+ </div></div>
  ${listMode==='calendar'?`<div class="business-calendar-title">${button('‹','calendar-prev')}<strong>${esc(title)}</strong>${button('›','calendar-next')}</div><div class="business-calendar-weekdays">${['L','M','X','J','V','S','D'].map(d=>`<span>${d}</span>`).join('')}</div><div class="business-calendar-grid">${calendar}</div>`:
- `<div class="business-cards">${active.sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).map(o=>`<button class="business-class-tile" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${esc(index.get(o.id)?.location||'Sin lugar')} · ${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length}/${o.capacity} participantes</small><span class="business-tile-arrow">Gestionar →</span></button>`).join('')||'<p class="business-empty">No hay clases. Crea la primera abajo.</p>'}</div>`}
- <div class="business-360-grid"><div class="business-detail-panel"><h3>Grupos</h3>${groups.map(g=>`<button type="button" class="business-group-row" data-action="detail-group" data-id="${esc(g.id)}"><strong>${esc(g.name)}</strong><small>${esc(g.description||'')}</small><span>Gestionar →</span></button>`).join('')||note('Puedes agrupar deportistas por programa o nivel.')} ${manager?`<form data-connected="create-group" class="business-form">${input('Nuevo grupo','name','','text','required minlength="2" maxlength="100"')}${input('Descripción','description','','text','maxlength="500"')}<button class="connected-secondary">Crear grupo</button></form>`:''}</div>
- <div class="business-detail-panel"><h3>Nueva clase o cita</h3>${manager?`<form data-connected="service-occurrence" class="business-form">${select('Tipo','kind',[['class','Clase grupal'],['appointment','Cita individual']])}${input('Nombre','title','','text','required minlength="2" maxlength="120"')}${input('Inicio','start','','datetime-local','required')}${input('Fin','end','','datetime-local','required')}${input('Aforo','capacity','1','number','min="1" max="200" required')}${select('Entrenador','coach',coaches.map(c=>[c.user_id,c.label||c.user_id.slice(0,8)]))}${select('Repetición','repeat',[['none','Una vez'],['daily','Cada día'],['weekly','Cada semana'],['weekdays','Lunes a viernes']])}${input('Número de sesiones','repeatCount','1','number','min="1" max="52" required')}<button class="connected-primary">Crear sesiones</button></form>`:note('No tienes permiso para crear horarios.')}</div></div>`);
+ `<div class="business-cards">${active.sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).map(o=>{
+  const color=/^#[0-9a-f]{6}$/i.test(index.get(o.id)?.color||'')?index.get(o.id).color:'#22834d';
+  return `<button class="business-class-tile" style="--class-color:${esc(color)}" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-swatch" aria-hidden="true"></span><span class="business-class-date">${dateTime(o.starts_at)}</span><strong>${esc(o.title)}</strong><small>${esc(index.get(o.id)?.location||'Sin lugar')} · ${bookings.filter(b=>b.occurrence_id===o.id&&['booked','attended'].includes(b.status)).length}/${o.capacity} · ${esc(coaches.find(c=>c.user_id===o.coach_user_id)?.label||'Sin entrenador')}</small><span class="business-tile-arrow">Gestionar →</span></button>`;
+ }).join('')||'<p class="business-empty">No hay clases. Crea la primera con «Nueva clase».</p>'}</div>`}
+ <div class="business-detail-panel"><div class="business-panel-head"><div><h3>Clases próximas</h3></div>
+  ${manager?button('+ Clase','open-new-class-modal'):''}</div>
+  ${active.filter(o=>new Date(o.starts_at)>=new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,8).map(o=>{
+   const color=/^#[0-9a-f]{6}$/i.test(index.get(o.id)?.color||'')?index.get(o.id).color:'#22834d';
+   return `<button type="button" class="business-group-row business-class-row" style="--class-color:${esc(color)}" data-action="detail-occurrence" data-id="${esc(o.id)}"><span class="business-class-swatch" aria-hidden="true"></span><strong>${esc(o.title)}</strong><small>${dateTime(o.starts_at)} · ${esc(coaches.find(c=>c.user_id===o.coach_user_id)?.label||'Sin entrenador')}</small><span>Abrir →</span></button>`;
+  }).join('')||note(manager?'Crea la primera clase con el botón Nueva clase.':'Sin clases programadas.')}
+ </div>`);
+}
+
+/** Modal crear grupo (listas para avisos; vive en Socios/Clientes). */
+export function renderEnrollClassModal({occurrence=null,clients=[],passes=[],busy=false}={}){
+ if(!occurrence)return '';
+ const available=passes.filter(p=>p.status==='active'&&p.kind==='class'&&p.remaining_credits>0&&Date.parse(p.valid_until)>Date.now());
+ const eligible=clients.filter(c=>!c.account_deleted_at&&available.some(p=>p.client_id===c.id));
+ const opts=eligible.flatMap(c=>available.filter(p=>p.client_id===c.id).map(p=>[p.id,`${c.name} · ${p.remaining_credits} ses.`]));
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet" role="dialog" aria-modal="true" aria-label="Añadir participante">
+  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Clase</span><h2>Añadir participante</h2></div>
+   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   <p class="connected-hint">${esc(occurrence.title)} · ${esc(new Date(occurrence.starts_at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}))}</p>
+   <form data-connected="enroll-client" class="business-form pt-sheet-form">
+    <input type="hidden" name="occurrence" value="${esc(occurrence.id)}">
+    ${select('Socio con bono válido','pass',opts.length?opts:[['','Sin bonos disponibles']])}
+    <button type="submit" class="connected-primary" ${!opts.length||busy?'disabled':''}>Inscribir</button>
+   </form>
+  </div>
+ </section></div>`;
+}
+
+export function renderNewGroupModal({busy=false}={}){
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet" role="dialog" aria-modal="true" aria-label="Nuevo grupo">
+  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Avisos</span><h2>Nuevo grupo</h2></div>
+   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   <div class="pt-sheet-hero"><p>Lista de personas para enviar avisos. <strong>No crea clases</strong> en la agenda.</p></div>
+   <form data-connected="create-group" class="business-form pt-sheet-form">
+    ${input('Nombre','name','','text','required minlength="2" maxlength="100"')}
+    ${input('Descripción','description','','text','maxlength="500"')}
+    <button type="submit" class="connected-primary" ${busy?'disabled':''}>Crear grupo</button>
+   </form>
+  </div>
+ </section></div>`;
+}
+
+/** Modal nueva clase: única (fecha/hora/duración) o repetitiva (semana tipo). */
+export function renderNewClassModal({coaches=[],busy=false,day=''}={}){
+ const staff=coaches.filter(c=>c.user_id&&!/Administrador Repera/i.test(c.label||''));
+ const seed=new Set();
+ const today=new Date().toLocaleDateString('sv-SE');
+ const seedDay=/^\d{4}-\d{2}-\d{2}$/.test(day)?day:today;
+ if(/^\d{4}-\d{2}-\d{2}$/.test(day)){
+  const d=new Date(day+'T12:00:00');
+  const iso=d.getDay()||7;
+  seed.add(weekSlotKey(iso,9*60));
+ }
+ const uniqueStart=`${seedDay}T09:00`;
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-new-class-dialog" role="dialog" aria-modal="true" aria-label="Nueva clase">
+  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Agenda</span><h2>Nueva clase</h2></div>
+   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   <form data-connected="service-occurrence" class="business-form pt-sheet-form" data-class-create data-class-week-create>
+    <input type="hidden" name="kind" value="class">
+    ${input('Nombre de la clase','title','','text','required minlength="2" maxlength="120" placeholder="Spinning · HIIT · Yoga…"')}
+    ${colorSwatches('#22834d')}
+    <label class="connected-field">Tipo
+     <select name="scheduleMode" data-class-schedule-mode>
+      <option value="unique" selected>Clase única</option>
+      <option value="weekly">Repetitiva</option>
+     </select>
+    </label>
+    <div class="pt-sheet-grid">
+     <label class="connected-field">Duración (min)
+      <input name="duration" type="number" min="15" max="240" step="5" value="60" required data-week-duration>
+     </label>
+     ${input('Aforo','capacity','12','number','min="1" max="200" required')}
+    </div>
+    <label class="connected-field">Entrenador (opcional)
+     <select name="coach">
+      <option value="">Sin asignar</option>
+      ${staff.map(c=>`<option value="${esc(c.user_id)}">${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
+     </select>
+    </label>
+    ${input('Sala / ubicación (opcional)','location','','text','maxlength="250"')}
+    <div data-class-panel="unique">
+     <div class="pt-sheet-grid">
+      ${input('Fecha y hora','start',uniqueStart,'datetime-local','required')}
+     </div>
+    </div>
+    <div data-class-panel="weekly" hidden>
+     <div class="pt-sheet-grid">
+      ${input('Comienza el','seriesStart',seedDay,'date','required')}
+     </div>
+     <fieldset class="pt-until-field">
+      <legend>Fin de la serie</legend>
+      <div class="pt-until-options">
+       <label class="pt-radio-card"><input type="radio" name="untilMode" value="indefinite" checked>
+        <span><strong>Sin fecha de fin</strong></span></label>
+       <label class="pt-radio-card"><input type="radio" name="untilMode" value="date">
+        <span><strong>Hasta una fecha</strong>
+         <input name="untilDate" type="date" min="${esc(today)}">
+        </span></label>
+      </div>
+     </fieldset>
+     <div class="connected-field pt-week-slot-field" data-week-slot-host>
+      <span>Días y franjas</span>
+      ${weekSlotGrid(seed,{durationMin:60,color:'#22834d'})}
+     </div>
+    </div>
+    <label class="connected-field">Notas (opcional)<textarea name="description" rows="2" maxlength="2000"></textarea></label>
+    <button type="submit" class="connected-primary" ${busy?'disabled':''}>Crear en el calendario</button>
+   </form>
+  </div>
+ </section></div>`;
+}
+
+/** Editar clase existente: este evento o toda la serie (estilo Outlook). */
+export function renderEditClassModal({occurrence=null,detail={},coaches=[],busy=false}={}){
+ if(!occurrence)return '';
+ const staff=coaches.filter(c=>c.user_id&&!/Administrador Repera/i.test(c.label||''));
+ const start=new Date(occurrence.starts_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16);
+ const end=new Date(occurrence.ends_at).toLocaleString('sv-SE',{hour12:false}).replace(' ','T').slice(0,16);
+ const future=new Date(occurrence.starts_at)>new Date();
+ const blocked=occurrence.status==='cancelled';
+ const isSeries=String(detail.repeat_rule||'none')!=='none';
+ return `<div class="business-overlay pt-overlay"><section class="business-dialog pt-sheet pt-new-class-dialog" role="dialog" aria-modal="true" aria-label="Editar clase">
+  <div class="business-dialog-header pt-sheet-head"><div><span class="pt-sheet-kicker">Agenda</span><h2>Editar clase</h2></div>
+   <button type="button" class="icon-button pt-sheet-close" data-action="close-business-dialog" aria-label="Cerrar">×</button></div>
+  <div class="business-dialog-scroll pt-sheet-body">
+   ${blocked?'<p class="connected-hint">Esta clase está cancelada: permanece en el calendario bloqueada y no admite nuevas inscripciones.</p>':''}
+   <form data-connected="edit-occurrence" class="business-form pt-sheet-form">
+    <input type="hidden" name="id" value="${esc(occurrence.id)}">
+    ${isSeries?`<fieldset class="pt-edit-scope">
+     <legend>¿Qué quieres cambiar?</legend>
+     <label class="pt-radio-card"><input type="radio" name="editScope" value="one" checked>
+      <span><strong>Solo este evento</strong><small>${esc(new Date(occurrence.starts_at).toLocaleString('es-ES',{dateStyle:'full',timeStyle:'short'}))}</small></span></label>
+     <label class="pt-radio-card"><input type="radio" name="editScope" value="series">
+      <span><strong>Este y los siguientes</strong><small>Mismo nombre, día de la semana y hora (como Outlook)</small></span></label>
+    </fieldset>`:`<input type="hidden" name="editScope" value="one">`}
+    ${input('Nombre de la clase','title',occurrence.title||'','text','required minlength="2" maxlength="120"')}
+    ${colorSwatches(detail.color||'#22834d')}
+    <div class="pt-sheet-grid">
+     ${input('Inicio','start',start,'datetime-local','required')}
+     ${input('Fin','end',end,'datetime-local','required')}
+    </div>
+    ${input('Aforo','capacity',occurrence.capacity||12,'number',`min="1" max="200" required`)}
+    <label class="connected-field">Entrenador (opcional)
+     <select name="coach" disabled title="El cambio de entrenador se gestiona al crear la serie">
+      <option value="">${occurrence.coach_user_id?'Asignado':'Sin asignar'}</option>
+      ${staff.map(c=>`<option value="${esc(c.user_id)}" ${c.user_id===occurrence.coach_user_id?'selected':''}>${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
+     </select>
+    </label>
+    ${input('Sala / ubicación','location',detail.location||'','text','maxlength="250"')}
+    <label class="connected-field">Notas<textarea name="description" rows="2" maxlength="2000">${esc(detail.description||'')}</textarea></label>
+    <input type="hidden" name="image" value="${esc(detail.image_url||'')}">
+    <button type="submit" class="connected-primary" ${busy||!future?'disabled':''}>Guardar cambios</button>
+   </form>
+   ${future&&!blocked?`<div class="pt-class-danger pt-class-danger-row">
+     <button type="button" class="connected-secondary" data-action="cancel-occurrence" data-id="${esc(occurrence.id)}">Cancelar clase</button>
+     <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar</button>
+    </div>`:''}
+   ${future&&blocked?`<div class="pt-class-danger pt-class-danger-row">
+     <button type="button" class="connected-secondary pt-danger-btn" data-action="delete-occurrence" data-id="${esc(occurrence.id)}">Borrar del calendario</button>
+    </div>`:''}
+  </div>
+ </section></div>`;
 }

@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -73,10 +75,11 @@ internal data class ReperaTabSpec(
     fun iconFor(selected: Boolean): ImageVector = if (selected) selectedIcon else icon
 }
 
-/** Cuatro pestañas principales (paridad iOS Liquid Glass tab bar). */
+/** Cinco pestañas principales (paridad iOS: Inicio · Comenzar · + · Progreso · Ejercicios). */
 internal val reperaMainTabs = listOf(
     ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home, Icons.Filled.Home),
     ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle),
+    ReperaTabSpec("plus", "+", Icons.Outlined.AddCircle, Icons.Filled.AddCircle),
     ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart),
     // SF `dumbbell` horizontal (no FitnessCenter diagonal / «⤡»).
     ReperaTabSpec("ejercicios", "Ejercicios", ReperaIcons.Dumbbell, ReperaIcons.Dumbbell)
