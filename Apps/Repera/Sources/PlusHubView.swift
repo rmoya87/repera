@@ -70,6 +70,14 @@ struct PlusHubView: View {
                     }
                 )
             }
+            .navigationDestination(for: PlusHubCenterListPage.self) { page in
+                switch page {
+                case .payments(let orgId):
+                    CenterPaymentsListPage(orgId: orgId)
+                case .classHistory(let orgId):
+                    CenterClassHistoryListPage(orgId: orgId)
+                }
+            }
         }
         .task { await refresh() }
         .sheet(item: $bookingPendingCancellation) { booking in
@@ -111,7 +119,7 @@ struct PlusHubView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Sin clases este día", systemImage: "calendar")
                         .font(.headline)
-                    Text("Cuando tu gimnasio publique horarios, aparecerán aquí con su color.")
+                    Text("Cuando tu gimnasio publique horarios, aparecerán aquí.")
                         .font(.subheadline)
                         .foregroundStyle(OG.label2)
                 }
@@ -153,7 +161,6 @@ struct PlusHubView: View {
 
     @ViewBuilder
     private func classDayCard(_ occurrence: BusinessOccurrence) -> some View {
-        let color = Color(plusHubHex: occurrence.color ?? "#22834d") ?? OG.accent
         let booking = business.booking(for: occurrence.id)
         let places = business.remainingPlaces(for: occurrence)
         let open = business.canBookNow(occurrence)
@@ -163,99 +170,116 @@ struct PlusHubView: View {
         let canTap = open && !full && wallets.first != nil
         let start = BusinessDataStore.date(occurrence.startsAt)
         let end = BusinessDataStore.date(occurrence.endsAt)
+        let centerName = business.centerName(occurrence.orgId)
+        let timeLabel = start.map(SpanishDate.time)
+        let captionBase = WorkoutListCaption.dayTimeLine(for: selectedDay, time: timeLabel)
+        let caption = centerName.isEmpty ? captionBase : "\(captionBase) · \(centerName)"
 
-        OGCard(padding: 0) {
-            HStack(alignment: .top, spacing: 0) {
-                RoundedRectangle(cornerRadius: 0)
-                    .fill(color)
-                    .frame(width: 5)
-                    .frame(maxHeight: .infinity)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Button {
-                        path.append(occurrence)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                path.append(occurrence)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .top, spacing: 12) {
+                        OGRegisterLeadingIcon(
+                            systemName: "figure.strengthtraining.traditional",
+                            tint: OG.label2
+                        )
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(caption)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(OG.label3)
+                                .tracking(0.3)
+                                .lineLimit(2)
                             Text(occurrence.title)
-                                .font(.headline)
+                                .font(.system(size: 17, weight: .medium))
                                 .foregroundStyle(OG.label)
+                                .lineLimit(2)
                                 .multilineTextAlignment(.leading)
-                            Text(business.centerName(occurrence.orgId))
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                            if let start, let end {
-                                Label {
-                                    Text("\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened)) · \(Self.durationLabel(start: start, end: end))")
-                                } icon: {
-                                    Image(systemName: "clock")
-                                }
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(OG.label)
-                            }
-                            if let location = occurrence.location, !location.isEmpty {
-                                Label(location, systemImage: "mappin.and.ellipse")
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Abre el detalle de la clase")
+                    .padding(.horizontal, 14)
 
-                    if let booking {
-                        HStack(spacing: 10) {
-                            Label(
-                                booking.status == "waitlist" ? "Lista de espera" : "Apuntado",
-                                systemImage: booking.status == "waitlist" ? "clock.badge.checkmark" : "checkmark.circle.fill"
+                    OGRegisterChipsRow(leadingInset: 14 + 44 + 12) {
+                        if let start, let end {
+                            OGRegisterChip(text: Self.durationLabel(start: start, end: end), icon: "timer")
+                        }
+                        if let aforo = Self.aforoLabel(capacity: occurrence.capacity, remaining: places) {
+                            OGRegisterChip(text: aforo, icon: "person.3")
+                        }
+                        if let location = occurrence.location, !location.isEmpty {
+                            OGRegisterChip(text: location, icon: "mappin.and.ellipse")
+                        }
+                        if let booking {
+                            OGRegisterChip(
+                                text: booking.status == "waitlist" ? "Lista de espera" : "Apuntado",
+                                icon: booking.status == "waitlist" ? "clock" : "checkmark"
                             )
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.accent)
-                            Spacer(minLength: 0)
-                            Button("Cancelar") {
-                                bookingPendingCancellation = booking
-                            }
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.red)
-                            .disabled(business.isSubmitting)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    } else {
-                        // Horario arriba · Apuntarme · plazas debajo (entre horario y plazas).
-                        Button {
-                            guard let pass = wallets.first else { return }
-                            Task { await business.book(occurrence, using: pass) }
-                        } label: {
-                            Text(full ? "Completa" : "Apuntarme")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(canTap ? Color.black : OG.label2.opacity(0.55))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 11)
-                                .background(
-                                    canTap ? OG.accent : OG.surface2,
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!canTap || business.isSubmitting)
+                    }
+                    .frame(height: 24, alignment: .center)
+                }
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Abre el detalle de la clase")
 
-                        Group {
-                            if let opensAt {
-                                Text("Inscripción desde \(opensAt.formatted(date: .abbreviated, time: .shortened))")
-                            } else if full {
-                                Text("Sin plazas libres")
-                            } else if let places {
-                                Text("\(places) plaza\(places == 1 ? "" : "s") libre\(places == 1 ? "" : "s")")
-                            }
-                        }
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(OG.label2)
+            if let booking {
+                HStack(spacing: 10) {
+                    Label(
+                        booking.status == "waitlist" ? "Lista de espera" : "Apuntado",
+                        systemImage: booking.status == "waitlist" ? "clock.badge.checkmark" : "checkmark.circle.fill"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    Spacer(minLength: 0)
+                    Button("Cancelar") {
+                        bookingPendingCancellation = booking
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.red)
+                    .disabled(business.isSubmitting)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                Button {
+                    guard let pass = wallets.first else { return }
+                    Task { await business.book(occurrence, using: pass) }
+                } label: {
+                    Text(full ? "Completa" : "Apuntarme")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(canTap ? Color.black : OG.label2.opacity(0.55))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .background(
+                            canTap ? OG.accent : OG.surface2,
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(!canTap || business.isSubmitting)
+
+                Group {
+                    if let opensAt {
+                        Text("Inscripción desde \(opensAt.formatted(date: .abbreviated, time: .shortened))")
+                    } else if full {
+                        Text("Sin plazas libres")
+                    } else if let places {
+                        Text("\(places) plaza\(places == 1 ? "" : "s") libre\(places == 1 ? "" : "s")")
                     }
                 }
-                .padding(14)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(OG.label2)
             }
         }
     }
@@ -333,70 +357,60 @@ struct PlusHubView: View {
     }
 
     private func centerHeroCard(_ center: BusinessOrganization) -> some View {
-        let next = upcomingBookings(for: center.id).first
         let email = center.publicEmail?.trimmingCharacters(in: .whitespacesAndNewlines)
         let phone = center.phone?.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasEmail = !(email ?? "").isEmpty
         let hasPhone = !(phone ?? "").isEmpty
         return OGCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 14) {
-                    OrganizationAvatarView(center: center, size: 64)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(center.name)
-                            .font(.title3.weight(.bold))
-                        if let tagline = center.tagline, !tagline.isEmpty {
-                            Text(tagline)
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                        }
-                        if let next, let start = BusinessDataStore.date(next.occurrence.startsAt) {
-                            Label(
-                                "Próxima: \(next.occurrence.title) · \(start.formatted(date: .abbreviated, time: .shortened))",
-                                systemImage: "calendar"
-                            )
-                            .font(.caption.weight(.medium))
+            HStack(alignment: .top, spacing: 14) {
+                OrganizationAvatarView(center: center, size: 64)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(center.name)
+                        .font(.title3.weight(.bold))
+                    if let tagline = center.tagline, !tagline.isEmpty {
+                        Text(tagline)
+                            .font(.subheadline)
                             .foregroundStyle(OG.label2)
-                        }
                     }
-                    Spacer(minLength: 0)
-                }
-                if hasEmail || hasPhone {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let email, hasEmail {
-                            if let url = URL(string: "mailto:\(email)") {
-                                Link(destination: url) {
+                    if hasEmail || hasPhone {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let email, hasEmail {
+                                if let url = URL(string: "mailto:\(email)") {
+                                    Link(destination: url) {
+                                        Label(email, systemImage: "envelope.fill")
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundStyle(OG.label)
+                                    }
+                                } else {
                                     Label(email, systemImage: "envelope.fill")
                                         .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(OG.label)
                                 }
-                            } else {
-                                Label(email, systemImage: "envelope.fill")
-                                    .font(.subheadline.weight(.medium))
                             }
-                        }
-                        if let phone, hasPhone {
-                            let digits = phone.filter { $0.isNumber || $0 == "+" }
-                            if let url = URL(string: "tel:\(digits)"), !digits.isEmpty {
-                                Link(destination: url) {
+                            if let phone, hasPhone {
+                                let digits = phone.filter { $0.isNumber || $0 == "+" }
+                                if let url = URL(string: "tel:\(digits)"), !digits.isEmpty {
+                                    Link(destination: url) {
+                                        Label(phone, systemImage: "phone.fill")
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundStyle(OG.label)
+                                    }
+                                } else {
                                     Label(phone, systemImage: "phone.fill")
                                         .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(OG.label)
                                 }
-                            } else {
-                                Label(phone, systemImage: "phone.fill")
-                                    .font(.subheadline.weight(.medium))
                             }
                         }
                     }
                 }
+                Spacer(minLength: 0)
             }
         }
     }
 
     @ViewBuilder
     private func paymentsBlock(_ center: BusinessOrganization) -> some View {
-        let payments = business.paymentHistory(for: center.id).prefix(5)
+        let all = business.paymentHistory(for: center.id)
+        let payments = Array(all.prefix(3))
         OGCardSectionTitle(title: "Últimos pagos")
         OGCard {
             if payments.isEmpty {
@@ -405,30 +419,22 @@ struct PlusHubView: View {
                     .foregroundStyle(OG.label2)
             } else {
                 VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(payments)) { pass in
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(business.offerName(for: pass) ?? (pass.kind == "class" ? "Plan de clases" : "Plan de citas"))
-                                    .font(.subheadline.weight(.semibold))
-                                Text(Self.paymentLabel(pass))
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                                if let when = BusinessDataStore.date(pass.paidAt ?? pass.validFrom) {
-                                    Text(when.formatted(date: .abbreviated, time: .omitted))
-                                        .font(.caption2)
-                                        .foregroundStyle(OG.label3)
-                                }
-                            }
-                            Spacer()
-                            if let cents = pass.paidAmountCents {
-                                Text((Double(cents) / 100).formatted(.currency(code: "EUR")))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(OG.label)
-                            }
-                        }
+                    ForEach(payments) { pass in
+                        paymentRow(pass)
                         if pass.id != payments.last?.id {
                             Divider().opacity(0.35)
                         }
+                    }
+                    if all.count > 3 {
+                        Button {
+                            path.append(PlusHubCenterListPage.payments(center.id))
+                        } label: {
+                            Text("Ver más")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.accent)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -437,7 +443,8 @@ struct PlusHubView: View {
 
     @ViewBuilder
     private func classHistoryBlock(_ center: BusinessOrganization) -> some View {
-        let history = business.pastBookings(for: center.id).prefix(8)
+        let all = business.pastBookings(for: center.id)
+        let history = Array(all.prefix(3))
         let occById = Dictionary(uniqueKeysWithValues: business.occurrences.map { ($0.id, $0) })
         OGCardSectionTitle(title: "Historial de clases")
         OGCard {
@@ -447,29 +454,66 @@ struct PlusHubView: View {
                     .foregroundStyle(OG.label2)
             } else {
                 VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(history), id: \.id) { booking in
-                        let occ = occById[booking.occurrenceId]
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(occ?.title ?? "Clase")
-                                    .font(.subheadline.weight(.semibold))
-                                if let raw = occ?.startsAt, let start = BusinessDataStore.date(raw) {
-                                    Text(start.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(OG.label2)
-                                }
-                            }
-                            Spacer()
-                            Text(Self.bookingStatusLabel(booking.status))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.accent)
-                        }
+                    ForEach(history, id: \.id) { booking in
+                        classHistoryRow(booking: booking, occurrence: occById[booking.occurrenceId])
                         if booking.id != history.last?.id {
                             Divider().opacity(0.35)
                         }
                     }
+                    if all.count > 3 {
+                        Button {
+                            path.append(PlusHubCenterListPage.classHistory(center.id))
+                        } label: {
+                            Text("Ver más")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.accent)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
+        }
+    }
+
+    private func paymentRow(_ pass: BusinessPass) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(business.offerName(for: pass) ?? (pass.kind == "class" ? "Plan de clases" : "Plan de citas"))
+                    .font(.subheadline.weight(.semibold))
+                Text(Self.paymentLabel(pass))
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                if let when = BusinessDataStore.date(pass.paidAt ?? pass.validFrom) {
+                    Text(when.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            Spacer()
+            if let cents = pass.paidAmountCents {
+                Text((Double(cents) / 100).formatted(.currency(code: "EUR")))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+            }
+        }
+    }
+
+    private func classHistoryRow(booking: BusinessBooking, occurrence: BusinessOccurrence?) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(occurrence?.title ?? "Clase")
+                    .font(.subheadline.weight(.semibold))
+                if let raw = occurrence?.startsAt, let start = BusinessDataStore.date(raw) {
+                    Text(start.formatted(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            Spacer()
+            Text(Self.bookingStatusLabel(booking.status))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(OG.accent)
         }
     }
 
@@ -569,6 +613,16 @@ struct PlusHubView: View {
         return "\(max(1, mins)) min"
     }
 
+    /// Aforo siempre visible (también si ya estás apuntado): ocupadas/capacidad.
+    static func aforoLabel(capacity: Int, remaining: Int?) -> String? {
+        guard capacity > 0 else { return nil }
+        if let remaining {
+            let reserved = max(0, capacity - remaining)
+            return "\(reserved)/\(capacity)"
+        }
+        return "\(capacity) plazas"
+    }
+
     static func paymentLabel(_ pass: BusinessPass) -> String {
         if pass.issuanceType == "complimentary" || pass.paymentMethod == "complimentary" {
             return "Cortesía"
@@ -607,6 +661,96 @@ struct PlusHubView: View {
 
 // MARK: - Detalle de clase (página)
 
+private enum PlusHubCenterListPage: Hashable {
+    case payments(UUID)
+    case classHistory(UUID)
+}
+
+private struct CenterPaymentsListPage: View {
+    @Environment(BusinessDataStore.self) private var business
+    let orgId: UUID
+
+    private var payments: [BusinessPass] { business.paymentHistory(for: orgId) }
+    private var title: String { business.centerName(orgId) }
+
+    var body: some View {
+        List {
+            Section {
+                if payments.isEmpty {
+                    Text("Todavía no hay pagos registrados con este centro.")
+                        .foregroundStyle(OG.label2)
+                } else {
+                    ForEach(payments) { pass in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(business.offerName(for: pass) ?? (pass.kind == "class" ? "Plan de clases" : "Plan de citas"))
+                                .font(.headline)
+                            HStack {
+                                Text(PlusHubView.paymentLabel(pass))
+                                Spacer()
+                                if let cents = pass.paidAmountCents {
+                                    Text((Double(cents) / 100).formatted(.currency(code: "EUR")))
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                            if let when = BusinessDataStore.date(pass.paidAt ?? pass.validFrom) {
+                                Text(when.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label3)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            } footer: {
+                Text("Los cobros se confirman fuera de Repera; aquí solo ves el registro del centro.")
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav(title.isEmpty ? "Pagos" : "Pagos · \(title)")
+    }
+}
+
+private struct CenterClassHistoryListPage: View {
+    @Environment(BusinessDataStore.self) private var business
+    let orgId: UUID
+
+    private var rows: [(booking: BusinessBooking, occurrence: BusinessOccurrence?)] {
+        let occById = Dictionary(uniqueKeysWithValues: business.occurrences.map { ($0.id, $0) })
+        return business.pastBookings(for: orgId).map { ($0, occById[$0.occurrenceId]) }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                if rows.isEmpty {
+                    Text("Aún no has asistido ni reservado clases con este centro.")
+                        .foregroundStyle(OG.label2)
+                } else {
+                    ForEach(rows, id: \.booking.id) { row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(row.occurrence?.title ?? "Clase")
+                                .font(.headline)
+                            if let raw = row.occurrence?.startsAt, let start = BusinessDataStore.date(raw) {
+                                Text(start.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Text(PlusHubView.bookingStatusLabel(row.booking.status))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.accent)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        }
+        .ogListChrome()
+        .ogPinnedTransparentNav("Historial de clases")
+    }
+}
+
 struct ClassOccurrenceDetailPage: View {
     @Environment(BusinessDataStore.self) private var business
     let occurrence: BusinessOccurrence
@@ -620,24 +764,106 @@ struct ClassOccurrenceDetailPage: View {
     private var color: Color { Color(plusHubHex: occurrence.color ?? "#22834d") ?? OG.accent }
     private var center: BusinessOrganization? { business.center(for: occurrence.orgId) }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                summaryCard
-                if shouldShowCoach {
-                    coachBlock
-                }
-                attendeesBlock
-            }
-            .padding(.horizontal, OG.pad)
-            .padding(.top, 12)
-            .padding(.bottom, 40)
-            .ogReadableColumn()
+    private var daySubtitle: String {
+        let centerName = center?.name ?? business.centerName(occurrence.orgId)
+        guard let start = BusinessDataStore.date(occurrence.startsAt) else {
+            return centerName.isEmpty ? "Clase" : "Clase · \(centerName)"
         }
-        .background(OG.bg)
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .ogTransparentNav()
+        let day = start.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
+        let time = SpanishDate.time(start)
+        if centerName.isEmpty {
+            return "Clase · \(day) · \(time)"
+        }
+        return "Clase · \(day) · \(time) · \(centerName)"
+    }
+
+    var body: some View {
+        List {
+            VStack(alignment: .leading, spacing: 8) {
+                OGScrollablePageTitle("Clase")
+                Text(daySubtitle)
+                    .font(.system(size: 15))
+                    .foregroundStyle(OG.label2)
+            }
+            .ogScrollingTitleListRow()
+
+            Section {
+                HStack(alignment: .top, spacing: 12) {
+                    OGRegisterLeadingIcon(
+                        systemName: "figure.strengthtraining.traditional",
+                        tint: OG.label2
+                    )
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(occurrence.title)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let booking {
+                            Text(booking.status == "waitlist" ? "Lista de espera" : "Apuntado")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(booking.status == "waitlist" ? OG.label2 : OG.accent)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 4)
+
+                if let start = BusinessDataStore.date(occurrence.startsAt),
+                   let end = BusinessDataStore.date(occurrence.endsAt) {
+                    detailRow(icon: "calendar", title: "Fecha", value: start.formatted(date: .complete, time: .omitted))
+                    detailRow(
+                        icon: "clock",
+                        title: "Hora",
+                        value: "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened))"
+                    )
+                    detailRow(
+                        icon: "timer",
+                        title: "Duración",
+                        value: PlusHubView.durationLabel(start: start, end: end)
+                    )
+                }
+                let reserved = roster?.reserved ?? places.map { occurrence.capacity - $0 }
+                let capacity = roster?.capacity ?? occurrence.capacity
+                if let reserved {
+                    detailRow(icon: "person.3.fill", title: "Plazas", value: "\(reserved) / \(capacity)")
+                }
+                if let location = occurrence.location, !location.isEmpty {
+                    detailRow(icon: "mappin.and.ellipse", title: "Sala", value: location)
+                }
+            }
+
+            if shouldShowCoach, let coach = roster?.coach {
+                Section("Entrenador") {
+                    personRow(name: coach.displayName, avatar: coach.avatarUrl, subtitle: "Impartirá la clase", large: true)
+                }
+            }
+
+            Section(roster.map { "Apuntados (\($0.attendees.count))" } ?? "Apuntados") {
+                if loadingRoster {
+                    ProgressView().tint(OG.accent)
+                } else if let people = roster?.attendees, !people.isEmpty {
+                    ForEach(people) { person in
+                        personRow(
+                            name: person.displayName,
+                            avatar: person.avatarUrl,
+                            subtitle: person.status == "waitlist" ? "Lista de espera" : nil,
+                            large: false
+                        )
+                    }
+                } else {
+                    Text("Todavía no hay nadie apuntado. Sé el primero.")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+        }
+        .ogListChrome()
+        .ogScrollingTitleNav()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                bookingToolbarButton
+            }
+        }
         .task {
             loadingRoster = true
             roster = await business.loadClassRoster(for: occurrence.id)
@@ -650,133 +876,40 @@ struct ClassOccurrenceDetailPage: View {
         return roster?.coach != nil
     }
 
-    private var summaryCard: some View {
-        OGCard {
-            VStack(alignment: .leading, spacing: 22) {
-                HStack(alignment: .top, spacing: 14) {
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(color)
-                        .frame(width: 5)
-                        .frame(minHeight: 56)
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(occurrence.title)
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(color)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let center {
-                            HStack(spacing: 10) {
-                                OrganizationAvatarView(center: center, size: 30)
-                                Text(center.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(OG.label)
-                            }
-                        } else {
-                            Text(business.centerName(occurrence.orgId))
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                    Spacer(minLength: 10)
-                    bookingGlassButton
-                }
-
-                if let booking {
-                    Text(booking.status == "waitlist" ? "Lista de espera" : "Apuntado")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(booking.status == "waitlist" ? OG.label2 : color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            (booking.status == "waitlist" ? OG.surface2 : color.opacity(0.14)),
-                            in: Capsule()
-                        )
-                }
-
-                if let start = BusinessDataStore.date(occurrence.startsAt),
-                   let end = BusinessDataStore.date(occurrence.endsAt) {
-                    detailRow(icon: "calendar", title: "Fecha", value: start.formatted(date: .complete, time: .omitted))
-                    HStack(alignment: .top, spacing: 12) {
-                        metricTile(
-                            icon: "clock",
-                            title: "Hora",
-                            value: "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened))"
-                        )
-                        metricTile(
-                            icon: "hourglass",
-                            title: "Duración",
-                            value: PlusHubView.durationLabel(start: start, end: end)
-                        )
-                    }
-                }
-
-                let reserved = roster?.reserved ?? places.map { occurrence.capacity - $0 }
-                let capacity = roster?.capacity ?? occurrence.capacity
-                VStack(alignment: .leading, spacing: 14) {
-                    if let reserved {
-                        detailRow(icon: "person.3.fill", title: "Plazas", value: "\(reserved) / \(capacity)")
-                    }
-                    if let location = occurrence.location, !location.isEmpty {
-                        detailRow(icon: "mappin.and.ellipse", title: "Sala", value: location)
-                    }
-                }
-            }
-        }
-    }
-
     @ViewBuilder
-    private var bookingGlassButton: some View {
+    private var bookingToolbarButton: some View {
         if let booking {
-            OGToolbarGlassButton(
-                systemName: "xmark",
-                accessibilityLabel: "Desapuntarse",
-                tint: OG.red,
-                appliesGlass: true,
-                glassTint: OG.red.opacity(0.22)
-            ) {
+            Button {
                 onRequestCancel(booking)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(OG.red)
             }
+            .accessibilityLabel("Desapuntarse")
             .disabled(business.isSubmitting)
-            .opacity(business.isSubmitting ? 0.45 : 1)
         } else {
             let open = business.canBookNow(occurrence)
             let full = (places ?? 1) == 0
             let canTap = open && !full && business.availablePasses(for: occurrence).first != nil
-            OGToolbarGlassButton(
-                systemName: "checkmark",
-                accessibilityLabel: full ? "Clase completa" : (open ? "Apuntarme" : "Aún no se puede apuntar"),
-                tint: canTap ? Color.white : OG.label3,
-                appliesGlass: true,
-                glassTint: canTap ? OG.accent : OG.surface2
-            ) {
+            Button {
                 guard let pass = business.availablePasses(for: occurrence).first else { return }
                 Task { await business.book(occurrence, using: pass) }
+            } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(canTap ? OG.accent : OG.label3)
             }
+            .accessibilityLabel(full ? "Clase completa" : (open ? "Apuntarme" : "Aún no se puede apuntar"))
             .disabled(!canTap || business.isSubmitting)
-            .opacity((!canTap || business.isSubmitting) ? 0.55 : 1)
         }
-    }
-
-    private func metricTile(icon: String, title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(OG.label2)
-                .labelStyle(.titleAndIcon)
-            Text(value)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(OG.label)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func detailRow(icon: String, title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Image(systemName: icon)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
+                .foregroundStyle(OG.accent)
                 .frame(width: 18)
             Text(title)
                 .font(.subheadline)
@@ -786,48 +919,6 @@ struct ClassOccurrenceDetailPage: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(OG.label)
                 .multilineTextAlignment(.trailing)
-        }
-    }
-
-    @ViewBuilder
-    private var coachBlock: some View {
-        if let coach = roster?.coach {
-            VStack(alignment: .leading, spacing: 12) {
-                OGCardSectionTitle(title: "Entrenador")
-                OGCard {
-                    personRow(name: coach.displayName, avatar: coach.avatarUrl, subtitle: "Impartirá la clase", large: true)
-                }
-            }
-        }
-    }
-
-    private var attendeesBlock: some View {
-        let count = roster?.attendees.count ?? 0
-        return VStack(alignment: .leading, spacing: 12) {
-            OGCardSectionTitle(title: count > 0 ? "Apuntados (\(count))" : "Apuntados")
-            OGCard {
-                if loadingRoster {
-                    ProgressView().tint(OG.accent)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 8)
-                } else if let people = roster?.attendees, !people.isEmpty {
-                    VStack(spacing: 16) {
-                        ForEach(people) { person in
-                            personRow(
-                                name: person.displayName,
-                                avatar: person.avatarUrl,
-                                subtitle: person.status == "waitlist" ? "Lista de espera" : nil,
-                                large: false
-                            )
-                        }
-                    }
-                } else {
-                    Text("Todavía no hay nadie apuntado. Sé el primero.")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-                        .padding(.vertical, 4)
-                }
-            }
         }
     }
 

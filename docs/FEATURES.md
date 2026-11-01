@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-11-01 (confirm cancel sheet + detalle clase)
+Última actualización: 2026-11-01 (aforo + ver más pagos/historial)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 
@@ -333,7 +333,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 - **Invitar socio/cliente:** RPC `invite_athlete_client` reutiliza ficha lead del mismo centro y permite el mismo email en otro gimnasio. Si ya está vinculado a una cuenta aquí, la modal permanece abierta con aviso bajo el correo (sin volcar el error SQL `clients_org_email_uq`).
 - **Invitar con acceso:** en la modal se puede (1) solo invitar, (2) dejar N sesiones de prueba o (3) asignar un bono cobrado (forma de pago / importe). El bono se crea sobre la ficha lead y queda listo al aceptar.
 - **Enlace de invitación:** «Copiar enlace» usa `repera://invitation/{id}` (abre la app → Ajustes/aceptar centro). Preview del centro vía `get_my_invitation_preview`. Tras aceptar, Ajustes abre el centro vinculado (historial de pagos/clases).
-- **App iOS / Android:** menú Inicio · Comenzar · **+** · Progreso · Ejercicios. El tab **+** (`PlusHubView` / `PlusHubTab`) muestra **Clases** (franja de días; tarjeta con franja de color; horario → **Apuntarme** verde/texto negro → plazas; si estás inscrito **Apuntado | Cancelar** en la misma fila; **detalle**: nombre en tarjeta con color de clase, chip de estado, hora|duración en tiles, ✓/✕ glass; cancelar con `OGConfirmSheet` / `ReperaConfirmSheet` de abajo arriba; entrenador solo si hay) y **Centro** (avatar + nombre/tagline y mail/teléfono dentro de la misma ficha si el centro los publica; sin chip «Gimnasio»; **Plan**, próximas reservas, últimos pagos e historial de clases). Sin topbar «+»/actualizar. La antelación de inscripción la define el centro en Business → Ajustes → Servicios.
+- **App iOS / Android:** menú Inicio · Comenzar · **+** · Progreso · Ejercicios. El tab **+** (`PlusHubView` / `PlusHubTab`) muestra **Clases** (franja de días; fichas al estilo entreno programado: icono fuerza, caption `día · hora · centro`, título, chips; **Apuntarme**/Cancelar debajo; **detalle** tipo SessionPreview «Clase» + datos de la clase; cancelar con `OGConfirmSheet` / `ReperaConfirmSheet`; entrenador solo si hay) y **Centro** (avatar + nombre/tagline/mail/teléfono alineados en la misma columna; **Plan**, próximas reservas; últimos 3 pagos e historial de clases con «Ver más»). Sin topbar «+»/actualizar. La antelación de inscripción la define el centro en Business → Ajustes → Servicios.
 - **Ficha de centro en Ajustes:** al abrir un gimnasio/entrenador vinculado solo se muestran historial de pagos, historial de clases y desvincular (sin chat/bonos/compartir en esa página).
 - **Repera Business (errores en modal):** si falla una acción de un sheet (p. ej. crear clase/cita), el aviso se muestra **dentro** del modal, no solo en la cabecera.
 - La vinculación conserva los beneficios de acceso completo mientras el vínculo sea válido y revoca ese acceso al desvincular, salvo suscripción Repera Pro.

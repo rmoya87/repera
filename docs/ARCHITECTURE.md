@@ -36,7 +36,7 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 - La capa local-first persiste entrenamientos terminados en JSON/iCloud. persistWorkouts realiza flush y lanza sincronización explícita mediante BusinessWorkoutSyncStore, además del observador workoutsEpoch; Ajustes muestra el resultado del último intento de mirror de sesiones en Supabase, diferenciado de la sincronización editorial automática.
 - LiveSport asigna disciplinas a tipos HKWorkoutActivityType; HealthMuscleMapper usa duración real y tipo deportivo para estimar zonas musculares y cardio sin crear series falsas ni duplicar sesiones enlazadas con Apple Watch.
 
-Última actualización: 2026-11-01 (confirm cancel sheet + detalle clase)
+Última actualización: 2026-11-01 (aforo + ver más pagos/historial)
 
 ## Series de movilidad (iOS)
 
@@ -178,7 +178,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 ## Navegación (tabs)
 
-`RootTabView`: **Inicio · Comenzar · + · Progreso · Ejercicios**. El tab **+** (`PlusHubView` / Android `PlusHubTab`) concentra **Clases** (día + color; listado con Apuntarme entre horario y plazas / Apuntado+Cancelar en fila; detalle `OGCard` con título coloreado, tiles hora|duración, CTA glass ✓/✕; cancelación con `OGConfirmSheet` / `ReperaConfirmSheet`; roster `class_occurrence_roster`) y **Centro** (ficha única: avatar/nombre + `public_email`/`phone` si existen; Plan, próximas, últimos pagos, historial de clases). Select orgs incluye contacto público. Ventana de inscripción: `organizations.class_booking_open_hours` + RPC `update_org_booking_window` / chequeo en `book_service_occurrence`. Datos fiscales Business: RPC `upsert_organization_legal_profile` (owner/admin) sobre `organization_legal_profiles`. `LinkedCenterDetailView` / `LinkedCenterDialog`: historiales de pagos y clases. Mensajes en topbar de Inicio. Deep link `repera://invitation/{id}` → Ajustes → centro vinculado.
+`RootTabView`: **Inicio · Comenzar · + · Progreso · Ejercicios**. El tab **+** (`PlusHubView` / Android `PlusHubTab`) concentra **Clases** (día; listado estilo registro/entreno con caption hora+centro; detalle estilo SessionPreview; cancelación `OGConfirmSheet` / `ReperaConfirmSheet`; roster `class_occurrence_roster`) y **Centro** (ficha única: avatar/nombre + `public_email`/`phone` si existen; Plan, próximas, últimos pagos, historial de clases). Select orgs incluye contacto público. Ventana de inscripción: `organizations.class_booking_open_hours` + RPC `update_org_booking_window` / chequeo en `book_service_occurrence`. Datos fiscales Business: RPC `upsert_organization_legal_profile` (owner/admin) sobre `organization_legal_profiles`. `LinkedCenterDetailView` / `LinkedCenterDialog`: historiales de pagos y clases. Mensajes en topbar de Inicio. Deep link `repera://invitation/{id}` → Ajustes → centro vinculado.
 
 Business web (`web/console`): gym header Notificaciones = drawer `renderNotificationsDrawer`; edición de serie de clase por matching título+weekday+hora en `edit-occurrence`; franjas `weekSlotGrid` con paso = duración.
 
@@ -409,7 +409,7 @@ Las operaciones remotas `update_workout`, `delete_workout` y CRUD de ejercicios 
 
 ## Conexión guiada con asistentes (2026-10-24)
 
-Última actualización: 2026-11-01 (confirm cancel sheet + detalle clase)
+Última actualización: 2026-11-01 (aforo + ver más pagos/historial)
 
 Se incorpora el soporte de OAuth gestionado por Supabase, consentimiento web y aislamiento de credenciales MCP, manteniendo los PAT manuales. La UI **Conecta tu IA** ofrece Claude con instrucciones copiables para añadir una conexión personalizada OAuth (sin tokens en el chat). ChatGPT permanece pendiente de su ficha publicada. La integración no está publicada por el hecho de integrar este código. Arquitectura, pruebas, despliegue y presentación a revisión: [OAUTH_CONNECTIONS.md](OAUTH_CONNECTIONS.md).
 

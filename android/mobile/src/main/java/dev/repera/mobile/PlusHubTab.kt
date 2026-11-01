@@ -8,11 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +24,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Place
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -79,6 +82,8 @@ internal fun PlusHubTab(
     var detailOccurrence by remember {
         mutableStateOf<BusinessCenterStore.Occurrence?>(null)
     }
+    var paymentsCenterId by remember { mutableStateOf<String?>(null) }
+    var historyCenterId by remember { mutableStateOf<String?>(null) }
     var pendingCancellation by remember {
         mutableStateOf<BusinessCenterStore.Booking?>(null)
     }
@@ -141,9 +146,27 @@ internal fun PlusHubTab(
             else -> CenterPane(
                 snapshot = snapshot,
                 dayFmt = dayFmt,
-                onOpenDetail = { detailOccurrence = it }
+                onOpenDetail = { detailOccurrence = it },
+                onOpenPayments = { paymentsCenterId = it },
+                onOpenClassHistory = { historyCenterId = it }
             )
         }
+    }
+
+    paymentsCenterId?.let { centerId ->
+        CenterPaymentsFullPage(
+            snapshot = snapshot,
+            centerId = centerId,
+            onClose = { paymentsCenterId = null }
+        )
+    }
+    historyCenterId?.let { centerId ->
+        CenterClassHistoryFullPage(
+            snapshot = snapshot,
+            centerId = centerId,
+            dayFmt = dayFmt,
+            onClose = { historyCenterId = null }
+        )
     }
 
     detailOccurrence?.let { occurrence ->
@@ -258,7 +281,7 @@ private fun ClassesPane(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Sin clases este día", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Cuando tu gimnasio publique horarios, aparecerán aquí con su color.",
+                            "Cuando tu gimnasio publique horarios, aparecerán aquí.",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -266,11 +289,15 @@ private fun ClassesPane(
             }
         }
         items(dayClasses, key = { it.id }) { occurrence ->
+            val availability = snapshot?.availability?.get(occurrence.id)
             ClassDayCard(
                 occurrence = occurrence,
+                selectedDay = selectedDay,
                 centerName = snapshot?.centerName(occurrence.orgId).orEmpty(),
                 booking = snapshot?.bookingFor(occurrence.id),
                 places = snapshot?.remainingPlaces(occurrence),
+                capacity = availability?.capacity ?: occurrence.capacity,
+                reserved = availability?.reserved,
                 passes = snapshot?.availablePasses(occurrence).orEmpty(),
                 canBook = snapshot?.canBookNow(occurrence) == true,
                 opensAt = snapshot?.bookingOpensAt(occurrence),
@@ -287,9 +314,12 @@ private fun ClassesPane(
 @Composable
 private fun ClassDayCard(
     occurrence: BusinessCenterStore.Occurrence,
+    selectedDay: LocalDate,
     centerName: String,
     booking: BusinessCenterStore.Booking?,
     places: Int?,
+    capacity: Int?,
+    reserved: Int?,
     passes: List<BusinessCenterStore.Pass>,
     canBook: Boolean,
     opensAt: Instant?,
@@ -299,111 +329,88 @@ private fun ClassDayCard(
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
 ) {
-    val accent = parseClassColor(occurrence.color)
     val full = (places ?: 1) == 0
     val canTap = canBook && !full && passes.isNotEmpty()
-    ReperaCard(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 96.dp)
-        ) {
-            Box(
-                Modifier
-                    .width(5.dp)
-                    .fillMaxHeight()
-                    .background(accent)
+    val start = runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
+    val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+    val timeLabel = start?.let { homeTimeFromIso(occurrence.startsAt) }
+    var caption = homeDayTimeCaption(selectedDay, timeLabel)
+    if (centerName.isNotBlank()) caption += " · $centerName"
+    val aforo = aforoLabel(capacity = capacity, remaining = places, reserved = reserved)
+    val chips = buildList {
+        if (start != null && end != null) add(Icons.Outlined.Timer to durationLabel(start, end))
+        if (aforo != null) add(Icons.Outlined.Person to aforo)
+        occurrence.location?.takeIf { it.isNotBlank() }?.let {
+            add(Icons.Outlined.Place to it)
+        }
+        if (booking != null) {
+            add(
+                Icons.Outlined.Check to
+                    if (booking.status == "waitlist") "Lista de espera" else "Apuntado"
             )
-            Column(
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        HomeDayRegisterCard(
+            caption = caption,
+            title = occurrence.title,
+            leadingIcon = Icons.Outlined.FitnessCenter,
+            chips = chips,
+            onClick = { onOpenDetail(occurrence) },
+            leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (booking != null) {
+            Row(
                 Modifier
-                    .weight(1f)
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenDetail(occurrence) },
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                Text(
+                    if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TextButton(
+                    onClick = { onRequestCancel(booking) },
+                    enabled = !submitting,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Text(occurrence.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    if (centerName.isNotBlank()) {
-                        Text(centerName, style = MaterialTheme.typography.bodySmall)
-                    }
-                    runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()?.let { start ->
-                        val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
-                        Text(
-                            buildString {
-                                append(dayFmt.format(start))
-                                if (end != null) {
-                                    append(" – ")
-                                    append(dayFmt.format(end))
-                                    append(" · ")
-                                    append(durationLabel(start, end))
-                                }
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    occurrence.location?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (booking != null) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        TextButton(
-                            onClick = { onRequestCancel(booking) },
-                            enabled = !submitting,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("Cancelar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            val pass = passes.firstOrNull() ?: return@Button
-                            onBook(occurrence, pass)
-                        },
-                        enabled = canTap && !submitting,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.Black,
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (full) "Completa" else "Apuntarme", fontWeight = FontWeight.Bold)
-                    }
-                    Text(
-                        when {
-                            opensAt != null -> "Inscripción desde ${dayFmt.format(opensAt)}"
-                            full -> "Sin plazas libres"
-                            places != null -> "$places plaza${if (places == 1) "" else "s"} libre${if (places == 1) "" else "s"}"
-                            else -> ""
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("Cancelar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                 }
             }
+        } else {
+            Button(
+                onClick = {
+                    val pass = passes.firstOrNull() ?: return@Button
+                    onBook(occurrence, pass)
+                },
+                enabled = canTap && !submitting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.Black,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (full) "Completa" else "Apuntarme", fontWeight = FontWeight.Bold)
+            }
+            Text(
+                when {
+                    opensAt != null -> "Inscripción desde ${dayFmt.format(opensAt)}"
+                    full -> "Sin plazas libres"
+                    places != null -> "$places plaza${if (places == 1) "" else "s"} libre${if (places == 1) "" else "s"}"
+                    else -> ""
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -427,10 +434,24 @@ private fun ClassDetailPage(
     val open = snapshot?.canBookNow(occurrence) == true
     val full = (places ?: 1) == 0
     val passes = snapshot?.availablePasses(occurrence).orEmpty()
-    val accent = parseClassColor(occurrence.color)
     val center = snapshot?.centers?.firstOrNull { it.id == occurrence.orgId }
     val start = runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
     val end = occurrence.endsAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+    val canTap = open && !full && passes.isNotEmpty()
+    val centerName = center?.name ?: snapshot?.centerName(occurrence.orgId).orEmpty()
+    val subtitle = buildString {
+        append("Clase")
+        if (start != null) {
+            append(" · ")
+            append(dateFmt.format(start).replaceFirstChar { it.uppercase() })
+            append(" · ")
+            append(dayFmt.format(start))
+        }
+        if (centerName.isNotBlank()) {
+            append(" · ")
+            append(centerName)
+        }
+    }
 
     LaunchedEffect(occurrence.id) {
         loadingRoster = true
@@ -455,113 +476,91 @@ private fun ClassDetailPage(
             ) {
                 TextButton(onClick = onClose) { Text("Cerrar") }
                 Spacer(Modifier.weight(1f))
+                ClassBookingCircleButton(
+                    booked = booking != null,
+                    enabled = if (booking != null) !submitting else canTap && !submitting,
+                    onClick = {
+                        if (booking != null) {
+                            onRequestCancel(booking)
+                        } else {
+                            val pass = passes.firstOrNull() ?: return@ClassBookingCircleButton
+                            onBook(occurrence, pass)
+                        }
+                    }
+                )
             }
             Column(
                 Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
                     .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                val canTap = open && !full && passes.isNotEmpty()
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "Clase",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 ReperaCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Row(
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.Top
                         ) {
-                            Box(
-                                Modifier
-                                    .width(5.dp)
-                                    .height(56.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(accent)
+                            HomeRegisterLeadingIcon(
+                                Icons.Outlined.FitnessCenter,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Column(
-                                Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
                                     occurrence.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = accent
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    CenterAvatar(center = center, size = 30.dp)
+                                if (booking != null) {
                                     Text(
-                                        center?.name ?: snapshot?.centerName(occurrence.orgId).orEmpty(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold
+                                        if (booking.status == "waitlist") "Lista de espera" else "Apuntado",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (booking.status == "waitlist") {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        }
                                     )
                                 }
                             }
-                            ClassBookingCircleButton(
-                                booked = booking != null,
-                                enabled = if (booking != null) !submitting else canTap && !submitting,
-                                onClick = {
-                                    if (booking != null) {
-                                        onRequestCancel(booking)
-                                    } else {
-                                        val pass = passes.firstOrNull() ?: return@ClassBookingCircleButton
-                                        onBook(occurrence, pass)
-                                    }
-                                }
-                            )
-                        }
-                        if (booking != null) {
-                            val waitlist = booking.status == "waitlist"
-                            Text(
-                                if (waitlist) "Lista de espera" else "Apuntado",
-                                color = if (waitlist) MaterialTheme.colorScheme.onSurfaceVariant else accent,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(
-                                        if (waitlist) MaterialTheme.colorScheme.surfaceVariant
-                                        else accent.copy(alpha = 0.14f)
-                                    )
-                                    .padding(horizontal = 12.dp, vertical = 7.dp)
-                            )
                         }
                         if (start != null) {
                             DetailRow("Fecha", dateFmt.format(start).replaceFirstChar { it.uppercase() })
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                MetricTile(
-                                    title = "Hora",
-                                    value = buildString {
-                                        append(dayFmt.format(start))
-                                        if (end != null) {
-                                            append(" – ")
-                                            append(dayFmt.format(end))
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                MetricTile(
-                                    title = "Duración",
-                                    value = if (end != null) durationLabel(start, end) else "—",
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                            DetailRow(
+                                "Hora",
+                                buildString {
+                                    append(dayFmt.format(start))
+                                    if (end != null) {
+                                        append(" – ")
+                                        append(dayFmt.format(end))
+                                    }
+                                }
+                            )
+                            if (end != null) DetailRow("Duración", durationLabel(start, end))
                         }
                         val reserved = roster?.reserved ?: places?.let { (occurrence.capacity ?: 0) - it }
                         val capacity = roster?.capacity ?: occurrence.capacity
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            if (reserved != null && capacity != null) {
-                                DetailRow("Plazas", "$reserved / $capacity")
-                            }
-                            occurrence.location?.takeIf { it.isNotBlank() }?.let {
-                                DetailRow("Sala", it)
-                            }
+                        if (reserved != null && capacity != null) {
+                            DetailRow("Plazas", "$reserved / $capacity")
+                        }
+                        occurrence.location?.takeIf { it.isNotBlank() }?.let {
+                            DetailRow("Sala", it)
                         }
                     }
                 }
@@ -575,7 +574,7 @@ private fun ClassDetailPage(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         ReperaCard(Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(18.dp)) {
+                            Column(Modifier.padding(16.dp)) {
                                 PersonRow(
                                     name = roster!!.coach!!.displayName,
                                     avatarUrl = roster!!.coach!!.avatarUrl,
@@ -596,7 +595,7 @@ private fun ClassDetailPage(
                     )
                     ReperaCard(Modifier.fillMaxWidth()) {
                         Column(
-                            Modifier.padding(18.dp),
+                            Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             when {
@@ -619,33 +618,6 @@ private fun ClassDetailPage(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun MetricTile(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
 
@@ -770,6 +742,8 @@ private fun CenterPane(
     snapshot: BusinessCenterStore.Snapshot?,
     dayFmt: DateTimeFormatter,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
+    onOpenPayments: (String) -> Unit,
+    onOpenClassHistory: (String) -> Unit,
 ) {
     val linkedIds = snapshot?.athleteCenterIds.orEmpty()
     val centers = snapshot?.centers.orEmpty().filter { it.id in linkedIds }
@@ -792,7 +766,7 @@ private fun CenterPane(
         centers.forEach { center ->
             val upcoming = upcomingBookings(snapshot, center.id)
             item(key = "hero-${center.id}") {
-                CenterHeroCard(center = center, next = upcoming.firstOrNull(), dayFmt = dayFmt)
+                CenterHeroCard(center = center)
             }
             item(key = "plan-title-${center.id}") {
                 Text(
@@ -873,18 +847,32 @@ private fun CenterPane(
                 }
             }
             item(key = "payments-${center.id}") {
-                PaymentsCard(snapshot = snapshot, centerId = center.id)
+                PaymentsCard(
+                    snapshot = snapshot,
+                    centerId = center.id,
+                    onOpenAll = { onOpenPayments(center.id) }
+                )
             }
             item(key = "history-${center.id}") {
-                ClassHistoryCard(snapshot = snapshot, centerId = center.id, dayFmt = dayFmt)
+                ClassHistoryCard(
+                    snapshot = snapshot,
+                    centerId = center.id,
+                    dayFmt = dayFmt,
+                    onOpenAll = { onOpenClassHistory(center.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PaymentsCard(snapshot: BusinessCenterStore.Snapshot?, centerId: String) {
-    val payments = snapshot?.paymentHistory(centerId).orEmpty().take(5)
+private fun PaymentsCard(
+    snapshot: BusinessCenterStore.Snapshot?,
+    centerId: String,
+    onOpenAll: () -> Unit,
+) {
+    val all = snapshot?.paymentHistory(centerId).orEmpty()
+    val payments = all.take(3)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             "Últimos pagos",
@@ -902,21 +890,16 @@ private fun PaymentsCard(snapshot: BusinessCenterStore.Snapshot?, centerId: Stri
                     )
                 } else {
                     payments.forEach { pass ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    snapshot?.offerName(pass) ?: if (pass.kind == "class") "Plan de clases" else "Plan de citas",
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(paymentLabel(pass), style = MaterialTheme.typography.labelSmall)
-                            }
-                            pass.paidAmountCents?.let { cents ->
-                                Text(
-                                    String.format(Locale("es"), "%.2f €", cents / 100.0),
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
+                        PaymentRow(snapshot = snapshot, pass = pass)
+                    }
+                    if (all.size > 3) {
+                        Text(
+                            "Ver más",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable(onClick = onOpenAll)
+                        )
                     }
                 }
             }
@@ -929,8 +912,10 @@ private fun ClassHistoryCard(
     snapshot: BusinessCenterStore.Snapshot?,
     centerId: String,
     dayFmt: DateTimeFormatter,
+    onOpenAll: () -> Unit,
 ) {
-    val history = snapshot?.pastBookings(centerId).orEmpty().take(8)
+    val all = snapshot?.pastBookings(centerId).orEmpty()
+    val history = all.take(3)
     val occById = snapshot?.occurrences.orEmpty().associateBy { it.id }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -949,26 +934,160 @@ private fun ClassHistoryCard(
                     )
                 } else {
                     history.forEach { booking ->
-                        val occ = occById[booking.occurrenceId]
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(Modifier.weight(1f)) {
-                                Text(occ?.title ?: "Clase", fontWeight = FontWeight.SemiBold)
-                                occ?.startsAt?.let { raw ->
-                                    runCatching { Instant.parse(raw) }.getOrNull()?.let { start ->
-                                        Text(
-                                            dayFmt.format(start),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
+                        ClassHistoryRow(
+                            booking = booking,
+                            occurrence = occById[booking.occurrenceId],
+                            dayFmt = dayFmt
+                        )
+                    }
+                    if (all.size > 3) {
+                        Text(
+                            "Ver más",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable(onClick = onOpenAll)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaymentRow(snapshot: BusinessCenterStore.Snapshot?, pass: BusinessCenterStore.Pass) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                snapshot?.offerName(pass) ?: if (pass.kind == "class") "Plan de clases" else "Plan de citas",
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(paymentLabel(pass), style = MaterialTheme.typography.labelSmall)
+        }
+        pass.paidAmountCents?.let { cents ->
+            Text(
+                String.format(Locale("es"), "%.2f €", cents / 100.0),
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClassHistoryRow(
+    booking: BusinessCenterStore.Booking,
+    occurrence: BusinessCenterStore.Occurrence?,
+    dayFmt: DateTimeFormatter,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f)) {
+            Text(occurrence?.title ?: "Clase", fontWeight = FontWeight.SemiBold)
+            occurrence?.startsAt?.let { raw ->
+                runCatching { Instant.parse(raw) }.getOrNull()?.let { start ->
+                    Text(
+                        dayFmt.format(start),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Text(
+            bookingStatusLabel(booking.status),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun CenterHeroCard(center: BusinessCenterStore.Organization) {
+    val email = center.publicEmail?.trim().orEmpty()
+    val phone = center.phone?.trim().orEmpty()
+    val uriHandler = LocalUriHandler.current
+    ReperaCard(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            CenterAvatar(center = center, size = 64.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                Text(center.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                center.tagline?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
+                if (email.isNotBlank()) {
+                    Text(
+                        email,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable { uriHandler.openUri("mailto:$email") }
+                    )
+                }
+                if (phone.isNotBlank()) {
+                    val digits = phone.filter { it.isDigit() || it == '+' }
+                    Text(
+                        phone,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable(enabled = digits.isNotBlank()) {
+                            uriHandler.openUri("tel:$digits")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CenterPaymentsFullPage(
+    snapshot: BusinessCenterStore.Snapshot?,
+    centerId: String,
+    onClose: () -> Unit,
+) {
+    val payments = snapshot?.paymentHistory(centerId).orEmpty()
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onClose) { Text("Cerrar") }
+                Text(
+                    "Pagos",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (payments.isEmpty()) {
+                    item {
+                        Text(
+                            "Todavía no hay pagos registrados con este centro.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                } else {
+                    items(payments, key = { it.id }) { pass ->
+                        ReperaCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                PaymentRow(snapshot = snapshot, pass = pass)
                             }
-                            Text(
-                                bookingStatusLabel(booking.status),
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
                         }
                     }
                 }
@@ -978,60 +1097,58 @@ private fun ClassHistoryCard(
 }
 
 @Composable
-private fun CenterHeroCard(
-    center: BusinessCenterStore.Organization,
-    next: UpcomingRow?,
+private fun CenterClassHistoryFullPage(
+    snapshot: BusinessCenterStore.Snapshot?,
+    centerId: String,
     dayFmt: DateTimeFormatter,
+    onClose: () -> Unit,
 ) {
-    val email = center.publicEmail?.trim().orEmpty()
-    val phone = center.phone?.trim().orEmpty()
-    val uriHandler = LocalUriHandler.current
-    ReperaCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                CenterAvatar(center = center, size = 64.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
-                    Text(center.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    center.tagline?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall)
-                    }
-                    if (next != null) {
-                        val start = runCatching { Instant.parse(next.occurrence.startsAt) }.getOrNull()
-                        Text(
-                            buildString {
-                                append("Próxima: ")
-                                append(next.occurrence.title)
-                                if (start != null) {
-                                    append(" · ")
-                                    append(dayFmt.format(start))
-                                }
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+    val history = snapshot?.pastBookings(centerId).orEmpty()
+    val occById = snapshot?.occurrences.orEmpty().associateBy { it.id }
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onClose) { Text("Cerrar") }
+                Text(
+                    "Historial de clases",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
-            if (email.isNotBlank() || phone.isNotBlank()) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (email.isNotBlank()) {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (history.isEmpty()) {
+                    item {
                         Text(
-                            email,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.clickable { uriHandler.openUri("mailto:$email") }
+                            "Aún no has asistido ni reservado clases con este centro.",
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    if (phone.isNotBlank()) {
-                        val digits = phone.filter { it.isDigit() || it == '+' }
-                        Text(
-                            phone,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.clickable(enabled = digits.isNotBlank()) {
-                                uriHandler.openUri("tel:$digits")
+                } else {
+                    items(history, key = { it.id }) { booking ->
+                        ReperaCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                ClassHistoryRow(
+                                    booking = booking,
+                                    occurrence = occById[booking.occurrenceId],
+                                    dayFmt = dayFmt
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -1183,6 +1300,13 @@ private fun durationLabel(start: Instant, end: Instant): String {
         return if (m == 0) "$h h" else "$h h $m min"
     }
     return "$mins min"
+}
+
+/** Aforo siempre visible (también si ya estás apuntado): ocupadas/capacidad. */
+private fun aforoLabel(capacity: Int?, remaining: Int?, reserved: Int?): String? {
+    val cap = capacity?.takeIf { it > 0 } ?: return null
+    val used = reserved ?: remaining?.let { (cap - it).coerceAtLeast(0) }
+    return if (used != null) "$used/$cap" else "$cap plazas"
 }
 
 private fun parseClassColor(raw: String?): Color {
