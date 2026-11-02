@@ -54,10 +54,10 @@ class WatchPlannedRecordingContract(unittest.TestCase):
         completed = self.store.split(
             "func applyWatchSession(_ session: WorkoutSession)", 1
         )[1].split("func reconcileWatchHealthMetrics()", 1)[0]
-        self.assertIn("let receivedNewRecordedPlan = !state.workouts.contains", completed)
+        self.assertIn("awaitingRecordedPlanEdits.insert(session.id)", completed)
         self.assertIn("await LocalStore.shared.persistAndFlush(snapshot)", completed)
         self.assertIn("guard LocalStore.shared.lastPersistenceError == nil", completed)
-        self.assertIn("if receivedNewRecordedPlan {", completed)
+        self.assertIn("if self.awaitingRecordedPlanEdits.remove(session.id) != nil {", completed)
         self.assertIn("self.pendingRecordedPlanEditID = session.id", completed)
         self.assertIn("store.acknowledgeRecordedPlanEdit(id)", self.root)
         self.assertIn("focusEditSessionID: recordedPlanEditID", self.root)
