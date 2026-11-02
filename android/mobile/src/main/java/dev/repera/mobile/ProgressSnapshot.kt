@@ -400,12 +400,16 @@ object ProgressSnapshotBuilder {
             val kg = entry.optDouble("weightKg")
             if (kg > 0) date to kg else null
         }
-        val weightPoints = weightEntries
-            .filter { (date, _) -> range.contains(date, now, monday) }
+        // Preserve dated historical weigh-ins when this period is empty.
+        // No interpolation or invented day-level measurements.
+        val weightWithinPeriod = weightEntries.filter { (day, _) ->
+            range.contains(day, now, monday)
+        }
+        val weightPoints = (weightWithinPeriod.ifEmpty { weightEntries.filter { it.first <= now } })
             .sortedBy { it.first }
             .map { ProgressDayPoint(it.first, it.second) }
             .let { raw ->
-                if (StatsEngine.granularityForChart(range) ==
+                if (weightWithinPeriod.isEmpty() || StatsEngine.granularityForChart(range) ==
                     ProgressSeriesGranularity.DAY || raw.size <= 1) raw
                 else StatsEngine.averagedSeries(raw,
                     StatsEngine.granularityForChart(range), monday)
