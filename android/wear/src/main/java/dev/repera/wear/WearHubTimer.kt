@@ -415,6 +415,7 @@ internal fun WearTimerRunScreen(
     LaunchedEffect(pager.currentPage) {
         if (pager.currentPage == 1) metricsFocus.requestFocus()
     }
+    var confirmFinish by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
@@ -496,9 +497,10 @@ internal fun WearTimerRunScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
                     Text("Controles", style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     FilledIconButton(
@@ -516,14 +518,23 @@ internal fun WearTimerRunScreen(
                         )
                     }
                     Button(
+                        onClick = { confirmFinish = true },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WearOg.accent, contentColor = WearOg.onAccent
+                        )
+                    ) {
+                        WearButtonLabel("Finalizar", color = WearOg.onAccent)
+                    }
+                    Button(
                         onClick = { confirmDiscard = true },
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
                             contentColor = WearOg.red
                         )
                     ) {
-                        WearButtonLabel("Finalizar", color = WearOg.red)
+                        WearButtonLabel("Descartar", color = WearOg.red)
                     }
                     Text(
                         "Desliza ← para volver",
@@ -532,6 +543,23 @@ internal fun WearTimerRunScreen(
                     )
                 }
             }
+        }
+        if (confirmFinish) {
+            WearConfirmFinishModal(
+                title = "¿Finalizar temporizador?",
+                confirmLabel = "Guardar",
+                onCancel = { confirmFinish = false },
+                onConfirm = {
+                    confirmFinish = false
+                    // Evitar que el efecto de fin automático envíe el mismo registro.
+                    discarded = 1
+                    onFinished(
+                        draft.toDetails().copy(countdownSeconds = elapsed),
+                        startedAt,
+                        System.currentTimeMillis()
+                    )
+                }
+            )
         }
         if (confirmDiscard) {
             WearConfirmFinishModal(
