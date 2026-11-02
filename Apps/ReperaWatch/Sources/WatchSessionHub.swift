@@ -764,8 +764,9 @@ final class WatchSessionHub: NSObject {
         connectivity.sendTimerMirror(mirror)
     }
 
-    func saveStandaloneTimer(details: TimerCompletionDetails, elapsedSeconds: Int) {
+    func saveStandaloneTimer(id: UUID, details: TimerCompletionDetails, elapsedSeconds: Int) {
         let session = WorkoutSession(
+            id: id,
             title: "Temporizador",
             exercises: [],
             phase: .finished,
