@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Grabar entrenos programados desde Apple Watch (02/11/2026)
+
+- En la preparación de cada bloque del plan, **Iniciar** sustituye a «Iniciar bloque»/«Empezar» y abre la elección nativa entre **Comenzar en vivo** (anotar series, cargas y resultados durante la sesión) y **Grabar entreno** (medir la actividad sin introducir las series mientras se entrena). Se retira el botón «Resumen» de esa preparación porque los ejercicios ya son visibles; «Descartar» se mantiene. El resumen durante una sesión en vivo sigue disponible para cambiar de bloque.
+- «Grabar entreno» utiliza una única sesión nativa de Salud del **Apple Watch** como fuente: detiene el registro provisional del plan, graba como entrenamiento funcional/cross-training y conserva la identidad del plan, los bloques y la prescripción. Las repeticiones/cargas prescritas **no** son resultados realizados. Finalizar guarda la misma UUID con duración, FC, calorías y ruta reales, incluso si el teléfono no está conectado; WatchConnectivity la entrega en diferido.
+- Después de la primera recepción **persistida correctamente** en iPhone, Repera muestra automáticamente **Editar entreno** en Inicio con los bloques originales precargados. El atleta ajusta ejercicios, repeticiones, pesos y RIR y activa expresamente «Registrar nuevas series como realizadas» antes de Guardar. La edición actualiza esa **misma sesión terminada**, conserva las métricas de HealthKit y evita crear series artificiales o duplicados. Las posteriores actualizaciones del mismo UUID (p. ej. métricas tardías de Salud) **no** deben volver a abrir el editor.
+- Si se descarta la grabación, no se entrega un entrenamiento completado. La selección de «Comenzar en vivo» no modifica el Play/registro existente. La implementación iOS/watchOS requiere todavía compilar con Xcode y probar el traspaso, permisos de Salud, modo sin conexión, terminación con teléfono bloqueado y modelos de Apple Watch reales. Revisar y completar la paridad del flujo de decisión en Wear OS sin trasladar automáticamente controles de watchOS.
+
+
 ## Ajustes de Progreso, Clases y Mensajes (02/11/2026)
 
 - **Gráficas de Progreso y Recuperación (iOS y Android):** las tarjetas de Cardio, Calorías, Peso, evolución de recuperación, Sueño y constantes fisiológicas usan márgenes de contenido consistentes con la tarjeta «Sueño esta semana» (16 pt/dp de referencia). La puntuación del entrenamiento conserva sus márgenes estándar. En Sueño, el pie del valor no repite «Media»; en Preparación no aparece el texto redundante «Sin puntuación actual…» si no hay datos suficientes. La gráfica iOS de Peso omite la cuadrícula vertical permanente, pero mantiene la selección interactiva y los ejes.
