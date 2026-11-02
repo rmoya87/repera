@@ -76,7 +76,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
    }
   }
   ReperaCard(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
-   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+   Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
     ProgressCardioPlot(charts,preview)
    }
   }
@@ -101,7 +101,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
    }
   }
   ReperaCard(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
-   Column(Modifier.padding(horizontal=10.dp,vertical=20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+   Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
     ProgressCaloriesPlot(charts,preview)
     ProgressCalorieStats(charts)
    }
