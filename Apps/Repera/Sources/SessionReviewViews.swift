@@ -39,7 +39,8 @@ struct SessionReviewCard: View {
 
     private var isVerified: Bool {
         review.scoreBasis == .personalHistory
-            && review.indicators.count == ReviewDimension.allCases.count
+            && (review.indicators.count == ReviewDimension.allCases.count
+                || (review.indicators.isEmpty && review.vsHistorySummary != nil))
             && (review.evidenceCoverage ?? 0) >= 0.60
     }
 
@@ -86,7 +87,8 @@ struct SessionReviewCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Nota global \(review.overallScore) sobre 10, confianza \(review.confidenceLabel ?? "en construcción")")
-                .accessibilityHint(expanded ? "Contraer desglose" : "Mostrar los tres indicadores")
+                .accessibilityHint(expanded ? "Contraer desglose"
+                    : (review.indicators.isEmpty ? "Mostrar comparación personal" : "Mostrar los tres indicadores"))
 
                 if expanded {
                     VStack(spacing: 8) {
@@ -94,7 +96,10 @@ struct SessionReviewCard: View {
                             indicatorRow(indicator)
                         }
 
-                        Text("Solo se puntúa el rendimiento con al menos dos sesiones anteriores comparables. Las series registradas no aportan puntos; la nota no mide técnica ni esfuerzo percibido.")
+                        Text(review.indicators.isEmpty
+                            ? ([review.vsHistorySummary, review.vsStandardSummary]
+                                .compactMap { $0 }.joined(separator: " "))
+                            : "Solo se puntúa el rendimiento con al menos dos sesiones anteriores comparables. Las series registradas no aportan puntos; la nota no mide técnica ni esfuerzo percibido.")
                             .font(.system(size: 11))
                             .foregroundStyle(OG.label3)
                             .fixedSize(horizontal: false, vertical: true)
