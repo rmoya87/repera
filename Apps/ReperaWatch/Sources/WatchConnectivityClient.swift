@@ -10,10 +10,12 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
+    func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
 }
 
 extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
+    func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
@@ -137,6 +139,22 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             onResult?(false)
         }
         return true
+    }
+
+    /// Latest state survives a disconnect; reachable updates make Inicio responsive.
+    func sendTimerMirror(_ mirror: WatchTimerMirror) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              let data = try? JSONEncoder().encode(mirror) else { return }
+        let payload: [String: Any] = ["timerMirror": data]
+        do {
+            try WCSession.default.updateApplicationContext(payload)
+        } catch {
+            logger.debug("Watch timer context deferred: \(error.localizedDescription, privacy: .public)")
+        }
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { _ in }
+        }
     }
 
     func sendFinishedTimer(_ session: WorkoutSession) {
@@ -297,6 +315,14 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     private func applyContext(_ payload: [String: Any]) {
+        if payload["action"] as? String == "timerCommand",
+           let rawID = payload["timerId"] as? String,
+           let id = UUID(uuidString: rawID),
+           let command = payload["command"] as? String,
+           ["pause", "resume", "finish"].contains(command) {
+            delegate?.watchConnectivityDidReceiveTimerCommand(id: id, command: command)
+            return
+        }
         let recent = payload["recentLiveSportIDs"] as? [String] ?? []
         let muted = payload["audioMuted"] as? Bool
         if !recent.isEmpty || muted != nil {

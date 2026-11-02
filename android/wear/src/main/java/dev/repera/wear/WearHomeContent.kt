@@ -1,11 +1,11 @@
 package dev.repera.wear
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
@@ -26,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -261,6 +264,95 @@ internal fun WearHomeContent(
         )
         return
     }
+    // En entrenos ya iniciados, la pantalla lateral izquierda ofrece
+    // Pausar / Finalizar. La lista de series sigue teniendo scroll vertical.
+    val runningPlan = state.session?.phase == "counting" &&
+        !state.showOutline && !state.showSetDetails && !state.reviewingBlock
+    if (runningPlan) {
+        val session = state.session ?: return
+        val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+        var confirmFinish by remember(session.sessionId) { mutableStateOf(false) }
+        var confirmDiscard by remember(session.sessionId) { mutableStateOf(false) }
+        Box(modifier = modifier.fillMaxSize()) {
+            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+                if (page == 1) {
+                    WearHomeSessionList(state, callbacks, modifier = Modifier.fillMaxSize())
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Controles", style = MaterialTheme.typography.titleSmall)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
+                            Button(
+                                onClick = { confirmFinish = true },
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                WearButtonLabel("Finalizar")
+                            }
+                        }
+                        Button(
+                            onClick = { confirmDiscard = true },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = WearOg.red
+                            )
+                        ) {
+                            WearButtonLabel("Descartar", color = WearOg.red)
+                        }
+                        Text(
+                            "Desliza ← para volver",
+                            color = WearOg.label2,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+            if (confirmFinish) {
+                WearConfirmFinishModal(
+                    title = "¿Finalizar entrenamiento?",
+                    onCancel = { confirmFinish = false },
+                    onConfirm = {
+                        confirmFinish = false
+                        callbacks.onFinishSession(session)
+                    }
+                )
+            }
+            if (confirmDiscard) {
+                WearConfirmFinishModal(
+                    title = "¿Descartar entrenamiento?",
+                    confirmLabel = "Descartar",
+                    destructive = true,
+                    onCancel = { confirmDiscard = false },
+                    onConfirm = {
+                        confirmDiscard = false
+                        callbacks.onDiscardSession(session)
+                    }
+                )
+            }
+        }
+        return
+    }
+    WearHomeSessionList(state, callbacks, modifier)
+}
+
+/** Misma lista para modos normales y pantalla central del pager lateral. */
+@Composable
+private fun WearHomeSessionList(
+    state: WearHomeState,
+    callbacks: WearHomeCallbacks,
+    modifier: Modifier
+) {
     TransformingLazyColumn(
         state = rememberTransformingLazyColumnState(),
         modifier = modifier,
@@ -677,30 +769,14 @@ private fun TransformingLazyColumnScope.outlineItems(
         }
     }
     item {
-        WearPrimaryButton("✓ Finalizar entrenamiento") {
-            callbacks.onShowOutline(false)
-            callbacks.onFinishSession(session)
-        }
+        Text(
+            "Desliza → desde el entreno para pausar o finalizar",
+            textAlign = TextAlign.Center,
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall
+        )
     }
-    // Ramón F-5: el Watch ofrece descartar (además de finalizar).
-    // TextButton Wear es circular y corta «Descartar» → Button a ancho.
-    item {
-        Button(
-            onClick = {
-                callbacks.onShowOutline(false)
-                callbacks.onDiscardSession(session)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = WearOg.red
-            )
-        ) {
-            WearButtonLabel("Descartar", color = WearOg.red)
-        }
-    }
+
 }
 
 private fun TransformingLazyColumnScope.blockReviewItems(
@@ -935,28 +1011,20 @@ private fun TransformingLazyColumnScope.runningItems(
             maxLines = 1
         )
     }
-    // Reloj + pausa (W-05 / W-07)
+    // Reloj protagonista: pausa solo en página lateral de controles.
     item {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val clockSeconds = if (session.wodFormatLabel != null) {
-                state.wodTimerJson?.takeIf {
-                    wearTimerMatches(it, session.sessionId, session.exerciseIndex)
-                }?.let { timer ->
-                    wodFaceSeconds(timer, state.wodTickSeconds)
-                } ?: state.elapsedSeconds
-            } else state.elapsedSeconds
-            WearClockText(
-                clockSeconds,
-                modifier = Modifier.weight(1f),
-                contentDescription = if (session.wodFormatLabel != null)
-                    "Tiempo del bloque" else "Tiempo transcurrido"
-            )
-            WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
-        }
+        val clockSeconds = if (session.wodFormatLabel != null) {
+            state.wodTimerJson?.takeIf {
+                wearTimerMatches(it, session.sessionId, session.exerciseIndex)
+            }?.let { timer ->
+                wodFaceSeconds(timer, state.wodTickSeconds)
+            } ?: state.elapsedSeconds
+        } else state.elapsedSeconds
+        WearClockText(
+            clockSeconds,
+            contentDescription = if (session.wodFormatLabel != null)
+                "Tiempo del bloque" else "Tiempo transcurrido"
+        )
     }
     state.health?.let { (bpm, kcal) ->
         item { WearHealthRow(bpm, kcal) }
@@ -973,7 +1041,7 @@ private fun TransformingLazyColumnScope.runningItems(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = { callbacks.onShowOutline(true) }) {
-                Text("Resumen", color = WearOg.onAccent)
+                Text("Resumen", color = WearOg.accent)
             }
             val zeroReps = state.repsInput == 0
             val isLast = session.exerciseIndex >= session.exerciseCount
@@ -1085,13 +1153,7 @@ private fun TransformingLazyColumnScope.strengthRunningBody(
             onClick = { callbacks.onShowSetDetails(true) },
             modifier = Modifier
                 .fillMaxWidth()
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures { _, dragAmount ->
-                        if (kotlin.math.abs(dragAmount) > 40) {
-                            callbacks.onSwipeSet(if (dragAmount < 0) 1 else -1)
-                        }
-                    }
-                }
+                // El gesto horizontal pertenece al pager lateral de controles.
                 .semantics { contentDescription = "Editar detalles del ejercicio y serie" }
         ) {
             Text(
@@ -1115,6 +1177,24 @@ private fun TransformingLazyColumnScope.strengthRunningBody(
             )
         }
     }
+    // Recupera el cambio de serie sin competir con el swipe hacia controles.
+    item {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = { callbacks.onSwipeSet(-1) },
+                modifier = Modifier.semantics { contentDescription = "Serie anterior" }
+            ) { Text("←") }
+            TextButton(
+                onClick = { callbacks.onSwipeSet(1) },
+                modifier = Modifier.semantics { contentDescription = "Serie siguiente" }
+            ) { Text("→") }
+        }
+    }
+
     if (!session.canLogOnWatch) {
         item {
             Text(

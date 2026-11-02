@@ -21,6 +21,14 @@ internal object WearUiPresence {
 
 class WearLiveCommandListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/timer-state") {
+            if (!WearUiPresence.active) handleTimerState(event)
+            return
+        }
+        if (event.path == "/repera/timer-save") {
+            if (!WearUiPresence.active) handleTimerSave(event)
+            return
+        }
         if (event.path in setOf("/repera/log-set", "/repera/session-finish")) {
             if (!WearUiPresence.active) handleBackgroundWorkout(event)
             return
@@ -54,6 +62,56 @@ class WearLiveCommandListener : WearableListenerService() {
                 "finish" -> runtime.finish() // Review/Save remains on the phone.
             }
         }
+    }
+
+    private fun handleTimerState(event: MessageEvent) {
+        val owner = SessionStore(this).load()?.uniqueId ?: return
+        val payload = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        WearTimerMirrorStore(this, owner).accept(payload)
+    }
+
+    /** El registro se confirma únicamente tras persistirlo; Wear reintenta con el mismo UUID. */
+    private fun handleTimerSave(event: MessageEvent) {
+        val store = SessionStore(this)
+        val owner = store.load() ?: return
+        val revision = store.identityRevision()
+        val body = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val id = body.optString("id").takeIf {
+            runCatching { java.util.UUID.fromString(it) }.isSuccess
+        } ?: return
+        val details = dev.repera.domain.TimerCompletionDetails
+            .fromJson(body.optJSONObject("timerDetails")) ?: return
+        val authorized = {
+            store.identityRevision() == revision &&
+                store.load()?.uniqueId == owner.uniqueId &&
+                store.load()?.userId == owner.userId
+        }
+        val saved = runCatching {
+            authorized() && WorkoutRepository(this, owner.uniqueId, stillAuthorized = authorized)
+                .saveTimerSession(
+                    id = id,
+                    title = "Temporizador · ${details.modeTitle}",
+                    startedAtMillis = body.optLong("startedAtMillis"),
+                    finishedAtMillis = body.optLong("finishedAtMillis"),
+                    details = details
+                ).isNotBlank()
+        }.getOrDefault(false)
+        if (!saved) return
+        val mirror = WearTimerMirrorStore(this, owner.uniqueId)
+        mirror.last()?.takeIf { it.optString("id") == id }?.let {
+            mirror.accept(JSONObject(it.toString())
+                .put("phase", "finished").put("updatedAtMillis", System.currentTimeMillis()))
+        }
+        val ack = JSONObject().put("id", id).put("saved", true)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getMessageClient(this).sendMessage(
+            event.sourceNodeId, "/repera/timer-save-ack", ack
+        )
+        DriveSyncWorker.syncNow(this)
     }
 
     /** Adopta inmediatamente el entrenamiento autónomo del reloj.

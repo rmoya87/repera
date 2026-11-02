@@ -9,6 +9,8 @@ import WatchConnectivity
 final class ReperaStore: NSObject {
     var state: AppState
     var isWatchReachable = false
+    private(set) var watchTimerMirror: WatchTimerMirror?
+    private var watchTimerLastUpdate = Date.distantPast
     var iCloudStatus: ICloudStatus = .temporarilyUnavailable
     var syncPhase: AppSyncPhase = .loadingLocal
     var isSyncingiCloud = false
@@ -1890,6 +1892,9 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        if session.timerDetails != nil, watchTimerMirror?.id == session.id {
+            watchTimerMirror = nil
+        }
         if session.phase == .finished && session.awaitingResultEntry {
             // El Watch ya cerró Salud, pero las series siguen sin registrar.
             // No reemplazar la edición final si llega un envío tardío.
@@ -3600,6 +3605,25 @@ extension ReperaStore: PhoneConnectivityDelegate {
 
     nonisolated func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? {
         await MainActor.run { self.effectiveWatchPlan() }
+    }
+
+    @discardableResult
+    func controlWatchTimer(_ command: String) -> Bool {
+        guard let timer = watchTimerMirror, timer.isActive,
+              Date().timeIntervalSince(timer.updatedAt) < 20 else { return false }
+        return connectivity.sendTimerCommand(id: timer.id, command: command)
+    }
+
+    nonisolated func phoneConnectivityDidReceiveTimer(_ timer: WatchTimerMirror) {
+        Task { @MainActor in
+            // El reloj es el propietario: no aceptar estados antiguos o terminales
+            // seguidos de un update retrasado. Tampoco revivir tras reiniciar el móvil.
+            guard timer.updatedAt >= self.watchTimerLastUpdate,
+                  timer.updatedAt.timeIntervalSinceNow < 15 else { return }
+            self.watchTimerLastUpdate = timer.updatedAt
+            self.watchTimerMirror = timer.isActive &&
+                Date().timeIntervalSince(timer.updatedAt) < 60 ? timer : nil
+        }
     }
 
     nonisolated func phoneConnectivityDidReceive(session: WorkoutSession) {

@@ -86,6 +86,8 @@ internal fun HomeTab(
     healthAccess: HealthAccessState = HealthAccessState.UNKNOWN,
     onHealthConnect: () -> Unit,
     activeWorkout: ActiveWorkout?,
+    wearTimerMirror: org.json.JSONObject? = null,
+    onWearTimerCommand: (String) -> Unit = {},
     wodTimer: WodTimerState?,
     onWodTimerAction: (String) -> Unit,
     onWodTimerTick: () -> Unit,
@@ -324,6 +326,9 @@ internal fun HomeTab(
                             onClick = onOpenLiveActivity
                         )
                     }
+                    if (isToday && wearTimerMirror != null) {
+                        WearLiveTimerHomeCard(wearTimerMirror, onWearTimerCommand)
+                    }
                     dayWorkouts.forEach { workout ->
                         HomeSwipeRevealCard(
                             key = workout.id,
@@ -471,7 +476,7 @@ internal fun HomeTab(
                             card()
                         }
                     }
-                    if (activeWorkout == null && dayWorkouts.isEmpty() && visibleRoutines.isEmpty()
+                    if (activeWorkout == null && wearTimerMirror == null && dayWorkouts.isEmpty() && visibleRoutines.isEmpty()
                         && dayExternal.isEmpty()
                         && dayProfessional.isEmpty()
                         && dayBookings.isEmpty()
@@ -627,5 +632,81 @@ internal fun HomeTab(
             icon = Icons.Outlined.EventBusy,
             confirmDestructive = true
         )
+    }
+}
+
+
+/** Tarjeta de temporizador del reloj: sin GPS/Health ficticios y sin doble contador. */
+@Composable
+private fun WearLiveTimerHomeCard(
+    mirror: org.json.JSONObject,
+    onCommand: (String) -> Unit
+) {
+    val id = mirror.optString("id")
+    var now by remember(id) { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(id) {
+        while (true) {
+            delay(1_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val age = now - mirror.optLong("updatedAtMillis", 0L)
+    val fresh = age in 0..20_000L
+    val running = mirror.optString("phase") == "running"
+    val configured = mirror.optInt("configuredSeconds", 1).coerceAtLeast(1)
+    val elapsed = mirror.optInt("elapsedSeconds", 0).coerceAtLeast(0)
+    val shown = (elapsed + if (running) (age / 1_000L).toInt().coerceIn(0, 15) else 0)
+        .coerceIn(0, configured)
+    val mode = when (mirror.optString("modeRaw")) {
+        "intervals" -> "Intervalos"
+        "down" -> "Cuenta atrás"
+        else -> "Cronómetro"
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Temporizador · Wear OS", style = MaterialTheme.typography.titleSmall)
+                Text(if (running) "En curso" else "En pausa",
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(mode, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        "%d:%02d".format(shown / 60, shown % 60),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color(0xFFFF382E)
+                    )
+                }
+                if (mode == "Intervalos") {
+                    Text("Ronda " + mirror.optInt("round", 1),
+                        color = Color(0xFF38FF59),
+                        style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            if (!fresh) {
+                Text("Sin conexión reciente con el reloj",
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onCommand(if (running) "pause" else "resume") },
+                    enabled = fresh
+                ) { Text(if (running) "Pausar" else "Reanudar") }
+                OutlinedButton(onClick = { onCommand("finish") }, enabled = fresh) {
+                    Text("Finalizar")
+                }
+            }
+        }
     }
 }

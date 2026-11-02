@@ -1,6 +1,7 @@
 package dev.repera.wear
 
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,14 +10,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.runtime.Composable
@@ -25,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +40,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +56,7 @@ import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.touchTargetAwareSize
 import dev.repera.domain.TimerCompletionDetails
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 internal data class WearTimerDraft(
     val modeRaw: String = "up",
@@ -76,30 +85,45 @@ internal fun WearTimerConfigScreen(
     onStart: () -> Unit,
     onBack: () -> Unit
 ) {
+    var choosingMode by remember { mutableStateOf(true) }
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     val backSize = IconButtonDefaults.SmallButtonSize
-    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    // La corona desplaza realmente el contenido, también en los relojes más pequeños.
+    LaunchedEffect(choosingMode) {
+        scrollState.scrollTo(0)
+        focus.requestFocus()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            // Insets generosos: la fila de 3 chips se cortaba en esfera redonda.
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp)
-            .onRotaryScrollEvent { false }
+            .verticalScroll(scrollState)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 22.dp)
+            .onRotaryScrollEvent {
+                scope.launch { scrollState.scrollBy(it.verticalScrollPixels) }
+                true
+            }
             .focusRequester(focus)
             .focusable(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = onBack,
+                onClick = {
+                    if (choosingMode) onBack() else choosingMode = true
+                },
                 modifier = Modifier
                     .touchTargetAwareSize(backSize)
-                    .semantics { contentDescription = "Volver" }
+                    .semantics {
+                        contentDescription = if (choosingMode) "Volver" else "Cambiar tipo"
+                    }
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -110,111 +134,221 @@ internal fun WearTimerConfigScreen(
             WearHubScalingTitle(
                 text = "Temporizador",
                 modifier = Modifier.weight(1f),
-                maxFontSp = 16.sp,
-                minFontSp = 12.sp,
+                maxFontSp = 17.sp,
+                minFontSp = 14.sp,
                 maxLines = 1
             )
             Spacer(Modifier.size(backSize))
         }
 
-        // Modos a ancho completo (como Picker de watchOS), no 3 chips aplastados.
-        listOf(
-            "up" to "Arriba",
-            "down" to "Abajo",
-            "intervals" to "Intervalos"
-        ).forEach { (wire, label) ->
-            val selected = draft.modeRaw == wire
+        if (choosingMode) {
+            Text(
+                "Elige un temporizador",
+                color = Color.White,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            WearTimerModeOption(
+                title = "Cuenta atrás",
+                subtitle = "Desde un tiempo",
+                selected = draft.modeRaw == "down"
+            ) {
+                onDraftChange(draft.copy(modeRaw = "down"))
+                choosingMode = false
+            }
+            WearTimerModeOption(
+                title = "Cronómetro",
+                subtitle = "Tiempo ascendente",
+                selected = draft.modeRaw == "up"
+            ) {
+                onDraftChange(draft.copy(modeRaw = "up"))
+                choosingMode = false
+            }
+            WearTimerModeOption(
+                title = "Intervalos",
+                subtitle = "Trabajo y descanso",
+                selected = draft.modeRaw == "intervals"
+            ) {
+                onDraftChange(draft.copy(modeRaw = "intervals"))
+                choosingMode = false
+            }
+        } else {
+            Text(
+                when (draft.modeRaw) {
+                    "up" -> "Cronómetro"
+                    "intervals" -> "Intervalos"
+                    else -> "Cuenta atrás"
+                },
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            when (draft.modeRaw) {
+                "intervals" -> {
+                    WearMetricStepper(
+                        label = "Rondas",
+                        value = draft.rounds.toString(),
+                        onMinus = { onDraftChange(draft.copy(rounds = (draft.rounds - 1).coerceAtLeast(1))) },
+                        onPlus = { onDraftChange(draft.copy(rounds = (draft.rounds + 1).coerceAtMost(99))) }
+                    )
+                    WearMetricStepper(
+                        label = "Trabajo · segundos",
+                        value = draft.workSeconds.toString(),
+                        onMinus = {
+                            onDraftChange(draft.copy(workSeconds = (draft.workSeconds - 5).coerceAtLeast(5)))
+                        },
+                        onPlus = {
+                            onDraftChange(draft.copy(workSeconds = (draft.workSeconds + 5).coerceAtMost(600)))
+                        }
+                    )
+                    WearMetricStepper(
+                        label = "Descanso · segundos",
+                        value = draft.restSeconds.toString(),
+                        onMinus = {
+                            onDraftChange(draft.copy(restSeconds = (draft.restSeconds - 5).coerceAtLeast(0)))
+                        },
+                        onPlus = {
+                            onDraftChange(draft.copy(restSeconds = (draft.restSeconds + 5).coerceAtMost(600)))
+                        }
+                    )
+                }
+                else -> {
+                    WearMetricStepper(
+                        label = "Minutos",
+                        value = draft.durationMinutes.toString(),
+                        onMinus = {
+                            onDraftChange(draft.copy(durationMinutes = (draft.durationMinutes - 1).coerceAtLeast(1)))
+                        },
+                        onPlus = {
+                            onDraftChange(draft.copy(durationMinutes = (draft.durationMinutes + 1).coerceAtMost(180)))
+                        }
+                    )
+                }
+            }
+
             Button(
-                onClick = { onDraftChange(draft.copy(modeRaw = wire)) },
+                onClick = onStart,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp),
-                colors = if (selected) {
-                    ButtonDefaults.buttonColors()
-                } else {
-                    ButtonDefaults.filledTonalButtonColors()
-                }
+                    .height(50.dp)
+                    .semantics { contentDescription = "Comenzar temporizador" },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WearOg.accent,
+                    contentColor = WearOg.onAccent
+                )
             ) {
-                WearButtonLabel(label)
-            }
-        }
-
-        when (draft.modeRaw) {
-            "intervals" -> {
-                WearMetricStepper(
-                    label = "Rondas",
-                    value = "${draft.rounds}",
-                    onMinus = { onDraftChange(draft.copy(rounds = (draft.rounds - 1).coerceAtLeast(1))) },
-                    onPlus = { onDraftChange(draft.copy(rounds = (draft.rounds + 1).coerceAtMost(99))) }
-                )
-                WearMetricStepper(
-                    label = "Trabajo s",
-                    value = "${draft.workSeconds}",
-                    onMinus = {
-                        onDraftChange(draft.copy(workSeconds = (draft.workSeconds - 5).coerceAtLeast(5)))
-                    },
-                    onPlus = {
-                        onDraftChange(draft.copy(workSeconds = (draft.workSeconds + 5).coerceAtMost(600)))
-                    }
-                )
-                WearMetricStepper(
-                    label = "Descanso s",
-                    value = "${draft.restSeconds}",
-                    onMinus = {
-                        onDraftChange(draft.copy(restSeconds = (draft.restSeconds - 5).coerceAtLeast(0)))
-                    },
-                    onPlus = {
-                        onDraftChange(draft.copy(restSeconds = (draft.restSeconds + 5).coerceAtMost(600)))
-                    }
-                )
-            }
-            else -> {
-                WearMetricStepper(
-                    label = "Minutos",
-                    value = "${draft.durationMinutes}",
-                    onMinus = {
-                        onDraftChange(
-                            draft.copy(durationMinutes = (draft.durationMinutes - 1).coerceAtLeast(1))
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
                         )
-                    },
-                    onPlus = {
-                        onDraftChange(
-                            draft.copy(durationMinutes = (draft.durationMinutes + 1).coerceAtMost(180))
+                        Spacer(Modifier.size(4.dp))
+                        Text(
+                            "Comenzar",
+                            maxLines = 1,
+                            softWrap = false,
+                            color = WearOg.onAccent,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                     }
-                )
-            }
-        }
-
-        Button(
-            onClick = onStart,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .semantics { contentDescription = "Comenzar temporizador" }
-        ) {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Outlined.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.size(6.dp))
-                    Text(
-                        "Comenzar",
-                        maxLines = 1,
-                        softWrap = false,
-                        style = MaterialTheme.typography.titleSmall
-                    )
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
     }
+}
+
+@Composable
+private fun WearTimerModeOption(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 62.dp)
+            .semantics { contentDescription = title + ". " + subtitle },
+        colors = if (selected) {
+            ButtonDefaults.buttonColors(containerColor = WearOg.accent, contentColor = WearOg.onAccent)
+        } else {
+            ButtonDefaults.filledTonalButtonColors(containerColor = WearOg.card, contentColor = Color.White)
+        }
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    modifier = Modifier.weight(1f),
+                    color = if (selected) WearOg.onAccent else Color.White,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp),
+                        tint = WearOg.onAccent
+                    )
+                }
+            }
+            Text(
+                subtitle,
+                color = if (selected) WearOg.onAccent.copy(alpha = 0.75f) else WearOg.label2,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+private val WearTimerRed = Color(0xFFFF382E) // DigitalClockDisplay iPhone
+private val WearTimerRoundGreen = Color(0xFF38FF59)
+
+/** Reloj ajustable: 180 minutos y formatos largos no se recortan en una esfera pequeña. */
+@Composable
+private fun WearTimerAdaptiveClock(seconds: Int) {
+    BasicText(
+        text = wearClockLabel(seconds),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 3.dp)
+            .semantics { contentDescription = "Tiempo " + wearClockLabel(seconds) },
+        style = MaterialTheme.typography.displayMedium.copy(
+            color = WearTimerRed,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        ),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = 27.sp,
+            maxFontSize = 43.sp,
+            stepSize = 1.sp
+        )
+    )
 }
 
 @Composable
@@ -222,7 +356,10 @@ internal fun WearTimerRunScreen(
     draft: WearTimerDraft,
     audioMuted: Boolean,
     onFinished: (TimerCompletionDetails, Long, Long) -> Unit,
-    onDiscard: () -> Unit
+    onDiscard: () -> Unit,
+    onMirror: (String, Int, Int) -> Unit = { _, _, _ -> },
+    remoteCommand: String? = null,
+    remoteCommandEpoch: Int = 0
 ) {
     val totalSeconds = remember(draft) {
         when (draft.modeRaw) {
@@ -253,54 +390,133 @@ internal fun WearTimerRunScreen(
             }
         }
         if (completed == 1 && discarded == 0) {
-            onFinished(draft.toDetails(), startedAt, System.currentTimeMillis())
+            onFinished(draft.toDetails().copy(countdownSeconds = elapsed), startedAt, System.currentTimeMillis())
         }
     }
 
+    // En intervalos, el reloj muestra la fase actual y no una cuenta global confusa.
+    val cycleSeconds = (draft.workSeconds + draft.restSeconds).coerceAtLeast(1)
+    val phasePosition = elapsed % cycleSeconds
+    val resting = draft.modeRaw == "intervals" &&
+        draft.restSeconds > 0 && phasePosition >= draft.workSeconds
+    val roundNumber = (elapsed / cycleSeconds + 1).coerceAtMost(draft.rounds)
+    val phaseRemaining = if (resting) {
+        cycleSeconds - phasePosition
+    } else {
+        draft.workSeconds - phasePosition
+    }
     val display = when (draft.modeRaw) {
         "up" -> elapsed
+        "intervals" -> phaseRemaining.coerceAtLeast(0)
         else -> remaining
     }
-    val pager = rememberPagerState(pageCount = { 2 })
+    // Página de controles a la izquierda: gesto de dedo → desde el reloj.
+    LaunchedEffect(elapsed, paused, completed, discarded) {
+        if (completed == 0 && discarded == 0 && (elapsed % 3 == 0 || paused != 0)) {
+            onMirror(if (paused == 0) "running" else "paused", elapsed, roundNumber)
+        }
+    }
+    LaunchedEffect(remoteCommandEpoch) {
+        if (remoteCommandEpoch == 0 || completed != 0 || discarded != 0) return@LaunchedEffect
+        when (remoteCommand) {
+            "pause" -> paused = 1
+            "resume" -> paused = 0
+            "finish" -> completed = 1
+        }
+    }
+    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val metricsScroll = rememberScrollState()
+    val metricsFocus = remember { FocusRequester() }
+    val metricsScope = rememberCoroutineScope()
+    LaunchedEffect(pager.currentPage) {
+        if (pager.currentPage == 1) metricsFocus.requestFocus()
+    }
+    var confirmFinish by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-            if (page == 0) {
+            if (page == 1) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp),
+                        .verticalScroll(metricsScroll)
+                        .onRotaryScrollEvent {
+                            metricsScope.launch { metricsScroll.scrollBy(it.verticalScrollPixels) }
+                            true
+                        }
+                        .focusRequester(metricsFocus)
+                        .focusable()
+                        .padding(horizontal = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    WearHubScalingTitle(
-                        text = when (draft.modeRaw) {
-                            "up" -> "Arriba"
-                            "down" -> "Abajo"
-                            else -> "Intervalos"
-                        },
-                        maxFontSp = 14.sp,
-                        minFontSp = 11.sp,
-                        maxLines = 1
-                    )
-                    WearClockText(display)
-                    if (!audioMuted && draft.modeRaw == "down" && remaining in 1..3) {
-                        Text("!", color = WearOg.yellow, style = MaterialTheme.typography.titleLarge)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(175.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
+                    ) {
+                        Text(
+                            if (paused != 0) "En pausa" else when (draft.modeRaw) {
+                                "up" -> "Cronómetro"
+                                "down" -> "Cuenta atrás"
+                                else -> if (resting) "DESCANSAR" else "TRABAJAR"
+                            },
+                            color = when {
+                                paused != 0 -> WearOg.yellow
+                                else -> WearOg.accent
+                            },
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                            ),
+                            maxLines = 1,
+                            textAlign = TextAlign.Center
+                        )
+                        if (draft.modeRaw == "intervals") {
+                            Text(
+                                roundNumber.toString(),
+                                color = WearTimerRoundGreen,
+                                style = MaterialTheme.typography.displayMedium.copy(
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                        WearTimerAdaptiveClock(display)
+                        Text(
+                            "Corona ↓ métricas · Desliza → controles",
+                            color = WearOg.label2,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
+                        )
                     }
                     Text(
-                        "Desliza › controles",
-                        color = WearOg.label2,
-                        style = MaterialTheme.typography.labelSmall,
-                        textAlign = TextAlign.Center
+                        "Métricas",
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
+                        modifier = Modifier.padding(top = 12.dp)
                     )
+                    WearStatsLine("Transcurrido", wearClockLabel(elapsed))
+                    if (draft.modeRaw != "up") {
+                        WearStatsLine("Restante", wearClockLabel(remaining))
+                    }
+                    if (draft.modeRaw == "intervals") {
+                        WearStatsLine("Ronda", roundNumber.toString() + "/" + draft.rounds)
+                        WearStatsLine("Fase", if (resting) "Descanso" else "Trabajo")
+                        WearStatsLine("Fase restante", wearClockLabel(phaseRemaining.coerceAtLeast(0)))
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
                     Text("Controles", style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     FilledIconButton(
@@ -317,12 +533,18 @@ internal fun WearTimerRunScreen(
                             contentDescription = if (paused == 0) "Pausar" else "Reanudar"
                         )
                     }
-                    // TextButton Wear es circular y recorta a «Descar».
+                    Button(
+                        onClick = { confirmFinish = true },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = WearOg.accent, contentColor = WearOg.onAccent
+                        )
+                    ) {
+                        WearButtonLabel("Finalizar", color = WearOg.onAccent)
+                    }
                     Button(
                         onClick = { confirmDiscard = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
                             contentColor = WearOg.red
@@ -330,8 +552,30 @@ internal fun WearTimerRunScreen(
                     ) {
                         WearButtonLabel("Descartar", color = WearOg.red)
                     }
+                    Text(
+                        "Desliza ← para volver",
+                        color = WearOg.label2,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp)
+                    )
                 }
             }
+        }
+        if (confirmFinish) {
+            WearConfirmFinishModal(
+                title = "¿Finalizar temporizador?",
+                confirmLabel = "Guardar",
+                onCancel = { confirmFinish = false },
+                onConfirm = {
+                    confirmFinish = false
+                    // Evitar que el efecto de fin automático envíe el mismo registro.
+                    discarded = 1
+                    onFinished(
+                        draft.toDetails().copy(countdownSeconds = elapsed),
+                        startedAt,
+                        System.currentTimeMillis()
+                    )
+                }
+            )
         }
         if (confirmDiscard) {
             WearConfirmFinishModal(

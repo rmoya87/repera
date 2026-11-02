@@ -58,8 +58,8 @@ import dev.repera.domain.ReperaNumberFormat
 import org.json.JSONObject
 
 /**
- * Companion Comenzar: página 0 = métricas (paridad Apple Watch);
- * página 1 = Pausar / Finalizar. Confirmación de fin = modal encima.
+ * Companion Comenzar: página 1 = métricas;
+ * página 0 (swipe del dedo a la derecha) = Pausar / Finalizar. Confirmación de fin = modal encima.
  */
 @Composable
 internal fun WearLiveActivityScreen(
@@ -71,7 +71,8 @@ internal fun WearLiveActivityScreen(
 ) {
     val phase = live.optString("phase")
     val sport = LiveSport.byId(live.optString("sportId"))
-    val pager = rememberPagerState(pageCount = { if (phase == "review") 1 else 2 })
+    // Mantener dos páginas también al entrar en revisión evita un índice inválido.
+    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
     var confirmFinish by remember(live.optString("sessionId")) { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -81,7 +82,7 @@ internal fun WearLiveActivityScreen(
         ) { page ->
             when {
                 phase == "review" -> WearLiveReviewPage(onDismissLiveToHome)
-                page == 0 -> WearLiveMetricsPage(live = live, sport = sport, health = health)
+                page == 1 -> WearLiveMetricsPage(live = live, sport = sport, health = health)
                 else -> WearLiveControlsPage(
                     phase = phase,
                     onPauseResume = {
@@ -213,7 +214,7 @@ private fun WearLiveMetricsPage(
         live.optJSONObject("conditions")?.let { conditionsBlock(it) }
 
         Text(
-            "Desliza › controles",
+            "Desliza → para controles",
             color = WearOg.label2,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier

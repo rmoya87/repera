@@ -16,6 +16,7 @@ struct WatchLiveSessionView: View {
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
     var body: some View {
+        WatchSwipeControlSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 if hub.watchLivePaused {
@@ -64,41 +65,32 @@ struct WatchLiveSessionView: View {
                         .foregroundStyle(.orange)
                 }
 
-                // Condiciones antes de controles: Cancelar/Finalizar quedan al final
-                // y no se pueden pulsar accidentalmente durante el scroll.
+                // Contenido de actividad y clima en vertical; acciones mediante swipe lateral.
                 WatchActivityConditionsBlock(
                     conditions: conditions,
                     loading: conditionsLoading
                 )
-
-                HStack(spacing: 10) {
-                    Button {
-                        onCancelRequest()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .accessibilityLabel("Cancelar actividad")
-
-                    Button {
-                        hub.finishWatchLive()
-                    } label: {
-                        Image(systemName: "flag.checkered")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .accessibilityLabel("Finalizar")
-                }
-                .padding(.bottom, 4)
+                Text("Desliza → para pausar o finalizar")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 6)
+        }
+        } controls: {
+            WatchControlActionButton(
+                title: hub.watchLivePaused ? "Reanudar" : "Pausar",
+                systemName: hub.watchLivePaused ? "play.fill" : "pause.fill",
+                tint: accent
+            ) {
+                hub.toggleWatchLivePause()
+            }
+            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                hub.finishWatchLive()
+            }
+            Button("Cancelar actividad", role: .destructive) {
+                onCancelRequest()
+            }
+            .font(.caption)
         }
         .toolbar {
             // Mute: círculo accent del tint del NavigationStack; icono negro.
