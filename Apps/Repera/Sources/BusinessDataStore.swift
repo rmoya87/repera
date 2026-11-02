@@ -485,6 +485,28 @@ final class BusinessDataStore {
     private(set) var passes: [BusinessPass] = []
     private(set) var passOffers: [BusinessPassOffer] = []
     private(set) var bookings: [BusinessBooking] = []
+    /// Revision of attendance visible to this authenticated athlete.
+    private(set) var progressDataRevision = 0
+    /// Attendance is deliberately not equated with sensor measurements.
+    var attendedClassesForProgress: [ProgressAttendedClass] {
+        let byID = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.id, $0) })
+        return bookings.compactMap { booking in
+            guard booking.status == "attended",
+                  let occurrence = byID[booking.occurrenceId],
+                  occurrence.kind == "class" || occurrence.kind == "appointment",
+                  let start = Self.date(occurrence.startsAt),
+                  let end = Self.date(occurrence.endsAt),
+                  end >= start else { return nil }
+            let linkedRoutine = trainingSessions.first {
+                $0.sourceOccurrenceId == occurrence.id && $0.clientId == booking.clientId
+            }?.id
+            return ProgressAttendedClass(
+                bookingID: booking.id, occurrenceID: occurrence.id,
+                linkedRoutineID: linkedRoutine, title: occurrence.title,
+                startsAt: start, endsAt: end
+            )
+        }
+    }
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var personalNotices: [BusinessClientNotification] = []
@@ -519,6 +541,7 @@ final class BusinessDataStore {
         passes = []
         passOffers = []
         bookings = []
+        progressDataRevision &+= 1
         availability = [:]
         trainingSessions = []
         NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
@@ -615,8 +638,12 @@ final class BusinessDataStore {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
             }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            progressDataRevision &+= 1
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
-            trainingSessions = fetchedTrainingSessions.filter { ownedClientIds.contains($0.clientId) && $0.status == "scheduled" }.sorted { $0.scheduledDate < $1.scheduledDate }
+            trainingSessions = fetchedTrainingSessions.filter {
+                ownedClientIds.contains($0.clientId) &&
+                    ($0.status == "scheduled" || $0.status == "completed")
+            }.sorted { $0.scheduledDate < $1.scheduledDate }
             NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
             errorMessage = nil
         } catch {
