@@ -154,7 +154,7 @@ struct WatchSessionView: View {
     /// Una sola elección desde el carrusel inicia directamente el modo elegido.
     /// Los bloques posteriores usan «Iniciar» sin volver a abrir este diálogo.
     private func startSelectedPlan(recordOnly: Bool) {
-        showStartChoices = false
+        trainingPrompt = nil
         guard hub.active == nil else { return }
         hub.startToday()
         guard hub.active?.phase == .ready else { return }
@@ -634,13 +634,13 @@ struct WatchSessionView: View {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             }
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                showWorkoutFinishConfirmation = true
+                trainingPrompt = .finish
             }
             Button("Serie anterior") { hub.swipeSet(-1) }
                 .buttonStyle(.bordered)
                 .font(.footnote)
             Button("Descartar entrenamiento", role: .destructive) {
-                showPlannedDiscardConfirmation = true
+                trainingPrompt = .discard
             }
             .font(.caption)
         }
