@@ -18,6 +18,7 @@ struct WatchStandaloneTimerView: View {
     @State private var running = false
     @State private var showDiscardConfirmation = false
     @State private var showingTimerControls = false
+    @State private var showingNowPlaying = false
     @State private var showingTimerMetrics = false
     @State private var metricCrown = 0.0
     @FocusState private var metricCrownFocused: Bool
@@ -42,7 +43,10 @@ struct WatchStandaloneTimerView: View {
                 configView
             }
         }
-        .navigationTitle("Temporizador")
+        .navigationTitle(started && !finished ? "" : "Temporizador")
+        .toolbar(started && !finished ? .hidden : .automatic, for: .navigationBar)
+        .navigationBarBackButtonHidden(started && !finished)
+        .interactiveDismissDisabled(started && !finished)
         .onChange(of: hub.timerRemoteCommand?.token) { _, _ in
             guard let remote = hub.timerRemoteCommand,
                   remote.id == timerId, started, !finished else { return }
@@ -127,16 +131,6 @@ struct WatchStandaloneTimerView: View {
     private var configView: some View {
         ScrollView {
             VStack(spacing: 12) {
-                Button {
-                    choosingMode = true
-                } label: {
-                    Label("Cambiar tipo", systemImage: "chevron.left")
-                        .font(.footnote.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(accent)
-
                 Text(modeTitle)
                     .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,6 +157,14 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 35).onEnded { drag in
+                let dx = drag.translation.width
+                if dx > 55 && dx > abs(drag.translation.height) * 1.4 {
+                    choosingMode = true
+                }
+            }
+        )
     }
 
     // iPhone DigitalClockDisplay: tiempo #FF382E, rondas #38FF59, fondo negro.
@@ -170,20 +172,63 @@ struct WatchStandaloneTimerView: View {
     private let timerRoundGreen = Color(red: 0.22, green: 1, blue: 0.35)
 
     private var runningView: some View {
+        Group {
+            if showingNowPlaying {
+                // UI original de watchOS: el propio sistema gestiona fuente y volumen.
+                NowPlayingView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.container, edges: .all)
+                    .toolbar(.hidden, for: .navigationBar)
+            } else {
+                runningTimerDisplay
+            }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 35).onEnded { drag in
+                let dx = drag.translation.width
+                guard abs(dx) > abs(drag.translation.height) * 1.4 else { return }
+                if dx < -55 {
+                    if showingNowPlaying {
+                        showingNowPlaying = false
+                    } else {
+                        showingTimerControls = true
+                        showingTimerMetrics = false
+                    }
+                } else if dx > 55 {
+                    if showingTimerControls {
+                        showingTimerControls = false
+                    } else {
+                        showingNowPlaying = true
+                    }
+                }
+            }
+        )
+        .confirmationDialog(
+            "¿Finalizar el temporizador?",
+            isPresented: $showDiscardConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Finalizar") { finishRun() }
+        } message: {
+            Text("Podrás guardar o descartar el tiempo registrado.")
+        }
+    }
+
+    private var runningTimerDisplay: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             if showingTimerControls {
-                VStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        timerActionButton(
-                            running ? "Pausar" : "Reanudar",
-                            symbol: running ? "pause.fill" : "play.fill",
-                            destructive: false
-                        ) { togglePause() }
-                        timerActionButton("Finalizar", symbol: "flag.checkered", destructive: false) {
-                            showDiscardConfirmation = true
-                        }
-                    }
+                HStack(spacing: 8) {
+                    timerActionButton(
+                        running ? "Pausar" : "Reanudar",
+                        symbol: running ? "pause.fill" : "play.fill",
+                        destructive: false
+                    ) { togglePause() }
+                    timerActionButton(
+                        "Finalizar",
+                        symbol: "flag.checkered",
+                        destructive: false
+                    ) { showDiscardConfirmation = true }
                 }
                 .padding(.horizontal, 8)
             } else if showingTimerMetrics {
@@ -204,46 +249,54 @@ struct WatchStandaloneTimerView: View {
                         }
                         .font(.subheadline.weight(.semibold))
                     }
-                    Text("Corona ↑ reloj")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 12)
             } else {
-                VStack(spacing: 8) {
-                    Text(modeRaw == "intervals"
-                         ? (inWork ? "TRABAJAR" : "DESCANSAR") : modeTitle.uppercased())
-                        .font(.footnote.weight(.bold))
-                        .foregroundStyle(accent)
-                        .lineLimit(1)
-                    if modeRaw == "intervals" {
-                        Text("\(roundIndex)")
-                            .font(.system(size: 37, weight: .heavy, design: .rounded))
-                            .foregroundStyle(timerRoundGreen)
-                            .monospacedDigit()
-                            .accessibilityLabel("Ronda \(roundIndex) de \(rounds)")
+                VStack(spacing: 9) {
+                    if modeRaw != "intervals" {
+                        Text(modeTitle.uppercased())
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(accent)
+                            .lineLimit(1)
                     }
-                    Text(clockText)
-                        .font(.system(size: modeRaw == "intervals" ? 39 : 48, weight: .heavy, design: .monospaced))
-                        .foregroundStyle(timerRed)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.64)
-                        .shadow(color: timerRed.opacity(0.5), radius: 5)
-                        .accessibilityLabel("Tiempo \(clockText)")
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        if modeRaw == "intervals" {
+                            Text("\(roundIndex)")
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundStyle(timerRoundGreen)
+                                .monospacedDigit()
+                                .accessibilityLabel("Ronda \(roundIndex) de \(rounds)")
+                                .layoutPriority(1)
+                        }
+                        Text(clockText)
+                            .font(.system(
+                                size: modeRaw == "intervals" ? 33 : 48,
+                                weight: .heavy, design: .monospaced
+                            ))
+                            .foregroundStyle(timerRed)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.55)
+                            .shadow(color: timerRed.opacity(0.5), radius: 5)
+                            .accessibilityLabel("Tiempo \(clockText)")
+                            .layoutPriority(1)
+                        if modeRaw == "intervals" {
+                            Text(inWork ? "TRABAJAR" : "DESCANSAR")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(accent)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                     if !running {
                         Text("En pausa")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.yellow)
                     }
-                    Text("Corona ↓ métricas")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 7)
+                .padding(.horizontal, 4)
             }
         }
         .focusable(true)
@@ -261,26 +314,6 @@ struct WatchStandaloneTimerView: View {
         .onChange(of: metricCrown) { _, value in
             showingTimerMetrics = value >= 0.5
             if showingTimerMetrics { showingTimerControls = false }
-        }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 35).onEnded { drag in
-                let dx = drag.translation.width
-                guard abs(dx) > abs(drag.translation.height) * 1.4 else { return }
-                if dx < -55 && !showingTimerControls {
-                    showingTimerControls = true
-                } else if dx > 55 && showingTimerControls {
-                    showingTimerControls = false
-                }
-            }
-        )
-        .confirmationDialog(
-            "¿Finalizar el temporizador?",
-            isPresented: $showDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Finalizar") { finishRun() }
-        } message: {
-            Text("Podrás guardar o descartar el tiempo registrado.")
         }
     }
 
@@ -402,7 +435,6 @@ struct WatchStandaloneTimerView: View {
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func stepperButton(
@@ -416,7 +448,7 @@ struct WatchStandaloneTimerView: View {
                 .font(.system(size: 19, weight: .semibold))
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)
-                .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -436,6 +468,7 @@ struct WatchStandaloneTimerView: View {
         if modeRaw == "up" { remaining = 0 }
         started = true
         showingTimerControls = false
+        showingNowPlaying = false
         showingTimerMetrics = false
         metricCrown = 0
         running = true
