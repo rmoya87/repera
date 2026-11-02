@@ -482,6 +482,8 @@ final class BusinessDataStore {
     /// Tras aceptar por deep link, Ajustes puede abrir el centro recién vinculado.
     var pendingOpenLinkedCenterId: UUID?
     private(set) var occurrences: [BusinessOccurrence] = []
+    /// Historical occurrences (including archived) only for confirmed attendance.
+    private var attendanceOccurrences: [BusinessOccurrence] = []
     private(set) var passes: [BusinessPass] = []
     private(set) var passOffers: [BusinessPassOffer] = []
     private(set) var bookings: [BusinessBooking] = []
@@ -489,7 +491,7 @@ final class BusinessDataStore {
     private(set) var progressDataRevision = 0
     /// Attendance is deliberately not equated with sensor measurements.
     var attendedClassesForProgress: [ProgressAttendedClass] {
-        let byID = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.id, $0) })
+        let byID = Dictionary(uniqueKeysWithValues: attendanceOccurrences.map { ($0.id, $0) })
         return bookings.compactMap { booking in
             guard booking.status == "attended",
                   let occurrence = byID[booking.occurrenceId],
@@ -540,6 +542,7 @@ final class BusinessDataStore {
         invitationPreviews = [:]
         pendingOpenLinkedCenterId = nil
         occurrences = []
+        attendanceOccurrences = []
         passes = []
         passOffers = []
         bookings = []
@@ -635,6 +638,7 @@ final class BusinessDataStore {
             invitations = fetchedInvitations.filter { $0.acceptedAt == nil && $0.cancelledAt == nil && (Self.date($0.expiresAt) ?? .distantPast) > Date() }
             await loadInvitationPreviews(for: invitations.map(\.id))
             await refreshEntitlements()
+            attendanceOccurrences = fetchedOccurrences
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             passOffers = fetchedOffers.filter {
