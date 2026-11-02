@@ -166,7 +166,8 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("if (swipeRight > 55f)", wear)
         self.assertIn("if (choosingMode) onBack() else choosingMode = true", wear)
         self.assertNotIn(".sheet(isPresented: $showTimer)", watch_root)
-        self.assertIn("WatchStandaloneTimerView(onClose:", watch_root)
+        self.assertIn("WatchStandaloneTimerView(", watch_root)
+        self.assertIn("onClose: { showTimer = false }", watch_root)
         self.assertIn('Text(inWork ? "TRABAJAR" : "DESCANSAR")', watch)
         self.assertIn('if (resting) "DESCANSAR" else "TRABAJAR"', wear)
 
@@ -190,7 +191,8 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn('Button("Cancelar", role: .cancel)', watch)
         self.assertIn('.foregroundStyle(.red)', watch)
         self.assertIn('.tint(Color(white: 0.18))', watch)
-        self.assertIn('finished = true\\n        if save {'.replace('\\n', '\n'), watch)
+        self.assertIn("finished = true", watch)
+        self.assertIn('publishMirror(save ? "finished" : "discarded")', watch)
         self.assertIn('if dx > 55 && dx > abs(drag.translation.height)', watch)
 
     def test_wear_timer_header_and_back_swipe_without_extra_picker_text(self):
