@@ -47,7 +47,8 @@ struct WatchSessionView: View {
                     WatchHomeHubView(
                         showTimer: $showTimer,
                         onPlayPlan: {
-                            hub.startToday()
+                            // Elegir el modo antes de crear la sesión y abrir HealthKit.
+                            showStartChoices = true
                         },
                         onPlaySport: { sport in
                             _ = hub.playHubSport(sport)
@@ -81,8 +82,8 @@ struct WatchSessionView: View {
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
             .confirmationDialog("Iniciar entreno", isPresented: $showStartChoices, titleVisibility: .visible) {
-                Button("Comenzar en vivo") { hub.play() }
-                Button("Grabar entreno") { hub.startPlanRecording() }
+                Button("Comenzar en vivo") { startSelectedPlan(recordOnly: false) }
+                Button("Grabar entreno") { startSelectedPlan(recordOnly: true) }
                 Button("Cancelar", role: .cancel) {}
             }
             .sheet(isPresented: $showTimer) {
@@ -114,6 +115,20 @@ struct WatchSessionView: View {
             showStartChoices = false
             showCancelConfirmation = false
             cancelConfirmationError = nil
+        }
+    }
+
+    /// Una sola elección desde el carrusel inicia directamente el modo elegido.
+    /// Los bloques posteriores usan «Iniciar» sin volver a abrir este diálogo.
+    private func startSelectedPlan(recordOnly: Bool) {
+        showStartChoices = false
+        guard hub.active == nil else { return }
+        hub.startToday()
+        guard hub.active?.phase == .ready else { return }
+        if recordOnly {
+            hub.startPlanRecording()
+        } else {
+            hub.play()
         }
     }
 
@@ -470,17 +485,25 @@ struct WatchSessionView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Button("Iniciar") {
-                    showStartChoices = true
+                // El plan ya eligió modo en Inicio: no repetir el selector.
+                Button {
+                    hub.play()
+                } label: {
+                    Text("Iniciar")
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                Button("Descartar", role: .destructive) {
+                Button(role: .destructive) {
                     hub.discardActiveSession()
+                } label: {
+                    Text("Descartar")
+                        .frame(maxWidth: .infinity)
                 }
-                .font(.caption)
+                .buttonStyle(.borderedProminent)
+                .tint(Color(white: 0.18))
+                .foregroundStyle(.red)
             }
             .padding(.horizontal, 5)
         }
