@@ -18,7 +18,7 @@ struct WatchStandaloneTimerView: View {
     @State private var choosingMode = true
     @State private var started = false
     @State private var running = false
-    private enum TimerExitPrompt { case finish, discard }
+    private enum TimerExitPrompt: Equatable { case finish, discard }
     @State private var timerExitPrompt: TimerExitPrompt?
     @State private var showingTimerControls = false
     @State private var showingNowPlaying = false
