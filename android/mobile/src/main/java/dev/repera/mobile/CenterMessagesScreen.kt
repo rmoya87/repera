@@ -102,7 +102,10 @@ internal fun CenterMessagesScreen(
         }
         if (connected && linked.isNotEmpty() && orgId != null && clientId != null) {
             Row(
-                Modifier.fillMaxWidth().padding(12.dp),
+                Modifier.fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(12.dp),
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
