@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Temporizador en Inicio del móvil iniciado desde reloj (02/11/2026)
+
+- **Apple Watch → iPhone:** Inicio muestra una tarjeta en vivo del temporizador (modo, tiempo rojo, ronda verde, estado), con Pausar/Reanudar y Finalizar en el teléfono. Los comandos se aplican en el reloj solo si el UUID coincide y la conexión sigue activa.
+- **Wear OS → Android:** misma tarjeta nativa en Inicio. Los estados se reciben tanto con la app visible como en segundo plano, y la sesión se registra por UUID. El Wear reenvía resultados pendientes tras desconexiones hasta recibir confirmación del guardado.
+- **Estados seguros:** al perder conexión, dejar de extrapolar tiempo tras 15 segundos y deshabilitar controles con más de 20 segundos sin datos. Los registros finalizados aparecen en Inicio e Historial cuando se guardan, sin fingir FC o calorías.
+- **Validación:** contratos estáticos y tests de estado de Wear; falta compilar y probar las cuatro apps en simulador/dispositivo.
+
+
 ## Temporizador y controles laterales en Apple Watch / Wear OS (02/11/2026)
 
 - **Selector y configuración:** Temporizador abre una pantalla de tres modos (Cuenta atrás, Cronómetro e Intervalos) con filas grandes, subtítulos y selección separada de la configuración. Los valores usan controles táctiles de tamaño adecuado; se conserva la lógica de guardado existente.
