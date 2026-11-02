@@ -543,6 +543,12 @@ struct HealthRecoveryProgressView: View {
     /// las gráficas: nunca se rellena una tarjeta con padding blanco.
     private let primaryChartHeight: CGFloat = 220
     @State private var recoveryGridWidth: CGFloat = 0
+    // Ajuste basado en las alturas reales: el gráfico de Sueño crece para
+    // igualar la tarjeta de constantes de su misma fila, no con espacio vacío.
+    @State private var duoSleepRowHeight: CGFloat = 0
+    @State private var duoVitalsRowHeight: CGFloat = 0
+    @State private var duoSleepChartExtraHeight: CGFloat = 0
+
     private var duoColumnWidth: CGFloat? {
         guard usesExpandedLayout, recoveryGridWidth > 0 else { return nil }
         return (recoveryGridWidth - 16) / 2
@@ -557,6 +563,18 @@ struct HealthRecoveryProgressView: View {
         guard let width = duoColumnWidth else { return primaryChartHeight }
         return max(220, width - 150)
     }
+    private var fittedSleepChartHeight: CGFloat {
+        sleepChartHeight + (usesExpandedLayout ? duoSleepChartExtraHeight : 0)
+    }
+
+    private func alignDuoRecoveryRows() {
+        guard usesExpandedLayout, duoSleepRowHeight > 0, duoVitalsRowHeight > 0 else { return }
+        let difference = duoVitalsRowHeight - duoSleepRowHeight
+        guard abs(difference) > 2 else { return }
+        // Solo crece la zona trazada; no se añade una banda blanca al pie.
+        duoSleepChartExtraHeight = min(600, max(0, duoSleepChartExtraHeight + difference))
+    }
+
     private var physiologyChartHeight: CGFloat {
         guard let width = duoColumnWidth else { return 128 }
         let additionalVitals = physiology.days.last.map {
@@ -710,6 +728,8 @@ struct HealthRecoveryProgressView: View {
         .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { _, width in
             if abs(recoveryGridWidth - width) > 1 { recoveryGridWidth = width }
         }
+        .onChange(of: duoSleepRowHeight) { _, _ in alignDuoRecoveryRows() }
+        .onChange(of: duoVitalsRowHeight) { _, _ in alignDuoRecoveryRows() }
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
         // tarjetas al entrar y salir de la pestaña Recuperación.
         .task {
@@ -745,15 +765,25 @@ struct HealthRecoveryProgressView: View {
             recoveryTrendPreview
         }
 
-        if hasSleepData {
-            sleepContent
-        } else {
-            softSleepEmpty
+        Group {
+            if hasSleepData {
+                sleepContent
+            } else {
+                softSleepEmpty
+            }
         }
-        if isPro {
-            physiologyContent
-        } else {
-            physiologyPreview
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { _, value in
+            if abs(duoSleepRowHeight - value) > 1 { duoSleepRowHeight = value }
+        }
+        Group {
+            if isPro {
+                physiologyContent
+            } else {
+                physiologyPreview
+            }
+        }
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { _, value in
+            if abs(duoVitalsRowHeight - value) > 1 { duoVitalsRowHeight = value }
         }
         if hasCycleData {
             cycleContent
@@ -891,7 +921,7 @@ struct HealthRecoveryProgressView: View {
                     message: recovery.sleepEnabled
                         ? "Sin registros de sueño en Apple Salud todavía."
                         : "Activa el análisis de descanso en Ajustes → Salud conectada.",
-                    height: sleepChartHeight,
+                    height: fittedSleepChartHeight,
                     yRange: 0.0...10.0
                 )
             }
@@ -1278,6 +1308,10 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 }
+                .frame(
+                    minHeight: usesExpandedLayout ? readinessChartHeight : 0,
+                    alignment: .center
+                )
             }
         }
     }
@@ -1440,7 +1474,7 @@ struct HealthRecoveryProgressView: View {
                 .chartYAxis(.hidden)
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
-                .frame(height: sleepChartHeight)
+                .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipped()
