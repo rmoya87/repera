@@ -200,10 +200,11 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('"todayWorkout": data', phone)
         self.assertIn("delegate.phoneConnectivityDidRequestToday()", phone)
 
-    def test_watch_does_not_show_music_controls(self):
+    def test_watch_now_playing_uses_native_media_view_without_custom_player(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
-        self.assertNotIn("showNowPlaying", view)
-        self.assertNotIn("NowPlayingView()", view)
+        self.assertIn("NowPlayingView()", view)
+        self.assertIn("showingNowPlaying = true", view)
+        self.assertIn("showingNowPlaying = false", view)
         self.assertNotIn('Image(systemName: "playpause.fill")', view)
         self.assertNotIn("Controlar música o podcast", view)
         self.assertIn('Label("Sincronizar", systemImage:', view)
@@ -235,7 +236,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("WatchExerciseThumb(exercise: exercise, size: 53)", view)
         self.assertIn('Text("Resumen")', view)
         self.assertIn("hub.selectBlock(startingAt: index)", view)
-        self.assertIn("if dx < 0 && !showingControls", view)
+        self.assertIn("else if showingNowPlaying", view)
         self.assertIn("hub.confirmAndAdvance()", view)
         self.assertIn('Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")', view)
         self.assertIn("hub.canConfirmCurrentEntry", view)
@@ -363,7 +364,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # El swipe hacia la izquierda abre controles; para avanzar serie se usa Siguiente.
         self.assertIn("DragGesture(minimumDistance: 35)", view)
-        self.assertIn("if dx < 0 && !showingControls", view)
+        self.assertIn("else if showingNowPlaying", view)
         self.assertIn("func swipeSet(_ direction: Int)", hub)
         self.assertNotIn("Desliza ← → para revisar otras series", view)
 
