@@ -62,8 +62,8 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("val phaseRemaining =", wear)
         self.assertIn("WearTimerAdaptiveClock(display)", wear)
         self.assertIn("TextAutoSize.StepBased(", wear)
-        self.assertIn('"Ronda " + roundNumber', wear)
-        self.assertIn('"Total " + wearClockLabel(remaining)', wear)
+        self.assertIn("roundNumber.toString()", wear)
+        self.assertIn('WearStatsLine("Restante", wearClockLabel(remaining))', wear)
         self.assertIn("WearConfirmFinishModal(", wear)
 
     def test_timer_matches_iphone_led_colors_and_crown_metrics(self):
@@ -115,6 +115,49 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("callbacks.onDiscardSession(session)", planned)
         self.assertIn("confirmFinish by remember(session.sessionId)", planned)
         self.assertIn("confirmDiscard by remember(session.sessionId)", planned)
+
+    def test_timer_live_mirror_watch_phone(self):
+        model = source("Packages/ReperaDomain/Sources/ReperaDomain/WatchTimerMirror.swift")
+        watch = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        wtransport = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+        ptransport = source("Apps/Repera/Sources/PhoneConnectivity.swift")
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        home = source("Apps/Repera/Sources/HomeView.swift")
+        self.assertIn("public struct WatchTimerMirror", model)
+        self.assertIn("private func publishMirror(", watch)
+        for phase in ('"running"', '"paused"', '"finished"', '"discarded"'):
+            self.assertIn(phase, watch)
+        self.assertIn("watchConnectivityDidReceiveTimerCommand", hub)
+        self.assertIn("sendTimerMirror", wtransport)
+        self.assertIn('"timerMirror": data', wtransport)
+        self.assertIn("sendTimerCommand(id:", ptransport)
+        self.assertIn("phoneConnectivityDidReceiveTimer", store)
+        self.assertIn("WatchTimerHomeCard", home)
+        self.assertIn("id: timerId", watch)
+        self.assertIn("connectivity.sendFinishedTimer(session)", hub)
+
+    def test_timer_live_mirror_wear_android_and_offline_ack(self):
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        timer = source("android/wear/src/main/java/dev/repera/wear/WearHubTimer.kt")
+        phone = source("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt")
+        listener = source("android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt")
+        mirror = source("android/mobile/src/main/java/dev/repera/mobile/WearTimerMirrorStore.kt")
+        home = source("android/mobile/src/main/java/dev/repera/mobile/HomeTab.kt")
+        for path in ("/repera/timer-state", "/repera/timer-save",
+                     "/repera/timer-save-ack", "/repera/timer-command"):
+            self.assertIn(path, wear)
+        self.assertIn("resendPendingTimers()", wear)
+        self.assertIn('getSharedPreferences("repera.timer.completed.outbox.v1"', wear)
+        self.assertIn("onMirror:", timer)
+        self.assertIn("remoteCommandEpoch:", timer)
+        self.assertIn('if (event.path == "/repera/timer-save")', phone)
+        self.assertIn('if (event.path == "/repera/timer-save")', listener)
+        self.assertIn("WearTimerMirrorStore", phone)
+        self.assertIn("WearTimerMirrorStore", listener)
+        self.assertIn("old.optString(\"phase\")", mirror)
+        self.assertIn("WearLiveTimerHomeCard", home)
+        self.assertIn("onWearTimerCommand", home)
 
     def test_wear_home_hub_carousel(self):
         wear = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
