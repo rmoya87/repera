@@ -6,6 +6,7 @@ import WatchKit
 struct WatchStandaloneTimerView: View {
     @Environment(WatchSessionHub.self) private var hub
     @Environment(\.dismiss) private var dismiss
+    var onClose: (() -> Void)? = nil
 
     @State private var timerId = UUID()
     @State private var modeRaw = "down"
@@ -66,6 +67,12 @@ struct WatchStandaloneTimerView: View {
     private var modeSelectionView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                Button(action: closeTimer) {
+                    Label("Volver", systemImage: "chevron.left")
+                        .font(.footnote.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
                 Text("Elige un temporizador")
                     .font(.headline)
                     .foregroundStyle(.primary)
@@ -79,6 +86,14 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 35).onEnded { drag in
+                let dx = drag.translation.width
+                if dx > 55 && dx > abs(drag.translation.height) * 1.4 {
+                    closeTimer()
+                }
+            }
+        )
     }
 
     private func modeButton(_ mode: String, title: String, subtitle: String, symbol: String) -> some View {
@@ -567,6 +582,14 @@ struct WatchStandaloneTimerView: View {
             )
             hub.saveStandaloneTimer(id: timerId, details: details, elapsedSeconds: elapsed)
         }
-        dismiss()
+        closeTimer()
+    }
+
+    private func closeTimer() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
     }
 }
