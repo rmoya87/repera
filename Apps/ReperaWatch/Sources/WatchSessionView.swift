@@ -1541,10 +1541,18 @@ struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var controls: Controls
     @State private var showingControls = false
+    @State private var showingNowPlaying = false
 
     var body: some View {
         Group {
-            if showingControls {
+            if showingNowPlaying {
+                // Apple ofrece la UI de la fuente de audio actual (Watch o iPhone).
+                // Debe ocupar toda la pantalla, sin ScrollView ni controles propios.
+                NowPlayingView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea(.container, edges: .all)
+                    .toolbar(.hidden, for: .navigationBar)
+            } else if showingControls {
                 ScrollView {
                     VStack(spacing: 14) {
                         controls
@@ -1560,10 +1568,16 @@ struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
                 guard abs(dx) >= 55, abs(dx) > abs(drag.translation.height) * 1.4 else { return }
-                if dx < 0 && !showingControls {
+                if dx > 0 {
+                    if showingControls {
+                        showingControls = false
+                    } else {
+                        showingNowPlaying = true
+                    }
+                } else if showingNowPlaying {
+                    showingNowPlaying = false
+                } else {
                     showingControls = true
-                } else if dx > 0 && showingControls {
-                    showingControls = false
                 }
             }
         )
