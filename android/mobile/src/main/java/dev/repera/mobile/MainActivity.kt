@@ -2768,7 +2768,10 @@ data class RecoveryState(
     val vitals:List<dev.repera.domain.RecoveryEngine.DailyVitals> = emptyList(),
     val menstrualDays:List<java.time.LocalDate> = emptyList(),
     val positiveOvulationTests:List<java.time.LocalDate> = emptyList(),
-    val trend:List<dev.repera.domain.ProgressDayPoint> = emptyList()
+    val trend:List<dev.repera.domain.ProgressDayPoint> = emptyList(),
+    val trainingMinutes96h: Double? = null,
+    val cardioAverageBpm: Double? = null,
+    val cardioMinutes48h: Double? = null
 )
 
 data class StateOverview(
@@ -3199,6 +3202,26 @@ data class StateOverview(
                         epochMillis=it.endMillis,durationMinutes=it.minutes,
                         isCardio=health.externalActivities.firstOrNull {activity ->activity.epochMillis==it.startMillis}?.let {activity ->dev.repera.domain.HealthMuscleMapper.isCardio(activity.type)} ?: false)
                 } ?: emptyList()
+                val nowMillis = System.currentTimeMillis()
+                val measuredTrainingMinutes = (
+                    stats.filter { it.finished && (nowMillis - it.epochMillis) in 0L..(96L * 3_600_000L) }
+                        .sumOf { it.durationMinutes.takeIf(Double::isFinite)?.coerceAtLeast(0.0) ?: 0.0 }
+                    + observed.filter { (nowMillis - it.epochMillis) in 0L..(96L * 3_600_000L) }
+                        .sumOf { it.durationMinutes.takeIf(Double::isFinite)?.coerceAtLeast(0.0) ?: 0.0 }
+                ).takeIf { it > 0 }
+                val latestCardioBpm = health?.heartRateDays
+                    ?.filter {
+                        !it.date.isAfter(java.time.LocalDate.now()) &&
+                            !it.date.isBefore(java.time.LocalDate.now().minusDays(2)) &&
+                            it.avgBpm.isFinite() && it.avgBpm > 0
+                    }
+                    ?.maxByOrNull { it.date }?.avgBpm
+                val cardioMinutes = observed
+                    .filter {
+                        it.isCardio && (nowMillis - it.epochMillis) in 0L..(48L * 3_600_000L)
+                    }
+                    .sumOf { it.durationMinutes.takeIf(Double::isFinite)?.coerceAtLeast(0.0) ?: 0.0 }
+                    .takeIf { it > 0 }
                 RecoveryState(
                     readiness = if(lastNight?.day==java.time.LocalDate.now()) dev.repera.domain.RecoveryEngine.trainingReadiness(
                         nowMillis = System.currentTimeMillis(),
@@ -3212,7 +3235,10 @@ data class StateOverview(
                     lastNightHours = lastNight?.hours,
                     recentAverageSleepHours = avg,
                     nights=rec.nights,vitals=rec.vitals,menstrualDays=rec.menstrualDays,positiveOvulationTests=rec.positiveOvulationTests,
-                    trend=RecoveryTrend.points(rec.nights,rec.vitals,stats,observed,java.time.Instant.now(),java.time.ZoneId.systemDefault())
+                    trend=RecoveryTrend.points(rec.nights,rec.vitals,stats,observed,java.time.Instant.now(),java.time.ZoneId.systemDefault()),
+                    trainingMinutes96h=measuredTrainingMinutes,
+                    cardioAverageBpm=latestCardioBpm,
+                    cardioMinutes48h=cardioMinutes
                 )
             }
             val archiveForMinutes=json.optJSONArray("workouts") ?: org.json.JSONArray()
