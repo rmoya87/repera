@@ -57,8 +57,8 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                         ) {
                             ReadinessFactor(
                                 "Sueño",
-                                recovery.lastNightHours?.let { "${formatWeight(it)} h" }
-                                    ?: "—"
+                                recovery.nights.lastOrNull { it.day == java.time.LocalDate.now() }
+                                    ?.hours?.let { "${formatWeight(it)} h" } ?: "—"
                             )
                             ReadinessFactor(
                                 "Entrenamiento",
