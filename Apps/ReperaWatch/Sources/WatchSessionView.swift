@@ -631,6 +631,9 @@ struct WatchSessionView: View {
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
                 showWorkoutFinishConfirmation = true
             }
+            Button("Serie anterior") { hub.swipeSet(-1) }
+                .buttonStyle(.bordered)
+                .font(.footnote)
             Button("Descartar entrenamiento", role: .destructive) {
                 showPlannedDiscardConfirmation = true
             }
