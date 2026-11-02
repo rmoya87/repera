@@ -1468,6 +1468,8 @@ struct DayEditorView: View {
                 components: .date,
                 date: date
             )
+            .layoutPriority(2)
+            .frame(maxWidth: .infinity, alignment: .leading)
             metaCellDivider
             MetaDateTimeCell(
                 caption: "Hora",
@@ -1475,6 +1477,7 @@ struct DayEditorView: View {
                 components: .hourAndMinute,
                 date: date
             )
+            .frame(width: 76, alignment: .leading)
             metaCellDivider
             MetaDurationCell(
                 caption: "Duración",
@@ -1528,6 +1531,8 @@ private struct MetaDateTimeCell: View {
                 Text(text)
                     .font(.system(size: 16, weight: .semibold).monospacedDigit())
                     .foregroundStyle(OG.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
