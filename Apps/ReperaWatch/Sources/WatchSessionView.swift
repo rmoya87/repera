@@ -7,11 +7,10 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
-    @State private var showStartChoices = false
+    private enum WatchTrainingPrompt { case start, finish, discard }
+    @State private var trainingPrompt: WatchTrainingPrompt?
     @State private var showTimer = false
     @State private var showCancelConfirmation = false
-    @State private var showPlannedDiscardConfirmation = false
-    @State private var showWorkoutFinishConfirmation = false
     @State private var cancelConfirmationError: String?
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
@@ -50,7 +49,7 @@ struct WatchSessionView: View {
                         showTimer: $showTimer,
                         onPlayPlan: {
                             // Elegir el modo antes de crear la sesión y abrir HealthKit.
-                            showStartChoices = true
+                            trainingPrompt = .start
                         },
                         onPlaySport: { sport in
                             _ = hub.playHubSport(sport)
@@ -84,33 +83,32 @@ struct WatchSessionView: View {
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
             .confirmationDialog(
-                "¿Finalizar entrenamiento?",
-                isPresented: $showWorkoutFinishConfirmation,
+                trainingPromptTitle,
+                isPresented: Binding(
+                    get: { trainingPrompt != nil },
+                    set: { if !$0 { trainingPrompt = nil } }
+                ),
                 titleVisibility: .visible
             ) {
-                Button("Finalizar") {
-                    if hub.isRecordingPlannedWorkout {
-                        hub.finishWorkout()
-                    } else {
-                        hub.finishFromSummary()
+                if trainingPrompt == .start {
+                    Button("Comenzar en vivo") { startSelectedPlan(recordOnly: false) }
+                    Button("Grabar entreno") { startSelectedPlan(recordOnly: true) }
+                } else if trainingPrompt == .finish {
+                    Button("Finalizar") {
+                        trainingPrompt = nil
+                        if hub.isRecordingPlannedWorkout {
+                            hub.finishWorkout()
+                        } else {
+                            hub.finishFromSummary()
+                        }
+                    }
+                } else if trainingPrompt == .discard {
+                    Button("Descartar", role: .destructive) {
+                        trainingPrompt = nil
+                        hub.discardActiveSession()
                     }
                 }
-            } message: {
-                Text("Se guardará el trabajo registrado hasta este momento.")
-            }
-            .confirmationDialog(
-                "¿Descartar entrenamiento?",
-                isPresented: $showPlannedDiscardConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Descartar", role: .destructive) { hub.discardActiveSession() }
-            } message: {
-                Text("Se perderá el registro de esta sesión.")
-            }
-            .confirmationDialog("Iniciar entreno", isPresented: $showStartChoices, titleVisibility: .visible) {
-                Button("Comenzar en vivo") { startSelectedPlan(recordOnly: false) }
-                Button("Grabar entreno") { startSelectedPlan(recordOnly: true) }
-                Button("Cancelar", role: .cancel) {}
+                Button("Cancelar", role: .cancel) { trainingPrompt = nil }
             }
             .sheet(isPresented: $showTimer) {
                 NavigationStack {
@@ -138,11 +136,18 @@ struct WatchSessionView: View {
             showTimer = false
             showOutline = false
             showSetDetails = false
-            showStartChoices = false
+            trainingPrompt = nil
             showCancelConfirmation = false
-            showPlannedDiscardConfirmation = false
-            showWorkoutFinishConfirmation = false
             cancelConfirmationError = nil
+        }
+    }
+
+    private var trainingPromptTitle: String {
+        switch trainingPrompt {
+        case .start: return "Iniciar entreno"
+        case .finish: return "¿Finalizar entrenamiento?"
+        case .discard: return "¿Descartar entrenamiento?"
+        case nil: return ""
         }
     }
 
@@ -559,10 +564,10 @@ struct WatchSessionView: View {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             }
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                showWorkoutFinishConfirmation = true
+                trainingPrompt = .finish
             }
             Button("Descartar entrenamiento", role: .destructive) {
-                showPlannedDiscardConfirmation = true
+                trainingPrompt = .discard
             }
             .font(.caption)
         }
