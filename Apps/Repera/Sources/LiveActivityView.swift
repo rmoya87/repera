@@ -2273,6 +2273,7 @@ struct LiveActivityView: View {
                     onConfirm: {
                         showDiscard = false
                         recorder.discard()
+                        UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
                         title = ""
                         notes = ""
                         mapIsCentered = true

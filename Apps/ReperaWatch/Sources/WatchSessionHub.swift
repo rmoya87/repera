@@ -916,7 +916,8 @@ final class WatchSessionHub: NSObject {
             ctrl.confirmCurrentExercise()
             controller = ctrl
             if startedOnThisWatch { health.resume() }
-            if startedOnThisWatch, let exercise = ctrl.session.currentExercise {
+            if startedOnThisWatch, !isRecordingPlannedWorkout,
+               let exercise = ctrl.session.currentExercise {
                 health.beginBlock(
                     id: exercise.blockId ?? exercise.id,
                     isInterval: exercise.blockKind == .wod
@@ -1556,8 +1557,8 @@ final class WatchSessionHub: NSObject {
             from: lastClockTick, to: Date(),
             sessionElapsed: sessionElapsed, blockElapsed: blockElapsed,
             restRemaining: restRemaining, isCounting: active?.phase == .counting,
-            isWOD: currentIsWOD,
-            timeCapSeconds: clockCountsUp ? 0 : timeCapSeconds
+            isWOD: currentIsWOD && !isRecordingPlannedWorkout,
+            timeCapSeconds: isRecordingPlannedWorkout || clockCountsUp ? 0 : timeCapSeconds
         )
         let delta = step.advancedSeconds
         guard delta > 0 else { return }
@@ -1589,11 +1590,12 @@ final class WatchSessionHub: NSObject {
             checkpoint()
         }
         guard isCounting, restRemaining == 0 else { return }
-        if let current, let interval = current.blockIntervalSeconds, interval > 0,
+        if !isRecordingPlannedWorkout, let current,
+           let interval = current.blockIntervalSeconds, interval > 0,
            blockElapsed / interval > previous / interval {
             WKInterfaceDevice.current().play(.click)
         }
-        if current?.wodFormat == .tabata, let current {
+        if !isRecordingPlannedWorkout, current?.wodFormat == .tabata, let current {
             let cycle = max(1, (current.blockWorkSeconds ?? 20) + (current.blockRestSeconds ?? 10))
             let oldPosition = previous % cycle
             let newPosition = blockElapsed % cycle
@@ -1610,7 +1612,8 @@ final class WatchSessionHub: NSObject {
 
     private func startMotion() {
         stopMotion()
-        guard !isPaused, restRemaining == 0, motion.isDeviceMotionAvailable,
+        guard !isRecordingPlannedWorkout, !isPaused, restRemaining == 0,
+              motion.isDeviceMotionAvailable,
               active?.phase == .counting,
               loggingStyle != .machineWork, loggingStyle != .repsAndTime else { return }
         motion.deviceMotionUpdateInterval = 1.0 / 25.0
