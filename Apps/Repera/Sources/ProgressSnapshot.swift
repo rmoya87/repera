@@ -143,11 +143,30 @@ enum ProgressDataEngine {
         // routine recorded as a finished workout supersedes its class booking.
         let attendedClasses = input.attendedClasses.filter { attendance in
             guard attendance.endsAt <= now else { return false }
-            return !input.workouts.contains { workout in
-                guard workout.phase == .finished || workout.finishedAt != nil,
-                      let linked = attendance.linkedRoutineID else { return false }
-                return workout.routineId == linked || workout.id == linked
+            // A watch-recorded class and its reservation are one activity.
+            func overlaps(_ start: Date, _ end: Date) -> Bool {
+                let seconds = end.timeIntervalSince(start)
+                let scheduled = attendance.endsAt.timeIntervalSince(attendance.startsAt)
+                guard seconds > 0, scheduled > 0 else { return false }
+                let common = min(end, attendance.endsAt)
+                    .timeIntervalSince(max(start, attendance.startsAt))
+                return common >= 0.5 * min(seconds, scheduled)
             }
+            let alreadyLogged = input.workouts.contains { workout in
+                guard workout.phase == .finished || workout.finishedAt != nil else {
+                    return false
+                }
+                if let linked = attendance.linkedRoutineID,
+                   workout.routineId == linked || workout.id == linked { return true }
+                if let start = workout.startedAt, let end = workout.finishedAt {
+                    return overlaps(start, end)
+                }
+                return false
+            }
+            let alreadyMeasuredExternally = externalActivities.contains {
+                overlaps($0.start, $0.end)
+            }
+            return !alreadyLogged && !alreadyMeasuredExternally
         }
         // Zero-duration external sample marks attendance without inventing
         // sensor data; StatsEngine still counts it as one completed session.
