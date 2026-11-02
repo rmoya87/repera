@@ -17,6 +17,7 @@ final class WatchSessionHub: NSObject {
     private(set) var lastFinished: WorkoutSession?
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
+    private(set) var timerRemoteCommand: (id: UUID, command: String, token: UUID)?
     private(set) var isFinishingCompanionLive = false
     /// Permite que la apertura desde esfera cierre modales antiguos en la vista.
     private(set) var complicationOpenEpoch = 0
@@ -757,6 +758,10 @@ final class WatchSessionHub: NSObject {
         if !health.isRecording {
             connectivity.sendFinished(pending)
         }
+    }
+
+    func publishTimerMirror(_ mirror: WatchTimerMirror) {
+        connectivity.sendTimerMirror(mirror)
     }
 
     func saveStandaloneTimer(details: TimerCompletionDetails, elapsedSeconds: Int) {
@@ -1831,6 +1836,12 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 self.connectivity.acknowledge(sessionId)
                 self.save()
             }
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {
+        Task { @MainActor in
+            self.timerRemoteCommand = (id: id, command: command, token: UUID())
         }
     }
 
