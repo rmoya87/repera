@@ -571,7 +571,7 @@ internal fun ClassDetailPage(
                             )
                         }
                         if (start != null) {
-                            DetailRow("Fecha", shortDateFmt.format(start))
+                            DetailRow("Fecha", shortDateFmt.format(start), singleLine = true)
                             DetailRow(
                                 "Hora",
                                 buildString {
@@ -710,7 +710,7 @@ internal fun prescriptionToRoutineBlocks(prescription: JSONObject): List<Routine
 }
 
 @Composable
-private fun DetailRow(title: String, value: String) {
+private fun DetailRow(title: String, value: String, singleLine: Boolean = false) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -725,7 +725,9 @@ private fun DetailRow(title: String, value: String) {
             value,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(start = 12.dp)
+            modifier = Modifier.padding(start = 12.dp),
+            maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+            softWrap = !singleLine
         )
     }
 }
