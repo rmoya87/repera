@@ -580,14 +580,8 @@ struct HealthRecoveryProgressView: View {
     /// de hoy. No se proyecta una nota futura usando sueño supuesto.
     private func prepareTrainingRecovery() async {
         let key = trainingRecoveryRefreshKey
-        guard recovery.sleepEnabled else {
-            recoveryPoints = []
-            currentReadiness = nil
-            currentSleepHours = nil
-            appliedRecoveryKey = key
-            return
-        }
-        let nights = recovery.nights
+        // Independent load and vital cards stay available without sleep data.
+        let nights = recovery.sleepEnabled ? recovery.nights : []
         let vitalHistory = physiology.days
         let workouts = store.state.workouts.filter { $0.finishedAt != nil }
         // HealthKit ya excluye UUID y solapes con entrenamientos Repera.
@@ -1115,12 +1109,51 @@ struct HealthRecoveryProgressView: View {
 
     private var currentCardiacReadings: String {
         guard let day = physiology.days.last(where: {
-            Calendar.current.isDate($0.date, inSameDayAs: Date())
+            $0.hrvMilliseconds != nil || $0.restingHeartRateBpm != nil
         }) else { return "Sin datos" }
         let hrv = day.hrvMilliseconds.map { "\(Int($0.rounded())) ms" }
         let resting = day.restingHeartRateBpm.map { "\(Int($0.rounded())) lpm" }
         let summary = [hrv, resting].compactMap { $0 }.joined(separator: " · ")
-        return summary.isEmpty ? "Sin datos" : summary
+        guard !summary.isEmpty else { return "Sin datos" }
+        return Calendar.current.isDate(day.date, inSameDayAs: Date())
+            ? summary : "\(summary) · \(day.date.formatted(date: .abbreviated, time: .omitted))"
+    }
+
+    private var latestSleepLabel: String {
+        guard recovery.sleepEnabled, let night = recovery.nights.last else {
+            return "Sin registro de sueño"
+        }
+        let value = "\(ReperaNumberFormat.decimal(night.hours)) h"
+        return Calendar.current.isDate(night.date, inSameDayAs: Date())
+            ? value : "\(value) · \(night.date.formatted(date: .abbreviated, time: .omitted))"
+    }
+
+    private var measuredTrainingLoadLabel: String {
+        let now = Date()
+        let workouts = store.state.workouts.filter {
+            guard let end = $0.finishedAt else { return false }
+            let age = now.timeIntervalSince(end)
+            return age >= 0 && age <= 96 * 3600
+        }
+        let external = health.recentExternalActivities.filter {
+            let age = now.timeIntervalSince($0.end)
+            return age >= 0 && age <= 96 * 3600
+        }
+        let minutes = workouts.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+            + external.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        return minutes > 0 ? "\(Int(minutes.rounded())) min · 96 h" : "Sin medición reciente"
+    }
+
+    private var measuredCardioLabel: String {
+        let now = Date()
+        let cardio = health.recentExternalActivities.filter {
+            let age = now.timeIntervalSince($0.end)
+            return age >= 0 && age <= 48 * 3600
+                && HealthMuscleMapper.isCardio($0.activityType)
+        }
+        guard !cardio.isEmpty else { return "Sin medición reciente" }
+        let minutes = cardio.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        return "\(Int(minutes.rounded())) min · 48 h"
     }
 
     private func readinessFactor(
@@ -1214,10 +1247,29 @@ struct HealthRecoveryProgressView: View {
                         .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                     }
                 } else {
-                    Text("Necesitamos datos de sueño y entrenamientos recientes")
-                        .font(.subheadline)
+                    HStack(alignment: .center, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 7) {
+                            readinessFactor("Sueño", icon: "moon", value: latestSleepLabel)
+                            readinessFactor("Carga", icon: "dumbbell", value: measuredTrainingLoadLabel)
+                            readinessFactor("VFC", icon: "heart", value: currentCardiacReadings)
+                            readinessFactor("Cardio", icon: "waveform.path.ecg", value: measuredCardioLabel)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(spacing: 0) {
+                            Text("—")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                            Text("de 10")
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                        }
+                        .frame(width: usesExpandedLayout ? 96 : 124,
+                               height: usesExpandedLayout ? 96 : 124)
+                        .overlay(Circle().stroke(OG.surface3, lineWidth: 11))
+                        .accessibilityLabel("Preparación actual sin puntuación")
+                    }
+                    Text("Sin puntuación actual: faltan datos suficientes de sueño o carga.")
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 }
             }
