@@ -60,6 +60,8 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("choosingMode = false", wear)
         self.assertIn("scrollState.scrollBy(it.verticalScrollPixels)", wear)
         self.assertIn("val phaseRemaining =", wear)
+        self.assertIn("WearTimerAdaptiveClock(display)", wear)
+        self.assertIn("TextAutoSize.StepBased(", wear)
         self.assertIn('"Ronda " + roundNumber', wear)
         self.assertIn('"Total " + wearClockLabel(remaining)', wear)
         self.assertIn("WearConfirmFinishModal(", wear)
