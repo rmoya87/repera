@@ -323,6 +323,9 @@ private fun WearTimerModeOption(
     }
 }
 
+private val WearTimerRed = Color(0xFFFF382E) // DigitalClockDisplay iPhone
+private val WearTimerRoundGreen = Color(0xFF38FF59)
+
 /** Reloj ajustable: 180 minutos y formatos largos no se recortan en una esfera pequeña. */
 @Composable
 private fun WearTimerAdaptiveClock(seconds: Int) {
@@ -333,7 +336,7 @@ private fun WearTimerAdaptiveClock(seconds: Int) {
             .padding(horizontal = 3.dp)
             .semantics { contentDescription = "Tiempo " + wearClockLabel(seconds) },
         style = MaterialTheme.typography.displayMedium.copy(
-            color = Color.White,
+            color = WearTimerRed,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         ),
@@ -404,60 +407,90 @@ internal fun WearTimerRunScreen(
         "intervals" -> phaseRemaining.coerceAtLeast(0)
         else -> remaining
     }
-    val pager = rememberPagerState(pageCount = { 2 })
+    // Página de controles a la izquierda: gesto de dedo → desde el reloj.
+    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val metricsScroll = rememberScrollState()
+    val metricsFocus = remember { FocusRequester() }
+    val metricsScope = rememberCoroutineScope()
+    LaunchedEffect(pager.currentPage) {
+        if (pager.currentPage == 1) metricsFocus.requestFocus()
+    }
     var confirmDiscard by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-            if (page == 0) {
+            if (page == 1) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp),
+                        .verticalScroll(metricsScroll)
+                        .onRotaryScrollEvent {
+                            metricsScope.launch { metricsScroll.scrollBy(it.verticalScrollPixels) }
+                            true
+                        }
+                        .focusRequester(metricsFocus)
+                        .focusable()
+                        .padding(horizontal = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    Text(
-                        if (paused != 0) "En pausa" else when (draft.modeRaw) {
-                            "up" -> "Cronómetro"
-                            "down" -> "Cuenta atrás"
-                            else -> if (resting) "Descanso" else "Trabajo"
-                        },
-                        color = when {
-                            paused != 0 -> WearOg.yellow
-                            resting -> WearOg.accent
-                            else -> Color.White
-                        },
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        maxLines = 1,
-                        textAlign = TextAlign.Center
-                    )
-                    if (draft.modeRaw == "intervals") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(175.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
+                    ) {
                         Text(
-                            "Ronda " + roundNumber + "/" + draft.rounds,
+                            if (paused != 0) "En pausa" else when (draft.modeRaw) {
+                                "up" -> "Cronómetro"
+                                "down" -> "Cuenta atrás"
+                                else -> if (resting) "DESCANSAR" else "TRABAJAR"
+                            },
+                            color = when {
+                                paused != 0 -> WearOg.yellow
+                                else -> WearOg.accent
+                            },
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = 16.sp, fontWeight = FontWeight.SemiBold
+                            ),
+                            maxLines = 1,
+                            textAlign = TextAlign.Center
+                        )
+                        if (draft.modeRaw == "intervals") {
+                            Text(
+                                roundNumber.toString(),
+                                color = WearTimerRoundGreen,
+                                style = MaterialTheme.typography.displayMedium.copy(
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                        WearTimerAdaptiveClock(display)
+                        Text(
+                            "Corona ↓ métricas · Desliza → controles",
                             color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 13.sp),
-                            maxLines = 1
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2
                         )
                     }
-                    WearTimerAdaptiveClock(display)
-                    if (draft.modeRaw == "intervals") {
-                        Text(
-                            "Total " + wearClockLabel(remaining),
-                            color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                            maxLines = 1
-                        )
-                    }
                     Text(
-                        "Desliza para controles ›",
-                        color = WearOg.label2,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
+                        "Métricas",
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp),
+                        modifier = Modifier.padding(top = 12.dp)
                     )
+                    WearStatsLine("Transcurrido", wearClockLabel(elapsed))
+                    if (draft.modeRaw != "up") {
+                        WearStatsLine("Restante", wearClockLabel(remaining))
+                    }
+                    if (draft.modeRaw == "intervals") {
+                        WearStatsLine("Ronda", roundNumber.toString() + "/" + draft.rounds)
+                        WearStatsLine("Fase", if (resting) "Descanso" else "Trabajo")
+                        WearStatsLine("Fase restante", wearClockLabel(phaseRemaining.coerceAtLeast(0)))
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             } else {
                 Column(
@@ -482,19 +515,21 @@ internal fun WearTimerRunScreen(
                             contentDescription = if (paused == 0) "Pausar" else "Reanudar"
                         )
                     }
-                    // TextButton Wear es circular y recorta a «Descar».
                     Button(
                         onClick = { confirmDiscard = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp),
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
                             contentColor = WearOg.red
                         )
                     ) {
-                        WearButtonLabel("Descartar", color = WearOg.red)
+                        WearButtonLabel("Finalizar", color = WearOg.red)
                     }
+                    Text(
+                        "Desliza ← para volver",
+                        color = WearOg.label2,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp)
+                    )
                 }
             }
         }
