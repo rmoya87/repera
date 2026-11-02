@@ -91,7 +91,8 @@ class WatchHubContractTests(unittest.TestCase):
         session = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         live = source("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
         self.assertIn("struct WatchSwipeControlSurface", session)
-        self.assertIn("if dx < 0 && !showingControls", session)
+        self.assertIn("else if showingNowPlaying", session)
+        self.assertIn("NowPlayingView()", session)
         self.assertIn("else if dx > 0 && showingControls", session)
         self.assertIn("showingControls = true", session)
         self.assertIn("showingControls = false", session)
@@ -128,8 +129,11 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertNotIn("Sin datos de condiciones", conditions)
         self.assertNotIn('Text("Controles")', session)
         self.assertNotIn('Text("Controles")', timer)
-        self.assertIn("if dx < -55 && !showingTimerControls", timer)
-        self.assertIn("else if dx > 55 && showingTimerControls", timer)
+        self.assertIn("if dx < -55", timer)
+        self.assertIn("NowPlayingView()", timer)
+        self.assertIn("if showingTimerControls", timer)
+        self.assertNotIn("Corona ↓ métricas", timer)
+        self.assertNotIn("Corona ↑ reloj", timer)
         for view in (session, live, timer):
             self.assertNotIn('Text("Desliza', view)
             self.assertNotIn('Text("Deslizar', view)
@@ -145,6 +149,23 @@ class WatchHubContractTests(unittest.TestCase):
         for view in (live, planned, timer):
             self.assertNotIn('"Desliza ', view)
             self.assertNotIn('Text("Controles"', view)
+
+    def test_timer_config_unboxed_and_swipe_back_from_type(self):
+        watch = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")
+        watch_root = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearHubTimer.kt")
+        chrome = source("android/wear/src/main/java/dev/repera/wear/WearChrome.kt")
+        self.assertIn("if dx > 55 && dx > abs(drag.translation.height)", watch)
+        self.assertNotIn('Label("Cambiar tipo", systemImage:', watch)
+        self.assertNotIn(".background(Color.white.opacity(0.08), in: RoundedRectangle", watch)
+        self.assertIn("flatControls = true", wear)
+        self.assertIn("flatControls: Boolean = false", chrome)
+        self.assertIn("pointerInput(choosingMode)", wear)
+        self.assertIn("if (!choosingMode && swipeRight > 55f) choosingMode = true", wear)
+        self.assertNotIn(".sheet(isPresented: $showTimer)", watch_root)
+        self.assertIn("WatchStandaloneTimerView(onClose:", watch_root)
+        self.assertIn('Text(inWork ? "TRABAJAR" : "DESCANSAR")', watch)
+        self.assertIn('if (resting) "DESCANSAR" else "TRABAJAR"', wear)
 
     def test_timer_live_mirror_watch_phone(self):
         model = source("Packages/ReperaDomain/Sources/ReperaDomain/WatchTimerMirror.swift")
