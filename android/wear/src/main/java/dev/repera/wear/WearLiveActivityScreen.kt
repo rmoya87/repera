@@ -58,8 +58,8 @@ import dev.repera.domain.ReperaNumberFormat
 import org.json.JSONObject
 
 /**
- * Companion Comenzar: página 1 = métricas;
- * página 0 (swipe del dedo a la derecha) = Pausar / Finalizar. Confirmación de fin = modal encima.
+ * Companion Comenzar: página 0 = métricas; deslizar de derecha a izquierda
+ * abre página 1 de Pausar / Finalizar. Confirmación de fin = modal encima.
  */
 @Composable
 internal fun WearLiveActivityScreen(
@@ -72,7 +72,7 @@ internal fun WearLiveActivityScreen(
     val phase = live.optString("phase")
     val sport = LiveSport.byId(live.optString("sportId"))
     // Mantener dos páginas también al entrar en revisión evita un índice inválido.
-    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
     var confirmFinish by remember(live.optString("sessionId")) { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -82,7 +82,7 @@ internal fun WearLiveActivityScreen(
         ) { page ->
             when {
                 phase == "review" -> WearLiveReviewPage(onDismissLiveToHome)
-                page == 1 -> WearLiveMetricsPage(live = live, sport = sport, health = health)
+                page == 0 -> WearLiveMetricsPage(live = live, sport = sport, health = health)
                 else -> WearLiveControlsPage(
                     phase = phase,
                     onPauseResume = {
@@ -213,15 +213,6 @@ private fun WearLiveMetricsPage(
 
         live.optJSONObject("conditions")?.let { conditionsBlock(it) }
 
-        Text(
-            "Desliza → para controles",
-            color = WearOg.label2,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            textAlign = TextAlign.Center
-        )
     }
 }
 
@@ -239,11 +230,6 @@ private fun WearLiveControlsPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
     ) {
-        Text(
-            "Controles",
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -449,27 +435,52 @@ private fun conditionsBlock(conditions: JSONObject) {
     val snap = runCatching {
         ActivityConditionsSnapshot.fromJson(conditions)
     }.getOrNull() ?: return
-    if (snap.family != dev.repera.domain.ActivityConditionsFamily.WATER &&
-        snap.family != dev.repera.domain.ActivityConditionsFamily.SNOW &&
-        snap.temperatureC == null && snap.windKmh == null
-    ) return
-    Text("Condiciones", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-    snap.temperatureC?.let { WearStatsLine("Temp", String.format("%.0f °C", it)) }
-    snap.windKmh?.let { WearStatsLine("Viento", String.format("%.0f km/h", it)) }
-    if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER) {
-        snap.tideHeightMeters?.let { h ->
+
+    val temperature = snap.temperatureC?.takeIf { it.isFinite() }
+    val wind = snap.windKmh?.takeIf { it.isFinite() }
+    val water = snap.family == dev.repera.domain.ActivityConditionsFamily.WATER
+    val snow = snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW
+    val tide = snap.tideHeightMeters?.takeIf { water && it.isFinite() }
+    val nextTide = snap.nextTideLabel?.takeIf { water && it.isNotBlank() }
+    val waves = snap.waveHeightMeters?.takeIf { water && it.isFinite() }
+    val snowfall = snap.snowfallCm?.takeIf { snow && it.isFinite() && it > 0 }
+    val depth = snap.snowDepthMeters?.takeIf { snow && it.isFinite() && it > 0 }
+
+    // Sin un valor meteorológico real no se pinta ni el título ni la tarjeta.
+    if (temperature == null && wind == null && tide == null &&
+        nextTide == null && waves == null && snowfall == null && depth == null) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.07f), RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            "Condiciones",
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
+        )
+        temperature?.let { WearStatsLine("Temperatura", String.format("%.0f °C", it)) }
+        wind?.let { WearStatsLine("Viento", String.format("%.0f km/h", it)) }
+        tide?.let { height ->
             val trend = snap.tideTrendLabel?.let { " · $it" }.orEmpty()
-            WearStatsLine("Marea", String.format("%.2f m%s", h, trend))
+            WearStatsLine("Marea", String.format("%.2f m%s", height, trend))
         }
-        snap.nextTideLabel?.let { WearStatsLine("Próxima", it) }
-        snap.waveHeightMeters?.let { WearStatsLine("Oleaje", String.format("%.1f m", it)) }
-    }
-    if (snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW) {
-        snap.snowfallCm?.takeIf { it > 0 }?.let {
-            WearStatsLine("Nevada", String.format("%.1f cm/h", it))
+        nextTide?.let { WearStatsLine("Próxima marea", it) }
+        waves?.let { WearStatsLine("Oleaje", String.format("%.1f m", it)) }
+        snowfall?.let { WearStatsLine("Nevada", String.format("%.1f cm/h", it)) }
+        depth?.let { WearStatsLine("Nieve", String.format("%.0f cm", it * 100)) }
+        snap.disclaimer?.takeIf { it.isNotBlank() }?.let {
+            Text(it, color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
         }
-        snap.snowDepthMeters?.takeIf { it > 0 }?.let {
-            WearStatsLine("Nieve", String.format("%.0f cm", it * 100))
+        if (snap.attribution.isNotBlank()) {
+            Text(
+                snap.attribution,
+                color = WearOg.label2,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+            )
         }
     }
 }
