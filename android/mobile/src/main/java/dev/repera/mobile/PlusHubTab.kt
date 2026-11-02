@@ -315,13 +315,17 @@ private fun ClassDayCard(
 ) {
     // Mismo RPC de ocupación que en el detalle, solo cuando falta el agregado.
     var rosterCount by remember(occurrence.id, booking?.id, booking?.status) {
-        mutableStateOf<BusinessCenterStore.ClassRoster?>(null)
+        mutableStateOf<Pair<Int, Int?>?>(null)
     }
     LaunchedEffect(occurrence.id, booking?.id, booking?.status, reserved) {
-        if (reserved == null) rosterCount = loadRoster?.invoke(occurrence.id)
+        if (reserved == null) {
+            val result = loadRoster?.invoke(occurrence.id)
+            // La tarjeta solo necesita las cifras: no conservar el roster personal.
+            rosterCount = result?.reserved?.let { occupied -> occupied to result.capacity }
+        }
     }
-    val actualCapacity = if (reserved == null) rosterCount?.capacity ?: capacity else capacity
-    val actualReserved = reserved ?: rosterCount?.reserved
+    val actualCapacity = if (reserved == null) rosterCount?.second ?: capacity else capacity
+    val actualReserved = reserved ?: rosterCount?.first
     val actualRemaining = places ?: if (actualCapacity != null && actualReserved != null) {
         (actualCapacity - actualReserved).coerceAtLeast(0)
     } else null
@@ -1416,7 +1420,7 @@ private fun durationLabel(start: Instant, end: Instant): String {
 }
 
 /** Aforo siempre visible (también si ya estás apuntado): ocupadas/capacidad. */
-private fun aforoLabel(capacity: Int?, remaining: Int?, reserved: Int?): String? {
+internal fun aforoLabel(capacity: Int?, remaining: Int?, reserved: Int?): String? {
     val cap = capacity?.takeIf { it > 0 } ?: return null
     val used = reserved ?: remaining?.let { (cap - it).coerceAtLeast(0) }
     return if (used != null) "$used/$cap" else "—/$cap"
