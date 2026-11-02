@@ -1110,24 +1110,28 @@ struct HealthRecoveryProgressView: View {
     private var currentCardiacReadings: String {
         guard let day = physiology.days.last(where: {
             $0.hrvMilliseconds != nil || $0.restingHeartRateBpm != nil
-        }) else { return "Sin datos" }
+        }) else { return "—" }
         let hrv = day.hrvMilliseconds.map { "\(Int($0.rounded())) ms" }
         let resting = day.restingHeartRateBpm.map { "\(Int($0.rounded())) lpm" }
         let summary = [hrv, resting].compactMap { $0 }.joined(separator: " · ")
-        guard !summary.isEmpty else { return "Sin datos" }
+        guard !summary.isEmpty else { return "—" }
         return Calendar.current.isDate(day.date, inSameDayAs: Date())
             ? summary : "\(summary) · \(day.date.formatted(date: .abbreviated, time: .omitted))"
     }
 
+    /// La puntuación requiere sueño reciente, pero las mediciones observadas
+    /// se muestran de forma independiente aunque hoy no haya registro de sueño.
     private var latestSleepLabel: String {
-        guard recovery.sleepEnabled, let night = recovery.nights.last else {
-            return "Sin registro de sueño"
+        guard recovery.sleepEnabled,
+              let night = recovery.nights.last,
+              Calendar.current.isDate(night.date, inSameDayAs: Date()) else {
+            return "—"
         }
-        let value = "\(ReperaNumberFormat.decimal(night.hours)) h"
-        return Calendar.current.isDate(night.date, inSameDayAs: Date())
-            ? value : "\(value) · \(night.date.formatted(date: .abbreviated, time: .omitted))"
+        return "\(ReperaNumberFormat.decimal(night.hours)) h"
     }
 
+    /// Minutos reales de sesiones finalizadas durante las últimas 96 horas.
+    /// La colección de HealthKit ya excluye duplicados y solapes de Repera.
     private var measuredTrainingLoadLabel: String {
         let now = Date()
         let workouts = store.state.workouts.filter {
@@ -1141,19 +1145,29 @@ struct HealthRecoveryProgressView: View {
         }
         let minutes = workouts.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
             + external.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
-        return minutes > 0 ? "\(Int(minutes.rounded())) min · 96 h" : "Sin medición reciente"
+        return minutes > 0 ? "\(Int(minutes.rounded())) min" : "—"
     }
 
+    /// «Cardio» prioriza la frecuencia cardíaca real de Apple Salud.
+    /// Si no hay FC reciente, conserva las sesiones cardio verificadas.
+    /// Nunca depende de si el usuario durmió con el reloj.
     private var measuredCardioLabel: String {
         let now = Date()
-        let cardio = health.recentExternalActivities.filter {
-            let age = now.timeIntervalSince($0.end)
-            return age >= 0 && age <= 48 * 3600
-                && HealthMuscleMapper.isCardio($0.activityType)
+        if let heartRate = health.recentDailyHeartRate.last(where: {
+            let age = now.timeIntervalSince($0.date)
+            return age >= -86400 && age <= 48 * 3600
+                && $0.avgBpm.isFinite && $0.avgBpm > 0
+        }) {
+            return "\(Int(heartRate.avgBpm.rounded())) lpm"
         }
-        guard !cardio.isEmpty else { return "Sin medición reciente" }
-        let minutes = cardio.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
-        return "\(Int(minutes.rounded())) min · 48 h"
+        let minutes = health.recentExternalActivities
+            .filter {
+                let age = now.timeIntervalSince($0.end)
+                return age >= 0 && age <= 48 * 3600
+                    && HealthMuscleMapper.isCardio($0.activityType)
+            }
+            .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        return minutes > 0 ? "\(Int(minutes.rounded())) min" : "—"
     }
 
     private func readinessFactor(
@@ -1202,23 +1216,18 @@ struct HealthRecoveryProgressView: View {
                         VStack(alignment: .leading, spacing: usesExpandedLayout ? 6 : 7) {
                             readinessFactor(
                                 "Sueño", icon: "moon",
-                                value: currentSleepHours.map {
-                                    "\(ReperaNumberFormat.decimal($0)) h"
-                                } ?? "Sin datos"
+                                value: latestSleepLabel
                             )
                             readinessFactor(
-                                "Carga", icon: "dumbbell",
-                                value: readiness.fatiguePenalty >= 2.3 ? "Alta"
-                                    : (readiness.fatiguePenalty >= 1.1 ? "Moderada" : "Baja")
+                                "Entrenamiento", icon: "dumbbell",
+                                value: measuredTrainingLoadLabel
                             )
                             readinessFactor(
                                 "VFC", icon: "heart", value: currentCardiacReadings
                             )
                             readinessFactor(
                                 "Cardio", icon: "waveform.path.ecg",
-                                value: readiness.cardioMinutes48h.map {
-                                    "\(Int($0.rounded())) min"
-                                } ?? "Sin datos"
+                                value: measuredCardioLabel
                             )
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1250,7 +1259,7 @@ struct HealthRecoveryProgressView: View {
                     HStack(alignment: .center, spacing: 14) {
                         VStack(alignment: .leading, spacing: 7) {
                             readinessFactor("Sueño", icon: "moon", value: latestSleepLabel)
-                            readinessFactor("Carga", icon: "dumbbell", value: measuredTrainingLoadLabel)
+                            readinessFactor("Entrenamiento", icon: "dumbbell", value: measuredTrainingLoadLabel)
                             readinessFactor("VFC", icon: "heart", value: currentCardiacReadings)
                             readinessFactor("Cardio", icon: "waveform.path.ecg", value: measuredCardioLabel)
                         }
