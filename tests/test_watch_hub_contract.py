@@ -39,6 +39,31 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("WatchStandaloneTimerView", timer)
         self.assertIn("TimerCompletionDetails", timer)
 
+    def test_watch_timer_mode_selection_is_full_size(self):
+        watch = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")
+        self.assertIn("modeSelectionView", watch)
+        self.assertIn('modeButton("down", title: "Cuenta atrás"', watch)
+        self.assertIn('modeButton("up", title: "Cronómetro"', watch)
+        self.assertIn('modeButton("intervals", title: "Intervalos"', watch)
+        self.assertIn("minHeight: 56", watch)
+        self.assertIn("stepperButton", watch)
+        self.assertIn("width: 44, height: 44", watch)
+        # Pausa no debe volver al formulario, ni terminar sin confirmación.
+        self.assertIn("else if started", watch)
+        self.assertIn("showDiscardConfirmation = true", watch)
+        self.assertIn(".confirmationDialog(", watch)
+
+    def test_wear_timer_uses_large_mode_buttons_and_interval_phases(self):
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearHubTimer.kt")
+        self.assertIn("WearTimerModeOption(", wear)
+        self.assertIn(".height(62.dp)", wear)
+        self.assertIn("choosingMode = false", wear)
+        self.assertIn("scrollState.scrollBy(it.verticalScrollPixels)", wear)
+        self.assertIn("val phaseRemaining =", wear)
+        self.assertIn('"Ronda " + roundNumber', wear)
+        self.assertIn('"Total " + wearClockLabel(remaining)', wear)
+        self.assertIn("WearConfirmFinishModal(", wear)
+
     def test_wear_home_hub_carousel(self):
         wear = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
         self.assertIn("WearHubHome", wear)
