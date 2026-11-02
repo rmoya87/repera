@@ -61,7 +61,8 @@ class BusinessCenterStore(
         val senderRole:String,val body:String,val createdAt:String,val batchId:String?)
     data class ProfessionalSession(val id:String,val orgId:String,val clientId:String,val coachUserId:String,
         val scheduledDate:String,val title:String,val instructions:String,val status:String,
-        val prescription:JSONObject?,val sourceOccurrenceId:String? = null)
+        val prescription:JSONObject?,val sourceOccurrenceId:String? = null,
+        val scheduledTimeMinutes:Int? = null)
     data class Availability(val occurrenceId: String, val capacity: Int,
         val reserved: Int)
 
@@ -286,7 +287,7 @@ class BusinessCenterStore(
                 "id,org_id,client_id,occurrence_id,status"))
             val notices=parseNotices(get(session,"business_client_notifications","id,org_id,client_id,title,body,created_at"))
             val training=parseProfessionalSessions(get(session,"professional_training_sessions",
-                "id,org_id,client_id,coach_user_id,scheduled_date,title,instructions,prescription,status,source_occurrence_id"))
+                "id,org_id,client_id,coach_user_id,scheduled_date,scheduled_time_minutes,title,instructions,prescription,status,source_occurrence_id"))
             val counts = mutableMapOf<String, Availability>()
             for (center in centers) {
                 val occupancy = rpc(session, "get_service_availability",
@@ -434,7 +435,9 @@ class BusinessCenterStore(
         ProfessionalSession(r.getString("id"),r.getString("org_id"),r.getString("client_id"),r.getString("coach_user_id"),
             r.getString("scheduled_date"),r.getString("title"),r.getString("instructions"),r.getString("status"),
             r.optJSONObject("prescription"),
-            r.optString("source_occurrence_id").ifBlank { null })
+            r.optString("source_occurrence_id").ifBlank { null },
+            if (r.has("scheduled_time_minutes") && !r.isNull("scheduled_time_minutes"))
+                r.optInt("scheduled_time_minutes") else null)
     }
 
     private fun parseOrganizations(data: JSONArray) = (0 until data.length()).map { i ->
