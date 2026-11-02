@@ -1814,6 +1814,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 "La clase está completa."
             raw.contains("ALREADY_BOOKED", ignoreCase = true) ->
                 "Ya estás apuntado a esta clase."
+            raw.contains("NOT_A_MEMBER", ignoreCase = true) ||
+                raw.contains("NOT_OWN_PASS", ignoreCase = true) ->
+                "Tu cuenta no tiene una vinculación activa con este centro y este bono. Comprueba tu acceso con el gimnasio."
             raw.contains("BOOKING_NOT_OPEN_YET", ignoreCase = true) ->
                 "Todavía no está abierta la inscripción a esta clase."
             raw.contains("OCCURRENCE_UNAVAILABLE", ignoreCase = true) ||
