@@ -29,24 +29,23 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 val ready = recovery.readiness
-                if (ready == null) {
-                    Text(
-                        "Necesitamos datos de sueño y entrenamientos recientes",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    val score = ready.score.coerceIn(0.0, 10.0)
+                run {
+                    val score = ready?.score?.coerceIn(0.0, 10.0) ?: 0.0
                     val tint = when {
                         score >= 8 -> MaterialTheme.colorScheme.primary
                         score >= 6 -> MaterialTheme.colorScheme.tertiary
                         else -> MaterialTheme.colorScheme.error
                     }
-                    val cardiac = recovery.vitals.lastOrNull { it.day == java.time.LocalDate.now() }
+                    val cardiac = recovery.vitals.lastOrNull {
+                        it.hrvMilliseconds != null || it.restingHeartRateBpm != null
+                    }
                     val cardiacText = listOfNotNull(
                         cardiac?.hrvMilliseconds?.let { "${it.roundToInt()} ms" },
                         cardiac?.restingHeartRateBpm?.let { "${it.roundToInt()} lpm" }
-                    ).joinToString(" · ").ifBlank { "Sin datos" }
+                    ).joinToString(" · ").ifBlank { "Sin datos" }.let { value ->
+                        if (cardiac != null && cardiac.day != java.time.LocalDate.now())
+                            "$value · ${cardiac.day}" else value
+                    }
                     Row(
                         Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -58,11 +57,13 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                         ) {
                             ReadinessFactor(
                                 "Sueño",
-                                recovery.lastNightHours?.let { "${formatWeight(it)} h" } ?: "Sin datos"
+                                recovery.lastNightHours?.let { "${formatWeight(it)} h" }
+                                    ?: "Sin registro de sueño reciente"
                             )
                             ReadinessFactor(
                                 "Carga",
                                 when {
+                                    ready == null -> "Sin valoración actual"
                                     ready.fatiguePenalty >= 2.3 -> "Alta"
                                     ready.fatiguePenalty >= 1.1 -> "Moderada"
                                     else -> "Baja"
@@ -71,7 +72,7 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                             ReadinessFactor("VFC", cardiacText)
                             ReadinessFactor(
                                 "Cardio",
-                                ready.cardioMinutes48h?.let { "${it.roundToInt()} min" } ?: "Sin datos"
+                                ready?.cardioMinutes48h?.let { "${it.roundToInt()} min" } ?: "Sin medición reciente"
                             )
                         }
                         val track = MaterialTheme.colorScheme.surfaceVariant
@@ -79,7 +80,9 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                             Modifier
                                 .size(124.dp)
                                 .semantics(mergeDescendants = true) {
-                                    contentDescription = "Preparación ${score.roundToInt()} de 10"
+                                    contentDescription = if (ready == null)
+                                        "Preparación actual sin puntuación"
+                                    else "Preparación ${score.roundToInt()} de 10"
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -101,7 +104,7 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    score.roundToInt().toString(),
+                                    if (ready == null) "—" else score.roundToInt().toString(),
                                     style = MaterialTheme.typography.displaySmall,
                                     fontWeight = FontWeight.Bold
                                 )
