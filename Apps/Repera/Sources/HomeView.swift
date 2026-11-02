@@ -1201,6 +1201,9 @@ struct HomeView: View {
         let isToday = calendar.isDateInToday(selectedDay)
         let hasActive = isToday && store.hasActiveSession
         let hasLive = isToday && LiveActivityRecorder.shared.isActive
+        let watchTimer = isToday ? store.watchTimerMirror : nil
+        let hasWatchTimer = watchTimer?.isActive == true &&
+            Date().timeIntervalSince(watchTimer!.updatedAt) < 60
         let hasInProgress = hasActive || hasLive
         let hasCompletedActivity = !workouts.isEmpty || !healthActivities.isEmpty
         let planned = plannedRoutinesForSelectedDay
@@ -1230,6 +1233,11 @@ struct HomeView: View {
                             store.refreshContinueChrome()
                         }
                     }
+                }
+            }
+            if hasWatchTimer, let timer = watchTimer {
+                WatchTimerHomeCard(timer: timer, reachable: store.isWatchReachable) { command in
+                    _ = store.controlWatchTimer(command)
                 }
             }
             ForEach(store.state.workouts.filter {
@@ -1288,7 +1296,7 @@ struct HomeView: View {
                     }
                 }
             }
-            if !hasInProgress && workouts.isEmpty && planned.isEmpty
+            if !hasInProgress && !hasWatchTimer && workouts.isEmpty && planned.isEmpty
                 && businessBookings.isEmpty && professionalPlans.isEmpty && !hasCompletedActivity {
                 emptyWorkoutCard
             }
@@ -1297,7 +1305,7 @@ struct HomeView: View {
                 healthActivityCard(activity)
             }
 
-            if !hasInProgress {
+            if !hasInProgress && !hasWatchTimer {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
             }
@@ -2359,3 +2367,71 @@ struct HomeView: View {
         return "\(c.year!)-\(c.month!)-\(c.day!)"
     }
 }
+
+/// Temporizador en ejecución en Apple Watch: el reloj conserva el control del tiempo.
+/// Misma tarjeta de Inicio; las acciones se envían solo si hay conexión reciente.
+private struct WatchTimerHomeCard: View {
+    let timer: WatchTimerMirror
+    let reachable: Bool
+    let onCommand: (String) -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let fresh = context.date.timeIntervalSince(timer.updatedAt) < 20
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Image(systemName: "timer")
+                        .foregroundStyle(OG.accent)
+                    Text("Temporizador · Apple Watch")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 4)
+                    Text(timer.isRunning ? "En curso" : "En pausa")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(timer.modeTitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        let value = timer.displayedSeconds(at: context.date)
+                        Text(String(format: "%d:%02d", value / 60, value % 60))
+                            .font(.system(size: 31, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color(red: 1, green: 0.22, blue: 0.18))
+                            .monospacedDigit()
+                    }
+                    Spacer()
+                    if timer.modeRaw == "intervals" {
+                        Text("Ronda \(timer.round)")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.22, green: 1, blue: 0.35))
+                    }
+                }
+                if !fresh || !reachable {
+                    Text("Sin conexión reciente con el reloj")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button(timer.isRunning ? "Pausar" : "Reanudar") {
+                        onCommand(timer.isRunning ? "pause" : "resume")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .foregroundStyle(.black)
+                    Button("Finalizar") { onCommand("finish") }
+                        .buttonStyle(.bordered)
+                        .tint(OG.accent)
+                }
+                .disabled(!reachable || !fresh)
+            }
+            .padding(12)
+            .background(OG.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(OG.surface3.opacity(0.75), lineWidth: 0.7)
+            }
+        }
+    }
+}
+
