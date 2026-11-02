@@ -1410,7 +1410,7 @@ private fun upcomingBookings(
     return snapshot?.bookings.orEmpty().mapNotNull { booking ->
         if (booking.orgId != orgId) return@mapNotNull null
         if (booking.status != "booked" && booking.status != "waitlist") return@mapNotNull null
-        val occ = snapshot.occurrences.firstOrNull { it.id == booking.occurrenceId } ?: return@mapNotNull null
+        val occ = snapshot?.occurrences?.firstOrNull { it.id == booking.occurrenceId } ?: return@mapNotNull null
         val start = runCatching { Instant.parse(occ.startsAt) }.getOrNull() ?: return@mapNotNull null
         if (start.isBefore(now)) return@mapNotNull null
         UpcomingRow(booking, occ)
