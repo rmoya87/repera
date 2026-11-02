@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
@@ -261,6 +263,83 @@ internal fun WearHomeContent(
         )
         return
     }
+    // En entrenos ya iniciados, la pantalla lateral izquierda ofrece
+    // Pausar / Finalizar. La lista de series sigue teniendo scroll vertical.
+    val runningPlan = state.session?.phase == "counting" &&
+        !state.showOutline && !state.showSetDetails && !state.reviewingBlock
+    if (runningPlan) {
+        val session = state.session ?: return
+        val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+        var confirmFinish by remember(session.sessionId) { mutableStateOf(false) }
+        var confirmDiscard by remember(session.sessionId) { mutableStateOf(false) }
+        Box(modifier = modifier.fillMaxSize()) {
+            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+                if (page == 1) {
+                    WearHomeSessionList(state, callbacks, modifier = Modifier.fillMaxSize())
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+                    ) {
+                        Text("Controles", style = MaterialTheme.typography.titleSmall)
+                        WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
+                        WearPrimaryButton("Finalizar") { confirmFinish = true }
+                        Button(
+                            onClick = { confirmDiscard = true },
+                            modifier = Modifier.fillMaxWidth().height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = WearOg.red
+                            )
+                        ) {
+                            WearButtonLabel("Descartar", color = WearOg.red)
+                        }
+                        Text(
+                            "Desliza ← para volver",
+                            color = WearOg.label2,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+            if (confirmFinish) {
+                WearConfirmFinishModal(
+                    title = "¿Finalizar entrenamiento?",
+                    onCancel = { confirmFinish = false },
+                    onConfirm = {
+                        confirmFinish = false
+                        callbacks.onFinishSession(session)
+                    }
+                )
+            }
+            if (confirmDiscard) {
+                WearConfirmFinishModal(
+                    title = "¿Descartar entrenamiento?",
+                    confirmLabel = "Descartar",
+                    destructive = true,
+                    onCancel = { confirmDiscard = false },
+                    onConfirm = {
+                        confirmDiscard = false
+                        callbacks.onDiscardSession(session)
+                    }
+                )
+            }
+        }
+        return
+    }
+    WearHomeSessionList(state, callbacks, modifier)
+}
+
+/** Misma lista para modos normales y pantalla central del pager lateral. */
+@Composable
+private fun WearHomeSessionList(
+    state: WearHomeState,
+    callbacks: WearHomeCallbacks,
+    modifier: Modifier
+) {
     TransformingLazyColumn(
         state = rememberTransformingLazyColumnState(),
         modifier = modifier,
@@ -677,10 +756,12 @@ private fun TransformingLazyColumnScope.outlineItems(
         }
     }
     item {
-        WearPrimaryButton("✓ Finalizar entrenamiento") {
-            callbacks.onShowOutline(false)
-            callbacks.onFinishSession(session)
-        }
+        Text(
+            "Desliza → desde el entreno para pausar o finalizar",
+            textAlign = TextAlign.Center,
+            color = WearOg.label2,
+            style = MaterialTheme.typography.labelSmall
+        )
     }
     // Ramón F-5: el Watch ofrece descartar (además de finalizar).
     // TextButton Wear es circular y corta «Descartar» → Button a ancho.
@@ -935,28 +1016,20 @@ private fun TransformingLazyColumnScope.runningItems(
             maxLines = 1
         )
     }
-    // Reloj + pausa (W-05 / W-07)
+    // Reloj protagonista: pausa solo en página lateral de controles.
     item {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val clockSeconds = if (session.wodFormatLabel != null) {
-                state.wodTimerJson?.takeIf {
-                    wearTimerMatches(it, session.sessionId, session.exerciseIndex)
-                }?.let { timer ->
-                    wodFaceSeconds(timer, state.wodTickSeconds)
-                } ?: state.elapsedSeconds
-            } else state.elapsedSeconds
-            WearClockText(
-                clockSeconds,
-                modifier = Modifier.weight(1f),
-                contentDescription = if (session.wodFormatLabel != null)
-                    "Tiempo del bloque" else "Tiempo transcurrido"
-            )
-            WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
-        }
+        val clockSeconds = if (session.wodFormatLabel != null) {
+            state.wodTimerJson?.takeIf {
+                wearTimerMatches(it, session.sessionId, session.exerciseIndex)
+            }?.let { timer ->
+                wodFaceSeconds(timer, state.wodTickSeconds)
+            } ?: state.elapsedSeconds
+        } else state.elapsedSeconds
+        WearClockText(
+            clockSeconds,
+            contentDescription = if (session.wodFormatLabel != null)
+                "Tiempo del bloque" else "Tiempo transcurrido"
+        )
     }
     state.health?.let { (bpm, kcal) ->
         item { WearHealthRow(bpm, kcal) }
@@ -973,7 +1046,7 @@ private fun TransformingLazyColumnScope.runningItems(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = { callbacks.onShowOutline(true) }) {
-                Text("Resumen", color = WearOg.onAccent)
+                Text("Resumen", color = WearOg.accent)
             }
             val zeroReps = state.repsInput == 0
             val isLast = session.exerciseIndex >= session.exerciseCount
