@@ -73,11 +73,11 @@ struct WatchStandaloneTimerView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.headline.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                     Text(subtitle)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
@@ -120,7 +120,7 @@ struct WatchStandaloneTimerView: View {
                 .foregroundStyle(accent)
 
                 Text(modeTitle)
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if modeRaw == "intervals" {
@@ -153,7 +153,7 @@ struct WatchStandaloneTimerView: View {
                 Text(modeRaw == "intervals"
                      ? "\(inWork ? "Trabajo" : "Descanso") · \(roundIndex)/\(rounds)"
                      : modeTitle)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(inWork ? Color.primary : accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -212,7 +212,7 @@ struct WatchStandaloneTimerView: View {
                     .font(.system(size: 22, weight: .bold))
                     .accessibilityHidden(true)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
