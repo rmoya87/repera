@@ -763,25 +763,7 @@ private fun TransformingLazyColumnScope.outlineItems(
             style = MaterialTheme.typography.labelSmall
         )
     }
-    // Ramón F-5: el Watch ofrece descartar (además de finalizar).
-    // TextButton Wear es circular y corta «Descartar» → Button a ancho.
-    item {
-        Button(
-            onClick = {
-                callbacks.onShowOutline(false)
-                callbacks.onDiscardSession(session)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = WearOg.red
-            )
-        ) {
-            WearButtonLabel("Descartar", color = WearOg.red)
-        }
-    }
+
 }
 
 private fun TransformingLazyColumnScope.blockReviewItems(
