@@ -70,9 +70,6 @@ struct WatchLiveSessionView: View {
                     conditions: conditions,
                     loading: conditionsLoading
                 )
-                Text("Desliza → para pausar o finalizar")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 6)
         }
