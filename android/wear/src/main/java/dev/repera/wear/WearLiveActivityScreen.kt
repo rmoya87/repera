@@ -71,8 +71,8 @@ internal fun WearLiveActivityScreen(
 ) {
     val phase = live.optString("phase")
     val sport = LiveSport.byId(live.optString("sportId"))
-    val pager = rememberPagerState(initialPage = if (phase == "review") 0 else 1,
-        pageCount = { if (phase == "review") 1 else 2 })
+    // Mantener dos páginas también al entrar en revisión evita un índice inválido.
+    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
     var confirmFinish by remember(live.optString("sessionId")) { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
