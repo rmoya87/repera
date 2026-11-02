@@ -1778,7 +1778,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 private fun localizedExerciseName(exercise: JSONObject): String {
     val base = exercise.optString("name").ifBlank { return "Ejercicio" }
     val tag = exercise.optString("sportTag").takeIf { it.isNotBlank() }
-    return dev.repera.domain.SportExerciseNames.localizedSpanishName(base, tag)
+    return if (exercise.optBoolean("isCustom")) base else dev.repera.domain.SportExerciseNames.displayName(base, tag)
 }
 
 

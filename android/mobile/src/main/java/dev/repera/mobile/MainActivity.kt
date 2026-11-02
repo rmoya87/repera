@@ -3342,7 +3342,7 @@ internal fun org.json.JSONObject.optJsonString(key: String): String? {
 internal fun org.json.JSONObject.exerciseDisplayName(): String {
     val base = optString("name").ifBlank { return "Ejercicio" }
     val tag = optJsonString("sportTag")
-    return dev.repera.domain.SportExerciseNames.displayName(base, tag)
+    return if (optBoolean("isCustom")) base else dev.repera.domain.SportExerciseNames.displayName(base, tag)
 }
 
 data class RoutineEntry(
@@ -3410,7 +3410,7 @@ data class ExerciseEntry(
     /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
      * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */
     val displayName: String
-        get() = dev.repera.domain.SportExerciseNames.displayName(name, sportTag)
+        get() = if (isCustom) name else dev.repera.domain.SportExerciseNames.displayName(name, sportTag)
 }
 
 internal fun pinFromJson(o: org.json.JSONObject?): dev.repera.domain.WorkoutLocationPin? {

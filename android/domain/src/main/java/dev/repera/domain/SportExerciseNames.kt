@@ -241,22 +241,17 @@ object SportExerciseNames {
     }
 
     /**
-     * Nombre unificado por locale de la app (extra Ramón):
-     * es → «Cargada y envión»; en → «Clean and Jerk». Misma cadena en
-     * detalle, Reordenar, Inicio y Wear.
+     * Nombre visible estable: mantener el título canónico independientemente
+     * del locale; los alias españoles se usan solo para búsqueda/OCR.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun displayName(
         name: String,
         sport: String?,
         locale: java.util.Locale = java.util.Locale.getDefault()
     ): String {
         if (sport != "CrossFit" && sport != "Halterofilia") return name
-        val preferSpanish = locale.language.startsWith("es", ignoreCase = true)
-        return if (preferSpanish) {
-            spanishAlias(name) ?: name
-        } else {
-            canonicalName(name)
-        }
+        return canonicalName(name)
     }
 
     /**

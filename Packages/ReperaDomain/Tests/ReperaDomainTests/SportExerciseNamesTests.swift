@@ -82,7 +82,7 @@ final class SportExerciseNamesTests: XCTestCase {
             ("SDHP", "Sumo high pull"),
         ]
         for (alias, exercise) in samples {
-            let expected = SportExerciseNames.localizedDisplayName(exercise)
+            let expected = exercise
             XCTAssertTrue(
                 ExerciseSearch.rankedDocuments(indexed, query: alias)
                     .contains { $0.displayName == expected },
@@ -94,6 +94,24 @@ final class SportExerciseNamesTests: XCTestCase {
             "Clean and Jerk"
         )
         XCTAssertNil(SportExerciseNames.canonicalName(forSearchAlias: "PS"))
+    }
+
+    func testCatalogListAndSearchKeepExactExerciseTitles() {
+        let catalog = [
+            Exercise(name: "Clean and Jerk", muscleGroup: "Piernas", sportTag: "CrossFit"),
+            Exercise(name: "Press banca", muscleGroup: "Pecho"),
+            Exercise(name: "Cargada y envión personal", muscleGroup: "Otros", isCustom: true)
+        ]
+        let documents = ExerciseSearch.makeIndex(catalog)
+        XCTAssertEqual(documents.map(\.displayName), catalog.map(\.name))
+        XCTAssertTrue(
+            ExerciseSearch.rankedDocuments(documents, query: "cargada y envión")
+                .contains { $0.displayName == "Clean and Jerk" }
+        )
+        XCTAssertTrue(
+            ExerciseSearch.rankedDocuments(documents, query: "Clean and Jerk")
+                .contains { $0.displayName == "Clean and Jerk" }
+        )
     }
 
     func testExerciseLoggingRemainsCompatibleAfterRenaming() {

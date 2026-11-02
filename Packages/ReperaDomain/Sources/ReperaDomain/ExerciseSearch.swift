@@ -444,8 +444,8 @@ public enum ExerciseSearch {
 
         public init(exercise: Exercise) {
             self.id = exercise.id
-            // UI es-ES: «Cargada y envión» aunque el canónico sea «Clean and Jerk».
-            self.displayName = SportExerciseNames.localizedDisplayName(exercise.name)
+            // El nombre visible es exactamente el del catálogo; alias ES/EN solo para búsqueda.
+            self.displayName = exercise.name
             let name = ExerciseSearch.normalize(exercise.name)
             let muscle = ExerciseSearch.normalize(exercise.muscleGroup)
             let sport = ExerciseSearch.normalize(exercise.disciplineTags.joined(separator: " "))

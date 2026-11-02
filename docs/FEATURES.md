@@ -640,6 +640,10 @@ púrpura M3 por defecto. 2.º pase: `ReperaCard` /
 detalle ejercicio, historial, WODs, permisos/onboarding y cards de progreso →
 `ReperaCard`. Detalle: `android/README.md`, `docs/ARCHITECTURE.md`.
 
+## Nombres de ejercicio coherentes (2026-11-02)
+
+El título mostrado es el del catálogo en el listado y la ficha de Ejercicios, creación/edición, vista previa, Play, historial y escaneo de pizarras. En sesiones antiguas se resuelve primero el UUID hacia el catálogo sin modificar los resultados originales; los nombres libres se conservan si no existe coincidencia. Los alias en español e inglés siguen funcionando para búsqueda y OCR, pero no sustituyen el título visible. Apple Watch y Android/Wear aplican el mismo criterio. Pendiente validar en simuladores/dispositivos reales.
+
 ## Grabación de entrenos programados (2026-11-02)
 
 En iOS, **Iniciar** ofrece **Comenzar en vivo** (apuntar series en directo) y **Grabar entreno** (registrar cronómetro, calorías y pulso sin marcar repeticiones). En Apple Watch, al pulsar el plan en Inicio se elige un modo **antes** de crear la sesión: la elección abre directamente su seguimiento y HealthKit se inicia solo entonces. Al preparar un nuevo bloque o reanudar una sesión previa, **Iniciar** continúa sin repetir el selector. En esa pantalla, **Descartar** utiliza el mismo ancho y márgenes que **Iniciar**. En el segundo modo el plan conserva sus ejercicios prescritos y los resultados se completan mediante el editor del iPhone. La sesión conserva `awaitingResultEntry=true` y fase no finalizada hasta confirmar los resultados reales; no se convierten objetivos en series realizadas. Los pendientes siguen accesibles desde Inicio. La sesión Apple Watch usa HealthKit ya abierto, sin crear otro entrenamiento. En deportes interiores los relojes ocultan ritmo/distancia y destacan FC/kcal. Pendiente validación en dispositivos reales y paridad del selector en Android/Wear OS.

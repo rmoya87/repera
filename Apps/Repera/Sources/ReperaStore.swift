@@ -509,6 +509,26 @@ final class ReperaStore: NSObject {
         return resolvedCatalogExercise(id: snapshot.id) ?? snapshot
     }
 
+    /// El título se obtiene de la identidad del catálogo, incluso en sesiones antiguas.
+    /// No modifica las series ni el nombre persistido del ejercicio.
+    func catalogTitle(for exercise: Exercise) -> String {
+        historicalDisplayExercise(exercise).name
+    }
+
+    /// En OCR/WOD se mantiene el texto libre cuando no hay vínculo al catálogo.
+    func catalogTitle(for movement: WODMovement) -> String {
+        if movement.isRest { return "Descanso" }
+        if let id = movement.exerciseId,
+           let exercise = state.exercises.first(where: { $0.id == id }) {
+            return exercise.name
+        }
+        if let match = CrossFitGlossary.catalogExercise(for: movement, in: state.exercises),
+           !match.isCatalogArchived {
+            return match.name
+        }
+        return movement.name
+    }
+
     /// Resuelve un ID de sesión contra el catálogo, incluso si existe una
     /// ficha provisional persistida con el mismo UUID.
     func resolvedCatalogExercise(id: UUID) -> Exercise? {

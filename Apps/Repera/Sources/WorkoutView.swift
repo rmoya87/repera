@@ -921,7 +921,7 @@ struct WorkoutView: View {
                 let raw = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
                 return OGReorderEntry(
                     id: item.id,
-                    name: SportExerciseNames.localizedDisplayName(raw),
+                    name: raw,
                     type: "exercise"
                 )
             }
@@ -929,7 +929,7 @@ struct WorkoutView: View {
         return block.movements.map {
             OGReorderEntry(
                 id: $0.id,
-                name: $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name),
+                name: $0.isRest ? "Descanso" : store.catalogTitle(for: $0),
                 type: "movement"
             )
         }
@@ -1470,7 +1470,7 @@ struct WorkoutView: View {
             ExerciseThumb(exercise: entry.exercise, size: 48)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 4) {
-                Text(SportExerciseNames.localizedDisplayName(entry.exercise.name))
+                Text(store.catalogTitle(for: entry.exercise))
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(OG.label)
                 Text(entry.plannedSets.compactSummary)
@@ -2270,7 +2270,7 @@ struct WorkoutView: View {
                 ExerciseDetailView(exerciseId: current.exercise.id)
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(SportExerciseNames.localizedDisplayName(current.exercise.name))
+                    Text(store.catalogTitle(for: current.exercise))
                         .font(.title2.bold())
                         .foregroundStyle(OG.label)
                         .multilineTextAlignment(.leading)
@@ -2297,7 +2297,7 @@ struct WorkoutView: View {
                     .clipped()
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Ilustración de \(SportExerciseNames.localizedDisplayName(current.exercise.name))")
+            .accessibilityLabel("Ilustración de \(store.catalogTitle(for: current.exercise))")
             .accessibilityHint("Ver ficha del ejercicio")
 
             HStack(spacing: 8) {
@@ -3278,7 +3278,7 @@ struct WorkoutView: View {
                                         ExerciseThumb(exercise: item.exercise, size: 48)
                                         VStack(alignment: .leading, spacing: 3) {
                                             HStack(spacing: 6) {
-                                                Text(SportExerciseNames.localizedDisplayName(item.exercise.name))
+                                                Text(store.catalogTitle(for: item.exercise))
                                                     .font(.system(size: 16, weight: .semibold))
                                                     .foregroundStyle(OG.label)
                                                     .lineLimit(2)

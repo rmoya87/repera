@@ -680,7 +680,7 @@ struct DayEditorView: View {
                 let raw = store.state.exercises.first(where: { $0.id == item.exerciseId })?.name ?? "Ejercicio"
                 return OGReorderEntry(
                     id: item.id,
-                    name: SportExerciseNames.localizedDisplayName(raw),
+                    name: raw,
                     type: "exercise"
                 )
             }
@@ -688,7 +688,7 @@ struct DayEditorView: View {
         return block.movements.map {
             OGReorderEntry(
                 id: $0.id,
-                name: $0.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName($0.name),
+                name: $0.isRest ? "Descanso" : store.catalogTitle(for: $0),
                 type: "movement"
             )
         }
@@ -1686,7 +1686,7 @@ extension DayEditorView {
                     ExerciseThumb(exercise: exercise, size: 48)
                         .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(SportExerciseNames.localizedDisplayName(exercise.name))
+                        Text(exercise.name)
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(OG.label)
                         Text(item.plannedSets.compactSummary)
@@ -1818,7 +1818,7 @@ extension DayEditorView {
                     } label: {
                         HStack(spacing: 12) {
                             ExerciseThumb(exercise: ex, size: 48)
-                            Text(SportExerciseNames.localizedDisplayName(ex.name))
+                            Text(ex.name)
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -2172,13 +2172,13 @@ extension DayEditorView {
                             Button {
                                 exerciseDetailID = resolved.id
                             } label: {
-                                Text(SportExerciseNames.localizedDisplayName(resolved.name))
+                                Text(resolved.name)
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(OG.label)
                             }
                             .buttonStyle(.plain)
                         } else {
-                            Text(SportExerciseNames.localizedDisplayName(resolved.name))
+                            Text(resolved.name)
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(OG.label)
                         }
@@ -2281,7 +2281,7 @@ extension DayEditorView {
                 ExerciseThumb(exercise: resolved, size: 48)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(move.isRest ? "Descanso" : SportExerciseNames.localizedDisplayName(resolved.name))
+                Text(move.isRest ? "Descanso" : resolved.name)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OG.label)
                 if showSummary {
@@ -2978,7 +2978,7 @@ struct RoutineExerciseEditor: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle(SportExerciseNames.localizedDisplayName(exerciseName))
+            OGScrollablePageTitle((exercise?.name ?? exerciseName))
                 .ogScrollingTitleListRow()
             if let exercise {
                 Section {

@@ -442,7 +442,7 @@ struct WatchSessionView: View {
         HStack(alignment: .center, spacing: 8) {
             WatchExerciseThumb(exercise: exercise.exercise, size: 42)
             VStack(alignment: .leading, spacing: 2) {
-                Text(SportExerciseNames.localizedDisplayName(exercise.exercise.name))
+                Text(exercise.exercise.isCustom ? exercise.exercise.name : SportExerciseNames.displayName(exercise.exercise.name, sport: exercise.exercise.sportTag))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -715,7 +715,7 @@ struct WatchSessionView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(
                             hub.current.map {
-                                SportExerciseNames.localizedDisplayName($0.exercise.name)
+                                $0.exercise.isCustom ? $0.exercise.name : SportExerciseNames.displayName($0.exercise.name, sport: $0.exercise.sportTag)
                             } ?? "Ejercicio"
                         )
                             .font(.caption.weight(.semibold))

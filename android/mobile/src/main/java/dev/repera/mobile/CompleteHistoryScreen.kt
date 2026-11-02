@@ -448,7 +448,7 @@ internal fun WorkoutHistoryDetailScreen(
        WodExerciseThumbnail(resolved, aliases, size = 44.dp)
        Column(Modifier.weight(1f)) {
         Text(
-         movement.name.ifBlank { "Ejercicio" },
+         resolved?.displayName ?: movement.name.ifBlank { "Ejercicio" },
          style = MaterialTheme.typography.titleMedium,
          fontWeight = FontWeight.SemiBold
         )

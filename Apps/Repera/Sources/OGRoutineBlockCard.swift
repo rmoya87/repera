@@ -139,7 +139,7 @@ struct OGRoutineBlockCard: View {
         HStack(spacing: 12) {
             ExerciseThumb(exercise: exercise, size: 44)
             VStack(alignment: .leading, spacing: 2) {
-                Text(SportExerciseNames.localizedDisplayName(exercise.name))
+                Text(exercise.name)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(OG.label)
                     .lineLimit(2)
@@ -163,7 +163,7 @@ struct OGRoutineBlockCard: View {
     }
 
     private func resolvedStrengthExercise(_ item: RoutineExercise) -> Exercise {
-        if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId }) {
+        if let ex = store.resolvedCatalogExercise(id: item.exerciseId) {
             return ex
         }
         return Exercise(name: "Ejercicio", muscleGroup: "Custom", isCustom: true)

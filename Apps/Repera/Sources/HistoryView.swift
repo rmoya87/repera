@@ -1325,7 +1325,7 @@ struct WorkoutDetailView: View {
                     HStack(spacing: 12) {
                         ExerciseThumb(exercise: display, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(SportExerciseNames.localizedDisplayName(display.name))
+                            Text(display.name)
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(OG.label)
                                 .lineLimit(2)
@@ -1437,7 +1437,7 @@ struct WorkoutDetailView: View {
             } label: {
                 HStack(spacing: 12) {
                     ExerciseThumb(exercise: catalogExercise, size: 48)
-                    Text(SportExerciseNames.localizedDisplayName(catalogExercise.name))
+                    Text(catalogExercise.name)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(OG.label)
                         .lineLimit(2)

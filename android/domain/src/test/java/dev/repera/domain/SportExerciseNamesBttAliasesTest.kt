@@ -22,6 +22,15 @@ class SportExerciseNamesBttAliasesTest {
         assertEquals(true, SportExerciseNames.searchAliases("Toes to bar").contains("t2bs"))
     }
 
+    @Test fun catalogTitleDoesNotDependOnLocale() {
+        for (language in listOf("es", "en")) {
+            val locale = java.util.Locale.forLanguageTag(language)
+            assertEquals("Clean and Jerk", SportExerciseNames.displayName("Clean and Jerk", "CrossFit", locale))
+            assertEquals("Clean and Jerk", SportExerciseNames.displayName("Cargada y envión", "CrossFit", locale))
+            assertEquals("Press banca", SportExerciseNames.displayName("Press banca", null, locale))
+        }
+    }
+
     @Test fun wearLocalePrefersSpanishCrossFitNames() {
         assertEquals(
             "Cargada y envión",

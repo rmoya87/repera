@@ -335,7 +335,7 @@ struct SessionPreviewView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(OG.label)
                 if let current = session.currentExercise {
-                    Text("Ahora: \(current.exercise.name) · \(session.progressLabel)")
+                    Text("Ahora: \(store.catalogTitle(for: current.exercise)) · \(session.progressLabel)")
                         .font(.system(size: 13))
                         .foregroundStyle(OG.label2)
                 }
