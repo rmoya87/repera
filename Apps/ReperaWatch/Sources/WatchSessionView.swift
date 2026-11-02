@@ -6,6 +6,8 @@ import WatchKit
 struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
+    @State private var showStartMethodPicker = false
+    @State private var plannedRecordingStartError: String?
     @State private var showSetDetails = false
     @State private var showTimer = false
     @State private var showCancelConfirmation = false
@@ -76,6 +78,27 @@ struct WatchSessionView: View {
             .sheet(isPresented: $showOutline) {
                 if let workout = hub.active { outlineView(workout) }
             }
+            .confirmationDialog(
+                "¿Cómo quieres realizar este entreno?",
+                isPresented: $showStartMethodPicker,
+                titleVisibility: .visible
+            ) {
+                Button("Comenzar en vivo") { hub.play() }
+                Button("Grabar entreno") {
+                    if !hub.recordScheduledWorkout() {
+                        plannedRecordingStartError = "No se pudo iniciar la grabación. Comprueba que no haya otra actividad en curso."
+                    }
+                }
+                Button("Cancelar", role: .cancel) {}
+            }
+            .alert("No se pudo iniciar", isPresented: Binding(
+                get: { plannedRecordingStartError != nil },
+                set: { if !$0 { plannedRecordingStartError = nil } }
+            )) {
+                Button("Aceptar", role: .cancel) { plannedRecordingStartError = nil }
+            } message: {
+                Text(plannedRecordingStartError ?? "")
+            }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
             .sheet(isPresented: $showTimer) {
                 NavigationStack {
@@ -103,6 +126,7 @@ struct WatchSessionView: View {
             showTimer = false
             showOutline = false
             showSetDetails = false
+            showStartMethodPicker = false
             showCancelConfirmation = false
             cancelConfirmationError = nil
         }
@@ -455,19 +479,15 @@ struct WatchSessionView: View {
                         .foregroundStyle(.secondary)
                 }
                 Button {
-                    hub.play()
+                    showStartMethodPicker = true
                 } label: {
-                    Text(hub.currentIsWOD ? "Iniciar bloque" : "Empezar")
+                    Text("Iniciar")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                Button("Resumen") { showOutline = true }
-                    .font(.caption)
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
+                .accessibilityHint("Elegir entre anotar ejercicios en vivo o grabar la actividad y editarla después en el iPhone")
                 Button("Descartar", role: .destructive) {
                     hub.discardActiveSession()
                 }
