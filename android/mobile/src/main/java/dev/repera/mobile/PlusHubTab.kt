@@ -227,8 +227,13 @@ private fun ClassesPane(
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
 ) {
-    val days = remember {
-        (-3..10).map { LocalDate.now().plusDays(it.toLong()) }
+    val classDays = remember(snapshot) {
+        (snapshot?.occurrences.orEmpty())
+            .filter { it.kind == "class" && it.status == "active" }
+            .mapNotNull { occurrence ->
+                runCatching { Instant.parse(occurrence.startsAt).atZone(zone).toLocalDate() }.getOrNull()
+            }
+            .toSet()
     }
     val dayClasses = remember(snapshot, selectedDay) {
         (snapshot?.occurrences.orEmpty())
@@ -248,40 +253,14 @@ private fun ClassesPane(
         modifier = Modifier.fillMaxSize()
     ) {
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(days) { day ->
-                    val selected = day == selectedDay
-                    TextButton(
-                        onClick = { onSelectDay(day) },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .width(48.dp)
-                            .height(56.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                weekdayFmt.format(day).take(1).uppercase(),
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Text(
-                                day.dayOfMonth.toString(),
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        if (loading) {
-            item { CircularProgressIndicator(Modifier.padding(24.dp)) }
+            WeekCalendarStrip(
+                selected = selectedDay,
+                monday = true,
+                completedDays = classDays,
+                returnToDay = LocalDate.now(),
+                dotDescription = "Clase programada",
+                onSelect = onSelectDay
+            )
         }
         errorMessage?.takeIf { it.isNotBlank() }?.let { msg ->
             item {
@@ -452,16 +431,13 @@ private fun ClassDayCard(
                     ) {
                         Text(if (full) "Completa" else "Apuntarme", fontWeight = FontWeight.Bold)
                     }
-                    Text(
-                        when {
-                            opensAt != null -> "Inscripción desde ${dayFmt.format(opensAt)}"
-                            full -> "Sin plazas libres"
-                            places != null -> "$places plaza${if (places == 1) "" else "s"} libre${if (places == 1) "" else "s"}"
-                            else -> ""
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (opensAt != null) {
+                        Text(
+                            "Inscripción desde ${dayFmt.format(opensAt)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
@@ -503,8 +479,11 @@ internal fun ClassDetailPage(
             .orEmpty()
     }
     val hasPlan = planInfos.isNotEmpty() && associatedSession != null
+    val shortDateFmt = remember {
+        DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "ES")).withZone(ZoneId.systemDefault())
+    }
     val subtitle = if (start != null) {
-        "${dateFmt.format(start).replaceFirstChar { it.uppercase() }} · ${dayFmt.format(start)}"
+        "${shortDateFmt.format(start)} · ${dayFmt.format(start)}"
     } else {
         ""
     }
@@ -601,7 +580,7 @@ internal fun ClassDetailPage(
                             )
                         }
                         if (start != null) {
-                            DetailRow("Fecha", dateFmt.format(start).replaceFirstChar { it.uppercase() })
+                            DetailRow("Fecha", shortDateFmt.format(start))
                             DetailRow(
                                 "Hora",
                                 buildString {
