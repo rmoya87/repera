@@ -495,7 +495,7 @@ struct StatsView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Evolución de carga · datos ficticios")
                         .font(.footnote)
@@ -1033,7 +1033,7 @@ private struct ProgressSessionScoreChartCard: View {
                         .foregroundStyle(OG.label)
                 }
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if values.isEmpty {
                         ProgressEmptyChart(
