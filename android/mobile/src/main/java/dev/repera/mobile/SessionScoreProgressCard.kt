@@ -58,7 +58,7 @@ internal fun SessionScoreProgressCard(
         }
         ReperaCard(Modifier.fillMaxWidth()) {
             Column(
-                Modifier.padding(horizontal = 10.dp, vertical = 20.dp),
+                Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (values.isEmpty()) {
