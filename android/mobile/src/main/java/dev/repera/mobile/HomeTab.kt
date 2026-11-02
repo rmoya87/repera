@@ -166,7 +166,6 @@ internal fun HomeTab(
     onCancelClassBooking: (BusinessCenterStore.Booking) -> Unit = {},
     onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
-    onOpenExercise: (String) -> Unit = {},
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
     onOpenHistory:()->Unit = {},
