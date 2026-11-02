@@ -1,11 +1,13 @@
 package dev.repera.wear
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -280,13 +282,25 @@ internal fun WearHomeContent(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 18.dp),
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text("Controles", style = MaterialTheme.typography.titleSmall)
-                        WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
-                        WearPrimaryButton("Finalizar") { confirmFinish = true }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
+                            Button(
+                                onClick = { confirmFinish = true },
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) {
+                                WearButtonLabel("Finalizar")
+                            }
+                        }
                         Button(
                             onClick = { confirmDiscard = true },
                             modifier = Modifier.fillMaxWidth().height(44.dp),
