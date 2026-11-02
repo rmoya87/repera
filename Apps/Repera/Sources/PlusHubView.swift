@@ -299,18 +299,6 @@ struct PlusHubView: View {
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(OG.label2)
                             }
-                            let planLabel = business.classPlanSummary(
-                                for: occurrence,
-                                clientId: booking?.clientId
-                            )
-                            Label(
-                                planLabel ?? "Sin entreno aún",
-                                systemImage: planLabel == nil
-                                    ? "dumbbell"
-                                    : "figure.strengthtraining.traditional"
-                            )
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(planLabel == nil ? OG.label2 : OG.accent)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contentShape(Rectangle())
@@ -1012,13 +1000,13 @@ struct ClassOccurrenceDetailPage: View {
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bookingBottomAction
+        }
         .navigationDestination(item: $openExerciseId) { exerciseId in
             ExerciseDetailView(exerciseId: exerciseId)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                bookingToolbarButton
-            }
             if planRoutine != nil {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -1068,33 +1056,36 @@ struct ClassOccurrenceDetailPage: View {
         return roster?.coach != nil
     }
 
-    @ViewBuilder
-    private var bookingToolbarButton: some View {
-        if let booking {
-            Button {
+    /// Una única acción persistente, con el mismo resultado que el acceso
+    /// anterior de la barra. Cancelar sigue mostrando la confirmación nativa.
+    private var bookingBottomAction: some View {
+        let canBook = business.canBookNow(occurrence)
+            && (places ?? 1) > 0
+            && business.availablePasses(for: occurrence).first != nil
+        return Button {
+            if let booking {
                 onRequestCancel(booking)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(OG.red)
-            }
-            .accessibilityLabel("Desapuntarse")
-            .disabled(business.isSubmitting)
-        } else {
-            let open = business.canBookNow(occurrence)
-            let full = (places ?? 1) == 0
-            let canTap = open && !full && business.availablePasses(for: occurrence).first != nil
-            Button {
+            } else {
                 guard let pass = business.availablePasses(for: occurrence).first else { return }
                 Task { await business.book(occurrence, using: pass) }
-            } label: {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(canTap ? OG.accent : OG.label3)
             }
-            .accessibilityLabel(full ? "Clase completa" : (open ? "Apuntarme" : "Aún no se puede apuntar"))
-            .disabled(!canTap || business.isSubmitting)
+        } label: {
+            Text(booking == nil ? "Apuntarme" : "Cancelar clase")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(booking == nil ? Color.black : Color.white)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 52)
+                .background(
+                    booking == nil ? OG.accent : OG.red,
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
         }
+        .buttonStyle(.plain)
+        .disabled(business.isSubmitting || (booking == nil && !canBook))
+        .opacity(business.isSubmitting || (booking == nil && !canBook) ? 0.55 : 1)
+        .padding(.horizontal, OG.pad)
+        .padding(.vertical, 10)
+        .background(.bar)
     }
 
     private func detailRow(icon: String, title: String, value: String) -> some View {
