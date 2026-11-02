@@ -29,6 +29,11 @@ internal class WearTimerMirrorStore(context: Context, owner: String) {
         val old = last()
         // No permitir que un estado viejo reviva un temporizador finalizado.
         if (old != null && stamp < old.optLong("updatedAtMillis", 0L)) return false
+        if (old != null && old.optString("id") != id &&
+            phase in setOf("finished", "discarded")) return false
+        if (old != null && old.optString("id") == id &&
+            old.optString("phase") in setOf("finished", "discarded") &&
+            phase in setOf("running", "paused")) return false
         // Persistir también las marcas terminales para descartar reenvíos antiguos.
         prefs.edit().putString("snapshot", update.toString()).apply()
         return true
