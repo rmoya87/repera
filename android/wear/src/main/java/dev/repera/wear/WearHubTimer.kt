@@ -21,7 +21,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -40,6 +39,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +52,6 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.FilledIconButton
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.IconButton
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
@@ -91,7 +91,6 @@ internal fun WearTimerConfigScreen(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
-    val backSize = IconButtonDefaults.SmallButtonSize
 
     // La corona desplaza realmente el contenido, también en los relojes más pequeños.
     LaunchedEffect(choosingMode) {
@@ -115,56 +114,43 @@ internal fun WearTimerConfigScreen(
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { _, amount -> swipeRight += amount },
                     onDragEnd = {
-                        if (!choosingMode && swipeRight > 55f) choosingMode = true
+                        if (swipeRight > 55f) {
+                            if (choosingMode) onBack() else choosingMode = true
+                        }
                         swipeRight = 0f
                     },
                     onDragCancel = { swipeRight = 0f }
+                )
+            }
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(
+                        label = if (choosingMode) "Volver" else "Cambiar tipo",
+                        action = {
+                            if (choosingMode) onBack() else choosingMode = true
+                            true
+                        }
+                    )
                 )
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
+        // Solo una cabecera: la modalidad sustituye «Temporizador» al elegirla.
+        // El gesto a la derecha retrocede al selector o al hub, según el estado.
+        WearHubScalingTitle(
+            text = if (choosingMode) "Temporizador" else when (draft.modeRaw) {
+                "up" -> "Cronómetro"
+                "intervals" -> "Intervalos"
+                else -> "Cuenta atrás"
+            },
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (choosingMode) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier
-                        .touchTargetAwareSize(backSize)
-                        .semantics { contentDescription = "Volver" }
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = null,
-                        modifier = Modifier.size(IconButtonDefaults.iconSizeFor(backSize))
-                    )
-                }
-            } else {
-                Spacer(Modifier.size(backSize))
-            }
-            WearHubScalingTitle(
-                text = "Temporizador",
-                modifier = Modifier.weight(1f),
-                maxFontSp = 17.sp,
-                minFontSp = 14.sp,
-                maxLines = 1
-            )
-            Spacer(Modifier.size(backSize))
-        }
+            maxFontSp = 17.sp,
+            minFontSp = 14.sp,
+            maxLines = 1
+        )
 
         if (choosingMode) {
-            Text(
-                "Elige un temporizador",
-                color = Color.White,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                textAlign = TextAlign.Center
-            )
-
             WearTimerModeOption(
                 title = "Cuenta atrás",
                 subtitle = "Desde un tiempo",
@@ -190,20 +176,6 @@ internal fun WearTimerConfigScreen(
                 choosingMode = false
             }
         } else {
-            Text(
-                when (draft.modeRaw) {
-                    "up" -> "Cronómetro"
-                    "intervals" -> "Intervalos"
-                    else -> "Cuenta atrás"
-                },
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold
-                ),
-                textAlign = TextAlign.Center
-            )
-
             when (draft.modeRaw) {
                 "intervals" -> {
                     WearMetricStepper(

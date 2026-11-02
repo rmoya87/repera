@@ -10,6 +10,7 @@ struct WatchSessionView: View {
     private enum WatchTrainingPrompt { case start, finish, discard }
     @State private var trainingPrompt: WatchTrainingPrompt?
     @State private var showTimer = false
+    @State private var timerPageTitle = "Temporizador"
     @State private var showCancelConfirmation = false
     @State private var cancelConfirmationError: String?
 
@@ -22,7 +23,10 @@ struct WatchSessionView: View {
             Group {
                 if showTimer {
                     // En línea, sin el cierre «X» automático de un sheet de watchOS.
-                    WatchStandaloneTimerView(onClose: { showTimer = false })
+                    WatchStandaloneTimerView(
+                        onClose: { showTimer = false },
+                        onTitleChange: { timerPageTitle = $0 }
+                    )
                 } else if let finished = hub.presentedSummary {
                     finishedView(finished)
                 } else if let active = hub.active {
@@ -128,6 +132,9 @@ struct WatchSessionView: View {
                 .zIndex(100)
             }
         }
+        .onChange(of: showTimer) { _, isShown in
+            if isShown { timerPageTitle = "Temporizador" }
+        }
         .onChange(of: hub.complicationOpenEpoch) { _, _ in
             // Pulsar la esfera debe abrir inicio/actividad, no un sheet anterior.
             showTimer = false
@@ -196,7 +203,7 @@ struct WatchSessionView: View {
 
     /// Título de actividad alineado con la hora, sin encabezado duplicado.
     private var pageTitle: String {
-        if showTimer { return "Temporizador" }
+        if showTimer { return timerPageTitle }
         if hub.presentedSummary != nil { return "Resultado" }
         if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
         if let active = hub.active {

@@ -7,6 +7,7 @@ struct WatchStandaloneTimerView: View {
     @Environment(WatchSessionHub.self) private var hub
     @Environment(\.dismiss) private var dismiss
     var onClose: (() -> Void)? = nil
+    var onTitleChange: (String) -> Void = { _ in }
 
     @State private var timerId = UUID()
     @State private var modeRaw = "down"
@@ -17,7 +18,8 @@ struct WatchStandaloneTimerView: View {
     @State private var choosingMode = true
     @State private var started = false
     @State private var running = false
-    @State private var showDiscardConfirmation = false
+    private enum TimerExitPrompt: Equatable { case finish, discard }
+    @State private var timerExitPrompt: TimerExitPrompt?
     @State private var showingTimerControls = false
     @State private var showingNowPlaying = false
     @State private var showingTimerMetrics = false
@@ -44,9 +46,10 @@ struct WatchStandaloneTimerView: View {
                 configView
             }
         }
-        .navigationTitle(started && !finished ? "" : "Temporizador")
-        .toolbar(started && !finished ? .hidden : .automatic, for: .navigationBar)
-        .navigationBarBackButtonHidden(started && !finished)
+        // Solo la barra superior compartida muestra el título, junto a la hora.
+        .onAppear { onTitleChange(headerTitle) }
+        .onChange(of: choosingMode) { _, _ in onTitleChange(headerTitle) }
+        .onChange(of: modeRaw) { _, _ in onTitleChange(headerTitle) }
         .onChange(of: hub.timerRemoteCommand?.token) { _, _ in
             guard let remote = hub.timerRemoteCommand,
                   remote.id == timerId, started, !finished else { return }
@@ -63,20 +66,11 @@ struct WatchStandaloneTimerView: View {
         }
     }
 
+    private var headerTitle: String { choosingMode ? "Temporizador" : modeTitle }
+
     private var modeSelectionView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                Button(action: closeTimer) {
-                    Label("Volver", systemImage: "chevron.left")
-                        .font(.footnote.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                Text("Elige un temporizador")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                    .padding(.bottom, 2)
-
                 modeButton("down", title: "Cuenta atrás", subtitle: "Desde un tiempo", symbol: "timer")
                 modeButton("up", title: "Cronómetro", subtitle: "Tiempo ascendente", symbol: "stopwatch")
                 modeButton("intervals", title: "Intervalos", subtitle: "Trabajo y descanso", symbol: "repeat")
@@ -85,6 +79,7 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .accessibilityAction(named: Text("Volver")) { closeTimer() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
@@ -144,10 +139,6 @@ struct WatchStandaloneTimerView: View {
     private var configView: some View {
         ScrollView {
             VStack(spacing: 12) {
-                Text(modeTitle)
-                    .font(.title3.weight(.bold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                 if modeRaw == "intervals" {
                     stepperRow("Rondas", value: $rounds, range: 1...40)
                     stepperRow("Trabajo · s", value: $workSeconds, range: 5...600, step: 5)
@@ -170,6 +161,7 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .accessibilityAction(named: Text("Cambiar tipo")) { choosingMode = true }
         .simultaneousGesture(
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
@@ -217,13 +209,31 @@ struct WatchStandaloneTimerView: View {
             }
         )
         .confirmationDialog(
-            "¿Finalizar el temporizador?",
-            isPresented: $showDiscardConfirmation,
+            timerExitPrompt == .discard
+                ? "¿Descartar el temporizador?"
+                : "¿Finalizar el temporizador?",
+            isPresented: Binding(
+                get: { timerExitPrompt != nil },
+                set: { if !$0 { timerExitPrompt = nil } }
+            ),
             titleVisibility: .visible
         ) {
-            Button("Finalizar") { finishRun() }
+            if timerExitPrompt == .discard {
+                Button("Descartar", role: .destructive) {
+                    timerExitPrompt = nil
+                    complete(save: false)
+                }
+            } else {
+                Button("Finalizar") {
+                    timerExitPrompt = nil
+                    finishRun()
+                }
+            }
+            Button("Cancelar", role: .cancel) { timerExitPrompt = nil }
         } message: {
-            Text("Podrás guardar o descartar el tiempo registrado.")
+            Text(timerExitPrompt == .discard
+                 ? "El tiempo registrado no se guardará."
+                 : "Podrás guardar o descartar el tiempo registrado.")
         }
     }
 
@@ -231,19 +241,35 @@ struct WatchStandaloneTimerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if showingTimerControls {
-                HStack(spacing: 8) {
-                    timerActionButton(
-                        running ? "Pausar" : "Reanudar",
-                        symbol: running ? "pause.fill" : "play.fill",
-                        destructive: false
-                    ) { togglePause() }
-                    timerActionButton(
-                        "Finalizar",
-                        symbol: "flag.checkered",
-                        destructive: false
-                    ) { showDiscardConfirmation = true }
+                ScrollView {
+                    VStack(spacing: 9) {
+                        WatchControlActionButton(
+                            title: running ? "Pausar" : "Reanudar",
+                            systemName: running ? "pause.fill" : "play.fill",
+                            tint: accent
+                        ) { togglePause() }
+                        WatchControlActionButton(
+                            title: "Finalizar",
+                            systemName: "flag.checkered",
+                            tint: accent
+                        ) { timerExitPrompt = .finish }
+                        Button {
+                            timerExitPrompt = .discard
+                        } label: {
+                            Label("Descartar", systemImage: "trash")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, minHeight: 49)
+                                .background(Color(white: 0.18),
+                                            in: RoundedRectangle(cornerRadius: 14))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Descartar temporizador")
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal, 8)
+                .scrollIndicators(.hidden)
             } else if showingTimerMetrics {
                 VStack(spacing: 10) {
                     Text("Métricas")
@@ -266,12 +292,6 @@ struct WatchStandaloneTimerView: View {
                 .padding(.horizontal, 12)
             } else {
                 VStack(spacing: 9) {
-                    if modeRaw != "intervals" {
-                        Text(modeTitle.uppercased())
-                            .font(.footnote.weight(.bold))
-                            .foregroundStyle(accent)
-                            .lineLimit(1)
-                    }
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         if modeRaw == "intervals" {
                             Text("\(roundIndex)")
@@ -349,30 +369,6 @@ struct WatchStandaloneTimerView: View {
         .font(.subheadline.weight(.semibold))
     }
 
-    private func timerActionButton(
-        _ title: String,
-        symbol: String,
-        destructive: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.system(size: 22, weight: .bold))
-                    .accessibilityHidden(true)
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
-            .foregroundStyle(destructive ? Color.red : accent)
-            .frame(maxWidth: .infinity, minHeight: 58)
-            .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-
     private var summary: some View {
         ScrollView {
             VStack(spacing: 10) {
@@ -388,19 +384,18 @@ struct WatchStandaloneTimerView: View {
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .minimumScaleFactor(0.8)
-                Text(modeTitle)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
                 Button("Guardar") { complete(save: true) }
                     .buttonStyle(.borderedProminent)
                     .tint(accent)
                     .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 49)
                 Button("Descartar", role: .destructive) {
                     complete(save: false)
                 }
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent)
+                .tint(Color(white: 0.18))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, minHeight: 49)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 6)
@@ -568,6 +563,8 @@ struct WatchStandaloneTimerView: View {
     private func complete(save: Bool) {
         tick?.invalidate()
         publishMirror(save ? "finished" : "discarded")
+        // Evita que onDisappear reemita «discarded» después de Guardar.
+        finished = true
         if save {
             let details = TimerCompletionDetails(
                 modeRaw: modeRaw,
