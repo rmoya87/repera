@@ -603,9 +603,18 @@ struct ProgressWeightChartCard: View {
         let end = Calendar.current.date(
             byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())
         ) ?? Date()
-        return entries
-            .filter { $0.date >= start && $0.date < end }
+        let current = entries.filter { $0.date >= start && $0.date < end }
+        return (current.isEmpty ? entries.filter { $0.date < end } : current)
             .sorted { $0.date < $1.date }
+    }
+
+    private var isHistoricalFallback: Bool {
+        guard !isTeaserPreview, !entries.isEmpty else { return false }
+        let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday)
+            ?? .distantPast
+        let end = Calendar.current.date(byAdding: .day, value: 1,
+            to: Calendar.current.startOfDay(for: Date())) ?? Date()
+        return !entries.contains { $0.date >= start && $0.date < end }
     }
 
     private var granularity: ProgressSeriesGranularity {
@@ -661,7 +670,11 @@ struct ProgressWeightChartCard: View {
     }
 
     private var xDomain: ClosedRange<Date> {
-        ProgressChartAxis.xDomain(
+        if isHistoricalFallback, let first = points.first, let last = points.last {
+            let margin = max(86_400, last.date.timeIntervalSince(first.date) * 0.06)
+            return first.date.addingTimeInterval(-margin)...last.date.addingTimeInterval(margin)
+        }
+        return ProgressChartAxis.xDomain(
             points: points.map(\.date),
             range: range,
             weekStartsOnMonday: weekStartsOnMonday,
@@ -691,9 +704,14 @@ struct ProgressWeightChartCard: View {
             }
             OGCard(padding: 10, verticalPadding: 20) {
                 VStack(alignment: .leading, spacing: 10) {
+                    if isHistoricalFallback, let latest {
+                        Text("Histórico disponible · Último pesaje: \(latest.date.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
                     if points.isEmpty {
                         ProgressEmptyChart(
-                            message: "Sin pesajes en \(range.title.lowercased()). Registra peso en Ajustes.",
+                            message: "Sin pesajes registrados. Registra peso en Ajustes.",
                             height: 210,
                             yRange: yDomain
                         )
@@ -710,14 +728,21 @@ struct ProgressWeightChartCard: View {
                                     }
                             }
                             ForEach(points) { entry in
-                                LineMark(
+                                if points.count > 1 {
+                                    LineMark(
+                                        x: .value("Fecha", entry.date),
+                                        y: .value("kg", entry.weightKg)
+                                    )
+                                    .foregroundStyle(OG.accent)
+                                    .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(.catmullRom)
+                                }
+                                PointMark(
                                     x: .value("Fecha", entry.date),
                                     y: .value("kg", entry.weightKg)
                                 )
                                 .foregroundStyle(OG.accent)
-                                .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(.catmullRom)
-
+                                .symbolSize(points.count == 1 ? 64 : 20)
                             }
                             if let selectedPoint {
                                 RuleMark(x: .value("Día seleccionado", selectedPoint.date))
@@ -738,11 +763,13 @@ struct ProgressWeightChartCard: View {
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(
-                                values: ProgressChartAxis.tickDates(
-                                    points.map(\.date),
-                                    range: range,
-                                    granularity: granularity
-                                )
+                                values: isHistoricalFallback
+                                    ? points.map(\.date)
+                                    : ProgressChartAxis.tickDates(
+                                        points.map(\.date),
+                                        range: range,
+                                        granularity: granularity
+                                    )
                             ) { _ in
                                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                                     .foregroundStyle(OG.surface3)
