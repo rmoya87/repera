@@ -58,6 +58,7 @@ final class ProgressViewModel {
             syncRevision: store.state.syncRevision,
             healthDataRevision: health.healthDataRevision,
             bodyWeightRevision: bodyWeightRevision(store.state.bodyWeights),
+            businessDataRevision: BusinessDataStore.shared.progressDataRevision,
             referenceDay: Calendar.current.startOfDay(for: Date())
         )
 
@@ -91,6 +92,7 @@ final class ProgressViewModel {
             heartRateDays: health.recentDailyHeartRate,
             energyDays: health.recentDailyActiveEnergy,
             externalActivities: health.recentExternalActivities,
+            attendedClasses: BusinessDataStore.shared.attendedClassesForProgress,
             now: Date()
         )
 
