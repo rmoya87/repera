@@ -1155,7 +1155,7 @@ struct HealthRecoveryProgressView: View {
         let now = Date()
         if let heartRate = health.recentDailyHeartRate.last(where: {
             let age = now.timeIntervalSince($0.date)
-            return age >= -86400 && age <= 48 * 3600
+            return age >= 0 && age <= 48 * 3600
                 && $0.avgBpm.isFinite && $0.avgBpm > 0
         }) {
             return "\(Int(heartRate.avgBpm.rounded())) lpm"
