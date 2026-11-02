@@ -19,6 +19,7 @@ struct RootTabView: View {
     @State private var showStartHub = false
     @State private var sportFavoriteOpenError: String?
     @State private var homeFocusDay: Date?
+    @State private var recordedPlanEditID: UUID?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
     @State private var pendingInvitationId: UUID?
@@ -39,7 +40,13 @@ struct RootTabView: View {
         .onChange(of: horizontalSizeClass) { _, _ in
             updateDuoLayout(availableSize: lastAvailableSize)
         }
-        .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
+        .onAppear {
+            updateDuoLayout(availableSize: lastAvailableSize)
+            if let id = store.pendingRecordedPlanEditID { openRecordedPlanEditor(id) }
+        }
+        .onChange(of: store.pendingRecordedPlanEditID) { _, newID in
+            if let newID { openRecordedPlanEditor(newID) }
+        }
         .sheet(isPresented: $showStartHub) { startHubSheet }
         .alert(
             "No se ha podido abrir la actividad",
@@ -95,6 +102,7 @@ struct RootTabView: View {
                 HomeView(
                     onOpenWorkout: openWorkout,
                     focusDay: homeFocusDay,
+                    focusEditSessionID: recordedPlanEditID,
                     onStart: openTodayPreview,
                     onStartRoutine: openRoutinePreview
                 )
@@ -374,6 +382,19 @@ struct RootTabView: View {
         }
         if let previewRoutine { return previewRoutine }
         return store.routineForToday()
+    }
+
+    /// Mismo editor de «Actividad → Editar»: navegación tras guardado real,
+    /// sin crear un entreno nuevo ni abrir una ficha sin la prescripción.
+    private func openRecordedPlanEditor(_ id: UUID) {
+        guard let finished = store.state.workouts.first(where: {
+            $0.id == id && $0.phase == .finished
+        }) else { return }
+        flowPath = []
+        homeFocusDay = finished.startedAt ?? finished.finishedAt
+        recordedPlanEditID = id
+        tab = .home
+        store.acknowledgeRecordedPlanEdit(id)
     }
 
     private func openWorkout() {
