@@ -1,5 +1,14 @@
 # Arquitectura Repera
 
+## Temporizador reloj ↔ móvil (02/11/2026)
+
+- **Identidad:** cada temporizador autónomo conserva el mismo UUID desde la ejecución hasta el guardado. El reloj es el dueño del tiempo; el móvil muestra el estado, sin crear un temporizador adicional ni sesiones duplicadas.
+- **watchOS/iOS:** WatchTimerMirror (ReperaDomain) viaja por WatchConnectivity: mensaje inmediato cuando hay conexión y applicationContext para recuperar el estado reciente. PhoneConnectivity recibe la réplica y ReperaStore la muestra en Inicio. El teléfono envía órdenes de pausa/reanudación/finalización por UUID. El registro final utiliza la cola persistente de sendFinished y su ACK.
+- **Wear OS/Android:** Wear publica /repera/timer-state y recibe /repera/timer-command. WearTimerMirrorStore persiste una réplica aislada por cuenta y rechaza estados caducados o terminales tardíos. MainActivity escucha en primer plano; WearLiveCommandListener permite recibir al tener la UI cerrada. /repera/timer-save se guarda en outbox local hasta /repera/timer-save-ack tras persistencia idempotente.
+- **Sin conexión:** el móvil extrapola como máximo 15 segundos y deshabilita controles si la comunicación reciente no está confirmada. No inventa métricas de Salud, calorías ni GPS. Solo Guardar/Finalizar produce un entrenamiento terminado; Descartar lo omite.
+- **Pendiente:** validación física de latencia, recuperación tras reinicio del proceso del reloj, batería y pérdida de ACK en hardware real.
+
+
 ## Hub wearables y Comenzar (31/10/2026)
 
 El home del reloj (`WatchHomeHubView` / `WearHubHome`) prioriza `effectiveWatchPlan`
