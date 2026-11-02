@@ -10,6 +10,7 @@ struct WatchSessionView: View {
     @State private var showStartChoices = false
     @State private var showTimer = false
     @State private var showCancelConfirmation = false
+    @State private var showPlannedDiscardConfirmation = false
     @State private var cancelConfirmationError: String?
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
@@ -81,6 +82,15 @@ struct WatchSessionView: View {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
+            .confirmationDialog(
+                "¿Descartar entrenamiento?",
+                isPresented: $showPlannedDiscardConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Descartar", role: .destructive) { hub.discardActiveSession() }
+            } message: {
+                Text("Se perderá el registro de esta sesión.")
+            }
             .confirmationDialog("Iniciar entreno", isPresented: $showStartChoices, titleVisibility: .visible) {
                 Button("Comenzar en vivo") { startSelectedPlan(recordOnly: false) }
                 Button("Grabar entreno") { startSelectedPlan(recordOnly: true) }
@@ -114,6 +124,7 @@ struct WatchSessionView: View {
             showSetDetails = false
             showStartChoices = false
             showCancelConfirmation = false
+            showPlannedDiscardConfirmation = false
             cancelConfirmationError = nil
         }
     }
@@ -177,6 +188,7 @@ struct WatchSessionView: View {
 
     /// Companion screen: iPhone owns GPS/HealthKit. Título = navigationTitle (deporte).
     private func liveActivityView(_ live: WatchLiveActivitySnapshot) -> some View {
+        WatchSwipeControlSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if live.phase == .paused {
@@ -247,64 +259,47 @@ struct WatchSessionView: View {
                     Text(message).font(.caption2).foregroundStyle(.orange)
                 }
 
-                // Condiciones antes de Cancelar/Finalizar; requieren ir al final
-                // del scroll y Cancelar solicita confirmación antes de descartar.
+                // Métricas y condiciones permanecen en el scroll; acciones en página lateral.
                 WatchActivityConditionsBlock(
                     conditions: live.conditions,
                     loading: false
                 )
-
-                if live.phase != .review {
-                    HStack(spacing: 10) {
-                        Button {
-                            cancelConfirmationError = nil
-                            showCancelConfirmation = true
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(.black)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .accessibilityLabel("Cancelar actividad")
-                        Button {
-                            hub.controlLiveActivity("finish")
-                        } label: {
-                            Image(systemName: "flag.checkered")
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(.black)
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .accessibilityLabel("Finalizar actividad")
-                    }
-                    .padding(.bottom, 4)
-                } else {
-                    // Si falló el guardado, reintentar desde el reloj.
+                Text("Desliza → para controles")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if live.phase == .review {
                     if hub.liveCommandError != nil {
-                        Button("Reintentar guardar") {
-                            hub.controlLiveActivity("finish")
-                        }
+                        Button("Reintentar guardar") { hub.controlLiveActivity("finish") }
+                            .buttonStyle(.borderedProminent)
+                            .tint(accent)
+                    }
+                    Button("Volver al inicio") { hub.returnToHome() }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
-                    }
-                    Button {
-                        hub.returnToHome()
-                    } label: {
-                        Text(hub.liveCommandError == nil ? "Volver al inicio" : "Revisar después")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .padding(.bottom, 4)
-                    .accessibilityLabel("Volver al inicio")
                 }
             }
             .padding(.horizontal, 6)
+        }
+        } controls: {
+            if live.phase != .review {
+                WatchControlActionButton(
+                    title: live.phase == .paused ? "Reanudar" : "Pausar",
+                    systemName: live.phase == .paused ? "play.fill" : "pause.fill",
+                    tint: accent
+                ) {
+                    hub.controlLiveActivity(live.phase == .paused ? "resume" : "pause")
+                }
+                WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                    hub.controlLiveActivity("finish")
+                }
+                Button("Cancelar actividad", role: .destructive) {
+                    cancelConfirmationError = nil
+                    showCancelConfirmation = true
+                }
+                .font(.caption)
+            } else {
+                Text("Revisar en iPhone").font(.footnote)
+            }
         }
     }
 
@@ -511,6 +506,7 @@ struct WatchSessionView: View {
 
     /// Grabación del plan sin apuntar series en directo.
     private func plannedRecordingView(_ session: WorkoutSession) -> some View {
+        WatchSwipeControlSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
@@ -531,20 +527,32 @@ struct WatchSessionView: View {
                 if hub.isPaused {
                     Text("En pausa").foregroundStyle(.orange).font(.caption)
                 }
-                Button(hub.isPaused ? "Continuar" : "Pausar") {
-                    if hub.isPaused { hub.play() } else { hub.pause() }
-                }
-                .buttonStyle(.borderedProminent).tint(accent).foregroundStyle(.black)
-                Button("Finalizar grabación") { hub.finishWorkout() }
-                    .buttonStyle(.borderedProminent).tint(accent).foregroundStyle(.black)
-                Button("Descartar", role: .destructive) { hub.discardActiveSession() }
-                    .font(.caption)
+                Text("Desliza → para controles")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 6)
+        }
+        } controls: {
+            WatchControlActionButton(
+                title: hub.isPaused ? "Reanudar" : "Pausar",
+                systemName: hub.isPaused ? "play.fill" : "pause.fill",
+                tint: accent
+            ) {
+                if hub.isPaused { hub.play() } else { hub.pause() }
+            }
+            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                hub.finishWorkout()
+            }
+            Button("Descartar entrenamiento", role: .destructive) {
+                showPlannedDiscardConfirmation = true
+            }
+            .font(.caption)
         }
     }
 
     private func runningView(_: WorkoutSession) -> some View {
+        WatchSwipeControlSurface(onSwipeLeft: { hub.swipeSet(1) }) {
         ScrollView {
             VStack(spacing: 8) {
                 clockControls
@@ -589,20 +597,28 @@ struct WatchSessionView: View {
                     )
                     .disabled(!hub.canConfirmCurrentEntry)
                 }
-                Button("Descartar", role: .destructive) {
-                    hub.discardActiveSession()
-                }
-                .font(.caption2)
+                Text("Desliza → para pausar o finalizar")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 5)
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 35).onEnded { drag in
-                let horizontal = drag.translation.width
-                guard abs(horizontal) > abs(drag.translation.height) * 1.5 else { return }
-                hub.swipeSet(horizontal < 0 ? 1 : -1)
+        } controls: {
+            WatchControlActionButton(
+                title: hub.isPaused ? "Reanudar" : "Pausar",
+                systemName: hub.isPaused ? "play.fill" : "pause.fill",
+                tint: accent
+            ) {
+                if hub.isPaused { hub.play() } else { hub.pause() }
             }
-        )
+            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                hub.finishFromSummary()
+            }
+            Button("Descartar entrenamiento", role: .destructive) {
+                showPlannedDiscardConfirmation = true
+            }
+            .font(.caption)
+        }
     }
 
     @ViewBuilder
@@ -631,18 +647,9 @@ struct WatchSessionView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button {
-                if hub.isPaused { hub.play() } else { hub.pause() }
-            } label: {
-                Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.black)
-                    .frame(width: 70, height: 70)
-                    .background(accent, in: Circle())
-                    .contentShape(Circle())
+            if hub.isPaused {
+                Text("En pausa").font(.caption2.weight(.semibold)).foregroundStyle(.yellow)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(hub.isPaused ? "Reanudar entrenamiento" : "Pausar entrenamiento")
         }
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
@@ -1522,3 +1529,67 @@ private struct WatchActivityCancelOverlay: View {
         .ignoresSafeArea(.container, edges: .all)
     }
 }
+
+
+/// Controles a la izquierda física: gesto del dedo hacia la derecha, sin esconderlos
+/// al final del scroll vertical. En series, el swipe izquierdo sigue avanzando de serie.
+struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
+    var onSwipeLeft: (() -> Void)? = nil
+    @ViewBuilder var content: Content
+    @ViewBuilder var controls: Controls
+    @State private var showingControls = false
+
+    var body: some View {
+        Group {
+            if showingControls {
+                ScrollView {
+                    VStack(spacing: 14) {
+                        Text("Controles")
+                            .font(.headline)
+                        controls
+                        Text("Desliza ← para volver")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 12)
+                }
+            } else {
+                content
+            }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 35).onEnded { drag in
+                let dx = drag.translation.width
+                guard abs(dx) >= 55, abs(dx) > abs(drag.translation.height) * 1.4 else { return }
+                if dx > 0 {
+                    showingControls = true
+                } else if showingControls {
+                    showingControls = false
+                } else {
+                    onSwipeLeft?()
+                }
+            }
+        )
+    }
+}
+
+struct WatchControlActionButton: View {
+    let title: String
+    let systemName: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemName)
+                .font(.headline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 49)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(tint)
+        .foregroundStyle(.black)
+        .accessibilityLabel(title)
+    }
+}
+
