@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
+    private var wearTimerMirror by mutableStateOf<JSONObject?>(null)
     private var pendingReview by mutableStateOf<dev.repera.domain.SessionReview?>(null)
     private var pendingReviewSessionId: String? = null
     private var wodTimer by mutableStateOf<WodTimerState?>(null)
@@ -642,6 +643,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onResume() {
         super.onResume()
         val user = profile
+        wearTimerMirror = user?.uniqueId?.let { WearTimerMirrorStore(this, it).current() }
         if (user != null) {
             // Apple ensureUsableSession on return to foreground: a verified session whose JWT is about to expire is
             // renewed here too, so a revoked refresh token sends the app back to login instead of failing silently.
@@ -740,6 +742,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 syncing = syncing,
                 status = status,
                 overview = snapshot,
+                wearTimerMirror = wearTimerMirror,
+                onWearTimerCommand = { command -> sendWearTimerCommand(command) },
                 onSetTestedOneRM = { id,value -> runWorkoutAction { setTestedOneRM(id,value) } },
                 exerciseSummary = { exerciseId ->
                     val uid = profile?.uniqueId
@@ -1425,6 +1429,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         super.onStop()
     }
 
+    private fun sendWearTimerCommand(command: String) {
+        val active = wearTimerMirror ?: return
+        if (command !in setOf("pause", "resume", "finish") ||
+            System.currentTimeMillis() - active.optLong("updatedAtMillis") > 20_000L) return
+        val payload = JSONObject()
+            .put("id", active.optString("id"))
+            .put("command", command)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            nodes.forEach { wearMessages.sendMessage(it.id, "/repera/timer-command", payload) }
+        }
+    }
+
     override fun onMessageReceived(event: MessageEvent) {
         // Apple 4a82b4b2/1d333b42/d350b42f: petición explícita del reloj -> plan de
         // HOY fresco del estado actual del teléfono (nunca caché viejo).
@@ -1467,37 +1484,55 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             return
         }
-        if (event.path == "/repera/timer-save") {
-            val body = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
-                ?: return
-            val details = dev.repera.domain.TimerCompletionDetails
-                .fromJson(body.optJSONObject("timerDetails")) ?: return
-            val sessionId = body.optString("id").ifBlank { return }
+        if (event.path == "/repera/timer-state") {
+            val body = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
+                .getOrNull() ?: return
             runOnUiThread {
                 val account = profile?.uniqueId ?: return@runOnUiThread
-                if (busy) return@runOnUiThread
-                busy = true
+                val store = WearTimerMirrorStore(this@MainActivity, account)
+                if (store.accept(body)) wearTimerMirror = store.current()
+            }
+            return
+        }
+        if (event.path == "/repera/timer-save") {
+            val body = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
+                .getOrNull() ?: return
+            val details = dev.repera.domain.TimerCompletionDetails
+                .fromJson(body.optJSONObject("timerDetails")) ?: return
+            val sessionId = body.optString("id").takeIf {
+                runCatching { java.util.UUID.fromString(it) }.isSuccess
+            } ?: return
+            runOnUiThread {
+                val account = profile?.uniqueId ?: return@runOnUiThread
                 lifecycleScope.launch {
-                    try {
-                        val ok = withContext(Dispatchers.IO) {
-                            runCatching {
-                                WorkoutRepository(this@MainActivity, account).saveTimerSession(
-                                    id = sessionId,
-                                    title = "Temporizador · ${details.modeTitle}",
-                                    startedAtMillis = body.optLong("startedAtMillis"),
-                                    finishedAtMillis = body.optLong("finishedAtMillis"),
-                                    details = details
-                                )
-                                true
-                            }.getOrDefault(false)
+                    val ok = withContext(Dispatchers.IO) {
+                        runCatching {
+                            WorkoutRepository(this@MainActivity, account).saveTimerSession(
+                                id = sessionId,
+                                title = "Temporizador · ${details.modeTitle}",
+                                startedAtMillis = body.optLong("startedAtMillis"),
+                                finishedAtMillis = body.optLong("finishedAtMillis"),
+                                details = details
+                            )
+                            true
+                        }.getOrDefault(false)
+                    }
+                    if (ok && profile?.uniqueId == account) {
+                        WearTimerMirrorStore(this@MainActivity, account).let { store ->
+                            val previous = store.last()
+                            if (previous?.optString("id") == sessionId) {
+                                store.accept(JSONObject(previous.toString())
+                                    .put("phase", "finished")
+                                    .put("updatedAtMillis", System.currentTimeMillis()))
+                            }
                         }
-                        if (ok && profile?.uniqueId == account) {
-                            reloadFor(account)
-                            DriveSyncWorker.syncNow(this@MainActivity)
-                            if (verifiedSupabase != null) syncWorkoutMirror()
-                        }
-                    } finally {
-                        if (profile?.uniqueId == account) busy = false
+                        wearTimerMirror = WearTimerMirrorStore(this@MainActivity, account).current()
+                        reloadFor(account)
+                        DriveSyncWorker.syncNow(this@MainActivity)
+                        if (verifiedSupabase != null) syncWorkoutMirror()
+                        val ack = JSONObject().put("id", sessionId).put("saved", true)
+                            .toString().toByteArray(Charsets.UTF_8)
+                        wearMessages.sendMessage(event.sourceNodeId, "/repera/timer-save-ack", ack)
                     }
                 }
             }
@@ -2428,6 +2463,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             )
         }
         activeWorkout = active
+        wearTimerMirror = WearTimerMirrorStore(this@MainActivity, id).current()
         bytes?.let {runCatching {PlannedWorkoutNotification.refresh(this@MainActivity,id,org.json.JSONObject(String(it,Charsets.UTF_8)))}}
         refreshWodTimer()
         resumeDeferredMirrorSyncIfNeeded()
