@@ -17,7 +17,7 @@ import kotlin.math.roundToInt
 
 /**
  * Preparación: título fuera (ReperaSectionTitle). Dentro: métricas a la izquierda
- * (Sueño, Carga, VFC, Cardio) + puntuación a la derecha. Sin consejo ni disclaimer.
+ * (Sueño, Entrenamiento, VFC, Cardio) + puntuación a la derecha. Sin consejo ni disclaimer.
  */
 @Composable
 internal fun TrainingReadinessCard(recovery: RecoveryState) {
@@ -42,7 +42,7 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                     val cardiacText = listOfNotNull(
                         cardiac?.hrvMilliseconds?.let { "${it.roundToInt()} ms" },
                         cardiac?.restingHeartRateBpm?.let { "${it.roundToInt()} lpm" }
-                    ).joinToString(" · ").ifBlank { "Sin datos" }.let { value ->
+                    ).joinToString(" · ").ifBlank { "—" }.let { value ->
                         if (cardiac != null && cardiac.day != java.time.LocalDate.now())
                             "$value · ${cardiac.day}" else value
                     }
@@ -58,21 +58,18 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                             ReadinessFactor(
                                 "Sueño",
                                 recovery.lastNightHours?.let { "${formatWeight(it)} h" }
-                                    ?: "Sin registro de sueño reciente"
+                                    ?: "—"
                             )
                             ReadinessFactor(
-                                "Carga",
-                                when {
-                                    ready == null -> "Sin valoración actual"
-                                    ready.fatiguePenalty >= 2.3 -> "Alta"
-                                    ready.fatiguePenalty >= 1.1 -> "Moderada"
-                                    else -> "Baja"
-                                }
+                                "Entrenamiento",
+                                recovery.trainingMinutes96h?.let { "${it.roundToInt()} min" } ?: "—"
                             )
                             ReadinessFactor("VFC", cardiacText)
                             ReadinessFactor(
                                 "Cardio",
-                                ready?.cardioMinutes48h?.let { "${it.roundToInt()} min" } ?: "Sin medición reciente"
+                                recovery.cardioAverageBpm?.let { "${it.roundToInt()} lpm" }
+                                    ?: recovery.cardioMinutes48h?.let { "${it.roundToInt()} min" }
+                                    ?: "—"
                             )
                         }
                         val track = MaterialTheme.colorScheme.surfaceVariant
