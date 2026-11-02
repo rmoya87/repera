@@ -159,13 +159,13 @@ struct RootTabView: View {
                 )
             }
 
-            SwiftUI.Tab(
-                "+",
-                systemImage: tab == .plus ? "plus.circle.fill" : "plus.circle",
-                value: AppTab.plus
-            ) {
+            // Solo esta pestaña va sin texto debajo del icono.
+            SwiftUI.Tab(value: AppTab.plus) {
                 PlusHubView(onStartRoutine: openRoutinePreview)
+            } label: {
+                Image(systemName: tab == .plus ? "plus.circle.fill" : "plus.circle")
             }
+            .accessibilityLabel("Clases y centro")
 
             SwiftUI.Tab(
                 "Progreso",

@@ -1,5 +1,9 @@
 # Funcionalidades Repera
 
+## Menú principal: icono «+» sin etiqueta (02/11/2026)
+
+En iOS y Android, la pestaña central que abre Clases/Centro muestra únicamente el icono circular con «+», sin el texto redundante debajo. Inicio, Comenzar, Progreso y Ejercicios conservan sus títulos; VoiceOver/TalkBack mantienen la etiqueta accesible «Clases y centro». La selección, navegación y contenidos de la pestaña no cambian.
+
 ## Temporizador en Inicio del móvil iniciado desde reloj (02/11/2026)
 
 - **Apple Watch → iPhone:** Inicio muestra una tarjeta en vivo del temporizador (modo, tiempo rojo, ronda verde, estado), con Pausar/Reanudar y Finalizar en el teléfono. Los comandos se aplican en el reloj solo si el UUID coincide y la conexión sigue activa.

@@ -73,6 +73,10 @@ internal data class ReperaTabSpec(
     val selectedIcon: ImageVector = icon
 ) {
     fun iconFor(selected: Boolean): ImageVector = if (selected) selectedIcon else icon
+
+    // La pestaña central muestra solo su círculo «+»; las demás conservan el texto.
+    val visibleLabel: String? get() = label.takeUnless { route == "plus" }
+    val accessibilityLabel: String get() = if (route == "plus") "Clases y centro" else label
 }
 
 /** Cinco pestañas principales (paridad iOS: Inicio · Comenzar · + · Progreso · Ejercicios). */
@@ -229,19 +233,21 @@ private fun ReperaFloatingTabItem(
         ) {
             Icon(
                 imageVector = tab.iconFor(selected),
-                contentDescription = tab.label,
+                contentDescription = tab.accessibilityLabel,
                 modifier = Modifier.size(24.dp),
                 tint = iconTint
             )
         }
-        Text(
-            text = tab.label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = labelColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        tab.visibleLabel?.let { title ->
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color = labelColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
