@@ -1725,6 +1725,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                             finished: ByteArray? = null,
                             explicitlyDiscardedId: String? = null) {
         if (signedOut) {
+            // No trasladar temporizadores/pendientes privados a otra cuenta en el móvil.
+            timerRunId = null
+            remoteTimerCommand = null
+            remoteTimerCommandEpoch = 0
+            hubOverlay = WearHubOverlay.HOME
+            timerOutbox.edit().clear().apply()
             liveActivityJson = null
             transportRevision++
             todayPlanJson=null
