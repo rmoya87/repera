@@ -22,6 +22,8 @@ struct PlusHubView: View {
 
     @State private var hubTab: HubTab = .classes
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    @State private var classCalendarScrollID: String?
+    @ScaledMetric(relativeTo: .body) private var classCarouselHeight: CGFloat = 72
     @State private var bookingPendingCancellation: BusinessBooking?
     @State private var path = NavigationPath()
 
@@ -113,13 +115,10 @@ struct PlusHubView: View {
         }
         .sorted { $0.startsAt < $1.startsAt }
 
-        if business.isLoading {
-            ProgressView("Cargando clases…").tint(OG.accent)
-        }
         if let message = business.errorMessage {
             Text(message).foregroundStyle(OG.red).font(.footnote)
         }
-        if dayClasses.isEmpty {
+        if dayClasses.isEmpty && !business.isLoading {
             OGCard {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Sin clases este día", systemImage: "calendar")
@@ -136,32 +135,116 @@ struct PlusHubView: View {
         }
     }
 
+    /// El mismo carrusel de días que Inicio: casillas cuadradas, mes visible,
+    /// peek del día anterior y desplazamiento continuo sin botones de semana.
     private var dayStrip: some View {
         let cal = Calendar.current
-        let days = (-3...10).compactMap { cal.date(byAdding: .day, value: $0, to: cal.startOfDay(for: Date())) }
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(days, id: \.self) { day in
-                    let selected = cal.isDate(day, inSameDayAs: selectedDay)
-                    Button {
-                        selectedDay = day
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(day.formatted(.dateTime.weekday(.narrow)))
-                                .font(.caption2.weight(.semibold))
-                            Text(day.formatted(.dateTime.day()))
-                                .font(.title3.weight(.bold))
-                        }
-                        .foregroundStyle(selected ? Color.white : OG.label)
-                        .frame(width: 48, height: 56)
-                        .background(selected ? OG.accent : OG.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
-                }
-            }
-            .padding(.vertical, 4)
+        let days = (-367...367).compactMap {
+            cal.date(byAdding: .day, value: $0, to: cal.startOfDay(for: Date()))
         }
+        let availableClassDays = Set(business.occurrences.compactMap { occurrence -> String? in
+            guard occurrence.kind == "class", occurrence.status == "active",
+                  let start = BusinessDataStore.date(occurrence.startsAt) else { return nil }
+            return BusinessDataStore.localDayKey(start)
+        })
+        let headerDate = classCalendarScrollID.flatMap(BusinessDataStore.parseDayKey) ?? selectedDay
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(headerDate.formatted(Date.FormatStyle().month(.wide).year().locale(SpanishDate.appLocale)))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(OG.label2)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, OG.pad)
+
+            GeometryReader { geo in
+                let preferredSide = max(1, classCarouselHeight - 8)
+                let visibleDays = geo.size.width >= 540
+                    ? max(7, Int((geo.size.width + 4) / (preferredSide + 12)))
+                    : 7
+                let side = min(
+                    preferredSide,
+                    max(1, (geo.size.width - 4 * CGFloat(visibleDays - 1)) / CGFloat(visibleDays))
+                )
+                let spacing = geo.size.width >= 540 && visibleDays > 1
+                    ? max(4, (geo.size.width - CGFloat(visibleDays) * side) / CGFloat(visibleDays - 1))
+                    : CGFloat(4)
+                let leadingPeek = side * 0.7
+
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: spacing) {
+                        ForEach(days, id: \.self) { day in
+                            let key = BusinessDataStore.localDayKey(day)
+                            Button {
+                                selectedDay = day
+                            } label: {
+                                classCalendarDay(
+                                    day,
+                                    side: side,
+                                    hasClass: availableClassDays.contains(key)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .id(key)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $classCalendarScrollID, anchor: .leading)
+                .frame(width: geo.size.width + leadingPeek, alignment: .leading)
+                .offset(x: -leadingPeek)
+            }
+            .frame(height: classCarouselHeight)
+            .clipped()
+            .ignoresSafeArea(edges: .horizontal)
+        }
+        .onAppear {
+            if classCalendarScrollID == nil {
+                classCalendarScrollID = BusinessDataStore.localDayKey(selectedDay)
+            }
+        }
+    }
+
+    private func classCalendarDay(_ day: Date, side: CGFloat, hasClass: Bool) -> some View {
+        let cal = Calendar.current
+        let selected = cal.isDate(day, inSameDayAs: selectedDay)
+        let isToday = cal.isDateInToday(day)
+        let labels = ["DO", "LU", "MA", "MI", "JU", "VI", "SA"]
+        let dayName = labels[cal.component(.weekday, from: day) - 1]
+        return VStack(spacing: 2) {
+            Text(dayName)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(selected ? OG.onAccent : OG.label2)
+            Text("\(cal.component(.day, from: day))")
+                .font(.system(size: 17, weight: selected ? .semibold : .medium))
+                .foregroundStyle(selected ? OG.onAccent : OG.label)
+            if hasClass {
+                Circle()
+                    .fill(selected ? OG.onAccent : OG.accent)
+                    .frame(width: 4, height: 4)
+            } else {
+                Color.clear.frame(width: 4, height: 4)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(width: side, height: side)
+        .background(
+            selected ? OG.accent : OG.surface,
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
+        .overlay {
+            if !selected {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(
+                        isToday ? OG.accent : OG.surface3.opacity(0.75),
+                        lineWidth: isToday ? 1.5 : 0.7
+                    )
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     @ViewBuilder
@@ -272,17 +355,11 @@ struct PlusHubView: View {
                         .buttonStyle(.plain)
                         .disabled(!canTap || business.isSubmitting)
 
-                        Group {
-                            if let opensAt {
-                                Text("Inscripción desde \(opensAt.formatted(date: .abbreviated, time: .shortened))")
-                            } else if full {
-                                Text("Sin plazas libres")
-                            } else if let places {
-                                Text("\(places) plaza\(places == 1 ? "" : "s") libre\(places == 1 ? "" : "s")")
-                            }
+                        if let opensAt {
+                            Text("Inscripción desde \(opensAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(OG.label2)
                         }
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(OG.label2)
                     }
                 }
                 .padding(14)
@@ -838,7 +915,7 @@ struct ClassOccurrenceDetailPage: View {
 
     private var daySubtitle: String {
         guard let start = BusinessDataStore.date(occurrence.startsAt) else { return "" }
-        return "\(SpanishDate.long(start)) · \(SpanishDate.time(start))"
+        return SpanishDate.format(start, date: .abbreviated, time: .shortened)
     }
 
     var body: some View {
@@ -850,7 +927,8 @@ struct ClassOccurrenceDetailPage: View {
                 Text(daySubtitle)
                     .font(.system(size: 15, weight: .regular))
                     .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .ogSessionDateListRow()
             }
 
@@ -866,7 +944,7 @@ struct ClassOccurrenceDetailPage: View {
                     detailRow(
                         icon: "calendar",
                         title: "Fecha",
-                        value: SpanishDate.format(start, date: .complete, time: .omitted)
+                        value: SpanishDate.format(start, date: .abbreviated, time: .omitted)
                     )
                     detailRow(
                         icon: "clock",
@@ -1033,6 +1111,8 @@ struct ClassOccurrenceDetailPage: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(OG.label)
                 .multilineTextAlignment(.trailing)
+                .lineLimit(title == "Fecha" ? 1 : nil)
+                .minimumScaleFactor(title == "Fecha" ? 0.75 : 1)
         }
     }
 
