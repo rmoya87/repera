@@ -286,9 +286,6 @@ struct WatchSessionView: View {
                     conditions: live.conditions,
                     loading: false
                 )
-                Text("Desliza → para controles")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
                 if live.phase == .review {
                     if hub.liveCommandError != nil {
                         Button("Reintentar guardar") { hub.controlLiveActivity("finish") }
@@ -549,9 +546,6 @@ struct WatchSessionView: View {
                 if hub.isPaused {
                     Text("En pausa").foregroundStyle(.orange).font(.caption)
                 }
-                Text("Desliza → para controles")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 6)
         }
@@ -574,7 +568,7 @@ struct WatchSessionView: View {
     }
 
     private func runningView(_: WorkoutSession) -> some View {
-        WatchSwipeControlSurface(onSwipeLeft: { hub.swipeSet(1) }) {
+        WatchSwipeControlSurface {
         ScrollView {
             VStack(spacing: 8) {
                 clockControls
@@ -619,9 +613,6 @@ struct WatchSessionView: View {
                     )
                     .disabled(!hub.canConfirmCurrentEntry)
                 }
-                Text("Desliza → para pausar o finalizar")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 5)
         }
@@ -1110,9 +1101,6 @@ struct WatchSessionView: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Ir al bloque sin confirmar los ejercicios omitidos")
                 }
-                Text("Para finalizar, vuelve al entreno y desliza → hasta Controles.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 5)
         }
@@ -1547,10 +1535,9 @@ private struct WatchActivityCancelOverlay: View {
 }
 
 
-/// Controles a la izquierda física: gesto del dedo hacia la derecha, sin esconderlos
-/// al final del scroll vertical. En series, el swipe izquierdo sigue avanzando de serie.
+/// El gesto de derecha a izquierda abre las acciones; izquierda a derecha vuelve
+/// a la sesión. Las series avanzan con el botón «Siguiente», sin competir por el gesto.
 struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
-    var onSwipeLeft: (() -> Void)? = nil
     @ViewBuilder var content: Content
     @ViewBuilder var controls: Controls
     @State private var showingControls = false
@@ -1560,12 +1547,7 @@ struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
             if showingControls {
                 ScrollView {
                     VStack(spacing: 14) {
-                        Text("Controles")
-                            .font(.headline)
                         controls
-                        Text("Desliza ← para volver")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 12)
@@ -1578,12 +1560,10 @@ struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
                 guard abs(dx) >= 55, abs(dx) > abs(drag.translation.height) * 1.4 else { return }
-                if dx > 0 {
+                if dx < 0 && !showingControls {
                     showingControls = true
-                } else if showingControls {
+                } else if dx > 0 && showingControls {
                     showingControls = false
-                } else {
-                    onSwipeLeft?()
                 }
             }
         )
