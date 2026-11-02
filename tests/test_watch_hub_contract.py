@@ -56,7 +56,7 @@ class WatchHubContractTests(unittest.TestCase):
     def test_wear_timer_uses_large_mode_buttons_and_interval_phases(self):
         wear = source("android/wear/src/main/java/dev/repera/wear/WearHubTimer.kt")
         self.assertIn("WearTimerModeOption(", wear)
-        self.assertIn(".height(62.dp)", wear)
+        self.assertIn(".heightIn(min = 62.dp)", wear)
         self.assertIn("choosingMode = false", wear)
         self.assertIn("scrollState.scrollBy(it.verticalScrollPixels)", wear)
         self.assertIn("val phaseRemaining =", wear)
