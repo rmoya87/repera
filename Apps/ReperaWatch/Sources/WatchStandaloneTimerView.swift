@@ -561,6 +561,8 @@ struct WatchStandaloneTimerView: View {
     private func complete(save: Bool) {
         tick?.invalidate()
         publishMirror(save ? "finished" : "discarded")
+        // Evita que onDisappear reemita «discarded» después de Guardar.
+        finished = true
         if save {
             let details = TimerCompletionDetails(
                 modeRaw: modeRaw,
