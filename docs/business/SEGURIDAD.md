@@ -1,5 +1,10 @@
 ## Consola y delegación de plataforma (2026-10-27)
 
+## Reserva propia de propietarios y personal con bono (02/11/2026)
+
+La función `book_service_occurrence` admite miembros **activos** con roles `athlete`, `owner`, `admin`, `coach` y `reception` cuando tengan un **cliente propio** con `clients.user_id = auth.uid()`, estado `active` y un bono vigente asignado a **ese mismo cliente**. No permite operar para otros usuarios, usar clientes cancelados, eludir aforo, horarios, suspensión del centro ni consumir créditos ajenos. La comprobación `private.owns_org_client` verifica pertenencia y titularidad antes del débito. La migración es `20261102123000_allow_staff_self_booking_with_own_pass.sql`; el comportamiento se verificó con una consulta transaccional que no generó reservas persistidas.
+
+
 ## Consentimiento, identidad e invitaciones — 27/10/2026
 
 `platform_admin_set_visibility` comprueba `private.is_repera_platform_admin()` y no permite publicar centros suspendidos. `registration_status='pending'` sigue pendiente tras hacer visible el negocio; no se crea ni se suplanta al propietario. Cada cambio se registra en `platform_admin_events`.
