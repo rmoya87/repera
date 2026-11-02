@@ -7,6 +7,7 @@ struct WatchStandaloneTimerView: View {
     @Environment(WatchSessionHub.self) private var hub
     @Environment(\.dismiss) private var dismiss
 
+    @State private var timerId = UUID()
     @State private var modeRaw = "down"
     @State private var durationMinutes = 40
     @State private var rounds = 5
@@ -42,7 +43,20 @@ struct WatchStandaloneTimerView: View {
             }
         }
         .navigationTitle("Temporizador")
-        .onDisappear { tick?.invalidate() }
+        .onChange(of: hub.timerRemoteCommand?.token) { _, _ in
+            guard let remote = hub.timerRemoteCommand,
+                  remote.id == timerId, started, !finished else { return }
+            switch remote.command {
+            case "pause": if running { togglePause() }
+            case "resume": if !running { togglePause() }
+            case "finish": finishRun()
+            default: break
+            }
+        }
+        .onDisappear {
+            tick?.invalidate()
+            if started && !finished { publishMirror("discarded") }
+        }
     }
 
     private var modeSelectionView: some View {
@@ -419,6 +433,7 @@ struct WatchStandaloneTimerView: View {
         if !hub.audioMuted {
             WKInterfaceDevice.current().play(.start)
         }
+        timerId = UUID()
         elapsed = 0
         roundIndex = 1
         inWork = true
@@ -431,6 +446,7 @@ struct WatchStandaloneTimerView: View {
         running = true
         finished = false
         startTick()
+        publishMirror("running")
     }
 
     private func startTick() {
@@ -444,6 +460,7 @@ struct WatchStandaloneTimerView: View {
 
     private func tickOnce() {
         guard running else { return }
+        defer { if elapsed % 3 == 0 && !finished { publishMirror("running") } }
         switch modeRaw {
         case "up":
             elapsed += 1
@@ -480,12 +497,14 @@ struct WatchStandaloneTimerView: View {
     private func togglePause() {
         running.toggle()
         if running { startTick() } else { tick?.invalidate() }
+        publishMirror(running ? "running" : "paused")
     }
 
     private func finishRun() {
         tick?.invalidate()
         running = false
         finished = true
+        publishMirror("finished")
         if !hub.audioMuted {
             WKInterfaceDevice.current().play(.success)
         } else {
@@ -493,8 +512,21 @@ struct WatchStandaloneTimerView: View {
         }
     }
 
+    private func publishMirror(_ phase: String) {
+        guard started else { return }
+        hub.publishTimerMirror(WatchTimerMirror(
+            id: timerId,
+            modeRaw: modeRaw,
+            configuredSeconds: configuredTotalSeconds,
+            elapsedSeconds: elapsed,
+            round: roundIndex,
+            phase: phase
+        ))
+    }
+
     private func complete(save: Bool) {
         tick?.invalidate()
+        publishMirror(save ? "finished" : "discarded")
         if save {
             let details = TimerCompletionDetails(
                 modeRaw: modeRaw,
