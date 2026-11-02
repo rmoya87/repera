@@ -32,6 +32,13 @@ final class ReperaStore: NSObject {
     /// Fine-grained Observation tokens (views can key `.task(id:)` / onChange without full `state`).
     private(set) var catalogEpoch: UInt64 = 0
     private(set) var workoutsEpoch: UInt64 = 0
+    /// Se publica solo tras persistir una grabación planificada recibida del Watch.
+    /// No se abre un editor para actividades libres ni revisiones duplicadas.
+    private(set) var pendingRecordedPlanEditID: UUID?
+
+    func acknowledgeRecordedPlanEdit(_ id: UUID) {
+        if pendingRecordedPlanEditID == id { pendingRecordedPlanEditID = nil }
+    }
     private(set) var sessionEpoch: UInt64 = 0
     /// Tab chrome — Equatable; only publishes when title / progress / thumb / presence change.
     private(set) var hasActiveSession = false
@@ -1959,6 +1966,13 @@ final class ReperaStore: NSObject {
                       snapshot.workouts.first(where: { $0.id == session.id })
                 else { return }
                 self.lastWatchAcknowledgedSession = session.id
+                // Se abre el editor existente, conservando UUID, HealthKit y
+                // series prescritas; nunca se convierte la prescripción en
+                // LoggedSet hasta que el atleta confirme el resultado.
+                if session.liveSportID != nil,
+                   session.routineId != nil || session.routineBlocks?.isEmpty == false {
+                    self.pendingRecordedPlanEditID = session.id
+                }
                 self.pushActiveToWatch(immediate: true)
                 if needsSync && BusinessAuthStore.shared.isConnected {
                     _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
