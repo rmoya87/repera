@@ -11,6 +11,7 @@ struct WatchSessionView: View {
     @State private var showTimer = false
     @State private var showCancelConfirmation = false
     @State private var showPlannedDiscardConfirmation = false
+    @State private var showWorkoutFinishConfirmation = false
     @State private var cancelConfirmationError: String?
 
     // Exact Repera iOS theme accent (OG.accent, #30D158).
@@ -83,6 +84,21 @@ struct WatchSessionView: View {
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
             .confirmationDialog(
+                "¿Finalizar entrenamiento?",
+                isPresented: $showWorkoutFinishConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Finalizar") {
+                    if hub.isRecordingPlannedWorkout {
+                        hub.finishWorkout()
+                    } else {
+                        hub.finishFromSummary()
+                    }
+                }
+            } message: {
+                Text("Se guardará el trabajo registrado hasta este momento.")
+            }
+            .confirmationDialog(
                 "¿Descartar entrenamiento?",
                 isPresented: $showPlannedDiscardConfirmation,
                 titleVisibility: .visible
@@ -125,6 +141,7 @@ struct WatchSessionView: View {
             showStartChoices = false
             showCancelConfirmation = false
             showPlannedDiscardConfirmation = false
+            showWorkoutFinishConfirmation = false
             cancelConfirmationError = nil
         }
     }
@@ -542,7 +559,7 @@ struct WatchSessionView: View {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             }
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                hub.finishWorkout()
+                showWorkoutFinishConfirmation = true
             }
             Button("Descartar entrenamiento", role: .destructive) {
                 showPlannedDiscardConfirmation = true
@@ -612,7 +629,7 @@ struct WatchSessionView: View {
                 if hub.isPaused { hub.play() } else { hub.pause() }
             }
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                hub.finishFromSummary()
+                showWorkoutFinishConfirmation = true
             }
             Button("Descartar entrenamiento", role: .destructive) {
                 showPlannedDiscardConfirmation = true
@@ -1085,18 +1102,9 @@ struct WatchSessionView: View {
                     .buttonStyle(.plain)
                     .accessibilityHint("Ir al bloque sin confirmar los ejercicios omitidos")
                 }
-                Button {
-                    showOutline = false
-                    hub.finishFromSummary()
-                } label: {
-                    Label("Finalizar entrenamiento", systemImage: "checkmark")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
-                .foregroundStyle(.black)
-                .tint(accent)
-                .accessibilityHint("Finaliza el entrenamiento guardando lo registrado")
+                Text("Para finalizar, vuelve al entreno y desliza → hasta Controles.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 5)
         }
