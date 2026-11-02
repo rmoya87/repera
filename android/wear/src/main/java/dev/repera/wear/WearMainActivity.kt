@@ -159,6 +159,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val timerOutbox by lazy {
         getSharedPreferences("repera.timer.completed.outbox.v1", MODE_PRIVATE)
     }
+    private var timerRetryJob: kotlinx.coroutines.Job? = null
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -519,6 +520,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         messageClient.addListener(this)
         resendPending()
         resendPendingTimers()
+        timerRetryJob?.cancel()
+        timerRetryJob = lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(15_000)
+                resendPendingTimers()
+            }
+        }
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
@@ -557,6 +565,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onStop() {
+        timerRetryJob?.cancel()
+        timerRetryJob = null
         persistElapsedClock()
         elapsedJob?.cancel()
         elapsedJob = null
