@@ -1179,6 +1179,24 @@ private fun TransformingLazyColumnScope.strengthRunningBody(
             )
         }
     }
+    // Recupera el cambio de serie sin competir con el swipe hacia controles.
+    item {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = { callbacks.onSwipeSet(-1) },
+                modifier = Modifier.semantics { contentDescription = "Serie anterior" }
+            ) { Text("←") }
+            TextButton(
+                onClick = { callbacks.onSwipeSet(1) },
+                modifier = Modifier.semantics { contentDescription = "Serie siguiente" }
+            ) { Text("→") }
+        }
+    }
+
     if (!session.canLogOnWatch) {
         item {
             Text(
@@ -1307,24 +1325,6 @@ private fun TransformingLazyColumnScope.restBlock(
     callbacks: WearHomeCallbacks
 ) {
     if (state.restRemaining <= 0) return
-    // Recupera el cambio de serie sin competir con el swipe hacia controles.
-    item {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(
-                onClick = { callbacks.onSwipeSet(-1) },
-                modifier = Modifier.semantics { contentDescription = "Serie anterior" }
-            ) { Text("←") }
-            TextButton(
-                onClick = { callbacks.onSwipeSet(1) },
-                modifier = Modifier.semantics { contentDescription = "Serie siguiente" }
-            ) { Text("→") }
-        }
-    }
-
     item {
         Text("⌛", color = WearOg.yellow, style = MaterialTheme.typography.titleMedium)
     }
