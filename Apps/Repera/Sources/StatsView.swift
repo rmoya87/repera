@@ -163,6 +163,10 @@ struct StatsView: View {
                 enforceFreeRangeIfNeeded()
                 // Preparar datos locales inmediatamente; Salud puede tardar en refrescar.
                 schedulePrepare(reason: "initial")
+                if BusinessAuthStore.shared.isConnected {
+                    await BusinessDataStore.shared.refresh()
+                    schedulePrepare(reason: "classes-ready")
+                }
                 guard health.isAvailable else {
                     ProgressLog.info("Progreso: HealthKit no disponible")
                     schedulePrepare(reason: "no-health")
@@ -187,6 +191,10 @@ struct StatsView: View {
             .onChange(of: health.healthDataRevision) { _, _ in
                 model.invalidateCache(reason: "health-rev")
                 schedulePrepare(reason: "health-rev")
+            }
+            .onChange(of: BusinessDataStore.shared.progressDataRevision) { _, _ in
+                model.invalidateCache(reason: "class-attendance")
+                schedulePrepare(reason: "class-attendance")
             }
             .onChange(of: store.state.syncRevision) { _, _ in
                 model.invalidateCache(reason: "sync-rev")
