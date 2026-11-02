@@ -669,8 +669,8 @@ fun ReperaMobileScreen(
                         loadClassRoster = onLoadClassRoster,
                         onBookClass = onCenterBook,
                         onCancelClassBooking = onCenterCancel,
-                        onStartClassPlan = { session ->
-                            val id = onMaterializeProfessionalRoutine(session) ?: return@onStartClassPlan
+                        onStartClassPlan = classPlan@{ session ->
+                            val id = onMaterializeProfessionalRoutine(session) ?: return@classPlan
                             navController.navigate("preview/" + Uri.encode(id))
                         },
                         exerciseCatalog = overview?.exerciseEntries.orEmpty(),
@@ -713,9 +713,6 @@ fun ReperaMobileScreen(
                             navController.navigate(
                                 "ejercicio/" + entryId + "?sesion=" + sessionId +
                                     "&instancia=" + instanceId)
-                        },
-                        onOpenExercise = { exerciseId ->
-                            navController.navigate("ejercicio/$exerciseId")
                         },
                         onNext = onNext,
                         onSelectActiveExercise = onSelectActiveExercise,
@@ -1133,8 +1130,8 @@ fun ReperaMobileScreen(
                         onBook = onCenterBook,
                         onCancel = onCenterCancel,
                         loadRoster = onLoadClassRoster,
-                        onStartClassPlan = { session ->
-                            val id = onMaterializeProfessionalRoutine(session) ?: return@onStartClassPlan
+                        onStartClassPlan = classPlan@{ session ->
+                            val id = onMaterializeProfessionalRoutine(session) ?: return@classPlan
                             navController.navigate("preview/" + Uri.encode(id))
                         },
                         exerciseCatalog = overview?.exerciseEntries.orEmpty(),
