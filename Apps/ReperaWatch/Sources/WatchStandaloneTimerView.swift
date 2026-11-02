@@ -537,7 +537,7 @@ struct WatchStandaloneTimerView: View {
                 restSeconds: modeRaw == "intervals" ? restSeconds : 0,
                 countdownSeconds: elapsed
             )
-            hub.saveStandaloneTimer(details: details, elapsedSeconds: elapsed)
+            hub.saveStandaloneTimer(id: timerId, details: details, elapsedSeconds: elapsed)
         }
         dismiss()
     }
