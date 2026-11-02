@@ -79,7 +79,6 @@ struct MessagesInboxView: View {
                     }
                 }
 
-                composer
             }
 
             if let err = businessData.errorMessage {
@@ -91,6 +90,12 @@ struct MessagesInboxView: View {
             }
         }
         .background(OG.bg)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if businessAuth.isConnected && !linked.isEmpty {
+                composer
+            }
+        }
+        .toolbar(.hidden, for: .tabBar)
         .ogPinnedTransparentNav("Mensajes")
         .task {
             if selectedOrgId == nil {
