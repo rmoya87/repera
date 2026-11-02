@@ -620,7 +620,7 @@ internal fun WeightPreviewCard(
             if (loggedPoints.isEmpty()) "Peso corporal · ejemplo" else "Peso corporal"
         )
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 DayPointLineChart(points, goal = 74.0, interactive = false, weightStyle = true, weightPreview = true)
                 WeightStatTiles(points.lastOrNull()?.value, 74.0)
                 if (accountId.isNotEmpty()) {
@@ -680,13 +680,13 @@ internal fun HeartZonesDemoCard() {
   verticalArrangement = Arrangement.spacedBy(8.dp)
  ) {
   ReperaSectionTitle("Peso corporal")
- if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+ if(points.isEmpty()) ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
   WeightStatTiles(null,goalKg)
   EmptyHealthChart("Sin mediciones en el periodo.",goalKg?.minus(2) ?: 60.0,goalKg?.plus(2) ?: 90.0,210.dp)
   WeightLogRow(accountId, busy, onLogBodyWeight)
  }} else {
                     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp),
+                        Column(Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val last = points.last()
                             Text(
