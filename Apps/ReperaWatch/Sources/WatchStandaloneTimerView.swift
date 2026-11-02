@@ -79,6 +79,7 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .accessibilityAction(named: Text("Volver")) { closeTimer() }
         .simultaneousGesture(
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
@@ -160,6 +161,7 @@ struct WatchStandaloneTimerView: View {
             .padding(.vertical, 8)
         }
         .scrollIndicators(.hidden)
+        .accessibilityAction(named: Text("Cambiar tipo")) { choosingMode = true }
         .simultaneousGesture(
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
