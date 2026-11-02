@@ -87,4 +87,26 @@ final class WorkoutFavoriteCodableTests: XCTestCase {
         let restored = try JSONDecoder().decode(WorkoutSession.self, from: legacyData)
         XCTAssertNil(restored.favoriteRoutineId)
     }
+
+    func testPlannedRecordingPendingResultEntrySurvivesReloadAndLegacyDefaultsFalse() throws {
+        let id = UUID()
+        let planned = WorkoutSession(
+            title: "Entreno grabado", routineId: id, exercises: [],
+            awaitingResultEntry: true, phase: .ready,
+            startedAt: Date(timeIntervalSince1970: 1_780_000_000)
+        )
+        let data = try JSONEncoder().encode(planned)
+        let restored = try JSONDecoder().decode(WorkoutSession.self, from: data)
+        XCTAssertTrue(restored.awaitingResultEntry)
+        XCTAssertEqual(restored.phase, .ready)
+        XCTAssertEqual(restored.routineId, id)
+
+        var legacy = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        legacy.removeValue(forKey: "awaitingResultEntry")
+        let oldData = try JSONSerialization.data(withJSONObject: legacy)
+        let oldSession = try JSONDecoder().decode(WorkoutSession.self, from: oldData)
+        XCTAssertFalse(oldSession.awaitingResultEntry)
+    }
 }
