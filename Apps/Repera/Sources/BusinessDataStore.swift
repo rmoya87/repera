@@ -497,7 +497,7 @@ final class BusinessDataStore {
                   let start = Self.date(occurrence.startsAt),
                   let end = Self.date(occurrence.endsAt),
                   end >= start else { return nil }
-            let linkedRoutine = trainingSessions.first {
+            let linkedRoutine = historicalProfessionalSessions.first {
                 $0.sourceOccurrenceId == occurrence.id && $0.clientId == booking.clientId
             }?.id
             return ProgressAttendedClass(
@@ -509,6 +509,8 @@ final class BusinessDataStore {
     }
     private(set) var availability: [UUID: BusinessAvailability] = [:]
     private(set) var trainingSessions: [BusinessProfessionalTrainingSession] = []
+    /// Historical professional assignments used only for attendance de-duplication.
+    private var historicalProfessionalSessions: [BusinessProfessionalTrainingSession] = []
     private(set) var personalNotices: [BusinessClientNotification] = []
     private(set) var conversationMessages: [BusinessConversationMessage] = []
     private(set) var entitlements: BusinessEntitlements?
@@ -544,6 +546,7 @@ final class BusinessDataStore {
         progressDataRevision &+= 1
         availability = [:]
         trainingSessions = []
+        historicalProfessionalSessions = []
         NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
         personalNotices = []
         conversationMessages = []
@@ -640,9 +643,11 @@ final class BusinessDataStore {
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
             progressDataRevision &+= 1
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
-            trainingSessions = fetchedTrainingSessions.filter {
-                ownedClientIds.contains($0.clientId) &&
-                    ($0.status == "scheduled" || $0.status == "completed")
+            historicalProfessionalSessions = fetchedTrainingSessions.filter {
+                ownedClientIds.contains($0.clientId)
+            }
+            trainingSessions = historicalProfessionalSessions.filter {
+                $0.status == "scheduled"
             }.sorted { $0.scheduledDate < $1.scheduledDate }
             NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
             errorMessage = nil
