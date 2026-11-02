@@ -1012,7 +1012,7 @@ private struct ProgressSessionScoreChartCard: View {
         let values = points
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                OGCardSectionTitle(title: "Puntuación de entrenos")
+                OGCardSectionTitle(title: "Puntuación de entrenamiento")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
                     Text("Ejemplo · \(Int((values.map(\.score).reduce(0, +) / Double(max(1, values.count))).rounded()))/10")
