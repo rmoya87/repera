@@ -1870,6 +1870,33 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        if session.phase == .finished && session.awaitingResultEntry {
+            // El Watch ya cerró Salud, pero las series siguen sin registrar.
+            // No reemplazar la edición final si llega un envío tardío.
+            if let existing = state.workouts.first(where: { $0.id == session.id }),
+               !existing.awaitingResultEntry {
+                // La rama habitual reconciliará únicamente las métricas verificadas.
+            } else {
+                var pending = session
+                pending.phase = .ready
+                if let old = state.workouts.first(where: { $0.id == session.id }) {
+                    pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
+                    pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
+                    pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
+                    pending.appleDurationSeconds = session.appleDurationSeconds ?? old.appleDurationSeconds
+                }
+                upsertWorkout(pending)
+                persistWorkouts()
+                let snapshot = state
+                Task { @MainActor in
+                    await LocalStore.shared.persistAndFlush(snapshot)
+                    guard LocalStore.shared.lastPersistenceError == nil else { return }
+                    self.lastWatchAcknowledgedSession = session.id
+                    self.pushActiveToWatch(immediate: true)
+                }
+                return
+            }
+        }
         if session.phase == .finished {
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {

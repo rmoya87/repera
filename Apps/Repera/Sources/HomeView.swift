@@ -692,7 +692,10 @@ struct HomeView: View {
                                 routine, to: details, catalog: store.state.exercises,
                                 recordNewSetsAsPerformed: recordNewSetsAsPerformed
                             )
-                            store.saveWorkout(updated)
+                            var finalized = updated
+                            finalized.phase = .finished
+                            finalized.awaitingResultEntry = false
+                            store.saveWorkout(finalized)
                             rebuildDayBuckets()
                             rebuildWeekChrome()
                             rebuildStreakChrome()
@@ -1228,6 +1231,20 @@ struct HomeView: View {
                         }
                     }
                 }
+            }
+            ForEach(store.state.workouts.filter {
+                $0.awaitingResultEntry && $0.startedAt.map {
+                    Calendar.current.isDate($0, inSameDayAs: selectedDay)
+                } == true
+            }) { pending in
+                Button {
+                    editOwnCompletedWorkout(pending)
+                } label: {
+                    Label("Completar entreno pendiente", systemImage: "pencil")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                .tint(OG.accent)
             }
             ForEach(workouts) { session in
                 dayWorkoutCard(session)

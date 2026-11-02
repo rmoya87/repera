@@ -3242,6 +3242,7 @@ struct LiveActivityView: View {
                     Button {
                         if recorder.isStartCountingDown {
                             recorder.cancelStartCountdown()
+                            UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
                         } else if store.hasActiveSession {
                             onOpenWorkout()
                         } else {
@@ -3678,7 +3679,19 @@ struct LiveActivityView: View {
                     routeError = "No se pudo archivar la ruta. La actividad sí se guardará."
                 }
             }
+            if let raw = UserDefaults.standard.string(forKey: "repera.plannedRecordingRoutineID"),
+               let id = UUID(uuidString: raw),
+               let routine = store.state.routines.first(where: { $0.id == id }) {
+                let prescribed = SessionController.from(routine: routine, exercises: store.state.exercises)
+                session.title = routine.title
+                session.routineId = routine.id
+                session.exercises = prescribed.exercises
+                session.routineBlocks = prescribed.routineBlocks
+                session.phase = .ready
+                session.awaitingResultEntry = true
+            }
             store.saveWorkout(session)
+            UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
             let day = session.startedAt ?? Date()
             recorder.discard(saved: true)
             title = ""

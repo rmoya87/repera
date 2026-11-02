@@ -21,6 +21,7 @@ struct RootTabView: View {
     @State private var homeFocusDay: Date?
     @State private var flowPath: [WorkoutFlowRoute] = []
     @State private var previewRoutine: Routine?
+    @State private var pendingResultsEditorID: UUID?
     @State private var pendingInvitationId: UUID?
     @State private var showInvitationSheet = false
 
@@ -41,6 +42,39 @@ struct RootTabView: View {
         }
         .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
         .sheet(isPresented: $showStartHub) { startHubSheet }
+        .sheet(isPresented: Binding(
+            get: { pendingResultsEditorID != nil },
+            set: { if !$0 { pendingResultsEditorID = nil } }
+        )) {
+            if let id = pendingResultsEditorID,
+               let session = store.state.workouts.first(where: { $0.id == id }) {
+                NavigationStack {
+                    DayEditorView(
+                        routine: CompletedWorkoutEditing.routine(
+                            from: session,
+                            sourceRoutine: session.routineId.flatMap { id in
+                                store.state.routines.first(where: { $0.id == id })
+                            }
+                        ),
+                        mode: .session,
+                        onClose: { pendingResultsEditorID = nil },
+                        onApplyCompleted: { routine, details, recordNewSets in
+                            var completed = CompletedWorkoutEditing.applying(
+                                routine, to: details, catalog: store.state.exercises,
+                                recordNewSetsAsPerformed: recordNewSets
+                            )
+                            completed.phase = .finished
+                            completed.awaitingResultEntry = false
+                            store.saveWorkout(completed)
+                            pendingResultsEditorID = nil
+                        },
+                        completedSession: session,
+                        embedsNavigationStack: false,
+                        usesPageCloseHeader: true
+                    )
+                }
+            }
+        }
         .alert(
             "No se ha podido abrir la actividad",
             isPresented: Binding(
@@ -56,6 +90,16 @@ struct RootTabView: View {
         .tint(OG.accent)
         .onChange(of: tab) { _, newTab in
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
+            if newTab != .start && LiveActivityRecorder.shared.phase == .idle {
+                UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
+            }
+        }
+        .onChange(of: store.state.workouts.filter(\.awaitingResultEntry).map(\.id)) { _, ids in
+            if pendingResultsEditorID == nil { pendingResultsEditorID = ids.first }
+        }
+        .task(id: store.isHydrated) {
+            guard store.isHydrated, pendingResultsEditorID == nil else { return }
+            pendingResultsEditorID = store.state.workouts.first(where: \.awaitingResultEntry)?.id
         }
         .task(id: store.isHydrated) {
             await LiveRoutesStore.shared.synchronizeWithICloud()
@@ -322,6 +366,7 @@ struct RootTabView: View {
                 routine: resolvePreviewRoutine(id: routineId),
                 onClose: { flowPath = [] },
                 onStart: openWorkout,
+                onRecord: recordPlannedRoutine,
                 onContinue: openWorkout,
                 onEdit: { routine in
                     previewRoutine = routine
@@ -374,6 +419,27 @@ struct RootTabView: View {
         }
         if let previewRoutine { return previewRoutine }
         return store.routineForToday()
+    }
+
+    private func recordPlannedRoutine(_ routine: Routine) {
+        guard store.state.activeSession == nil,
+              !LiveActivityRecorder.shared.isActive else {
+            sportFavoriteOpenError = "Finaliza o descarta primero el entrenamiento que está en curso."
+            return
+        }
+        let names = routine.blocks.flatMap { block in
+            block.movements.map(\.name) + block.exercises.compactMap { entry in
+                store.state.exercises.first(where: { $0.id == entry.exerciseId })?.name
+            }
+        }.joined(separator: " ").lowercased()
+        let sport: LiveSport = names.contains("bicicleta exterior") || names.contains("outdoor cycling")
+            ? .cycling : (names.contains("carrera exterior") || names.contains("outdoor running")
+                ? .running : (routine.blocks.contains(where: { $0.kind == .wod }) ? .crossfit : .strength))
+        UserDefaults.standard.set(routine.id.uuidString, forKey: "repera.plannedRecordingRoutineID")
+        LiveActivityRecorder.shared.choose(sport)
+        flowPath = []
+        tab = .start
+        LiveActivityRecorder.shared.beginStartCountdown()
     }
 
     private func openWorkout() {
