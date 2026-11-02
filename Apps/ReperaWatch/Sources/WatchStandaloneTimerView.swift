@@ -168,7 +168,7 @@ struct WatchStandaloneTimerView: View {
                             symbol: running ? "pause.fill" : "play.fill",
                             destructive: false
                         ) { togglePause() }
-                        timerActionButton("Terminar", symbol: "flag.checkered", destructive: true) {
+                        timerActionButton("Finalizar", symbol: "flag.checkered", destructive: false) {
                             showDiscardConfirmation = true
                         }
                     }
@@ -265,13 +265,13 @@ struct WatchStandaloneTimerView: View {
             }
         )
         .confirmationDialog(
-            "¿Descartar el temporizador?",
+            "¿Finalizar el temporizador?",
             isPresented: $showDiscardConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Descartar", role: .destructive) { complete(save: false) }
+            Button("Finalizar") { finishRun() }
         } message: {
-            Text("El tiempo registrado no se guardará.")
+            Text("Podrás guardar o descartar el tiempo registrado.")
         }
     }
 
