@@ -24,8 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material3.Button
@@ -283,7 +281,6 @@ private fun ClassesPane(
                 passes = snapshot?.availablePasses(occurrence).orEmpty(),
                 canBook = snapshot?.canBookNow(occurrence) == true,
                 opensAt = snapshot?.bookingOpensAt(occurrence),
-                planSummary = snapshot?.classPlanSummary(occurrence, booking?.clientId),
                 dayFmt = dayFmt,
                 submitting = submitting,
                 onBook = onBook,
@@ -305,7 +302,6 @@ private fun ClassDayCard(
     passes: List<BusinessCenterStore.Pass>,
     canBook: Boolean,
     opensAt: Instant?,
-    planSummary: String? = null,
     dayFmt: DateTimeFormatter,
     submitting: Boolean,
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
@@ -371,13 +367,6 @@ private fun ClassDayCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Text(
-                        planSummary ?: "Sin entreno aún",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (planSummary != null) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 if (booking != null) {
                     Row(
@@ -518,18 +507,6 @@ internal fun ClassDetailPage(
                         )
                     }
                 }
-                ClassBookingCircleButton(
-                    booked = booking != null,
-                    enabled = if (booking != null) !submitting else canTap && !submitting,
-                    onClick = {
-                        if (booking != null) {
-                            onRequestCancel(booking)
-                        } else {
-                            val pass = passes.firstOrNull() ?: return@ClassBookingCircleButton
-                            onBook(occurrence, pass)
-                        }
-                    }
-                )
             }
             Column(
                 Modifier
@@ -663,6 +640,34 @@ internal fun ClassDetailPage(
                     }
                 }
             }
+            Button(
+                onClick = {
+                    if (booking != null) {
+                        onRequestCancel(booking)
+                    } else {
+                        val pass = passes.firstOrNull() ?: return@Button
+                        onBook(occurrence, pass)
+                    }
+                },
+                enabled = !submitting && (booking != null || canTap),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (booking != null) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary,
+                    contentColor = if (booking != null) Color.White else Color.Black,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    if (booking != null) "Cancelar clase" else "Apuntarme",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -728,41 +733,6 @@ private fun DetailRow(title: String, value: String, singleLine: Boolean = false)
             modifier = Modifier.padding(start = 12.dp),
             maxLines = if (singleLine) 1 else Int.MAX_VALUE,
             softWrap = !singleLine
-        )
-    }
-}
-
-@Composable
-private fun ClassBookingCircleButton(
-    booked: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    val container = if (booked) {
-        MaterialTheme.colorScheme.error.copy(alpha = 0.18f)
-    } else if (enabled) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
-    val content = when {
-        booked -> MaterialTheme.colorScheme.error
-        enabled -> Color.White
-        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-    }
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(container)
-            .clickable(enabled = enabled, onClick = onClick)
-    ) {
-        Icon(
-            imageVector = if (booked) Icons.Filled.Close else Icons.Filled.Check,
-            contentDescription = if (booked) "Desapuntarse" else "Apuntarme",
-            tint = content,
-            modifier = Modifier.size(20.dp)
         )
     }
 }
