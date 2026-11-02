@@ -47,6 +47,8 @@ class WatchPlannedRecordingContract(unittest.TestCase):
             self.assertIn(field, finish)
         self.assertIn("recordedPlan: recordedPlan", self.hub)
         self.assertIn("recordedPlan = snapshot.recordedPlan", self.hub)
+        self.assertIn("discardedPlanExecutionID = plan.id", self.hub)
+        self.assertIn("if session?.id == self.discardedPlanExecutionID { return }", self.hub)
 
     def test_edit_opens_once_after_successful_phone_persistence(self):
         completed = self.store.split(
