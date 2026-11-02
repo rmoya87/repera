@@ -22,6 +22,9 @@ public enum VerifiedSessionReviewEngine {
         now: Date = Date()
     ) -> SessionReview? {
         guard session.phase == .finished else { return nil }
+        if session.liveSportID != nil {
+            return liveSportReview(session: session, history: history, now: now)
+        }
         let currentDate = session.finishedAt ?? now
         let cutoff = currentDate.addingTimeInterval(-Double(historyHorizonDays) * 86_400)
         let prior = history.filter {
@@ -134,6 +137,59 @@ public enum VerifiedSessionReviewEngine {
             indicators: indicators,
             evidenceCoverage: coverage,
             confidenceLabel: confidence
+        )
+    }
+
+    /// Verified GPS outings use only real active time and recorded distance.
+    /// Compare identical sports and a similar-distance history, never a global
+    /// pace standard, estimated calories or readings from missing sensors.
+    private static func liveSportReview(
+        session: WorkoutSession, history: [WorkoutSession], now: Date
+    ) -> SessionReview? {
+        guard let sport = session.liveSportID,
+              let distance = session.recordedDistanceMeters,
+              distance.isFinite, distance >= 500,
+              let duration = session.activeDurationSeconds,
+              duration.isFinite, duration > 0,
+              let end = session.finishedAt, end <= now else { return nil }
+
+        let cutoff = end.addingTimeInterval(-Double(historyHorizonDays) * 86_400)
+        let comparable = history.filter { previous in
+            guard previous.id != session.id, previous.phase == .finished,
+                  previous.liveSportID == sport,
+                  let meters = previous.recordedDistanceMeters,
+                  meters.isFinite, meters >= 500,
+                  let seconds = previous.activeDurationSeconds,
+                  seconds.isFinite, seconds > 0,
+                  let priorDate = previous.finishedAt else { return false }
+            return priorDate < end && priorDate >= cutoff
+                && abs(meters - distance) / distance <= 0.20
+        }
+        let distinctDays = Set(comparable.compactMap {
+            $0.finishedAt.map { Calendar.current.startOfDay(for: $0) }
+        })
+        guard distinctDays.count >= minimumPriorSessions else { return nil }
+        let speeds = comparable.compactMap { previous -> Double? in
+            guard let meters = previous.recordedDistanceMeters,
+                  let seconds = previous.activeDurationSeconds, seconds > 0 else { return nil }
+            return meters / seconds
+        }.sorted()
+        guard speeds.count >= minimumPriorSessions else { return nil }
+        let baseline = speeds[speeds.count / 2]
+        guard baseline > 0 else { return nil }
+        let relativePace = (distance / duration) / baseline
+        // 7/10 means maintaining the comparable personal median. No attempt
+        // is made to infer athlete health, effort or fitness from route length.
+        let score = min(10, max(1, Int((7 + (relativePace - 1) * 12).rounded())))
+        return SessionReview(
+            overallScore: score,
+            headline: "Rendimiento personal · \(score)/10",
+            vsHistorySummary: "Comparado con \(distinctDays.count) días previos del mismo deporte y distancia similar.",
+            vsStandardSummary: "Ritmo activo registrado, sin estimar calorías ni sensores ausentes.",
+            keepTips: ["Solo se comparan intentos del mismo deporte."],
+            scoreBasis: .personalHistory,
+            evidenceCoverage: 1,
+            confidenceLabel: distinctDays.count >= 5 ? "Alta" : "En construcción"
         )
     }
 
