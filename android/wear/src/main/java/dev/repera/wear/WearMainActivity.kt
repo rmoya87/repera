@@ -153,6 +153,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private enum class WearHubOverlay { HOME, TIMER_CONFIG, TIMER_RUN }
     private var hubOverlay by mutableStateOf(WearHubOverlay.HOME)
     private var timerDraft by mutableStateOf(WearTimerDraft())
+    private var timerRunId: String? = null
+    private var remoteTimerCommand by mutableStateOf<String?>(null)
+    private var remoteTimerCommandEpoch by mutableStateOf(0)
+    private val timerOutbox by lazy {
+        getSharedPreferences("repera.timer.completed.outbox.v1", MODE_PRIVATE)
+    }
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -235,7 +241,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 WearTimerConfigScreen(
                                     draft = timerDraft,
                                     onDraftChange = { timerDraft = it },
-                                    onStart = { hubOverlay = WearHubOverlay.TIMER_RUN },
+                                    onStart = {
+                                        timerRunId = java.util.UUID.randomUUID().toString()
+                                        remoteTimerCommand = null
+                                        remoteTimerCommandEpoch = 0
+                                        hubOverlay = WearHubOverlay.TIMER_RUN
+                                    },
                                     onBack = { hubOverlay = WearHubOverlay.HOME }
                                 )
                             }
@@ -246,10 +257,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     draft = timerDraft,
                                     audioMuted = hubAudioMuted,
                                     onFinished = { details, started, finished ->
+                                        val id = timerRunId
+                                        if (id != null) {
+                                            sendTimerStateToPhone(id, "finished",
+                                                details.countdownSeconds, 1)
+                                            sendTimerDetailsToPhone(id, details, started, finished)
+                                        }
+                                        timerRunId = null
                                         hubOverlay = WearHubOverlay.HOME
-                                        sendTimerDetailsToPhone(details, started, finished)
                                     },
-                                    onDiscard = { hubOverlay = WearHubOverlay.HOME }
+                                    onDiscard = {
+                                        timerRunId?.let {
+                                            sendTimerStateToPhone(it, "discarded", 0, 1)
+                                        }
+                                        timerRunId = null
+                                        hubOverlay = WearHubOverlay.HOME
+                                    },
+                                    onMirror = { phase, elapsed, round ->
+                                        timerRunId?.let {
+                                            sendTimerStateToPhone(it, phase, elapsed, round)
+                                        }
+                                    },
+                                    remoteCommand = remoteTimerCommand,
+                                    remoteCommandEpoch = remoteTimerCommandEpoch
                                 )
                             }
                             WearHubOverlay.HOME -> WearHomeContent(
@@ -488,6 +518,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         dataClient.addListener(this)
         messageClient.addListener(this)
         resendPending()
+        resendPendingTimers()
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
@@ -572,6 +603,27 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/timer-command") {
+            val cmd = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
+                .getOrNull() ?: return
+            if (cmd.optString("id") == timerRunId &&
+                hubOverlay == WearHubOverlay.TIMER_RUN &&
+                cmd.optString("command") in setOf("pause", "resume", "finish")) {
+                runOnUiThread {
+                    remoteTimerCommand = cmd.optString("command")
+                    remoteTimerCommandEpoch++
+                }
+            }
+            return
+        }
+        if (event.path == "/repera/timer-save-ack") {
+            val ack = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
+                .getOrNull() ?: return
+            if (ack.optBoolean("saved")) {
+                removePendingTimer(ack.optString("id"))
+            }
+            return
+        }
         if (event.path == "/repera/session-start-ack") {
             val reply = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8))
@@ -986,28 +1038,88 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
+    private fun sendTimerStateToPhone(
+        id: String, phase: String, elapsed: Int, round: Int
+    ) {
+        val payload = JSONObject()
+            .put("id", id)
+            .put("phase", phase)
+            .put("modeRaw", timerDraft.modeRaw)
+            .put("configuredSeconds", timerDraft.toDetails().configuredSeconds)
+            .put("elapsedSeconds", elapsed.coerceAtLeast(0))
+            .put("round", round.coerceAtLeast(1))
+            .put("updatedAtMillis", System.currentTimeMillis())
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            nodes.forEach { node ->
+                messageClient.sendMessage(node.id, "/repera/timer-state", payload)
+            }
+        }
+    }
+
     private fun sendTimerDetailsToPhone(
+        id: String,
         details: dev.repera.domain.TimerCompletionDetails,
         startedAtMillis: Long,
         finishedAtMillis: Long
     ) {
-        val id = java.util.UUID.randomUUID().toString()
         val payload = JSONObject()
             .put("id", id)
             .put("startedAtMillis", startedAtMillis)
             .put("finishedAtMillis", finishedAtMillis)
             .put("timerDetails", details.toJson())
-            .toString().toByteArray(Charsets.UTF_8)
+        // Guardar antes de enviar. Se elimina exclusivamente con ACK de guardado.
+        val saved = runCatching {
+            val raw = timerOutbox.getString("pending", "[]") ?: "[]"
+            val existing = JSONArray(raw)
+            val newItems = JSONArray()
+            for (i in 0 until existing.length()) {
+                val item = existing.optJSONObject(i) ?: continue
+                if (item.optString("id") != id) newItems.put(item)
+            }
+            newItems.put(payload)
+            timerOutbox.edit().putString("pending", newItems.toString()).commit()
+        }.getOrDefault(false)
+        if (!saved) {
+            sendStatus = "No se ha podido conservar el temporizador pendiente"
+            return
+        }
+        resendPendingTimers()
+    }
+
+    private fun resendPendingTimers() {
+        val pending = runCatching {
+            JSONArray(timerOutbox.getString("pending", "[]") ?: "[]")
+        }.getOrNull() ?: return
+        if (pending.length() == 0) return
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
             if (nodes.isEmpty()) {
-                // TODO: cola local de timerDetails cuando no hay /repera/timer-save reachable.
-                sendStatus = "Temporizador listo; sin teléfono para guardar"
+                sendStatus = "Temporizador pendiente; se enviará al reconectar"
                 return@addOnSuccessListener
             }
-            nodes.forEach { node ->
-                messageClient.sendMessage(node.id, "/repera/timer-save", payload)
+            for (i in 0 until pending.length()) {
+                val payload = pending.optJSONObject(i)?.toString()
+                    ?.toByteArray(Charsets.UTF_8) ?: continue
+                nodes.forEach { node ->
+                    messageClient.sendMessage(node.id, "/repera/timer-save", payload)
+                }
             }
-            sendStatus = "Temporizador enviado al teléfono"
+            sendStatus = "Sincronizando temporizador con el móvil"
+        }
+    }
+
+    private fun removePendingTimer(id: String) {
+        if (id.isBlank()) return
+        val pending = runCatching {
+            JSONArray(timerOutbox.getString("pending", "[]") ?: "[]")
+        }.getOrNull() ?: return
+        val remainder = JSONArray()
+        for (i in 0 until pending.length()) {
+            val item = pending.optJSONObject(i) ?: continue
+            if (item.optString("id") != id) remainder.put(item)
+        }
+        if (timerOutbox.edit().putString("pending", remainder.toString()).commit()) {
+            runOnUiThread { sendStatus = null }
         }
     }
 
