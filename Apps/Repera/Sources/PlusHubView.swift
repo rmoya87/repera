@@ -25,6 +25,9 @@ struct PlusHubView: View {
     @State private var classCalendarScrollID: String?
     @ScaledMetric(relativeTo: .body) private var classCarouselHeight: CGFloat = 72
     @State private var bookingPendingCancellation: BusinessBooking?
+    // El detalle sirve como respaldo si la disponibilidad agregada no incluye la clase.
+    // Guardar solo cifras, nunca nombres de otras personas.
+    @State private var rosterOccupancy: [UUID: (reserved: Int, capacity: Int)] = [:]
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -251,7 +254,10 @@ struct PlusHubView: View {
     private func classDayCard(_ occurrence: BusinessOccurrence) -> some View {
         let color = Color(plusHubHex: occurrence.color ?? "#22834d") ?? OG.accent
         let booking = business.booking(for: occurrence.id)
-        let places = business.remainingPlaces(for: occurrence)
+        let fallback = rosterOccupancy[occurrence.id]
+        let capacity = business.availability[occurrence.id]?.capacity ?? fallback?.capacity ?? occurrence.capacity
+        let reserved = business.availability[occurrence.id]?.reserved ?? fallback?.reserved
+        let places = reserved.map { max(0, capacity - $0) }
         let open = business.canBookNow(occurrence)
         let opensAt = business.bookingOpensAt(for: occurrence)
         let full = (places ?? 1) == 0
@@ -259,7 +265,7 @@ struct PlusHubView: View {
         let canTap = open && !full && wallets.first != nil
         let start = BusinessDataStore.date(occurrence.startsAt)
         let end = BusinessDataStore.date(occurrence.endsAt)
-        let aforo = Self.aforoLabel(capacity: occurrence.capacity, remaining: places)
+        let aforo = Self.aforoLabel(capacity: capacity, remaining: places)
 
         OGCard(padding: 0) {
             HStack(alignment: .top, spacing: 0) {
@@ -352,6 +358,15 @@ struct PlusHubView: View {
                 }
                 .padding(14)
             }
+        }
+        .task(id: "\(occurrence.id.uuidString)-\(booking?.id.uuidString ?? "")-\(booking?.status ?? "")") {
+            // Invalidar el respaldo si cambia el estado de la reserva.
+            rosterOccupancy.removeValue(forKey: occurrence.id)
+            guard business.availability[occurrence.id] == nil else { return }
+            let roster = await business.loadClassRoster(for: occurrence.id)
+            guard !Task.isCancelled, let reserved = roster?.reserved else { return }
+            let capacity = roster?.capacity ?? occurrence.capacity
+            rosterOccupancy[occurrence.id] = (reserved: reserved, capacity: capacity)
         }
     }
 
@@ -706,7 +721,7 @@ struct PlusHubView: View {
             let reserved = max(0, capacity - remaining)
             return "\(reserved)/\(capacity)"
         }
-        return "\(capacity) plazas"
+        return "—/\(capacity)"
     }
 
     static func paymentLabel(_ pass: BusinessPass) -> String {

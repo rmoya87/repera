@@ -142,7 +142,8 @@ internal fun PlusHubTab(
                 submitting = submitting,
                 onBook = onBook,
                 onRequestCancel = { pendingCancellation = it },
-                onOpenDetail = { detailOccurrence = it }
+                onOpenDetail = { detailOccurrence = it },
+                loadRoster = loadRoster
             )
             else -> CenterPane(
                 snapshot = snapshot,
@@ -215,6 +216,7 @@ private fun ClassesPane(
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
+    loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)?,
 ) {
     val classDays = remember(snapshot) {
         (snapshot?.occurrences.orEmpty())
@@ -286,7 +288,8 @@ private fun ClassesPane(
                 submitting = submitting,
                 onBook = onBook,
                 onRequestCancel = onRequestCancel,
-                onOpenDetail = onOpenDetail
+                onOpenDetail = onOpenDetail,
+                loadRoster = loadRoster
             )
         }
     }
@@ -308,11 +311,24 @@ private fun ClassDayCard(
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onOpenDetail: (BusinessCenterStore.Occurrence) -> Unit,
+    loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)?,
 ) {
+    // Mismo RPC de ocupación que en el detalle, solo cuando falta el agregado.
+    var rosterCount by remember(occurrence.id, booking?.id, booking?.status) {
+        mutableStateOf<BusinessCenterStore.ClassRoster?>(null)
+    }
+    LaunchedEffect(occurrence.id, booking?.id, booking?.status, reserved) {
+        if (reserved == null) rosterCount = loadRoster?.invoke(occurrence.id)
+    }
+    val actualCapacity = if (reserved == null) rosterCount?.capacity ?: capacity else capacity
+    val actualReserved = reserved ?: rosterCount?.reserved
+    val actualRemaining = places ?: if (actualCapacity != null && actualReserved != null) {
+        (actualCapacity - actualReserved).coerceAtLeast(0)
+    } else null
     val accent = parseClassColor(occurrence.color)
-    val full = (places ?: 1) == 0
+    val full = (actualRemaining ?: 1) == 0
     val canTap = canBook && !full && passes.isNotEmpty()
-    val aforo = aforoLabel(capacity = capacity, remaining = places, reserved = reserved)
+    val aforo = aforoLabel(capacity = actualCapacity, remaining = actualRemaining, reserved = actualReserved)
     ReperaCard(Modifier.fillMaxWidth()) {
         Row(
             Modifier
@@ -1403,7 +1419,7 @@ private fun durationLabel(start: Instant, end: Instant): String {
 private fun aforoLabel(capacity: Int?, remaining: Int?, reserved: Int?): String? {
     val cap = capacity?.takeIf { it > 0 } ?: return null
     val used = reserved ?: remaining?.let { (cap - it).coerceAtLeast(0) }
-    return if (used != null) "$used/$cap" else "$cap plazas"
+    return if (used != null) "$used/$cap" else "—/$cap"
 }
 
 private fun parseClassColor(raw: String?): Color {

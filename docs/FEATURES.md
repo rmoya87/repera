@@ -1,5 +1,9 @@
 # Funcionalidades Repera
 
+## Plazas ocupadas en tarjetas de clases (02/11/2026)
+
+Las tarjetas de Clases en iOS y Android muestran los inscritos frente al aforo, por ejemplo 1/12, igual que el detalle. Primero se usa get_service_availability y, cuando no hay recuento de esa clase, el valor reserved de class_occurrence_roster. Solo se guardan los números, sin exponer asistentes; tras cambiar una reserva se vuelve a consultar el respaldo. Si no hay cifras verificadas se muestra —/12, nunca 12 plazas como sustituto del total de apuntados.
+
 ## Menú principal: icono «+» sin etiqueta (02/11/2026)
 
 En iOS y Android, la pestaña central que abre Clases/Centro muestra únicamente el icono circular con «+», sin el texto redundante debajo. Inicio, Comenzar, Progreso y Ejercicios conservan sus títulos; VoiceOver/TalkBack mantienen la etiqueta accesible «Clases y centro». La selección, navegación y contenidos de la pestaña no cambian.
