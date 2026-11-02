@@ -47,7 +47,6 @@ struct WatchStandaloneTimerView: View {
         .navigationTitle(started && !finished ? "" : "Temporizador")
         .toolbar(started && !finished ? .hidden : .automatic, for: .navigationBar)
         .navigationBarBackButtonHidden(started && !finished)
-        .interactiveDismissDisabled(started && !finished)
         .onChange(of: hub.timerRemoteCommand?.token) { _, _ in
             guard let remote = hub.timerRemoteCommand,
                   remote.id == timerId, started, !finished else { return }
@@ -127,8 +126,7 @@ struct WatchStandaloneTimerView: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: 56)
-            .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
-            .contentShape(RoundedRectangle(cornerRadius: 14))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
