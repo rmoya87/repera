@@ -414,10 +414,12 @@ enum ProgressDataEngine {
         let end = Calendar.current.date(
             byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)
         ) ?? now
-        let raw = entries
-            .filter { $0.date >= start && $0.date < end }
+        let current = entries.filter { $0.date >= start && $0.date < end }
+        // Preserve old measurements when this period has no weigh-ins.
+        let raw = (current.isEmpty ? entries.filter { $0.date < end } : current)
             .sorted { $0.date < $1.date }
-        let granularity = ProgressSeriesGranularity.forChart(range: range)
+        let granularity = current.isEmpty ? ProgressSeriesGranularity.day
+            : ProgressSeriesGranularity.forChart(range: range)
         guard granularity != .day, raw.count > 1 else {
             return raw.map { ProgressWeightPoint(date: $0.date, weightKg: $0.weightKg) }
         }
