@@ -6,6 +6,7 @@ import os
 protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
+    func phoneConnectivityDidReceiveTimer(_ timer: WatchTimerMirror)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool
     /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
@@ -25,6 +26,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidReceiveTimer(_ timer: WatchTimerMirror) {}
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool { false }
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
@@ -47,6 +49,17 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     // Cache plans created before WatchConnectivity activation completes.
     private let latestPayloadLock = NSLock()
     private var latestPayload: [String: Any]?
+
+    @discardableResult
+    func sendTimerCommand(id: UUID, command: String) -> Bool {
+        guard ["pause", "resume", "finish"].contains(command),
+              WCSession.isSupported(), WCSession.default.activationState == .activated,
+              WCSession.default.isReachable else { return false }
+        WCSession.default.sendMessage([
+            "action": "timerCommand", "timerId": id.uuidString, "command": command
+        ], replyHandler: nil) { _ in }
+        return true
+    }
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -147,6 +160,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             logger.error("WCSession activation error: \(error.localizedDescription, privacy: .public)")
         }
         publishLatestContext()
+        decode(session.receivedApplicationContext)
         delegate?.phoneConnectivityDidUpdateReachability(session.isReachable)
     }
 
@@ -292,6 +306,10 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     private func decode(_ payload: [String: Any]) {
+        if let data = payload["timerMirror"] as? Data,
+           let mirror = try? JSONDecoder().decode(WatchTimerMirror.self, from: data) {
+            delegate?.phoneConnectivityDidReceiveTimer(mirror)
+        }
         if payload["discarded"] as? Bool == true
             || ((payload["session"] as? Data)?.isEmpty == true
                 && payload["discardedSessionId"] != nil) {
