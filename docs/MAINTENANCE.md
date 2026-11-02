@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-01 (chrome fuera del menú; botones planos)
+Última actualización: 2026-11-02 (capas agenda Business: settings/rooms/day program)
 
 ## Regla de oro
 

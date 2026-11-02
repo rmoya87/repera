@@ -68,7 +68,7 @@ Los wrappers de lectura y acciones en `public` son invoker; la lógica privilegi
 Pendiente: integración Stripe Billing/Connect, webhooks verificados, almacenamiento/conciliación de cobros de clientes B2C, facturación fiscal y tests E2E de tenant con JWT reales.
 
 # Base de datos — Repera
-Última actualización: 2026-11-01 (business_decide_enrollment → jsonb client_id; cupo trial).
+Última actualización: 2026-11-02 (capas agenda: rooms, series, day_programs, org_operation_settings, open_access).
 
 **Proyecto autorizado:** `uvzgujlrqohreoucirms` (eu-west-1, PostgreSQL 17).
 **Migraciones aplicadas:** `20261019190623_business_foundation_secure`, `20261019193414_business_clients_scoped`, `20261019201141_business_org_invitations_consent` y `20261019201248_business_invitation_private_rpc`, `20261019201914_business_services_booking_wallets`, `20261019203258_business_professional_training_sessions` y `20261019210032_business_service_availability`.
@@ -97,14 +97,18 @@ Funciones de trigger y helper en esquema `private`: `handle_new_user`, `bootstra
 ## Invariantes
 La organización se crea con `created_by=auth.uid()` y un trigger crea su primer propietario; UNIQUE(organization_id,user_id) evita duplicidad. Desde el cliente no se puede insertar/editar miembros. RLS en las ocho tablas. Ningún usuario/organización de prueba quedó persistido.
 
-## Servicios reales (migración 20261019201914)
-- `service_occurrences`: clase o cita 1:1, entrenador, inicio/fin, aforo, estado. Trigger comprueba rol activo y evita solapamientos simultáneos de entrenador.
-- `service_passes`: bonos de cortesía separados por tipo de servicio (clase/cita), cliente vinculado, validez y créditos disponibles.
-- `service_bookings`: reserva con identidad verificada, petición idempotente y estado.
-- `service_credit_ledger`: concesión manual, consumo y devolución auditable; no refleja ingresos.
-- RPCs publicadas como wrappers SECURITY INVOKER hacia funciones privadas: `grant_complimentary_pass`, `book_service_occurrence`, `cancel_service_booking`.
-- La política provisional devuelve un crédito si la cancelación ocurre más de 12 h antes del evento; confirmar norma y excepciones con el negocio antes de cobros o producción.
-- Suite de pruebas SQL real: `supabase/tests/business_booking_smoke.sql`. Concurrencia simultánea cliente-cliente requiere ensayo e2e paralelo adicional.
+## Servicios reales (migración 20261019201914 + capas 20261102090000)
+- `service_occurrences`: clase, cita 1:1 u `open_access`; coach opcional; `series_id`, `room_id`, `activity_type_id`; aforo y estado. Triggers: anti-solape coach y anti-solape sala.
+- `service_series`: serie viva (regla de repetición, defaults de coach/sala/aforo/tipo).
+- `facility_rooms`: salas opcionales con capacidad.
+- `activity_types`: tipologías por org (CrossFit, Yoga, Open Gym, Cita…).
+- `day_programs`: programa del día (ámbito global / activity_type / room) con prescription v1.
+- `org_operation_settings`: perfil de centro, flags salas/programa/open gym, `cancel_credit_hours`.
+- `service_passes`: bonos separados por tipo de servicio (clase/cita; open_access reutiliza kind class o propio según oferta).
+- `service_bookings`: reserva / waitlist / asistencia; petición idempotente.
+- `service_credit_ledger`: concesión, consumo y devolución auditable; no refleja ingresos.
+- RPCs: `grant_complimentary_pass`, `book_service_occurrence`, `cancel_service_booking` (crédito según `cancel_credit_hours`), `resolve_occurrence_training`, `get_org_schedule_bundle`, CRUD settings/rooms/types/day_programs.
+- Suite: `supabase/tests/business_booking_smoke.sql`, `supabase/tests/scheduling_layers_smoke.sql`.
 
 ## Próximas migraciones
 Tablas de invitaciones con token de un solo uso; enlaces entrenador-cliente y consentimiento con revocación; sedes/salas; versión/asignación de planes; clases/aforo/reservas/espera/créditos; catálogo comercial B2B y pagos B2C separados, webhooks y auditoría. Definir idempotency keys y transacciones atómicas por operación.

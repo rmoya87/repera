@@ -36,10 +36,21 @@ class BusinessCenterStore(
         val invitedRole: String, val expiresAt: String?, val acceptedAt: String?,
         val cancelledAt: String?)
     data class ClientLink(val id: String, val orgId: String, val userId: String)
+    data class OperationSettings(
+        val orgId: String?,
+        val profile: String? = null,
+        val useRooms: Boolean = false,
+        val dayProgramEnabled: Boolean = true,
+        val openAccessEnabled: Boolean = false,
+        val openAccessRequiresBooking: Boolean = true,
+        val cancelCreditHours: Int = 12
+    )
+    data class FacilityRoom(val id: String, val orgId: String, val name: String, val capacity: Int)
     data class Occurrence(val id: String, val orgId: String, val kind: String,
         val title: String, val startsAt: String, val endsAt: String?,
         val capacity: Int?, val status: String,
         val color: String? = null, val location: String? = null,
+        val roomId: String? = null,
         val trainingTitle: String? = null, val trainingInstructions: String? = null,
         val prescription: JSONObject? = null)
     data class Pass(val id: String, val orgId: String, val clientId: String,
@@ -72,6 +83,8 @@ class BusinessCenterStore(
         val athleteCenterIds: Set<String> = emptySet(),
         val clientLinks: List<ClientLink> = emptyList(),
         val occurrences: List<Occurrence> = emptyList(),
+        val operationSettingsByOrg: Map<String, OperationSettings> = emptyMap(),
+        val facilityRooms: List<FacilityRoom> = emptyList(),
         val passes: List<Pass> = emptyList(),
         val passOffers: List<PassOffer> = emptyList(),
         val bookings: List<Booking> = emptyList(),
@@ -80,6 +93,19 @@ class BusinessCenterStore(
         val chatMessages: List<ChatMessage> = emptyList(),
         val trainingSessions:List<ProfessionalSession> = emptyList()
     ) {
+        fun openAccessEnabled(orgId: String): Boolean =
+            operationSettingsByOrg[orgId]?.openAccessEnabled == true
+
+        fun useRooms(orgId: String): Boolean =
+            operationSettingsByOrg[orgId]?.useRooms == true
+
+        fun roomName(occurrence: Occurrence): String? {
+            val id = occurrence.roomId
+            if (!id.isNullOrBlank()) {
+                facilityRooms.firstOrNull { it.id == id }?.name?.let { return it }
+            }
+            return occurrence.location?.takeIf { it.isNotBlank() }
+        }
         val isLinkedOrInvited: Boolean
             get() = athleteCenterIds.isNotEmpty() || invitations.isNotEmpty()
 
@@ -119,7 +145,9 @@ class BusinessCenterStore(
         fun availablePasses(occurrence: Occurrence): List<Pass> {
             val begins = parseInstant(occurrence.startsAt) ?: return emptyList()
             return passes.filter { pass ->
-                pass.orgId == occurrence.orgId && pass.kind == occurrence.kind &&
+                val kindOk = pass.kind == occurrence.kind ||
+                    (occurrence.kind == "open_access" && pass.kind == "class")
+                pass.orgId == occurrence.orgId && kindOk &&
                     pass.status == "active" && pass.remainingCredits > 0 &&
                     (parseInstant(pass.validFrom) ?: Instant.MAX) <= begins &&
                     (parseInstant(pass.validUntil) ?: Instant.EPOCH) >= begins
@@ -275,7 +303,7 @@ class BusinessCenterStore(
             val myLinks = links.filter { it.userId == currentUser }
             val ownedClientIds = myLinks.map { it.id }.toSet()
             val occurrences = parseOccurrences(get(session, "service_occurrences",
-                "id,org_id,kind,title,starts_at,ends_at,capacity,status," +
+                "id,org_id,kind,title,starts_at,ends_at,capacity,status,room_id," +
                     "service_occurrence_details!service_occurrence_details_occurrence_id_fkey(" +
                     "color,location,training_title,training_instructions,prescription)"))
             val passes = parsePasses(get(session, "service_passes",
@@ -289,6 +317,8 @@ class BusinessCenterStore(
             val training=parseProfessionalSessions(get(session,"professional_training_sessions",
                 "id,org_id,client_id,coach_user_id,scheduled_date,scheduled_time_minutes,title,instructions,prescription,status,source_occurrence_id"))
             val counts = mutableMapOf<String, Availability>()
+            val settingsByOrg = mutableMapOf<String, OperationSettings>()
+            val roomsAcc = mutableListOf<FacilityRoom>()
             for (center in centers) {
                 val occupancy = rpc(session, "get_service_availability",
                     JSONObject().put("p_org", center.id))
@@ -299,6 +329,10 @@ class BusinessCenterStore(
                         capacity = row.getInt("capacity"),
                         reserved = row.getInt("reserved"))
                     counts[item.occurrenceId] = item
+                }
+                loadScheduleBundle(session, center.id)?.let { (settings, rooms) ->
+                    settingsByOrg[center.id] = settings
+                    roomsAcc.addAll(rooms)
                 }
             }
             val now = Instant.now()
@@ -312,6 +346,8 @@ class BusinessCenterStore(
                 athleteCenterIds = linkedIds,
                 clientLinks = myLinks,
                 occurrences = occurrences.filter { it.status == "active" },
+                operationSettingsByOrg = settingsByOrg,
+                facilityRooms = roomsAcc,
                 passes = passes.filter { it.clientId in ownedClientIds },
                 passOffers = offers.filter { it.isActive && it.orgId in linkedIds },
                 bookings = bookings.filter { it.clientId in ownedClientIds },
@@ -465,6 +501,54 @@ class BusinessCenterStore(
         ClientLink(row.getString("id"), row.getString("org_id"), row.getString("user_id"))
     }
 
+    private fun loadScheduleBundle(
+        session: SupabaseIdentity.Session,
+        orgId: String
+    ): Pair<OperationSettings, List<FacilityRoom>>? {
+        return try {
+            val request = Request.Builder()
+                .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/get_org_schedule_bundle")
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
+                .post(JSONObject().put("p_org", orgId).toString()
+                    .toRequestBody("application/json".toMediaType()))
+                .build()
+            http.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful || body.isBlank()) return null
+                val root = when {
+                    body.startsWith("{") -> JSONObject(body)
+                    body.startsWith("[") -> JSONArray(body).optJSONObject(0) ?: return null
+                    else -> return null
+                }
+                val settingsJson = root.optJSONObject("settings") ?: JSONObject()
+                val settings = OperationSettings(
+                    orgId = settingsJson.optString("org_id").ifBlank { orgId },
+                    profile = settingsJson.optString("profile").ifBlank { null },
+                    useRooms = settingsJson.optBoolean("use_rooms", false),
+                    dayProgramEnabled = settingsJson.optBoolean("day_program_enabled", true),
+                    openAccessEnabled = settingsJson.optBoolean("open_access_enabled", false),
+                    openAccessRequiresBooking = settingsJson.optBoolean("open_access_requires_booking", true),
+                    cancelCreditHours = settingsJson.optInt("cancel_credit_hours", 12)
+                )
+                val roomsArr = root.optJSONArray("rooms") ?: JSONArray()
+                val rooms = (0 until roomsArr.length()).map { i ->
+                    val r = roomsArr.getJSONObject(i)
+                    FacilityRoom(
+                        r.getString("id"),
+                        r.optString("org_id").ifBlank { orgId },
+                        r.optString("name"),
+                        r.optInt("capacity", 20)
+                    )
+                }
+                settings to rooms
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun parseOccurrences(data: JSONArray) = (0 until data.length()).map { i ->
         val row = data.getJSONObject(i)
         val details = row.optJSONObject("service_occurrence_details")
@@ -478,6 +562,7 @@ class BusinessCenterStore(
             row.optString("status"),
             details?.optString("color")?.ifBlank { null } ?: row.optString("color").ifBlank { null },
             details?.optString("location")?.ifBlank { null } ?: row.optString("location").ifBlank { null },
+            row.optString("room_id").ifBlank { null },
             details?.optString("training_title")?.ifBlank { null },
             details?.optString("training_instructions")?.ifBlank { null },
             details?.optJSONObject("prescription")

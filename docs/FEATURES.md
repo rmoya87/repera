@@ -25,7 +25,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-11-01 (Business: Guardar en cabecera + entreno en nueva clase)
+Última actualización: 2026-11-02 (Business: capas agenda unificada box/gym/multi-sala)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 
@@ -193,7 +193,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 
 - Solo visible en la tab bar si hay vínculo (o invitación) a un centro/entrenador. Selector **Clases · Citas**.
 - Hub desde Inicio: bonos, aforo, reservas, agenda (clases/citas/entrenos prescritos), chat y decline de invitaciones. Deep link `repera://invitation/{id}`.
-- **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC. Lista de espera aún pendiente (P1).
+- **Clases**: horarios grupales, saldo de bono, reservas/cancelaciones por RPC. Waitlist en SQL con promoción al liberar plaza; UX app en endurecimiento. Capas 2026-11-02: salas opcionales, programa del día + override, open gym con aforo, ajustes de operación del centro.
 - **Citas**: sesiones individuales con bono independiente; aforo vía `get_service_availability`.
 - **Estado real actual:** migraciones chat/cupos/push en repo (aplicar staging); Center enlazado en navegación iOS/Android. Push 60 min en cola; delivery solo con secretos FCM/APNs. Sin Stripe.
 - Clases/citas confirmadas también en Inicio (`businessDayCard`).

@@ -7,12 +7,13 @@ struct CenterView: View {
     @Environment(BusinessDataStore.self) private var business
 
     private enum CenterSection: String, CaseIterable, Identifiable {
-        case classes, appointments, agenda
+        case classes, appointments, openAccess, agenda
         var id: Self { self }
         var title: String {
             switch self {
             case .classes: "Clases"
             case .appointments: "Citas"
+            case .openAccess: "Acceso libre"
             case .agenda: "Agenda"
             }
         }
@@ -20,9 +21,15 @@ struct CenterView: View {
             switch self {
             case .classes: "class"
             case .appointments: "appointment"
+            case .openAccess: "open_access"
             case .agenda: nil
             }
         }
+    }
+
+    private var visibleSections: [CenterSection] {
+        let showOpen = business.centers.contains { business.openAccessEnabled(for: $0.id) }
+        return CenterSection.allCases.filter { $0 != .openAccess || showOpen }
     }
     @State private var selectedSection: CenterSection = .classes
     @State private var bookingPendingCancellation: BusinessBooking?
@@ -68,12 +75,12 @@ struct CenterView: View {
 
                 OGCardSectionTitle(title: "Reservas y agenda")
                 Picker("Tipo", selection: $selectedSection) {
-                    ForEach(CenterSection.allCases) { section in
+                    ForEach(visibleSections) { section in
                         Text(section.title).tag(section)
                     }
                 }
                 .pickerStyle(.segmented)
-                .accessibilityLabel("Clases, citas o agenda")
+                .accessibilityLabel("Clases, citas, acceso libre o agenda")
 
                 if selectedSection == .agenda {
                     agendaSection
@@ -86,8 +93,12 @@ struct CenterView: View {
                     if available.isEmpty {
                         OGCard {
                             VStack(alignment: .leading, spacing: 10) {
-                                Label(selectedSection == .classes ? "Sin clases disponibles" : "Sin citas disponibles",
-                                      systemImage: "calendar.badge.clock")
+                                Label(
+                                    selectedSection == .classes ? "Sin clases disponibles"
+                                        : selectedSection == .openAccess ? "Sin franjas de acceso libre"
+                                        : "Sin citas disponibles",
+                                    systemImage: "calendar.badge.clock"
+                                )
                                     .font(.headline)
                                 Text("Se mostrarán aquí los horarios reales que publique tu centro o entrenador.")
                                     .font(.subheadline)
@@ -276,6 +287,20 @@ struct CenterView: View {
                 Text(business.centerName(occurrence.orgId))
                     .foregroundStyle(OG.label2)
                     .font(.subheadline)
+                if let room = business.roomName(for: occurrence), business.useRooms(for: occurrence.orgId) {
+                    Label(room, systemImage: "door.left.hand.open")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                }
+                if occurrence.kind == "open_access" {
+                    Text("Acceso libre · aforo limitado")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                } else if occurrence.prescription != nil || !(occurrence.trainingTitle ?? "").isEmpty {
+                    Text("Hay entreno publicado")
+                        .font(.footnote)
+                        .foregroundStyle(OG.accent)
+                }
                 if let start = BusinessDataStore.date(occurrence.startsAt) {
                     Text(start.formatted(date: .abbreviated, time: .shortened))
                         .font(.subheadline)
@@ -292,9 +317,10 @@ struct CenterView: View {
                         bookingPendingCancellation = booking
                     }
                     .disabled(business.isSubmitting)
+                    let hours = business.operationSettingsByOrg[occurrence.orgId]?.cancelCreditHours ?? 12
                     Text(booking.status == "waitlist"
                          ? "En espera no se descuenta crédito hasta confirmar plaza."
-                         : "Cancelar con más de 12 h suele devolver el crédito; dentro de 12 h, no.")
+                         : "Cancelar con más de \(hours) h suele devolver el crédito; dentro de ese plazo, no.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 } else if let places = business.remainingPlaces(for: occurrence), places == 0 {

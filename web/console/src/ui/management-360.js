@@ -469,6 +469,7 @@ export function renderNewClientWorkoutModal({
 /** Modal nueva clase: única / repetitiva + entreno opcional. */
 export function renderNewClassModal({
  coaches=[],busy=false,day='',templates=[],templateId='',seedPrescription=null,
+ rooms=[],activityTypes=[],
 }={}){
  const staff=coaches.filter(c=>c.user_id&&!/Administrador Repera/i.test(c.label||''));
  const seed=new Set();
@@ -494,12 +495,17 @@ export function renderNewClassModal({
   </div>
   <div class="business-dialog-scroll pt-sheet-body">
    <form id="${formId}" data-connected="service-occurrence" class="business-form pt-sheet-form pt-edit-class-form" data-class-create data-class-week-create data-assign-class-form>
-    <input type="hidden" name="kind" value="class">
     <div class="pt-edit-class-layout">
      <section class="pt-edit-class-col pt-edit-class-meta" aria-label="Datos de la clase">
       <h3 class="pt-edit-col-title">Clase</h3>
       ${input('Nombre de la clase','title','','text','required minlength="2" maxlength="120" placeholder="Spinning · HIIT · Yoga…"')}
       ${colorSwatches('#22834d')}
+      <label class="connected-field">Modalidad
+       <select name="kind">
+        <option value="class" selected>Clase grupal</option>
+        <option value="open_access">Open gym / acceso libre</option>
+       </select>
+      </label>
       <label class="connected-field">Tipo
        <select name="scheduleMode" data-class-schedule-mode>
         <option value="unique" selected>Clase única</option>
@@ -518,7 +524,18 @@ export function renderNewClassModal({
         ${staff.map(c=>`<option value="${esc(c.user_id)}">${esc(c.label||c.user_id.slice(0,8))}</option>`).join('')}
        </select>
       </label>
-      ${input('Sala / ubicación (opcional)','location','','text','maxlength="250"')}
+      ${(rooms||[]).length?`<label class="connected-field">Sala
+       <select name="room_id">
+        <option value="">Sin sala</option>
+        ${rooms.filter(r=>r.is_active!==false).map(r=>`<option value="${esc(r.id)}">${esc(r.name)} · ${r.capacity}</option>`).join('')}
+       </select>
+      </label>`:input('Sala / ubicación (opcional)','location','','text','maxlength="250"')}
+      ${(activityTypes||[]).length?`<label class="connected-field">Tipo de actividad
+       <select name="activity_type_id">
+        <option value="">Sin tipo</option>
+        ${activityTypes.filter(t=>t.is_active!==false).map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('')}
+       </select>
+      </label>`:''}
       <div data-class-panel="unique">
        <div class="pt-sheet-grid">
         ${input('Fecha y hora','start',uniqueStart,'datetime-local','required')}

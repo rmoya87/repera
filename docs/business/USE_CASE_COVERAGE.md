@@ -1,11 +1,25 @@
 # Cobertura de casos de uso Business (A–F)
 
-Última actualización: 2026-11-01.
+Última actualización: 2026-11-02.
 
-Fuente: revisión UX V3 + plan maestro Business V3. **Estado = código/esquema real**, no intención de producto.
+Fuente: revisión UX V3 + plan maestro Business V3 + capas de agenda (box/gym/multi-sala). **Estado = código/esquema real**, no intención de producto.
 P0 = bloqueante para el MVP operativo Business web de esta tanda.
 
 Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera de esta tanda).
+
+## Capas de agenda (2026-11-02)
+
+Spec: `docs/superpowers/specs/2026-11-02-business-scheduling-layers-design.md`.
+
+| ID | P0 | Actor | Caso | Superficie | Resultado |
+|---|---|---|---|---|---|
+| S01 | sí | Gym/box | Ajustes operación (perfil, salas, programa día, open gym, cancel hours) | Ajustes → Operación | parcial (migración + UI) |
+| S02 | sí | Gym | Salas con capacidad y anti-solape | Salas + agenda | parcial |
+| S03 | sí | Box | Programa del día + override por clase | Programa / detalle clase | parcial |
+| S04 | sí | Gym | Serie viva (`service_series` + `series_id`) | Nueva clase / editar serie | parcial |
+| S05 | sí | Gym | Open gym / acceso libre con aforo | Agenda + Center app | parcial |
+| S06 | sí | Atleta | Center según settings (Clases/Citas/Acceso libre + sala) | iOS/Android | parcial |
+| S07 | sí | Sistema | Cancelación usa `cancel_credit_hours` de la org | RPC cancel | parcial |
 
 | ID | P0 | Actor | Precondición | Ruta UI | API / RPC | Estados UI | Prueba | Resultado |
 |---|---|---|---|---|---|---|---|---|
@@ -38,11 +52,11 @@ Leyenda de resultado: `hecho` · `parcial` · `pendiente` · `aplazado` (fuera d
 | B17–B28 | mixto | — | Varios comerciales | — | — | — | — | pendiente / aplazado |
 | C01 | sí | Atleta | Vínculo + bono | Center app / Clases web | availability + book | — | parcial iOS | parcial |
 | C02 | sí | Atletas | Última plaza | book RPC | aforo atómico | — | smoke | hecho (SQL) |
-| C03 | no | Atleta | Lista espera | — | — | — | — | pendiente |
-| C04 | sí | Atleta/staff | Reserva booked | cancel RPC | crédito según ventana | — | smoke | hecho |
-| C05–C07 | parcial | Gym | Editar/cancelar clase | Clases 360 | `manage_service_occurrence` / cancel | — | UI | parcial |
+| C03 | no | Atleta | Lista espera | Center + promote SQL | waitlist status | UI | — | parcial (SQL promote; UX app en hardening) |
+| C04 | sí | Atleta/staff | Reserva booked | cancel RPC | crédito según `cancel_credit_hours` | — | smoke | parcial (configurable org) |
+| C05–C07 | parcial | Gym | Editar/cancelar clase | Clases 360 | `manage_service_occurrence` / cancel / series | — | UI | parcial |
 | C08–C09 | sí | PT | Cita 1:1 | Inicio agenda | create series + book | conflictos | smoke | parcial |
-| C10–C12 | no | — | Bloqueos / TZ / recurrentes | series create | parcial | — | — | pendiente |
+| C10–C12 | no | — | Bloqueos / TZ / recurrentes | `service_series` viva | parcial | — | — | parcial (series_id; TZ pendiente E2E) |
 | C13 | sí | Atleta | Lleno / sin bono | book | rechazo | UI | — | parcial |
 | C14 | no | Atleta | Offline | app | — | — | — | pendiente |
 | C15 | sí | Recepción | Clase del día | Inicio / detalle clase | `business_mark_class_attendance` | confirmación | tests UI + migración | hecho (aplicar migración en staging; E2E físico pendiente) |

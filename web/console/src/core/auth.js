@@ -909,7 +909,7 @@ export class ReperaAuthAPI {
  }
 
  async addClassSeries({orgId,coachId=null,kind,title,start,end,capacity,repeat='none',count=1,
-  color='#22834d',intervalDays=null,location='',description=''}){
+  color='#22834d',intervalDays=null,location='',description='',roomId=null,activityTypeId=null}){
   const coach=/^[0-9a-f-]{36}$/i.test(coachId||'')?coachId:null;
   const body={
    p_org:orgId,p_coach:coach,p_kind:kind,p_title:title,
@@ -920,7 +920,60 @@ export class ReperaAuthAPI {
   if(intervalDays!=null&&Number(intervalDays)>0)body.p_interval_days=Number(intervalDays);
   if(location)body.p_location=String(location).slice(0,250);
   if(description)body.p_description=String(description).slice(0,2000);
+  if(/^[0-9a-f-]{36}$/i.test(roomId||''))body.p_room_id=roomId;
+  if(/^[0-9a-f-]{36}$/i.test(activityTypeId||''))body.p_activity_type_id=activityTypeId;
   return this.#authorized('rpc/create_service_series',{method:'POST',body});
+ }
+
+ async getOrgOperationSettings(orgId){
+  return this.#authorized('rpc/get_org_operation_settings',{method:'POST',body:{p_org:orgId}});
+ }
+ async upsertOrgOperationSettings(orgId,payload={}){
+  return this.#authorized('rpc/upsert_org_operation_settings',{method:'POST',body:{
+   p_org:orgId,
+   p_profile:payload.profile||'gym_multi',
+   p_use_rooms:Boolean(payload.use_rooms),
+   p_day_program_enabled:payload.day_program_enabled!==false,
+   p_day_program_scope:payload.day_program_scope||'activity_type',
+   p_open_access_enabled:Boolean(payload.open_access_enabled),
+   p_open_access_requires_booking:payload.open_access_requires_booking!==false,
+   p_cancel_credit_hours:Number(payload.cancel_credit_hours??12),
+  }});
+ }
+ async getOrgScheduleBundle(orgId){
+  return this.#authorized('rpc/get_org_schedule_bundle',{method:'POST',body:{p_org:orgId}});
+ }
+ async listFacilityRooms(orgId){
+  return this.#authorized(`facility_rooms?org_id=eq.${encodeURIComponent(orgId)}&order=sort_order.asc,name.asc`);
+ }
+ async listActivityTypes(orgId){
+  return this.#authorized(`activity_types?org_id=eq.${encodeURIComponent(orgId)}&order=sort_order.asc,name.asc`);
+ }
+ async upsertFacilityRoom({orgId,id=null,name,capacity,isActive=true,sortOrder=0}){
+  return this.#authorized('rpc/upsert_facility_room',{method:'POST',body:{
+   p_org:orgId,p_id:id,p_name:name,p_capacity:Number(capacity),
+   p_is_active:Boolean(isActive),p_sort_order:Number(sortOrder)||0,
+  }});
+ }
+ async upsertActivityType({orgId,id=null,code,name,color='#22834d',requiresBooking=true,supportsDayProgram=true,isOpenAccess=false,isActive=true,sortOrder=0}){
+  return this.#authorized('rpc/upsert_activity_type',{method:'POST',body:{
+   p_org:orgId,p_id:id,p_code:code,p_name:name,p_color:color,
+   p_requires_booking:Boolean(requiresBooking),
+   p_supports_day_program:Boolean(supportsDayProgram),
+   p_is_open_access:Boolean(isOpenAccess),
+   p_is_active:Boolean(isActive),
+   p_sort_order:Number(sortOrder)||0,
+  }});
+ }
+ async upsertDayProgram({orgId,date,scope='global',activityTypeId=null,roomId=null,title='',instructions='',prescription=null}){
+  return this.#authorized('rpc/upsert_day_program',{method:'POST',body:{
+   p_org:orgId,p_date:date,p_scope:scope,
+   p_activity_type_id:activityTypeId,p_room_id:roomId,
+   p_title:title,p_instructions:instructions,p_prescription:prescription,
+  }});
+ }
+ async resolveOccurrenceTraining(occurrenceId){
+  return this.#authorized('rpc/resolve_occurrence_training',{method:'POST',body:{p_occurrence:occurrenceId}});
  }
 
 }

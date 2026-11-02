@@ -238,11 +238,27 @@ internal fun CenterTab(
             }
             item { Text("Reservas", style = MaterialTheme.typography.titleMedium) }
             item {
+                val showOpen = snapshot?.centers.orEmpty()
+                    .any { snapshot?.openAccessEnabled(it.id) == true }
+                val options = buildList {
+                    add("Clases")
+                    add("Citas")
+                    if (showOpen) add("Acceso libre")
+                }
+                val selectedLabel = when (section) {
+                    "appointment" -> "Citas"
+                    "open_access" -> "Acceso libre"
+                    else -> "Clases"
+                }
                 ReperaTopicSegmentedPicker(
-                    options = listOf("Clases", "Citas"),
-                    selected = if (section == "class") "Clases" else "Citas",
+                    options = options,
+                    selected = selectedLabel,
                     onSelected = { label ->
-                        section = if (label == "Clases") "class" else "appointment"
+                        section = when (label) {
+                            "Citas" -> "appointment"
+                            "Acceso libre" -> "open_access"
+                            else -> "class"
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     optionTestTag = { i, _ -> "center_section_$i" }
@@ -255,9 +271,11 @@ internal fun CenterTab(
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (section == "class") "Sin clases disponibles"
-                            else "Sin citas disponibles",
-                            style = MaterialTheme.typography.titleSmall)
+                        Text(when (section) {
+                            "class" -> "Sin clases disponibles"
+                            "open_access" -> "Sin franjas de acceso libre"
+                            else -> "Sin citas disponibles"
+                        }, style = MaterialTheme.typography.titleSmall)
                         Text("Se mostrarán aquí los horarios reales que publique " +
                             "tu centro o entrenador.",
                             style = MaterialTheme.typography.bodySmall)
@@ -272,6 +290,20 @@ internal fun CenterTab(
                     Text(occurrence.title, style = MaterialTheme.typography.titleSmall)
                     Text(snapshot?.centerName(occurrence.orgId) ?: "",
                         style = MaterialTheme.typography.bodySmall)
+                    if (snapshot?.useRooms(occurrence.orgId) == true) {
+                        snapshot.roomName(occurrence)?.let {
+                            Text("Sala · $it", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (occurrence.kind == "open_access") {
+                        Text("Acceso libre · aforo limitado",
+                            style = MaterialTheme.typography.bodySmall)
+                    } else if (occurrence.prescription != null ||
+                        !occurrence.trainingTitle.isNullOrBlank()) {
+                        Text("Hay entreno publicado",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                     runCatching { Instant.parse(occurrence.startsAt) }.getOrNull()
                         ?.let { Text(dayFmt.format(it),
                             style = MaterialTheme.typography.bodySmall) }
@@ -279,7 +311,10 @@ internal fun CenterTab(
                     val places = snapshot?.remainingPlaces(occurrence)
                     when {
                         booking != null -> {
-                            Text("Reservado · Aparece también en Inicio",
+                            Text(
+                                if (booking.status == "waitlist")
+                                    "Lista de espera · te avisamos si hay plaza"
+                                else "Reservado · Aparece también en Inicio",
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.bodySmall)
                             TextButton(onClick = { pendingCancellation = booking },
@@ -287,14 +322,25 @@ internal fun CenterTab(
                                 Text("Cancelar reserva",
                                     color = MaterialTheme.colorScheme.error)
                             }
-                            Text(dev.repera.domain.CenterCancellationPolicy.notice(
-                                occurrence.startsAt, now),
+                            val hours = snapshot?.operationSettingsByOrg?.get(occurrence.orgId)
+                                ?.cancelCreditHours ?: 12
+                            Text(
+                                if (booking.status == "waitlist")
+                                    "En espera no se descuenta crédito hasta confirmar plaza."
+                                else "Cancelar con más de ${hours}h suele devolver el crédito.",
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         places == 0 -> {
                             Text("Completo", style = MaterialTheme.typography.bodySmall)
-                            Text("No quedan plazas. La lista de espera aún no está habilitada.",
+                            Text("Sin plazas. Puedes apuntarte a la lista de espera.",
                                 style = MaterialTheme.typography.bodySmall)
+                            val wallets = snapshot?.availablePasses(occurrence).orEmpty()
+                            wallets.firstOrNull()?.let { pass ->
+                                TextButton(
+                                    onClick = { onBook(occurrence, pass) },
+                                    enabled = !submitting
+                                ) { Text("Entrar en lista de espera") }
+                            }
                         }
                         places != null -> {
                             Text(if (occurrence.kind == "appointment") "Horario disponible"

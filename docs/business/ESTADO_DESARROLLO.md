@@ -1,3 +1,11 @@
+## Capas de agenda unificada (box / gym / multi-sala) — 2026-11-02
+
+- Spec: `docs/superpowers/specs/2026-11-02-business-scheduling-layers-design.md`.
+- Migración `20261102090000_business_scheduling_layers.sql`: `facility_rooms`, `activity_types`, `service_series`, `day_programs`, `org_operation_settings`; occurrences con `series_id`/`room_id`/`activity_type_id`/`open_access`; resolución de contenido; cancel hours configurable; anti-solape sala.
+- Web: Ajustes → Operación; CRUD salas/tipos; programa del día; alta de clase con sala/tipo/open gym.
+- Apps: Center según settings (Acceso libre, sala, entreno resuelto).
+- Fuera de alcance aún: multi-sede, panel coach nativo, Stripe, QR check-in.
+
 ## Rediseño PT Business (agenda-first) — 2026-11-01
 
 - **Chrome menú + crear entreno socio (2026-11-01):** mes/Invitar/Nueva plantilla **fuera** del menú, alineados a la derecha a su altura; botones verdes planos. Ficha socio: mes/Alta bono en pestañas; Facturación 4 tiles; Equipo 2 cols. Crear entreno = modal 2 cols.

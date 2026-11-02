@@ -1,5 +1,15 @@
 # Contratos móviles — iOS/Android/backend
-Última actualización: 2026-11-01.
+Última actualización: 2026-11-02 (schedule bundle: settings, rooms, open_access).
+
+## Capas de agenda (apps)
+
+- RPC `get_org_schedule_bundle(org)` → settings + rooms + activity_types.
+- Occurrences pueden ser `class` | `appointment` | `open_access`.
+- Center: segmento Acceso libre si `open_access_enabled`; sala si `use_rooms`.
+- Bonos de clase valen para `open_access`.
+- Cancelación: texto de apps usa `cancel_credit_hours` del centro.
+
+Última actualización previa: 2026-11-01.
 Estado: contratos chat/Center/entitlements/push en apps; staging pendiente de migraciones.
 
 ## Principio

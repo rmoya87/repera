@@ -87,6 +87,42 @@ struct BusinessInvitationPreview: Decodable, Hashable {
         }
     }
 }
+struct BusinessOperationSettings: Decodable, Hashable {
+    var orgId: UUID?
+    var profile: String?
+    var useRooms: Bool?
+    var dayProgramEnabled: Bool?
+    var dayProgramScope: String?
+    var openAccessEnabled: Bool?
+    var openAccessRequiresBooking: Bool?
+    var cancelCreditHours: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case profile
+        case orgId = "org_id"
+        case useRooms = "use_rooms"
+        case dayProgramEnabled = "day_program_enabled"
+        case dayProgramScope = "day_program_scope"
+        case openAccessEnabled = "open_access_enabled"
+        case openAccessRequiresBooking = "open_access_requires_booking"
+        case cancelCreditHours = "cancel_credit_hours"
+    }
+}
+
+struct BusinessFacilityRoom: Decodable, Identifiable, Hashable {
+    let id: UUID
+    let orgId: UUID
+    let name: String
+    let capacity: Int
+    var isActive: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, capacity
+        case orgId = "org_id"
+        case isActive = "is_active"
+    }
+}
+
 struct BusinessOccurrence: Decodable, Identifiable, Hashable {
     let id: UUID
     let orgId: UUID
@@ -100,6 +136,9 @@ struct BusinessOccurrence: Decodable, Identifiable, Hashable {
     var color: String?
     var location: String?
     var coachUserId: UUID?
+    var roomId: UUID?
+    var activityTypeId: UUID?
+    var seriesId: UUID?
     /// Prescripción asociada a la clase (plantilla del occurrence).
     var trainingTitle: String?
     var trainingInstructions: String?
@@ -111,6 +150,9 @@ struct BusinessOccurrence: Decodable, Identifiable, Hashable {
         case startsAt = "starts_at"
         case endsAt = "ends_at"
         case coachUserId = "coach_user_id"
+        case roomId = "room_id"
+        case activityTypeId = "activity_type_id"
+        case seriesId = "series_id"
         case details = "service_occurrence_details"
     }
 
@@ -125,6 +167,9 @@ struct BusinessOccurrence: Decodable, Identifiable, Hashable {
         capacity = try c.decode(Int.self, forKey: .capacity)
         status = try c.decode(String.self, forKey: .status)
         coachUserId = try c.decodeIfPresent(UUID.self, forKey: .coachUserId)
+        roomId = try c.decodeIfPresent(UUID.self, forKey: .roomId)
+        activityTypeId = try c.decodeIfPresent(UUID.self, forKey: .activityTypeId)
+        seriesId = try c.decodeIfPresent(UUID.self, forKey: .seriesId)
         if let embedded = try? c.decodeIfPresent(OccurrenceDetailsEmbed.self, forKey: .details) {
             color = embedded.color
             location = embedded.location
@@ -484,6 +529,8 @@ final class BusinessDataStore {
     private(set) var occurrences: [BusinessOccurrence] = []
     /// Historical occurrences (including archived) only for confirmed attendance.
     private var attendanceOccurrences: [BusinessOccurrence] = []
+    private(set) var operationSettingsByOrg: [UUID: BusinessOperationSettings] = [:]
+    private(set) var facilityRooms: [BusinessFacilityRoom] = []
     private(set) var passes: [BusinessPass] = []
     private(set) var passOffers: [BusinessPassOffer] = []
     private(set) var bookings: [BusinessBooking] = []
@@ -543,6 +590,8 @@ final class BusinessDataStore {
         pendingOpenLinkedCenterId = nil
         occurrences = []
         attendanceOccurrences = []
+        operationSettingsByOrg = [:]
+        facilityRooms = []
         passes = []
         passOffers = []
         bookings = []
@@ -590,8 +639,27 @@ final class BusinessDataStore {
             // FK explícita: hay dos relaciones (occurrence_id PK y (org_id,occurrence_id)).
             let fetchedOccurrences: [BusinessOccurrence] = try await client
                 .from("service_occurrences")
-                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id,service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location,training_title,training_instructions,prescription)")
+                .select("id,org_id,kind,title,starts_at,ends_at,capacity,status,coach_user_id,room_id,activity_type_id,series_id,service_occurrence_details!service_occurrence_details_occurrence_id_fkey(color,location,training_title,training_instructions,prescription)")
                 .execute().value
+            var settingsMap: [UUID: BusinessOperationSettings] = [:]
+            var roomsAcc: [BusinessFacilityRoom] = []
+            for center in fetchedCenters {
+                if let response = try? await client
+                    .rpc("get_org_schedule_bundle", params: ["p_org": center.id.uuidString])
+                    .execute(),
+                   let root = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any] {
+                    if let settingsObj = root["settings"],
+                       let settingsData = try? JSONSerialization.data(withJSONObject: settingsObj),
+                       let settings = try? JSONDecoder().decode(BusinessOperationSettings.self, from: settingsData) {
+                        settingsMap[center.id] = settings
+                    }
+                    if let roomsObj = root["rooms"] as? [[String: Any]],
+                       let roomsData = try? JSONSerialization.data(withJSONObject: roomsObj),
+                       let rooms = try? JSONDecoder().decode([BusinessFacilityRoom].self, from: roomsData) {
+                        roomsAcc.append(contentsOf: rooms)
+                    }
+                }
+            }
             let fetchedPasses: [BusinessPass] = try await client
                 .from("service_passes")
                 .select("id,org_id,client_id,kind,total_credits,remaining_credits,valid_from,valid_until,status,issuance_type,payment_method,paid_at,paid_amount_cents,offer_id")
@@ -640,6 +708,8 @@ final class BusinessDataStore {
             await refreshEntitlements()
             attendanceOccurrences = fetchedOccurrences
             occurrences = fetchedOccurrences.filter { $0.status == "active" }
+            operationSettingsByOrg = settingsMap
+            facilityRooms = roomsAcc
             passes = fetchedPasses.filter { ownedClientIds.contains($0.clientId) }
             passOffers = fetchedOffers.filter {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
@@ -819,11 +889,30 @@ final class BusinessDataStore {
     func availablePasses(for occurrence: BusinessOccurrence) -> [BusinessPass] {
         guard let begins = Self.date(occurrence.startsAt) else { return [] }
         return passes.filter {
-            $0.orgId == occurrence.orgId && $0.kind == occurrence.kind
+            let kindOK = $0.kind == occurrence.kind
+                || (occurrence.kind == "open_access" && $0.kind == "class")
+            return $0.orgId == occurrence.orgId && kindOK
                 && $0.status == "active" && $0.remainingCredits > 0
                 && (Self.date($0.validFrom) ?? .distantFuture) <= begins
                 && (Self.date($0.validUntil) ?? .distantPast) >= begins
         }
+    }
+
+    func roomName(for occurrence: BusinessOccurrence) -> String? {
+        if let roomId = occurrence.roomId,
+           let room = facilityRooms.first(where: { $0.id == roomId }) {
+            return room.name
+        }
+        let loc = occurrence.location?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return loc.isEmpty ? nil : loc
+    }
+
+    func openAccessEnabled(for orgId: UUID) -> Bool {
+        operationSettingsByOrg[orgId]?.openAccessEnabled == true
+    }
+
+    func useRooms(for orgId: UUID) -> Bool {
+        operationSettingsByOrg[orgId]?.useRooms == true
     }
 
     func loadClassRoster(for occurrenceId: UUID) async -> BusinessClassRoster? {

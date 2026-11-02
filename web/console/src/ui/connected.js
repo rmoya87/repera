@@ -21,6 +21,7 @@ import {
  todayISO,countQuickWorkoutSessions,agendaMonthChromeHTML,
 } from './trainer-agenda.js';
 import {renderTrainerWorkoutsLibrary,mergePrescriptionBlocks} from './trainer-workouts.js';
+import {renderOperationSettings,renderDayProgramPanel,profileDefaults} from './operation-settings.js';
 const app=document.querySelector('#app');
 const auth=new ReperaAuthAPI({baseUrl:SUPABASE_URL,publishableKey:SUPABASE_PUBLISHABLE_KEY});
 const escapeHTML=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,7 +32,7 @@ adminActivityMonth='',adminActivityDays=[],adminActivityDay='',adminActivityWork
 adminAthleteSection='exercises',adminCenterSection='data',
 adminNavCollapsed=(()=>{try{return localStorage.getItem('repera.admin.nav.collapsed')==='1';}catch{return false;}})();
 let adminFilter={search:'',kind:'all',athleteSearch:'',status:'all',org:'all',paymentStatus:'all',paymentScope:'b2b',dateFrom:'',dateTo:''};
-let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],passEvents=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,inviteDraft={name:'',email:'',phone:''},inviteEmailError='',gymAssignments=[],quickWorkoutClient='',seedPrescription=null,copyBrowseClientId='',libraryTemplateId=null,draftSessionMeta=null,whatsappDraft=null,agendaRoom='',expandedOccurrenceId='',selectedOfferId='',assignClassDay='',assignTemplateId='',assignOnlyWithout=false,assignPreselectedIds=[],assignScope='one';
+let user=null,platformRole=null,platformOrgs=[],organizations=[],memberships=[],invitations=[],clients=[],occurrences=[],passes=[],offers=[],attendance=[],bookings=[],passEvents=[],professionalSessions=[],templates=[],selectedOrg=null,trialRows=[],classDetails=[],groups=[],groupMembers=[],notices=[],enrollmentRequests=[],sharedHistory=[],chatMessages=[],selectedClientId=null,clientSection='training',trainerActivityMonth='',trainerActivityDay='',clientEditorOpen=false,selectedClassId=null,selectedGroupId=null,classMode='calendar',calendarMonth='',classEditorId=null,planningClientId=null,planningSelectedDay='',activeTab='overview',selectedTemplateId=null,editingSessionId=null,legalProfile=null,planCatalog=[],view='login',busy=false,error='',notice='',businessDialog='',dialogDay='',settingsSection='profile',bulkMode='custom',lastInviteShare=null,agendaView='month',agendaDay='',clientQuery='',showInviteModal=false,inviteDraft={name:'',email:'',phone:''},inviteEmailError='',gymAssignments=[],quickWorkoutClient='',seedPrescription=null,copyBrowseClientId='',libraryTemplateId=null,draftSessionMeta=null,whatsappDraft=null,agendaRoom='',expandedOccurrenceId='',selectedOfferId='',assignClassDay='',assignTemplateId='',assignOnlyWithout=false,assignPreselectedIds=[],assignScope='one',operationSettings=null,facilityRooms=[],activityTypes=[];
 const inviteEmailIssue=raw=>{
  const t=String(raw||'');
  if(/CLIENT_ALREADY_LINKED/i.test(t)||/vinculado a una cuenta/i.test(t))
@@ -67,6 +68,10 @@ const shortFlash=raw=>{
  if(/null value in column ["']?location/i.test(t))return 'No se pudo guardar la ubicación.';
  if(/COACH_NOT_AUTHORIZED|Elige un entrenador/i.test(t))return 'Elige un entrenador del equipo.';
  if(/COACH_TIME_OVERLAP/i.test(t))return 'Ese entrenador ya tiene clase en ese horario.';
+ if(/ROOM_OVERLAP/i.test(t))return 'Esa sala ya tiene otra actividad en ese horario.';
+ if(/CAPACITY_EXCEEDED/i.test(t))return 'El aforo supera la capacidad de la sala.';
+ if(/OPEN_ACCESS_DISABLED/i.test(t))return 'Activa Open gym en Ajustes → Operación.';
+ if(/ROOMS_DISABLED/i.test(t))return 'Activa salas en Ajustes → Operación.';
  if(/INVALID_SERIES/i.test(t))return 'Revisa horario, duración o repetición.';
  if(/NOT_AUTHORIZED|42501/i.test(t))return 'Sin permiso para esta acción.';
  if(/WHATSAPP_INVALID|Número de WhatsApp inválido/i.test(t))
@@ -368,7 +373,8 @@ function enhanceWorkspace(own){
  const attach=(tab,html)=>{const node=document.createElement('div');node.dataset.workspaceSection=tab;node.innerHTML=html;root.append(node);};
  // Coach de clase/cita debe ser miembro real (FK). No inyectar admin de soporte.
  const coachOptions=memberships.filter(m=>m.organization_id===org.id&&m.status==='active'&&['owner','admin','coach'].includes(m.role)).map(m=>({user_id:m.user_id,label:m.user_id===user.id?'Yo (mi cuenta)':'Profesional '+m.user_id.slice(0,8)}));
- attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes,groups,busy,agendaView,agendaDay,gymAssignments,coaches:coachOptions,details:classDetails,roomFilter:agendaRoom,expandedOccurrenceId}));
+ attach('overview',renderBusinessHome({org,clients,occurrences,bookings,sessions:professionalSessions,templates,requests:enrollmentRequests,manager,calendarMonth,passes,groups,busy,agendaView,agendaDay,gymAssignments,coaches:coachOptions,details:classDetails,roomFilter:agendaRoom,expandedOccurrenceId,rooms:facilityRooms,operationSettings})
+  +renderDayProgramPanel({manager,activityTypes,rooms:facilityRooms,settings:operationSettings,esc:escapeHTML,day:agendaDay||todayISO()}));
  if(clientEditorOpen){
   const cName=clients.find(c=>c.id===selectedClientId)?.name||'';
   attach('clients',renderClientWorkoutFullscreen({
@@ -448,6 +454,8 @@ function enhanceWorkspace(own){
    coaches:members,busy,day:dialogDay,
    templates,templateId:assignTemplateId,
    seedPrescription,
+   rooms:operationSettings?.use_rooms?facilityRooms:[],
+   activityTypes,
   }));
  }
  if(businessDialog==='new-client-workout'){
@@ -754,6 +762,7 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
  return `<div class="pt-settings">
   <nav class="business-settings-navigation pt-settings-nav" aria-label="Ajustes">
    <button data-settings-section="profile" type="button" aria-current="${settingsSection==='profile'?'page':'false'}">Perfil</button>
+   <button data-settings-section="operation" type="button" aria-current="${settingsSection==='operation'?'page':'false'}">Operación</button>
    <button data-settings-section="services" type="button" aria-current="${settingsSection==='services'?'page':'false'}">Servicios</button>
    <button data-settings-section="legal" type="button" aria-current="${settingsSection==='legal'?'page':'false'}">Datos legales</button>
    <button data-settings-section="plan" type="button" aria-current="${settingsSection==='plan'?'page':'false'}">Plan</button>
@@ -767,6 +776,7 @@ function renderSettingsWorkspace({org,kind,trainer,manager,seat}){
     ${manager?'<button class="connected-primary business-form-submit" type="submit">Guardar perfil</button>':''}
    </form>
   </section>
+  ${renderOperationSettings({org,settings:operationSettings,rooms:facilityRooms,activityTypes,manager,busy,esc:escapeHTML})}
   ${renderServicesSettings({org,manager,busy,trainer,draft:whatsappDraft})}
   <section data-settings-panel="legal" class="connected-card pt-settings-card">
    <h2>Datos legales</h2>
@@ -876,7 +886,7 @@ async function soft(label,promise,fallback){
  }
 }
 async function loadSelectedOrg(){
- if(!selectedOrg){clients=[];occurrences=[];passes=[];offers=[];attendance=[];bookings=[];passEvents=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;return;}
+ if(!selectedOrg){clients=[];occurrences=[];passes=[];offers=[];attendance=[];bookings=[];passEvents=[];professionalSessions=[];templates=[];trialRows=[];classDetails=[];groups=[];groupMembers=[];notices=[];enrollmentRequests=[];legalProfile=null;operationSettings=null;facilityRooms=[];activityTypes=[];return;}
  const role=delegation?'admin':
   memberships.find(m=>m.organization_id===selectedOrg&&m.user_id===user?.id&&m.status==='active')?.role;
  const manager=['owner','admin'].includes(role);
@@ -905,6 +915,16 @@ async function loadSelectedOrg(){
  attendance=manager?await soft('attendance',auth.trainerAttendance(selectedOrg),[]):[];
  legalProfile=manager?await soft('legal',auth.legalProfile(selectedOrg),null):null;
  enrollmentRequests=manager?await soft('enrollments',auth.enrollmentRequests(selectedOrg),[]):[];
+ const bundle=await soft('scheduleBundle',auth.getOrgScheduleBundle(selectedOrg),null);
+ if(bundle&&typeof bundle==='object'){
+  operationSettings=bundle.settings||null;
+  facilityRooms=Array.isArray(bundle.rooms)?bundle.rooms:[];
+  activityTypes=Array.isArray(bundle.activity_types)?bundle.activity_types:[];
+ }else{
+  operationSettings=await soft('opSettings',auth.getOrgOperationSettings(selectedOrg),null);
+  facilityRooms=await soft('rooms',auth.listFacilityRooms(selectedOrg),[]);
+  activityTypes=await soft('types',auth.listActivityTypes(selectedOrg),[]);
+ }
  if(organizations.find(o=>o.id===selectedOrg)?.kind==='personal_trainer')await loadGymAssignments();
  else gymAssignments=[];
 }
@@ -1172,7 +1192,7 @@ app.addEventListener('click',async event=>{
  const setting=event.target.closest('[data-settings-section]');
  if(setting){
   const s=setting.dataset.settingsSection;
-  settingsSection=['plan','profile','legal','services'].includes(s)?s:'profile';
+  settingsSection=['plan','profile','legal','services','operation'].includes(s)?s:'profile';
   activeTab='settings';render();return;
  }
  if(action==='open-invite-modal'||action==='go-invite-client'||action==='focus-invite-form'){
@@ -2250,11 +2270,13 @@ app.addEventListener('submit',async event=>{
    const capacity=kind==='appointment'?1:Math.max(1,Number(data.get('capacity')||8));
    const coachRaw=String(data.get('coach')||'').trim();
    const coachId=/^[0-9a-f-]{36}$/i.test(coachRaw)?coachRaw:null;
+   const roomId=String(data.get('room_id')||'').trim()||null;
+   const activityTypeId=String(data.get('activity_type_id')||'').trim()||null;
    if(kind==='appointment'&&!coachId)throw Error('Elige un entrenador para la cita.');
    let ids=[];
    const pad=n=>String(n).padStart(2,'0');
    const fmtLocal=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-   if(kind==='class'&&weekClassSlots){
+   if((kind==='class'||kind==='open_access')&&weekClassSlots){
     const slots=weekClassSlots;
     if(!slots.length)throw Error('Marca al menos un día y una franja en la semana.');
     const durationMin=Math.min(12*60,Math.max(15,Number(data.get('duration')||60)));
@@ -2289,27 +2311,28 @@ app.addEventListener('submit',async event=>{
      const endAt=new Date(startAt.getTime()+durationMin*60*1000);
      const weeks=Math.min(62,Math.max(1,Math.ceil((untilDate-startAt)/(7*24*60*60*1000))));
      const created=await auth.addClassSeries({
-      orgId:selectedOrg,coachId,kind:'class',title,
+      orgId:selectedOrg,coachId,kind,title,
       start:fmtLocal(startAt),end:fmtLocal(endAt),capacity,
       repeat:weeks>1?'weekly':'none',count:weeks,
-      color,location,description,
+      color,location,description,roomId,activityTypeId,
      });
      const batch=Array.isArray(created)?created:(created?[created]:[]);
      ids=ids.concat(batch);
     }
     if(!ids.length)throw Error('No se pudo crear ninguna sesión futura con esas franjas.');
-   }else if(kind==='class'&&classScheduleMode==='unique'){
+   }else if((kind==='class'||kind==='open_access')&&classScheduleMode==='unique'){
     const startAt=new Date(data.get('start'));
     if(!Number.isFinite(startAt.getTime())||startAt<=new Date())throw Error('La clase debe empezar en el futuro (elige otra hora).');
     const durationMin=Math.min(12*60,Math.max(15,Number(data.get('duration')||60)));
     const endAt=new Date(startAt.getTime()+durationMin*60*1000);
     const created=await auth.addClassSeries({
-     orgId:selectedOrg,coachId,kind:'class',title:data.get('title'),
+     orgId:selectedOrg,coachId,kind,title:data.get('title'),
      start:fmtLocal(startAt),end:fmtLocal(endAt),capacity,
      repeat:'none',count:1,
      color:data.get('color')||'#22834d',
      location:data.get('location')||'',
      description:data.get('description')||'',
+     roomId,activityTypeId,
     });
     ids=Array.isArray(created)?created:(created?[created]:[]);
    }else{
@@ -2727,6 +2750,64 @@ app.addEventListener('submit',async event=>{
     await reload();
     notice=pending.length?'Identidad actualizada con avisos: '+pending.join(', '):'Identidad visual actualizada.';
    }
+  if(action==='operation-settings'){
+   const profile=data.get('profile')||'gym_multi';
+   const defaults=profileDefaults(profile);
+   await auth.upsertOrgOperationSettings(selectedOrg,{
+    profile,
+    use_rooms:data.get('use_rooms')==='on',
+    day_program_enabled:data.get('day_program_enabled')==='on',
+    day_program_scope:data.get('day_program_scope')||defaults.day_program_scope,
+    open_access_enabled:data.get('open_access_enabled')==='on',
+    open_access_requires_booking:data.get('open_access_requires_booking')==='on',
+    cancel_credit_hours:Number(data.get('cancel_credit_hours')??defaults.cancel_credit_hours),
+   });
+   const hours=Number(data.get('class_booking_open_hours')||168);
+   if(Number.isFinite(hours))await auth.updateOrgBookingWindow({orgId:selectedOrg,hours});
+   await loadSelectedOrg();
+   organizations=await soft('organizations',auth.organizations(),organizations);
+   settingsSection='operation';activeTab='settings';
+   notice='Ajustes de operación guardados.';
+  }
+  if(action==='upsert-room'){
+   await auth.upsertFacilityRoom({
+    orgId:selectedOrg,
+    id:data.get('id')||null,
+    name:data.get('name'),
+    capacity:Number(data.get('capacity')||20),
+    isActive:data.get('is_active')==='on',
+   });
+   await loadSelectedOrg();
+   settingsSection='operation';activeTab='settings';
+   notice='Sala guardada.';
+  }
+  if(action==='upsert-activity-type'){
+   await auth.upsertActivityType({
+    orgId:selectedOrg,
+    id:data.get('id')||null,
+    code:data.get('code'),
+    name:data.get('name'),
+    color:data.get('color')||'#22834d',
+    supportsDayProgram:data.get('supports_day_program')==='on',
+    isOpenAccess:data.get('is_open_access')==='on',
+   });
+   await loadSelectedOrg();
+   settingsSection='operation';activeTab='settings';
+   notice='Tipo de actividad guardado.';
+  }
+  if(action==='upsert-day-program'){
+   await auth.upsertDayProgram({
+    orgId:selectedOrg,
+    date:data.get('program_date'),
+    scope:data.get('scope')||'global',
+    activityTypeId:data.get('activity_type_id')||null,
+    roomId:data.get('room_id')||null,
+    title:data.get('title')||'',
+    instructions:data.get('instructions')||'',
+    prescription:null,
+   });
+   notice='Programa del día guardado.';
+  }
   if(action==='settings'){
     const values=Object.fromEntries(data.entries());
     const pending=[];

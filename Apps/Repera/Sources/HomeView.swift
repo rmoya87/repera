@@ -1241,6 +1241,7 @@ struct HomeView: View {
             ForEach(businessBookings) { booking in
                 if let occurrence = businessData.occurrences.first(where: { $0.id == booking.occurrenceId }) {
                     let isClass = occurrence.kind == "class"
+                    let isOpenAccess = occurrence.kind == "open_access"
                     let center = businessData.centerName(occurrence.orgId)
                     let plan = isClass ? classHomePlan(occurrence: occurrence, booking: booking) : nil
                     let planDone = plan.map { p in
@@ -1262,8 +1263,9 @@ struct HomeView: View {
                             time: BusinessDataStore.date(occurrence.startsAt).map { SpanishDate.time($0) },
                             symbol: isClass
                                 ? "figure.strengthtraining.traditional"
-                                : "person.crop.circle",
-                            summary: isClass ? "Reserva confirmada" : "Cita confirmada",
+                                : (isOpenAccess ? "figure.walk" : "person.crop.circle"),
+                            summary: isClass ? "Reserva confirmada"
+                                : (isOpenAccess ? "Acceso libre reservado" : "Cita confirmada"),
                             action: { openBusinessBookingId = booking.id }
                         )
                     }
