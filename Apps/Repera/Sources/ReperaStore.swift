@@ -1878,6 +1878,9 @@ final class ReperaStore: NSObject {
 
     func applyWatchSession(_ session: WorkoutSession) {
         if session.phase == .finished {
+            let receivedNewRecordedPlan = !state.workouts.contains(where: { $0.id == session.id })
+                && session.liveSportID != nil
+                && (session.routineId != nil || session.routineBlocks?.isEmpty == false)
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
                 // An earlier offline transfer may arrive before HealthKit finishes saving.
@@ -1969,8 +1972,7 @@ final class ReperaStore: NSObject {
                 // Se abre el editor existente, conservando UUID, HealthKit y
                 // series prescritas; nunca se convierte la prescripción en
                 // LoggedSet hasta que el atleta confirme el resultado.
-                if session.liveSportID != nil,
-                   session.routineId != nil || session.routineBlocks?.isEmpty == false {
+                if receivedNewRecordedPlan {
                     self.pendingRecordedPlanEditID = session.id
                 }
                 self.pushActiveToWatch(immediate: true)
