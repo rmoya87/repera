@@ -1,4 +1,11 @@
 # Funcionalidades Repera
+## Preparación independiente del sueño y acciones de clases (02/11/2026)
+
+- **Preparación para entrenar (iOS y Android):** Sueño, Entrenamiento, VFC y Cardio son indicadores independientes. Si no hay sueño de la noche actual, Sueño muestra «—» y la puntuación de preparación permanece sin calcular; las lecturas de frecuencia cardíaca, VFC y entrenamientos existentes siguen visibles. Cualquier métrica sin medición muestra «—», no «Sin medición reciente» ni un falso cero.
+- **Entrenamiento:** representa minutos registrados de sesiones finalizadas durante las últimas 96 horas (sumando historial Repera y actividades externas reconciliadas); ya no indica carga «Alta/Media/Baja» ni combina minutos y horas en el valor.
+- **Cardio:** cuando existen pulsaciones de los últimos dos días se muestra la media registrada en lpm, sin exigir sueño. Si no hay pulsaciones recientes pero existen actividades cardiovasculares verificadas en las últimas 48 horas, se muestran sus minutos. Sin ninguna lectura, «—». Estos valores NO crean ni desbloquean una puntuación de preparación sin sueño suficiente.
+- **Clases:** el listado enseña clase, centro, horario, ubicación y aforo, pero no el título de su entrenamiento asociado ni un resumen de bloques; los bloques continúan en el detalle. La ficha de clase sustituye los iconos de check/cancelar de la cabecera por un único botón inferior de esquinas redondeadas: «Apuntarme» verde con texto negro o «Cancelar clase» rojo para reservas existentes. La cancelación mantiene la confirmación previa y las reservas siguen comprobando bono, aforo y apertura de inscripción en el servidor.
+
 
 ## Ajustes de Progreso, Clases y Mensajes (02/11/2026)
 
