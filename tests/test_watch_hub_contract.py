@@ -78,9 +78,14 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("WearTimerRoundGreen = Color(0xFF38FF59)", wear)
         self.assertIn(".digitalCrownRotation(", watch)
         self.assertIn("showingTimerMetrics = value >= 0.5", watch)
+        self.assertIn('Button("Finalizar") { finishRun() }', watch)
+        self.assertIn('Button("Guardar") { complete(save: true) }', watch)
         self.assertIn("WearStatsLine(\"Transcurrido\"", wear)
         self.assertIn("metricsScroll.scrollBy(it.verticalScrollPixels)", wear)
         self.assertIn("rememberPagerState(initialPage = 1, pageCount = { 2 })", wear)
+        self.assertIn("draft.toDetails().copy(countdownSeconds = elapsed)", wear)
+        self.assertIn("discarded = 1", wear)
+        self.assertIn('WearButtonLabel("Descartar", color = WearOg.red)', wear)
 
     def test_watch_right_swipe_controls_cover_live_and_planned(self):
         session = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
