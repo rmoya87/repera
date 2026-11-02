@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -38,6 +40,7 @@ import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -319,6 +322,31 @@ private fun WearTimerModeOption(
     }
 }
 
+/** Reloj ajustable: 180 minutos y formatos largos no se recortan en una esfera pequeña. */
+@Composable
+private fun WearTimerAdaptiveClock(seconds: Int) {
+    BasicText(
+        text = wearClockLabel(seconds),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 3.dp)
+            .semantics { contentDescription = "Tiempo " + wearClockLabel(seconds) },
+        style = MaterialTheme.typography.displayMedium.copy(
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        ),
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        autoSize = TextAutoSize.StepBased(
+            minFontSize = 27.sp,
+            maxFontSize = 43.sp,
+            stepSize = 1.sp
+        )
+    )
+}
+
 @Composable
 internal fun WearTimerRunScreen(
     draft: WearTimerDraft,
@@ -413,7 +441,7 @@ internal fun WearTimerRunScreen(
                             maxLines = 1
                         )
                     }
-                    WearClockText(display, contentDescription = "Tiempo " + wearClockLabel(display))
+                    WearTimerAdaptiveClock(display)
                     if (draft.modeRaw == "intervals") {
                         Text(
                             "Total " + wearClockLabel(remaining),
