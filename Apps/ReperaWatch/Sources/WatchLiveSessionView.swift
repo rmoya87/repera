@@ -82,7 +82,7 @@ struct WatchLiveSessionView: View {
                 systemName: hub.watchLivePaused ? "play.fill" : "pause.fill",
                 tint: accent
             ) {
-                hub.controlWatchLivePause()
+                hub.toggleWatchLivePause()
             }
             WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
                 hub.finishWatchLive()
