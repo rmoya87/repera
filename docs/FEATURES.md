@@ -1,5 +1,9 @@
 # Funcionalidades Repera
 
+## Menú principal: icono «+» sin etiqueta (02/11/2026)
+
+En iOS y Android, la pestaña central que abre Clases/Centro muestra únicamente el icono circular con «+», sin el texto redundante debajo. Inicio, Comenzar, Progreso y Ejercicios conservan sus títulos; VoiceOver/TalkBack mantienen la etiqueta accesible «Clases y centro». La selección, navegación y contenidos de la pestaña no cambian.
+
 ## iPhone Duo — equilibrio de Recuperación (02/11/2026)
 
 En **Progreso → Recuperación** la primera fila de la cuadrícula de dos columnas mantiene a la misma altura las tarjetas de Preparación y Evolución (el contenido de Preparación toma la altura real de la gráfica). La segunda fila mide sus dos secciones de forma independiente y amplía **la propia gráfica de Sueño**, incluida la representación vacía, para alinearla con Constantes fisiológicas. No se añade espacio blanco inferior, no se modifican las alturas del diseño vertical y se recalcula al cambiar las medidas de la columna o los datos de Salud.
