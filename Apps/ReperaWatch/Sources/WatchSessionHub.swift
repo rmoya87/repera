@@ -72,6 +72,7 @@ final class WatchSessionHub: NSObject {
     private let persistenceKey = "repera.watch.offlineState.v1"
     /// Plan original vinculado a una grabación sin anotación de series.
     private var recordedPlan: WorkoutSession?
+    private var discardedPlanExecutionID: UUID?
     private var watchLiveSessionID: UUID?
     private var watchLiveStartedAt: Date?
     private var watchLivePausedAt: Date?
@@ -104,6 +105,7 @@ final class WatchSessionHub: NSObject {
         var startedOnThisWatch: Bool?
         /// Opcional para mantener la decodificación de snapshots anteriores.
         var recordedPlan: WorkoutSession?
+        var discardedPlanExecutionID: UUID?
     }
 
     override init() {
@@ -622,6 +624,7 @@ final class WatchSessionHub: NSObject {
         let sport = WatchLiveSport.allCases.first {
             $0.healthKitActivityType == .crossTraining
         } ?? .other
+        discardedPlanExecutionID = plan.id
         discardActiveSession()
         recordedPlan = plan
         startWatchOwnedLive(sport: sport)
@@ -1687,7 +1690,8 @@ final class WatchSessionHub: NSObject {
             reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
             startedOnThisWatch: startedOnThisWatch,
-            recordedPlan: recordedPlan
+            recordedPlan: recordedPlan,
+            discardedPlanExecutionID: discardedPlanExecutionID
         )
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
@@ -1722,6 +1726,7 @@ final class WatchSessionHub: NSObject {
         acknowledgedSessionID = snapshot.acknowledgedSessionID
         startedOnThisWatch = snapshot.startedOnThisWatch ?? false
         recordedPlan = snapshot.recordedPlan
+        discardedPlanExecutionID = snapshot.discardedPlanExecutionID
     }
 }
 
@@ -1787,6 +1792,8 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             // La grabación autónoma de un plan nunca debe ser sustituida por
             // un snapshot tardío de su sesión provisional del iPhone.
             guard self.watchLiveSport == nil else { return }
+            // El antiguo ID de Play ya se descartó para grabar el plan.
+            if session?.id == self.discardedPlanExecutionID { return }
             // An empty context is a potentially stale snapshot, not a
             // cancellation. Only an ID-matched terminal event can close work.
             guard let session else { return }
