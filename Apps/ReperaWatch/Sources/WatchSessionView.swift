@@ -1110,6 +1110,13 @@ struct WatchSessionView: View {
                                   value: result.summaryLabel)
                     }
                 }
+                if session.liveSportID != nil,
+                   session.routineId != nil || session.routineBlocks?.isEmpty == false {
+                    Text("Completa repeticiones, pesos y resultados en el editor del iPhone.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Button("Volver al inicio") {
                     hub.returnToHome()
                 }
