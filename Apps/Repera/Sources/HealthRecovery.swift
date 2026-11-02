@@ -681,10 +681,10 @@ struct HealthRecoveryProgressView: View {
     /// Pie bajo las horas; sin «Última noche» (redundante con el valor).
     private var hoursLabel: String? {
         if showingOutsideRange {
-            return displayNights.count <= 1 ? nil : "Media · noches recientes"
+            return displayNights.count <= 1 ? nil : "Noches recientes"
         }
         if isSingleNight { return nil }
-        return "Media · \(range.subtitleLabel)"
+        return range.subtitleLabel
     }
 
     var body: some View {
@@ -783,7 +783,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10, verticalPadding: OG.pad) {
+            OGCard {
                 Chart {
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
@@ -818,7 +818,7 @@ struct HealthRecoveryProgressView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(OG.label2)
             }
-            OGCard(padding: 10, verticalPadding: OG.pad) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Text("Variabilidad cardíaca (VFC)")
@@ -1065,7 +1065,7 @@ struct HealthRecoveryProgressView: View {
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Constantes fisiológicas")
-            OGCard(padding: 10, verticalPadding: OG.pad) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
                     Divider().opacity(0.25)
@@ -1185,7 +1185,7 @@ struct HealthRecoveryProgressView: View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Preparación para entrenar")
             // Padding corto: el contenido define la altura (sin minHeight de gráfica).
-            OGCard(padding: 12, verticalPadding: 12) {
+            OGCard {
                 Group {
                 if appliedRecoveryKey != trainingRecoveryRefreshKey && currentReadiness == nil {
                     HStack(spacing: 10) {
@@ -1267,9 +1267,6 @@ struct HealthRecoveryProgressView: View {
                         .overlay(Circle().stroke(OG.surface3, lineWidth: 11))
                         .accessibilityLabel("Preparación actual sin puntuación")
                     }
-                    Text("Sin puntuación actual: faltan datos suficientes de sueño o carga.")
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
                 }
                 }
             }
@@ -1282,7 +1279,7 @@ struct HealthRecoveryProgressView: View {
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Evolución de recuperación")
-            OGCard(padding: 10, verticalPadding: OG.pad) {
+            OGCard {
                 Chart {
                     ForEach(recoveryPoints) { point in
                     LineMark(
