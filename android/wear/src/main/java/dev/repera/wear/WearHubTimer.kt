@@ -356,7 +356,10 @@ internal fun WearTimerRunScreen(
     draft: WearTimerDraft,
     audioMuted: Boolean,
     onFinished: (TimerCompletionDetails, Long, Long) -> Unit,
-    onDiscard: () -> Unit
+    onDiscard: () -> Unit,
+    onMirror: (String, Int, Int) -> Unit = { _, _, _ -> },
+    remoteCommand: String? = null,
+    remoteCommandEpoch: Int = 0
 ) {
     val totalSeconds = remember(draft) {
         when (draft.modeRaw) {
@@ -387,7 +390,7 @@ internal fun WearTimerRunScreen(
             }
         }
         if (completed == 1 && discarded == 0) {
-            onFinished(draft.toDetails(), startedAt, System.currentTimeMillis())
+            onFinished(draft.toDetails().copy(countdownSeconds = elapsed), startedAt, System.currentTimeMillis())
         }
     }
 
@@ -408,6 +411,19 @@ internal fun WearTimerRunScreen(
         else -> remaining
     }
     // Página de controles a la izquierda: gesto de dedo → desde el reloj.
+    LaunchedEffect(elapsed, paused, completed, discarded) {
+        if (completed == 0 && discarded == 0 && (elapsed % 3 == 0 || paused != 0)) {
+            onMirror(if (paused == 0) "running" else "paused", elapsed, roundNumber)
+        }
+    }
+    LaunchedEffect(remoteCommandEpoch) {
+        if (remoteCommandEpoch == 0 || completed != 0 || discarded != 0) return@LaunchedEffect
+        when (remoteCommand) {
+            "pause" -> paused = 1
+            "resume" -> paused = 0
+            "finish" -> completed = 1
+        }
+    }
     val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
     val metricsScroll = rememberScrollState()
     val metricsFocus = remember { FocusRequester() }
