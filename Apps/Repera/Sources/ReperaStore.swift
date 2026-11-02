@@ -35,6 +35,9 @@ final class ReperaStore: NSObject {
     /// Se publica solo tras persistir una grabación planificada recibida del Watch.
     /// No se abre un editor para actividades libres ni revisiones duplicadas.
     private(set) var pendingRecordedPlanEditID: UUID?
+    /// Puede llegar una revisión con HealthKit antes de persistir la primera.
+    /// Conservar la intención por UUID hasta que alguna revisión se haya guardado.
+    private var awaitingRecordedPlanEdits: Set<UUID> = []
 
     func acknowledgeRecordedPlanEdit(_ id: UUID) {
         if pendingRecordedPlanEditID == id { pendingRecordedPlanEditID = nil }
@@ -1878,9 +1881,11 @@ final class ReperaStore: NSObject {
 
     func applyWatchSession(_ session: WorkoutSession) {
         if session.phase == .finished {
-            let receivedNewRecordedPlan = !state.workouts.contains(where: { $0.id == session.id })
-                && session.liveSportID != nil
-                && (session.routineId != nil || session.routineBlocks?.isEmpty == false)
+            if !state.workouts.contains(where: { $0.id == session.id }),
+               session.liveSportID != nil,
+               session.routineId != nil || session.routineBlocks?.isEmpty == false {
+                awaitingRecordedPlanEdits.insert(session.id)
+            }
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
                 // An earlier offline transfer may arrive before HealthKit finishes saving.
@@ -1972,7 +1977,7 @@ final class ReperaStore: NSObject {
                 // Se abre el editor existente, conservando UUID, HealthKit y
                 // series prescritas; nunca se convierte la prescripción en
                 // LoggedSet hasta que el atleta confirme el resultado.
-                if receivedNewRecordedPlan {
+                if self.awaitingRecordedPlanEdits.remove(session.id) != nil {
                     self.pendingRecordedPlanEditID = session.id
                 }
                 self.pushActiveToWatch(immediate: true)
