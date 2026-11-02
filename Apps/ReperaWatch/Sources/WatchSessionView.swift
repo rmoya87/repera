@@ -20,7 +20,10 @@ struct WatchSessionView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let finished = hub.presentedSummary {
+                if showTimer {
+                    // En línea, sin el cierre «X» automático de un sheet de watchOS.
+                    WatchStandaloneTimerView(onClose: { showTimer = false })
+                } else if let finished = hub.presentedSummary {
                     finishedView(finished)
                 } else if let active = hub.active {
                     if hub.isRecordingPlannedWorkout {
@@ -110,12 +113,6 @@ struct WatchSessionView: View {
                 }
                 Button("Cancelar", role: .cancel) { trainingPrompt = nil }
             }
-            .sheet(isPresented: $showTimer) {
-                NavigationStack {
-                    WatchStandaloneTimerView()
-                }
-            }
-
         }
         .tint(accent)
         .overlay {
@@ -188,7 +185,8 @@ struct WatchSessionView: View {
 
     /// Hub home: sin barra de navegación para anclar controles a las esquinas.
     private var isHubHome: Bool {
-        hub.presentedSummary == nil
+        !showTimer
+            && hub.presentedSummary == nil
             && hub.active == nil
             && hub.watchLiveSport == nil
             && hub.liveActivity == nil
@@ -198,6 +196,7 @@ struct WatchSessionView: View {
 
     /// Título de actividad alineado con la hora, sin encabezado duplicado.
     private var pageTitle: String {
+        if showTimer { return "Temporizador" }
         if hub.presentedSummary != nil { return "Resultado" }
         if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }
         if let active = hub.active {
