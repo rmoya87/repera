@@ -42,6 +42,7 @@ final class WatchSessionHub: NSObject {
         return (last.latitude, last.longitude)
     }
     private(set) var isPaused = false
+    private(set) var isRecordingPlannedWorkout = false
     private(set) var restRemaining = 0
     private(set) var blockElapsed = 0
     private(set) var sessionElapsed = 0
@@ -100,6 +101,7 @@ final class WatchSessionHub: NSObject {
         var clockTick: Date?
         var acknowledgedSessionID: UUID?
         var startedOnThisWatch: Bool?
+        var isRecordingPlannedWorkout: Bool?
     }
 
     override init() {
@@ -556,6 +558,7 @@ final class WatchSessionHub: NSObject {
 
     /// Cierra el resumen y vuelve al hub (sin reabrir la actividad).
     func returnToHome() {
+        isRecordingPlannedWorkout = false
         summaryDismissed = true
         controller = nil
         clearWatchLive()
@@ -862,6 +865,7 @@ final class WatchSessionHub: NSObject {
         var next = SessionController(session: execution)
         next.startOnPhone()
         controller = next
+        isRecordingPlannedWorkout = false
         startedOnThisWatch = true
         health.start(
             id: next.session.id, at: next.session.startedAt ?? Date(),
@@ -886,6 +890,15 @@ final class WatchSessionHub: NSObject {
         lastClockTick = Date()
         startClock()
         checkpoint()
+    }
+
+    /// Graba tiempo y Salud sin obligar a marcar series. Los valores reales se
+    /// introducen después en el editor del iPhone, no se infieren del plan.
+    func startPlanRecording() {
+        guard active?.phase == .ready, !isRecordingPlannedWorkout else { return }
+        isRecordingPlannedWorkout = true
+        play()
+        save()
     }
 
     /// One play per block / standalone exercise. A counting session does not reset.
@@ -1446,6 +1459,7 @@ final class WatchSessionHub: NSObject {
             health.discard()
         }
         controller = nil
+        isRecordingPlannedWorkout = false
         isPaused = false
         reviewingBlock = false
         reviewElapsedSeconds = nil
@@ -1479,6 +1493,10 @@ final class WatchSessionHub: NSObject {
             ctrl.finishWorkout()
             result = ctrl.session
         }
+        if isRecordingPlannedWorkout {
+            result.awaitingResultEntry = true
+        }
+        isRecordingPlannedWorkout = false
         // Do not label Repera's wall-clock as Apple-measured duration.
         // If the Watch is recording, HealthKit may complete while device is locked.
         if startedOnThisWatch && health.isRecording {
@@ -1643,7 +1661,8 @@ final class WatchSessionHub: NSObject {
             reviewElapsedSeconds: reviewElapsedSeconds,
             reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
-            startedOnThisWatch: startedOnThisWatch
+            startedOnThisWatch: startedOnThisWatch,
+            isRecordingPlannedWorkout: isRecordingPlannedWorkout
         )
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
@@ -1677,6 +1696,7 @@ final class WatchSessionHub: NSObject {
         lastClockTick = snapshot.clockTick
         acknowledgedSessionID = snapshot.acknowledgedSessionID
         startedOnThisWatch = snapshot.startedOnThisWatch ?? false
+        isRecordingPlannedWorkout = snapshot.isRecordingPlannedWorkout ?? false
     }
 }
 

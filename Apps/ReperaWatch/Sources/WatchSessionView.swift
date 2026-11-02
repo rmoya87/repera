@@ -7,6 +7,7 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
+    @State private var showStartChoices = false
     @State private var showTimer = false
     @State private var showCancelConfirmation = false
     @State private var cancelConfirmationError: String?
@@ -21,7 +22,9 @@ struct WatchSessionView: View {
                 if let finished = hub.presentedSummary {
                     finishedView(finished)
                 } else if let active = hub.active {
-                    if hub.reviewingBlock {
+                    if hub.isRecordingPlannedWorkout {
+                        plannedRecordingView(active)
+                    } else if hub.reviewingBlock {
                         blockReviewView(active)
                     } else if active.phase == .counting {
                         runningView(active)
@@ -77,6 +80,11 @@ struct WatchSessionView: View {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
+            .confirmationDialog("Iniciar entreno", isPresented: $showStartChoices, titleVisibility: .visible) {
+                Button("Comenzar en vivo") { hub.play() }
+                Button("Grabar entreno") { hub.startPlanRecording() }
+                Button("Cancelar", role: .cancel) {}
+            }
             .sheet(isPresented: $showTimer) {
                 NavigationStack {
                     WatchStandaloneTimerView()
@@ -103,6 +111,7 @@ struct WatchSessionView: View {
             showTimer = false
             showOutline = false
             showSetDetails = false
+            showStartChoices = false
             showCancelConfirmation = false
             cancelConfirmationError = nil
         }
@@ -461,26 +470,54 @@ struct WatchSessionView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                Button {
-                    hub.play()
-                } label: {
-                    Text(hub.currentIsWOD ? "Iniciar bloque" : "Empezar")
-                        .frame(maxWidth: .infinity)
+                Button("Iniciar") {
+                    showStartChoices = true
                 }
+                .frame(maxWidth: .infinity)
                 .buttonStyle(.borderedProminent)
                 .tint(accent)
                 .foregroundStyle(.black)
-                Button("Resumen") { showOutline = true }
-                    .font(.caption)
-                    .buttonStyle(.borderedProminent)
-                    .tint(accent)
-                    .foregroundStyle(.black)
                 Button("Descartar", role: .destructive) {
                     hub.discardActiveSession()
                 }
                 .font(.caption)
             }
             .padding(.horizontal, 5)
+        }
+    }
+
+    /// Grabación del plan sin apuntar series en directo.
+    private func plannedRecordingView(_ session: WorkoutSession) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text(timeLabel(hub.sessionElapsed))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("FC").font(.caption2).foregroundStyle(.secondary)
+                    WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: true)
+                }
+                WatchLiveMetricRow(
+                    label: "kcal",
+                    value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                    prominent: true
+                )
+                if hub.isPaused {
+                    Text("En pausa").foregroundStyle(.orange).font(.caption)
+                }
+                Button(hub.isPaused ? "Continuar" : "Pausar") {
+                    if hub.isPaused { hub.play() } else { hub.pause() }
+                }
+                .buttonStyle(.borderedProminent).tint(accent).foregroundStyle(.black)
+                Button("Finalizar grabación") { hub.finishWorkout() }
+                    .buttonStyle(.borderedProminent).tint(accent).foregroundStyle(.black)
+                Button("Descartar", role: .destructive) { hub.discardActiveSession() }
+                    .font(.caption)
+            }
+            .padding(.horizontal, 6)
         }
     }
 

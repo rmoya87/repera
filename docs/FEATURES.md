@@ -627,3 +627,7 @@ púrpura M3 por defecto. 2.º pase: `ReperaCard` /
 3.er–6.º pase: section titles/headers/empty; Play activo, preview, editores,
 detalle ejercicio, historial, WODs, permisos/onboarding y cards de progreso →
 `ReperaCard`. Detalle: `android/README.md`, `docs/ARCHITECTURE.md`.
+
+## Grabación de entrenos programados (2026-11-02)
+
+En la vista previa iOS y en el plan preparado de Apple Watch, **Iniciar** ofrece **Comenzar en vivo** (apuntar series en directo) y **Grabar entreno** (registrar cronómetro, calorías y pulso sin marcar repeticiones). En el segundo modo el plan conserva sus ejercicios prescritos y los resultados se completan mediante el editor del iPhone. La sesión conserva `awaitingResultEntry=true` y fase no finalizada hasta confirmar los resultados reales; no se convierten objetivos en series realizadas. Los pendientes siguen accesibles desde Inicio. La sesión Apple Watch usa HealthKit ya abierto, sin crear otro entrenamiento. En deportes interiores los relojes ocultan ritmo/distancia y destacan FC/kcal. Pendiente validación en dispositivos reales y paridad del selector en Android/Wear OS.
