@@ -1335,7 +1335,7 @@ internal val reperaPlanDayFormatter: java.time.format.DateTimeFormatter =
     java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale("es", "ES"))
 
 @Composable
-private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, onSelect: (LocalDate) -> Unit) {
+private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, dotDescription: String, onSelect: (LocalDate) -> Unit) {
     // Paridad HomeView.calendarDayColumn: fondo verde sólido seleccionado,
     // borde sutil sin selección, punto bajo el número.
     val isToday = day == LocalDate.now()
@@ -1356,7 +1356,7 @@ private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasC
             )
             .clickable { onSelect(day) }
             .semantics(mergeDescendants = true) {
-                if (hasCompleted) stateDescription = "Entrenamiento completado"
+                if (hasCompleted) stateDescription = dotDescription
             }
             .padding(vertical = 4.dp)
     ) {
@@ -1407,7 +1407,7 @@ internal object WeekCalendarGeometry {
 }
 
 @Composable
-internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, onSelect: (LocalDate) -> Unit) {
+internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, completedDays:Set<LocalDate> = emptySet(), returnToDay: LocalDate? = null, dotDescription: String = "Entrenamiento completado", onSelect: (LocalDate) -> Unit) {
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
     // Mes dominante de la semana visible (p. ej. mid-week), no solo selected.month.
     val monthTitle = weekStart.plusDays(3).month
@@ -1455,7 +1455,7 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
                         // Ancho fijo en ambos modos (weight no aplica dentro
                         // de scroll): en compacto side=(w-24)/7 llena justo.
                         WeekDayCell(day, label, day == selected, day in completedDays,
-                            Modifier.width(side), onSelect)
+                            Modifier.width(side), dotDescription, onSelect)
                     }
                 }
             }
