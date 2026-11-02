@@ -8,6 +8,7 @@ struct ProgressDataKey: Hashable, Sendable {
     var syncRevision: Int
     var healthDataRevision: Int
     var bodyWeightRevision: Int
+    var businessDataRevision: Int = 0
     /// Cambia a medianoche aunque los datos no se hayan sincronizado aún.
     var referenceDay: Date = .distantPast
 }
@@ -17,6 +18,16 @@ struct ProgressWeightPoint: Identifiable, Equatable, Sendable {
     var id: Date { date }
     var date: Date
     var weightKg: Double
+}
+
+/// Confirmed class attendance. No verified duration, intensity or calories implied.
+struct ProgressAttendedClass: Sendable, Equatable {
+    var bookingID: UUID
+    var occurrenceID: UUID
+    var linkedRoutineID: UUID?
+    var title: String
+    var startsAt: Date
+    var endsAt: Date
 }
 
 /// Immutable, ready-to-draw payload for one Progress period.
@@ -106,6 +117,7 @@ struct ProgressBuildInput: Sendable {
     var heartRateDays: [HealthKitStore.DailyHeartRatePoint]
     var energyDays: [HealthKitStore.DailyActiveEnergyPoint]
     var externalActivities: [HealthKitStore.ExternalActivity]
+    var attendedClasses: [ProgressAttendedClass]
     var now: Date
 }
 
@@ -127,7 +139,23 @@ enum ProgressDataEngine {
         let externalActivities = HealthMuscleMapper.uniqueExternalActivities(
             input.externalActivities, workouts: input.workouts
         )
+        // Only completed, verified attendances participate. A professional
+        // routine recorded as a finished workout supersedes its class booking.
+        let attendedClasses = input.attendedClasses.filter { attendance in
+            guard attendance.endsAt <= now else { return false }
+            return !input.workouts.contains { workout in
+                guard workout.phase == .finished || workout.finishedAt != nil,
+                      let linked = attendance.linkedRoutineID else { return false }
+                return workout.routineId == linked || workout.id == linked
+            }
+        }
+        // Zero-duration external sample marks attendance without inventing
+        // sensor data; StatsEngine still counts it as one completed session.
+        let attendanceSamples = attendedClasses.map {
+            ExternalDaySample(date: $0.startsAt, minutes: 0)
+        }
         let externalSamples = HealthMuscleMapper.daySamples(from: externalActivities)
+            + attendanceSamples
         let stimuli = HealthMuscleMapper.stimuli(from: externalActivities)
             + HealthMuscleMapper.nativeSportStimuli(from: input.workouts)
         let highEffortStimuli = HealthMuscleMapper.highEffortStimuli(from: externalActivities)
@@ -241,7 +269,7 @@ enum ProgressDataEngine {
                 ? (workout.finishedAt ?? workout.startedAt)
                 : (workout.startedAt ?? workout.finishedAt)
         }
-        let externalDates = externalActivities.map(\.start)
+        let externalDates = externalActivities.map(\.start) + attendedClasses.map(\.startsAt)
         let streak = StatsEngine.consecutiveWeekStreak(
             workoutDates: workoutDates,
             externalDates: externalDates,
