@@ -640,33 +640,36 @@ internal fun ClassDetailPage(
                     }
                 }
             }
-            Button(
-                onClick = {
-                    if (booking != null) {
-                        onRequestCancel(booking)
-                    } else {
-                        val pass = passes.firstOrNull() ?: return@Button
-                        onBook(occurrence, pass)
-                    }
-                },
-                enabled = !submitting && (booking != null || canTap),
-                modifier = Modifier
+            Box(
+                Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (booking != null) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.primary,
-                    contentColor = if (booking != null) Color.White else Color.Black,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
             ) {
-                Text(
-                    if (booking != null) "Cancelar clase" else "Apuntarme",
-                    fontWeight = FontWeight.SemiBold
-                )
+                Button(
+                    onClick = {
+                        if (booking != null) {
+                            onRequestCancel(booking)
+                        } else {
+                            val pass = passes.firstOrNull() ?: return@Button
+                            onBook(occurrence, pass)
+                        }
+                    },
+                    enabled = !submitting && (booking != null || canTap),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (booking != null) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                        contentColor = if (booking != null) Color.White else Color.Black,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text(
+                        if (booking != null) "Cancelar clase" else "Apuntarme",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
