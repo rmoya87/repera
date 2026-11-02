@@ -39,6 +39,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -118,6 +120,17 @@ internal fun WearTimerConfigScreen(
                         swipeRight = 0f
                     },
                     onDragCancel = { swipeRight = 0f }
+                )
+            }
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(
+                        label = if (choosingMode) "Volver" else "Cambiar tipo",
+                        action = {
+                            if (choosingMode) onBack() else choosingMode = true
+                            true
+                        }
+                    )
                 )
             },
         horizontalAlignment = Alignment.CenterHorizontally,
