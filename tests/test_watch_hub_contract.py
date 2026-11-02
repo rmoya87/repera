@@ -93,8 +93,8 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("private func plannedRecordingView(", session)
         self.assertIn("WatchSwipeControlSurface {", live)
         self.assertIn("hub.toggleWatchLivePause()", live)
-        self.assertIn("showWorkoutFinishConfirmation = true", session)
-        self.assertIn("showPlannedDiscardConfirmation = true", session)
+        self.assertIn("trainingPrompt = .finish", session)
+        self.assertIn("trainingPrompt = .discard", session)
 
     def test_wear_right_swipe_controls_cover_all_sessions(self):
         live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
