@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Temporizador en Apple Watch y Wear OS (02/11/2026)
+
+- **Selección de modo:** al abrir Temporizador aparece una pantalla propia con las tres opciones a ancho completo (Cuenta atrás, Cronómetro e Intervalos), con texto grande y subtítulos. Elegir una lleva a configurar los valores; volver permite cambiar el modo sin perder los ajustes. La lista se desplaza en esferas compactas y Wear OS acepta la corona/rotary para recorrer las opciones.
+- **Configuración:** tiempo o rondas/trabajo/descanso se presentan en filas separadas, con cifras protagonistas y botones +/- fácilmente pulsables. El CTA «Comenzar» está bajo los ajustes, con el verde Repera y texto negro.
+- **Ejecución Watch:** lectura del tiempo ampliada, controles visuales de Pausar/Reanudar y Terminar; la pausa conserva la pantalla activa en vez de regresar a la configuración. Terminar antes de tiempo pide confirmación para descartar; el resumen muestra el tiempo transcurrido real y permite Guardar o Descartar.
+- **Ejecución Wear:** reloj centrado y controles en la segunda página, con confirmación al descartar. En intervalos, lectura de la fase de Trabajo/Descanso, ronda actual, tiempo de fase y tiempo total restante. No se modifica el contrato de guardado TimerCompletionDetails.
+- **Validación pendiente en hardware/CI:** revisar Apple Watch pequeños/grandes, Wear OS de distintas esferas, texto accesible, estado pausado, rotación de corona, scroll, finalización y guardado; el contrato está cubierto por tests/test_watch_hub_contract.py.
+
 ## iPhone Duo — equilibrio de Recuperación (02/11/2026)
 
 En **Progreso → Recuperación** la primera fila de la cuadrícula de dos columnas mantiene a la misma altura las tarjetas de Preparación y Evolución (el contenido de Preparación toma la altura real de la gráfica). La segunda fila mide sus dos secciones de forma independiente y amplía **la propia gráfica de Sueño**, incluida la representación vacía, para alinearla con Constantes fisiológicas. No se añade espacio blanco inferior, no se modifican las alturas del diseño vertical y se recalcula al cambiar las medidas de la columna o los datos de Salud.
