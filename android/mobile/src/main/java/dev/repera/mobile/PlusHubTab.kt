@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -101,12 +100,6 @@ internal fun PlusHubTab(
     val dayFmt = remember {
         DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
     }
-    val weekdayFmt = remember {
-        DateTimeFormatter.ofPattern("EE", es)
-    }
-    val dateFmt = remember {
-        DateTimeFormatter.ofPattern("EEEE d MMM", es).withZone(zone)
-    }
 
     LaunchedEffect(Unit) { onRefresh() }
 
@@ -145,7 +138,6 @@ internal fun PlusHubTab(
                 snapshot = snapshot,
                 selectedDay = selectedDay,
                 onSelectDay = { selectedDay = it },
-                weekdayFmt = weekdayFmt,
                 dayFmt = dayFmt,
                 zone = zone,
                 submitting = submitting,
@@ -184,7 +176,6 @@ internal fun PlusHubTab(
             occurrence = occurrence,
             snapshot = snapshot,
             dayFmt = dayFmt,
-            dateFmt = dateFmt,
             submitting = submitting,
             loadRoster = loadRoster,
             onBook = onBook,
@@ -219,7 +210,6 @@ private fun ClassesPane(
     snapshot: BusinessCenterStore.Snapshot?,
     selectedDay: LocalDate,
     onSelectDay: (LocalDate) -> Unit,
-    weekdayFmt: DateTimeFormatter,
     dayFmt: DateTimeFormatter,
     zone: ZoneId,
     submitting: Boolean,
@@ -449,7 +439,6 @@ internal fun ClassDetailPage(
     occurrence: BusinessCenterStore.Occurrence,
     snapshot: BusinessCenterStore.Snapshot?,
     dayFmt: DateTimeFormatter,
-    dateFmt: DateTimeFormatter,
     submitting: Boolean,
     loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)?,
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
@@ -560,7 +549,9 @@ internal fun ClassDetailPage(
                         Text(
                             subtitle,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
