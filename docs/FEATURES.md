@@ -1,4 +1,9 @@
 # Funcionalidades Repera
+
+## iPhone Duo — equilibrio de Recuperación (02/11/2026)
+
+En **Progreso → Recuperación** la primera fila de la cuadrícula de dos columnas mantiene a la misma altura las tarjetas de Preparación y Evolución (el contenido de Preparación toma la altura real de la gráfica). La segunda fila mide sus dos secciones de forma independiente y amplía **la propia gráfica de Sueño**, incluida la representación vacía, para alinearla con Constantes fisiológicas. No se añade espacio blanco inferior, no se modifican las alturas del diseño vertical y se recalcula al cambiar las medidas de la columna o los datos de Salud.
+
 ## Preparación independiente del sueño y acciones de clases (02/11/2026)
 
 - **Preparación para entrenar (iOS y Android):** Sueño, Entrenamiento, VFC y Cardio son indicadores independientes. Si no hay sueño de la noche actual, Sueño muestra «—» y la puntuación de preparación permanece sin calcular; las lecturas de frecuencia cardíaca, VFC y entrenamientos existentes siguen visibles. Cualquier métrica sin medición muestra «—», no «Sin medición reciente» ni un falso cero.
