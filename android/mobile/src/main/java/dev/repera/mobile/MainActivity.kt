@@ -3191,7 +3191,9 @@ data class StateOverview(
                             ))
                 }.sortedBy { it.name }
             }
-            val recoveryState = recovery?.let { rec ->
+            // La tarjeta conserva las métricas de cardio y entrenamiento aunque
+            // falle la lectura opcional de sueño / constantes de Health Connect.
+            val recoveryState = (recovery ?: RecoveryRead(emptyList(), emptyList())).let { rec ->
                 val stats = ProgressSnapshotBuilder.statsWorkouts(json)
                 val lastNight = dev.repera.domain.RecoverySleepSummary.lastNight(rec.nights, java.time.Instant.now(),java.time.ZoneId.systemDefault())
                 val recentNights = rec.nights.takeLast(14)
