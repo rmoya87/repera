@@ -42,7 +42,7 @@ internal fun SessionScoreProgressCard(
             verticalAlignment = Alignment.Bottom
         ) {
             ReperaSectionTitle(
-                if (preview) "Puntuación de entrenos · ejemplo" else "Puntuación de entrenos",
+                if (preview) "Puntuación de entrenamiento · ejemplo" else "Puntuación de entrenamiento",
                 modifier = Modifier.weight(1f, fill = false)
             )
             if (values.isNotEmpty()) {
