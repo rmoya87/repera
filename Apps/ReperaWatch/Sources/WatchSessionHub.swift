@@ -70,6 +70,8 @@ final class WatchSessionHub: NSObject {
     private var lastIntervalIndex = 0
     private var todayUpdatedAt: Date?
     private let persistenceKey = "repera.watch.offlineState.v1"
+    /// Plan original vinculado a una grabación sin anotación de series.
+    private var recordedPlan: WorkoutSession?
     private var watchLiveSessionID: UUID?
     private var watchLiveStartedAt: Date?
     private var watchLivePausedAt: Date?
@@ -100,6 +102,8 @@ final class WatchSessionHub: NSObject {
         var clockTick: Date?
         var acknowledgedSessionID: UUID?
         var startedOnThisWatch: Bool?
+        /// Opcional para mantener la decodificación de snapshots anteriores.
+        var recordedPlan: WorkoutSession?
     }
 
     override init() {
@@ -577,6 +581,7 @@ final class WatchSessionHub: NSObject {
     /// - Returns: `true` si el Watch es dueño de la grabación local.
     @discardableResult
     func playHubSport(_ sport: WatchLiveSport) -> Bool {
+        recordedPlan = nil
         rememberHubSport(sport)
         // Nueva elección del usuario: dejar de ignorar snapshots companion.
         suppressCompanionLive = false
@@ -602,6 +607,29 @@ final class WatchSessionHub: NSObject {
             return false
         }
         startWatchOwnedLive(sport: sport)
+        return true
+    }
+
+    /// Graba la actividad REAL en el Apple Watch, sin dar por realizadas las
+    /// prescripciones ni crear una segunda sesión cuando llegue al iPhone.
+    /// La edición de resultados se hace sobre la misma UUID en el móvil.
+    @discardableResult
+    func recordScheduledWorkout() -> Bool {
+        guard let plan = active, plan.phase == .ready,
+              watchLiveSport == nil, liveActivity == nil,
+              !awaitingHealthSave else { return false }
+        // Cross training para fuerza/WOD. Fallback nativo para otros formatos.
+        let sport = WatchLiveSport.allCases.first {
+            $0.healthKitActivityType == .crossTraining
+        } ?? .other
+        discardActiveSession()
+        recordedPlan = plan
+        startWatchOwnedLive(sport: sport)
+        guard watchLiveSport != nil else {
+            recordedPlan = nil
+            return false
+        }
+        save()
         return true
     }
 
@@ -673,6 +701,7 @@ final class WatchSessionHub: NSObject {
     /// sin enviar un entrenamiento terminado y descartando su HealthKit.
     func cancelWatchLive() {
         guard watchLiveSport != nil else { return }
+        recordedPlan = nil
         health.discard()
         clearWatchLive() // Detiene GPS y el temporizador, descarta puntos y estado de pausa.
         watchLiveElapsedSeconds = 0
@@ -699,13 +728,25 @@ final class WatchSessionHub: NSObject {
         let kcalSnapshot = health.kcal
         let bpmSnapshot = health.averageBpm ?? health.pulseBpm.map(Double.init)
         // Resumen primero (antes de clearWatchLive) para que la UI no reabra live.
+        // La prescripción queda como borrador editable; solo las mediciones de
+        // actividad son resultados reales hasta que el atleta guarde sus series.
+        let planned = recordedPlan
+        let prescribed = planned?.exercises.map { exercise -> SessionExercise in
+            var copy = exercise
+            copy.loggedSets = []
+            copy.completedReps = 0
+            copy.isCompleted = false
+            return copy
+        } ?? []
         var pending = WorkoutSession(
             id: id,
-            title: sport.title,
-            exercises: [],
+            title: planned?.title ?? sport.title,
+            routineId: planned?.routineId,
+            exercises: prescribed,
             phase: .finished,
             startedAt: started,
             finishedAt: finishedAt,
+            routineBlocks: planned?.routineBlocks,
             routePoints: points,
             liveSportID: sport.rawValue,
             recordedDistanceMeters: distance > 0 ? distance : nil,
@@ -716,6 +757,7 @@ final class WatchSessionHub: NSObject {
         // Snapshot condiciones (Open-Meteo) si hay coords.
         let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending
+        recordedPlan = nil
         summaryDismissed = false
         clearWatchLive()
         publishComplicationSnapshot(force: true)
@@ -847,6 +889,7 @@ final class WatchSessionHub: NSObject {
     func startToday() {
         guard !hasWorkoutInProgress, !awaitingHealthSave,
               let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
+        recordedPlan = nil
         lastHubItemID = WatchHubItem.plan(plan).id
         if let idx = hubCarouselItems.firstIndex(where: { $0.id == lastHubItemID }) {
             hubCarouselIndex = idx
@@ -1643,7 +1686,8 @@ final class WatchSessionHub: NSObject {
             reviewElapsedSeconds: reviewElapsedSeconds,
             reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
-            startedOnThisWatch: startedOnThisWatch
+            startedOnThisWatch: startedOnThisWatch,
+            recordedPlan: recordedPlan
         )
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
@@ -1677,6 +1721,7 @@ final class WatchSessionHub: NSObject {
         lastClockTick = snapshot.clockTick
         acknowledgedSessionID = snapshot.acknowledgedSessionID
         startedOnThisWatch = snapshot.startedOnThisWatch ?? false
+        recordedPlan = snapshot.recordedPlan
     }
 }
 
