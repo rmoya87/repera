@@ -1784,6 +1784,9 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
+            // La grabación autónoma de un plan nunca debe ser sustituida por
+            // un snapshot tardío de su sesión provisional del iPhone.
+            guard self.watchLiveSport == nil else { return }
             // An empty context is a potentially stale snapshot, not a
             // cancellation. Only an ID-matched terminal event can close work.
             guard let session else { return }
