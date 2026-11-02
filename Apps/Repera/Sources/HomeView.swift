@@ -68,6 +68,8 @@ struct HomeView: View {
     @Environment(BusinessDataStore.self) private var businessData
     var onOpenWorkout: () -> Void
     var focusDay: Date? = nil
+    /// Una grabación del plan desde Watch abre aquí su editor de resultados.
+    var focusEditSessionID: UUID? = nil
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
@@ -117,6 +119,7 @@ struct HomeView: View {
     /// Solo rutinas personales persistidas; prescripciones profesionales no se editan.
     @State private var editingOwnRoutine: Routine?
     @State private var editingOwnSessionID: UUID?
+    @State private var lastPresentedRecordedPlanEditID: UUID?
     /// Build the historical editor only when tapped, not in a navigation builder.
     @State private var editingOwnSessionRoutine: Routine?
     @State private var healthPendingDelete: HealthKitStore.ExternalActivity?
@@ -485,6 +488,12 @@ struct HomeView: View {
                     rebuildDayBuckets()
                     rebuildWeekChrome()
                 }
+            }
+            .onAppear {
+                if let id = focusEditSessionID { presentRecordedPlanEditor(id) }
+            }
+            .onChange(of: focusEditSessionID) { _, id in
+                if let id { presentRecordedPlanEditor(id) }
             }
             .onChange(of: selectedDay) { _, newDay in
                 // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
@@ -1502,6 +1511,16 @@ struct HomeView: View {
         guard let saved = store.state.routines.first(where: { $0.id == routine.id }),
               saved.scheduledDate != nil else { return }
         editingOwnRoutine = saved
+    }
+
+    private func presentRecordedPlanEditor(_ id: UUID) {
+        guard lastPresentedRecordedPlanEditID != id,
+              let session = store.state.workouts.first(where: {
+                  $0.id == id && $0.phase == .finished
+              }) else { return }
+        lastPresentedRecordedPlanEditID = id
+        selectedDay = calendar.startOfDay(for: session.startedAt ?? session.finishedAt ?? Date())
+        editOwnCompletedWorkout(session)
     }
 
     private func editOwnCompletedWorkout(_ session: WorkoutSession) {
