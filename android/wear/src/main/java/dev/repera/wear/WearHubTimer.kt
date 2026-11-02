@@ -410,7 +410,7 @@ internal fun WearTimerRunScreen(
         "intervals" -> phaseRemaining.coerceAtLeast(0)
         else -> remaining
     }
-    // Página de controles a la izquierda: gesto de dedo → desde el reloj.
+    // Página 0: reloj/métricas. Deslizar de derecha a izquierda abre página 1 de acciones.
     LaunchedEffect(elapsed, paused, completed, discarded) {
         if (completed == 0 && discarded == 0 && (elapsed % 3 == 0 || paused != 0)) {
             onMirror(if (paused == 0) "running" else "paused", elapsed, roundNumber)
@@ -424,18 +424,18 @@ internal fun WearTimerRunScreen(
             "finish" -> completed = 1
         }
     }
-    val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+    val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
     val metricsScroll = rememberScrollState()
     val metricsFocus = remember { FocusRequester() }
     val metricsScope = rememberCoroutineScope()
     LaunchedEffect(pager.currentPage) {
-        if (pager.currentPage == 1) metricsFocus.requestFocus()
+        if (pager.currentPage == 0) metricsFocus.requestFocus()
     }
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-            if (page == 1) {
+            if (page == 0) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -486,7 +486,7 @@ internal fun WearTimerRunScreen(
                         }
                         WearTimerAdaptiveClock(display)
                         Text(
-                            "Corona ↓ métricas · Desliza → controles",
+                            "Corona ↓ métricas",
                             color = WearOg.label2,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                             textAlign = TextAlign.Center,
@@ -518,7 +518,6 @@ internal fun WearTimerRunScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    Text("Controles", style = MaterialTheme.typography.titleSmall, maxLines = 1)
                     FilledIconButton(
                         onClick = { paused = if (paused == 0) 1 else 0 },
                         modifier = Modifier.touchTargetAwareSize(IconButtonDefaults.DefaultButtonSize),
@@ -552,11 +551,6 @@ internal fun WearTimerRunScreen(
                     ) {
                         WearButtonLabel("Descartar", color = WearOg.red)
                     }
-                    Text(
-                        "Desliza ← para volver",
-                        color = WearOg.label2,
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp)
-                    )
                 }
             }
         }

@@ -173,9 +173,7 @@ struct WatchStandaloneTimerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             if showingTimerControls {
-                VStack(spacing: 16) {
-                    Text("Controles")
-                        .font(.headline)
+                VStack(spacing: 12) {
                     HStack(spacing: 8) {
                         timerActionButton(
                             running ? "Pausar" : "Reanudar",
@@ -186,9 +184,6 @@ struct WatchStandaloneTimerView: View {
                             showDiscardConfirmation = true
                         }
                     }
-                    Text("Desliza ← para volver")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 8)
             } else if showingTimerMetrics {
@@ -241,7 +236,7 @@ struct WatchStandaloneTimerView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.yellow)
                     }
-                    Text("Corona ↓ métricas · Desliza → controles")
+                    Text("Corona ↓ métricas")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -271,9 +266,9 @@ struct WatchStandaloneTimerView: View {
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
                 guard abs(dx) > abs(drag.translation.height) * 1.4 else { return }
-                if dx > 55 {
+                if dx < -55 && !showingTimerControls {
                     showingTimerControls = true
-                } else if dx < -55 {
+                } else if dx > 55 && showingTimerControls {
                     showingTimerControls = false
                 }
             }

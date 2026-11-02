@@ -264,18 +264,18 @@ internal fun WearHomeContent(
         )
         return
     }
-    // En entrenos ya iniciados, la pantalla lateral izquierda ofrece
-    // Pausar / Finalizar. La lista de series sigue teniendo scroll vertical.
+    // En entrenos ya iniciados, deslizar de derecha a izquierda abre
+    // Pausar / Finalizar. La lista de series conserva scroll vertical.
     val runningPlan = state.session?.phase == "counting" &&
         !state.showOutline && !state.showSetDetails && !state.reviewingBlock
     if (runningPlan) {
         val session = state.session ?: return
-        val pager = rememberPagerState(initialPage = 1, pageCount = { 2 })
+        val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
         var confirmFinish by remember(session.sessionId) { mutableStateOf(false) }
         var confirmDiscard by remember(session.sessionId) { mutableStateOf(false) }
         Box(modifier = modifier.fillMaxSize()) {
             HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-                if (page == 1) {
+                if (page == 0) {
                     WearHomeSessionList(state, callbacks, modifier = Modifier.fillMaxSize())
                 } else {
                     Column(
@@ -286,7 +286,6 @@ internal fun WearHomeContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Controles", style = MaterialTheme.typography.titleSmall)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -310,11 +309,6 @@ internal fun WearHomeContent(
                         ) {
                             WearButtonLabel("Descartar", color = WearOg.red)
                         }
-                        Text(
-                            "Desliza ← para volver",
-                            color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall
-                        )
                     }
                 }
             }
@@ -768,15 +762,6 @@ private fun TransformingLazyColumnScope.outlineItems(
             }
         }
     }
-    item {
-        Text(
-            "Desliza → desde el entreno para pausar o finalizar",
-            textAlign = TextAlign.Center,
-            color = WearOg.label2,
-            style = MaterialTheme.typography.labelSmall
-        )
-    }
-
 }
 
 private fun TransformingLazyColumnScope.blockReviewItems(

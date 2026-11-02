@@ -235,7 +235,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("WatchExerciseThumb(exercise: exercise, size: 53)", view)
         self.assertIn('Text("Resumen")', view)
         self.assertIn("hub.selectBlock(startingAt: index)", view)
-        self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
+        self.assertIn("if dx < 0 && !showingControls", view)
         self.assertIn("hub.confirmAndAdvance()", view)
         self.assertIn('Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")', view)
         self.assertIn("hub.canConfirmCurrentEntry", view)
@@ -361,9 +361,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")', view)
         self.assertIn(".foregroundStyle(.black)", view)
 
-        # A real swipe to review a series remains; only its explanatory text goes.
+        # El swipe hacia la izquierda abre controles; para avanzar serie se usa Siguiente.
         self.assertIn("DragGesture(minimumDistance: 35)", view)
-        self.assertIn("hub.swipeSet(horizontal < 0 ? 1 : -1)", view)
+        self.assertIn("if dx < 0 && !showingControls", view)
         self.assertIn("func swipeSet(_ direction: Int)", hub)
         self.assertNotIn("Desliza ← → para revisar otras series", view)
 

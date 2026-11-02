@@ -82,39 +82,69 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn('Button("Guardar") { complete(save: true) }', watch)
         self.assertIn("WearStatsLine(\"Transcurrido\"", wear)
         self.assertIn("metricsScroll.scrollBy(it.verticalScrollPixels)", wear)
-        self.assertIn("rememberPagerState(initialPage = 1, pageCount = { 2 })", wear)
+        self.assertIn("rememberPagerState(initialPage = 0, pageCount = { 2 })", wear)
         self.assertIn("draft.toDetails().copy(countdownSeconds = elapsed)", wear)
         self.assertIn("discarded = 1", wear)
         self.assertIn('WearButtonLabel("Descartar", color = WearOg.red)', wear)
 
-    def test_watch_right_swipe_controls_cover_live_and_planned(self):
+    def test_watch_left_swipe_controls_cover_live_and_planned(self):
         session = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         live = source("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
         self.assertIn("struct WatchSwipeControlSurface", session)
-        self.assertIn("if dx > 0", session)
+        self.assertIn("if dx < 0 && !showingControls", session)
+        self.assertIn("else if dx > 0 && showingControls", session)
         self.assertIn("showingControls = true", session)
         self.assertIn("showingControls = false", session)
-        self.assertIn("WatchSwipeControlSurface(onSwipeLeft: { hub.swipeSet(1) })", session)
+        self.assertIn("WatchSwipeControlSurface {", session)
+        self.assertNotIn("onSwipeLeft:", session)
         self.assertIn("private func plannedRecordingView(", session)
         self.assertIn("WatchSwipeControlSurface {", live)
         self.assertIn("hub.toggleWatchLivePause()", live)
         self.assertIn("trainingPrompt = .finish", session)
         self.assertIn("trainingPrompt = .discard", session)
 
-    def test_wear_right_swipe_controls_cover_all_sessions(self):
+    def test_wear_left_swipe_controls_cover_all_sessions(self):
         live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         planned = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
-        self.assertIn("rememberPagerState(initialPage = 1, pageCount = { 2 })", live)
-        self.assertIn("page == 1 -> WearLiveMetricsPage", live)
+        self.assertIn("rememberPagerState(initialPage = 0, pageCount = { 2 })", live)
+        self.assertIn("page == 0 -> WearLiveMetricsPage", live)
         self.assertIn("val runningPlan = state.session?.phase == \"counting\"", planned)
         self.assertIn("HorizontalPager(state = pager", planned)
-        self.assertIn("if (page == 1) {", planned)
+        self.assertIn("if (page == 0) {", planned)
         self.assertIn("WearHomeSessionList(state, callbacks", planned)
         self.assertIn("callbacks.onTogglePause()", planned)
         self.assertIn("callbacks.onFinishSession(session)", planned)
         self.assertIn("callbacks.onDiscardSession(session)", planned)
         self.assertIn("confirmFinish by remember(session.sessionId)", planned)
         self.assertIn("confirmDiscard by remember(session.sessionId)", planned)
+
+    def test_watch_ui_omits_empty_conditions_and_swipe_instructions(self):
+        conditions = source("Apps/ReperaWatch/Sources/WatchActivityConditionsBlock.swift")
+        session = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        live = source("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
+        timer = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")
+        self.assertIn("if let conditions, hasVisibleMetrics(conditions)", conditions)
+        self.assertIn(".background(.white.opacity(0.07)", conditions)
+        self.assertNotIn("Sin datos de condiciones", conditions)
+        self.assertNotIn('Text("Controles")', session)
+        self.assertNotIn('Text("Controles")', timer)
+        self.assertIn("if dx < -55 && !showingTimerControls", timer)
+        self.assertIn("else if dx > 55 && showingTimerControls", timer)
+        for view in (session, live, timer):
+            self.assertNotIn('Text("Desliza', view)
+            self.assertNotIn('Text("Deslizar', view)
+
+    def test_wear_ui_omits_empty_conditions_and_swipe_instructions(self):
+        live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
+        planned = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
+        timer = source("android/wear/src/main/java/dev/repera/wear/WearHubTimer.kt")
+        self.assertIn("if (temperature == null && wind == null && tide == null", live)
+        self.assertIn(".background(Color.White.copy(alpha = 0.07f)", live)
+        self.assertIn("rememberPagerState(initialPage = 0, pageCount = { 2 })", planned)
+        self.assertIn("rememberPagerState(initialPage = 0, pageCount = { 2 })", timer)
+        for view in (live, planned, timer):
+            self.assertNotIn('"Desliza ', view)
+            self.assertNotIn('Text("Controles"', view)
 
     def test_timer_live_mirror_watch_phone(self):
         model = source("Packages/ReperaDomain/Sources/ReperaDomain/WatchTimerMirror.swift")
