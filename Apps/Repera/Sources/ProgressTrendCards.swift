@@ -273,7 +273,7 @@ struct ProgressCardioChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
                         Chart {
@@ -466,7 +466,7 @@ struct ProgressCaloriesChartCard: View {
                         .minimumScaleFactor(0.85)
                 }
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasData {
                         Chart {
@@ -702,7 +702,7 @@ struct ProgressWeightChartCard: View {
                         .minimumScaleFactor(0.8)
                 }
             }
-            OGCard(padding: 10, verticalPadding: 20) {
+            OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if isHistoricalFallback, let latest {
                         Text("Histórico disponible · Último pesaje: \(latest.date.formatted(date: .abbreviated, time: .omitted))")
@@ -771,8 +771,6 @@ struct ProgressWeightChartCard: View {
                                         granularity: granularity
                                     )
                             ) { _ in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(OG.surface3)
                                 AxisValueLabel(
                                     format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
                                     collisionResolution: .greedy
