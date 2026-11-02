@@ -100,9 +100,9 @@ struct WatchStandaloneTimerView: View {
 
     private var modeTitle: String {
         switch modeRaw {
-        case "up": "Cronómetro"
-        case "intervals": "Intervalos"
-        default: "Cuenta atrás"
+        case "up": return "Cronómetro"
+        case "intervals": return "Intervalos"
+        default: return "Cuenta atrás"
         }
     }
 
@@ -154,7 +154,7 @@ struct WatchStandaloneTimerView: View {
                      ? "\(inWork ? "Trabajo" : "Descanso") · \(roundIndex)/\(rounds)"
                      : modeTitle)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(inWork ? .primary : accent)
+                    .foregroundStyle(inWork ? Color.primary : accent)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity)
