@@ -218,6 +218,7 @@ internal fun WearMetricStepper(
     label: String,
     value: String,
     enabled: Boolean = true,
+    flatControls: Boolean = false,
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
@@ -237,7 +238,17 @@ internal fun WearMetricStepper(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            WearStepButton("−", "Reducir $label", enabled, onMinus)
+            if (flatControls) {
+                TextButton(
+                    onClick = onMinus,
+                    enabled = enabled,
+                    modifier = Modifier.size(44.dp).semantics {
+                        contentDescription = "Reducir $label"
+                    }
+                ) { Text("−", color = Color.White, style = MaterialTheme.typography.titleLarge) }
+            } else {
+                WearStepButton("−", "Reducir $label", enabled, onMinus)
+            }
             Text(
                 value,
                 modifier = Modifier.widthIn(min = 36.dp, max = 72.dp),
@@ -250,7 +261,17 @@ internal fun WearMetricStepper(
                 maxLines = 1,
                 softWrap = false
             )
-            WearStepButton("+", "Aumentar $label", enabled, onPlus)
+            if (flatControls) {
+                TextButton(
+                    onClick = onPlus,
+                    enabled = enabled,
+                    modifier = Modifier.size(44.dp).semantics {
+                        contentDescription = "Aumentar $label"
+                    }
+                ) { Text("+", color = Color.White, style = MaterialTheme.typography.titleLarge) }
+            } else {
+                WearStepButton("+", "Aumentar $label", enabled, onPlus)
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package dev.repera.wear
 
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -107,7 +109,18 @@ internal fun WearTimerConfigScreen(
                 true
             }
             .focusRequester(focus)
-            .focusable(),
+            .focusable()
+            .pointerInput(choosingMode) {
+                var swipeRight = 0f
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { _, amount -> swipeRight += amount },
+                    onDragEnd = {
+                        if (!choosingMode && swipeRight > 55f) choosingMode = true
+                        swipeRight = 0f
+                    },
+                    onDragCancel = { swipeRight = 0f }
+                )
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -115,21 +128,21 @@ internal fun WearTimerConfigScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = {
-                    if (choosingMode) onBack() else choosingMode = true
-                },
-                modifier = Modifier
-                    .touchTargetAwareSize(backSize)
-                    .semantics {
-                        contentDescription = if (choosingMode) "Volver" else "Cambiar tipo"
-                    }
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = null,
-                    modifier = Modifier.size(IconButtonDefaults.iconSizeFor(backSize))
-                )
+            if (choosingMode) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .touchTargetAwareSize(backSize)
+                        .semantics { contentDescription = "Volver" }
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = null,
+                        modifier = Modifier.size(IconButtonDefaults.iconSizeFor(backSize))
+                    )
+                }
+            } else {
+                Spacer(Modifier.size(backSize))
             }
             WearHubScalingTitle(
                 text = "Temporizador",
@@ -195,12 +208,14 @@ internal fun WearTimerConfigScreen(
                 "intervals" -> {
                     WearMetricStepper(
                         label = "Rondas",
+                        flatControls = true,
                         value = draft.rounds.toString(),
                         onMinus = { onDraftChange(draft.copy(rounds = (draft.rounds - 1).coerceAtLeast(1))) },
                         onPlus = { onDraftChange(draft.copy(rounds = (draft.rounds + 1).coerceAtMost(99))) }
                     )
                     WearMetricStepper(
                         label = "Trabajo · segundos",
+                        flatControls = true,
                         value = draft.workSeconds.toString(),
                         onMinus = {
                             onDraftChange(draft.copy(workSeconds = (draft.workSeconds - 5).coerceAtLeast(5)))
@@ -211,6 +226,7 @@ internal fun WearTimerConfigScreen(
                     )
                     WearMetricStepper(
                         label = "Descanso · segundos",
+                        flatControls = true,
                         value = draft.restSeconds.toString(),
                         onMinus = {
                             onDraftChange(draft.copy(restSeconds = (draft.restSeconds - 5).coerceAtLeast(0)))
@@ -223,6 +239,7 @@ internal fun WearTimerConfigScreen(
                 else -> {
                     WearMetricStepper(
                         label = "Minutos",
+                        flatControls = true,
                         value = draft.durationMinutes.toString(),
                         onMinus = {
                             onDraftChange(draft.copy(durationMinutes = (draft.durationMinutes - 1).coerceAtLeast(1)))
@@ -284,18 +301,18 @@ private fun WearTimerModeOption(
             .fillMaxWidth()
             .heightIn(min = 62.dp)
             .semantics { contentDescription = title + ". " + subtitle },
-        colors = if (selected) {
-            ButtonDefaults.buttonColors(containerColor = WearOg.accent, contentColor = WearOg.onAccent)
-        } else {
-            ButtonDefaults.filledTonalButtonColors(containerColor = WearOg.card, contentColor = Color.White)
-        }
+        // Sin fondos de tarjetas; el color y el check distinguen el modo seleccionado.
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = if (selected) WearOg.accent else Color.White
+        )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     title,
                     modifier = Modifier.weight(1f),
-                    color = if (selected) WearOg.onAccent else Color.White,
+                    color = if (selected) WearOg.accent else Color.White,
                     maxLines = 1,
                     softWrap = false,
                     style = MaterialTheme.typography.titleSmall.copy(
@@ -308,13 +325,13 @@ private fun WearTimerModeOption(
                         imageVector = Icons.Outlined.Check,
                         contentDescription = null,
                         modifier = Modifier.size(17.dp),
-                        tint = WearOg.onAccent
+                        tint = WearOg.accent
                     )
                 }
             }
             Text(
                 subtitle,
-                color = if (selected) WearOg.onAccent.copy(alpha = 0.75f) else WearOg.label2,
+                color = if (selected) WearOg.accent else WearOg.label2,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                 maxLines = 1,
                 softWrap = false
@@ -457,41 +474,65 @@ internal fun WearTimerRunScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
                     ) {
-                        Text(
-                            if (paused != 0) "En pausa" else when (draft.modeRaw) {
-                                "up" -> "Cronómetro"
-                                "down" -> "Cuenta atrás"
-                                else -> if (resting) "DESCANSAR" else "TRABAJAR"
-                            },
-                            color = when {
-                                paused != 0 -> WearOg.yellow
-                                else -> WearOg.accent
-                            },
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontSize = 16.sp, fontWeight = FontWeight.SemiBold
-                            ),
-                            maxLines = 1,
-                            textAlign = TextAlign.Center
-                        )
                         if (draft.modeRaw == "intervals") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    roundNumber.toString(),
+                                    color = WearTimerRoundGreen,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = 26.sp, fontWeight = FontWeight.Bold
+                                    ),
+                                    maxLines = 1
+                                )
+                                BasicText(
+                                    text = wearClockLabel(display),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .semantics {
+                                            contentDescription = "Tiempo " + wearClockLabel(display)
+                                        },
+                                    style = MaterialTheme.typography.displayMedium.copy(
+                                        color = WearTimerRed,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Clip,
+                                    autoSize = TextAutoSize.StepBased(
+                                        minFontSize = 21.sp, maxFontSize = 37.sp, stepSize = 1.sp
+                                    )
+                                )
+                                Text(
+                                    if (resting) "DESCANSAR" else "TRABAJAR",
+                                    color = WearOg.accent,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp, fontWeight = FontWeight.SemiBold
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        } else {
                             Text(
-                                roundNumber.toString(),
-                                color = WearTimerRoundGreen,
-                                style = MaterialTheme.typography.displayMedium.copy(
-                                    fontSize = 36.sp,
-                                    fontWeight = FontWeight.Bold
+                                if (paused != 0) "En pausa" else if (draft.modeRaw == "up")
+                                    "Cronómetro" else "Cuenta atrás",
+                                color = if (paused != 0) WearOg.yellow else WearOg.accent,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold
                                 ),
-                                maxLines = 1
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
                             )
+                            WearTimerAdaptiveClock(display)
                         }
-                        WearTimerAdaptiveClock(display)
-                        Text(
-                            "Corona ↓ métricas",
-                            color = WearOg.label2,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                            textAlign = TextAlign.Center,
-                            maxLines = 2
-                        )
+                        if (paused != 0 && draft.modeRaw == "intervals") {
+                            Text("En pausa", color = WearOg.yellow,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                     Text(
                         "Métricas",
