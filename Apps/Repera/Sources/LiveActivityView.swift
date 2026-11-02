@@ -1551,7 +1551,8 @@ final class LiveActivityRecorder: NSObject {
             nextTurn: sport.usesGPS ? upcomingTurn : nil,
             nextTurnMeters: sport.usesGPS ? upcomingTurnMeters : nil,
             capturedAt: Date(),
-            conditions: liveConditions
+            conditions: liveConditions,
+            sportID: sport.rawValue
         )
     }
 

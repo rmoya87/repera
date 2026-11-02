@@ -49,11 +49,12 @@ struct WatchLiveSessionView: View {
                         Text("FC")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm)
+                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !sport.usesGPS)
                     }
                     WatchLiveMetricRow(
                         label: "kcal",
-                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—"
+                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                        prominent: !sport.usesGPS
                     )
                 }
 
@@ -183,6 +184,7 @@ struct WatchLiveSessionView: View {
 struct WatchHeartRateZoneBar: View {
     var bpm: Int?
     var estimatedMaxBpm: Double = 190
+    var prominent: Bool = false
 
     private let colors: [Color] = [
         Color(red: 0.25, green: 0.55, blue: 1),
@@ -205,8 +207,8 @@ struct WatchHeartRateZoneBar: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(bpm.map(String.init) ?? "—")
-                .font(.title3.weight(.bold).monospacedDigit())
-                .frame(minWidth: 34, alignment: .leading)
+                .font(.system(size: prominent ? 28 : 19, weight: .bold).monospacedDigit())
+                .frame(minWidth: prominent ? 50 : 34, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
                 HStack(spacing: 2) {
                     ForEach(1...5, id: \.self) { level in
@@ -234,6 +236,7 @@ struct WatchHeartRateZoneBar: View {
 struct WatchLiveMetricRow: View {
     let label: String
     let value: String
+    var prominent: Bool = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -242,7 +245,7 @@ struct WatchLiveMetricRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 52, alignment: .leading)
             Text(value)
-                .font(.title3.weight(.bold).monospacedDigit())
+                .font(.system(size: prominent ? 28 : 19, weight: .bold).monospacedDigit())
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
             Spacer(minLength: 0)

@@ -11,6 +11,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
 
     public let id: UUID
     public let sportTitle: String
+    /// Identificador no localizado del deporte; nil en snapshots anteriores.
+    public let sportID: String?
     public let phase: Phase
     public let elapsedSeconds: TimeInterval
     public let distanceMeters: Double
@@ -26,10 +28,12 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         elapsedSeconds: TimeInterval, distanceMeters: Double,
         averageSpeedKmh: Double?, nextTurn: String?,
         nextTurnMeters: Int?, capturedAt: Date,
-        conditions: ActivityConditionsSnapshot? = nil
+        conditions: ActivityConditionsSnapshot? = nil,
+        sportID: String? = nil
     ) {
         self.id = id
         self.sportTitle = sportTitle
+        self.sportID = sportID
         self.phase = phase
         self.elapsedSeconds = max(0, elapsedSeconds)
         self.distanceMeters = max(0, distanceMeters)

@@ -189,11 +189,12 @@ private fun WearLiveMetricsPage(
 
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-            WearHeartRateZoneBar(bpm = health?.first)
+            WearHeartRateZoneBar(bpm = health?.first, prominent = !usesGps)
         }
         WearLiveMetricRow(
             label = "kcal",
-            value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—"
+            value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—",
+            prominent = !usesGps
         )
 
         if (!live.isNull("nextTurn") && phase != "review") {
@@ -360,7 +361,7 @@ internal fun WearConfirmFinishModal(
 }
 
 @Composable
-internal fun WearLiveMetricRow(label: String, value: String) {
+internal fun WearLiveMetricRow(label: String, value: String, prominent: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -374,7 +375,10 @@ internal fun WearLiveMetricRow(label: String, value: String) {
         )
         Text(
             value,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = if (prominent) 27.sp else MaterialTheme.typography.titleMedium.fontSize
+            ),
             maxLines = 1,
             softWrap = false
         )
@@ -382,7 +386,9 @@ internal fun WearLiveMetricRow(label: String, value: String) {
 }
 
 @Composable
-internal fun WearHeartRateZoneBar(bpm: Int?, estimatedMaxBpm: Double = 190.0) {
+internal fun WearHeartRateZoneBar(
+    bpm: Int?, estimatedMaxBpm: Double = 190.0, prominent: Boolean = false
+) {
     val zone = bpm?.takeIf { it in 25..250 && estimatedMaxBpm > 0 }?.let {
         val ratio = it / estimatedMaxBpm
         when {
@@ -404,8 +410,11 @@ internal fun WearHeartRateZoneBar(bpm: Int?, estimatedMaxBpm: Double = 190.0) {
     ) {
         Text(
             bpm?.toString() ?: "—",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.width(36.dp),
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = if (prominent) 27.sp else MaterialTheme.typography.titleMedium.fontSize
+            ),
+            modifier = Modifier.width(if (prominent) 50.dp else 36.dp),
             maxLines = 1
         )
         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {

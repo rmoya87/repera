@@ -175,7 +175,12 @@ struct WatchSessionView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                // Indoor / fitness: priorizar pulso y kcal, sin métricas GPS vacías.
+                let outdoor = live.sportID.flatMap(WatchLiveSport.init(rawValue:))?.usesGPS
+                    ?? WatchLiveSport.allCases.first(where: { $0.title == live.sportTitle })?.usesGPS
+                    ?? false
                 VStack(alignment: .leading, spacing: 7) {
+                    if outdoor {
                     WatchLiveMetricRow(
                         label: "km",
                         value: live.distanceMeters > 0
@@ -187,15 +192,17 @@ struct WatchSessionView: View {
                     } else {
                         WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
                     }
+                    }
                     VStack(alignment: .leading, spacing: 3) {
                         Text("FC")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm)
+                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !outdoor)
                     }
                     WatchLiveMetricRow(
                         label: "kcal",
-                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—"
+                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                        prominent: !outdoor
                     )
                 }
 
