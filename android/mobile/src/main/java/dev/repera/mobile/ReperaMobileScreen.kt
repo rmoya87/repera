@@ -507,7 +507,8 @@ fun ReperaMobileScreen(
         val tabRoutes = reperaTabRoutes
         val hideAppShell = reperaRouteHidesAppShell(currentRoute)
         // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
-        val showTabBar = currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)
+        val showTabBar = currentRoute != "mensajes" &&
+            (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute))
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         var tabBarChromeHeightDp by remember { mutableStateOf(0.dp) }
         Scaffold(
