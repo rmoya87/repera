@@ -1022,6 +1022,9 @@ final class BusinessDataStore {
                 errorMessage = "La clase está completa."
             } else if raw.localizedCaseInsensitiveContains("ALREADY_BOOKED") {
                 errorMessage = "Ya estás apuntado a esta clase."
+            } else if raw.localizedCaseInsensitiveContains("NOT_A_MEMBER")
+                || raw.localizedCaseInsensitiveContains("NOT_OWN_PASS") {
+                errorMessage = "Tu cuenta no tiene una vinculación activa con este centro y este bono. Comprueba tu acceso con el gimnasio."
             } else {
                 errorMessage = "No se ha podido confirmar la reserva: \(raw)"
             }
