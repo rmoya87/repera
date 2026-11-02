@@ -164,12 +164,28 @@ internal fun WearPauseCircle(
 
 @Composable
 internal fun WearHealthRow(bpm: Int?, kcal: Double?) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        bpm?.let {
-            Text("♥ $it lpm", color = WearOg.red, style = MaterialTheme.typography.labelSmall)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                bpm?.toString() ?: "—",
+                color = WearOg.red,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                maxLines = 1
+            )
+            Text("lpm", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
         }
-        kcal?.let {
-            Text("🔥 ${it.toInt()} kcal", color = WearOg.orange, style = MaterialTheme.typography.labelSmall)
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                kcal?.takeIf { it >= 0 }?.toInt()?.toString() ?: "—",
+                color = WearOg.orange,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                maxLines = 1
+            )
+            Text("kcal", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
         }
     }
 }

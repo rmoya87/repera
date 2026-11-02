@@ -621,17 +621,23 @@ struct WatchSessionView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(hub.isPaused ? "Reanudar entrenamiento" : "Pausar entrenamiento")
         }
-        HStack(spacing: 12) {
-            if let pulse = hub.heartRateBpm {
-                Label("\(pulse) lpm", systemImage: "heart.fill")
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(hub.heartRateBpm.map(String.init) ?? "—")
+                    .font(.system(size: 23, weight: .bold).monospacedDigit())
                     .foregroundStyle(.red)
+                Text("lpm").font(.caption2).foregroundStyle(.secondary)
             }
-            if let kcal = hub.measuredEnergyKcal {
-                Label("\(Int(kcal.rounded())) kcal", systemImage: "flame.fill")
+            Spacer(minLength: 0)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(hub.measuredEnergyKcal.map { String(Int($0.rounded())) } ?? "—")
+                    .font(.system(size: 23, weight: .bold).monospacedDigit())
                     .foregroundStyle(.orange)
+                Text("kcal").font(.caption2).foregroundStyle(.secondary)
             }
         }
-        .font(.caption2)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
         if let warning = hub.healthWarning {
             Label(warning, systemImage: "heart.slash")
                 .font(.caption2)
