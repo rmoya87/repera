@@ -301,18 +301,18 @@ private fun WearTimerModeOption(
             .fillMaxWidth()
             .heightIn(min = 62.dp)
             .semantics { contentDescription = title + ". " + subtitle },
-        colors = if (selected) {
-            ButtonDefaults.buttonColors(containerColor = WearOg.accent, contentColor = WearOg.onAccent)
-        } else {
-            ButtonDefaults.filledTonalButtonColors(containerColor = WearOg.card, contentColor = Color.White)
-        }
+        // Sin fondos de tarjetas; el color y el check distinguen el modo seleccionado.
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = if (selected) WearOg.accent else Color.White
+        )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     title,
                     modifier = Modifier.weight(1f),
-                    color = if (selected) WearOg.onAccent else Color.White,
+                    color = if (selected) WearOg.accent else Color.White,
                     maxLines = 1,
                     softWrap = false,
                     style = MaterialTheme.typography.titleSmall.copy(
@@ -325,13 +325,13 @@ private fun WearTimerModeOption(
                         imageVector = Icons.Outlined.Check,
                         contentDescription = null,
                         modifier = Modifier.size(17.dp),
-                        tint = WearOg.onAccent
+                        tint = WearOg.accent
                     )
                 }
             }
             Text(
                 subtitle,
-                color = if (selected) WearOg.onAccent.copy(alpha = 0.75f) else WearOg.label2,
+                color = if (selected) WearOg.accent else WearOg.label2,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                 maxLines = 1,
                 softWrap = false
