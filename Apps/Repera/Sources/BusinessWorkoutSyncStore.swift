@@ -220,7 +220,8 @@ final class BusinessWorkoutSyncStore {
             // A second iPhone may have workouts that are not yet in the current
             // iCloud document. Only recover previously unseen, non-deleted IDs.
             for row in remote where row.deletedAt == nil && !localIds.contains(row.id) {
-                guard !deletionIDs.contains(row.id.uuidString),
+                guard !store.state.deletedWorkoutIDs.contains(row.id),
+                      !deletionIDs.contains(row.id.uuidString),
                       seen[row.id.uuidString] == nil,
                       let workout = row.payload,
                       workout.id == row.id, workout.finishedAt != nil
@@ -250,6 +251,7 @@ final class BusinessWorkoutSyncStore {
             // from a second device. Subsequent local edits change the hash.
             let pending = store.state.workouts.compactMap { original -> MirrorUpload? in
                 guard original.finishedAt != nil,
+                      !store.state.deletedWorkoutIDs.contains(original.id),
                       !deletionIDs.contains(original.id.uuidString),
                       existing[original.id]?.deletedAt == nil
                 else { return nil }
