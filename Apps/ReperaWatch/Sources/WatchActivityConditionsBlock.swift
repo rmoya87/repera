@@ -78,12 +78,13 @@ struct WatchActivityConditionsBlock: View {
                         AppleWeatherAttributionView(compact: true)
                     }
                     if hasMarineOrSnowDepth {
-                        Link(destination: URL(string: "https://open-meteo.com/en/terms")!) {
-                            Text("Open-Meteo · licencia CC BY 4.0")
-                                .font(.system(size: 9))
-                                .underline()
-                                .foregroundStyle(.secondary)
+                        HStack(spacing: 3) {
+                            Link("Open-Meteo", destination: URL(string: "https://open-meteo.com/")!)
+                            Text("·")
+                            Link("CC BY 4.0", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
                         }
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
