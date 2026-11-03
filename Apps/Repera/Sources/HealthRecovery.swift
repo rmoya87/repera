@@ -967,6 +967,7 @@ struct HealthRecoveryProgressView: View {
     private struct VitalPlot: Identifiable {
         let date: Date
         let value: Double
+        let segment: Int
         var id: Date { date }
     }
 
@@ -989,9 +990,16 @@ struct HealthRecoveryProgressView: View {
             if values.count >= 2 {
                 Chart {
                     ForEach(values) { sample in
-                        LineMark(x: .value("Día", sample.date), y: .value(title, sample.value))
+                        LineMark(
+                            x: .value("Día", sample.date),
+                            y: .value(title, sample.value),
+                            series: .value("Tramo observado", sample.segment)
+                        )
                             .interpolationMethod(.catmullRom)
                             .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                            .foregroundStyle(OG.accent)
+                        PointMark(x: .value("Día", sample.date), y: .value(title, sample.value))
+                            .symbolSize(18)
                             .foregroundStyle(OG.accent)
                     }
                     if let selectedVitalDate,
@@ -1037,11 +1045,20 @@ struct HealthRecoveryProgressView: View {
     }
 
     private func vitalValues(_ keyPath: KeyPath<RecoveryEngine.DailyVitals, Double?>) -> [VitalPlot] {
-        physiology.days.filter {
+        let observed = physiology.days.filter {
             range.contains($0.date, weekStartsOnMonday: weekStartsOnMonday)
-        }.compactMap { sample in
+        }.compactMap { sample -> (date: Date, value: Double)? in
             guard let value = sample[keyPath: keyPath] else { return nil }
-            return VitalPlot(date: sample.date, value: value)
+            return (sample.date, value)
+        }.sorted { $0.date < $1.date }
+        var previous: Date?
+        var segment = 0
+        return observed.map { sample in
+            if let previous, (Calendar.current.dateComponents([.day], from: previous, to: sample.date).day ?? 0) > 1 {
+                segment += 1
+            }
+            previous = sample.date
+            return VitalPlot(date: sample.date, value: sample.value, segment: segment)
         }
     }
 
