@@ -179,6 +179,7 @@ export const nativeExerciseArt = Object.freeze({
   "Sots press": "art_hl_sots",
   "Split jerk": "art_cf_split_jerk",
   "Step-up al cajón": "art_cf_step_up",
+  "Step-up al cajón con doble mancuerna": "art_cf_step_up",
   "Strict press": "art_cf_strict_press",
   "Sumo high pull": "art_cf_sumo_hp",
   "Swing americano": "art_cf_kb_amer",

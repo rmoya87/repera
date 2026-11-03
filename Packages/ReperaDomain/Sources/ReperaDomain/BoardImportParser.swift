@@ -870,15 +870,20 @@ public enum BoardImportParser {
     private static func bestMatch(for name: String, in catalog: [Exercise]) -> Exercise? {
         guard !catalog.isEmpty else { return nil }
         let cleaned = stripMovementModifiers(CrossFitGlossary.cleanMovementLabel(name))
+        // El catálogo CrossFit nativo guarda nombres EN. La expansión OCR
+        // devuelve nombres históricos ES: priorizar siempre el puente
+        // canónico exacto antes de cualquier matching parcial (p. ej.
+        // RKBS → Kettlebell Swing, nunca Kip swing).
+        let canonical = CrossFitGlossary.canonicalName(for: name)
         let candidates = [
-            // El parser ya puede devolver el nombre canónico EN exacto.
-            // Consultarlo antes del glosario evita que "Dumbbell Clean and Jerk"
-            // se reduzca por coincidencia parcial a "Dumbbell Clean".
+            // Exact match before fuzzy partial matches (DB clean + jerk, RKBS).
             CrossFitGlossary.normalize(name),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(name)),
-            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: name))),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(canonical)),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: cleaned))),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.expand(cleaned))),
+            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
+            CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
             CrossFitGlossary.normalize(cleaned),
         ].filter { !$0.isEmpty }
 
@@ -1152,6 +1157,10 @@ public enum CrossFitGlossary {
         "devil press": "Devil press",
         "devil presses": "Devil press",
         "db devil press": "Devil press",
+        "ddb step up": "Step-up al cajón con doble mancuerna",
+        "ddb box step up": "Step-up al cajón con doble mancuerna",
+        "double dumbbell step up": "Step-up al cajón con doble mancuerna",
+        "double dumbbell box step up": "Step-up al cajón con doble mancuerna",
         "ddb devil press": "Devil press",
         "hspu": "HSPU",
         "kipping hspu": "HSPU",
@@ -1237,6 +1246,11 @@ public enum CrossFitGlossary {
         "thruster": "Thruster",
         "thrusters": "Thruster",
         "kb swing": "Swing kettlebell",
+        "rkbs": "Swing kettlebell",
+        "rkb": "Swing kettlebell",
+        "russian kettlebell swing": "Swing kettlebell",
+        "russian kb swing": "Swing kettlebell",
+        "russian kettlebell swings": "Swing kettlebell",
         "american swing": "Swing americano",
         "american kb swing": "Swing americano",
         "american kettlebell swing": "Swing americano",
@@ -1379,8 +1393,25 @@ public enum CrossFitGlossary {
         var equipment: String?
         var rangeNote: String?
 
+        // Distancias en rango («8-12M») antes de buscar metros/ondas:
+        // consumir todo el prefijo para evitar nombres como «8- STEP UP».
+        if let distanceRange = working.range(
+            of: #"^\s*(\d+)\s*[-–]\s*(\d+)\s*(?:m|metros?|meters?)\b"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) {
+            let values = String(working[distanceRange])
+                .split(whereSeparator: { !$0.isNumber })
+                .compactMap { Int($0) }
+            if values.count == 2 {
+                let maximum = max(values[0], values[1])
+                meters = maximum
+                rangeNote = "Distancia: \(min(values[0], values[1]))-\(maximum) m"
+                working.removeSubrange(distanceRange)
+            }
+        }
+
         // Onda 4-3-3-2 / 21-15-9 al inicio. Rango 5-10 / 6-8 → techo de reps (no ola).
-        if let wave = matchLeadingWave(working) {
+        if meters == nil, let wave = matchLeadingWave(working) {
             if WODMovement.isAscendingRepRange(wave.scheme) {
                 rangeNote = wave.scheme.map(String.init).joined(separator: "-")
                 reps = wave.scheme[1]
@@ -1410,7 +1441,7 @@ public enum CrossFitGlossary {
         }
 
         // Metros: 200M / 200 m / 200metros (antes que reps, para no confundir).
-        if let mr = working.range(
+        if meters == nil, let mr = working.range(
             of: #"(\d+)\s*(?:m|metros?|meters?)\b"#,
             options: [.regularExpression, .caseInsensitive]
         ) {
@@ -1484,9 +1515,7 @@ public enum CrossFitGlossary {
         }
 
         working = cleanMovementLabel(working)
-        // C&J en una pizarra significa dos movimientos consecutivos (clean + jerk).
-        // La coincidencia parcial con "clean" del glosario puede convertirlo
-        // erróneamente en una cargada simple; conservar el compuesto completo.
+        // C&J must not be shortened to Clean by a partial glossary match.
         let isCleanAndJerk = raw.range(
             of: #"(?i)\bC\s*&\s*J\b|\bCLEAN\s*(?:AND|&)\s*JERK\b"#,
             options: .regularExpression
@@ -1602,6 +1631,9 @@ public enum CrossFitGlossary {
 
         switch kind {
         case .dumbbell, .doubleDumbbell:
+            if kind == .doubleDumbbell && (n.contains("step up") || n.contains("stepup")) {
+                return "Step-up al cajón con doble mancuerna"
+            }
             if n.contains("cargada y envion") || n.contains("clean and jerk") || n.contains("c&j") {
                 return "Dumbbell Clean and Jerk"
             }
@@ -1628,7 +1660,7 @@ public enum CrossFitGlossary {
             if isCleanFamily(n) { return "Clean kettlebell" }
             if n.contains("thruster") { return "Thruster kettlebell" }
             if n.contains("swing") { return n.contains("american") ? "Swing americano" : "Swing kettlebell" }
-            // Un step-up goblet no es una sentadilla goblet: conservar el movimiento y su UUID.
+            // Goblet step-up is not a Goblet squat: preserve catalog UUID.
             if n.contains("step up") || n.contains("stepup") {
                 return "Kettlebell Goblet Box Step-Up"
             }

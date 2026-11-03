@@ -84,6 +84,24 @@ class CrossFitGlossaryTest {
     }
 
     @Test
+    fun ddbDistanceRangeAndRussianKettlebellSwing() {
+        val step = CrossFitGlossary.parseMovementLine("8-12M DDB STEP UP @7-8")
+        assertEquals("Step-up al cajón con doble mancuerna", step.name)
+        assertEquals(12, step.distanceMeters)
+        assertNull(step.reps)
+        assertTrue(step.equipmentNote!!.contains("8-12 m"))
+        assertTrue(step.equipmentNote!!.contains("Doble mancuerna"))
+
+        val swing = CrossFitGlossary.parseMovementLine("20 RKBS 24/16")
+        assertEquals("Swing kettlebell", swing.name)
+        assertEquals(20, swing.reps)
+        assertEquals(24.0, swing.weightMaleKg!!, 0.001)
+        assertEquals(16.0, swing.weightFemaleKg!!, 0.001)
+        assertEquals("Swing kettlebell", CrossFitGlossary.canonicalName("Russian Kettlebell Swing"))
+        assertEquals("Step-up al cajón con doble mancuerna", CrossFitGlossary.canonicalName("Double Dumbbell Step Up"))
+    }
+
+    @Test
     fun touchAndGoIsTechniqueNote() {
         val r = CrossFitGlossary.parseMovementLine("1 T&G SQUAT CLEAN")
         assertEquals(1, r.reps)
