@@ -16,10 +16,11 @@ class MirrorAuthorizationInstrumentedTest {
         var calls=0
         val http=OkHttpClient.Builder().addInterceptor {calls++;error("must not execute")}.build()
         val store=WorkoutMirrorStore(context,id,http) {false}
-        store.noteDeleted("synthetic-deleted")
+        val deletedID=UUID.randomUUID().toString()
+        store.noteDeleted(deletedID)
         val result=store.sync(session,WorkoutRepository(context,id))
         assertFalse(result.ok);assertEquals(0,calls)
-        assertTrue(store.pendingDeletes().contains("synthetic-deleted"))
+        assertTrue(store.pendingDeletes().contains(deletedID))
     }
     @Test fun revocationWhileMirrorReadsCannotApplyResponse() {
         val id="synthetic-guard-"+java.util.UUID.randomUUID()
