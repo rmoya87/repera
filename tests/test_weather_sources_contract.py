@@ -54,6 +54,15 @@ class WeatherSourcesContractTests(unittest.TestCase):
             self.assertNotIn("forecastURL", client)
         self.assertTrue((ROOT / "android/mobile/src/main/java/dev/repera/mobile/OpenMeteoWeatherClient.kt").exists())
 
+    def test_legal_link_is_black_and_baseline_aligned_in_ios(self):
+        ui = source("Apps/Shared/AppleWeatherAttributionView.swift")
+        self.assertIn("HStack(alignment: .bottom, spacing: 5)", ui)
+        self.assertIn("Color.black", ui)
+        self.assertIn("Color.white", ui)  # Preserves contrast in dark mode.
+        strip = source("Apps/Repera/Sources/CardioRouteComponents.swift")
+        self.assertIn("HStack(alignment: .bottom, spacing: 10)", strip)
+        self.assertIn(".frame(maxWidth: .infinity, alignment: .bottomLeading)", strip)
+
     def test_visible_legal_attribution_on_both_platforms(self):
         shared = source("Apps/Shared/AppleWeatherAttributionView.swift")
         self.assertIn("WeatherService.shared.attribution", shared)
