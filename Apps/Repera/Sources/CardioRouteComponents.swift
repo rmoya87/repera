@@ -557,7 +557,7 @@ struct RouteWeatherStrip: View {
             if (family == .water || family == .snow) && hasVisibleExtraConditions {
                 conditionsExtraRows
             }
-            // Una sola línea: aviso (izq.) · Fuente + Apple Weather · Open-Meteo (der.).
+            // Atribuciones legales adaptables al ancho disponible, sin mezclas de proveedor.
             if hasWeather || appleSnowfallCm != nil || showsOpenMeteoAttribution {
                 weatherAttributionFooter
                     .padding(.top, 6)
