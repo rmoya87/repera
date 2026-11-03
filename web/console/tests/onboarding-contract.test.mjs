@@ -16,7 +16,8 @@ test('onboarding honours native light/dark theme and Apple button contrast',()=>
 test('first-login onboarding presents permission controls BEFORE prices',()=>{
  const flow=source('Apps/Repera/Sources/Onboarding/OnboardingFlowView.swift');
  const store=source('Apps/Repera/Sources/Onboarding/OnboardingStore.swift');
- assert.match(flow,/try await appleAuth\.signIn\(\)[\s\S]*?onboarding\.advance\(to: \.permissions\)/);
+ assert.match(flow,/try await appleAuth\.signIn\(\)[\s\S]*?onboarding\.reconcile\(isSignedIn: BusinessAuthStore\.shared\.isConnected\)/);
+ assert.match(store,/if step == \.appleSignIn \{[\s\S]*?advance\(to: priceAlreadySeen \? \.done : \.permissions\)/);
  assert.match(flow,/Text\("Continuar"\)/);
  assert.match(flow,/onboarding\.finishPermissions\(\)/);
  assert.match(flow,/onContinueFree: \{\s*onboarding\.finishPrices\(\)/);

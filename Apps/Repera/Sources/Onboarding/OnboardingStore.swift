@@ -71,7 +71,8 @@ final class OnboardingStore {
     func reconcile(isSignedIn: Bool) {
         guard isSignedIn else { return }
         if step == .appleSignIn {
-            advance(to: priceAlreadySeen ? .done : .choosePlan)
+            // En el primer acceso, explicar permisos antes de presentar los precios.
+            advance(to: priceAlreadySeen ? .done : .permissions)
         } else if priceAlreadySeen, step != .done {
             // Reauth / update: ya vio precios; no repetir wizard a medias.
             advance(to: .done)

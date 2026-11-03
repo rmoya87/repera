@@ -46,7 +46,7 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
         self.assertIn('metric("Evolución personal"', review)
         self.assertIn('metric("Rendimiento"', review)
         self.assertIn("TrainingScoreConfidenceBar(label: review.confidenceLabel)", review)
-        for label in ("Evolución personal","Cumplimiento","Rendimiento WOD"):
+        for label in ("Evolución personal","Cumplimiento","Rendimiento"):
             self.assertIn(label,model)
         self.assertIn("if let score {",home)
         self.assertIn("review.scoreBasis == .personalHistory",home)

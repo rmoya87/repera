@@ -250,9 +250,6 @@ private struct OnboardingSignInStep: View {
         // Mismo flujo de permisos/planes que con Apple.
         // No se borra ni se reemplaza ningún entrenamiento local.
         onboarding.reconcile(isSignedIn: true)
-        if onboarding.step == .appleSignIn {
-            onboarding.finishPermissions()
-        }
     }
 
     private func signInSpanish() async {
@@ -278,9 +275,6 @@ private struct OnboardingSignInStep: View {
             )
             // Ya vio onboarding / precios → entrar; si no, permisos (se saltan si ya están OK).
             onboarding.reconcile(isSignedIn: BusinessAuthStore.shared.isConnected)
-            if onboarding.step == .appleSignIn {
-                onboarding.finishPermissions()
-            }
         } catch let error as AppleAuthError where error == .cancelled {
             return
         } catch {

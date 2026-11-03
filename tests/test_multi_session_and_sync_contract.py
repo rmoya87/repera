@@ -59,7 +59,8 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         )[0]
         self.assertIn("OGSetSwipeDeleteRow(", board)
         self.assertNotIn('Image(systemName: "minus.circle")', board)
-        self.assertIn("DragGesture(minimumDistance: 18)", play)
+        self.assertIn("DragGesture(minimumDistance: 18)", read(IOS, "PlanView.swift"))
+        self.assertIn("openedSetID = projected < -revealWidth * 0.4 ? setID : nil", read(IOS, "PlanView.swift"))
         self.assertIn("liveSets.remove(at: index)", play)
         self.assertIn("performedSets: recorded", play)
         self.assertNotIn("guard liveSets.count > 1", play)
