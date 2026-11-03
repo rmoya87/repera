@@ -212,7 +212,6 @@ internal fun ProgressTab(
                     now = today
                 )
                 val scorePoints=overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
-                val scoreDemo=!pro
                 ProgressHealthGrid(
                     score={
                         SessionScoreProgressCard(
