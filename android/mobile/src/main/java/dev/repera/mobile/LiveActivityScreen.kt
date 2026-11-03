@@ -230,6 +230,25 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     LaunchedEffect(showingMetrics) {
         mapPrefs.edit().putBoolean("preferredDisplay.metrics", showingMetrics).apply()
     }
+    // Pulso medido y reciente, solo mientras hay sesión activa.
+    // Android no inventa FC cuando Salud no tiene lecturas sincronizadas.
+    var liveHeartRateBpm by remember(accountId) { mutableStateOf<Int?>(null) }
+    LaunchedEffect(accountId, state.gpsSessionID, state.phase) {
+        liveHeartRateBpm = null
+        val start = state.startedMillis
+        if (start != null && (state.phase == LiveActivityState.Phase.RECORDING ||
+                state.phase == LiveActivityState.Phase.PAUSED)) {
+            val reader = HealthConnectReader(context)
+            while (true) {
+                val measured = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    runCatching { reader.latestHeartRateBpm(start) }.getOrNull()
+                }
+                // El efecto se cancela al cambiar fase o UUID; no se conserva FC anterior.
+                liveHeartRateBpm = measured
+                delay(5_000L)
+            }
+        }
+    }
     var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
     LaunchedEffect(state.phase, state.gpsSessionID) {
         previewHealth = null
@@ -826,7 +845,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         )
                     }
                 } else {
-                    LiveMapMetricStrip(state = state, nowTick = nowTick)
+                    LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = liveHeartRateBpm)
                 }
             }
         }
@@ -982,6 +1001,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            if (state.phase == LiveActivityState.Phase.RECORDING ||
+                state.phase == LiveActivityState.Phase.PAUSED) {
+                LiveHeartRateZoneBar(
+                    bpm = liveHeartRateBpm,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+                )
+            }
             if (state.sport.tracksElevation && state.hasElevationSamples) {
                 Row(
                     Modifier
@@ -1177,6 +1203,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
         } else {
             Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
+            if (state.phase == LiveActivityState.Phase.RECORDING ||
+                state.phase == LiveActivityState.Phase.PAUSED) {
+                LiveHeartRateZoneBar(bpm = liveHeartRateBpm)
+            }
             if(state.sport.usesGPS) {
                 Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
                 val now = System.currentTimeMillis()
@@ -1599,7 +1629,7 @@ private fun LiveKilometerSplitSummary(
 
 /** Panel activo: duración, ritmo/velocidad, distancia + parcial del km (paridad mapMetricStrip iOS). */
 @Composable
-private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
+private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?) {
     val durationSec = state.durationSeconds(nowTick)
     val durationText = LiveActivityClock.format(durationSec)
     val average = state.averageSpeedKmh(nowTick)
@@ -1649,6 +1679,11 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
                 )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        LiveHeartRateZoneBar(
+            bpm = bpm,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         LiveKilometerSplitSummary(
             state = state,
