@@ -131,9 +131,12 @@ class WatchHubContractTests(unittest.TestCase):
             "private fun TransformingLazyColumnScope.seriesSteppers(", 1
         )[0]
         self.assertNotIn('Text("Resumen"', running)
-        self.assertIn('callbacks.onSwipeSet(-1)', running)
+        self.assertIn('callbacks.onPreviousStep()', running)
+        self.assertIn("private fun goToPreviousLiveStep()", activity)
         self.assertIn('showOutline = true', activity)
         self.assertIn("lastOrNull { it.first <= currentIndex }", activity)
+        self.assertIn('.put("currentIndex", previousIndex)', activity)
+        self.assertIn('onSwipeSet = { delta ->', activity)
         self.assertIn("if (editing) focus.requestFocus()", reps)
         self.assertNotIn("LaunchedEffect(Unit) { focus.requestFocus() }", reps)
         self.assertIn("onValueClick = onValueClick", wear)
