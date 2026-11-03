@@ -5,7 +5,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class AccountDeletionCoordinatorTest {
     @Test
     fun rejectsActiveSession() {
@@ -25,6 +29,21 @@ class AccountDeletionCoordinatorTest {
         AccountDeletionCoordinator.assertNoActiveSession(
             JSONObject().put("activeSession", JSONObject().put("id", ""))
         )
+    }
+
+    @Test
+    fun wipeLocalFolderRemovesDurableAccountData() {
+        val context = RuntimeEnvironment.getApplication()
+        val owner = "test-purge-" + java.util.UUID.randomUUID()
+        val store = LocalSnapshotStore(context, owner)
+        val snapshot = AccountDeletionCoordinator.emptyShellState()
+        store.write(snapshot.toString().toByteArray(Charsets.UTF_8))
+        assertTrue(store.read() != null)
+
+        AccountDeletionCoordinator.wipeLocalUserFolder(context, owner)
+        assertTrue(store.read() == null)
+        // Idempotency is required for interrupted deletion retries.
+        AccountDeletionCoordinator.wipeLocalUserFolder(context, owner)
     }
 
     @Test

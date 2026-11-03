@@ -23,7 +23,6 @@ dev.repera.mobile.QuickLogRotationInstrumentedTest
 dev.repera.mobile.QuickNumericDraftInstrumentedTest
 dev.repera.mobile.RecoveryHistoryInstrumentedTest
 dev.repera.mobile.ReperaThemeInstrumentedTest
-dev.repera.mobile.ReviewAccountIsolationInstrumentedTest
 dev.repera.mobile.RoutineEditorRestorationInstrumentedTest
 dev.repera.mobile.TechniquesInstrumentedTest
 dev.repera.mobile.TrainingSettingsInstrumentedTest
