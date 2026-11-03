@@ -603,7 +603,7 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 
 ### MCP seguro, escáner foto y pulido iOS (22/10/2026)
 
-- **Diario**: sección «De tu entrenador IA» con los programas propuestos/activos/pausados y navegación al detalle; se elimina el acceso redundante desde Ajustes.
+- **Ajustes → Entrenamiento → Programas de entrenamiento IA**: acceso a programas propuestos, activos y pausados, con navegación a su detalle. El antiguo Diario fue retirado, por lo que el acceso está centralizado en Ajustes.
 - **Previo al entreno**: toca un movimiento reconocido para abrir su ficha de ejercicio, ver técnica e historial.
 - **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. No hay sincronización manual visible: los cambios llegan sin mostrar indicadores o subtítulos de transporte. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
 - **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.

@@ -25,7 +25,7 @@ class LiveMapHeadingVoiceContracts(unittest.TestCase):
         self.assertIn("private(set) var previewHeadingDegrees: Double?", TRACKER)
         self.assertIn("private var mapHeadingDegrees: Double?", LIVE)
         self.assertIn("recorder.currentCourseDegrees ?? locationTracker.previewHeadingDegrees", LIVE)
-        self.assertIn(".onDisappear { stopMapHeadingIfNeeded() }", LIVE)
+        self.assertRegex(LIVE, r"\.onDisappear\s*\{\s*stopMapHeadingIfNeeded\(\)")
         self.assertIn("else { stopMapHeadingIfNeeded() }", LIVE)
         self.assertIn('Image(systemName: "location.north.fill")', LIVE)
         self.assertNotIn("if let course = recorder.currentCourseDegrees", LIVE)
@@ -49,7 +49,8 @@ class LiveMapHeadingVoiceContracts(unittest.TestCase):
         self.assertIn("notifyDuringBackground(", LIVE)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
         self.assertIn("if modes.contains(\"location\")", TRACKER)
-        self.assertIn("          - location\n          - audio", PROJECT)
+        self.assertIn("          - location", PROJECT)
+        self.assertNotIn("          - audio", PROJECT)
 
     def test_kilometers_and_turns_are_announced_by_recorder_not_swiftui(self):
         self.assertIn("updateUpcomingTurn(position: fix.location)", LIVE)

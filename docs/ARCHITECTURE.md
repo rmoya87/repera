@@ -431,7 +431,7 @@ Apple y Google pueden ser métodos de acceso a **la misma identidad Supabase**. 
 
 `BoardScanLiteParser` conserva sección Metcon/Weightlifting, For Time con cap global y tramos secuenciales, intervalos ON/OFF, descansos entre rondas, A/B alterno, series `Every 90s` y porcentajes de 1RM (incluyendo `>80%` como mínimo, no 80% exacto). `PlannedSet.targetPercent1RM` y `targetPercent1RMIsMinimum` son opcionales para mantener compatibilidad con rutinas anteriores y evitar inventar kilogramos. Cinco pruebas con las transcripciones de fotos externas protegen la estructura. Cuatro entradas nuevas de `CatalogGimnasia`/`CatalogCrossFit` se versionan también en Supabase para que IA y buscador utilicen la misma identidad.
 
-Los programas IA se consultan en `PlanView` → Diario/Programado, junto a las sesiones de entrenadores. `SessionPreviewView` enlaza las filas que tienen un ID resoluble con `ExerciseDetailView`. En Cuenta, avatar Apple, nombre y correo comparten una única fila y el estado de sincronización es subtítulo del botón.
+Los programas IA se consultan desde Ajustes → Entrenamiento → `AITrainingProgramsView` tras retirar la vista del antiguo Diario. `SessionPreviewView` enlaza las filas que tienen un ID resoluble con `ExerciseDetailView`. En Cuenta, avatar Apple, nombre y correo comparten una única fila y el estado de sincronización es subtítulo del botón.
 
 
 ## Autoridad local para CRUD deportivo por IA (22/10/2026)

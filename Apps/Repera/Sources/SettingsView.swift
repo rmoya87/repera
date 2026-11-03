@@ -466,6 +466,12 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
+                NavigationLink {
+                    AITrainingProgramsView()
+                } label: {
+                    Label("Programas de entrenamiento IA", systemImage: "sparkles.rectangle.stack")
+                        .foregroundStyle(OG.label)
+                }
                 Stepper(value: Binding(
                     get: { store.state.settings.heartRateMaxBpm ?? 190 },
                     set: { next in
