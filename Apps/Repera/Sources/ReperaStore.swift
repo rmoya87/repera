@@ -2538,6 +2538,7 @@ final class ReperaStore: NSObject {
             maxHeartRateBpm: state.settings.heartRateMaxBpm ?? 190,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
+            ownerScope: AppleAuthStore.shared.userID,
             completedAck: lastWatchAcknowledgedSession,
             completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
                 state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID

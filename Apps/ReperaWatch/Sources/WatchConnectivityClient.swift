@@ -27,6 +27,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
     private let pendingKey = "repera.watch.completedOutbox.v1"
     private let pendingLiveCancelKey = "repera.watch.pendingLiveCancels.v1"
+    private let pendingOwnersKey = "repera.watch.completedOutboxOwners.v1"
+    private let ownerKey = "repera.watch.ownerScope.v1"
+    private var currentOwnerScope: String? {
+        UserDefaults.standard.string(forKey: ownerKey)
+    }
     private var lastInboundLive: Data?
     private var lastInboundSession: Data?
     private var lastInboundSessionRevision = -1
@@ -48,8 +53,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated,
               let data = try? JSONEncoder().encode(session) else { return }
+        guard let owner = currentOwnerScope else { return }
         do {
-            try WCSession.default.updateApplicationContext(["session": data])
+            try WCSession.default.updateApplicationContext(["session": data, "ownerScope": owner])
         } catch {
             logger.error("Watch state context failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -206,9 +212,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendDiscarded(sessionID: UUID?) {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated else { return }
+        guard let owner = currentOwnerScope else { return }
         var payload: [String: Any] = [
             "session": Data(),
-            "discarded": true
+            "discarded": true,
+            "ownerScope": owner
         ]
         if let sessionID {
             payload["discardedSessionId"] = sessionID.uuidString
@@ -237,6 +245,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
         queued.append(data)
         UserDefaults.standard.set(queued, forKey: pendingKey)
+        // Never silently relabel an offline completion after a login switch.
+        if let owner = currentOwnerScope {
+            var owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
+            owners[session.id.uuidString] = owner
+            UserDefaults.standard.set(owners, forKey: pendingOwnersKey)
+        }
         flushPending()
     }
 
@@ -244,7 +258,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated else { return }
         let queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
-        guard !queued.isEmpty else { return }
+        guard !queued.isEmpty, let currentOwnerScope else { return }
+        let owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
         // watchOS has a durable transfer queue. Do not enqueue identical
         // payloads on every activation, especially after a long offline period.
         // A richer HealthKit revision (different encoded Data) is still sent.
@@ -252,7 +267,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             $0.userInfo["session"] as? Data
         })
         for data in queued where !inFlight.contains(data) {
-            WCSession.default.transferUserInfo(["session": data])
+            guard let id = (try? JSONDecoder().decode(WorkoutSession.self, from: data))?.id,
+                  owners[id.uuidString] == currentOwnerScope else { continue }
+            WCSession.default.transferUserInfo(["session": data, "ownerScope": currentOwnerScope])
         }
         // Keep a durable outbox until the iPhone acknowledges persistence.
         // watchOS may deliver twice; the iPhone reconciles using workout.id.
@@ -264,6 +281,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == id
         }
         UserDefaults.standard.set(queued, forKey: pendingKey)
+        var owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
+        owners.removeValue(forKey: id.uuidString)
+        UserDefaults.standard.set(owners, forKey: pendingOwnersKey)
     }
 
     /// Manual sync fetches today's CURRENT plan; never claim an old cached
@@ -315,7 +335,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                  activationDidCompleteWith activationState: WCSessionActivationState,
                  error: (any Error)?) {
         if let error { logger.error("Activation failed: \(error.localizedDescription, privacy: .public)") }
-        applyContext(session.receivedApplicationContext)
+        applyContext(session.receivedApplicationContext, acceptsOwnerTransition: true)
         flushPending()
         flushPendingLiveCancellations()
         let manual = pendingManualRefresh
@@ -332,7 +352,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        applyContext(applicationContext)
+        applyContext(applicationContext, acceptsOwnerTransition: true)
+        flushPending()
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
@@ -343,7 +364,21 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         applyContext(userInfo)
     }
 
-    private func applyContext(_ payload: [String: Any]) {
+    private func applyContext(_ payload: [String: Any], acceptsOwnerTransition: Bool = false) {
+        // Only the iPhone's latest application context may replace account scope.
+        // Buffered user-info transfers from an older identity must not do it.
+        if acceptsOwnerTransition,
+           let incoming = payload["ownerScope"] as? String,
+           !incoming.isEmpty, incoming != currentOwnerScope {
+            UserDefaults.standard.set(incoming, forKey: ownerKey)
+            lastInboundSessionRevision = -1
+            lastInboundSession = nil
+            lastInboundToday = nil
+            lastInboundTodayPlans = nil
+            lastInboundLive = nil
+        }
+        if let incoming = payload["ownerScope"] as? String,
+           incoming != currentOwnerScope { return }
         if payload["action"] as? String == "timerCommand",
            let rawID = payload["timerId"] as? String,
            let id = UUID(uuidString: rawID),
