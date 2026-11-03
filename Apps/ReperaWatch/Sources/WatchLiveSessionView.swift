@@ -173,8 +173,9 @@ struct WatchLiveSessionView: View {
 /// Cinco zonas basadas en porcentaje de FCmáx estimada; no son un diagnóstico.
 /// Las muestras provienen exclusivamente de HealthKit.
 struct WatchHeartRateZoneBar: View {
+    @AppStorage("repera.watch.heartRate.maxBpm") private var personalMaxBpm = 190
     var bpm: Int?
-    var estimatedMaxBpm: Double = 190
+    var estimatedMaxBpm: Double? = nil
     var prominent: Bool = false
 
     private let colors: [Color] = [
@@ -186,8 +187,9 @@ struct WatchHeartRateZoneBar: View {
     ]
 
     private var zone: Int? {
-        guard let bpm, (25...250).contains(bpm), estimatedMaxBpm > 0 else { return nil }
-        let ratio = Double(bpm) / estimatedMaxBpm
+        let maxBpm = estimatedMaxBpm ?? Double(personalMaxBpm)
+        guard let bpm, (25...250).contains(bpm), maxBpm > 0 else { return nil }
+        let ratio = Double(bpm) / maxBpm
         if ratio < 0.60 { return 1 }
         if ratio < 0.70 { return 2 }
         if ratio < 0.80 { return 3 }
