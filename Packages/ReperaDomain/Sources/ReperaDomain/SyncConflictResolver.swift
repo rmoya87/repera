@@ -47,6 +47,10 @@ public enum SyncConflictResolver: Sendable {
         var result = preferred
         result.deletedWorkoutIDs.formUnion(other.deletedWorkoutIDs)
         result.deletedExerciseIDs.formUnion(other.deletedExerciseIDs)
+        result.deletedRoutineIDs.formUnion(other.deletedRoutineIDs)
+        for (routineID, ids) in other.deletedRoutineExerciseIDs {
+            result.deletedRoutineExerciseIDs[routineID, default: []].formUnion(ids)
+        }
         for (workoutID, ids) in other.deletedWorkoutExerciseIDs {
             result.deletedWorkoutExerciseIDs[workoutID, default: []].formUnion(ids)
         }
@@ -55,6 +59,21 @@ public enum SyncConflictResolver: Sendable {
         let deletedWorkoutIDs = result.deletedWorkoutIDs
         result.exercises.removeAll { deletedExerciseIDs.contains($0.id) }
         result.workouts.removeAll { deletedWorkoutIDs.contains($0.id) }
+        let deletedRoutineIDs = result.deletedRoutineIDs
+        result.routines.removeAll { deletedRoutineIDs.contains($0.id) }
+        for index in result.routines.indices {
+            let id = result.routines[index].id.uuidString
+            guard let removed = result.deletedRoutineExerciseIDs[id],
+                  !removed.isEmpty else { continue }
+            for blockIndex in result.routines[index].blocks.indices {
+                result.routines[index].blocks[blockIndex].exercises.removeAll {
+                    removed.contains($0.id)
+                }
+                result.routines[index].blocks[blockIndex].movements.removeAll {
+                    removed.contains($0.id)
+                }
+            }
+        }
         if let active = result.activeSession,
            deletedWorkoutIDs.contains(active.id) {
             result.activeSession = nil
