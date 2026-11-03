@@ -100,9 +100,7 @@ final class BusinessWorkoutSyncStore {
     /// Only a short-lived pending DELETE request; no archived deleted workout
     /// or permanent deleted-id list is retained after the server confirms it.
     func noteDeleted(_ id: UUID) {
-        guard BusinessAuthStore.shared.isConnected,
-              let user = BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id
-        else { return }
+        guard let user = BusinessAuthStore.shared.boundUserForPendingDeletion else { return }
         let identifier = id.uuidString
         var pending = pendingDeletes(user)
         if !pending.contains(identifier) { pending.append(identifier) }
