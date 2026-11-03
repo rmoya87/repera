@@ -38,6 +38,37 @@ internal object SessionScoreProgress {
         }
     }
 
+    /** Confianza del último entrenamiento realmente puntuable en el periodo.
+     * No confundirla con una confianza media inventada de la gráfica. */
+    fun latestConfidence(
+        state: JSONObject, range: ProgressTimeRange, monday: Boolean,
+        now: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()
+    ): String? {
+        val archive = state.optJSONArray("workouts") ?: return null
+        val sessions = (0 until archive.length()).mapNotNull { i ->
+            val workout = archive.optJSONObject(i) ?: return@mapNotNull null
+            val end = runCatching { Instant.parse(workout.getString("finishedAt")) }.getOrNull()
+                ?: return@mapNotNull null
+            Entry(workout, end.atZone(zone).toLocalDate(), end)
+        }
+        return sessions.filter { range.contains(it.day, now, monday) }
+            .mapNotNull { entry ->
+                val review = entry.json.optJSONObject("sessionReview")
+                val savedScore = if (review?.optString("scoreBasis") == "personalHistory")
+                    review.optDouble("overallScore").takeIf { it.isFinite() && it in 1.0..10.0 }
+                else null
+                when {
+                    savedScore != null -> entry.finished to
+                        review?.optString("confidenceLabel")
+                            ?.takeIf { it.isNotBlank() && it != "null" }
+                            .orEmpty().ifBlank { "En construcción" }
+                    gpsScore(entry, sessions, zone) != null ->
+                        entry.finished to "En construcción"
+                    else -> null
+                }
+            }.maxByOrNull { it.first }?.second
+    }
+
     private fun gpsScore(session: Entry, all: List<Entry>, zone: ZoneId): Double? {
         val current = session.json
         val sport = current.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" }
