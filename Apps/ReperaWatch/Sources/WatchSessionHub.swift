@@ -439,22 +439,28 @@ final class WatchSessionHub: NSObject {
 
     /// La frecuencia viene del sensor del reloj; no de un valor estimado.
     /// Solo se comparte con la sesión Comenzar del teléfono y cada 3-5 s.
-    private func publishCompanionHeartRateIfNeeded() {
+    private func publishCompanionHeartRateIfNeeded(force: Bool = false) {
         guard let sessionID = companionSensorID,
               let live = liveActivity, live.id == sessionID,
               live.phase == .recording || live.phase == .paused,
-              let bpm = health.pulseBpm, (25...250).contains(bpm) else { return }
+              let bpm = health.pulseBpm, (25...250).contains(bpm),
+              let measuredAt = health.pulseCapturedAt else { return }
         let now = Date()
-        if lastCompanionHeartSessionID == sessionID {
+        // A sample from an earlier stage of the workout cannot be relabeled
+        // as a fresh Watch reading just because a periodic tick fired.
+        guard (0...20).contains(now.timeIntervalSince(measuredAt)) else { return }
+        if !force && lastCompanionHeartSessionID == sessionID {
             let interval = now.timeIntervalSince(lastCompanionHeartSentAt)
             if interval < 3 || (lastCompanionHeartBpm == bpm && interval < 5) {
                 return
             }
         }
+        guard connectivity.sendLiveHeartRate(
+            sessionId: sessionID, bpm: bpm, capturedAt: measuredAt
+        ) else { return }
         lastCompanionHeartSessionID = sessionID
         lastCompanionHeartBpm = bpm
         lastCompanionHeartSentAt = now
-        connectivity.sendLiveHeartRate(sessionId: sessionID, bpm: bpm, capturedAt: now)
     }
 
     /// La esfera lee únicamente datos persistidos; WidgetKit puede espaciar
@@ -1606,7 +1612,12 @@ final class WatchSessionHub: NSObject {
     private func startClock() {
         guard clockTimer == nil else { return }
         clockTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tickClock() }
+            Task { @MainActor in
+                self?.tickClock()
+                // Companion HR may arrive between UI updates. Retry a real,
+                // recent Watch sample when WCSession becomes reachable again.
+                self?.publishCompanionHeartRateIfNeeded()
+            }
         }
     }
 
@@ -1768,6 +1779,12 @@ final class WatchSessionHub: NSObject {
 }
 
 extension WatchSessionHub: WatchConnectivityClientDelegate {
+    nonisolated func watchConnectivityDidBecomeReachable() {
+        Task { @MainActor in
+            self.publishCompanionHeartRateIfNeeded(force: true)
+        }
+    }
+
     nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?) {
         Task { @MainActor in
             // Puede llegar un snapshot .recording antiguo después del ACK de
