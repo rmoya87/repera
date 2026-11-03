@@ -191,15 +191,19 @@ struct ReperaApp: App {
                     // Nunca forzar sheet SIWA en splash. Binding previo → tabs aunque
                     // el SDK haya borrado el refresh tras un refresh fallido.
                     let onboardingFinished = onboarding.isComplete || onboarding.priceAlreadySeen
-                    let decision = AuthSessionLaunchPolicy.decide(
-                        .init(
-                            appleSignedIn: appleAuth.isSignedIn,
+                    // Supabase cache/binding alone is not an authenticated identity:
+                    // a revoked Apple credential must never reopen the training UI.
+                    let verifiedPrimaryIdentity = appleOK || businessAuth.isGoogleSignedIn
+                    let decision: AuthSessionLaunchDecision = verifiedPrimaryIdentity
+                        ? AuthSessionLaunchPolicy.decide(
+                            .init(
+                                appleSignedIn: appleAuth.isSignedIn,
                             hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
                             isConnected: businessAuth.isConnected,
                             hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding,
-                            onboardingFinished: onboardingFinished
-                        )
-                    )
+                                onboardingFinished: onboardingFinished
+                            )
+                        ) : .showLogin
                     AuthSessionTrace.event(
                         "launch decision=\(decision) interactiveSIWA=\(AuthSessionLaunchPolicy.shouldPresentInteractiveAppleSignIn(appleSignedIn: appleAuth.isSignedIn, isConnected: businessAuth.isConnected, hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession, hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding))"
                     )
@@ -458,7 +462,8 @@ struct ReperaApp: App {
 
     /// Apple o Google verificado + Supabase + onboarding hecho.
     private var canEnterMainApp: Bool {
-        guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication else { return false }
+        guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication,
+              appleAuth.isSignedIn || businessAuth.isGoogleSignedIn else { return false }
         return AuthSessionLaunchPolicy.decide(
             .init(
                 appleSignedIn: appleAuth.isSignedIn,
