@@ -143,7 +143,8 @@ struct WatchHomeHubView: View {
         guard let selected else { return }
         hub.setHubCarouselIndex(selectedIndex)
         switch selected {
-        case .plan:
+        case .plan(let plan):
+            hub.selectTodayPlan(plan.id)
             onPlayPlan()
         case .sport(let sport):
             onPlaySport(sport)
