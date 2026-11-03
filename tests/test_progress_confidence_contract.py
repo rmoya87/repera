@@ -41,9 +41,13 @@ class ProgressConfidenceContractTests(unittest.TestCase):
     def test_ios_highlight_and_maximum_half_card_width(self):
         confidence = read("Apps/Repera/Sources/SessionReviewViews.swift")
         self.assertIn("geometry.size.width * (compactInProgress ? 0.5 : 1)", confidence)
-        self.assertIn("unit * (selected ? 3 : 1)", confidence)
-        self.assertIn("selected ? 36 : 13", confidence)
-        self.assertIn("if selected {", confidence)
+        self.assertIn("let activeWidthFactor: CGFloat = 1.5", confidence)
+        self.assertIn("unit * (selected ? activeWidthFactor : 1)", confidence)
+        self.assertIn("selected ? 18 : 13", confidence)
+        self.assertIn("Capsule()", confidence)
+        # El estado solo se imprime en el título, no dentro del segmento.
+        self.assertNotIn("Text(level.title)", confidence)
+        self.assertIn("showSelectedLevelInCaption = true", confidence)
         self.assertNotIn("LinearGradient", confidence)
 
     def test_android_shows_selected_level_and_limits_width(self):
@@ -60,8 +64,11 @@ class ProgressConfidenceContractTests(unittest.TestCase):
         self.assertIn(
             "maxWidth * (if (compactInProgress) 0.5f else 1f)", confidence
         )
-        self.assertIn("weight(if (selected) 3f else 1f)", confidence)
-        self.assertIn("height(if (selected) 36.dp else 13.dp)", confidence)
+        self.assertIn("weight(if (selected) 1.5f else 1f)", confidence)
+        self.assertIn("height(if (selected) 18.dp else 13.dp)", confidence)
+        self.assertIn(".clip(androidx.compose.foundation.shape.CircleShape)", confidence)
+        self.assertNotIn("tier.title,\n", confidence)
+        self.assertIn("showSelectedLevelInCaption: Boolean = true", confidence)
         for title in ("Aprendiendo", "Baja", "Media", "Alta"):
             self.assertIn(title, confidence)
         self.assertNotIn("Brush.horizontalGradient", confidence)
