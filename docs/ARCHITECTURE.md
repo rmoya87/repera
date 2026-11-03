@@ -472,3 +472,16 @@ ack backend, linkedPurchaseToken; ownership con reclaim tras hard delete
 - En Wear OS, el mensaje `/repera/session-finish` guarda el final como `finished` y `awaitingResultEntry=true`; solo tras persistir se envía ACK y aviso desde la app móvil Android. Se valida la identidad de cuenta y la revisión de sesión al abrir el deep link del editor. Las repeticiones prescritas **no se convierten automáticamente** en realizadas; requieren activar «Registrar nuevas series como realizadas» y guardar. Una importación de un workout pendiente desde el espejo Supabase puede solicitar edición también en iPhone si la cuenta coincide.
 - **Eliminación real, sin tombstones permanentes:** un entrenamiento borrado se quita del JSON local/iCloud y de la fila de Supabase por `DELETE` autenticado con RLS restringida al propietario; no se guardan copias vacías, `deleted_at` ni listas `deletedWorkoutIDs` en `AppState`. El único dato transitorio es el UUID de una operación DELETE pendiente mientras no se haya confirmado el servidor; se descarta después de un ACK y los fingerprints se limitan a sesiones existentes. La migración `20261103190000_athlete_workout_hard_delete.sql` retira los antiguos soft deletes y convierte los upserts de tombstones de versiones antiguas en borrado físico. Si un dispositivo previamente sincronizó un UUID que ya no existe remotamente, elimina su copia local sin recrearla. Los cambios en ejercicios de rutinas o entrenamientos se persisten en esos documentos, sin registros de eliminación adicionales. El reloj recibe el evento terminal para evitar reenvíos obsoletos. Un dispositivo desconectado que nunca sincronizó esa sesión puede necesitar recuperar el snapshot actualizado antes de converger: sin historial de eliminados no hay prueba permanente de que la copia sea antigua.
 - Verificaciones a realizar en dispositivos: grabación programada Watch offline/online, reenvíos repetidos y finalización con HealthKit tardío; interacción con notificación en primer plano/bloqueo/arranque en frío y sin permisos; guardar series con o sin confirmación; borrar ejercicio custom, ejercicio de un histórico y entreno entero y reiniciar la app, comparar revisiones iCloud, volver a iniciar tras borrar y probar reintentos de DELETE Supabase; comprobar las mismas rutas de finalización con Wear OS/Android. La sincronización Wear OS → iPhone **no es por Bluetooth directo**, sino únicamente a través de una cuenta backend compartida.
+
+## Cambios multi-dispositivo 03/11/2026
+
+Los nuevos contratos opcionales mantienen el campo anterior `todayWorkout`
+de WatchConnectivity y añaden `todayWorkouts` con una lista de sesiones
+independientes. Wear OS recibe el primer plan en `plan` y los adicionales
+en `_otherTodayPlans`. Se conserva el aislamiento de identificadores entre
+prescripción y ejecución; cada sesión ejecutada genera su propio UUID.
+`AppSettings.heartRateMaxBpm` y `TrainingSettings.heartRateMaxBpm`
+son opcionales (120–230 lpm) con un fallback provisional de 190 lpm y nunca
+se usan para inventar una lectura de pulso. Las preferencias de temporizador
+son por identidad, excluyendo una migración automática de datos legados sin
+propietario. Véase [revisión y plan de pruebas](AUDIT_FIXES_2026_11_03.md).
