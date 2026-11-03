@@ -1593,6 +1593,12 @@ final class ReperaStore: NSObject {
         session.wodResults.removeAll { replacedWODBlockIDs.contains($0.id) }
         session.title = fresh.title
         session.routineBlocks = routine.blocks
+        let removedExerciseIDs = Set(session.exercises.map(\.id))
+            .subtracting(fresh.exercises.map(\.id))
+        if !removedExerciseIDs.isEmpty {
+            state.deletedWorkoutExerciseIDs[session.id.uuidString, default: []]
+                .formUnion(removedExerciseIDs)
+        }
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
             let oldIndex = remaining.firstIndex(where: { $0.id == planned.id })
@@ -2096,7 +2102,26 @@ final class ReperaStore: NSObject {
         guard !state.workouts.contains(where: { $0.id == session.id }),
               state.activeSession == nil || state.activeSession?.id == session.id
         else { return }
-        state.activeSession = session
+        var incoming = session
+        if let removed = state.deletedWorkoutExerciseIDs[session.id.uuidString],
+           !removed.isEmpty {
+            // iPhone deletion is authoritative even if the Watch retransmits
+            // an older active-session snapshot after an offline period.
+            incoming.exercises.removeAll { removed.contains($0.id) }
+            if var blocks = incoming.routineBlocks {
+                for index in blocks.indices {
+                    blocks[index].exercises.removeAll { removed.contains($0.id) }
+                    blocks[index].movements.removeAll { removed.contains($0.id) }
+                }
+                incoming.routineBlocks = blocks
+            }
+            if !incoming.exercises.isEmpty {
+                incoming.currentIndex = min(incoming.currentIndex, incoming.exercises.count - 1)
+            } else {
+                incoming.currentIndex = 0
+            }
+        }
+        state.activeSession = incoming
         persist()
         pushActiveToWatch(immediate: true)
     }
@@ -3374,6 +3399,7 @@ final class ReperaStore: NSObject {
         entry.exercise = catalog
         session.exercises[idx] = entry
         state.activeSession = session
+        persist()
         pushActiveToWatch(immediate: true)
         return true
     }
