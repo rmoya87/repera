@@ -2535,6 +2535,7 @@ final class ReperaStore: NSObject {
             session: state.activeSession,
             today: plans.first,
             todayPlans: plans,
+            maxHeartRateBpm: state.settings.heartRateMaxBpm ?? 190,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
             completedAck: lastWatchAcknowledgedSession,
