@@ -717,7 +717,7 @@ final class WatchSessionHub: NSObject {
         )
         pending.appleActiveEnergyKcal = kcalSnapshot
         pending.appleAverageHeartRateBpm = bpmSnapshot
-        // Snapshot condiciones (Open-Meteo) si hay coords.
+        // Snapshot de WeatherKit con complementos marinos/nieve exclusivamente.
         let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending
         summaryDismissed = false
@@ -727,7 +727,7 @@ final class WatchSessionHub: NSObject {
 
         if let coord {
             Task { @MainActor in
-                let snap = await OpenMeteoConditionsClient.fetch(
+                let snap = await AppleWeatherConditionsClient.fetch(
                     latitude: coord.0, longitude: coord.1, sportID: sport.rawValue
                 )
                 if var current = self.lastFinished, current.id == id {
