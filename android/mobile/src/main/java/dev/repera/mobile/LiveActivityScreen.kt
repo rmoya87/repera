@@ -191,8 +191,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         onInitialSportConsumed()
     }
     LaunchedEffect(state.phase) {
-        while (state.phase == dev.repera.domain.LiveActivityState.Phase.RECORDING) {
-            kotlinx.coroutines.delay(1000L); nowTick = System.currentTimeMillis()
+        while (state.phase == LiveActivityState.Phase.RECORDING ||
+            state.phase == LiveActivityState.Phase.PAUSED) {
+            delay(1000L)
+            nowTick = System.currentTimeMillis()
         }
     }
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
@@ -249,6 +251,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
         }
     }
+    // Sensor Wear enlazado a la sesión actual tiene prioridad; Health Connect es respaldo.
+    // Cuando se desconecta, la lectura del reloj caduca automáticamente a los 20 s.
+    val displayedHeartRateBpm = runtime.currentWearHeartRateBpm(nowTick) ?: liveHeartRateBpm
     var previewHealth by remember { mutableStateOf<dev.repera.domain.SessionCardioSample?>(null) }
     LaunchedEffect(state.phase, state.gpsSessionID) {
         previewHealth = null
@@ -845,7 +850,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         )
                     }
                 } else {
-                    LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = liveHeartRateBpm)
+                    LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = displayedHeartRateBpm)
                 }
             }
         }
@@ -1004,7 +1009,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             if (state.phase == LiveActivityState.Phase.RECORDING ||
                 state.phase == LiveActivityState.Phase.PAUSED) {
                 LiveHeartRateZoneBar(
-                    bpm = liveHeartRateBpm,
+                    bpm = displayedHeartRateBpm,
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
                 )
             }
@@ -1205,7 +1210,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
             if (state.phase == LiveActivityState.Phase.RECORDING ||
                 state.phase == LiveActivityState.Phase.PAUSED) {
-                LiveHeartRateZoneBar(bpm = liveHeartRateBpm)
+                LiveHeartRateZoneBar(bpm = displayedHeartRateBpm)
             }
             if(state.sport.usesGPS) {
                 Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
