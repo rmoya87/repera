@@ -24,7 +24,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
  val rows=draft.rows;val rowKeys=draft.rowKeys
  var notes by draft::notes;var includeNotes by draft::includeNotes
  val requestId=draft.requestId
- var error by remember {mutableStateOf<String?>(null)}
+ var error by remember(owner) {mutableStateOf<String?>(null)}
+ val invalidFields = remember(owner) { mutableStateMapOf<String,String>() }
+ fun validateTyped(field:String, valid:Boolean, message:String) {
+  if(valid) invalidFields.remove(field) else invalidFields[field]=message
+ }
  ReperaModalBottomSheet(onDismissRequest={if(!busy) onDismiss()}) {
   Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
    ReperaPageHeader(title = "Apuntar ejercicio")
@@ -37,11 +41,32 @@ import androidx.compose.runtime.saveable.rememberSaveable
    }
    rows.indices.forEach {i ->key(rowKeys[i]) {ReperaCard(modifier=Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
     Text("Serie ${i+1}", style = MaterialTheme.typography.titleSmall)
-    if(!entry.mobilityHold) QuickNumericField(rows[i].quantity.toString(),if(unit=="meters") "Metros" else if(unit=="calories") "Cal" else "Repeticiones",!busy) {v ->rows[i]=rows[i].copy(quantity=QuickLogInput.int(v,QuickLogInput.quantityCap(mode,unit,repsOrMeters)))}
-    if(mode.showsWeight) QuickNumericField(rows[i].weightKg?.toString().orEmpty(),"Peso / lastre (kg)",!busy,decimal=true) {v ->rows[i]=rows[i].copy(weightKg=QuickLogInput.weight(v))}
-    if(mode==ExerciseInputMode.HSPU_DEFICIT) QuickNumericField((rows[i].deficitCm ?: 0).toString(),"Déficit (cm)",!busy) {v ->rows[i]=rows[i].copy(deficitCm=QuickLogInput.int(v,QuickLogInput.MAX_DEFICIT_CM))}
-    if(mode in setOf(ExerciseInputMode.MACHINE_WORK,ExerciseInputMode.REPS_AND_TIME)) QuickNumericField((rows[i].durationSeconds ?: 0).toString(),"Duración (segundos)",!busy) {v ->rows[i]=rows[i].copy(durationSeconds=QuickLogInput.int(v,QuickLogInput.MAX_DURATION_SECONDS))}
-    TextButton(onClick={rows.removeAt(i);rowKeys.removeAt(i)},enabled=!busy) {Text("Eliminar serie ${i+1}")}
+    if(!entry.mobilityHold) QuickNumericField(rows[i].quantity.toString(),if(unit=="meters") "Metros" else if(unit=="calories") "Cal" else "Repeticiones",!busy) {v ->
+     val cap=QuickLogInput.quantityCap(mode,unit,repsOrMeters)
+     val valid=QuickLogInput.validIntText(v,cap)
+     validateTyped(rowKeys[i]+":quantity",valid,"Cantidad fuera de rango (máximo $cap)")
+     if(valid) rows[i]=rows[i].copy(quantity=QuickLogInput.int(v,cap))
+    }
+    if(mode.showsWeight) QuickNumericField(rows[i].weightKg?.toString().orEmpty(),"Peso / lastre (kg)",!busy,decimal=true) {v ->
+     val valid=QuickLogInput.validWeightText(v)
+     validateTyped(rowKeys[i]+":weight",valid,"El peso debe estar entre 0 y 1500 kg")
+     if(valid) rows[i]=rows[i].copy(weightKg=QuickLogInput.weight(v))
+    }
+    if(mode==ExerciseInputMode.HSPU_DEFICIT) QuickNumericField((rows[i].deficitCm ?: 0).toString(),"Déficit (cm)",!busy) {v ->
+     val valid=QuickLogInput.validIntText(v,QuickLogInput.MAX_DEFICIT_CM)
+     validateTyped(rowKeys[i]+":deficit",valid,"El déficit máximo es 60 cm")
+     if(valid) rows[i]=rows[i].copy(deficitCm=QuickLogInput.int(v,QuickLogInput.MAX_DEFICIT_CM))
+    }
+    if(mode in setOf(ExerciseInputMode.MACHINE_WORK,ExerciseInputMode.REPS_AND_TIME)) QuickNumericField((rows[i].durationSeconds ?: 0).toString(),"Duración (segundos)",!busy) {v ->
+     val valid=QuickLogInput.validIntText(v,QuickLogInput.MAX_DURATION_SECONDS)
+     validateTyped(rowKeys[i]+":duration",valid,"La duración máxima es 86400 segundos")
+     if(valid) rows[i]=rows[i].copy(durationSeconds=QuickLogInput.int(v,QuickLogInput.MAX_DURATION_SECONDS))
+    }
+    TextButton(onClick={
+     val rowKey=rowKeys[i]
+     invalidFields.keys.filter {it.startsWith("$rowKey:")}.forEach {invalidFields.remove(it)}
+     rows.removeAt(i);rowKeys.removeAt(i)
+    },enabled=!busy) {Text("Eliminar serie ${i+1}")}
    }}}}
    TextButton(onClick={rows.add(rows.lastOrNull() ?: defaultRow);rowKeys.add(java.util.UUID.randomUUID().toString())},enabled=!busy && rows.size<100) {Text("Añadir serie")}
    Row {Switch(includeNotes,{includeNotes=it},enabled=!busy,colors=reperaSwitchColors());Text("Añadir nota",Modifier.padding(12.dp))}
@@ -49,7 +74,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
    Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     OutlinedButton(onClick=onDismiss,enabled=!busy) {Text("Cancelar")}
-    Button(colors=reperaPrimaryButtonColors(),onClick={runCatching {QuickLogRows.validate(rows.toList(),mode,ExerciseInput.defaultQuantityUnit(entry.name,entry.equipment),ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment),entry.mobilityHold,repsOrMeters)}.onSuccess {error=null;onSave(it,notes.takeIf {includeNotes},requestId)}.onFailure {error=it.localizedMessage ?: "Revisa las series"}},enabled=!busy && rows.isNotEmpty()) {Text("Guardar")}
+    Button(colors=reperaPrimaryButtonColors(),onClick={
+     if(invalidFields.isNotEmpty()) { error=invalidFields.values.first() }
+     else runCatching {QuickLogRows.validate(rows.toList(),mode,ExerciseInput.defaultQuantityUnit(entry.name,entry.equipment),ExerciseInput.supportsCaloriesAndMeters(entry.name,entry.equipment),entry.mobilityHold,repsOrMeters)}
+         .onSuccess {error=null;onSave(it,notes.takeIf {includeNotes},requestId)}
+         .onFailure {error=it.localizedMessage ?: "Revisa las series"}
+    },enabled=!busy && rows.isNotEmpty()) {Text("Guardar")}
    }
    Text("Guarda directamente en el historial sin abrir ni modificar una sesión activa.",style=MaterialTheme.typography.bodySmall)
    Spacer(Modifier.height(20.dp))
