@@ -149,16 +149,20 @@ private struct StandaloneTimerCompletion: Codable {
 }
 
 /// Última configuración del temporizador, independiente de los favoritos.
+@MainActor
 private enum StandaloneTimerConfigurationStore {
-    private static let key = "repera.timer.lastConfiguration.v1"
+    private static var key: String? {
+        guard let owner = AppleAuthStore.shared.userID, !owner.isEmpty else { return nil }
+        return "repera.timer.lastConfiguration.v3.\(owner)"
+    }
 
     static func load() -> StandaloneTimerConfig? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let key, let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(StandaloneTimerConfig.self, from: data)
     }
 
     static func save(_ configuration: StandaloneTimerConfig) {
-        guard let data = try? JSONEncoder().encode(configuration) else { return }
+        guard let key, let data = try? JSONEncoder().encode(configuration) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
 }
