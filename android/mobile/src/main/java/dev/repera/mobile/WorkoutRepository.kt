@@ -2843,8 +2843,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
 
     /** Elimina un entreno registrado (solo tras consentimiento explícito). */
     @Synchronized fun deleteWorkout(id: String,expectedLocalDigest:String?=null) {
-        // Tombstone ANTES de borrar (paridad ReperaStore.deleteWorkout iOS): el
-        // espejo no debe resucitar el registro en el próximo sync.
+        // Delete the workout from the durable local JSON, not a soft-deleted row.
         val state = requireState()
         val archive = state.getJSONArray("workouts")
         val index = (0 until archive.length()).firstOrNull {
@@ -2854,9 +2853,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             "El entrenamiento local cambió mientras se revisaba la propuesta IA"
         }
         check(stillAuthorized()) {"La cuenta cambió antes de borrar el entrenamiento"}
-        mirror.noteDeleted(id)
         archive.remove(index)
+        // The CAS can fail; do NOT enqueue a remote DELETE until local commit
+        // actually succeeded. Otherwise the cloud copy would be deleted even
+        // though the athlete still sees a saved local workout.
         save(state)
+        mirror.noteDeleted(id)
     }
 
     /**
@@ -2868,7 +2870,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     internal fun resetUserDataJournaledForTests(resetId: String): ResetCoordinator.Outcome =
         ResetCoordinator(resetPorts()).reset(resetId)
 
-    /** Ids bloqueados en el almacen de tombstones de ESTE repositorio (clave = id de cuenta Google; ver doc de reset). */
+    /** Sólo IDs con eliminación remota AÚN pendiente (sin historial permanente). */
     fun mirrorBlockedIds(): Set<String> = mirror.blockedIds()
 
     /** Reconciliacion idempotente tras un corte; la llama el sync del espejo antes de usar tombstones. */
