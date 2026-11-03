@@ -723,7 +723,7 @@ struct RouteWeatherStrip: View {
                     .foregroundStyle(OG.label3)
             }
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
+                HStack(alignment: .bottom, spacing: 10) {
                     if apple { AppleWeatherAttributionView() }
                     if showsOpenMeteoAttribution { openMeteoLegalLink }
                 }
@@ -732,6 +732,7 @@ struct RouteWeatherStrip: View {
                     if showsOpenMeteoAttribution { openMeteoLegalLink }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .bottomLeading)
         }
     }
 
