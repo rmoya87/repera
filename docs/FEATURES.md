@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Desvinculación de clientes y controles de Inicio en Apple Watch (03/11/2026)
+
+- **iOS y Android:** en la ficha de un centro vinculado, «Desvincularme como cliente» afecta únicamente a la relación deportiva y a los bonos/reservas futuros. Si una persona también es propietaria, administradora, entrenadora o recepcionista de ese centro, conserva su membresía y permisos profesionales.
+- **Servidor:** `private.leave_org_as_athlete` valida la identidad de sesión y exige una ficha de cliente activa propia o una membresía `athlete` activa. Cancela reservas futuras (incluida lista de espera), citas programadas y bonos activos, revoca permisos de compartir entrenamientos, desasocia la ficha CRM y preserva registros históricos. Solo revoca la membresía cuyo rol es `athlete`; nunca la de `owner` u otro staff.
+- **Confirmación y errores:** ambas apps explican el efecto sobre cliente y gestión. iOS ya no muestra literalmente la interpolación Swift; Android requiere respuesta booleana afirmativa del RPC. Los mensajes de error son legibles y no exponen el JSON del servidor.
+- **watchOS, Inicio:** la superficie táctil central de actividad deja libre la franja inferior. Sonido y Temporizador son botones independientes, por encima de la actividad, con objetivos táctiles de 44 puntos, incluso tras girar la corona para cambiar de deporte.
+- **Verificación:** contratos estáticos en `tests/test_business_owner_unlink_contract.py`, `tests/test_watch_hub_contract.py` y test HTTP simulado en `BusinessCenterRpcContractTest.kt`. Pendientes pruebas de dispositivos y simuladores en el entorno de desarrollo.
+
 ## Confianza en Progreso → Entrenamiento (03/11/2026)
 
 - En la tarjeta blanca «Entrenamiento», la cabecera de confianza ya no dice «última sesión»: muestra **Confianza · Aprendiendo / Baja / Media / Alta**, según el nivel **verificado de la última sesión puntuable**. No modifica el cálculo ni inventa niveles cuando faltan datos.
