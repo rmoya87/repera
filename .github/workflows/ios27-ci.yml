@@ -119,6 +119,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_no_legacy_brand_references.py' -v
           python3 -m unittest discover -s tests -p 'test_weather_sources_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_live_heart_rate_zones_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_progress_confidence_contract.py' -v
 
   xcode-build:
     name: XcodeGen + build + test

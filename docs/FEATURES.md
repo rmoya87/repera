@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+## Confianza en Progreso → Entrenamiento (03/11/2026)
+
+- En la tarjeta blanca «Entrenamiento», la cabecera de confianza ya no dice «última sesión»: muestra **Confianza · Aprendiendo / Baja / Media / Alta**, según el nivel **verificado de la última sesión puntuable**. No modifica el cálculo ni inventa niveles cuando faltan datos.
+- Indicador segmentado en cuatro colores, sin degradados: el segmento correspondiente a la confianza actual aumenta de **alto (36 frente a 13)** y **ancho (tres unidades frente a una)**, con el nivel dentro. Los restantes aparecen atenuados.
+- **Límite de tamaño:** el conjunto de los cuatro segmentos ocupa como máximo el **50 % del ancho interior de la tarjeta blanca**, tanto en SwiftUI como en Jetpack Compose y para distintas dimensiones y orientaciones. Sin animaciones superfluas.
+- La cabecera conserva el texto del nivel cuando el dispositivo es estrecho y el texto interior de la barra no cabe; VoiceOver/TalkBack lee «Confianza: nivel». La misma barra en la revisión de sesión conserva el ancho normal de su propia tarjeta.
+- Tests: `tests/test_progress_confidence_contract.py`. Pendiente validación visual en simuladores y dispositivos reales.
+
 ## Zonas de frecuencia cardiaca en Comenzar (03/11/2026)
 
 - **Todos los deportes de Comenzar**, con GPS y sin GPS (carrera, caminata, senderismo, ciclismo, montaña, gravel, agua, nieve, HIIT, CrossFit, fuerza, yoga, etc.), pueden mostrar las cinco zonas de frecuencia cardiaca en directo en la vista de métricas. En deportes GPS también aparecen en la tarjeta superpuesta del **mapa**, tanto en formato vertical como horizontal.

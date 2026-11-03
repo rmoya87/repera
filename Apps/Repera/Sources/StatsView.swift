@@ -1114,7 +1114,9 @@ private struct ProgressSessionScoreChartCard: View {
             if !isTeaserPreview {
                 TrainingScoreConfidenceBar(
                     label: latestConfidenceLabel,
-                    caption: values.isEmpty ? "Confianza" : "Confianza · última sesión"
+                    caption: "Confianza",
+                    compactInProgress: true,
+                    showSelectedLevelInCaption: true
                 )
             }
         }
