@@ -12,10 +12,22 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.*
 class WodLibraryInstrumentedTest {
  @get:Rule val compose=createAndroidComposeRule<androidx.activity.ComponentActivity>()
+
+ private fun scrollToCatalog(tag: String) {
+  // LazyColumn does not compose rows beyond its viewport: scroll the list first.
+  compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag(tag))
+  compose.waitForIdle()
+ }
+
+ private fun scrollToCopy(value: String) {
+  compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(value))
+  compose.waitForIdle()
+ }
  @Test fun catalogDetailFavoriteDoesNotStartSession() {
   var toggled:String?=null
   compose.setContent {MaterialTheme {WodLibraryScreen("fixture",false,emptySet(),{toggled=it},{})}}
-  compose.onNodeWithTag("wod_catalog_fran").performScrollTo().performClick()
+  scrollToCatalog("wod_catalog_fran")
+  compose.onNodeWithTag("wod_catalog_fran").performClick()
   compose.onNodeWithTag("wod_toggle_favorite").performClick()
   compose.runOnIdle {Assert.assertEquals("fran",toggled)}
   compose.onNodeWithText("Empezar ahora").assertDoesNotExist()
@@ -24,11 +36,15 @@ class WodLibraryInstrumentedTest {
   val rows=listOf(WodLibraryResult("best","fran",100,null,null,"forTime"),
    WodLibraryResult("middle","fran",200,null,null,"forTime"),WodLibraryResult("last","fran",300,null,null,"forTime"))
   compose.setContent {MaterialTheme {WodLibraryScreen("fixture",false,emptySet(),{},{},history=mapOf("fran" to rows))}}
-  compose.onNodeWithTag("wod_catalog_fran").performScrollTo().performClick()
-  compose.onNodeWithTag("wod_result_best").performScrollTo().assertExists()
-  compose.onNodeWithTag("wod_result_last").performScrollTo().assertExists()
+  scrollToCatalog("wod_catalog_fran")
+  compose.onNodeWithTag("wod_catalog_fran").performClick()
+  scrollToCatalog("wod_result_best")
+  compose.onNodeWithTag("wod_result_best").assertExists()
+  scrollToCatalog("wod_result_last")
+  compose.onNodeWithTag("wod_result_last").assertExists()
   compose.onNodeWithTag("wod_result_middle").assertDoesNotExist()
-  compose.onNodeWithText("Supera tus marcas · ver historial completo").performScrollTo().assertExists()
+  scrollToCopy("Supera tus marcas · ver historial completo")
+  compose.onNodeWithText("Supera tus marcas · ver historial completo").assertExists()
  }
  @Test fun unmatchedWodSearchCanOpenAnExerciseWithoutCreatingAWod() {
   var opened:String?=null
@@ -63,6 +79,7 @@ class WodLibraryInstrumentedTest {
   compose.onNodeWithTag("wod_fallback_split").assertExists()
   compose.onNodeWithText("Nombre o formato").performTextClearance()
   compose.onNodeWithTag("wod_fallback_split").assertDoesNotExist()
-  compose.onNodeWithTag("wod_catalog_fran").performScrollTo().assertExists()
+  scrollToCatalog("wod_catalog_fran")
+  compose.onNodeWithTag("wod_catalog_fran").assertExists()
  }
 }
