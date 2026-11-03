@@ -11,11 +11,13 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
+    func watchConnectivityDidBecomeReachable()
 }
 
 extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
+    func watchConnectivityDidBecomeReachable() {}
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
@@ -76,11 +78,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
 
     /// Muestra puntual de FC de HealthKit para la sesión Comenzar del iPhone.
     /// Solo viaja si el teléfono está accesible; no se persiste ni se duplica un workout.
-    func sendLiveHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date = Date()) {
+    @discardableResult
+    func sendLiveHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date = Date()) -> Bool {
         guard (25...250).contains(bpm),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              WCSession.default.isReachable else { return }
+              WCSession.default.isReachable else { return false }
         WCSession.default.sendMessage([
             "action": "liveHeartRate",
             "sessionId": sessionId.uuidString,
@@ -89,6 +92,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         ], replyHandler: nil) { [weak self] error in
             self?.logger.debug("Watch HR deferred: \(error.localizedDescription, privacy: .public)")
         }
+        return true
     }
 
     /// Encola cancelaciones por UUID: transferUserInfo entrega en segundo plano
@@ -313,10 +317,14 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         let manual = pendingManualRefresh
         pendingManualRefresh = false
         requestToday(deferIfOffline: manual)
+        if session.isReachable { delegate?.watchConnectivityDidBecomeReachable() }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        if session.isReachable { requestToday() }
+        if session.isReachable {
+            requestToday()
+            delegate?.watchConnectivityDidBecomeReachable()
+        }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
