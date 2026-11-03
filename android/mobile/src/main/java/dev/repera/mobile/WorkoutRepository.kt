@@ -2841,6 +2841,25 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    /** A previously mirrored UUID missing from the authenticated remote is
+     * a deletion on another device. Remove the actual local rows, never keep
+     * a deleted-ID record or enqueue another remote DELETE.
+     */
+    @Synchronized fun purgePreviouslyMirroredMissingRemotely(ids: Set<String>): Int {
+        if (ids.isEmpty()) return 0
+        val state = requireState()
+        val archive = state.getJSONArray("workouts")
+        var removed = 0
+        for (i in archive.length() - 1 downTo 0) {
+            if (archive.getJSONObject(i).optString("id") in ids) {
+                archive.remove(i)
+                removed++
+            }
+        }
+        if (removed > 0) save(state)
+        return removed
+    }
+
     /** Elimina un entreno registrado (solo tras consentimiento explícito). */
     @Synchronized fun deleteWorkout(id: String,expectedLocalDigest:String?=null) {
         // Delete the workout from the durable local JSON, not a soft-deleted row.
