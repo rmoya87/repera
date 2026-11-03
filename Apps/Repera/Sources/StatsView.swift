@@ -1111,14 +1111,14 @@ private struct ProgressSessionScoreChartCard: View {
                     "Puntuación media de entrenamiento \($0) de 10"
                 } ?? "Puntuación pendiente de aprendizaje")
             }
-            if !isTeaserPreview {
-                TrainingScoreConfidenceBar(
-                    label: latestConfidenceLabel,
-                    caption: "Confianza",
-                    compactInProgress: true,
-                    showSelectedLevelInCaption: true
-                )
-            }
+            // Mantener el mismo componente y geometría también en la tarjeta
+            // gratuita; la propia tarjeta ya marca las métricas como «Ejemplo».
+            TrainingScoreConfidenceBar(
+                label: isTeaserPreview ? "Media" : latestConfidenceLabel,
+                caption: "Confianza",
+                compactInProgress: true,
+                showSelectedLevelInCaption: true
+            )
         }
         .padding(.bottom, 4)
     }
