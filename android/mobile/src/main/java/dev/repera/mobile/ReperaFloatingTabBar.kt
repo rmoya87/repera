@@ -89,6 +89,10 @@ internal val reperaMainTabs = listOf(
     ReperaTabSpec("ejercicios", "Ejercicios", ReperaIcons.Dumbbell, ReperaIcons.Dumbbell)
 )
 
+/** La navegación de clases/centro aparece únicamente con vínculo de cliente activo. */
+internal fun reperaTabsForCenter(hasLinkedCenter: Boolean): List<ReperaTabSpec> =
+    if (hasLinkedCenter) reperaMainTabs else reperaMainTabs.filterNot { it.route == "plus" }
+
 internal val reperaTabRoutes: Set<String> = reperaMainTabs.map { it.route }.toSet()
 
 /** Push / subpáginas: sin TopAppBar «repera»+gear (R5 P1-7). */
@@ -363,6 +367,7 @@ internal fun ReperaTabBarChrome(
     showTabBar: Boolean,
     selectedRoute: String,
     onTabSelected: (String) -> Unit,
+    showCenterTab: Boolean = true,
     continueTitle: String?,
     continueProgress: String,
     onContinue: () -> Unit,
@@ -394,7 +399,7 @@ internal fun ReperaTabBarChrome(
             )
         }
         ReperaFloatingTabBar(
-            tabs = reperaMainTabs,
+            tabs = reperaTabsForCenter(showCenterTab),
             selectedRoute = selectedRoute,
             onTabSelected = onTabSelected,
             modifier = Modifier
