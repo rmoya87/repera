@@ -3127,7 +3127,7 @@ struct LiveActivityView: View {
                         .padding(.horizontal, 28)
                         .padding(.top, 10)
                 } else {
-                    Text(liveHeartRateBpm.map { "\($0)" } ?? "—")
+                    Text(displayedHeartRateBpm.map { "\($0)" } ?? "—")
                         .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                         .minimumScaleFactor(0.55).lineLimit(1)
                         .foregroundStyle(OG.label)
