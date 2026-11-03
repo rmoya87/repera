@@ -64,7 +64,7 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                                 "Entrenamiento",
                                 recovery.trainingMinutes96h?.let { "${it.roundToInt()} min" } ?: "—"
                             )
-                            ReadinessFactor("VFC", cardiacText)
+                            ReadinessFactor("VFC · reposo", cardiacText)
                             ReadinessFactor(
                                 "Cardio",
                                 recovery.cardioAverageBpm?.let { "${it.roundToInt()} lpm" }
@@ -112,6 +112,27 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                                 )
                             }
                         }
+                    }
+                    if (ready?.isPartial == true) {
+                        Text(
+                            "Estimación parcial · sin sueño registrado. Basada en carga real y constantes calibradas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (ready == null) {
+                        val learned = dev.repera.domain.RecoveryEngine.vitalLearningDays(
+                            java.time.LocalDate.now(), recovery.vitals
+                        )
+                        val message = if (recovery.trainingMinutes96h == null) {
+                            "Repera está aprendiendo de ti. Necesita al menos 1 entrenamiento finalizado con duración medida durante los últimos 7 días."
+                        } else {
+                            "Repera está aprendiendo de ti. Sin sueño registrado necesita 7 días anteriores con pulso en reposo, VFC o respiración (\$learned/7) y una medición de hoy, o 1 noche de sueño."
+                        }
+                        Text(
+                            message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
