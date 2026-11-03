@@ -123,7 +123,7 @@ internal fun TrainingScoreConfidenceBar(
     label: String?,
     caption: String = "Confianza",
     compactInProgress: Boolean = false,
-    showSelectedLevelInCaption: Boolean = false
+    showSelectedLevelInCaption: Boolean = true
 ) {
     val normalized = label.orEmpty().lowercase(java.util.Locale.ROOT)
     val current = when {
@@ -145,12 +145,12 @@ internal fun TrainingScoreConfidenceBar(
             fontWeight = FontWeight.SemiBold,
             color = colors.onSurfaceVariant
         )
-        // La tarjeta de Progreso limita la barra completa al 50 % del ancho
-        // interior; solo el segmento destacado crece (3:1) y contiene el nivel.
+        // La tarjeta de Progreso limita la barra al 50 % del ancho.
+        // El segmento seleccionado solo crece 1,5×, sin repetir el nivel del título.
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val barWidth = maxWidth * (if (compactInProgress) 0.5f else 1f)
             Row(
-                Modifier.width(barWidth).height(38.dp),
+                Modifier.width(barWidth).height(22.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -164,24 +164,11 @@ internal fun TrainingScoreConfidenceBar(
                     }
                     Box(
                         Modifier
-                            .weight(if (selected) 3f else 1f)
-                            .height(if (selected) 36.dp else 13.dp)
-                            .clip(RoundedCornerShape(7.dp))
-                            .background(tint.copy(alpha = if (selected) 1f else 0.25f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selected) {
-                            Text(
-                                tier.title,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                fontWeight = FontWeight.Bold,
-                                color = if (tier == TrainingConfidence.LEARNING) colors.onSurface
-                                    else Color.Black,
-                                softWrap = false
-                            )
-                        }
-                    }
+                            .weight(if (selected) 1.5f else 1f)
+                            .height(if (selected) 18.dp else 13.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(tint.copy(alpha = if (selected) 1f else 0.25f))
+                    )
                 }
             }
         }
