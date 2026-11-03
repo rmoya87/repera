@@ -1087,6 +1087,7 @@ final class BusinessDataStore {
             refreshRevision &+= 1
             isLoading = false
             athleteCenterIds.remove(org.id)
+            clientLinks.removeAll { $0.orgId == org.id }
             centers.removeAll { $0.id == org.id }
             passes.removeAll { $0.orgId == org.id }
             passOffers.removeAll { $0.orgId == org.id }
@@ -1103,7 +1104,15 @@ final class BusinessDataStore {
             // subsequent network refresh could not fetch remaining centers.
             return true
         } catch {
-            errorMessage = "No se ha podido desvincular: \\(error.localizedDescription)"
+            let raw = error.localizedDescription
+            if raw.localizedCaseInsensitiveContains("NOT_LINKED_CLIENT")
+                || raw.localizedCaseInsensitiveContains("NOT_LINKED_ATHLETE") {
+                errorMessage = "Ya no tienes una vinculación activa como cliente con este centro. Actualiza los datos e inténtalo de nuevo."
+            } else if raw.localizedCaseInsensitiveContains("42501") {
+                errorMessage = "No tienes permiso para desvincular esta ficha de cliente."
+            } else {
+                errorMessage = "No se ha podido completar la desvinculación. Comprueba tu conexión e inténtalo de nuevo."
+            }
             return false
         }
     }
