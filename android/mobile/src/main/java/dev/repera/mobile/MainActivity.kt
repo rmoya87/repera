@@ -3264,13 +3264,13 @@ data class StateOverview(
                     .sumOf { it.durationMinutes.takeIf(Double::isFinite)?.coerceAtLeast(0.0) ?: 0.0 }
                     .takeIf { it > 0 }
                 RecoveryState(
-                    readiness = if(lastNight?.day==java.time.LocalDate.now()) dev.repera.domain.RecoveryEngine.trainingReadiness(
+                    readiness = dev.repera.domain.RecoveryEngine.trainingReadiness(
                         nowMillis = System.currentTimeMillis(),
-                        sleepHours = lastNight?.hours,
+                        sleepHours = lastNight?.hours?.takeIf { lastNight.day == java.time.LocalDate.now() },
                         recentAverageSleepHours = avg,
                         workouts = stats,
                         vitalHistory = rec.vitals,
-                        observedActivities = observed) else null,
+                        observedActivities = observed),
                     sleepIndex = dev.repera.domain.RecoveryEngine.sleepIndex(
                         lastNight?.hours, avg),
                     lastNightHours = lastNight?.hours,
