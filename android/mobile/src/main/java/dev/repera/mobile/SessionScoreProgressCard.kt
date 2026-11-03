@@ -104,14 +104,14 @@ internal fun SessionScoreProgressCard(
                         }
                     }
                 }
-                if (!preview) {
-                    TrainingScoreConfidenceBar(
-                        label = confidenceLabel,
-                        caption = "Confianza",
-                        compactInProgress = true,
-                        showSelectedLevelInCaption = true
-                    )
-                }
+                // Misma barra en Pro y en vista gratuita: el encabezado de
+                // esta última identifica explícitamente los valores como «Ejemplo».
+                TrainingScoreConfidenceBar(
+                    label = if (preview) "Media" else confidenceLabel,
+                    caption = "Confianza",
+                    compactInProgress = true,
+                    showSelectedLevelInCaption = true
+                )
                 if (values.isEmpty()) {
                     EmptyHealthChart(
                         "Repera está aprendiendo de ti. Necesita 2 días previos comparables y un 60% del rendimiento registrado con referencias.",
