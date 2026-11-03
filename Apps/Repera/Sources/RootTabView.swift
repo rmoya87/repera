@@ -12,6 +12,7 @@ enum WorkoutFlowRoute: Hashable {
 /// Menú principal: Inicio · Comenzar · + (Clases/Plan) · Progreso · Ejercicios.
 struct RootTabView: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(BusinessDataStore.self) private var businessData
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var duoRail = OGDuoContextRailStore()
     @State private var lastAvailableSize: CGSize = .zero
@@ -29,6 +30,10 @@ struct RootTabView: View {
         case home, start, plus, stats, exercises
     }
 
+    /// La sección de clases/centro solo existe tras una vinculación real,
+    /// nunca por una invitación pendiente o por una cuenta profesional sin cliente.
+    private var hasLinkedCenter: Bool { !businessData.athleteCenterIds.isEmpty }
+
     var body: some View {
         ZStack {
             mainTabView
@@ -41,6 +46,9 @@ struct RootTabView: View {
             updateDuoLayout(availableSize: lastAvailableSize)
         }
         .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
+        .onChange(of: hasLinkedCenter) { _, linked in
+            if !linked && tab == .plus { tab = .home }
+        }
         .sheet(isPresented: $showStartHub) { startHubSheet }
         .sheet(isPresented: Binding(
             get: { pendingResultsEditorID != nil },
@@ -159,13 +167,16 @@ struct RootTabView: View {
                 )
             }
 
-            // Solo esta pestaña va sin texto debajo del icono.
-            SwiftUI.Tab(value: AppTab.plus) {
-                PlusHubView(onStartRoutine: openRoutinePreview)
-            } label: {
-                Image(systemName: tab == .plus ? "plus.circle.fill" : "plus.circle")
+            // No ocupar un hueco con «+» si no hay cliente vinculado.
+            // Ajustes → Buscar sigue accesible para encontrar un centro.
+            if hasLinkedCenter {
+                SwiftUI.Tab(value: AppTab.plus) {
+                    PlusHubView(onStartRoutine: openRoutinePreview)
+                } label: {
+                    Image(systemName: tab == .plus ? "plus.circle.fill" : "plus.circle")
+                }
+                .accessibilityLabel("Clases y centro")
             }
-            .accessibilityLabel("Clases y centro")
 
             SwiftUI.Tab(
                 "Progreso",

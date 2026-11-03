@@ -1,5 +1,14 @@
 # Funcionalidades Repera
 
+## Pestaña Centro condicionada y búsqueda sin recortes (03/11/2026)
+
+- **iOS y Android:** la pestaña central «+» (Clases/Centro) solo aparece cuando existe al menos una vinculación de cliente activa con un entrenador personal o gimnasio, verificada en el estado cargado de Supabase. Las invitaciones pendientes y los perfiles profesionales sin ficha de cliente no la muestran. Inicio, Comenzar, Progreso y Ejercicios siguen visibles sin huecos vacíos.
+- Al desvincularse del último centro estando en «+», la navegación vuelve a Inicio. Ajustes → Buscar sigue siempre accesible para vincular un centro nuevo; no se necesita plan Pro ni bono para visualizar esa búsqueda.
+- **iOS, Ajustes → Buscar:** el título grande está en un contenedor independiente de `List`, evitando el recorte de su parte inferior. Se mantiene su margen horizontal y una sola separación superior; el listado elimina el margen superior adicional de scroll. El aviso «Busca tu entrenador o centro» deja de tener una caja gris dentro de la fila blanca.
+- **Revisión de otras cabeceras:** se han localizado las mismas filas de título en Ajustes, Rotación, Objetivos, Historial, biblioteca y otras subpáginas. Se conserva su layout hasta comprobar si reproducen el recorte, para no añadir márgenes duplicados en pantallas que no presentan el fallo.
+- **Verificación:** contrato `tests/test_center_link_navigation_contract.py` y test Android `ReperaTabIconsTest.plusTabOnlyExistsWithActiveCenterLink`. La revisión visual en simuladores/dispositivos sigue pendiente.
+
+
 ## Desvinculación de clientes y controles de Inicio en Apple Watch (03/11/2026)
 
 - **iOS y Android:** en la ficha de un centro vinculado, «Desvincularme como cliente» afecta únicamente a la relación deportiva y a los bonos/reservas futuros. Si una persona también es propietaria, administradora, entrenadora o recepcionista de ese centro, conserva su membresía y permisos profesionales.
