@@ -389,7 +389,6 @@ internal fun ProgressTab(
 
 
 @Composable
-@Composable
 private fun TrainingMeasuredEffortCard(workout: WorkoutHistoryEntry) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ReperaSectionTitle("Cardio del entrenamiento")
@@ -419,6 +418,7 @@ private fun TrainingMeasuredEffortCard(workout: WorkoutHistoryEntry) {
     }
 }
 
+@Composable
 private fun ProgressMetricsTilesGrid(snapshot: ProgressSnapshotData, pro: Boolean) {
     val tiles = ProgressTilesModel.tiles(
         snapshot.summary.sessionCount,
