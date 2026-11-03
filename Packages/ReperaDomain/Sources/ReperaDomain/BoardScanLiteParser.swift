@@ -126,10 +126,13 @@ public enum BoardScanLiteParser {
                 b.movements = block.movements.map { move in
                     guard !move.isRest else { return move }
                     var m = move
+                    // A specific official title outranks fuzzy glossary aliases:
+                    // otherwise "step up" collapses a double-dumbbell step-up.
+                    let directCanonical = SportExerciseNames.canonicalName(move.name)
                     let canonical = SportExerciseNames.canonicalName(
                         CrossFitGlossary.canonicalName(for: move.name)
                     )
-                    let keys = [norm(move.name), norm(canonical)]
+                    let keys = [norm(move.name), norm(directCanonical), norm(canonical)]
                     if let ex = keys.lazy.compactMap({ index[$0] }).first {
                         m.exerciseId = ex.id
                         m.name = ex.name

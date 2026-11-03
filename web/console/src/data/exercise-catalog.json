@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 288,
+  "count": 290,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -1723,6 +1723,17 @@
         "sgpp",
         "snatch grip pp",
         "push press ancho"
+      ]
+    },
+    {
+      "catalogKey": "catalog:Step-up al cajón con doble mancuerna",
+      "name": "Step-up al cajón con doble mancuerna",
+      "category": "CrossFit",
+      "aliases": [
+        "Double Dumbbell Step Up",
+        "DDB Step Up",
+        "DDB Box Step Up",
+        "double dumbbell box step up"
       ]
     }
   ]
