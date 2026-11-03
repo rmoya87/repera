@@ -185,6 +185,7 @@ final class BusinessWorkoutSyncStore {
             // silently truncated at Supabase/PostgREST's default 1,000 rows.
             var remote: [MirrorRow] = []
             var offset = 0
+            var fetchedEntireMirror = false
             repeat {
                 // Use the SDK's Supabase-aware JSON date decoder (handles
                 // fractional timestamps that Foundation .iso8601 can reject).
@@ -196,8 +197,15 @@ final class BusinessWorkoutSyncStore {
                     .execute().value
                 remote.append(contentsOf: page)
                 offset += page.count
-                if page.count < 200 { break }
+                if page.count < 200 {
+                    fetchedEntireMirror = true
+                    break
+                }
             } while offset < 20_000
+            guard fetchedEntireMirror else {
+                lastError = "El historial remoto supera el límite de sincronización segura."
+                return false
+            }
 
             guard run == generation, BusinessAuthStore.shared.isConnected,
                   BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user
@@ -206,6 +214,17 @@ final class BusinessWorkoutSyncStore {
             var seen = fingerprints(user)
             for id in queued { seen.removeValue(forKey: id) }
             let existing = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
+            // Fingerprints only describe workouts that this device successfully
+            // mirrored before. If one is absent remotely, the real row was
+            // deleted on another device: discard local copy, never re-upload.
+            let remotelyDeletedIDs = Set(store.state.workouts.compactMap { workout -> UUID? in
+                let id = workout.id
+                return seen[id.uuidString] != nil && existing[id] == nil ? id : nil
+            })
+            if !remotelyDeletedIDs.isEmpty {
+                store.removePreviouslyMirroredWorkoutsMissingRemotely(remotelyDeletedIDs)
+                for id in remotelyDeletedIDs { seen.removeValue(forKey: id.uuidString) }
+            }
             // Legacy WODs without an original block snapshot cannot support
             // fully calibrated stimulus comparisons. Never invent missing Rx.
             let unstructuredRemoteWODs = Set(remote.compactMap { row -> UUID? in
@@ -284,6 +303,10 @@ final class BusinessWorkoutSyncStore {
             guard run == generation, BusinessAuthStore.shared.isConnected,
                   BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user
             else { return false }
+            // Fingerprints are only a cache of live remote rows, not a deletion
+            // ledger. Trim obsolete entries to avoid indefinite accumulation.
+            let liveIDs = Set(existing.keys.map(\.uuidString)).union(pending.map { $0.id.uuidString })
+            seen = seen.filter { liveIDs.contains($0.key) }
             UserDefaults.standard.set(seen, forKey: key(user, suffix: "fingerprints"))
             mirroredCount = Set(existing.values.filter { $0.deletedAt == nil }.map(\.id)).union(pending.map(\.id)).count
             restoredBlockSnapshots = restoredBlockIDs.count
