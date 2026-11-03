@@ -37,6 +37,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "WatchConnectivityClient.swift", "WatchHealthKitSession.swift",
         ):
             (watch / name).write_text("// Watch target source", encoding="utf-8")
+        shared = self.root / "Apps/Shared"
+        shared.mkdir(parents=True)
+        for name in ("AppleWeatherConditionsClient.swift", "AppleWeatherAttributionView.swift"):
+            (shared / name).write_text("// Shared WeatherKit", encoding="utf-8")
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift\n"
@@ -46,8 +50,12 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "      - path: Apps/Repera/Sources/LiveSportHistoryView.swift\n"
             "      - path: Apps/Repera/Sources/OGDuoContextRail.swift\n"
             "      - path: Apps/Shared/TrainingActivityAttributes.swift\n"
+            "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n"
+            "      - path: Apps/Shared/AppleWeatherAttributionView.swift\n"
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n"
-            "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n",
+            "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n"
+            "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n"
+            "      - path: Apps/Shared/AppleWeatherAttributionView.swift\n",
             encoding="utf-8",
         )
         (self.root / "Repera.xcodeproj").mkdir()
@@ -62,6 +70,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "WorkoutLiveActivityCoordinator.swift",
             "LiveSportHistoryView.swift",
             "OGDuoContextRail.swift",
+            "AppleWeatherConditionsClient.swift", "AppleWeatherAttributionView.swift",
         )
         app_pbx = (
             "999999999999999999999999 /* Repera */ = {\n"
@@ -106,6 +115,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "    EEEEEEEEEEEEEEEEEEEEEEEE /* WatchSessionView.swift in Sources */,\n"
             "    FFFFFFFFFFFFFFFFFFFFFFFF /* WatchConnectivityClient.swift in Sources */,\n"
             "    111111111111111111111111 /* WatchHealthKitSession.swift in Sources */,\n"
+            "    222222222222222222222222 /* AppleWeatherConditionsClient.swift in Sources */,\n"
+            "    333333333333333333333333 /* AppleWeatherAttributionView.swift in Sources */,\n"
             "  );\n"
             "};\n", encoding="utf-8"
         )
@@ -148,6 +159,48 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.assertTrue(path.is_file())
         self.assertIn("final class AIChangeRequestStore", path.read_text(encoding="utf-8"))
 
+
+    def test_missing_weather_client_checkout_is_rejected(self):
+        (self.root / "Apps/Shared/AppleWeatherConditionsClient.swift").unlink()
+        with self.assertRaisesRegex(ValueError, "AppleWeatherConditionsClient.swift"):
+            validate(self.root)
+
+    def test_stale_watch_project_without_weatherkit_source_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace(
+                "222222222222222222222222 /* AppleWeatherConditionsClient.swift in Sources */,", ""
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "AppleWeatherConditionsClient.swift"):
+            validate(self.root)
+
+    def test_stale_phone_project_without_weatherkit_source_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        target_start = pbx.index("888888888888888888888888 /* Sources */ =")
+        target_end = pbx.index("};", target_start)
+        old = pbx[target_start:target_end]
+        new = "\\n".join(
+            line for line in old.split("\\n")
+            if "AppleWeatherAttributionView.swift in Sources" not in line
+        )
+        self.pbx.write_text(pbx[:target_start] + new + pbx[target_end:], encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "AppleWeatherAttributionView.swift"):
+            validate(self.root)
+
+    def test_xcode_spec_must_include_weather_client_in_watch(self):
+        path = self.root / "project.yml"
+        spec = path.read_text(encoding="utf-8")
+        # Remove just the Watch target declaration, leaving iOS untouched.
+        split_index = spec.index("  ReperaWatch:\\n")
+        prefix, watch = spec[:split_index], spec[split_index:]
+        watch = watch.replace(
+            "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\\n", ""
+        )
+        path.write_text(prefix + watch, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "AppleWeatherConditionsClient.swift"):
+            validate(self.root)
 
     def test_watch_healthkit_file_absent_from_checkout_is_rejected(self):
         (self.root / "Apps/ReperaWatch/Sources/WatchHealthKitSession.swift").unlink()
