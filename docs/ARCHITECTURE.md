@@ -1,5 +1,10 @@
 # Arquitectura Repera
 
+## Proveedores meteorológicos Apple / Android (2026-11-03)
+
+`Apps/Shared/AppleWeatherConditionsClient.swift` se compila en ambos targets nativos Apple; consulta `WeatherKit.WeatherService` para las métricas atmosféricas y `HourWeather.snowfallAmount` para nevada horaria. Los clientes `OpenMeteoConditionsClient` de iPhone/Watch consultan solo mareas/oleaje o espesor de nieve. `ActivityConditionsSnapshot` conserva el origen opcional para compatibilidad con entrenos guardados y se comparte por WatchConnectivity. `AppleWeatherAttributionView` presenta marca oficial y enlace legal en ambas plataformas. En Android no cambia el proveedor. Detalles y obligaciones de licencia: [WEATHER_SOURCES.md](WEATHER_SOURCES.md).
+
+
 ## Temporizador reloj ↔ móvil (02/11/2026)
 
 - **Identidad:** cada temporizador autónomo conserva el mismo UUID desde la ejecución hasta el guardado. El reloj es el dueño del tiempo; el móvil muestra el estado, sin crear un temporizador adicional ni sesiones duplicadas.
