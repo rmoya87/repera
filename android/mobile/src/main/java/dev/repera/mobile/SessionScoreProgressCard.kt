@@ -26,7 +26,8 @@ internal fun SessionScoreProgressCard(
     preview: Boolean = false,
     range: ProgressTimeRange = ProgressTimeRange.WEEK,
     monday: Boolean = true,
-    today: LocalDate = LocalDate.now()
+    today: LocalDate = LocalDate.now(),
+    confidenceLabel: String? = null
 ) {
     val values = points.sortedBy { it.day }
     val domain = ProgressPlotAxis.domain(values.map { it.day }, range, monday, today, preview)
@@ -43,7 +44,7 @@ internal fun SessionScoreProgressCard(
             verticalAlignment = Alignment.Bottom
         ) {
             ReperaSectionTitle(
-                if (preview) "Puntuación de entrenamiento · ejemplo" else "Puntuación de entrenamiento",
+                "Entrenamiento",
                 modifier = Modifier.weight(1f, fill = false)
             )
             if (preview) {
@@ -60,10 +61,20 @@ internal fun SessionScoreProgressCard(
                 Row(
                     Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    Column(
+                        Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(9.dp)
+                    ) {
+                        TrendScoreMetric("Última nota",
+                            values.lastOrNull()?.let { "${it.value.roundToInt()}/10" } ?: "—")
+                        TrendScoreMetric("Mejor nota",
+                            values.maxOfOrNull { it.value }?.let { "${it.roundToInt()}/10" } ?: "—")
+                        TrendScoreMetric("Días evaluados", "${values.size}")
+                    }
                     Box(
-                        Modifier.size(94.dp).semantics {
+                        Modifier.size(112.dp).semantics {
                             contentDescription = if (average == null) "Puntuación pendiente de aprendizaje"
                             else "Puntuación media $average de 10"
                         },
@@ -92,26 +103,12 @@ internal fun SessionScoreProgressCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            if (average == null) "Repera está aprendiendo de ti" else "Tu rendimiento personal",
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        if (average == null) {
-                            Text(
-                                "Necesita 2 días previos con ejercicios o WOD comparables; algunos WOD requieren 3 días de referencia.",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        } else {
-                            Text("${values.size} días con resultados evaluables", style = MaterialTheme.typography.bodySmall)
-                            Text("Comparación con tus marcas anteriores, no con otros deportistas.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Consulta los factores y la confianza en cada entrenamiento.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                }
+                if (!preview) {
+                    TrainingScoreConfidenceBar(
+                        label = confidenceLabel,
+                        caption = if (values.isEmpty()) "Confianza" else "Confianza · última sesión"
+                    )
                 }
                 if (values.isEmpty()) {
                     EmptyHealthChart(
@@ -234,5 +231,15 @@ internal fun SessionScoreProgressCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TrendScoreMetric(title: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface)
     }
 }
