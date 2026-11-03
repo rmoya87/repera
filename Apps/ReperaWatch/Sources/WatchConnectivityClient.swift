@@ -397,16 +397,15 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
         if let data = payload["todayWorkouts"] as? Data {
             let dayStamp = payload["todayDayStart"] as? TimeInterval
-            guard data != lastInboundTodayPlans ||
-                  dayStamp != lastInboundTodayPlansDay else { return }
-            lastInboundTodayPlans = data
-            lastInboundTodayPlansDay = dayStamp
-            let plans = (try? JSONDecoder().decode([WorkoutSession].self, from: data)) ?? []
-            delegate?.watchConnectivityDidReceiveTodayPlans(
-                plans,
-                scheduledDay: (payload["todayDayStart"] as? TimeInterval)
-                    .map(Date.init(timeIntervalSince1970:))
-            )
+            if data != lastInboundTodayPlans ||
+               dayStamp != lastInboundTodayPlansDay {
+                lastInboundTodayPlans = data
+                lastInboundTodayPlansDay = dayStamp
+                let plans = (try? JSONDecoder().decode([WorkoutSession].self, from: data)) ?? []
+                delegate?.watchConnectivityDidReceiveTodayPlans(
+                    plans, scheduledDay: dayStamp.map(Date.init(timeIntervalSince1970:))
+                )
+            }
         }
         if let data = payload["session"] as? Data {
             let revision = payload["sessionRevision"] as? Int ?? -1
