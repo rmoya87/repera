@@ -386,10 +386,15 @@ actor AppStatePersistence {
             // A newer, leaner copy may lack GPS already recorded for exactly
             // the same session on the other device. Keep the winner's other
             // fields but restore measured points before any upload can erase them.
+            let other = adoptedRemote ? local : cloud
+            let withDeletions = SyncConflictResolver.reconcilingDeletionTombstones(
+                in: picked, from: other
+            )
             let reconciled = SyncConflictResolver.restoringMissingWorkoutRoutes(
-                in: picked, from: adoptedRemote ? local : cloud
+                in: withDeletions, from: other
             )
             if reconciled != picked {
+                // This outcome also persists and publishes deletion reconciliation.
                 return .reconciledRouteData(reconciled)
             }
             if adoptedRemote {
