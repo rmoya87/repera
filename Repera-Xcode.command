@@ -31,6 +31,15 @@ if [[ ! -f "Apps/ReperaWatch/Sources/WatchHealthKitSession.swift" ]]; then
   echo "Comprueba git status; actualiza con git pull --ff-only origin main sin perder cambios."
   exit 1
 fi
+# Los clientes WeatherKit viven en Apps/Shared, fuera de Sources del reloj.
+# El proyecto generado antes del merge no los incluye: se verifica antes de abrir Xcode.
+for source in AppleWeatherConditionsClient.swift AppleWeatherAttributionView.swift; do
+  if [[ ! -f "Apps/Shared/$source" ]]; then
+    echo "ERROR: falta Apps/Shared/$source."
+    echo "Actualiza con git pull --ff-only origin main antes de regenerar Xcode."
+    exit 1
+  fi
+done
 for source in BusinessAuthStore.swift BusinessDataStore.swift BusinessWorkoutSyncStore.swift AITrainingInboxStore.swift AIAccessView.swift AITrainingContextStore.swift AITrainingProgramsView.swift AIChangeRequestStore.swift RemoteExerciseCatalogStore.swift LiveActivityView.swift WorkoutLiveActivityCoordinator.swift LiveSportHistoryView.swift; do
   if [[ ! -f "Apps/Repera/Sources/$source" ]]; then
     echo "ERROR: Falta $source en esta copia local de Repera."
@@ -62,5 +71,5 @@ xcodebuild -resolvePackageDependencies -project "$ROOT/Repera.xcodeproj" -scheme
 
 echo "Abriendo Repera.xcodeproj en Xcode..."
 open "$ROOT/Repera.xcodeproj"
-echo "Targets Repera y ReperaWatch actualizados: WatchHealthKitSession.swift figura en Compile Sources."
+echo "Targets Repera y ReperaWatch actualizados: los archivos WeatherKit figuran en Compile Sources."
 echo "Puedes compilar con ⌘B y ejecutar con ⌘R."
