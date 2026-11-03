@@ -22,6 +22,27 @@ import org.junit.Test
  * en el dominio Android.
  */
 class BoardScanLiteParserTest {
+    @Test fun photographedDdbStepUpAndRkbsLinkToOfficialCatalog() {
+        val entries = listOf(
+            CatalogExercise("ddb-official", "Double Dumbbell Step Up", listOf("DDB STEP UP")),
+            CatalogExercise("russian-official", "Kettlebell Swing", listOf("RKBS"))
+        )
+        val blocks = BoardScanLiteParser.parse(
+            ocrText = "EMOM 12'\n8-12M DDB STEP UP @7-8\n1' REST\n\nAMRAP 18'\n20 RKBS 24/16",
+            catalog = entries
+        ).blocks
+        assertEquals(2, blocks.size)
+        val step = blocks[0].movements.firstOrNull { it.exerciseId == "ddb-official" }
+        val swing = blocks[1].movements.firstOrNull { it.exerciseId == "russian-official" }
+        assertNotNull("EMOM: ${blocks[0].movements.map { it.name }}", step)
+        assertNotNull("AMRAP: ${blocks[1].movements.map { it.name }}", swing)
+        assertEquals(12, step!!.distanceMeters)
+        assertTrue(step.notes!!.contains("8-12 m"))
+        assertEquals(20, swing!!.reps)
+        assertEquals(24.0, swing.weightMaleKg!!, 0.001)
+        assertEquals(16.0, swing.weightFemaleKg!!, 0.001)
+    }
+
     @Test
     fun mixedCaseBTTAndT2BPreferOfficialCatalogWhenOldCustomExists() {
         // Espejo de Apple 3684a6ec: fichas provisionales guardadas antes del

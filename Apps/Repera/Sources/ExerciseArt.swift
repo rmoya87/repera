@@ -435,6 +435,7 @@ enum ExerciseArt {
         "Burpee box jump over": ["art_cf_burpee", "art_cf_burpee_box", "art_cf_bjo"],
         "Salto al cajón": ["art_gy_air_squat", "art_cf_box_jump", "art_gy_jump_squat"],
         "Step-up al cajón": ["art_zancadas", "art_cf_step_up", "art_gy_air_squat"],
+        "Step-up al cajón con doble mancuerna": ["art_cf_step_up", "art_zancadas", "art_cf_step_up"],
         // Fallback si faltan art_cf_bjo_1…N (última NO debe ser broad jump)
         "Box jump over": ["art_cf_box_jump_1", "art_cf_bjo", "art_cf_bjo_3"],
         "Medball clean": ["art_cf_mb_clean", "art_cf_wall_ball", "art_cf_slam"],

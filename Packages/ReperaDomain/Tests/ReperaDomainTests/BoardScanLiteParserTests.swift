@@ -2,6 +2,40 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func scannedDDBStepUpAndRKBSResolveOfficialExerciseIDs() {
+        let catalog = Catalog.seed()
+        let board = """
+        EMOM 12'
+        3-2-2-1 W.S. PULL UPS @RIR 2-1
+        8-12M DDB STEP UP @7-8
+        1' REST
+
+        AMRAP 18'
+        20 RKBS 24/16
+        400M RUN
+        10 HSPU
+        16/12 CAL
+        """
+        let blocks = BoardScanLiteParser.parse(ocrText: board, catalog: catalog).blocks
+        #expect(blocks.count == 2)
+        guard blocks.count == 2 else { return }
+        let step = blocks[0].movements.first {
+            $0.name == "Double Dumbbell Step Up"
+        }
+        let swing = blocks[1].movements.first {
+            $0.name == "Kettlebell Swing"
+        }
+        #expect(step != nil, "EMOM: \(blocks[0].movements.map(\.name))")
+        #expect(step?.exerciseId != nil)
+        #expect(step?.distanceMeters == 12)
+        #expect(step?.notes?.contains("8-12 m") == true)
+        #expect(swing != nil, "AMRAP: \(blocks[1].movements.map(\.name))")
+        #expect(swing?.exerciseId != nil)
+        #expect(swing?.reps == 20)
+        #expect(swing?.weightMaleKg == 24)
+        #expect(swing?.weightFemaleKg == 16)
+    }
+
     @Test func publishedRemoteAliasWorksWithNoScannerCodeChanges() {
         let official = Exercise(
             name: "Burpee to target", muscleGroup: "Cardio",
