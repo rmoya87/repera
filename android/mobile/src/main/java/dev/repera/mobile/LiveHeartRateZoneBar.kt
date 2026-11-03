@@ -31,10 +31,11 @@ import dev.repera.domain.LiveHeartRateZones
 @Composable
 internal fun LiveHeartRateZoneBar(
     bpm: Int?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    estimatedMaxBpm: Double = 190.0
 ) {
     // No pulse => no HR card, no colored bars, no placeholder line.
-    val zone = LiveHeartRateZones.zone(bpm) ?: return
+    val zone = LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
