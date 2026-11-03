@@ -1,8 +1,12 @@
 # Arquitectura Repera
 
+## Comparador visual de los KPIs de Progreso (2026-11-03)
+
+Las cuadrículas `StatsView.freeTilesGrid` y `StatsView.tilesGrid` utilizan el único renderer `StatsView.tile()`: variación `delta > 0` en `OG.accent` verde, `delta < 0` en `OG.red` rojo y `delta == 0` o `nil` en `OG.label3` gris. `ProgressMetricsTilesGrid` en Android aplica las mismas reglas con `brandGreen`, `MaterialTheme.colorScheme.error` y `onSurfaceVariant`, respectivamente. No se alteran las reglas de cálculo de `ProgressSnapshot` ni el periodo de 7 días del plan gratuito. El plan gratis conserva tiles reales pero usa previsualizaciones explícitas para puntuación y confianza, zonas, cardio, calorías y peso; Pro usa el snapshot verificado y periodos superiores. Tests de contrato: `tests/test_progress_confidence_contract.py`.
+
 ## Confianza segmentada en Progreso → Entrenamiento (2026-11-03)
 
-`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 3:1:1:1 con altura destacada 36 frente a 13. Los resúmenes post-sesión usan el mismo componente sin limitar su ancho. La vista gratuita usa idéntica composición en la tarjeta de ejemplo, con nivel «Media» explícitamente ilustrativo; Pro utiliza datos reales. `tests/test_progress_confidence_contract.py` protege estos invariantes de presentación.
+`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 1,5:1:1:1 con altura destacada 18 frente a 13. Los segmentos son cápsulas redondeadas sin texto interno; el encabezado muestra siempre el nivel. Los resúmenes post-sesión usan el mismo componente sin limitar su ancho. La vista gratuita usa idéntica composición en la tarjeta de ejemplo, con nivel «Media» explícitamente ilustrativo; Pro utiliza datos reales. `tests/test_progress_confidence_contract.py` protege estos invariantes de presentación.
 
 ## Pulso en vivo y zonas de Comenzar, iOS / Android (2026-11-03)
 

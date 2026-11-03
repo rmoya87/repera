@@ -780,7 +780,7 @@ struct StatsView: View {
             Group {
                 if let delta {
                     Text("\(delta > 0 ? "+" : "")\(ReperaNumberFormat.integer(delta))\(deltaUnit)")
-                        .foregroundStyle(delta > 0 ? OG.accent : delta < 0 ? OG.yellow : OG.label3)
+                        .foregroundStyle(delta > 0 ? OG.accent : delta < 0 ? OG.red : OG.label3)
                 } else {
                     Text("—")
                         .foregroundStyle(OG.label3)
