@@ -33,15 +33,15 @@ struct HeartRateZoneBar: View {
                 let gap: CGFloat = 4
                 // Cuatro tramos de una unidad + el tramo activo de tres.
                 // Sin muestra todos los tramos ocupan exactamente lo mismo.
-                let unit = max(0, (geo.size.width - 4 * gap) / (zone == nil ? 5 : 7))
+                let unit = max(0, (geo.size.width - 4 * gap) / 7)
                 HStack(spacing: gap) {
                     ForEach(1...5, id: \.self) { level in
                         let active = zone == level
                         Capsule()
-                            .fill(colors[level - 1].opacity(zone == nil ? 0.30 : active ? 1 : 0.38))
+                            .fill(colors[level - 1].opacity(active ? 1 : 0.38))
                             .frame(width: unit * (active ? 3 : 1), height: active ? 42 : 12)
                             .overlay {
-                                if active, let bpm {
+                                if active {
                                     VStack(spacing: 0) {
                                         Text("Zona \(level)")
                                         Text("\(bpm) lpm")
