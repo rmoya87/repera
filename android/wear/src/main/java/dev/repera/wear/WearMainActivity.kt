@@ -990,7 +990,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sessionCache.edit().putInt("hubIndex", idx).apply()
         }
         when (item) {
-            is WearHubCarouselItem.Plan -> startTodayPlan()
+            is WearHubCarouselItem.Plan -> startTodayPlan(selectedPlan = item.plan)
             is WearHubCarouselItem.Sport -> requestLiveStart(item.sportId)
         }
     }
@@ -1139,11 +1139,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      * activa en el teléfono (startToday de watchOS). Las series se encolan con
      * la sesión adjunta y el teléfono la adopta al reconciliar.
      */
-    private fun startTodayPlan(startIndex: Int = 0) {
+    private fun startTodayPlan(startIndex: Int = 0, selectedPlan: JSONObject? = null) {
         if(visibleSession!=null || runCatching {pendingFinish.sessionId()!=null}.getOrDefault(true)) {
             sendStatus="Hay una sesión activa o pendiente de terminar";return
         }
-        val prescription = todayPlanJson ?: return
+        val prescription = selectedPlan ?: todayPlanJson ?: return
         val begun=runCatching {dev.repera.domain.WatchPlanExecution.begin(prescription)}.getOrElse {
             sendStatus="No se pudo iniciar el plan: ${it.localizedMessage}";return
         }
