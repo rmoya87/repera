@@ -149,7 +149,7 @@ data class MovementReview(
 enum class ReviewDimension(val wire: String, val title: String) {
     PERSONAL_PROGRESS("personalProgress", "Evolución personal"),
     ADHERENCE("adherence", "Cumplimiento"),
-    WOD_PERFORMANCE("wodPerformance", "Rendimiento WOD");
+    WOD_PERFORMANCE("wodPerformance", "Rendimiento");
     companion object { fun fromWire(w: String) = entries.firstOrNull { it.wire == w } }
 }
 
