@@ -196,8 +196,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         val cachedPlanAt = sessionCache.getLong("todayPlanAt", 0L)
-        if (cachedPlanAt > 0L && System.currentTimeMillis() - cachedPlanAt > TODAY_PLAN_TTL_MS) {
-            sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
+        val cachedDay = sessionCache.getString("todayPlanDay", null)
+        val canRestore = when {
+            cachedDay != null -> cachedDay == java.time.LocalDate.now().toString()
+            else -> cachedPlanAt > 0L &&
+                System.currentTimeMillis() - cachedPlanAt in 0L..TODAY_PLAN_TTL_MS
+        }
+        if (!canRestore) {
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt")
+                .remove("todayPlanDay").apply()
         } else {
             sessionCache.getString("todayPlan", null)?.let { cached ->
                 todayPlanJson = runCatching { JSONObject(cached) }.getOrNull()
@@ -954,23 +961,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             !sessionCache.getBoolean("hubAudioMutedTouched", false)) {
             hubAudioMuted = map.getBoolean("audioMuted")
         }
-        showTodayPlan(bytes, updatedAtMillis)
+        showTodayPlan(bytes, updatedAtMillis, map.getString("todayDayStart"))
     }
 
-    private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis()) {
+    private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis(),
+                              sourceDay: String? = null) {
         val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
             runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
         }
-        // Plan stale (>18 h) o vacío: no ofrecer Empezar con un día viejo.
-        val fresh = parsed != null &&
-            updatedAtMillis > 0L &&
-            System.currentTimeMillis() - updatedAtMillis <= TODAY_PLAN_TTL_MS
+        // La fecha de planificación manda: una sesión recibida por la mañana
+        // sigue disponible sin conexión hasta terminar ese día local.
+        // Los emisores antiguos sin fecha conservan el TTL de compatibilidad.
+        val fresh = parsed != null && when {
+            sourceDay != null -> sourceDay == java.time.LocalDate.now().toString()
+            else -> updatedAtMillis > 0L &&
+                System.currentTimeMillis() - updatedAtMillis in 0L..TODAY_PLAN_TTL_MS
+        }
         val hadPlan = todayPlanJson != null
         todayPlanJson = parsed.takeIf { fresh }
         if (todayPlanJson != null) {
             sessionCache.edit()
                 .putString("todayPlan", todayPlanJson.toString())
                 .putLong("todayPlanAt", updatedAtMillis)
+                .putString("todayPlanDay", sourceDay)
                 .apply()
             // Plan nuevo → mostrar primero el entreno del día.
             if (!hadPlan) {
@@ -978,7 +991,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 sessionCache.edit().putInt("hubIndex", 0).apply()
             }
         } else {
-            sessionCache.edit().remove("todayPlan").remove("todayPlanAt").apply()
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt")
+                .remove("todayPlanDay").apply()
         }
     }
 
