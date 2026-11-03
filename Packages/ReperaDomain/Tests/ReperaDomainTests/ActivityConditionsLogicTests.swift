@@ -30,7 +30,7 @@ final class ActivityConditionsLogicTests: XCTestCase {
         let result = try XCTUnwrap(snap)
         XCTAssertEqual(result.tideTrend, .rising)
         XCTAssertEqual(result.waveHeightMeters ?? -1, 0.9, accuracy: 0.01)
-        XCTAssertNotNil(result.temperatureC)
+        XCTAssertNil(result.temperatureC)
     }
 
     func testSpecializedSnowRequestOnlyAsksForDepth() throws {
