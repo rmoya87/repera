@@ -138,7 +138,7 @@ public enum ReviewDimension: String, Codable, Sendable, Hashable, CaseIterable {
         switch self {
         case .personalProgress: return "Evolución personal"
         case .adherence: return "Cumplimiento"
-        case .wodPerformance: return "Rendimiento WOD"
+        case .wodPerformance: return "Rendimiento"
         }
     }
 
