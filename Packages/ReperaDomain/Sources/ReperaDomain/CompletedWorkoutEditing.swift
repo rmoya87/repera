@@ -294,8 +294,9 @@ public enum CompletedWorkoutEditing {
                 // En una actividad ya terminada de «Comenzar», el usuario puede
                 // confirmar explícitamente que las series añadidas son reales.
                 // El escáner solo propone; jamás se crea una ejecución sin optar.
-                if recordNewSetsAsPerformed, original.liveSportID != nil,
-                   block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets {
+                if recordNewSetsAsPerformed,
+                   (original.liveSportID != nil || original.awaitingResultEntry),
+                   (block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets) {
                     let previousIDs = Set(old?.loggedSets.map(\.id) ?? [])
                     let newlyRecorded = sets.filter { !previousIDs.contains($0.id) }
                         .filter { $0.targetReps > 0 }.map { set in
