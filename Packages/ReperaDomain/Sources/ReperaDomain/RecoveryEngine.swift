@@ -21,6 +21,11 @@ public enum RecoveryEngine {
         public let oxygenSaturationPercent: Double?
         public let wristTemperatureCelsius: Double?
         public let heartRateRecoveryBpm: Double?
+        /// Tendencias con todas las lecturas válidas del día; las señales anteriores
+        /// al entrenamiento siguen siendo la fuente de la puntuación.
+        public let hrvAllDayMilliseconds: Double?
+        public let restingHeartRateAllDayBpm: Double?
+        public let respiratoryRateAllDayBpm: Double?
 
         public init(
             date: Date, hrvMilliseconds: Double? = nil,
@@ -28,7 +33,10 @@ public enum RecoveryEngine {
             respiratoryRateBpm: Double? = nil,
             oxygenSaturationPercent: Double? = nil,
             wristTemperatureCelsius: Double? = nil,
-            heartRateRecoveryBpm: Double? = nil
+            heartRateRecoveryBpm: Double? = nil,
+            hrvAllDayMilliseconds: Double? = nil,
+            restingHeartRateAllDayBpm: Double? = nil,
+            respiratoryRateAllDayBpm: Double? = nil
         ) {
             self.date = date
             self.hrvMilliseconds = hrvMilliseconds
@@ -37,6 +45,9 @@ public enum RecoveryEngine {
             self.oxygenSaturationPercent = oxygenSaturationPercent
             self.wristTemperatureCelsius = wristTemperatureCelsius
             self.heartRateRecoveryBpm = heartRateRecoveryBpm
+            self.hrvAllDayMilliseconds = hrvAllDayMilliseconds
+            self.restingHeartRateAllDayBpm = restingHeartRateAllDayBpm
+            self.respiratoryRateAllDayBpm = respiratoryRateAllDayBpm
         }
     }
 
@@ -45,6 +56,31 @@ public enum RecoveryEngine {
         public let penalty: Double
         public let calibratedSignals: Int
         public let notes: [String]
+    }
+
+    public static let minimumVitalLearningDays = 7
+
+    /// El avance se mide por la señal con más días anteriores válidos. No se
+    /// mezclan días de señales distintas para fingir una calibración completa.
+    public static func vitalLearningDays(
+        at date: Date, history: [DailyVitals], calendar: Calendar = .current
+    ) -> Int {
+        let day = calendar.startOfDay(for: date)
+        let prior = history.filter {
+            let sampleDay = calendar.startOfDay(for: $0.date)
+            return sampleDay < day && sampleDay >= day.addingTimeInterval(-28 * 86_400)
+        }
+        func days(_ key: KeyPath<DailyVitals, Double?>, valid: ClosedRange<Double>) -> Int {
+            Set(prior.compactMap { row -> Date? in
+                guard let value = row[keyPath: key], value.isFinite, valid.contains(value) else { return nil }
+                return calendar.startOfDay(for: row.date)
+            }).count
+        }
+        return min(minimumVitalLearningDays, max(
+            days(\.hrvMilliseconds, valid: 5...300),
+            days(\.restingHeartRateBpm, valid: 30...130),
+            days(\.respiratoryRateBpm, valid: 6...40)
+        ))
     }
 
     /// Calibrate each accepted signal against >=7 distinct, prior days in the
@@ -148,6 +184,8 @@ public enum RecoveryEngine {
         public let vitalNotes: [String]
         /// Minutos de cardio observado en Apple Salud (actividades externas).
         public let cardioMinutes48h: Double?
+        /// Sin sueño medido; solo se publica cuando existe señal calibrada.
+        public let isPartial: Bool
 
         public init(
             score: Double,
@@ -158,7 +196,8 @@ public enum RecoveryEngine {
             physiologicalPenalty: Double = 0,
             calibratedVitalSignals: Int = 0,
             vitalNotes: [String] = [],
-            cardioMinutes48h: Double? = nil
+            cardioMinutes48h: Double? = nil,
+            isPartial: Bool = false
         ) {
             self.score = score
             self.advice = advice
@@ -169,6 +208,7 @@ public enum RecoveryEngine {
             self.calibratedVitalSignals = calibratedVitalSignals
             self.vitalNotes = vitalNotes
             self.cardioMinutes48h = cardioMinutes48h
+            self.isPartial = isPartial
         }
     }
 
@@ -177,8 +217,8 @@ public enum RecoveryEngine {
     /// - fatiga residual por músculos (mismo motor del mapa corporal),
     /// - minutos de entrenamiento local y actividad HealthKit externa.
     ///
-    /// Requiere sueño observado y actividad finalizada en los últimos siete
-    /// días. Jamás inventa cero esfuerzo sin registros.
+    /// Requiere sueño observado o una señal fisiológica calibrada, además de
+    /// actividad finalizada en los últimos siete días. Jamás inventa cero esfuerzo sin registros.
     /// No incluye entrenamientos futuros ni cambia la nota deportiva.
     public static func trainingReadiness(
         at date: Date,
@@ -188,11 +228,11 @@ public enum RecoveryEngine {
         vitalHistory: [DailyVitals] = [],
         observedActivities: [ObservedActivity] = []
     ) -> TrainingReadiness? {
-        guard let hours = sleepHours,
-              hours.isFinite,
-              hours > 0,
-              let sleep = sleepIndex(hours: hours, recentAverage: recentAverageSleepHours)
-        else { return nil }
+        let sleep = sleepIndex(hours: sleepHours, recentAverage: recentAverageSleepHours)
+        let vitals = vitalContext(at: date, history: vitalHistory)
+        // Sin sueño solo estimamos si existe al menos una señal actual
+        // calibrada contra siete días previos de esa misma señal.
+        guard sleep != nil || vitals.calibratedSignals > 0 else { return nil }
 
         let sevenDays: TimeInterval = 7 * 24 * 3600
         let twoDays: TimeInterval = 48 * 3600
@@ -248,13 +288,15 @@ public enum RecoveryEngine {
         let load = musclePressure > 0
             ? 0.7 * muscleLoad + 0.3 * durationPressure
             : durationPressure
-        let sleepContribution = (Double(sleep) / 10.0 - 7.0) * 0.45
+        let sleepContribution = sleep.map { (Double($0) / 10.0 - 7.0) * 0.45 } ?? 0
         let penalty = 3.5 * load
-        let vitals = vitalContext(at: date, history: vitalHistory)
         var score = max(0, min(10, 7.5 + sleepContribution - penalty - vitals.penalty))
+        // Sin sueño observado se muestra una estimación parcial conservadora:
+        // no atribuir recuperación óptima con un factor desconocido.
+        if sleep == nil { score = min(score, 7.0) }
         // Una noche corta no debe catalogarse «lista» aunque el cálculo
         // muscular sea favorable.
-        if hours < 6 { score = min(score, 5.0) }
+        if let hours = sleepHours, hours < 6 { score = min(score, 5.0) }
         // Los índices de Repera se publican como enteros de 0 a 10.
         // Redondear antes de elegir la banda mantiene el consejo coherente
         // con el número que ve el usuario.
@@ -272,7 +314,8 @@ public enum RecoveryEngine {
             vitalNotes: vitals.notes,
             cardioMinutes48h: recentExternal.contains {
                 $0.isCardio && date.timeIntervalSince($0.date) <= twoDays
-            } ? cardioMinutes48h : nil
+            } ? cardioMinutes48h : nil,
+            isPartial: sleep == nil
         )
     }
 
