@@ -2228,7 +2228,20 @@ final class ReperaStore: NSObject {
     }
 
     private func upsertWorkout(_ session: WorkoutSession) {
-        let saved = normalizedFinishedWorkout(session)
+        var saved = normalizedFinishedWorkout(session)
+        if let removed = state.deletedWorkoutExerciseIDs[saved.id.uuidString],
+           !removed.isEmpty {
+            saved.exercises.removeAll { removed.contains($0.id) }
+            if var blocks = saved.routineBlocks {
+                for index in blocks.indices {
+                    blocks[index].exercises.removeAll { removed.contains($0.id) }
+                    blocks[index].movements.removeAll { removed.contains($0.id) }
+                }
+                saved.routineBlocks = blocks
+            }
+            saved.currentIndex = saved.exercises.isEmpty ? 0
+                : min(saved.currentIndex, saved.exercises.count - 1)
+        }
         if let idx = state.workouts.firstIndex(where: { $0.id == saved.id }) {
             state.workouts[idx] = saved
         } else {
