@@ -35,6 +35,18 @@ class ReperaTabIconsTest {
     }
 
     @Test
+    fun plusTabOnlyExistsWithActiveCenterLink() {
+        assertEquals(
+            listOf("inicio", "en-vivo", "progreso", "ejercicios"),
+            reperaTabsForCenter(hasLinkedCenter = false).map { it.route }
+        )
+        assertEquals(
+            listOf("inicio", "en-vivo", "plus", "progreso", "ejercicios"),
+            reperaTabsForCenter(hasLinkedCenter = true).map { it.route }
+        )
+    }
+
+    @Test
     fun selectedTabDoesNotChangeIconsOnUnrelatedTabs() {
         val home = reperaMainTabs.single { it.route == "inicio" }
         val exercises = reperaMainTabs.single { it.route == "ejercicios" }
