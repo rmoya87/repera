@@ -29,12 +29,13 @@ struct AppleWeatherAttributionView: View {
                 Text("Fuentes legales")
                     .font(.system(size: compact ? 9 : 10, weight: .medium))
                     .underline()
-                    .foregroundStyle(compact ? Color.primary : Color.black)
+                    .foregroundStyle(compact ? Color.primary
+                        : (colorScheme == .dark ? Color.white : Color.black))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                     .fixedSize(horizontal: true, vertical: false)
             }
-            .frame(maxWidth: .infinity, alignment: .bottomLeading)
+            .fixedSize(horizontal: true, vertical: false)
         }
         .accessibilityLabel("Apple Weather. Abrir fuentes legales de WeatherKit")
         .task {
