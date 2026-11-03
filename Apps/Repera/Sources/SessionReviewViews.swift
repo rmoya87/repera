@@ -121,13 +121,13 @@ struct SessionReviewCard: View {
 }
 
 /// Cuatro tramos semánticos: aprendiendo no equivale a «baja confianza».
-/// Solo el tramo observado destaca; el resto mantiene el color atenuado.
+/// Nivel visible junto a «Confianza»; el tramo activo se ensancha ligeramente, sin texto duplicado.
 struct TrainingScoreConfidenceBar: View {
     let label: String?
     var caption: String = "Confianza"
     /// Progreso: los cuatro segmentos no deben superar el 50 % de la tarjeta.
     var compactInProgress = false
-    var showSelectedLevelInCaption = false
+    var showSelectedLevelInCaption = true
 
     private enum Level: CaseIterable, Hashable {
         case learning, low, medium, high
@@ -168,31 +168,23 @@ struct TrainingScoreConfidenceBar: View {
             GeometryReader { geometry in
                 let width = max(0, geometry.size.width * (compactInProgress ? 0.5 : 1))
                 let gap: CGFloat = 4
-                let unit = max(0, (width - 3 * gap) / 6)
+                // El activo crece discretamente (1,5×) sin dominar la tarjeta.
+                let activeWidthFactor: CGFloat = 1.5
+                let unit = max(0, (width - 3 * gap) / (3 + activeWidthFactor))
                 HStack(spacing: gap) {
                     ForEach(Level.allCases, id: \.self) { level in
                         let selected = level == currentLevel
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        Capsule()
                             .fill(level.color.opacity(selected ? 1 : 0.25))
-                            .frame(width: unit * (selected ? 3 : 1),
-                                   height: selected ? 36 : 13)
-                            .overlay {
-                                if selected {
-                                    Text(level.title)
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(level == .learning ? OG.label : Color.black)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.65)
-                                        .padding(.horizontal, 2)
-                                        .accessibilityHidden(true)
-                                }
-                            }
+                            .frame(width: unit * (selected ? activeWidthFactor : 1),
+                                   height: selected ? 18 : 13)
+                            .accessibilityHidden(true)
                     }
                 }
-                .frame(width: width, height: 38, alignment: .leading)
+                .frame(width: width, height: 22, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: 38)
+            .frame(height: 22)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Confianza: \(currentLevel.title)")
