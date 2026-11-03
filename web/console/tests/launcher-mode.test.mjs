@@ -4,10 +4,13 @@ import {readFileSync} from 'node:fs';
 
 const launcher=readFileSync(new URL('../../../Repera-Business.command',import.meta.url),'utf8');
 
-test('Repera Business abre el login Supabase por defecto y ofrece demo explícita',()=>{
- assert.match(launcher,/MODE="connected"/);
- assert.match(launcher,/if \[\[ "\$\{1:-\}" == "--demo" \]\]; then MODE="demo"; fi/);
- assert.match(launcher,/exec python3 - "\$ROOT\/web" "\$MODE"/);
- assert.match(launcher,/path = "\/console\/\?demo=1" if mode == "demo" else "\/console\/"/);
- assert.doesNotMatch(launcher,/^url = f"[^\n]*\?demo=1"/m);
+test('Repera Business inicia únicamente un panel conectado por loopback, sin datos ficticios',()=>{
+ assert.match(launcher,/PANEL CONECTADO A SUPABASE/);
+ assert.match(launcher,/set -euo pipefail/);
+ assert.match(launcher,/if \[\[ \$# -ne 0 \]\]/);
+ assert.match(launcher,/no dispone de modo demostración/);
+ assert.match(launcher,/server = LoopbackServer/);
+ assert.match(launcher,/127\.0\.0\.1/);
+ assert.match(launcher,/\/console\//);
+ assert.doesNotMatch(launcher,/\?demo=1/);
 });

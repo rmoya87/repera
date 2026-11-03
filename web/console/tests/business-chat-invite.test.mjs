@@ -69,9 +69,10 @@ test('tarjeta invitación con QR, web y deep link',()=>{
  assert.match(card,/data-action="cancel-invitation"/);
  assert.match(card,/repera:\/\/invitation\//);
  const dialog=renderInviteShareDialog({invitationId:id,email:'a@b.com',sent:false,reason:'sin correo'});
- assert.match(dialog,/Comparte el enlace/);
- assert.match(dialog,/business-invite-qr/);
- assert.match(dialog,/data-action="close-invite-share"/);
+ assert.equal(dialog,''); // El modal obsoleto no duplica la tarjeta persistente.
+ assert.match(card,/business-invite-qr/);
+ assert.match(card,/data-action="copy-invite-link"/);
+ assert.match(card,/data-action="cancel-invitation"/);
  const pending=pendingAthleteInvite({
   orgId:'org-1',email:'a@b.com',
   invitations:[{id,organization_id:'org-1',email:'a@b.com',invited_role:'athlete',

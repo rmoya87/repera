@@ -39,8 +39,8 @@ test('agenda PT mezcla citas, entrenos y clases gym pendientes',()=>{
   gymAssignments:[{id:'g1',title:'WOD Box',starts_at:day+'T18:00:00Z',ends_at:day+'T19:00:00Z',status:'active',coach_ack:'pending',org_name:'Box Norte'}],
   calendarMonth:'2099-12',agendaView:'month',agendaDay:day,manager:true,
  });
- assert.match(html,/Crear cita/);
- assert.match(html,/open-broadcast-modal/);
+ assert.match(html,/data-action="new-date-appointment"/);
+ assert.match(html,/open-notifications/);
  assert.match(html,/Clases del gimnasio/);
  assert.match(html,/data-action="coach-ack"/);
  assert.match(html,/pt-cal-add/);
@@ -79,7 +79,7 @@ test('vista día PT muestra panel día y data-agenda-view',()=>{
  assert.match(html,/data-agenda-panel="day"/);
  assert.match(html,/pt-day-full/);
  assert.match(html,/con Ana/);
- assert.match(html,/Crear cita/);
+ assert.match(html,/data-action="new-date-appointment"/);
  assert.doesNotMatch(html,/business-calendar-grid/);
 });
 
@@ -100,7 +100,7 @@ test('inicio PT muestra badge de solicitudes pendientes',()=>{
   org:{kind:'personal_trainer'},manager:true,clients:[],occurrences:[],bookings:[],sessions:[],
   requests:[{id:'r1',status:'pending',name:'Luis',email:'l@e.com',pass_kind:'appointment'}],
  });
- assert.match(html,/open-requests-modal/);
+ assert.match(html,/open-notifications/);
  assert.match(html,/pt-badge/);
  assert.match(html,/>1</);
 });

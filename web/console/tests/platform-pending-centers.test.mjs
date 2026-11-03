@@ -20,7 +20,7 @@ test('Un centro no reclamado aparece en Centros con estado pendiente y permite a
  assert.doesNotMatch(output,/class="pa-top"/);
 });
 test('Su ficha permite gestionar estado y entrar con administración delegada, no identidad ajena',()=>{
- const output=renderPlatformAdmin({...input,tab:'centers',selectedOrg:id});
+ const output=renderPlatformAdmin({...input,tab:'centers',selectedOrg:id,centerDetail:{center:{is_discoverable:false},team:[],clients:[],services:[],groups:[],payments:[]}});
  assert.match(output,/Propietario pendiente de registro/);
  assert.match(output,/data-admin-form="status"/);
  assert.match(output,/data-admin-action="access-center"/);
@@ -30,7 +30,8 @@ test('Su ficha permite gestionar estado y entrar con administración delegada, n
 });
 test('Un centro suspendido puede reactivarse aunque su titular todavía no se haya registrado',()=>{
  const output=renderPlatformAdmin({...input,tab:'centers',selectedOrg:id,
- orgs:[{...pending[0],status:'suspended',status_reason:'Motivo verificado'}]});
+ orgs:[{...pending[0],status:'suspended',status_reason:'Motivo verificado'}],
+ centerDetail:{center:{is_discoverable:false},team:[],clients:[],services:[],groups:[],payments:[]}});
  assert.match(output,/Guardar estado/);
  assert.match(output,/Suspendido/);
  assert.match(output,/Propietario pendiente de registro/);

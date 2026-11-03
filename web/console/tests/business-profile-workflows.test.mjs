@@ -20,7 +20,7 @@ test('PR y e1RM sólo de series registradas, no de prescripciones',()=>{
  const html=renderAthleteInsights([workout],1);
  assert.match(html,/Mapa de grupos trabajados/);
  assert.match(html,/e1RM aprox/);
- assert.match(html,/no certifica nivel profesional/i);
+ assert.match(html,/No equivale a un test de 1RM/i);
  assert.doesNotMatch(html,/blockId|isFavorite/);
 });
 
@@ -40,7 +40,7 @@ test('El administrador separa Ejercicios, Datos, Acceso y Reservas; los centros 
  const center=renderPlatformAdmin({...base,selectedOrg:org,centerDetail:{center:{is_discoverable:false},
  team:[],clients:[],services:[],groups:[],payments:[]},centerSection:'data'});
  assert.match(center,/data-admin-form="center-visibility"/);
- assert.match(center,/Propietario/);
+ assert.match(center,/El propietario sigue pendiente/i);
 });
 
 test('Centro y clientes usan filas completas, sin columna de acciones y con datos acotados',()=>{
@@ -49,7 +49,7 @@ test('Centro y clientes usan filas completas, sin columna de acciones y con dato
  assert.doesNotMatch(out,/<th scope="col">Acción<\/th>/);
  const list=renderClient360({clients:[{id:uid,name:'Atleta',email:'a@example.org',status:'lead'}],manager:true});
  assert.match(list,/business-client-table/);
- assert.match(list,/Pendiente de aceptación/);
+ assert.match(list,/Pendiente/);
  const restricted=renderClient360({clients:[{id:uid,name:'Atleta',email:'a@example.org',status:'active',user_id:uid}],
  selected:uid,role:'coach',manager:false,sharedHistory:[]});
  assert.match(restricted,/Actividad compartida/);
@@ -120,7 +120,7 @@ test('Los entrenadores consultan fichas básicas sin notas internas ni teléfono
  await api.signIn('coach@example.org','password');
  await api.clients(org,{basic:true});
  const scope=calls.find(x=>x.url.includes('/clients?select='));
- assert.match(scope.url,/clients\?select=id,org_id,user_id,name,email,avatar_url,status,created_at/);
+ assert.match(scope.url,/clients\?select=id,org_id,user_id,name,email,avatar_url,status,account_deleted_at,created_at,updated_at/);
  assert.doesNotMatch(scope.url,/phone|notes/);
  assert.equal(scope.options.headers.Authorization,'Bearer jwt-private');
 });
