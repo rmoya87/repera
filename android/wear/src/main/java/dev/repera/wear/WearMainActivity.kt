@@ -455,24 +455,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     val session = visibleSession ?: return@WearHomeCallbacks
                                     val planned = maxOf(1, session.plannedWorkSets)
                                     val base = setReviewIndex ?: session.recordedSets
-                                    val next = base + delta
-                                    if (delta < 0 && next < 0) {
-                                        // Navigate within the current block; only the first
-                                        // step returns to its overview, without logging data.
-                                        val currentIndex = session.exerciseIndex - 1
-                                        val blockStart = session.blocks
-                                            .lastOrNull { it.first <= currentIndex }?.first
-                                            ?: currentIndex
-                                        if (currentIndex > blockStart) {
-                                            requestSelectBlock(session, currentIndex - 1)
-                                        } else {
-                                            setReviewIndex = null
-                                            showOutline = true
-                                        }
-                                    } else {
-                                        setReviewIndex = next.coerceIn(0, maxOf(0, planned - 1))
-                                    }
+                                    setReviewIndex = (base + delta).coerceIn(0, maxOf(0, planned - 1))
                                 },
+                                onPreviousStep = { goToPreviousLiveStep() },
                                 onHubPlay = { item -> onHubPlay(item) },
                                 onHubIndexChange = { idx ->
                                     hubIndex = idx
@@ -1605,6 +1590,45 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
         /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
      *  session is changed locally; a phone session is changed by the phone, which validates session and shown index. */
+    /** Previous exercise inside the live block; the first opens its overview.
+     * Never records a set, completes an exercise or restarts the block clock. */
+    private fun goToPreviousLiveStep() {
+        val session = visibleSession ?: return
+        if (session.phase != "counting" || reviewingBlock || sessionPaused ||
+            restRemaining > 0) return
+        val currentIndex = session.exerciseIndex - 1
+        val blockStart = session.blocks.lastOrNull { it.first <= currentIndex }?.first
+            ?: currentIndex
+        if (currentIndex <= blockStart) {
+            setReviewIndex = null
+            showOutline = true
+            return
+        }
+        val previousIndex = currentIndex - 1
+        if (!watchStartedSession) {
+            requestSelectBlock(session, previousIndex)
+            return
+        }
+        // The watch owns this live session. Switching within one block must not
+        // switch its phase back to ready or duplicate a Health Services workout.
+        val snapshot = sessionCache.getString("snapshot", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return
+        if (snapshot.optString("id") != session.sessionId ||
+            snapshot.optInt("currentIndex", -1) != currentIndex) return
+        val changed = JSONObject(snapshot.toString()).put("currentIndex", previousIndex)
+        val previous = runCatching { WatchSessionSummary.fromJson(changed) }.getOrNull() ?: return
+        if (!sessionCache.edit().putString("snapshot", changed.toString())
+                .remove("inputDraft").commit()) {
+            sendStatus = "No se pudo volver al ejercicio anterior"
+            return
+        }
+        visibleSession = previous
+        setReviewIndex = null
+        seedDraft(previous)
+        persistDraft()
+        // Preserve elapsed clock, pause state and the native health recording.
+    }
+
     private fun requestSelectBlock(session: WatchSessionSummary, toIndex: Int) {
         if (visibleSession?.sessionId != session.sessionId || visibleSession?.exerciseIndex != session.exerciseIndex) return
         if (toIndex !in 0 until session.exerciseCount || toIndex == session.exerciseIndex - 1) return
