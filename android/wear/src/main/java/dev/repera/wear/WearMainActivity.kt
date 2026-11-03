@@ -936,6 +936,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun showTodayPlanFromMap(map: com.google.android.gms.wearable.DataMap) {
+        if (map.containsKey("maxHeartRateBpm")) {
+            val maxBpm = map.getInt("maxHeartRateBpm", 190)
+            if (maxBpm in 120..230) {
+                sessionCache.edit().putInt("maxHeartRateBpm", maxBpm).apply()
+            }
+        }
         val bytes = map.getByteArray("plan")
         val updatedAtMillis = map.getLong("updatedAtMillis", System.currentTimeMillis())
         map.getStringArray("recentLiveSportIDs")?.toList()?.let { ids ->
