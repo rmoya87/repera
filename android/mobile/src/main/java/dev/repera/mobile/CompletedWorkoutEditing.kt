@@ -426,7 +426,8 @@ object CompletedWorkoutEditing {
                 // El escáner propone series: no las convierte en resultados
                 // hasta que se marque «Registrar ... como realizadas».
                 if (recordNewSetsAsPerformed &&
-                    original.optString("liveSportID").isNotBlank() && perMovement) {
+                    (original.optString("liveSportID").isNotBlank() ||
+                        original.optBoolean("awaitingResultEntry")) && perMovement) {
                     val priorIds = (0 until (oldLogged?.length() ?: 0)).map {
                         oldLogged!!.getJSONObject(it).optString("id")
                     }.toSet()
