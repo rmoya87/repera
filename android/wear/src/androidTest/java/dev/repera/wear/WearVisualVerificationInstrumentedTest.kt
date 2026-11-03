@@ -20,6 +20,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -57,9 +59,19 @@ class WearVisualVerificationInstrumentedTest {
         }
     }
 
+    private val verticalList = hasScrollToIndexAction() and
+        SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+
     private fun scrollHastaTexto(texto: String) {
-        compose.onNode(hasScrollToIndexAction())
+        // En vivo hay un pager horizontal y una lista vertical: mover solo la lista.
+        compose.onNode(verticalList)
             .performScrollToNode(androidx.compose.ui.test.hasText(texto))
+        compose.waitForIdle()
+    }
+
+    private fun scrollHastaDescripcion(descripcion: String) {
+        compose.onNode(verticalList)
+            .performScrollToNode(hasContentDescription(descripcion))
         compose.waitForIdle()
     }
 
@@ -105,7 +117,9 @@ class WearVisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         compose.onNodeWithText("Back Squat", substring = true).assertExists()
-        compose.onNodeWithText("♥ 145 lpm", substring = true).assertExists()
+        scrollHastaTexto("145")
+        compose.onNodeWithText("145").assertExists()
+        compose.onNodeWithText("lpm").assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         save("wear_sesion_fuerza_inicio", compose.onRoot().captureToImage())
         scrollHastaTexto("Reps")
@@ -227,6 +241,7 @@ class WearVisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         // El botón confirmar queda deshabilitado en pausa (contentDescription, no solo glyph).
+        scrollHastaDescripcion("Siguiente")
         compose.onNode(hasContentDescription("Siguiente")).assertIsNotEnabled()
         save("wear_paused_confirmation", compose.onRoot().captureToImage())
     }

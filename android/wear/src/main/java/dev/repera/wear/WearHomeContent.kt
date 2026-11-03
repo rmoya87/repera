@@ -1118,7 +1118,7 @@ private fun TransformingLazyColumnScope.wodRunningBody(
             )
         }
         item {
-            WearPrimaryButton("Terminar bloque") { callbacks.onReviewBlock() }
+            WearPrimaryButton("Terminar bloque", enabled = !state.sessionPaused) { callbacks.onReviewBlock() }
         }
     } else if (session.wodUsesSeries && session.canLogOnWatch) {
         if (state.wodTimerJson == null ||
@@ -1138,7 +1138,7 @@ private fun TransformingLazyColumnScope.wodRunningBody(
             restBlock(state, callbacks)
             seriesSteppers(session, state, callbacks, includeWeight = session.allowsWeight)
             item {
-                WearPrimaryButton("Terminar bloque") { callbacks.onReviewBlock() }
+                WearPrimaryButton("Terminar bloque", enabled = !state.sessionPaused) { callbacks.onReviewBlock() }
             }
         }
     }
