@@ -20,7 +20,7 @@ public enum TideTrend: String, Codable, Sendable, Equatable {
     case slack
 }
 
-/// Snapshot gratuito (Open-Meteo) de condiciones; orientativo, no náutico.
+/// Snapshot de WeatherKit + complementos Open-Meteo; orientativo, no náutico.
 public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
     public var family: ActivityConditionsFamily
     public var capturedAt: Date
