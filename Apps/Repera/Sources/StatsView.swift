@@ -1042,63 +1042,82 @@ private struct ProgressSessionScoreChartCard: View {
         }
     }
 
+    private var latestConfidenceLabel: String? {
+        workouts.filter {
+            $0.finishedAt != nil && $0.sessionReview?.scoreBasis == .personalHistory
+        }
+        .max { ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast) }?
+        .sessionReview?.confidenceLabel
+    }
+
     @ViewBuilder
     private var scoreSummary: some View {
         let values = points
         let average = values.isEmpty ? nil :
             Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
-        HStack(alignment: .center, spacing: 16) {
-            ZStack {
-                Circle()
-                    .stroke(OG.surface3, lineWidth: 9)
-                if let average {
-                    Circle()
-                        .trim(from: 0, to: Double(average) / 10)
-                        .stroke(OG.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 9) {
+                    scoreMetric("Última nota", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
+                    scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
+                    scoreMetric("Días evaluados", value: "\(values.count)")
                 }
-                VStack(spacing: 1) {
-                    Text(average.map { String($0) } ?? "—")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(OG.label)
-                    Text("de 10")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(OG.label2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ZStack {
+                    Circle().stroke(OG.surface3, lineWidth: 9)
+                    if let average {
+                        Circle()
+                            .trim(from: 0, to: Double(average) / 10)
+                            .stroke(OG.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    VStack(spacing: 1) {
+                        Text(average.map { String($0) } ?? "—")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(OG.label)
+                        Text("de 10")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(OG.label2)
+                    }
                 }
+                .frame(width: 112, height: 112)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(average.map {
+                    "Puntuación media de entrenamiento \($0) de 10"
+                } ?? "Puntuación pendiente de aprendizaje")
             }
-            .frame(width: 94, height: 94)
-            .accessibilityLabel(average.map { "Puntuación media \($0) de 10" } ?? "Puntuación pendiente de aprendizaje")
-            VStack(alignment: .leading, spacing: 5) {
-                Text(values.isEmpty ? "Repera está aprendiendo de ti" : "Tu rendimiento personal")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                if values.isEmpty {
-                    Text("Necesita 2 días previos con ejercicios o WOD comparables; algunos WOD requieren 3 días de referencia.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label2)
-                } else {
-                    Text("\(values.count) días con resultados evaluables")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(OG.label2)
-                    Text("Comparado con tus marcas anteriores, no con otros deportistas.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(OG.label2)
-                    Text("Detalle de factores y confianza en cada entrenamiento.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(OG.label3)
-                }
+            if !isTeaserPreview {
+                TrainingScoreConfidenceBar(
+                    label: latestConfidenceLabel,
+                    caption: values.isEmpty ? "Confianza" : "Confianza · última sesión"
+                )
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.bottom, 4)
+    }
+
+    private func scoreMetric(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(OG.label2)
+            Text(value)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     var body: some View {
         let values = points
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                OGCardSectionTitle(title: "Puntuación de entrenamiento")
+                OGCardSectionTitle(title: "Entrenamiento")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
                     Text("Ejemplo")
