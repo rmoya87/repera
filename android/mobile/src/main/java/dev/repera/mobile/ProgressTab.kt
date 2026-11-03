@@ -54,7 +54,7 @@ import java.time.LocalDate
 import dev.repera.domain.ProgressTimeRange
 import dev.repera.mobile.monetization.LocalSubscriptions
 
-/** Rellena gráficas vacías con datos ficticios para revisión visual. Desactivar cuando no haga falta. */
+/** Solo para capturas internas de revisión: nunca sustituir registros ausentes en producción. */
 internal const val PROGRESS_DEMO_CHARTS = false
 
 
