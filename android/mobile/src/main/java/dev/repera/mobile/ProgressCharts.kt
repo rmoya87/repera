@@ -502,12 +502,8 @@ internal fun DayPointLineChart(
                             else inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
                         drawLine(line.copy(alpha=0.12f),Offset(gridX,0f),Offset(gridX,size.height),0.5.dp.toPx())
                     }
-                    val curve=Path()
-                    val observed=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
-                    curve.moveTo(observed.first().x,observed.first().y)
-                    ReadinessCurve.segments(observed).forEach {c ->
-                        curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)
-                    }
+                    // Separar días sin dato, nunca interpolar a través del vacío.
+                    val curves = observedSegments(points) { i -> ReadinessCurve.Point(x(i), y(points[i].value)) }
                     // Gradient is anchored to the score axis, not sample order.
                     val brush=androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to line,0.16f to line,
@@ -515,9 +511,21 @@ internal fun DayPointLineChart(
                         0.60f to Color(0xFFFF453A),1f to Color(0xFFFF453A),
                         startY=y(10.0),endY=y(0.0))
                     clipRect {
-                        drawPath(curve,brush=if(readinessGradient) brush else androidx.compose.ui.graphics.SolidColor(line),style=Stroke(width=3.dp.toPx(),
-                            cap=androidx.compose.ui.graphics.StrokeCap.Round,
-                            join=androidx.compose.ui.graphics.StrokeJoin.Round))
+                        curves.forEach { group ->
+                            val curve = Path()
+                            curve.moveTo(group.first().x, group.first().y)
+                            ReadinessCurve.segments(group).forEach { c ->
+                                curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)
+                            }
+                            if (group.size > 1) {
+                                drawPath(curve,brush=if(readinessGradient) brush else androidx.compose.ui.graphics.SolidColor(line),style=Stroke(width=3.dp.toPx(),
+                                    cap=androidx.compose.ui.graphics.StrokeCap.Round,
+                                    join=androidx.compose.ui.graphics.StrokeJoin.Round))
+                            }
+                            group.forEach { point ->
+                                drawCircle(color = line, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
+                            }
+                        }
                     }
                 } else if(weightStyle) {
                     val curve=Path()
@@ -531,22 +539,29 @@ internal fun DayPointLineChart(
                         drawLine(grid, Offset(f * size.width, 0f), Offset(f * size.width, size.height), 0.5.dp.toPx())
                     }
                     // Suavizado (misma curva que peso/recuperación); no segmentos rectos.
-                    val curve = Path()
-                    val observed = points.indices.map { ReadinessCurve.Point(x(it), y(points[it].value)) }
-                    curve.moveTo(observed.first().x, observed.first().y)
-                    ReadinessCurve.segments(observed).forEach { c ->
-                        curve.cubicTo(c.control1.x, c.control1.y, c.control2.x, c.control2.y, c.end.x, c.end.y)
-                    }
+                    val segments = observedSegments(points) { i -> ReadinessCurve.Point(x(i), y(points[i].value)) }
                     clipRect {
-                        drawPath(
-                            curve,
-                            color = line,
-                            style = Stroke(
-                                width = 2.dp.toPx(),
-                                cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                                join = androidx.compose.ui.graphics.StrokeJoin.Round
-                            )
-                        )
+                        segments.forEach { group ->
+                            if (group.size > 1) {
+                                val curve = Path()
+                                curve.moveTo(group.first().x, group.first().y)
+                                ReadinessCurve.segments(group).forEach { c ->
+                                    curve.cubicTo(c.control1.x, c.control1.y, c.control2.x, c.control2.y, c.end.x, c.end.y)
+                                }
+                                drawPath(
+                                    curve,
+                                    color = line,
+                                    style = Stroke(
+                                        width = 2.dp.toPx(),
+                                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                    )
+                                )
+                            }
+                            group.forEach { point ->
+                                drawCircle(color = line, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
+                            }
+                        }
                     }
                 } else {
                     drawPath(path, color = line, style = Stroke(width = 4f))
@@ -619,4 +634,19 @@ internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.com
         Text(message,Modifier.padding(horizontal=24.dp),style=MaterialTheme.typography.bodyMedium,
             color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
     }
+}
+
+// Segmentar por día natural: no dibujar una línea entre mediciones no registradas.
+private fun observedSegments(
+    points: List<dev.repera.domain.ProgressDayPoint>,
+    position: (Int) -> ReadinessCurve.Point
+): List<List<ReadinessCurve.Point>> {
+    val parts = mutableListOf<MutableList<ReadinessCurve.Point>>()
+    points.indices.forEach { i ->
+        if (i == 0 || java.time.temporal.ChronoUnit.DAYS.between(points[i-1].day, points[i].day) > 1) {
+            parts.add(mutableListOf())
+        }
+        parts.last().add(position(i))
+    }
+    return parts
 }
