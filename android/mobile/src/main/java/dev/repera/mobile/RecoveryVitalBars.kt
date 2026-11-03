@@ -37,9 +37,18 @@ internal object RecoveryVitalBarGeometry {
 /** HealthRecovery.vitalBarTile: independent scales, shared selected calendar day. */
 @Composable internal fun RecoveryVitalBars(rest:List<ProgressDayPoint>,breathing:List<ProgressDayPoint>) {
  var selectedDay by remember(rest,breathing) {mutableStateOf<LocalDate?>(null)}
- Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-  RecoveryVitalBarTile("Pulso en reposo","lpm",rest,selectedDay,{selectedDay=it},Modifier.weight(1f),"rest")
-  RecoveryVitalBarTile("Respiración","resp/min",breathing,selectedDay,{selectedDay=it},Modifier.weight(1f),"breathing")
+ Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+   RecoveryVitalBarTile("Pulso en reposo","lpm",rest,selectedDay,{selectedDay=it},Modifier.weight(1f),"rest")
+   RecoveryVitalBarTile("Respiración","resp/min",breathing,selectedDay,{selectedDay=it},Modifier.weight(1f),"breathing")
+  }
+  if (rest.size < 2) {
+   Text(
+    "Repera está aprendiendo de ti · pulso en reposo ${rest.size}/2 días. La preparación requiere 7 días anteriores.",
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant
+   )
+  }
  }
 }
 
@@ -81,13 +90,6 @@ internal object RecoveryVitalBarGeometry {
      }
     }
    }
-   if (values.size < 2) {
-    Text(
-     "Repera está aprendiendo de ti · ${values.size}/2 días de mediciones. La preparación necesita 7 días previos.",
-     style = MaterialTheme.typography.labelSmall,
-     color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
    }
-  }
  }
 }
