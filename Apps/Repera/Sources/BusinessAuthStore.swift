@@ -45,6 +45,18 @@ final class BusinessAuthStore {
 
     var accountEmail: String? { client?.auth.currentSession?.user.email }
 
+    /// Offline deletions still belong to the same previously bound Supabase
+    /// account. This is an identity hint for a *pending* network operation,
+    /// never a substitute for server-side authorization on reconnect.
+    var boundUserForPendingDeletion: UUID? {
+        guard !didExplicitlySignOut else { return nil }
+        if let cached = client?.auth.currentSession?.user.id,
+           isSameLocalOwner(cached) {
+            return cached
+        }
+        return localOwnerID.flatMap(UUID.init(uuidString:))
+    }
+
     private var localOwnerID: String? {
         UserDefaults.standard.string(forKey: localOwnerUserIDKey)
     }
