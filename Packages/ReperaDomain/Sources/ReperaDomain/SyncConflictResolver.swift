@@ -51,8 +51,10 @@ public enum SyncConflictResolver: Sendable {
             result.deletedWorkoutExerciseIDs[workoutID, default: []].formUnion(ids)
         }
 
-        result.exercises.removeAll { result.deletedExerciseIDs.contains($0.id) }
-        result.workouts.removeAll { result.deletedWorkoutIDs.contains($0.id) }
+        let deletedExerciseIDs = result.deletedExerciseIDs
+        let deletedWorkoutIDs = result.deletedWorkoutIDs
+        result.exercises.removeAll { deletedExerciseIDs.contains($0.id) }
+        result.workouts.removeAll { deletedWorkoutIDs.contains($0.id) }
         for index in result.workouts.indices {
             let key = result.workouts[index].id.uuidString
             guard let deleted = result.deletedWorkoutExerciseIDs[key], !deleted.isEmpty
