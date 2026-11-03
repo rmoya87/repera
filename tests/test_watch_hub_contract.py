@@ -32,6 +32,16 @@ class WatchHubContractTests(unittest.TestCase):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn("WatchHomeHubView", view)
 
+    def test_watch_home_corners_keep_priority_over_activity(self):
+        watch = source("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
+        self.assertIn("ZStack(alignment: .bottom)", watch)
+        self.assertIn(".padding(.bottom, 58)", watch)
+        self.assertIn(".zIndex(1)", watch)
+        self.assertIn(".frame(width: 44, height: 44)", watch)
+        self.assertIn("hub.toggleAudioMuted()", watch)
+        self.assertIn("showTimer = true", watch)
+        self.assertNotIn(".overlay(alignment: .bottomTrailing)", watch)
+
     def test_watch_live_and_timer_surfaces(self):
         live = source("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
         timer = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")

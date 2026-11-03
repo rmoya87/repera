@@ -296,12 +296,12 @@ struct LinkedCenterDetailView: View {
             }
 
             Section {
-                Button("Desvincularme", role: .destructive) {
+                Button("Desvincularme como cliente", role: .destructive) {
                     confirmLeave = true
                 }
                 .disabled(businessData.isSubmitting)
             } footer: {
-                Text("Al desvincularte pierdes el acceso asociado a este centro. Tu historial personal de Repera no se borra.")
+                Text("Se cancelarán tus reservas futuras y bonos activos. Si administras el centro, conservarás tus permisos de gestión. Tu historial personal no se borra.")
             }
         }
         .listStyle(.insetGrouped)
@@ -318,7 +318,7 @@ struct LinkedCenterDetailView: View {
                         .frame(width: 48, height: 48)
                         .background(OG.red.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("¿Desvincularte de \(center.name)?")
+                        Text("¿Dejar de ser cliente de \(center.name)?")
                             .font(.system(size: 19, weight: .semibold))
                             .foregroundStyle(OG.label)
                             .fixedSize(horizontal: false, vertical: true)
@@ -328,7 +328,7 @@ struct LinkedCenterDetailView: View {
                     }
                 }
 
-                Text("Perderás el acceso asociado a este entrenador, sus clases y tus bonos. Se cancelarán las reservas futuras. Tus entrenamientos personales y resultados guardados en Repera no se borrarán.")
+                Text("Se cancelarán las reservas futuras y los bonos activos de este centro. Tus resultados y entrenamientos personales no se borrarán. Si eres propietario o miembro del equipo, seguirás teniendo acceso a la gestión.")
                     .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -353,7 +353,7 @@ struct LinkedCenterDetailView: View {
                             ProgressView()
                                 .tint(.white)
                         }
-                        Text(businessData.isSubmitting ? "Desvinculando…" : "Desvincularme")
+                        Text(businessData.isSubmitting ? "Desvinculando…" : "Desvincularme como cliente")
                     }
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)

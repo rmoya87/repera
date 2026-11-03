@@ -29,16 +29,15 @@ struct WatchHomeHubView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Centro: tap = Play (deja márgenes para no tapar las esquinas).
+        ZStack(alignment: .bottom) {
+            // La actividad solo ocupa el área central: no puede interceptar
+            // los toques de los controles fijos del borde inferior.
             Button {
                 playSelected()
             } label: {
                 VStack(spacing: 6) {
                     Spacer(minLength: 0)
                     if let selected {
-                        // En Inicio, el nombre acompaña al pictograma central;
-                        // no debe compartir la franja horaria de watchOS.
                         Image(systemName: selected.symbolName)
                             .font(.system(size: 39, weight: .semibold))
                             .foregroundStyle(accent)
@@ -60,39 +59,36 @@ struct WatchHomeHubView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.top, 30)
-                .padding(.bottom, 50)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(selected == nil)
             .accessibilityLabel(selected.map { "Comenzar \($0.title)" } ?? "Comenzar")
+            // Zona reservada para dos botones de 44 pt y el bisel redondeado.
+            .padding(.bottom, 58)
+
+            HStack {
+                cornerCircleButton(
+                    systemName: hub.audioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                    label: hub.audioMuted ? "Activar audio" : "Silenciar audio"
+                ) {
+                    hub.toggleAudioMuted()
+                }
+
+                Spacer(minLength: 0)
+
+                cornerCircleButton(systemName: "timer", label: "Temporizador") {
+                    showTimer = true
+                }
+            }
+            .padding(.horizontal, 12)
+            // Mantener los controles junto al bisel físico.
+            .offset(y: 10)
+            // Sonido y Temporizador siempre tienen prioridad de pulsación.
+            .zIndex(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Anclar controles al bisel físico, no a la parte alta del safe area.
         .ignoresSafeArea(.container, edges: .bottom)
-        .overlay(alignment: .bottomLeading) {
-            cornerCircleButton(
-                systemName: hub.audioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                label: hub.audioMuted ? "Activar audio" : "Silenciar audio"
-            ) {
-                hub.toggleAudioMuted()
-            }
-            // Inset del bisel redondo (HIG): evitar recorte del círculo Liquid Glass.
-            .padding(.leading, 12)
-            // El NavigationStack deja más espacio bajo el área útil del Watch.
-            // Desde esa zona inferior descendemos el control, manteniendo
-            // el margen lateral suficiente para el cristal redondeado.
-            .padding(.bottom, 0)
-            .offset(y: 10)
-        }
-        .overlay(alignment: .bottomTrailing) {
-            cornerCircleButton(systemName: "timer", label: "Temporizador") {
-                showTimer = true
-            }
-            .padding(.trailing, 12)
-            .padding(.bottom, 0)
-            .offset(y: 10)
-        }
         .focusable(true)
         .focused($crownFocused)
         .digitalCrownRotation(
@@ -129,7 +125,7 @@ struct WatchHomeHubView: View {
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.primary)
-                .frame(width: 36, height: 36)
+                .frame(width: 44, height: 44)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
