@@ -93,10 +93,10 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
    Text("$title · $status", style=MaterialTheme.typography.bodySmall)
   }
   error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-  TextButton(enabled=!submitting,onClick={confirm=true}) {Text("Desvincularme")}
+  TextButton(enabled=!submitting,onClick={confirm=true}) {Text("Desvincularme como cliente")}
  }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})
- if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("¿Desvincularte de ${org.name}?")},
-  text={Text("Al desvincularte pierdes el acceso completo asociado a este centro, salvo que tengas Repera Pro.")},
+ if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("¿Dejar de ser cliente de ${org.name}?")},
+  text={Text("Se cancelarán tus reservas futuras y bonos activos, pero se conservará tu historial personal. Si administras el centro, no perderás tus permisos de gestión.")},
   confirmButton={TextButton(enabled=!submitting,onClick={confirm=false;requestedLeave=true;onLeave(org)}) {Text("Desvincularme")}},
   dismissButton={TextButton(onClick={confirm=false}) {Text("Cancelar")}})
 }
