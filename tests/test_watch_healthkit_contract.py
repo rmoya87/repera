@@ -349,8 +349,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertNotIn(".buttonStyle(.bordered)", view.partition("private func valueStepButton(")[2].partition("private func metricStepper(")[0])
         self.assertNotIn(".buttonStyle(.borderless)", view)
         for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
-            self.assertIn(".tint(accent)", section[:180])
-            self.assertIn(".foregroundStyle(.black)", section[:180])
+            # Descartar y Anterior usan tinta gris/roja: negro solo en acciones verdes.
+            if ".tint(accent)" in section[:180]:
+                self.assertIn(".foregroundStyle(.black)", section[:180])
 
     def test_watch_timers_and_primary_buttons_match_ios(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
@@ -413,7 +414,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # Green prominence uses a black icon or text.
         for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
-            self.assertIn(".foregroundStyle(.black)", section.split(".accessibility", 1)[0][:180])
+            if ".tint(accent)" in section[:180]:
+                self.assertIn(".foregroundStyle(.black)", section.split(".accessibility", 1)[0][:180])
 
     def test_watch_thumbnail_view_is_in_an_existing_compiled_source(self):
         """A stale Xcode project still compiles the miniature component."""
