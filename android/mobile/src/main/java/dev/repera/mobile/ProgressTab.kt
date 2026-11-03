@@ -55,7 +55,7 @@ import dev.repera.domain.ProgressTimeRange
 import dev.repera.mobile.monetization.LocalSubscriptions
 
 /** Rellena gráficas vacías con datos ficticios para revisión visual. Desactivar cuando no haga falta. */
-internal const val PROGRESS_DEMO_CHARTS = true
+internal const val PROGRESS_DEMO_CHARTS = false
 
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -202,14 +202,22 @@ internal fun ProgressTab(
             }
             item {
                 Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                val prepared=charts ?: ProgressPreview.charts(today,monday)
+                val prepared=charts ?: dev.repera.domain.ProgressChartBuilder.build(
+                    range = ProgressTimeRange.entries.first { it.wire == selectedRange },
+                    weekStartsOnMonday = monday,
+                    heartRateDays = emptyList(),
+                    energyDays = emptyList(),
+                    workouts = emptyList(),
+                    external = emptyList(),
+                    now = today
+                )
                 val scorePoints=overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
-                val scoreDemo=scorePoints.size<2
+                val scoreDemo=!pro
                 ProgressHealthGrid(
                     score={
                         SessionScoreProgressCard(
-                            if (pro && !scoreDemo) scorePoints else ProgressPreview.sessionScores(today),
-                            preview = !pro || scoreDemo,
+                            if (pro) scorePoints else ProgressPreview.sessionScores(today),
+                            preview = !pro,
                             range = ProgressTimeRange.entries.first { it.wire == selectedRange },
                             monday = prepared.weekStartsOnMonday
                         )
