@@ -1,6 +1,5 @@
 package dev.repera.mobile
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -17,27 +16,29 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import dev.repera.domain.ReviewDimension
-import dev.repera.domain.ReviewIndicator
 import dev.repera.domain.ScoreBasis
 import dev.repera.domain.SessionReview
 
 /**
- * Port 1:1 de SessionReviewCard / SessionReviewSheet (iOS): una única fuente
- * de verdad para Inicio, Historial y fin de entreno. Nunca presenta
- * puntuaciones sin indicadores verificables: una review sin evidencia se
- * considera no evaluada y no se muestra.
+ * Mismos factores visibles que Recuperación: KPI a la izquierda,
+ * nota global a la derecha y confianza segmentada bajo ambos.
+ * Sin interacción para desplegar cálculos ocultos ni estimaciones ficticias.
  */
 private fun SessionReview.isVerified(): Boolean =
     scoreBasis == ScoreBasis.PERSONAL_HISTORY &&
@@ -45,100 +46,126 @@ private fun SessionReview.isVerified(): Boolean =
             (indicators.isEmpty() && vsHistorySummary != null)) &&
         (evidenceCoverage ?: 0.0) >= 0.60
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 internal fun SessionReviewCard(review: SessionReview, startsExpanded: Boolean = false) {
     if (!review.isVerified()) return
-    var expanded by rememberSaveable(review.headline) { mutableStateOf(startsExpanded) }
-    ReperaCard(modifier = Modifier.fillMaxWidth().animateContentSize()) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(88.dp), contentAlignment = Alignment.Center) {
-                        val accent = MaterialTheme.colorScheme.primary
-                        val track = MaterialTheme.colorScheme.surfaceVariant
-                        Canvas(Modifier.fillMaxWidth().heightIn(min = 88.dp).padding(5.dp)) {
-                            val stroke = 9.dp.toPx()
-                            drawCircle(track, style = Stroke(stroke))
-                            drawArc(accent, -90f, review.overallScore * 36f, false,
-                                style = Stroke(stroke, cap = StrokeCap.Round))
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${review.overallScore}", fontSize = 31.sp,
-                                fontWeight = FontWeight.Bold)
-                            Text("de 10", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+    val personal = review.indicators.firstOrNull {
+        it.dimension == ReviewDimension.PERSONAL_PROGRESS
+    }?.score ?: review.overallScore.takeIf { review.indicators.isEmpty() }
+    val performance = review.indicators.firstOrNull {
+        it.dimension == ReviewDimension.WOD_PERFORMANCE
+    }?.score ?: review.indicators.firstOrNull {
+        it.dimension == ReviewDimension.PERSONAL_PROGRESS
+    }?.score ?: review.overallScore
+
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp)) {
+            Row(Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    TrainingScoreMetric("Evolución personal", personal?.let { "${it}/10" } ?: "—")
+                    TrainingScoreMetric("Rendimiento", "${performance}/10")
+                    review.evidenceCoverage?.let {
+                        TrainingScoreMetric("Cobertura", "${kotlin.math.round(it * 100).toInt()} %")
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Rendimiento personal", style = MaterialTheme.typography.titleSmall)
-                        Text("Confianza: ${review.confidenceLabel ?: "En construcción"}",
-                            style = MaterialTheme.typography.bodySmall,
+                }
+                val accent = MaterialTheme.colorScheme.primary
+                val track = MaterialTheme.colorScheme.surfaceVariant
+                Box(Modifier.size(112.dp).semantics {
+                    contentDescription = "Puntuación global de rendimiento ${review.overallScore} de 10"
+                }, contentAlignment = Alignment.Center) {
+                    Canvas(Modifier.fillMaxSize().padding(5.dp)) {
+                        val stroke = 10.dp.toPx()
+                        drawCircle(track, style = Stroke(stroke))
+                        drawArc(accent, -90f, review.overallScore * 36f, false,
+                            style = Stroke(stroke, cap = StrokeCap.Round))
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("${review.overallScore}", fontSize = 36.sp, fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface)
+                        Text("de 10", style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        review.evidenceCoverage?.let {
-                            Text("${kotlin.math.round(it * 100).toInt()}% del trabajo con referencias",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        review.indicators.filter { it.score != null }.forEach { metric ->
-                            Text("${metric.dimension.title} · ${metric.score}/10",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
                     }
-                    Text(if (expanded) "▲" else "▼", fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            if (expanded) {
-                Column(modifier = Modifier.padding(horizontal = 14.dp).padding(bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    review.indicators.forEach { IndicatorRow(it) }
-                    Text(
-                        if (review.indicators.isEmpty())
-                            listOfNotNull(review.vsHistorySummary, review.vsStandardSummary).joinToString(" ")
-                        else "Solo se puntúa el rendimiento con al menos dos días anteriores " +
-                            "comparables. Las series registradas no aportan puntos; la nota no " +
-                            "mide técnica ni esfuerzo percibido.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            TrainingScoreConfidenceBar(review.confidenceLabel)
+            review.vsHistorySummary?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun IndicatorRow(indicator: ReviewIndicator) {
-    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.Top) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(indicator.dimension.title, fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold)
-                if (indicator.score != null && indicator.comparisonLevel != null) {
-                    val tier = indicator.comparisonLevel
-                    Text(when (tier) {
-                        1 -> "Nivel 1 · Referencia idéntica"
-                        2 -> "Nivel 2 · Mismo ejercicio"
-                        else -> "Nivel 3 · Estímulo comparable"
-                    }, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (tier == 3) MaterialTheme.colorScheme.onSurfaceVariant
-                        else brandGreen)
+private fun TrainingScoreMetric(title: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+private enum class TrainingConfidence(val title: String) {
+    LEARNING("Aprendiendo"),
+    LOW("Baja"),
+    MEDIUM("Media"),
+    HIGH("Alta")
+}
+
+@Composable
+internal fun TrainingScoreConfidenceBar(
+    label: String?,
+    caption: String = "Confianza"
+) {
+    val normalized = label.orEmpty().lowercase(java.util.Locale.ROOT)
+    val current = when {
+        "alta" in normalized -> TrainingConfidence.HIGH
+        "media" in normalized -> TrainingConfidence.MEDIUM
+        "baja" in normalized -> TrainingConfidence.LOW
+        else -> TrainingConfidence.LEARNING
+    }
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().semantics {
+        contentDescription = "$caption: ${label ?: "En construcción"}"
+    }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(caption, style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TrainingConfidence.entries.forEach { tier ->
+                val selected = tier == current
+                val tint = when (tier) {
+                    TrainingConfidence.LEARNING -> colors.onSurfaceVariant
+                    TrainingConfidence.LOW -> colors.error
+                    TrainingConfidence.MEDIUM -> colors.tertiary
+                    TrainingConfidence.HIGH -> colors.primary
                 }
-                Text(indicator.detail, fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.width(8.dp))
-            if (indicator.score != null) {
-                Text("${indicator.score}/10", fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold)
-            } else {
-                Text(if (indicator.dimension == ReviewDimension.ADHERENCE) "Registro"
-                    else "Sin referencia",
-                    fontSize = 11.sp, fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(
+                    Modifier.weight(1f).height(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(tint.copy(alpha = if (selected) 1f else 0.18f))
+                        .border(
+                            if (selected) 1.dp else 0.dp,
+                            if (selected) colors.onSurface.copy(alpha = 0.4f) else Color.Transparent,
+                            RoundedCornerShape(6.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        tier.title,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selected && tier != TrainingConfidence.LEARNING)
+                            Color.Black else colors.onSurface,
+                        softWrap = false
+                    )
+                }
             }
         }
     }
