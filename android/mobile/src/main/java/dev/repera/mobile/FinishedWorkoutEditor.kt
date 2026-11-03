@@ -237,7 +237,7 @@ internal fun FinishedWorkoutEditorSection(
                     onChanged = { contentDirty = true; contentVersion++ },
                     onScanBoard = { showBoardScanner = true })
             }
-            if (workout.liveSportID != null) {
+            if (workout.liveSportID != null || workout.awaitingResultEntry) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     Checkbox(
                         checked = recordNewSetsAsPerformed,
