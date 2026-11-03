@@ -34,6 +34,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private var lastInboundToday: Data?
     private var lastInboundTodayDay: TimeInterval?
     private var lastInboundTodayPlans: Data?
+    private var lastInboundTodayPlansDay: TimeInterval?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -394,9 +395,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 )
             }
         }
-        if let data = payload["todayWorkouts"] as? Data,
-           data != lastInboundTodayPlans {
+        if let data = payload["todayWorkouts"] as? Data {
+            let dayStamp = payload["todayDayStart"] as? TimeInterval
+            guard data != lastInboundTodayPlans ||
+                  dayStamp != lastInboundTodayPlansDay else { return }
             lastInboundTodayPlans = data
+            lastInboundTodayPlansDay = dayStamp
             let plans = (try? JSONDecoder().decode([WorkoutSession].self, from: data)) ?? []
             delegate?.watchConnectivityDidReceiveTodayPlans(
                 plans,
