@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun TrainingReadinessCard(recovery: RecoveryState) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ReperaSectionTitle("Preparación para entrenar")
+        ReperaSectionTitle("Recuperación")
         ReperaCard(Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
