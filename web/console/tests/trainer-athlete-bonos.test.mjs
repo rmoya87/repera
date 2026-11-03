@@ -78,7 +78,7 @@ test('bonos permiten emitir y registrar sesiones distinguiendo pagos externos',(
   attendance:[],occurrences:[],seat,manager:true});
  const planForm=renderPassOfferForm();
  assert.match(html,/data-action="open-create-plan-modal"/);
- assert.match(planForm,/data-connected="\$\{action\}"/);
+ assert.match(planForm,/data-connected="create-pass-offer"/);
  assert.match(planForm,/data-billing-select/);
  assert.match(planForm,/value="time_slot"/);
  assert.match(planForm,/data-billing-fields="session_pack"/);

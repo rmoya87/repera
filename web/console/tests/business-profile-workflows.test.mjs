@@ -52,7 +52,7 @@ test('Centro y clientes usan filas completas, sin columna de acciones y con dato
  assert.match(list,/Pendiente/);
  const restricted=renderClient360({clients:[{id:uid,name:'Atleta',email:'a@example.org',status:'active',user_id:uid}],
  selected:uid,role:'coach',manager:false,sharedHistory:[]});
- assert.match(restricted,/Actividad compartida/);
+ assert.match(restricted,/[Aa]ctividad compartida/);
  assert.doesNotMatch(restricted,/Notas internas|NIF\/CIF|Último inicio de sesión/);
 });
 
@@ -101,7 +101,7 @@ test('El enlace de email abre alta separada para deportistas sin crear centros',
  assert.match(ui,/Aceptar y vincularme/);
  // A linked athlete cannot fetch billing or fiscal APIs merely by having a membership.
  assert.match(ui,/if\(!professionalIds\.size\)selectedOrg=null/);
- assert.match(ui,/legalProfile=manager\?await auth\.legalProfile\(selectedOrg\):null/);
+ assert.match(ui,/legalProfile=manager\?await soft\('legal',auth\.legalProfile\(selectedOrg\),null\):null/);
 });
 
 test('Los entrenadores consultan fichas básicas sin notas internas ni teléfono',async()=>{

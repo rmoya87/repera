@@ -315,9 +315,47 @@ struct OnboardingPermissionsStep: View {
     @Environment(OnboardingStore.self) private var onboarding
 
     var body: some View {
-        Color.clear
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(OG.bg.ignoresSafeArea())
-            .task { onboarding.finishPermissions() }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                Image(systemName: "hand.raised.shield")
+                    .font(.system(size: 40, weight: .medium))
+                    .foregroundStyle(OG.accent)
+                    .accessibilityHidden(true)
+
+                Text("Tus datos, bajo tu control")
+                    .font(.title.bold())
+                    .foregroundStyle(OG.label)
+
+                Text("Repera utiliza tu ubicación cuando comienzas una actividad con recorrido y puede utilizar Apple Salud para registrar tus entrenamientos y mostrar tus métricas.")
+                    .foregroundStyle(OG.label)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Label("Ubicación: solo al utilizar funciones de recorrido y navegación.", systemImage: "location")
+                    Label("Apple Salud: los datos que elijas compartir para entrenamientos y actividad.", systemImage: "heart.text.square")
+                }
+                .foregroundStyle(OG.label)
+                .font(.subheadline)
+
+                Text("Puedes rechazar los permisos del sistema y seguir utilizando las funciones que no los necesitan. También puedes modificarlos en Ajustes.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+
+                Spacer(minLength: 12)
+
+                Button {
+                    onboarding.finishPermissions()
+                } label: {
+                    Text("Continuar")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .accessibilityHint("Continuar para elegir el plan. Los permisos se solicitan cuando usas las funciones correspondientes.")
+            }
+            .padding(24)
+            .frame(maxWidth: 560, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 560, alignment: .top)
+        }
+        .background(OG.bg.ignoresSafeArea())
     }
 }

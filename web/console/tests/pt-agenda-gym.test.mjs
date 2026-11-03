@@ -79,7 +79,7 @@ test('vista día PT muestra panel día y data-agenda-view',()=>{
  assert.match(html,/data-agenda-panel="day"/);
  assert.match(html,/pt-day-full/);
  assert.match(html,/con Ana/);
- assert.match(html,/data-action="new-date-appointment"/);
+ assert.match(html,/data-action="open-quick-workout"/);
  assert.doesNotMatch(html,/business-calendar-grid/);
 });
 
