@@ -49,11 +49,16 @@ No esta conectado a ninguna pantalla. No se ha ejecutado contra cuentas reales.
   Sin verificar si una propuesta pendiente puede apuntar a ids ya descartados.
 - Pendiente real y no resuelto: Health Connect/ejercicios derivados escritos fuera del snapshot no se tocan.
 
-## deleteWorkout: tombstone antes de CAS (riesgo separado, preexistente)
-WorkoutRepository.deleteWorkout: noteDeleted(id) en la linea tras check(stillAuthorized) y antes de archive.remove + save(state).
-save() usa replaceIfUnchanged (CAS, SnapshotStorage.replaceIfUnchanged). Si falla, el id queda pendiente con el entreno local.
-Prueba preparada (COMPILADA, NO EJECUTADA, sin dispositivo): DeleteWorkoutCasFailureInstrumentedTest, inyecta el escritor
-concurrente via stillAuthorized (llamada 2) y asserta el estado inseguro. No se propone correccion hasta ejecutarla.
+## deleteWorkout: eliminación física y CAS antes de sincronizar (3 nov 2026)
+WorkoutRepository.deleteWorkout quita el UUID del archivo local, confirma replaceIfUnchanged (CAS) y **solo después**
+encola la operación DELETE remota. Si el CAS falla, no se borra nada del servidor.
+La cola contiene únicamente peticiones de borrado sin confirmar y se limpia tras HTTP 2xx; no persisten
+tombstones, historiales de UUID eliminados ni payloads vacíos. WorkoutMirrorStore migra la cola de la identidad
+local Google a la identidad Supabase autenticada antes de sincronizar.
+Supabase requiere la migración `20261103190000_athlete_workout_hard_delete.sql` (RLS owner-only,
+purga de antiguas filas blandas y compatibilidad de borrado físico para clientes antiguos).
+Prueba de regresión: DeleteWorkoutCasFailureInstrumentedTest debe comprobar que el CAS fallido conserva
+el entrenamiento y no genera una operación remota; requiere ejecución en dispositivo/emulador.
 
 ## Auditoria IA / derivados (26 oct 09:45, codigo leido, sin ejecutar)
 - AIChangeRequestStore: update/delete_workout exigen que el entreno exista localmente y que la revision remota del espejo
