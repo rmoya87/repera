@@ -307,12 +307,14 @@ struct BoardImportParserTests {
         """
         let blocks = BoardImportParser.parseBlocks(ocrText: board, catalog: catalog)
         #expect(blocks.count == 2)
-        #expect(blocks[0].movements.contains {
+        let stepMovements = blocks[0].movements.map { "\($0.name) [\($0.exerciseId == nil ? "sin ID" : "con ID")]" }
+        let swingMovements = blocks[1].movements.map { "\($0.name) [\($0.exerciseId == nil ? "sin ID" : "con ID")]" }
+        #expect(blocks[0].movements.contains(where: {
             $0.name == "Double Dumbbell Step Up" && $0.exerciseId != nil
-        })
-        #expect(blocks[1].movements.contains {
+        }), "Movimientos EMOM: \(stepMovements)")
+        #expect(blocks[1].movements.contains(where: {
             $0.name == "Kettlebell Swing" && $0.exerciseId != nil
-        })
+        }), "Movimientos AMRAP: \(swingMovements)")
     }
 
     @Test func parseMovementLineTreats5to10AsRangeNotWave() {
