@@ -173,17 +173,6 @@ internal fun ProgressTab(
         if (topic == "Entreno" && snapshot != null) {
             item { ProgressMetricsTilesGrid(snapshot, pro) }
         }
-        if (topic == "Entreno") {
-        // Apple StatsView: acceso a evolución y récords de deportes si hay actividades En vivo finalizadas.
-        if(overview?.liveSportSessions.orEmpty().isNotEmpty()) item {
-            ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
-                Row(Modifier.padding(16.dp).fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text("Deportes · evolución y récords");Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription=null, tint=MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        }
-        // iOS StatsView: tiles + heatmap Actividad + Equilibrio; sin Resumen/Constancia/Cardio en Entreno.
         if (snapshot != null) {
             if(topic=="Recuperación") {
                 val baseRecovery=overview?.recovery ?: RecoveryState(null,null,null,null)
@@ -194,6 +183,13 @@ internal fun ProgressTab(
                 })}
             }
             if(topic=="Actividad") {
+            if (snapshot.heatmapTime.isNotEmpty()) {
+                item { ReperaSectionTitle("Días activos") }
+                item { ActivityHeatmapCard(
+                    snapshot.heatmapTime, snapshot.heatmapVolume,
+                    ProgressTimeRange.entries.first { it.wire == selectedRange }
+                ) }
+            }
             val realCharts=if(pro) overview?.chartsByRange?.get(selectedRange) else null
             val charts=when {
                 !pro || PROGRESS_DEMO_CHARTS && (realCharts==null || realCharts.heartRate.isEmpty()) ->
@@ -211,16 +207,9 @@ internal fun ProgressTab(
                     external = emptyList(),
                     now = today
                 )
-                val scorePoints=overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
                 ProgressHealthGrid(
-                    score={
-                        SessionScoreProgressCard(
-                            if (pro) scorePoints else ProgressPreview.sessionScores(today),
-                            preview = !pro,
-                            range = ProgressTimeRange.entries.first { it.wire == selectedRange },
-                            monday = prepared.weekStartsOnMonday
-                        )
-                    },
+                    score={},
+                    showScore=false,
                     cardio={ProgressCardioCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},calories={ProgressCaloriesCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},
                     weight={
                         if (!pro || (PROGRESS_DEMO_CHARTS && snapshot.weightPoints.size < 2))
@@ -255,26 +244,31 @@ internal fun ProgressTab(
             if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
             }
             if(topic=="Entreno") {
-            if (snapshot.heatmapTime.isNotEmpty()) {
-                // ActivityHeatmapView iOS: UNA tarjeta con picker segmentado.
-                item { ReperaSectionTitle("Actividad") }
-                item { ActivityHeatmapCard(snapshot.heatmapTime,
-                    snapshot.heatmapVolume,
-                    dev.repera.domain.ProgressTimeRange.entries.first { it.wire == selectedRange }) }
-            }
-            // Apple order (StatsView training): tiles, activity, muscle balance, mobility, then
-            // exercises/records or the Free preview + teaser. The card has its own empty text,
-            // so it is not hidden when there are no muscle statuses (Apple does not hide it).
-            item { ReperaSectionTitle("Equilibrio muscular") }
             item {
-                // Current Apple StatsView explicitly exposes map and bars to Free.
-                MuscleBalanceCard(
-                    loadAll = snapshot.muscleLoadAll,
-                    loadHard = snapshot.muscleLoadHard,
-                    fatigueAll = snapshot.muscleFatigueAll,
-                    fatigueHard = snapshot.muscleFatigueHard,
-                    hasHardSets = snapshot.hasHardSets,
-                    includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles)
+                AdaptiveCardPair(
+                    first = {
+                        SessionScoreProgressCard(
+                            points = if (pro) overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
+                                else ProgressPreview.sessionScores(today),
+                            preview = !pro,
+                            range = ProgressTimeRange.entries.first { it.wire == selectedRange },
+                            monday = monday
+                        )
+                    },
+                    second = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ReperaSectionTitle("Equilibrio muscular")
+                            MuscleBalanceCard(
+                                loadAll = snapshot.muscleLoadAll,
+                                loadHard = snapshot.muscleLoadHard,
+                                fatigueAll = snapshot.muscleFatigueAll,
+                                fatigueHard = snapshot.muscleFatigueHard,
+                                hasHardSets = snapshot.hasHardSets,
+                                includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles
+                            )
+                        }
+                    }
+                )
             }
             if(snapshot.mobilitySessions>0) {
                 item { ReperaSectionTitle("Movilidad") }
@@ -291,6 +285,22 @@ internal fun ProgressTab(
             if(!(subscriptions==null || subscriptions.isPro)) item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,onClick={
                 subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
             })}
+            }
+        }
+        if (topic == "Entreno" && overview?.liveSportSessions.orEmpty().isNotEmpty()) {
+            item {
+                ReperaCard(
+                    onClick = onOpenSports,
+                    modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")
+                ) {
+                    Row(Modifier.padding(16.dp).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Deportes · evolución y récords")
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
         if (topic == "Entreno") {
