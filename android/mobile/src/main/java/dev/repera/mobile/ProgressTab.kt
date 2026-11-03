@@ -106,6 +106,23 @@ internal fun ProgressTab(
         if (!PROGRESS_DEMO_CHARTS || rawSnapshot == null) rawSnapshot
         else enrichSnapshotWithDemo(rawSnapshot, today)
     }
+    // Solo mediciones cardiometabólicas vinculadas a sesiones finalizadas.
+    // El pulso diario permanece en Actividad; no se atribuyen zonas estimadas.
+    val latestMeasuredWorkout = remember(overview, selectedRange, monday, today) {
+        val selected = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }
+            ?: ProgressTimeRange.WEEK
+        val history = overview?.completeHistory.orEmpty().ifEmpty { overview?.history.orEmpty() }
+        history.filter { workout ->
+            val day = workout.finishedAtIso?.let { iso ->
+                runCatching {
+                    java.time.Instant.parse(iso).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                }.getOrNull()
+            }
+            val hasPulse = workout.appleAverageHeartRateBpm?.let { it.isFinite() && it > 0 } == true
+            val hasEnergy = workout.appleActiveEnergyKcal?.let { it.isFinite() && it > 0 } == true
+            day != null && selected.contains(day, today, monday) && (hasPulse || hasEnergy)
+        }.maxByOrNull { it.finishedAtIso.orEmpty() }
+    }
     val demoBanner = PROGRESS_DEMO_CHARTS
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
     var shownTopic by remember { mutableStateOf(topic) }
@@ -271,6 +288,9 @@ internal fun ProgressTab(
                     }
                 )
             }
+            if (latestMeasuredWorkout != null) {
+                item { TrainingMeasuredEffortCard(latestMeasuredWorkout) }
+            }
             if(snapshot.mobilitySessions>0) {
                 item { ReperaSectionTitle("Movilidad") }
                 item {ProgressMobilityCard(snapshot.mobilitySessions,snapshot.mobilitySeconds,
@@ -369,6 +389,36 @@ internal fun ProgressTab(
 
 
 @Composable
+@Composable
+private fun TrainingMeasuredEffortCard(workout: WorkoutHistoryEntry) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReperaSectionTitle("Cardio del entrenamiento")
+        ReperaCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text(workout.title, style = MaterialTheme.typography.titleSmall)
+                workout.appleAverageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }?.let { pulse ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Frecuencia cardíaca media", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${kotlin.math.round(pulse).toInt()} lpm", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
+                workout.appleActiveEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let { kcal ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Energía medida", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${kotlin.math.round(kcal).toInt()} kcal", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
+                Text(
+                    "Las zonas cardíacas no se calculan sin un desglose verificado de Health Connect.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 private fun ProgressMetricsTilesGrid(snapshot: ProgressSnapshotData, pro: Boolean) {
     val tiles = ProgressTilesModel.tiles(
         snapshot.summary.sessionCount,
