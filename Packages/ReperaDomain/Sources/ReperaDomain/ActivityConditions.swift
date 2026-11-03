@@ -106,24 +106,6 @@ public enum ActivityConditionsLogic {
         (value * 100).rounded() / 100
     }
 
-    public static func forecastURL(latitude: Double, longitude: Double) -> URL? {
-        let lat = roundCoordinate(latitude)
-        let lon = roundCoordinate(longitude)
-        var c = URLComponents(string: "https://api.open-meteo.com/v1/forecast")
-        c?.queryItems = [
-            .init(name: "latitude", value: "\(lat)"),
-            .init(name: "longitude", value: "\(lon)"),
-            .init(
-                name: "hourly",
-                value: "temperature_2m,wind_speed_10m,snowfall,snow_depth"
-            ),
-            .init(name: "forecast_days", value: "2"),
-            .init(name: "timezone", value: "auto"),
-            .init(name: "wind_speed_unit", value: "kmh")
-        ]
-        return c?.url
-    }
-
     /// Solo acumulación de nieve: WeatherKit suministra temperatura/viento/nevada.
     public static func snowDepthURL(latitude: Double, longitude: Double) -> URL? {
         let lat = roundCoordinate(latitude)
@@ -173,12 +155,9 @@ public enum ActivityConditionsLogic {
            let times = hourly["time"] as? [String] {
             let idx = closestIndex(times: times, to: date)
             if let idx {
-                snap.temperatureC = doubleAt(hourly["temperature_2m"], idx)
-                snap.windKmh = doubleAt(hourly["wind_speed_10m"], idx)
-                    ?? doubleAt(hourly["windspeed_10m"], idx)
+                // El cliente Apple solo solicita snow_depth. Nunca mezcla
+                // temperatura, viento o nevada de Open-Meteo con WeatherKit.
                 if family == .snow {
-                    // Open-Meteo snowfall = cm en la hora; snow_depth = m.
-                    snap.snowfallCm = doubleAt(hourly["snowfall"], idx)
                     snap.snowDepthMeters = doubleAt(hourly["snow_depth"], idx)
                 }
             }
@@ -206,9 +185,8 @@ public enum ActivityConditionsLogic {
                 )
             }
         }
-        let hasAny = snap.temperatureC != nil || snap.windKmh != nil
-            || snap.tideHeightMeters != nil || snap.waveHeightMeters != nil
-            || snap.snowfallCm != nil || snap.snowDepthMeters != nil
+        let hasAny = snap.tideHeightMeters != nil || snap.waveHeightMeters != nil
+            || snap.snowDepthMeters != nil
         return hasAny ? snap : nil
     }
 
