@@ -768,7 +768,7 @@ struct HealthRecoveryProgressView: View {
                 trainingRecoveryTrendCard
             } else {
                 VStack(alignment: .leading, spacing: 8) {
-                    OGCardSectionTitle(title: "Evolución de recuperación")
+                    OGCardSectionTitle(title: "Evolución")
                     OGCard {
                         ProgressEmptyChart(
                             message: "Repera está aprendiendo de ti. Necesita al menos 2 días con preparación evaluable. Sin sueño: 7 días previos de constantes.",
@@ -824,7 +824,7 @@ struct HealthRecoveryProgressView: View {
         let scores: [Double] = [5, 6, 7, 6, 8, 7, 9]
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                OGCardSectionTitle(title: "Evolución de recuperación")
+                OGCardSectionTitle(title: "Evolución")
                 Spacer()
                 Text("Ejemplo")
                     .font(.system(size: 12, weight: .semibold))
@@ -859,7 +859,7 @@ struct HealthRecoveryProgressView: View {
         let hrv: [Double] = [46, 51, 48, 55, 53, 62, 58]
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                OGCardSectionTitle(title: "Constantes fisiológicas")
+                OGCardSectionTitle(title: "Constantes")
                 Spacer()
                 Text("Ejemplo")
                     .font(.system(size: 12, weight: .semibold))
@@ -952,7 +952,7 @@ struct HealthRecoveryProgressView: View {
         let phases = phaseAverages
         let nights = displayNights
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Sueño esta semana")
+            OGCardSectionTitle(title: "Sueño")
             sleepNightCard(
                 hours: headlineHours,
                 hoursCaption: hoursLabel,
@@ -1128,7 +1128,7 @@ struct HealthRecoveryProgressView: View {
 
     private var physiologyContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Constantes fisiológicas")
+            OGCardSectionTitle(title: "Constantes")
             OGCard {
                 VStack(alignment: .leading, spacing: 14) {
                     vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvAllDayMilliseconds)
@@ -1276,7 +1276,7 @@ struct HealthRecoveryProgressView: View {
 
     private var trainingRecoveryCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Preparación para entrenar")
+            OGCardSectionTitle(title: "Recuperación")
             // Padding corto: el contenido define la altura (sin minHeight de gráfica).
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
@@ -1381,7 +1381,7 @@ struct HealthRecoveryProgressView: View {
     /// amarillo en la zona intermedia y verde en recuperación alta.
     private var trainingRecoveryTrendCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Evolución de recuperación")
+            OGCardSectionTitle(title: "Evolución")
             OGCard {
                 Chart {
                     ForEach(recoveryPoints) { point in
