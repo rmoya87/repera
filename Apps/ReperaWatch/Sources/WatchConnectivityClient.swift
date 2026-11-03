@@ -6,6 +6,7 @@ import os
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
     func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
+    func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?)
     func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)
     func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
@@ -15,6 +16,7 @@ protocol WatchConnectivityClientDelegate: AnyObject {
 }
 
 extension WatchConnectivityClientDelegate {
+    func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?) {}
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
     func watchConnectivityDidBecomeReachable() {}
@@ -31,6 +33,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private var lastTerminalEvent: String?
     private var lastInboundToday: Data?
     private var lastInboundTodayDay: TimeInterval?
+    private var lastInboundTodayPlans: Data?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -386,6 +389,16 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                     today, scheduledDay: dayStamp.map(Date.init(timeIntervalSince1970:))
                 )
             }
+        }
+        if let data = payload["todayWorkouts"] as? Data,
+           data != lastInboundTodayPlans {
+            lastInboundTodayPlans = data
+            let plans = (try? JSONDecoder().decode([WorkoutSession].self, from: data)) ?? []
+            delegate?.watchConnectivityDidReceiveTodayPlans(
+                plans,
+                scheduledDay: (payload["todayDayStart"] as? TimeInterval)
+                    .map(Date.init(timeIntervalSince1970:))
+            )
         }
         if let data = payload["session"] as? Data {
             let revision = payload["sessionRevision"] as? Int ?? -1
