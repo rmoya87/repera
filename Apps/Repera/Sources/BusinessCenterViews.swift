@@ -10,9 +10,17 @@ struct FindCenterTrainerView: View {
     @State private var note = ""
 
     var body: some View {
-        List {
-            OGScrollablePageTitle("Buscar").ogScrollingTitleListRow()
-            Section {
+        // Título fuera de List: evita el recorte de glifos del row agrupado.
+        // Una única franja superior de 6 pt; la List empieza sin inset extra.
+        VStack(spacing: 0) {
+            OGScrollablePageTitle("Buscar")
+                .padding(.horizontal, OG.pad)
+                .padding(.top, 6)
+                .frame(maxWidth: OG.contentColumnMaxWidth, alignment: .leading)
+                .frame(maxWidth: .infinity)
+
+            List {
+                Section {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(OG.label2)
@@ -105,7 +113,6 @@ struct FindCenterTrainerView: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 150)
                     .padding(14)
-                    .background(OG.surface2.opacity(0.4), in: RoundedRectangle(cornerRadius: 14))
                     .listRowSeparator(.hidden)
                 } else if businessData.isSearchingDirectory {
                     ProgressView()
@@ -137,10 +144,12 @@ struct FindCenterTrainerView: View {
                     Text(err).font(.footnote).foregroundStyle(OG.red)
                 }
             }
+            }
+            .ogListChrome()
+            .contentMargins(.top, 0, for: .scrollContent)
         }
-        .listStyle(.insetGrouped)
-        .ogListChrome()
-         .onSubmit(of: .search) {
+        .background(OG.bg.ignoresSafeArea())
+        .onSubmit(of: .search) {
             guard businessAuth.isConnected else { return }
             Task { await businessData.searchDirectory(query: query) }
         }
@@ -152,7 +161,7 @@ struct FindCenterTrainerView: View {
                 await businessData.searchDirectory(query: value)
             }
         }
-        .ogScrollingTitleNav()
+        .ogScrollingTitleNav(usesGroupedList: false)
         .task {
             await restoreAndLoadDirectory()
         }
