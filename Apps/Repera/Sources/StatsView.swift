@@ -65,14 +65,12 @@ struct StatsView: View {
                             case .training:
                                 if isPro {
                                     tilesGrid
-                                    activityCard
-                                    muscleBalanceCard
+                                    trainingScoreAndMuscleSections
                                     mobilityProgressCard
                                     proAdvancedSections
                                 } else {
                                     freeTilesGrid
-                                    freeActivityCard
-                                    muscleBalanceCard
+                                    trainingScoreAndMuscleSections
                                     mobilityProgressCard
                                     freeExerciseTrendPreview
                                     ProTeaserCard(
@@ -86,8 +84,10 @@ struct StatsView: View {
                                 }
                             case .health:
                                 if isPro {
+                                    activityCard
                                     healthSections
                                 } else {
+                                    freeActivityCard
                                     freeHealthPreview
                                     ProTeaserCard(
                                         title: "Métricas de actividad avanzadas",
@@ -370,10 +370,29 @@ struct StatsView: View {
         }
     }
 
+    /// La puntuación deportiva vive junto al equilibrio muscular, no
+    /// entre las mediciones diarias de Salud.
+    @ViewBuilder
+    private var trainingScoreAndMuscleSections: some View {
+        if isExpandedLayout {
+            HStack(alignment: .top, spacing: 12) {
+                trainingScoreSection.frame(maxWidth: .infinity, alignment: .top)
+                muscleBalanceCard.frame(maxWidth: .infinity, alignment: .top)
+            }
+        } else {
+            trainingScoreSection
+            muscleBalanceCard
+        }
+    }
+
+    @ViewBuilder
+    private var trainingScoreSection: some View {
+        if isPro { sessionScoreSection } else { freeHealthScoreCard }
+    }
+
     @ViewBuilder
     private var healthSections: some View {
         healthChartsLayout {
-            sessionScoreSection
             cardioHealthSection
             caloriesHealthSection
             weightHealthSection
@@ -534,13 +553,12 @@ struct StatsView: View {
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
         healthChartsLayout {
-            freeHealthScoreCard
             ProgressCardioChartCard(prepared: sample)
             ProgressCaloriesChartCard(prepared: sample)
             freeHealthWeightCard
         }
         .allowsHitTesting(false)
-        .accessibilityLabel("Gráficas de ejemplo de actividad. Los valores no son datos reales.")
+        .accessibilityLabel("Gráficas de ejemplo de frecuencia cardíaca, calorías y peso. No son datos reales.")
     }
 
     private var freeHealthScoreCard: some View {
