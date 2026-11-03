@@ -68,7 +68,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("signInGoogle() async", login)
         self.assertIn("business.isGoogleSignedIn", login)
         account = source("SettingsView.swift")
-        self.assertIn("Vincular cuenta de Google", account)
+        self.assertIn("Vincular con Google", account)
         self.assertIn("businessAuth.accountEmail", account)
         self.assertIn("businessAuth.linkGoogleToCurrentAccount()", account)
 
@@ -106,7 +106,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("advance(to: .appleSignIn)", snippet)
         app = source("ReperaApp.swift")
         self.assertIn("businessAuth.isGoogleSignedIn", app)
-        self.assertIn("guard !businessAuth.didExplicitlySignOut else { return false }", app)
+        self.assertIn("guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication else { return false }", app)
 
 
 if __name__ == "__main__":

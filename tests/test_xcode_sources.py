@@ -37,6 +37,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "WatchConnectivityClient.swift", "WatchHealthKitSession.swift",
         ):
             (watch / name).write_text("// Watch target source", encoding="utf-8")
+        widget = self.root / "Apps/ReperaWatchWidget"
+        widget.mkdir(parents=True)
+        for name in ("ReperaWatchWidget.swift", "ReperaComplicationSharedStore.swift"):
+            (widget / name).write_text("// Widget source", encoding="utf-8")
         shared = self.root / "Apps/Shared"
         shared.mkdir(parents=True)
         for name in ("AppleWeatherConditionsClient.swift", "AppleWeatherAttributionView.swift"):
@@ -55,7 +59,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "    dependencies:\n      - package: Supabase\n        product: Supabase\n"
             "  ReperaWatch:\n    sources:\n      - path: Apps/ReperaWatch/Sources\n"
             "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n"
-            "      - path: Apps/Shared/AppleWeatherAttributionView.swift\n",
+            "      - path: Apps/Shared/AppleWeatherAttributionView.swift\n"
+            "  ReperaWatchWidget:\n    sources:\n"
+            "      - path: Apps/ReperaWatchWidget/ReperaWatchWidget.swift\n"
+            "      - path: Apps/ReperaWatchWidget/ReperaComplicationSharedStore.swift\n",
             encoding="utf-8",
         )
         (self.root / "Repera.xcodeproj").mkdir()
@@ -118,6 +125,20 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "    222222222222222222222222 /* AppleWeatherConditionsClient.swift in Sources */,\n"
             "    333333333333333333333333 /* AppleWeatherAttributionView.swift in Sources */,\n"
             "  );\n"
+            "};\n"
+            "444444444444444444444444 /* ReperaWatchWidget */ = {\n"
+            "  isa = PBXNativeTarget;\n"
+            "  buildPhases = (\n"
+            "    555555555555555555555555 /* Sources */,\n"
+            "  );\n"
+            "  name = ReperaWatchWidget;\n"
+            "};\n"
+            "555555555555555555555555 /* Sources */ = {\n"
+            "  isa = PBXSourcesBuildPhase;\n"
+            "  files = (\n"
+            "    666666666666666666666666 /* ReperaWatchWidget.swift in Sources */,\n"
+            "    777777777777777777777777 /* ReperaComplicationSharedStore.swift in Sources */,\n"
+            "  );\n"
             "};\n", encoding="utf-8"
         )
 
@@ -136,7 +157,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.assertIn("@ViewBuilder\n    private var launchRootView: some View", app)
         self.assertIn(".environment(store)", app)
         self.assertIn(".overlay(alignment: .top)", app)
-        self.assertIn(".sheet(isPresented:", app)
+        self.assertIn("if subscriptions.paywall.isPresented && onboarding.isComplete", app)
+        self.assertNotIn(".sheet(isPresented:", app)
 
     def test_settings_avatar_picker_does_not_capture_a_non_sendable_view(self):
         """PhotosPicker label builders are @Sendable under Swift 6 strict checking."""
