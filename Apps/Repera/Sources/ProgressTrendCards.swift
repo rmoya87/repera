@@ -258,7 +258,7 @@ struct ProgressCardioChartCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                OGCardSectionTitle(title: "Cardio")
+                OGCardSectionTitle(title: "Frecuencia cardíaca")
                 Spacer(minLength: 8)
                 if prepared.isTeaserPreview {
                     Text("Ejemplo")
