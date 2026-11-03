@@ -68,6 +68,7 @@ targets:
       - path: Apps/Repera/Sources/PlusHubView.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
+      - path: Apps/Shared/AppleWeatherConditionsClient.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
       - path: Apps/Repera/Resources/Assets.xcassets
         buildPhase: resources
@@ -219,6 +220,7 @@ targets:
     platform: watchOS
     sources:
       - path: Apps/ReperaWatch/Sources
+      - path: Apps/Shared/AppleWeatherConditionsClient.swift
       - path: Apps/ReperaWatchWidget/ReperaComplicationSharedStore.swift
       # XcodeGen 2.46 + objectVersion 77: asset catalogs van en sources buildPhase resources.
       - path: Apps/ReperaWatch/Resources/Assets.xcassets
@@ -245,11 +247,13 @@ targets:
       path: Apps/ReperaWatch/Resources/ReperaWatch.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.developer.weatherkit: true
         com.apple.security.application-groups:
           - group.com.app.repera.watch
     dependencies:
       - package: ReperaDomain
       - sdk: HealthKit.framework
+      - sdk: WeatherKit.framework
       - target: ReperaWatchWidget
         embed: true
     info:
