@@ -8,6 +8,12 @@ public enum ActivityConditionsFamily: String, Codable, Sendable, Equatable {
     case none
 }
 
+/// Proveedor de cada grupo de datos (opcional para migrar snapshots antiguos).
+public enum ActivityConditionsSource: String, Codable, Sendable, Equatable {
+    case appleWeather
+    case openMeteo
+}
+
 public enum TideTrend: String, Codable, Sendable, Equatable {
     case rising
     case falling
@@ -25,6 +31,11 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
     public var nextTideLabel: String?
     public var waveHeightMeters: Double?
     public var snowfallCm: Double?
+    /// Humedad obtenida exclusivamente de WeatherKit en Apple.
+    public var humidity: Double?
+    /// nil en snapshots anteriores; no se atribuyen datos históricos a Apple.
+    public var airSource: ActivityConditionsSource?
+    public var snowfallSource: ActivityConditionsSource?
     public var snowDepthMeters: Double?
     public var attribution: String
     public var disclaimer: String?
@@ -41,7 +52,10 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
         snowfallCm: Double? = nil,
         snowDepthMeters: Double? = nil,
         attribution: String = "Open-Meteo",
-        disclaimer: String? = nil
+        disclaimer: String? = nil,
+        humidity: Double? = nil,
+        airSource: ActivityConditionsSource? = nil,
+        snowfallSource: ActivityConditionsSource? = nil
     ) {
         self.family = family
         self.capturedAt = capturedAt
@@ -52,6 +66,9 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
         self.nextTideLabel = nextTideLabel
         self.waveHeightMeters = waveHeightMeters
         self.snowfallCm = snowfallCm
+        self.humidity = humidity
+        self.airSource = airSource
+        self.snowfallSource = snowfallSource
         self.snowDepthMeters = snowDepthMeters
         self.attribution = attribution
         self.disclaimer = disclaimer
@@ -103,6 +120,21 @@ public enum ActivityConditionsLogic {
             .init(name: "forecast_days", value: "2"),
             .init(name: "timezone", value: "auto"),
             .init(name: "wind_speed_unit", value: "kmh")
+        ]
+        return c?.url
+    }
+
+    /// Solo acumulación de nieve: WeatherKit suministra temperatura/viento/nevada.
+    public static func snowDepthURL(latitude: Double, longitude: Double) -> URL? {
+        let lat = roundCoordinate(latitude)
+        let lon = roundCoordinate(longitude)
+        var c = URLComponents(string: "https://api.open-meteo.com/v1/forecast")
+        c?.queryItems = [
+            .init(name: "latitude", value: "\(lat)"),
+            .init(name: "longitude", value: "\(lon)"),
+            .init(name: "hourly", value: "snow_depth"),
+            .init(name: "forecast_days", value: "2"),
+            .init(name: "timezone", value: "auto")
         ]
         return c?.url
     }
