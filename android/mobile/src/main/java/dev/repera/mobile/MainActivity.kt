@@ -2543,8 +2543,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 )
             }
             if (profile?.uniqueId != userId) return@launch
+            val maxBpm = withContext(Dispatchers.IO) {
+                trainingSettingsForAccount(this@MainActivity, userId).heartRateMaxBpm ?: 190
+            }
+            if (profile?.uniqueId != userId) return@launch
             WearActiveSessionBridge.publishTodayPlan(
-                this@MainActivity, plan, recents, muted
+                this@MainActivity, plan, recents, muted,
+                maxHeartRateBpm = maxBpm
             )
         }
     }
