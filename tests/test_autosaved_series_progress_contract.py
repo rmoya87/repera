@@ -26,7 +26,9 @@ class AutosavedSeriesProgressTests(unittest.TestCase):
         self.assertNotIn("completed: true", board)
         self.assertNotIn("completeLiveSet(", play)
         self.assertNotIn("onConfirm: {\n                    guard store.state.activeSession", board)
-        self.assertIn("onConfirm: { }", board)
+        # El callback sigue disponible para compatibilidad, pero su control
+        # está oculto al usuario: no es requisito para guardar las series.
+        self.assertIn("onConfirm: { toggleLiveSetCompleted(at: index, current: current) }", board)
         self.assertIn("performedSets: recorded", play)
         self.assertIn("existingByID[row.id] ?? LoggedSet(", play)
         self.assertIn("id: row.id", play)
