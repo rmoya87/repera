@@ -2873,6 +2873,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     /** Sólo IDs con eliminación remota AÚN pendiente (sin historial permanente). */
     fun mirrorBlockedIds(): Set<String> = mirror.blockedIds()
 
+    /** Called only by the authenticated Supabase mirror after account validation. */
+    fun transferPendingMirrorDeletesTo(remote: WorkoutMirrorStore) =
+        remote.importPendingFrom(mirror)
+
     /** Reconciliacion idempotente tras un corte; la llama el sync del espejo antes de usar tombstones. */
     fun recoverPendingReset(): ResetCoordinator.Recovery = ResetCoordinator(resetPorts()).recover()
 
