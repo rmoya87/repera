@@ -1593,12 +1593,6 @@ final class ReperaStore: NSObject {
         session.wodResults.removeAll { replacedWODBlockIDs.contains($0.id) }
         session.title = fresh.title
         session.routineBlocks = routine.blocks
-        let removedExerciseIDs = Set(session.exercises.map(\.id))
-            .subtracting(fresh.exercises.map(\.id))
-        if !removedExerciseIDs.isEmpty {
-            state.deletedWorkoutExerciseIDs[session.id.uuidString, default: []]
-                .formUnion(removedExerciseIDs)
-        }
         session.exercises = fresh.exercises.map { planned in
             var updated = planned
             let oldIndex = remaining.firstIndex(where: { $0.id == planned.id })
@@ -1678,13 +1672,14 @@ final class ReperaStore: NSObject {
 
     func deleteWorkout(_ id: UUID) {
         guard state.workouts.contains(where: { $0.id == id }) else { return }
-        // Keep a permanent personal tombstone in the iCloud document as well as
-        // the per-account Supabase outbox. Late Watch transfers must honor it.
-        state.deletedWorkoutIDs.insert(id)
+        // Sólo cola de operación PENDIENTE mientras Supabase está desconectado.
+        // La fila remota se eliminará físicamente y se limpiará esta cola tras el ACK.
         BusinessWorkoutSyncStore.shared.noteDeleted(id)
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
         persistWorkouts()
+        // Evita que el Watch vuelva a transmitir una copia guardada tras el borrado.
+        connectivity.sendTerminalEvent(sessionID: id, saved: false)
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
             Task {
@@ -1796,16 +1791,7 @@ final class ReperaStore: NSObject {
 
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
-        guard !state.deletedWorkoutIDs.contains(session.id) else { return }
         var draft = session
-        if let existing = state.workouts.first(where: { $0.id == session.id }) {
-            let existingIDs = Set(existing.exercises.map(\.id))
-            let retainedIDs = Set(draft.exercises.map(\.id))
-            let removed = existingIDs.subtracting(retainedIDs)
-            if !removed.isEmpty {
-                state.deletedWorkoutExerciseIDs[draft.id.uuidString, default: []].formUnion(removed)
-            }
-        }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
@@ -1935,8 +1921,6 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
-        // A late/retried watch transfer cannot recreate a workout the athlete deleted.
-        guard !state.deletedWorkoutIDs.contains(session.id) else { return }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
         }
@@ -2102,26 +2086,7 @@ final class ReperaStore: NSObject {
         guard !state.workouts.contains(where: { $0.id == session.id }),
               state.activeSession == nil || state.activeSession?.id == session.id
         else { return }
-        var incoming = session
-        if let removed = state.deletedWorkoutExerciseIDs[session.id.uuidString],
-           !removed.isEmpty {
-            // iPhone deletion is authoritative even if the Watch retransmits
-            // an older active-session snapshot after an offline period.
-            incoming.exercises.removeAll { removed.contains($0.id) }
-            if var blocks = incoming.routineBlocks {
-                for index in blocks.indices {
-                    blocks[index].exercises.removeAll { removed.contains($0.id) }
-                    blocks[index].movements.removeAll { removed.contains($0.id) }
-                }
-                incoming.routineBlocks = blocks
-            }
-            if !incoming.exercises.isEmpty {
-                incoming.currentIndex = min(incoming.currentIndex, incoming.exercises.count - 1)
-            } else {
-                incoming.currentIndex = 0
-            }
-        }
-        state.activeSession = incoming
+        state.activeSession = session
         persist()
         pushActiveToWatch(immediate: true)
     }
@@ -2168,19 +2133,8 @@ final class ReperaStore: NSObject {
         var imported = 0
         var resultEntryNotifications: [UUID] = []
         for session in recovered where session.finishedAt != nil {
-            guard !state.deletedWorkoutIDs.contains(session.id),
-                  known.insert(session.id).inserted else { continue }
-            var restored = normalizedFinishedWorkout(session)
-            if let removed = state.deletedWorkoutExerciseIDs[session.id.uuidString] {
-                restored.exercises.removeAll { removed.contains($0.id) }
-                if var blocks = restored.routineBlocks {
-                    for index in blocks.indices {
-                        blocks[index].exercises.removeAll { removed.contains($0.id) }
-                        blocks[index].movements.removeAll { removed.contains($0.id) }
-                    }
-                    restored.routineBlocks = blocks
-                }
-            }
+            guard known.insert(session.id).inserted else { continue }
+            let restored = normalizedFinishedWorkout(session)
             state.workouts.append(restored)
             if restored.awaitingResultEntry && restored.timerDetails == nil {
                 resultEntryNotifications.append(restored.id)
@@ -2228,20 +2182,7 @@ final class ReperaStore: NSObject {
     }
 
     private func upsertWorkout(_ session: WorkoutSession) {
-        var saved = normalizedFinishedWorkout(session)
-        if let removed = state.deletedWorkoutExerciseIDs[saved.id.uuidString],
-           !removed.isEmpty {
-            saved.exercises.removeAll { removed.contains($0.id) }
-            if var blocks = saved.routineBlocks {
-                for index in blocks.indices {
-                    blocks[index].exercises.removeAll { removed.contains($0.id) }
-                    blocks[index].movements.removeAll { removed.contains($0.id) }
-                }
-                saved.routineBlocks = blocks
-            }
-            saved.currentIndex = saved.exercises.isEmpty ? 0
-                : min(saved.currentIndex, saved.exercises.count - 1)
-        }
+        let saved = normalizedFinishedWorkout(session)
         if let idx = state.workouts.firstIndex(where: { $0.id == saved.id }) {
             state.workouts[idx] = saved
         } else {
@@ -2600,7 +2541,6 @@ final class ReperaStore: NSObject {
     /// Guarda una rutina. Devuelve `false` si la política freemium bloquea una **nueva** plantilla de biblioteca.
     @discardableResult
     func saveRoutine(_ routine: Routine) -> Bool {
-        guard !state.deletedRoutineIDs.contains(routine.id) else { return false }
         let existing = state.routines.first { $0.id == routine.id }
         let isNew = existing == nil
         let isLibraryTemplate = routine.scheduledDate == nil && routine.weekday == nil
@@ -2640,25 +2580,6 @@ final class ReperaStore: NSObject {
                 state.routines[i].weekday = nil
             }
         }
-        if let original = existing {
-            let originallyPresent = Set(original.blocks.flatMap {
-                $0.exercises.map(\.id) + $0.movements.map(\.id)
-            })
-            let nowPresent = Set(draft.blocks.flatMap {
-                $0.exercises.map(\.id) + $0.movements.map(\.id)
-            })
-            let removed = originallyPresent.subtracting(nowPresent)
-            if !removed.isEmpty {
-                state.deletedRoutineExerciseIDs[draft.id.uuidString, default: []]
-                    .formUnion(removed)
-            }
-        }
-        if let removed = state.deletedRoutineExerciseIDs[draft.id.uuidString] {
-            for blockIndex in draft.blocks.indices {
-                draft.blocks[blockIndex].exercises.removeAll { removed.contains($0.id) }
-                draft.blocks[blockIndex].movements.removeAll { removed.contains($0.id) }
-            }
-        }
         if let idx = state.routines.firstIndex(where: { $0.id == draft.id }) {
             state.routines[idx] = draft
         } else {
@@ -2677,7 +2598,6 @@ final class ReperaStore: NSObject {
 
     func deleteRoutine(_ id: UUID) {
         guard state.routines.contains(where: { $0.id == id }) else { return }
-        state.deletedRoutineIDs.insert(id)
         state.routines.removeAll { $0.id == id }
         if var rotation = state.rotation {
             rotation.routineIds.removeAll { $0 == id }
@@ -3326,8 +3246,6 @@ final class ReperaStore: NSObject {
 
     func deleteExercise(_ id: UUID) {
         guard state.exercises.contains(where: { $0.id == id && $0.isCustom }) else { return }
-        // Persist the removal across iCloud conflicts before deleting the local row.
-        state.deletedExerciseIDs.insert(id)
         state.exercises.removeAll { $0.id == id }
         catalogEpoch &+= 1
         persist()
