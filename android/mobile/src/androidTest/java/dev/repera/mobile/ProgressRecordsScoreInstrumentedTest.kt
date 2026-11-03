@@ -36,9 +36,17 @@ class ProgressRecordsScoreInstrumentedTest {
  }
  @Test fun verifiedScoresAndEmptyAxesAreRenderedWithoutMadeUpMeasurements() {
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Box(Modifier.fillMaxSize().safeDrawingPadding()) {
-   SessionScoreProgressCard(listOf(ProgressDayPoint(java.time.LocalDate.of(2026,10,24),6.0),ProgressDayPoint(java.time.LocalDate.of(2026,10,25),8.0)))
+   SessionScoreProgressCard(
+    listOf(ProgressDayPoint(java.time.LocalDate.of(2026,10,24),6.0),
+           ProgressDayPoint(java.time.LocalDate.of(2026,10,25),8.0)),
+    confidenceLabel = "Alta"
+   )
   }}}
-  compose.onNodeWithContentDescription("Puntuación media 7 de 10").assertExists();capture("progreso_puntuaciones.png")
+  compose.onNodeWithContentDescription("Puntuación media 7 de 10").assertExists()
+  compose.onNodeWithText("Entrenamiento").assertExists()
+  compose.onNodeWithText("Última nota").assertExists()
+  compose.onNodeWithContentDescription("Confianza · última sesión: Alta").assertExists()
+  capture("progreso_puntuaciones.png")
  }
  private fun capture(name:String) {
   compose.waitForIdle();val instrument=InstrumentationRegistry.getInstrumentation();val context=instrument.targetContext
