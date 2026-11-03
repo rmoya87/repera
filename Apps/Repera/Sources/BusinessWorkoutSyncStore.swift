@@ -39,8 +39,7 @@ final class BusinessWorkoutSyncStore {
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             id = try c.decode(UUID.self, forKey: .id)
-            // Tombstones intentionally store {} and must not invalidate the
-            // decoding of otherwise healthy rows.
+            // Compatibility with any legacy rows until the cleanup migration runs.
             payload = try? c.decode(WorkoutSession.self, forKey: .payload)
             deletedAt = try c.decodeIfPresent(String.self, forKey: .deletedAt)
         }
@@ -86,21 +85,6 @@ final class BusinessWorkoutSyncStore {
         }
     }
 
-    private struct MirrorTombstone: Encodable {
-        let id: UUID
-        let ownerId: UUID
-        let title = "Entrenamiento eliminado"
-        let payload: [String: String] = [:]
-        let deletedAt = Date()
-        let updatedAt = Date()
-        enum CodingKeys: String, CodingKey {
-            case id, title, payload
-            case ownerId = "owner_id"
-            case deletedAt = "deleted_at"
-            case updatedAt = "updated_at"
-        }
-    }
-
     private func key(_ user: UUID, suffix: String) -> String {
         "repera.supabaseWorkoutMirror.v1.\(user.uuidString).\(suffix)"
     }
@@ -113,8 +97,8 @@ final class BusinessWorkoutSyncStore {
         UserDefaults.standard.stringArray(forKey: key(user, suffix: "deleted")) ?? []
     }
 
-    /// Called *before* removing a completed workout from ReperaStore. Pending
-    /// tombstones survive airplane mode, crashes and application restarts.
+    /// Only a short-lived pending DELETE request; no archived deleted workout
+    /// or permanent deleted-id list is retained after the server confirms it.
     func noteDeleted(_ id: UUID) {
         guard BusinessAuthStore.shared.isConnected,
               let user = BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id
@@ -135,8 +119,7 @@ final class BusinessWorkoutSyncStore {
         incompleteHistoricalWODCount = 0
         sharingByCenter = [:]
         updatingSharingCenter = nil
-        // Per-user fingerprints/deletion outbox are intentionally retained.
-        // Never carry workout summaries from one Apple identity to another.
+        // Only unfinished network work survives sign-out; never transfer across accounts.
     }
 
     /// Uploads changed finished sessions; restores only *unknown* remote IDs,
@@ -179,6 +162,27 @@ final class BusinessWorkoutSyncStore {
             let originalUser = BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id
             guard originalUser == user else { return false }
 
+            // First hard-delete pending removals. Do this BEFORE reading the
+            // remote catalogue, otherwise stale rows could be reimported.
+            let queued = pendingDeletes(user)
+            for id in queued {
+                guard run == generation, BusinessAuthStore.shared.isConnected,
+                      BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == user,
+                      let uuid = UUID(uuidString: id) else { return false }
+                try await client.from("athlete_workout_mirror")
+                    .delete()
+                    .eq("owner_id", value: user.uuidString)
+                    .eq("id", value: uuid.uuidString)
+                    .execute()
+                // Persist progress one ID at a time; an interruption never loses
+                // an unacknowledged delete. No tombstones are kept after success.
+                let remaining = pendingDeletes(user).filter { $0 != id }
+                if remaining.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: key(user, suffix: "deleted"))
+                } else {
+                    UserDefaults.standard.set(remaining, forKey: key(user, suffix: "deleted"))
+                }
+            }
             // Workouts are paginated so a long-lived athlete account is not
             // silently truncated at Supabase/PostgREST's default 1,000 rows.
             var remote: [MirrorRow] = []
@@ -202,6 +206,7 @@ final class BusinessWorkoutSyncStore {
             else { return false }
 
             var seen = fingerprints(user)
+            for id in queued { seen.removeValue(forKey: id) }
             let existing = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
             // Legacy WODs without an original block snapshot cannot support
             // fully calibrated stimulus comparisons. Never invent missing Rx.
@@ -220,8 +225,7 @@ final class BusinessWorkoutSyncStore {
             // A second iPhone may have workouts that are not yet in the current
             // iCloud document. Only recover previously unseen, non-deleted IDs.
             for row in remote where row.deletedAt == nil && !localIds.contains(row.id) {
-                guard !store.state.deletedWorkoutIDs.contains(row.id),
-                      !deletionIDs.contains(row.id.uuidString),
+                guard !deletionIDs.contains(row.id.uuidString),
                       seen[row.id.uuidString] == nil,
                       let workout = row.payload,
                       workout.id == row.id, workout.finishedAt != nil
@@ -233,25 +237,11 @@ final class BusinessWorkoutSyncStore {
                 recoveredCount = store.mergeRecoveredWorkoutsFromSupabase(recovered)
             }
 
-            // Propagate explicit removals even if the network was offline when
-            // the user deleted the workout.
-            let tombstones = deletionIDs.compactMap(UUID.init(uuidString:))
-                .map { MirrorTombstone(id: $0, ownerId: user) }
-            for batch in tombstones.chunked(into: 40) {
-                try await client.from("athlete_workout_mirror")
-                    .upsert(batch, onConflict: "id").execute()
-            }
-            if !deletionIDs.isEmpty {
-                UserDefaults.standard.set([String](), forKey: key(user, suffix: "deleted"))
-                for id in deletionIDs { seen.removeValue(forKey: id) }
-            }
-
             // New local workouts backfill after Apple→Supabase migration.
             // Existing remote records are not overwritten on the first sync
             // from a second device. Subsequent local edits change the hash.
             let pending = store.state.workouts.compactMap { original -> MirrorUpload? in
                 guard original.finishedAt != nil,
-                      !store.state.deletedWorkoutIDs.contains(original.id),
                       !deletionIDs.contains(original.id.uuidString),
                       existing[original.id]?.deletedAt == nil
                 else { return nil }
