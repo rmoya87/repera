@@ -373,7 +373,7 @@ object StatsEngine {
         }
     }
 
-    /** Nivel 0…4 por cuartiles del valor (tiempo o volumen), como openGym. */
+    /** Nivel 0…4 por cuartiles del valor (tiempo o volumen), por cuartiles. */
     fun heatmapLevel(value: Double, hasActivity: Boolean,
                      thresholds: Triple<Double, Double, Double>): Int {
         if (!hasActivity) return 0
