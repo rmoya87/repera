@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-02 (capas agenda Business: settings/rooms/day program)
+Última actualización: 2026-11-03 (XcodeGen, WeatherKit en Watch y fuentes de compilación)
 
 ## Regla de oro
 
@@ -36,7 +36,7 @@ El target iOS se define en `project.yml` con el directorio `Apps/Repera/Sources`
 
 - Regenerar desde la raíz con `xcodegen generate` y volver a abrir `Repera.xcodeproj` cuando se añadan o eliminen archivos Swift. `RemoteExerciseCatalogStore.swift`, `LiveActivityView.swift` (y auxiliares), `OGDuoContextRail.swift` y `PlusHubView.swift` están declarados expresamente en `project.yml`: `scripts/check_xcode_sources.py` comprueba que aparecen en **Compile Sources del target Repera**, no solo en el navegador de Xcode.
 - Si aparecen `Cannot find … in scope` (p. ej. `PlusHubView`, `RemoteExerciseCatalogStore`, `OGDuoContextRail` en `RootTabView`) junto con un error de type-check, actualizar la copia local y ejecutar `./Repera-Xcode.command` (o `git pull --ff-only origin main && xcodegen generate --spec project.yml && python3 scripts/check_xcode_sources.py`). No borrar DerivedData ni datos del usuario por defecto; cerrar el proyecto antiguo antes de regenerarlo.
-- Tras añadir paquetes como Google Sign-In, los archivos Swift pueden actualizarse por Git mientras el proyecto local sigue sin enlazar los productos nuevos. Cerrar Xcode y ejecutar `./Repera-Xcode.command`: actualiza de forma segura, regenera, valida fuentes y ejecuta `xcodebuild -resolvePackageDependencies` antes de abrir. `Repera-iOS.command` también resuelve los paquetes antes de lanzar Simulator; `Repera-Verificar.command` incluye la resolución entre sus comprobaciones. Estos pasos no borran cachés ni datos de usuario.
+- En WeatherKit, el error `Cannot find 'AppleWeatherConditionsClient' in scope` en `WatchLiveSessionView.swift` indica habitualmente que el proyecto Xcode generado está desactualizado: `Apps/Shared/AppleWeatherConditionsClient.swift` y `AppleWeatherAttributionView.swift` deben figurar en **Compile Sources** de `ReperaWatch` y `Repera`. Cierra Xcode, ejecuta `git pull --ff-only origin main`, `xcodegen generate --spec project.yml` y `python3 scripts/check_xcode_sources.py`, que ahora valida expresamente ambas fuentes y targets. No añadas un `import` inexistente ni borres datos/DerivedData por defecto.\n- Tras añadir paquetes como Google Sign-In, los archivos Swift pueden actualizarse por Git mientras el proyecto local sigue sin enlazar los productos nuevos. Cerrar Xcode y ejecutar `./Repera-Xcode.command`: actualiza de forma segura, regenera, valida fuentes y ejecuta `xcodebuild -resolvePackageDependencies` antes de abrir. `Repera-iOS.command` también resuelve los paquetes antes de lanzar Simulator; `Repera-Verificar.command` incluye la resolución entre sus comprobaciones. Estos pasos no borran cachés ni datos de usuario.
 - Al corregir errores que afectan a personas con proyectos ya generados, es preferible mantener componentes pequeños en un archivo **ya incluido** hasta que se regenere el proyecto. La tabla compacta de series (`OGSetFieldID`, `OGSetEntryHeader`, `OGSetEntryRow`) se encuentra en `Apps/Repera/Sources/Theme.swift` precisamente por este motivo.
 - No introducir definiciones duplicadas entre `Theme.swift` y archivos independientes: XcodeGen acabaría compilando ambas.
 
