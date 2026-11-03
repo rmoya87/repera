@@ -125,7 +125,11 @@ class TimerHistoryPersistenceContractTests(unittest.TestCase):
         self.assertIn("LabeledContent(\"Modalidad\", value: timer.modeTitle)", detail)
         self.assertIn("LabeledContent(\"Rondas\", value: \"\\(timer.rounds)\")", detail)
         self.assertIn("healthExtras = nil", detail)
-        self.assertIn('session.timerDetails == nil, sessionMapContent(session)', detail)
+        # El temporizador puede mostrar la ubicación marcada por el atleta,
+        # pero no inventa ruta GPS ni datos de Salud.
+        self.assertIn("let mapKind = sessionMapContent(session)", detail)
+        self.assertIn("if let timer = session.timerDetails", detail)
+        self.assertIn("if session.timerDetails == nil, showSplits || extras != nil", detail)
 
 
 if __name__ == "__main__":

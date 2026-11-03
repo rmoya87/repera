@@ -15,7 +15,10 @@ class TimerLastConfigurationContract(unittest.TestCase):
         store = TIMER.split("private enum StandaloneTimerConfigurationStore {", 1)[1].split(
             "private enum StandaloneTimerCompletionStore {", 1
         )[0]
-        self.assertIn('private static let key = "repera.timer.lastConfiguration.v1"', store)
+        # Preferencias aisladas por cuenta: ningún usuario debe leer las del anterior.
+        self.assertIn("guard let owner = AppleAuthStore.shared.userID, !owner.isEmpty else { return nil }", store)
+        self.assertIn('return "repera.timer.lastConfiguration.v3.\\(owner)"', store)
+        self.assertNotIn('"repera.timer.lastConfiguration.v1"', store)
         self.assertIn("UserDefaults.standard.data(forKey: key)", store)
         self.assertIn("JSONDecoder().decode(StandaloneTimerConfig.self, from: data)", store)
         self.assertIn("JSONEncoder().encode(configuration)", store)

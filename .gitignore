@@ -38,7 +38,7 @@ Packages/**/.build/
 supabase/.branches
 supabase/.temp
 
-# Clone local de openGym (referencia); no versionar en este repo
+# Clon local de referencia: nunca se versiona en Repera
 reference/
 
 # Node (por si se abre el clone local)
