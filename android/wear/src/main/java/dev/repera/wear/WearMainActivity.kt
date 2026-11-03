@@ -986,7 +986,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         // Conservar el ítem del carrusel para restaurarlo al Volver al inicio.
         val itemId = when (item) {
             is WearHubCarouselItem.Plan ->
-                "plan-${item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
+                "plan-${item.plan.optString("routineId").takeIf { it.isNotBlank() && it != "null" }
+                    ?: item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
             is WearHubCarouselItem.Sport -> "sport-${item.sportId}"
         }
         sessionCache.edit().putString("lastHubItemID", itemId).apply()
@@ -1003,7 +1004,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun carouselItemId(item: WearHubCarouselItem): String = when (item) {
         is WearHubCarouselItem.Plan ->
-            "plan-${item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
+            "plan-${item.plan.optString("routineId").takeIf { it.isNotBlank() && it != "null" }
+                    ?: item.plan.optString("id").ifBlank { item.plan.optString("title") }}"
         is WearHubCarouselItem.Sport -> "sport-${item.sportId}"
     }
 
