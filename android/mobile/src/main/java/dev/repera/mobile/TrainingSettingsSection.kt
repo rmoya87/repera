@@ -18,6 +18,22 @@ import dev.repera.domain.ProgressionPolicy
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("rir","rpe").forEach {unit -> ReperaFilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
         }
+        Text("FC máxima personal: ${value.heartRateMaxBpm ?: 190} lpm" +
+            (if(value.heartRateMaxBpm == null) " · provisional" else ""),
+            style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled=!busy && (value.heartRateMaxBpm ?: 190)>120,
+                onClick={onChange(value.copy(heartRateMaxBpm=((value.heartRateMaxBpm ?: 190)-5).coerceAtLeast(120)))}) {
+                Text("−5")
+            }
+            OutlinedButton(enabled=!busy && (value.heartRateMaxBpm ?: 190)<230,
+                onClick={onChange(value.copy(heartRateMaxBpm=((value.heartRateMaxBpm ?: 190)+5).coerceAtMost(230)))}) {
+                Text("+5")
+            }
+            if (value.heartRateMaxBpm != null) TextButton(
+                enabled=!busy,onClick={onChange(value.copy(heartRateMaxBpm=null))}
+            ) { Text("Restaurar") }
+        }
         Text("Modo de plan")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             ReperaFilterChip(selected=value.scheduleMode=="fixedWeek",enabled=!busy,onClick={onChange(value.copy(scheduleMode="fixedWeek"))},label={Text("Semana fija")})
