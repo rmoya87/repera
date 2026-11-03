@@ -169,6 +169,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    // Mapa begins compact for every new live activity; Métricas remains full.
+    var mapDetailsExpanded by remember(accountId, state.gpsSessionID) {
+        mutableStateOf(false)
+    }
     // Mantener el último rumbo medido dentro de la misma sesión. Un fix sin
     // avance no debe hacer girar el mapa de vuelta hacia el norte.
     var lastReliableHeading by remember(state.gpsSessionID, state.sport.id) {
@@ -790,7 +794,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                             )
                         else Modifier
                     )
-                    .testTag("live_idle_panel"),
+                    .testTag("live_idle_panel")
+                    .then(
+                        if (state.phase == LiveActivityState.Phase.IDLE) Modifier
+                        else Modifier.clickable(
+                            onClickLabel = if (mapDetailsExpanded)
+                                "Contraer detalles del mapa" else "Ampliar detalles del mapa"
+                        ) { mapDetailsExpanded = !mapDetailsExpanded }
+                    ),
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 tonalElevation = 0.dp,
@@ -850,7 +861,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         )
                     }
                 } else {
-                    LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = displayedHeartRateBpm)
+                    LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = displayedHeartRateBpm,
+                        expanded = mapDetailsExpanded)
                 }
             }
         }
@@ -1634,7 +1646,8 @@ private fun LiveKilometerSplitSummary(
 
 /** Panel activo: duración, ritmo/velocidad, distancia + parcial del km (paridad mapMetricStrip iOS). */
 @Composable
-private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?) {
+private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?,
+    expanded: Boolean) {
     val durationSec = state.durationSeconds(nowTick)
     val durationText = LiveActivityClock.format(durationSec)
     val average = state.averageSpeedKmh(nowTick)
@@ -1666,7 +1679,7 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
                 Modifier.weight(1f)
             )
         }
-        if (state.sport.tracksElevation && state.hasElevationSamples) {
+        if (expanded && state.sport.tracksElevation && state.hasElevationSamples) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 10.dp),
@@ -1684,11 +1697,13 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
                 )
             }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-        LiveHeartRateZoneBar(
-            bpm = bpm,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-        )
+        if (expanded && bpm != null && bpm in 25..250) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            LiveHeartRateZoneBar(
+                bpm = bpm,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            )
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         LiveKilometerSplitSummary(
             state = state,
