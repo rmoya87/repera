@@ -5,6 +5,7 @@
 - En la tarjeta blanca «Entrenamiento», la cabecera de confianza ya no dice «última sesión»: muestra **Confianza · Aprendiendo / Baja / Media / Alta**, según el nivel **verificado de la última sesión puntuable**. No modifica el cálculo ni inventa niveles cuando faltan datos.
 - Indicador segmentado en cuatro colores, sin degradados: el segmento correspondiente a la confianza actual aumenta de **alto (36 frente a 13)** y **ancho (tres unidades frente a una)**, con el nivel dentro. Los restantes aparecen atenuados.
 - **Límite de tamaño:** el conjunto de los cuatro segmentos ocupa como máximo el **50 % del ancho interior de la tarjeta blanca**, tanto en SwiftUI como en Jetpack Compose y para distintas dimensiones y orientaciones. Sin animaciones superfluas.
+- **Paridad Gratis/Pro:** la barra Confianza se representa también en la vista gratuita ilustrativa con nivel «Media» exclusivamente como ejemplo, rotulado «Ejemplo» en la misma tarjeta. En Pro se emplea el nivel real verificado; no se oculta la barra al activar la vista gratuita.
 - La cabecera conserva el texto del nivel cuando el dispositivo es estrecho y el texto interior de la barra no cabe; VoiceOver/TalkBack lee «Confianza: nivel». La misma barra en la revisión de sesión conserva el ancho normal de su propia tarjeta.
 - Tests: `tests/test_progress_confidence_contract.py`. Pendiente validación visual en simuladores y dispositivos reales.
 
