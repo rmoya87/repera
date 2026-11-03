@@ -1786,7 +1786,10 @@ public enum CrossFitGlossary {
 
     /// Nombre canónico para matching de catálogo.
     // A second OCR pass must not strip equipment from already-canonical names.
-    private static let canonicalAliasNames = Set(aliases.values.map { normalize($0) })
+    private static let canonicalAliasNames = Dictionary(
+        aliases.values.map { (normalize($0), $0) },
+        uniquingKeysWith: { first, _ in first }
+    )
 
     public static func canonicalName(for raw: String) -> String {
         // BTt/BTT y variantes OCR se resuelven antes de consultar el glosario,
@@ -1796,7 +1799,7 @@ public enum CrossFitGlossary {
         }
         // Antes de quitar ruido (DB/ALT…): compuestos con equipo (`db hang snatch` → Snatch mancuerna).
         let rawNorm = normalize(raw)
-        if canonicalAliasNames.contains(rawNorm) { return raw }
+        if let official = canonicalAliasNames[rawNorm] { return official }
         if let exact = aliases[rawNorm] { return exact }
         // Misma tabla EN↔catálogo que la búsqueda de ejercicios (chin up, walking lunge…).
         if let fromSearch = ExerciseSearch.scannerCatalogName(forNormalizedQuery: rawNorm) {
