@@ -870,7 +870,14 @@ public enum BoardImportParser {
     private static func bestMatch(for name: String, in catalog: [Exercise]) -> Exercise? {
         guard !catalog.isEmpty else { return nil }
         let cleaned = stripMovementModifiers(CrossFitGlossary.cleanMovementLabel(name))
+        // El catálogo CrossFit nativo guarda nombres EN. La expansión OCR
+        // devuelve nombres históricos ES: priorizar siempre el puente
+        // canónico exacto antes de cualquier matching parcial (p. ej.
+        // RKBS → Kettlebell Swing, nunca Kip swing).
+        let canonical = CrossFitGlossary.canonicalName(for: name)
         let candidates = [
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(canonical)),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(name)),
             CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
             CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
             CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
