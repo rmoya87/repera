@@ -3,10 +3,10 @@
 ## Confianza en Progreso → Entrenamiento (03/11/2026)
 
 - En la tarjeta blanca «Entrenamiento», la cabecera de confianza ya no dice «última sesión»: muestra **Confianza · Aprendiendo / Baja / Media / Alta**, según el nivel **verificado de la última sesión puntuable**. No modifica el cálculo ni inventa niveles cuando faltan datos.
-- Indicador segmentado en cuatro colores, sin degradados: el segmento correspondiente a la confianza actual aumenta de **alto (36 frente a 13)** y **ancho (tres unidades frente a una)**, con el nivel dentro. Los restantes aparecen atenuados.
+- Indicador segmentado en cuatro cápsulas completamente redondeadas, sin degradados ni texto dentro: el segmento correspondiente a la confianza actual crece **ligeramente** en alto (18 frente a 13) y ancho (1,5 unidades frente a una); los restantes aparecen atenuados. El nivel solo se lee junto a «Confianza» en el encabezado.
 - **Límite de tamaño:** el conjunto de los cuatro segmentos ocupa como máximo el **50 % del ancho interior de la tarjeta blanca**, tanto en SwiftUI como en Jetpack Compose y para distintas dimensiones y orientaciones. Sin animaciones superfluas.
 - **Paridad Gratis/Pro:** la barra Confianza se representa también en la vista gratuita ilustrativa con nivel «Media» exclusivamente como ejemplo, rotulado «Ejemplo» en la misma tarjeta. En Pro se emplea el nivel real verificado; no se oculta la barra al activar la vista gratuita.
-- La cabecera conserva el texto del nivel cuando el dispositivo es estrecho y el texto interior de la barra no cabe; VoiceOver/TalkBack lee «Confianza: nivel». La misma barra en la revisión de sesión conserva el ancho normal de su propia tarjeta.
+- El encabezado muestra siempre el nivel, también en anchos estrechos; **nunca se duplica** dentro de la barra. VoiceOver/TalkBack anuncia «Confianza: nivel»; la misma barra de la revisión de sesión conserva el ancho normal de su tarjeta.
 - Tests: `tests/test_progress_confidence_contract.py`. Pendiente validación visual en simuladores y dispositivos reales.
 
 ## Zonas de frecuencia cardiaca en Comenzar (03/11/2026)
@@ -285,6 +285,13 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 - **Citas**: sesiones individuales con bono independiente; aforo vía `get_service_availability`.
 - **Estado real actual:** migraciones chat/cupos/push en repo (aplicar staging); Center enlazado en navegación iOS/Android. Push 60 min en cola; delivery solo con secretos FCM/APNs. Sin Stripe.
 - Clases/citas confirmadas también en Inicio (`businessDayCard`).
+
+### Comparadores de Progreso y separación Gratis/Pro (03/11/2026)
+
+- En **Entrenos / Tiempo / Racha**, la variación frente al periodo comparable se representa **gris si es cero o falta la comparación, verde si es positiva, rojo si es negativa**; sin amarillo y sin alterar cifras, minutos o cálculo de rachas. Se aplica a **Gratis y Pro** con el mismo componente en SwiftUI y Compose.
+- **Gratis**: los tres tiles y su variación son datos reales de los **últimos 7 días**, así como equilibrio muscular, movilidad resumida y días activos. La puntuación de Entrenamiento y su **Confianza** se presentan solo como **«Ejemplo»**; zonas cardíacas y gráficas de FC, kcal, peso y evolución por ejercicio se muestran como previsualizaciones identificadas, no como mediciones reales. Recuperación ofrece la vista básica y muestra avances de ejemplo en las series Pro.
+- **Pro**: los tres tiles siguen mostrando datos reales, con todos los periodos seleccionables, puntuación/confianza y zonas cardíacas verificadas cuando hay registros, gráficos reales de FC/kcal/peso, recuperación avanzada, progreso por ejercicio y récords.
+- **Confianza** usa la **misma geometría de cápsulas** en Gratis/Pro, con estado junto al título y segmento activo discretamente ampliado. Cambiar la presentación **no cambia** los derechos de acceso ni los motores de datos.
 
 ### Progreso (`StatsView`)
 
