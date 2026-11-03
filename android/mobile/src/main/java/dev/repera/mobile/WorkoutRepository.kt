@@ -1915,6 +1915,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if((0 until archive.length()).any {archive.getJSONObject(it).let {w ->w.optString("id")==sessionId && w.optString("phase")=="finished"}}) return true
         val active=state.optJSONObject("activeSession") ?: return false
         if(active.optString("id")!=sessionId) return false
+        // The Wear session has finished even when the actual reps/weights have
+        // yet to be reviewed on the phone. This is not a running session.
+        active.put("awaitingResultEntry", true)
         finishInPlace(state,active)
         return true
     }
@@ -3157,6 +3160,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
                 })
         }
+        // Confirmation is explicit: the workout remains finished, but no longer
+        // asks for another result-entry pass after Save.
+        target.put("awaitingResultEntry", false)
         if (edit.saveAsFavorite) {
             // Preferir toggleWorkoutFavorite (enlaza favoriteRoutineId) si aún no es favorito.
             if (!WorkoutFavoriteSupport.isWorkoutFavorite(state, target.optString("id"))) {
@@ -3235,7 +3241,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // se calcula con todo el historial y se persiste dentro de la sesión.
         val review = SessionReviewSupport.attachToFinishedSession(state, session)
         save(state)
-        if (review != null) {
+        if (review != null && !session.optBoolean("awaitingResultEntry")) {
             reviewPrefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
                 session.optString("id")).apply()
         }
