@@ -81,7 +81,7 @@ struct SessionReviewCard: View {
                                     .font(.system(size: 11))
                                     .foregroundStyle(OG.label2)
                             }
-                            if let metric = review.indicators.first(where: { $0.score != nil }) {
+                            ForEach(review.indicators.filter { $0.score != nil }, id: \.dimension) { metric in
                                 Text(metric.dimension.title + " · \(metric.score ?? 0)/10")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(OG.label3)
