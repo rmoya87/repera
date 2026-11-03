@@ -3266,7 +3266,7 @@ data class StateOverview(
                 RecoveryState(
                     readiness = dev.repera.domain.RecoveryEngine.trainingReadiness(
                         nowMillis = System.currentTimeMillis(),
-                        sleepHours = lastNight?.hours?.takeIf { lastNight.day == java.time.LocalDate.now() },
+                        sleepHours = if (lastNight?.day == java.time.LocalDate.now()) lastNight.hours else null,
                         recentAverageSleepHours = avg,
                         workouts = stats,
                         vitalHistory = rec.vitals,
