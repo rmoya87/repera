@@ -1,6 +1,11 @@
 package dev.repera.mobile
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,7 +41,8 @@ import dev.repera.domain.SessionReview
  */
 private fun SessionReview.isVerified(): Boolean =
     scoreBasis == ScoreBasis.PERSONAL_HISTORY &&
-        indicators.size == ReviewDimension.entries.size &&
+        (indicators.size == ReviewDimension.entries.size ||
+            (indicators.isEmpty() && vsHistorySummary != null)) &&
         (evidenceCoverage ?: 0.0) >= 0.60
 
 @Composable
@@ -49,38 +55,52 @@ internal fun SessionReviewCard(review: SessionReview, startsExpanded: Boolean = 
                 modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("NOTA GLOBAL", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text("${review.overallScore}", fontSize = 36.sp,
+                    Box(Modifier.size(88.dp), contentAlignment = Alignment.Center) {
+                        val accent = MaterialTheme.colorScheme.primary
+                        val track = MaterialTheme.colorScheme.surfaceVariant
+                        Canvas(Modifier.fillMaxWidth().heightIn(min = 88.dp).padding(5.dp)) {
+                            val stroke = 9.dp.toPx()
+                            drawCircle(track, style = Stroke(stroke))
+                            drawArc(accent, -90f, review.overallScore * 36f, false,
+                                style = Stroke(stroke, cap = StrokeCap.Round))
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("${review.overallScore}", fontSize = 31.sp,
                                 fontWeight = FontWeight.Bold)
-                            Text("/10", fontSize = 17.sp, fontWeight = FontWeight.Medium,
+                            Text("de 10", style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Spacer(Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Rendimiento personal", style = MaterialTheme.typography.titleSmall)
                         Text("Confianza: ${review.confidenceLabel ?: "En construcción"}",
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         review.evidenceCoverage?.let {
-                            Text("${kotlin.math.round(it * 100).toInt()}% con referencias",
-                                fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                            Text("${kotlin.math.round(it * 100).toInt()}% del trabajo con referencias",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(if (expanded) "▲" else "▼", fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        review.indicators.firstOrNull { it.score != null }?.let { metric ->
+                            Text("${metric.dimension.title} · ${metric.score}/10",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
+                    Text(if (expanded) "▲" else "▼", fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (expanded) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp).padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     review.indicators.forEach { IndicatorRow(it) }
-                    Text("Solo se puntúa el rendimiento con al menos dos sesiones anteriores " +
-                        "comparables. Las series registradas no aportan puntos; la nota no " +
-                        "mide técnica ni esfuerzo percibido.",
+                    Text(
+                        if (review.indicators.isEmpty())
+                            listOfNotNull(review.vsHistorySummary, review.vsStandardSummary).joinToString(" ")
+                        else "Solo se puntúa el rendimiento con al menos dos días anteriores " +
+                            "comparables. Las series registradas no aportan puntos; la nota no " +
+                            "mide técnica ni esfuerzo percibido.",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
