@@ -1913,8 +1913,12 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
     nonisolated func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?) {
         Task { @MainActor in
-            let sameDay = scheduledDay != nil && self.todayUpdatedAt != nil &&
-                Calendar.current.isDate(scheduledDay!, inSameDayAs: self.todayUpdatedAt!)
+            let sameDay: Bool
+            if let day = scheduledDay, let previous = self.todayUpdatedAt {
+                sameDay = Calendar.current.isDate(day, inSameDayAs: previous)
+            } else {
+                sameDay = false
+            }
             if !sameDay || !self.todayPlans.contains(where: { $0.id == self.todayPlan?.id }) {
                 self.todayPlan = today
             }
