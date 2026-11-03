@@ -1093,8 +1093,9 @@ final class LiveActivityRecorder: NSObject {
 
     func latestCompanionHeartRateBpm(at now: Date = Date()) -> Int? {
         guard phase == .recording || phase == .paused,
-              let heart = companionHeart, heart.id == sessionID,
-              (0...20).contains(now.timeIntervalSince(heart.capturedAt)) else { return nil }
+              let heart = companionHeart, heart.id == sessionID else { return nil }
+        let age = now.timeIntervalSince(heart.capturedAt)
+        guard age >= 0, age <= 20 else { return nil }
         return heart.bpm
     }
 
