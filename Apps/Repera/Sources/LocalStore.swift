@@ -201,17 +201,22 @@ actor AppStatePersistence {
 
     /// Write snapshot then flush any coalesce — single barrier for background / session end.
     func persistAndFlush(_ state: AppState) async throws {
-        coalesceTask?.cancel()
-        coalesceTask = nil
-        pendingState = nil
-        try writeLocal(state)
+        try writeLocalNow(state)
     }
 
     func writeLocalNow(_ state: AppState) throws {
         coalesceTask?.cancel()
         coalesceTask = nil
-        pendingState = nil
-        try writeLocal(state)
+        // An immediate write supersedes the queue only if its revision is
+        // equally recent. A disk error must preserve the most recent snapshot.
+        let newest = pendingState.flatMap { $0.syncRevision > state.syncRevision ? $0 : nil } ?? state
+        do {
+            try writeLocal(newest)
+            pendingState = nil
+        } catch {
+            pendingState = newest
+            throw error
+        }
     }
 
     func iCloudStatus() -> ICloudStatus {

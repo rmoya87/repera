@@ -36,6 +36,7 @@ class DriveSyncWorker(
         val sessions=SessionStore(applicationContext)
         val revision=sessions.identityRevision()
         val stored = sessions.load() ?: return Result.success()
+        val requestedGeneration = requestGeneration(applicationContext)
         fun current()=sessions.identityRevision()==revision && sessions.load()?.let {it.uniqueId==stored.uniqueId && it.userId==stored.userId}==true && !isStopped
         val builder = AuthorizationRequest.builder()
             .setRequestedScopes(listOf(Scope(DRIVE_APPDATA_SCOPE)))
@@ -68,8 +69,19 @@ class DriveSyncWorker(
         return runCatching {
             val store = LocalSnapshotStore(applicationContext, stored.uniqueId)
             val outcome = DriveSnapshotService(token, store, stillAuthorized={current()}).synchronize()
-            if(current()) SyncStatusStore(applicationContext).markSynced(outcome)
-            Result.success()
+            if (!current()) Result.success()
+            else if (requestedGeneration != requestGeneration(applicationContext)) {
+                // A local write arrived while Drive was in flight: run again
+                // instead of declaring an older snapshot fully synchronized.
+                Result.retry()
+            } else if (outcome == DriveSnapshotService.Outcome.PreconditionFailed &&
+                runAttemptCount < MAX_ATTEMPTS) {
+                Result.retry()
+            } else {
+                SyncStatusStore(applicationContext).markSynced(outcome)
+                if (outcome == DriveSnapshotService.Outcome.PreconditionFailed) Result.failure()
+                else Result.success()
+            }
         }.getOrElse { error ->
             if (!current()) Result.success()
             else if (runAttemptCount < MAX_ATTEMPTS) Result.retry()
@@ -87,6 +99,12 @@ class DriveSyncWorker(
         private const val MAX_ATTEMPTS = 3
         private const val PERIODIC_NAME = "repera_drive_sync"
         private const val NOW_NAME = "repera_drive_sync_now"
+        private const val REQUEST_PREFS = "repera_drive_sync_requests"
+        private const val REQUEST_GENERATION = "generation"
+
+        private fun requestGeneration(context: Context): Long =
+            context.getSharedPreferences(REQUEST_PREFS, Context.MODE_PRIVATE)
+                .getLong(REQUEST_GENERATION, 0L)
 
         /** Backstop sync while the athlete keeps the app closed. */
         fun schedulePeriodic(context: Context) {
@@ -110,8 +128,16 @@ class DriveSyncWorker(
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()
-            WorkManager.getInstance(context)
-                .enqueueUniqueWork(NOW_NAME, ExistingWorkPolicy.REPLACE, request)
+            // Record invalidations even when a worker is already running.
+            // KEEP prevents a series-per-second storm of cancelled uploads.
+            synchronized(DriveSyncWorker::class.java) {
+                val prefs = context.getSharedPreferences(REQUEST_PREFS, Context.MODE_PRIVATE)
+                prefs.edit().putLong(
+                    REQUEST_GENERATION, prefs.getLong(REQUEST_GENERATION, 0L) + 1L
+                ).apply()
+                WorkManager.getInstance(context)
+                    .enqueueUniqueWork(NOW_NAME, ExistingWorkPolicy.KEEP, request)
+            }
         }
     }
 }

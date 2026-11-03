@@ -7,6 +7,9 @@ enum HealthDiskCache {
 
     struct Snapshot: Codable, Sendable {
         var version: Int
+        // HealthKit is device-level; cache contents must not cross Repera logins.
+        // Legacy unscoped snapshots are intentionally not reused.
+        var ownerScope: String? = nil
         var fetchedAt: Date
         var coverageDays: Int
         var filterKey: String
@@ -55,13 +58,21 @@ enum HealthDiskCache {
         return dir.appendingPathComponent(fileName)
     }
 
+    /// Apple identity mirror is available without a main-actor hop during warm start.
+    private static var activeOwnerScope: String? {
+        UserDefaults.standard.string(forKey: "repera.apple.userID.v1")
+            .flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     /// Decode from disk (safe off-main). Prefer via `LaunchWarmup` so cold start overlaps first frame.
     static func loadFromDisk() -> Snapshot? {
         let url = fileURL
         guard let data = try? Data(contentsOf: url) else { return nil }
         do {
             let snap = try JSONDecoder().decode(Snapshot.self, from: data)
-            guard snap.version == schemaVersion else { return nil }
+            guard snap.version == schemaVersion,
+                  let owner = activeOwnerScope,
+                  snap.ownerScope == owner else { return nil }
             return snap
         } catch {
             return nil
@@ -74,10 +85,13 @@ enum HealthDiskCache {
     }
 
     static func save(_ snapshot: Snapshot) {
+        guard let owner = activeOwnerScope else { return }
         let url = fileURL
         do {
-            let data = try JSONEncoder().encode(snapshot)
-            try data.write(to: url, options: [.atomic])
+            var scoped = snapshot
+            scoped.ownerScope = owner
+            let data = try JSONEncoder().encode(scoped)
+            try data.write(to: url, options: [.atomic, .completeFileProtectionUnlessOpen])
         } catch {
             // Best-effort cache; ignore disk errors.
         }
