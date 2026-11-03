@@ -49,6 +49,32 @@ class BusinessCenterRpcContractTest {
         assertEquals("Cuerpo válido", seen[3].second.getString("p_body"))
     }
 
+    @Test fun leaveRequiresConfirmedRpcResult() {
+        var serverBody = "true"
+        val requests = mutableListOf<JSONObject>()
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            val request = chain.request()
+            assertEquals("leave_org_as_athlete", request.url.encodedPath.substringAfterLast('/'))
+            val body = okio.Buffer().also { request.body!!.writeTo(it) }
+            requests += JSONObject(body.readUtf8())
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .code(200).message("OK")
+                .body(serverBody.toResponseBody("application/json".toMediaType())).build()
+        }.build()
+        val store = BusinessCenterStore(http)
+        val session = SupabaseIdentity.Session("user", "synthetic-only", "synthetic-refresh", 3600, 0)
+        val org = BusinessCenterStore.Organization("gym-1", "Gimnasio", "gym", null, null, null)
+
+        store.leave(session, org)
+        assertEquals("gym-1", requests.single().getString("p_org"))
+
+        serverBody = "false"
+        val failure = runCatching { store.leave(session, org) }.exceptionOrNull()
+        assertTrue(failure is IllegalStateException)
+        assertTrue(failure?.message?.contains("No se ha confirmado") == true)
+        assertEquals(2, requests.size)
+    }
+
     @Test fun shortMessageBodyNeverHitsNetwork() {
         var called = false
         val store = BusinessCenterStore(OkHttpClient.Builder().addInterceptor {
