@@ -198,9 +198,9 @@ struct ReperaApp: App {
                         ? AuthSessionLaunchPolicy.decide(
                             .init(
                                 appleSignedIn: appleAuth.isSignedIn,
-                            hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
-                            isConnected: businessAuth.isConnected,
-                            hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding,
+                                hasCachedSupabaseSession: businessAuth.hasCachedSupabaseSession,
+                                isConnected: businessAuth.isConnected,
+                                hasPriorSupabaseBinding: businessAuth.hasPriorSupabaseBinding,
                                 onboardingFinished: onboardingFinished
                             )
                         ) : .showLogin

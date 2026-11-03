@@ -106,7 +106,9 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("advance(to: .appleSignIn)", snippet)
         app = source("ReperaApp.swift")
         self.assertIn("businessAuth.isGoogleSignedIn", app)
-        self.assertIn("guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication else { return false }", app)
+        self.assertIn("guard !businessAuth.didExplicitlySignOut, !businessAuth.requiresReauthentication,", app)
+        self.assertIn("appleAuth.isSignedIn || businessAuth.isGoogleSignedIn else { return false }", app)
+        self.assertIn("let verifiedPrimaryIdentity = appleOK || businessAuth.isGoogleSignedIn", app)
 
 
 if __name__ == "__main__":
