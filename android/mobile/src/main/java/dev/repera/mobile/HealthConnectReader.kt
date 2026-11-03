@@ -632,6 +632,9 @@ class HealthConnectReader(private val context: Context) {
                 restingHeartRateBpm = medianForDay(rest, day, zone,
                     30.0..130.0, beforeMorning = true),
                 respiratoryRateBpm=medianForDay(breathing,day,zone,6.0..40.0,beforeMorning=true),
+                hrvAllDayMilliseconds = medianForDay(hrv, day, zone, 5.0..300.0, beforeMorning = false),
+                restingHeartRateAllDayBpm = medianForDay(rest, day, zone, 30.0..130.0, beforeMorning = false),
+                respiratoryRateAllDayBpm = medianForDay(breathing, day, zone, 6.0..40.0, beforeMorning = false),
                 oxygenSaturationPercent=medianForDay(oxygen,day,zone,0.0..100.0,beforeMorning=false),
                 wristTemperatureCelsius=medianForDay(wrist,day,zone,25.0..42.0,beforeMorning=false))
         }
