@@ -8,7 +8,10 @@ struct HeartRateZoneBar: View {
     var estimatedMaxBpm: Double = 190
 
     private var personalMaxBpm: Double {
-        Double(store.state.settings.heartRateMaxBpm ?? Int(estimatedMaxBpm))
+        if let personalized = store.state.settings.heartRateMaxBpm {
+            return Double(personalized)
+        }
+        return estimatedMaxBpm.isFinite && estimatedMaxBpm > 0 ? estimatedMaxBpm : 190
     }
 
     private let colors: [Color] = [
