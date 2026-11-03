@@ -204,6 +204,7 @@ internal class WearHomeCallbacks(
     val onAdjustReviewExtraReps: (Int) -> Unit = {},
     val onAdjustReviewElapsed: (Int) -> Unit = {},
     val onSwipeSet: (Int) -> Unit = {},
+    val onPreviousStep: () -> Unit = {},
     val onHubPlay: (WearHubCarouselItem) -> Unit = {},
     val onHubIndexChange: (Int) -> Unit = {},
     val onOpenTimer: () -> Unit = {},
@@ -1026,7 +1027,7 @@ private fun TransformingLazyColumnScope.runningItems(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = { callbacks.onSwipeSet(-1) },
+                onClick = { callbacks.onPreviousStep() },
                 enabled = !state.sessionPaused && state.restRemaining == 0,
                 modifier = Modifier.semantics {
                     contentDescription = "Anterior"
