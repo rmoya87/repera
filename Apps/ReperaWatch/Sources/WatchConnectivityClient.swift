@@ -378,6 +378,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 .flatMap(UUID.init(uuidString:))
             delegate?.watchConnectivityDidAcknowledge(sessionId: id, healthKitUUID: healthID)
         }
+        if let maxBpm = payload["maxHeartRateBpm"] as? Int,
+           (120...230).contains(maxBpm) {
+            UserDefaults.standard.set(maxBpm, forKey: "repera.watch.heartRate.maxBpm")
+        }
         if let data = payload["todayWorkout"] as? Data {
             let dayStamp = payload["todayDayStart"] as? TimeInterval
             if data != lastInboundToday || dayStamp != lastInboundTodayDay {
