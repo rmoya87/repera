@@ -246,6 +246,16 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
+        // An authenticated paired Watch is not an authorization to mutate a
+        // different Repera account after a logout/login on the iPhone.
+        let expectedOwner = latestPayloadLock.withLock {
+            latestPayload?["ownerScope"] as? String
+        }
+        guard let expectedOwner, !expectedOwner.isEmpty,
+              message["ownerScope"] as? String == expectedOwner else {
+            logger.warning("Ignoring Watch action with missing/mismatched account scope")
+            return ["ok": false]
+        }
         switch action {
         case "liveHeartRate":
             guard let raw = message["sessionId"] as? String,
@@ -342,7 +352,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     private func decode(_ payload: [String: Any]) {
         // A watch may deliver a completed workout from a previous login days
         // later. Unscoped legacy messages remain unacknowledged, not reassigned.
-        if payload["session"] != nil || payload["discarded"] != nil {
+        if payload["session"] != nil || payload["discarded"] != nil
+            || payload["timerMirror"] != nil {
             let expected = latestPayloadLock.withLock {
                 latestPayload?["ownerScope"] as? String
             }

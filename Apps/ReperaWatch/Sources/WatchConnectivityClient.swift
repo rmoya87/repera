@@ -28,6 +28,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private let pendingKey = "repera.watch.completedOutbox.v1"
     private let pendingLiveCancelKey = "repera.watch.pendingLiveCancels.v1"
     private let pendingOwnersKey = "repera.watch.completedOutboxOwners.v1"
+    private let pendingCancelOwnersKey = "repera.watch.pendingCancelOwners.v1"
     private let ownerKey = "repera.watch.ownerScope.v1"
     private var currentOwnerScope: String? {
         UserDefaults.standard.string(forKey: ownerKey)
@@ -71,8 +72,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard ["pause", "resume", "finish", "cancel"].contains(command),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              WCSession.default.isReachable else { return false }
+              WCSession.default.isReachable,
+              let owner = currentOwnerScope else { return false }
         WCSession.default.sendMessage([
+            "ownerScope": owner,
             "action": "liveCommand",
             "sessionId": sessionId.uuidString,
             "command": command,
@@ -93,8 +96,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard (25...250).contains(bpm),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              WCSession.default.isReachable else { return false }
+              WCSession.default.isReachable,
+              let owner = currentOwnerScope else { return false }
         WCSession.default.sendMessage([
+            "ownerScope": owner,
             "action": "liveHeartRate",
             "sessionId": sessionId.uuidString,
             "bpm": bpm,
@@ -111,7 +116,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     /// Las dos copias son seguras: el iPhone comprueba sessionId.
     @discardableResult
     func enqueueLiveCancellation(sessionId: UUID) -> Bool {
-        guard WCSession.isSupported() else { return false }
+        guard WCSession.isSupported(), let owner = currentOwnerScope else { return false }
+        var owners = UserDefaults.standard.dictionary(forKey: pendingCancelOwnersKey) as? [String: String] ?? [:]
+        owners[sessionId.uuidString] = owner
+        UserDefaults.standard.set(owners, forKey: pendingCancelOwnersKey)
         var ids = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
         if !ids.contains(sessionId.uuidString) {
             ids.append(sessionId.uuidString)
@@ -131,9 +139,17 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
               WCSession.default.activationState == .activated else { return }
         let wc = WCSession.default
         let pending = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
+        let owners = UserDefaults.standard.dictionary(forKey: pendingCancelOwnersKey) as? [String: String] ?? [:]
+        guard let owner = currentOwnerScope else { return }
+        var retained: [String] = []
         for rawID in pending {
-            guard let sessionID = UUID(uuidString: rawID) else { continue }
+            guard let sessionID = UUID(uuidString: rawID),
+                  owners[rawID] == owner else {
+                retained.append(rawID)
+                continue
+            }
             let message: [String: Any] = [
+                "ownerScope": owner,
                 "action": "liveCommand",
                 "sessionId": sessionID.uuidString,
                 "command": "cancel",
@@ -147,7 +163,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 }
             }
         }
-        UserDefaults.standard.removeObject(forKey: pendingLiveCancelKey)
+        UserDefaults.standard.set(retained, forKey: pendingLiveCancelKey)
+        var remainingOwners = owners
+        for rawID in pending where !retained.contains(rawID) {
+            remainingOwners.removeValue(forKey: rawID)
+        }
+        UserDefaults.standard.set(remainingOwners, forKey: pendingCancelOwnersKey)
     }
 
     /// Pide al iPhone iniciar Comenzar con el deporte elegido en el hub.
@@ -157,8 +178,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendStartLive(sportID: String, onResult: ((Bool) -> Void)? = nil) -> Bool {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              WCSession.default.isReachable else { return false }
+              WCSession.default.isReachable,
+              let owner = currentOwnerScope else { return false }
         WCSession.default.sendMessage([
+            "ownerScope": owner,
             "action": "startLive",
             "sportID": sportID,
             "actionId": UUID().uuidString
@@ -176,8 +199,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendTimerMirror(_ mirror: WatchTimerMirror) {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              let data = try? JSONEncoder().encode(mirror) else { return }
-        let payload: [String: Any] = ["timerMirror": data]
+              let data = try? JSONEncoder().encode(mirror),
+              let owner = currentOwnerScope else { return }
+        let payload: [String: Any] = ["timerMirror": data, "ownerScope": owner]
         do {
             try WCSession.default.updateApplicationContext(payload)
         } catch {
@@ -195,7 +219,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     func sendAudioMuted(_ muted: Bool) {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated else { return }
+        guard let owner = currentOwnerScope else { return }
         let payload: [String: Any] = [
+            "ownerScope": owner,
             "action": "setAudioMuted",
             "audioMuted": muted,
             "actionId": UUID().uuidString
@@ -304,8 +330,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private func requestToday(deferIfOffline: Bool = false) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default
-        guard wc.activationState == .activated else { return }
+        guard wc.activationState == .activated,
+              let owner = currentOwnerScope else { return }
         let request: [String: Any] = [
+            "ownerScope": owner,
             "action": "requestToday", "actionId": UUID().uuidString
         ]
         guard wc.isReachable else {
@@ -323,6 +351,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                     // Construct a fresh idempotent request inside the callback;
                     // don't capture a non-Sendable [String: Any] across actors.
                     WCSession.default.transferUserInfo([
+                        "ownerScope": owner,
                         "action": "requestToday",
                         "actionId": UUID().uuidString
                     ])
