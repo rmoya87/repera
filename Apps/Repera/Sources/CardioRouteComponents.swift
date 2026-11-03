@@ -727,12 +727,13 @@ struct RouteWeatherStrip: View {
     }
 
     private var openMeteoLegalLink: some View {
-        Link(destination: URL(string: "https://open-meteo.com/en/terms")!) {
-            Text("Open-Meteo · licencia CC BY 4.0")
-                .font(.system(size: 10))
-                .underline()
-                .foregroundStyle(OG.label2)
+        HStack(spacing: 4) {
+            Link("Open-Meteo", destination: URL(string: "https://open-meteo.com/")!)
+            Text("·")
+            Link("CC BY 4.0", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
         }
+        .font(.system(size: 10))
+        .foregroundStyle(OG.label2)
     }
 
     private func conditionLine(_ symbol: String, _ title: String, _ value: String?) -> some View {
