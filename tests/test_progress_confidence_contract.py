@@ -15,7 +15,7 @@ def read(relative):
 class ProgressConfidenceContractTests(unittest.TestCase):
     def test_ios_shows_selected_confidence_name_not_last_session(self):
         stats = read("Apps/Repera/Sources/StatsView.swift")
-        self.assertIn("label: latestConfidenceLabel", stats)
+        self.assertIn('label: isTeaserPreview ? "Media" : latestConfidenceLabel', stats)
         self.assertIn("compactInProgress: true", stats)
         self.assertIn("showSelectedLevelInCaption: true", stats)
         self.assertNotIn("Confianza · última sesión", stats)
