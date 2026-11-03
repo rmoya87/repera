@@ -22,7 +22,8 @@ class AutosavedSeriesProgressTests(unittest.TestCase):
             "private func cacheLiveSets(", 1
         )[0]
         self.assertGreaterEqual(board.count("showsConfirmation: false"), 2)
-        self.assertIn("completed: false", board)
+        self.assertIn("completed: false", play)
+        self.assertNotIn("completed: true", board)
         self.assertNotIn("completeLiveSet(", play)
         self.assertNotIn("onConfirm: {\n                    guard store.state.activeSession", board)
         self.assertIn("onConfirm: { }", board)
@@ -51,7 +52,9 @@ class AutosavedSeriesProgressTests(unittest.TestCase):
         self.assertIn("public static func confirmedWorkSets(", engine)
         self.assertIn("guard workout.phase == .finished || workout.finishedAt != nil else { return [] }", engine)
         self.assertNotIn("guard exercise.isCompleted", engine)
-        self.assertIn("set.rir = nil", engine)
+        # El RIR introducido es parte del resultado: no debe perderse.
+        self.assertIn("rir: planned.targetRir", engine)
+        self.assertNotIn("set.rir = nil", engine)
         self.assertIn("confirmedVolumeKg(in: workout)", engine)
         self.assertIn("StatsEngine.confirmedWorkSets(entry, in: workout)", weights)
         self.assertIn("StatsEngine.confirmedWorkSets(entry, in: workout)", fatigue)
