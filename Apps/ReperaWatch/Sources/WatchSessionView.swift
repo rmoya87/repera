@@ -7,6 +7,8 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
+    @State private var editingRepsWithCrown = false
+    @FocusState private var repsCrownFocused: Bool
     private enum WatchTrainingPrompt { case start, finish, discard }
     @State private var trainingPrompt: WatchTrainingPrompt?
     @State private var showTimer = false
@@ -595,11 +597,21 @@ struct WatchSessionView: View {
                     seriesContent
                 }
                 HStack(spacing: 8) {
-                    Button("Resumen") { showOutline = true }
-                        .font(.caption.weight(.medium))
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .foregroundStyle(.black)
+                    Button {
+                        editingRepsWithCrown = false
+                        repsCrownFocused = false
+                        if !hub.goToPreviousStep() { showOutline = true }
+                    } label: {
+                        Image(systemName: "arrow.left")
+                            .font(.title3.weight(.bold))
+                            .frame(minWidth: 48, minHeight: 42)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(white: 0.2))
+                    .foregroundStyle(.white)
+                    .accessibilityLabel("Anterior")
+                    .accessibilityHint("Volver a la serie o ejercicio anterior; al principio, abrir el resumen")
+                    .disabled(hub.isPaused || hub.restRemaining > 0)
                     Spacer(minLength: 0)
                     Button {
                         hub.confirmAndAdvance()
@@ -769,21 +781,33 @@ struct WatchSessionView: View {
                     hub.adjustReps(-1)
                 }
                 .disabled(hub.isPaused)
-                Text("\(hub.effectiveReps)")
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .monospacedDigit()
-                    .frame(maxWidth: .infinity)
-                    .focusable(true)
-                    .digitalCrownRotation(
-                        Binding(get: { Double(hub.workingReps) },
-                                set: { hub.adjustReps(Int($0.rounded()) - hub.workingReps) }),
-                        from: 0, through: 500, by: 1,
-                        sensitivity: .medium, isContinuous: false,
-                        isHapticFeedbackEnabled: true
-                    )
-                    .accessibilityLabel("Repeticiones, ajustables con la corona")
+                Button {
+                    editingRepsWithCrown.toggle()
+                    repsCrownFocused = editingRepsWithCrown
+                } label: {
+                    Text("\(hub.effectiveReps)")
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(editingRepsWithCrown ? accent : .white)
+                }
+                .buttonStyle(.plain)
+                .focusable(editingRepsWithCrown)
+                .focused($repsCrownFocused)
+                .digitalCrownRotation(
+                    Binding(get: { Double(hub.workingReps) },
+                            set: { hub.adjustReps(Int($0.rounded()) - hub.workingReps) }),
+                    from: 0, through: 500, by: 1,
+                    sensitivity: .medium, isContinuous: false,
+                    isHapticFeedbackEnabled: true
+                )
+                .onChange(of: repsCrownFocused) { _, focused in
+                    if !focused { editingRepsWithCrown = false }
+                }
+                .accessibilityLabel("Repeticiones")
+                .accessibilityHint("Tocar para editar con la corona; sin editar, la corona desplaza la pantalla")
                 valueStepButton(symbol: "plus", label: "Sumar repetición") {
                     hub.adjustReps(1)
                 }
