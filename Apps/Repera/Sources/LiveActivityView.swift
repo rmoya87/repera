@@ -3142,13 +3142,15 @@ struct LiveActivityView: View {
                             .padding(.top, 10)
                     }
                 } else {
-                    Text(displayedHeartRateBpm.map { "\($0)" } ?? "—")
-                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
-                        .minimumScaleFactor(0.55).lineLimit(1)
-                        .foregroundStyle(OG.label)
-                    Text("Frecuencia cardíaca (lpm)")
-                        .font(.subheadline).foregroundStyle(OG.label2)
-                    Spacer(minLength: 14)
+                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                        Text("\(bpm)")
+                            .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                            .minimumScaleFactor(0.55).lineLimit(1)
+                            .foregroundStyle(OG.label)
+                        Text("Frecuencia cardíaca (lpm)")
+                            .font(.subheadline).foregroundStyle(OG.label2)
+                        Spacer(minLength: 14)
+                    }
                     Text("—")
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
