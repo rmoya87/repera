@@ -186,7 +186,9 @@ class HealthConnectReader(private val context: Context) {
         if (HealthPermission.getReadPermission(HeartRateRecord::class) !in
             client.permissionController.getGrantedPermissions()) return null
 
-        val from = maxOf(sinceEpochMs, atEpochMs - 60_000L)
+        // A 50-second-old sample is historical, not a live pulse. Use the
+        // same 20-second freshness window as the Wear OS Data Layer stream.
+        val from = maxOf(sinceEpochMs, atEpochMs - 20_000L)
         val records = client.readAllRecords(
             HeartRateRecord::class,
             TimeRangeFilter.between(Instant.ofEpochMilli(from), Instant.ofEpochMilli(atEpochMs))
