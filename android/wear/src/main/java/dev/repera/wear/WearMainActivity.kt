@@ -455,7 +455,23 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     val session = visibleSession ?: return@WearHomeCallbacks
                                     val planned = maxOf(1, session.plannedWorkSets)
                                     val base = setReviewIndex ?: session.recordedSets
-                                    setReviewIndex = (base + delta).coerceIn(0, maxOf(0, planned - 1))
+                                    val next = base + delta
+                                    if (delta < 0 && next < 0) {
+                                        // Navigate within the current block; only the first
+                                        // step returns to its overview, without logging data.
+                                        val currentIndex = session.exerciseIndex - 1
+                                        val blockStart = session.blocks
+                                            .lastOrNull { it.first <= currentIndex }?.first
+                                            ?: currentIndex
+                                        if (currentIndex > blockStart) {
+                                            requestSelectBlock(session, currentIndex - 1)
+                                        } else {
+                                            setReviewIndex = null
+                                            showOutline = true
+                                        }
+                                    } else {
+                                        setReviewIndex = next.coerceIn(0, maxOf(0, planned - 1))
+                                    }
                                 },
                                 onHubPlay = { item -> onHubPlay(item) },
                                 onHubIndexChange = { idx ->
