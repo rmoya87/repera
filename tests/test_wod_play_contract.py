@@ -95,7 +95,7 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertIn("format == .amrap || format == .deathBy", source)
         self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
         self.assertIn('Text("Resultado del bloque")', play)
-        self.assertIn("expandedScoreBlocks", play)
+        self.assertIn("inlineWODScoreEditor(block, format: format, session: session)", play)
         self.assertNotIn('Text("Resultado · \\(format.displayName)")', play)
         self.assertNotIn(".background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))", play.split("private func inlineWODScoreEditor(", 1)[1].split("private func openBlockTimer(", 1)[0])
         self.assertIn("WODResultInlineEditor(", play)
@@ -133,13 +133,14 @@ class PlayWODContractTests(unittest.TestCase):
         editor = self.read("PlanView.swift")
         chrome = editor.split("private struct DayEditorChromeModifier", 1)[1]
         chrome = chrome.split("enum DayEditorMode", 1)[0]
-        self.assertIn(".navigationBarBackButtonHidden(true)", chrome)
-        self.assertIn("ToolbarItem(placement: .topBarLeading)", chrome)
+        # iOS 27 conserva el chevron nativo para volver y un check verde
+        # independiente: nada de botones duplicados en la toolbar.
+        self.assertIn(".navigationBarBackButtonHidden(false)", chrome)
         self.assertIn("ToolbarItem(placement: .topBarTrailing)", chrome)
-        self.assertIn('Image(systemName: "arrow.left")', chrome)
-        self.assertIn(".tint(OG.label)", chrome)
-        self.assertIn(".tint(OG.accent)", chrome)
-        self.assertIn(".buttonStyle(.borderedProminent)", chrome)
+        self.assertNotIn("ToolbarItem(placement: .topBarLeading)", chrome)
+        self.assertIn(".tint(Color.primary)", chrome)
+        self.assertIn("OGDoneCheckButton(", chrome)
+        self.assertIn("glassTint: OG.accent", chrome)
 
     def test_play_score_persists_without_advancing_to_next_block(self):
         source = self.read("ReperaStore.swift")

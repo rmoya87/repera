@@ -63,12 +63,12 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         screen = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
         self.assertNotIn("Brush.horizontalGradient", bar)
         self.assertNotIn("Brush.linearGradient", bar)
-        self.assertIn("LiveHeartRateZones.zone(bpm)", bar)
+        self.assertIn("LiveHeartRateZones.zone(bpm, estimatedMaxBpm)", bar)
         self.assertIn("if (active) 3f else 1f", bar)
         self.assertIn("Zona $level", bar)
         self.assertIn("$bpm lpm", bar)
         self.assertNotIn("Sin lectura de FC", bar)
-        self.assertIn("LiveHeartRateZones.zone(bpm) ?: return", bar)
+        self.assertIn("LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return", bar)
         self.assertIn("expanded = mapDetailsExpanded", screen)
         self.assertIn("mapDetailsExpanded = !mapDetailsExpanded", screen)
         self.assertIn("if (expanded && bpm != null && bpm in 25..250)", screen)
@@ -128,7 +128,9 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         for value in ("0.60", "0.70", "0.80", "0.90"):
             self.assertIn(value, ios)
             self.assertIn(value, android)
-        self.assertIn("LiveHeartRateZones.zone(bpm, estimatedMaxBpm)", wear)
+        self.assertIn("LiveHeartRateZones.zone(bpm, effectiveMax)", wear)
+        self.assertIn('getInt("maxHeartRateBpm", 190)', wear)
+        self.assertIn("configuredMax.toDouble()", wear)
 
 
 if __name__ == "__main__":

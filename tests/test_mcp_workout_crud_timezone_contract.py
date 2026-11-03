@@ -13,7 +13,7 @@ class MCPWorkoutCRUDContractTests(unittest.TestCase):
         index=source("supabase/functions/repera-mcp/index.ts")
         mut=source("supabase/functions/repera-mcp/mutations.ts")
         self.assertIn('export const workout = z.strictObject(',schema)
-        self.assertIn('import { workout } from "./schema.ts";',index)
+        self.assertIn('import { workout, wodFormat, wodFormatContract } from "./schema.ts";', index)
         self.assertIn('import { workout } from "./schema.ts";',mut)
         self.assertIn('...workout.shape',mut)
         self.assertIn('workout.safeParse(candidate)',mut)

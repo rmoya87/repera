@@ -4,6 +4,18 @@ import Testing
 
 @Suite("Objetivos de Salud - compatibilidad de ajustes")
 struct HealthGoalsSettingsTests {
+    @Test func heartRateMaximumIsOptionalAndRoundTrips() throws {
+        let personalized = AppSettings(heartRateMaxBpm: 176)
+        let bytes = try JSONEncoder().encode(personalized)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: bytes)
+        #expect(decoded.heartRateMaxBpm == 176)
+
+        var oldJSON = try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
+        oldJSON.removeValue(forKey: "heartRateMaxBpm")
+        let oldBytes = try JSONSerialization.data(withJSONObject: oldJSON)
+        #expect(try JSONDecoder().decode(AppSettings.self, from: oldBytes).heartRateMaxBpm == nil)
+    }
+
     @Test func legacySettingsKeepExistingWeightGoal() throws {
         // Simula los ajustes antiguos: el JSON no incluye las claves nuevas.
         let old = AppSettings(bodyWeightGoalKg: 78.5)

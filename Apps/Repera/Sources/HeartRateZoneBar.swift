@@ -3,8 +3,16 @@ import SwiftUI
 /// Zonas de FC coherentes con Apple Watch (60/70/80/90 % de FCmáx estimada).
 /// No se atribuye una zona si Salud no aporta una lectura actual y válida.
 struct HeartRateZoneBar: View {
+    @Environment(ReperaStore.self) private var store
     var bpm: Int?
     var estimatedMaxBpm: Double = 190
+
+    private var personalMaxBpm: Double {
+        if let personalized = store.state.settings.heartRateMaxBpm {
+            return Double(personalized)
+        }
+        return estimatedMaxBpm.isFinite && estimatedMaxBpm > 0 ? estimatedMaxBpm : 190
+    }
 
     private let colors: [Color] = [
         Color(red: 0.25, green: 0.55, blue: 1),
@@ -16,8 +24,8 @@ struct HeartRateZoneBar: View {
 
     private var zone: Int? {
         guard let bpm, (25...250).contains(bpm),
-              estimatedMaxBpm.isFinite, estimatedMaxBpm > 0 else { return nil }
-        let ratio = Double(bpm) / estimatedMaxBpm
+              personalMaxBpm.isFinite, personalMaxBpm > 0 else { return nil }
+        let ratio = Double(bpm) / personalMaxBpm
         if ratio < 0.60 { return 1 }
         if ratio < 0.70 { return 2 }
         if ratio < 0.80 { return 3 }

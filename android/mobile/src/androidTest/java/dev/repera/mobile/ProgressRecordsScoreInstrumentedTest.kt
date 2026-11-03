@@ -45,7 +45,8 @@ class ProgressRecordsScoreInstrumentedTest {
   compose.onNodeWithContentDescription("Puntuación media 7 de 10").assertExists()
   compose.onNodeWithText("Entrenamiento").assertExists()
   compose.onNodeWithText("Última nota").assertExists()
-  compose.onNodeWithContentDescription("Confianza · última sesión: Alta").assertExists()
+  compose.onNodeWithContentDescription("Confianza: Alta").assertExists()
+  compose.onNodeWithText("Confianza · Alta").assertExists()
   capture("progreso_puntuaciones.png")
  }
  private fun capture(name:String) {

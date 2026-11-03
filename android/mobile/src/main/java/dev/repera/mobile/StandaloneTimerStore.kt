@@ -155,9 +155,20 @@ data class StandaloneTimerCompletion(
  * Persistencia de favoritos, última configuración y resumen pendiente.
  * Paridad StandaloneTimerStore / ConfigurationStore / CompletionStore (iOS).
  */
-internal class StandaloneTimerStore(context: Context) {
-    private val preferences =
-        context.getSharedPreferences("repera.standalone.timer", Context.MODE_PRIVATE)
+internal class StandaloneTimerStore(context: Context, accountId: String? = null) {
+    // Favoritos y revisiones pendientes están aislados por deportista.
+    // No migrar automáticamente la antigua clave global: carecía de propietario
+    // verificable y podría exponer ubicación o resultados de otra cuenta.
+    private val owner = accountId?.takeIf { it.isNotBlank() }
+        ?: SessionStore(context).load()?.uniqueId?.takeIf { it.isNotBlank() }
+        ?: "signed-out"
+    private val ownerKey = android.util.Base64.encodeToString(
+        owner.toByteArray(Charsets.UTF_8),
+        android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING or android.util.Base64.URL_SAFE
+    )
+    private val preferences = context.getSharedPreferences(
+        "repera.standalone.timer.v3.$ownerKey", Context.MODE_PRIVATE
+    )
 
     fun favorites(): List<FavoriteTimer> {
         val raw = preferences.getString("favorites", null) ?: return emptyList()

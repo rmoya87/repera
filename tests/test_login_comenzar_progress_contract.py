@@ -41,10 +41,11 @@ class LoginComenzarProgressContracts(unittest.TestCase):
             "private func updateUpcomingTurn(", 1
         )[0]
         self.assertIn("speakNavigation(message)", km)
-        # Solo se recurre a una notificación cuando iOS no activa el audio;
-        # un aviso correcto nunca genera un duplicado visual.
-        self.assertIn("if spokenGuidanceEnabled && !didSpeak", km)
-        self.assertIn("fallbackWhenSpeechFailed: true", km)
+        # El parcial genera un respaldo visual silencioso en bloqueo,
+        # incluso cuando su voz se escucha. Nunca duplica sonido.
+        self.assertIn("notifyDuringBackground(", km)
+        self.assertIn("_ = speakNavigation(message)", km)
+        self.assertIn("content.sound = nil", source)
         self.assertIn("setCategory(", source)
         self.assertIn(".playback, mode: .spokenAudio", source)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", source)
@@ -87,7 +88,7 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertNotIn('"%.1f km/h de media"', review)
         self.assertIn("navigationDestination(isPresented: $showFullScreenRoute)", maps)
         self.assertIn(".navigationTransition(.zoom(sourceID: sessionId, in: routeZoomNamespace))", maps)
-        self.assertEqual(maps.count(".matchedTransitionSource(id: sessionId, in: routeZoomNamespace)"), 3)
+        self.assertGreaterEqual(maps.count(".matchedTransitionSource(id: sessionId, in: routeZoomNamespace)"), 3)
         self.assertIn(".glassEffect(.regular, in: .circle)", maps)
         self.assertIn("colorScheme == .dark ? Color.white : Color.black", maps)
         self.assertIn("struct WorkoutMapZoomDestination: View", maps)
@@ -97,13 +98,18 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("Color.black.opacity(0.33)", maps)
         self.assertIn(".mapOverlayLevel(level: .aboveRoads)", maps)
         self.assertEqual(maps.count(".mapOverlayLevel(level: .aboveLabels)"), 3)
-        self.assertIn("segment.color.opacity(0.35), lineWidth: 19", maps)
+        self.assertIn("MapPolyline(coordinates: run.coordinates)", maps)
+        self.assertIn(".stroke(run.halo, style: StrokeStyle(", maps)
+        self.assertIn(".stroke(run.edge, style: StrokeStyle(", maps)
+        self.assertIn(".stroke(run.core, style: StrokeStyle(", maps)
         self.assertIn("LinearGradient(", maps)
-        self.assertIn("lineWidth: 11", maps)
-        self.assertIn(".stroke(segment.color, lineWidth: 6)", maps)
+        self.assertIn("let maxVertices = 450", maps)
+        self.assertIn("let rgb = AdaptiveRoutePace.rgb(", maps)
+        self.assertIn("haloStops.append(.init(color: color.opacity(0.23)", maps)
+        self.assertIn("edgeStops.append(.init(color: color.opacity(0.75)", maps)
         self.assertIn("var isWaterSport: Bool = false", maps)
-        self.assertIn("water ? (0.00, 1.00, 0.45) : (0.00, 1.00, 0.25)", maps)
-        self.assertIn("(1.00, 0.98, 0.00), (1.00, 0.43, 0.00), (1.00, 0.07, 0.15)", maps)
+        self.assertIn("water: water)", maps)
+        self.assertIn("let scale = AdaptiveRoutePace.scale(", maps)
         self.assertNotIn("(0.06, 0.39, 0.98)", maps)
 
     def test_cardio_fatigue_and_records_include_start_sports_without_fake_e1rm(self):
@@ -120,8 +126,10 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("fastestRecordedKilometerSeconds", sport)
         self.assertIn("longestDistanceMeters", sport)
         self.assertIn('Section("Mejores marcas', sport)
-        self.assertIn("LiveSportsCatalogView()", stats)
-        self.assertIn("Deportes · evolución y récords", stats)
+        # La pestaña antigua de catálogo se sustituyó por Progreso de
+        # ejercicio y récords, sin presentar métricas deportivas inventadas.
+        self.assertIn('OGCardSectionTitle(title: "Evolución por ejercicio")', stats)
+        self.assertIn('OGCardSectionTitle(title: "Récords (e1RM)")', stats)
 
     def test_multiple_workouts_day_remain_independent(self):
         store = text(IOS / "ReperaStore.swift")

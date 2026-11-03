@@ -180,7 +180,7 @@ final class ExerciseSearchTests: XCTestCase {
         }
     }
 
-    func testRankPerfUnder2ms() {
+    func testRankPerfUnder3ms() {
         var catalog: [Exercise] = []
         catalog.reserveCapacity(220)
         for i in 0..<220 {
@@ -192,11 +192,19 @@ final class ExerciseSearchTests: XCTestCase {
             )
         }
         let index = ExerciseSearch.makeIndex(catalog)
-        let t0 = CFAbsoluteTimeGetCurrent()
-        for _ in 0..<80 {
+        // Precalentar y usar la mediana de cinco lotes independientes:
+        // un scheduler del runner compartido no debe sesgar la única medida.
+        for _ in 0..<12 {
             _ = ExerciseSearch.rankedDocuments(index, query: "press de banca")
         }
-        let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000 / 80
-        XCTAssertLessThan(ms, 3.0, "ranked avg \(ms)ms")
+        let measurements: [Double] = (0..<5).map { _ in
+            let t0 = CFAbsoluteTimeGetCurrent()
+            for _ in 0..<70 {
+                _ = ExerciseSearch.rankedDocuments(index, query: "press de banca")
+            }
+            return (CFAbsoluteTimeGetCurrent() - t0) * 1000 / 70
+        }
+        let medianMs = measurements.sorted()[2]
+        XCTAssertLessThan(medianMs, 3.0, "ranked median \(medianMs)ms (batches: \(measurements))")
     }
 }

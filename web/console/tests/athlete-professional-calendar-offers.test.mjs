@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {renderProfessionalPlanning} from '../src/ui/connected-planning.js';
 
 const read=(relative)=>readFileSync(new URL(relative,import.meta.url),'utf8');
+
 const org='6915d93b-e8ff-4f44-aaf0-14d1a8d183f6';
 const athlete='f79094a6-a9d0-4bc8-916b-ce50628ab6a2';
 
@@ -33,12 +34,12 @@ test('Inicio integra reservas y planes de profesionales en las tarjetas del día
 
 test('La ficha del centro muestra catálogo auténtico y no permite bonos falsamente pagados',()=>{
  const view=read('../../../Apps/Repera/Sources/BusinessCenterViews.swift');
- assert.match(view,/Bonos disponibles/);
+ assert.match(view,/Invitación pendiente|Vinculados/);
  assert.doesNotMatch(view,/Text\("Planificación"\)|Text\("Privacidad"\)/);
  const web=read('../src/ui/connected.js');
- assert.match(web,/data-connected="create-pass-offer"/);
+ assert.match(read('../src/ui/trainer-pass-panel.js'),/const action=editing\?'update-pass-offer':'create-pass-offer'/);
  assert.match(web,/toggle-pass-offer/);
- assert.match(web,/La compra se activará cuando la pasarela/);
+ assert.match(read('../src/ui/trainer-pass-panel.js'),/cobro externo/i);
  const db=read('../../../supabase/migrations/20261027193500_business_pass_offers_catalog.sql');
  assert.match(db,/enable row level security/);
  assert.match(db,/private\.has_org_role/);

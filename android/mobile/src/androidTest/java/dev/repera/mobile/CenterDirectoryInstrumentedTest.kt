@@ -34,10 +34,10 @@ class CenterDirectoryInstrumentedTest {
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {
    LinkedCenterDialog(org,BusinessCenterStore.Snapshot(),false,{count++},{})
   }}
-  compose.onNodeWithText("Desvincularme").performClick()
+  compose.onNodeWithText("Desvincularme como cliente").performScrollTo().performClick()
   compose.onNodeWithText("Cancelar").performClick()
   compose.runOnIdle {assertEquals(0,count)}
-  compose.onNodeWithText("Desvincularme").performClick()
+  compose.onNodeWithText("Desvincularme como cliente").performScrollTo().performClick()
   compose.onAllNodesWithText("Desvincularme").onLast().performClick()
   compose.runOnIdle {assertEquals(1,count)}
  }

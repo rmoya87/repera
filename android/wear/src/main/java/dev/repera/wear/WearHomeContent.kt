@@ -123,7 +123,16 @@ internal fun wearHubCarouselItems(
     recentLiveSportIDs: List<String>
 ): List<WearHubCarouselItem> {
     val items = mutableListOf<WearHubCarouselItem>()
-    plan?.let { items += WearHubCarouselItem.Plan(it) }
+    plan?.let { primary ->
+        items += WearHubCarouselItem.Plan(primary)
+        primary.optJSONArray("_otherTodayPlans")?.let { alternatives ->
+            for (index in 0 until alternatives.length()) {
+                alternatives.optJSONObject(index)?.let {
+                    items += WearHubCarouselItem.Plan(it)
+                }
+            }
+        }
+    }
     val seen = mutableSetOf<String>()
     for (id in recentLiveSportIDs) {
         val sport = LiveSport.byId(id) ?: continue
@@ -1051,7 +1060,7 @@ private fun TransformingLazyColumnScope.runningItems(
                         else -> callbacks.onQueueSet(session)
                     }
                 },
-                enabled = !state.sessionPaused || state.restRemaining > 0,
+                enabled = !state.sessionPaused,
                 modifier = Modifier.semantics {
                     contentDescription = when {
                         session.wodFormatLabel != null && !session.wodUsesSeries -> "Terminar"
@@ -1103,13 +1112,13 @@ private fun TransformingLazyColumnScope.wodRunningBody(
     if (session.globalScore) {
         item {
             Text(
-                "Resultado por bloque en el teléfono",
+                "Registra el resultado del bloque en el reloj",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall
             )
         }
         item {
-            WearPrimaryButton("Terminar bloque") { callbacks.onReviewBlock() }
+            WearPrimaryButton("Terminar bloque", enabled = !state.sessionPaused) { callbacks.onReviewBlock() }
         }
     } else if (session.wodUsesSeries && session.canLogOnWatch) {
         if (state.wodTimerJson == null ||
@@ -1129,7 +1138,7 @@ private fun TransformingLazyColumnScope.wodRunningBody(
             restBlock(state, callbacks)
             seriesSteppers(session, state, callbacks, includeWeight = session.allowsWeight)
             item {
-                WearPrimaryButton("Terminar bloque") { callbacks.onReviewBlock() }
+                WearPrimaryButton("Terminar bloque", enabled = !state.sessionPaused) { callbacks.onReviewBlock() }
             }
         }
     }

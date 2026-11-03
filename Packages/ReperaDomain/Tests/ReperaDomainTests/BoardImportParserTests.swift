@@ -144,14 +144,14 @@ struct BoardImportParserTests {
             catalog: catalog
         )
         #expect(blocks.count == 3)
-        #expect(blocks[0].movements.first?.name == "Arrancada colgante completa")
+        #expect(blocks[0].movements.first?.name == "Hang Squat Snatch")
         #expect(blocks[1].kind == .strength)
         #expect(blocks[1].exercises.first?.plannedSets.map(\.targetReps) == [4, 3, 3, 2])
         #expect(blocks[1].exercises.count == 1)
         #expect(blocks[2].rounds == 4)
         #expect(blocks[2].timeCapMinutes == 12)
         #expect(blocks[2].movements.count == 4)
-        #expect(blocks[2].movements[2].name == "Zancadas inversas con barra")
+        #expect(blocks[2].movements[2].name == "Back rack reverse lunge")
         #expect(blocks[2].movements[2].exerciseId != nil)
         #expect(blocks[2].movements[2].weightMaleKg == 40)
         #expect(blocks[2].movements[2].weightFemaleKg == 25)
@@ -198,7 +198,7 @@ struct BoardImportParserTests {
         #expect(work[0].weightFemaleKg == 25)
         #expect(CrossFitGlossary.canonicalName(for: "Bar facing burpee") == "Bar facing burpee")
         #expect(work[1].name == "Bar facing burpee")
-        #expect(work[2].name == "Zancadas inversas con barra")
+        #expect(work[2].name == "Back rack reverse lunge")
         #expect(work[2].exerciseId != nil)
         #expect(rft.movements.last?.restSeconds == 60)
     }
@@ -256,7 +256,7 @@ struct BoardImportParserTests {
         #expect(t2b.distanceMeters == nil)
 
         let run = CrossFitGlossary.parseMovementLine("200M RUN")
-        #expect(run.name == "Cinta / carrera")
+        #expect(run.name == "Carrera")
         #expect(run.distanceMeters == 200)
         #expect(run.reps == nil)
 
@@ -548,6 +548,9 @@ struct BoardImportParserTests {
         10 BBJO
         """
         let catalog = Catalog.seed()
+        // Preserve full DB clean and jerk (no partial Clean mapping).
+        let compound = CrossFitGlossary.parseMovementLine("20 ALT DB HANG C&J 22,5/15")
+        #expect(compound.name == "Dumbbell Clean and Jerk")
         let blocks = BoardImportParser.parseBlocks(ocrText: ocr, catalog: catalog)
         #expect(blocks.count == 2)
         #expect(blocks[0].wodFormat == .emom)
@@ -555,7 +558,8 @@ struct BoardImportParserTests {
         #expect(blocks[0].movements[0].name == "Fondos en anillas kipping")
         #expect(blocks[0].movements[0].exerciseId != nil)
         #expect(blocks[0].wodNotes?.contains("FOR QUALITY") == true)
-        #expect(blocks[1].movements[0].name == "Cargada y envión con mancuerna")
+        #expect(blocks[1].movements[0].name == "Dumbbell Clean and Jerk")
+        #expect(blocks[1].movements[0].exerciseId == catalog.first(where: { $0.name == "Dumbbell Clean and Jerk" })?.id)
         #expect(blocks[1].movements[1].name == "Burpee box jump over")
         #expect(blocks[1].movements[1].exerciseId != nil)
     }

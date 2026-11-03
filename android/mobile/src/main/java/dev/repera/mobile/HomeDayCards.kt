@@ -368,6 +368,9 @@ internal fun HomeCompletedWorkoutCard(
     onClick: () -> Unit
 ) {
     val chips = buildList {
+        if (workout.awaitingResultEntry && workout.timerDetails == null) {
+            add(Icons.Outlined.Edit to "Completar resultados")
+        }
         if (workout.timerDetails != null) {
             val secs = workout.timerDetails.configuredSeconds
             add(Icons.Outlined.Timer to homeDurationText(secs))

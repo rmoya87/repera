@@ -17,7 +17,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("KilometerVoiceAnnouncement.message(", LIVE)
         self.assertIn("splitSeconds: split.seconds", LIVE)
         self.assertIn("elapsedSeconds: elapsedActiveSeconds", LIVE)
-        self.assertIn("let didSpeak = speakNavigation(message)", LIVE)
+        self.assertIn("_ = speakNavigation(message)", LIVE)
 
     def test_every_gps_sport_including_walking_gets_speed_in_kmh(self):
         self.assertIn("case .walking: \"Caminata\"", LIVE)
@@ -44,7 +44,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertNotIn("LiveSessionVoiceAnnouncement", LIVE)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
         # Se conservan los anuncios de navegación GPS y parciales.
-        self.assertIn("let didSpeak = speakNavigation(message)", LIVE)
+        self.assertIn("_ = speakNavigation(message)", LIVE)
         self.assertIn("let didSpeak = speakNavigation(spokenTurn)", LIVE)
 
     def test_start_and_finish_announcements_are_not_lifecycle_duplicates(self):
@@ -82,9 +82,9 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
             LIVE
         )
         self.assertNotIn("@State private var navigationMapEnabled = true", LIVE)
-        self.assertIn("navigationMapEnabled.toggle()", LIVE)
-        self.assertIn(".mapStyle(.standard(elevation: navigationMapEnabled ? .realistic : .flat))", LIVE)
-        self.assertIn("if !navigationMapEnabled {", LIVE)
+        self.assertIn("navigationMapEnabled = activate3D ?? !navigationMapEnabled", LIVE)
+        self.assertIn(".mapStyle(.standard(elevation: effectiveNavigation3D ? .realistic : .flat))", LIVE)
+        self.assertIn("if !effectiveNavigation3D {", LIVE)
         self.assertIn("pitch: 0", LIVE)
         self.assertIn("pitch: 67", LIVE)
         self.assertIn("center3DMap(on: user)", LIVE)
@@ -179,7 +179,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("recorder.beginStartCountdown()", LIVE)
         self.assertIn("recorder.cancelStartCountdown()", LIVE)
         self.assertIn("recorder.startCountdownRemaining", LIVE)
-        self.assertIn("if previous == .idle && next == .recording", LIVE)
+        self.assertIn("phase = .recording", LIVE)
 
     def test_audio_player_and_session_do_not_block_main_actor(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
@@ -224,7 +224,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("store.removeFavorite(routine.id)", favorites)
         plan = (ROOT / "Apps/Repera/Sources/PlanView.swift").read_text(encoding="utf-8")
         self.assertIn("case .favorite:", plan)
-        self.assertIn("guard store.saveRoutine(draft) else", plan)
+        self.assertIn("guard await saveRoutineWithVerifiedAccess(draft) else", plan)
 
     def test_finish_uses_single_completion_sound_and_no_speech(self):
         finish = LIVE.split("func finish() {", 1)[1].split(
@@ -246,12 +246,14 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("Text(title)", stat)
         self.assertIn("Text(value ??", stat)
         self.assertNotIn('Link("Apple Weather"', stat)
-        self.assertIn("AsyncImage(url: mark)", cardio)
-        self.assertIn("Fuentes y atribución legal", cardio)
-        self.assertIn("guard let attribution = try? await WeatherService.shared.attribution else", cardio)
-        self.assertIn("attribution.legalPageURL", cardio)
-        self.assertIn("attribution.combinedMarkLightURL", cardio)
-        self.assertIn("attribution.combinedMarkDarkURL", cardio)
+        attribution = (ROOT / "Apps/Shared/AppleWeatherAttributionView.swift").read_text(encoding="utf-8")
+        self.assertIn("AppleWeatherAttributionView()", cardio)
+        self.assertIn("AsyncImage(url: markURL)", attribution)
+        self.assertIn("Fuentes legales", attribution)
+        self.assertIn("attribution = try? await WeatherService.shared.attribution", attribution)
+        self.assertIn("attribution?.legalPageURL", attribution)
+        self.assertIn("attribution?.combinedMarkLightURL", attribution)
+        self.assertIn("attribution?.combinedMarkDarkURL", attribution)
 
     def test_route_preview_gives_top_curve_breathing_room(self):
         history = (ROOT / "Apps/Repera/Sources/HistoryView.swift").read_text(encoding="utf-8")
@@ -278,9 +280,10 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         ).read_text(encoding="utf-8"))
 
     def test_speech_failure_fallback_is_not_a_duplicate_notification(self):
-        self.assertIn("if spokenGuidanceEnabled && !didSpeak", LIVE)
-        self.assertIn("fallbackWhenSpeechFailed: true", LIVE)
-        self.assertIn("(!spokenGuidanceEnabled || fallbackWhenSpeechFailed)", LIVE)
+        # Los avisos de kilómetros son visuales y silenciosos incluso si se habla.
+        self.assertIn("_ = speakNavigation(message)", LIVE)
+        self.assertIn("content.sound = nil", LIVE)
+        self.assertIn("if !spokenGuidanceEnabled || !didSpeak", LIVE)
 
 
 if __name__ == "__main__":

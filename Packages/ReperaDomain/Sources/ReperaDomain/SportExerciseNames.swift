@@ -68,6 +68,7 @@ public enum SportExerciseNames {
         "Box jump over": "Salto sobre cajón",
         "Broad jump": "Salto de longitud",
         "Burpee": "Burpi",
+        "Burpee to target": "Burpee a diana",
         "Burpee box jump over": "Burpee con salto sobre cajón",
         "Burpee pull-up": "Burpee con dominada",
         "Cluster": "Cargada y thruster",

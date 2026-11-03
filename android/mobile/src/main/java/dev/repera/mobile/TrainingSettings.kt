@@ -13,7 +13,8 @@ data class TrainingSettings(
     val restSoundEnabled:Boolean=true,
     val restHapticEnabled:Boolean=true,
     val effortUnit:String="rir",
-    val weightUnit:String="kg"
+    val weightUnit:String="kg",
+    val heartRateMaxBpm:Int?=null
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -24,7 +25,8 @@ data class TrainingSettings(
                 s.optDouble("weightIncrementKg",2.5).takeIf { it.isFinite() && it in 0.5..10.0 } ?: 2.5,
                 s.optString("scheduleMode","fixedWeek").takeIf { it in listOf("fixedWeek","rotation") } ?: "fixedWeek",s.optBoolean("restSoundEnabled",true),s.optBoolean("restHapticEnabled",true),
                 s.optString("effortUnit","rir").takeIf {it in listOf("rir","rpe")} ?: "rir",
-                s.optString("weightUnit","kg").takeIf {it in listOf("kg","lb")} ?: "kg")
+                s.optString("weightUnit","kg").takeIf {it in listOf("kg","lb")} ?: "kg",
+                s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230})
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
@@ -32,6 +34,7 @@ data class TrainingSettings(
             require(ProgressionPolicy.fromWire(value.defaultProgression)!=null)
             require(value.effortUnit in listOf("rir","rpe") && value.weightUnit in listOf("kg","lb"))
             require(value.scheduleMode in listOf("fixedWeek","rotation"))
+            require(value.heartRateMaxBpm == null || value.heartRateMaxBpm in 120..230)
             val s=state.optJSONObject("settings") ?: JSONObject().also { state.put("settings",it) }
             s.put("weekStartsOn",if(value.weekStartsOnMonday) "monday" else "sunday")
             s.put("defaultRestSeconds",value.defaultRestSeconds)
@@ -40,6 +43,8 @@ data class TrainingSettings(
             s.put("effortUnit",value.effortUnit);s.put("weightUnit",value.weightUnit)
             s.put("scheduleMode",value.scheduleMode)
             s.put("restSoundEnabled",value.restSoundEnabled);s.put("restHapticEnabled",value.restHapticEnabled)
+            if(value.heartRateMaxBpm == null) s.remove("heartRateMaxBpm")
+            else s.put("heartRateMaxBpm",value.heartRateMaxBpm)
             if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {
                 val routines=state.optJSONArray("routines") ?: org.json.JSONArray()
                 RotationSettings.write(state,dev.repera.domain.RotationPlan(java.util.UUID.randomUUID().toString(),routineIds=

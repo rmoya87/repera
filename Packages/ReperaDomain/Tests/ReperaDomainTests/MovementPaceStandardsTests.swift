@@ -36,7 +36,7 @@ struct MovementPaceStandardsTests {
         #expect(mid <= 16)
     }
 
-    @Test func customForTimeUsesMovementPaceBasis() {
+    @Test func customForTimeWithoutComparableHistoryDoesNotInventScore() {
         let blockId = UUID()
         let session = WorkoutSession(
             title: "WOD a medida",
@@ -73,13 +73,9 @@ struct MovementPaceStandardsTests {
             ]
         )
         let review = SessionReviewEngine.review(session: session, history: [])
-        #expect(review?.scoreBasis == .movementPace)
-        #expect(review?.level != nil)
-        #expect((review?.overallScore ?? 0) >= 3)
-        #expect((review?.overallScore ?? 0) <= 10)
-        #expect(review?.vsStandardSummary?.contains("ritmo") == true
-            || review?.vsStandardSummary?.contains("Tu tiempo") == true
-            || review?.vsStandardSummary?.contains("Hiciste") == true)
+        // La valoración de Repera es personal y verificable: sin referencias previas,
+        // el cálculo orientativo de ritmo nunca fabrica una nota de rendimiento.
+        #expect(review == nil)
     }
 
     @Test func adaptedRepsAndKgChangeEstimatedEffortWithoutMakingSets() {

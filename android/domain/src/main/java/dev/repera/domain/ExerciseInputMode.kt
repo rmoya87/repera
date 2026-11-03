@@ -121,8 +121,16 @@ object ExerciseInput {
         val isPull = listOf("dominad", "pull up", "pullup", "chin up", "muscle up")
             .any { n.contains(it) } || n == "mu" || n.startsWith("mu ")
         if (isPull) return ExerciseInputMode.LOAD_REPS
-        val externalLoad = listOf("kettlebell", "mancuerna", "dumbbell", "barbell", "barra,", "disco",
-            "saco", "lastre", "trineo", "yoke", "polea").any {eq.contains(it)}
+        // El normalizador elimina comas: "Barra, Banco" pasa a "barra banco".
+        // "barra," no puede coincidir y ocultaba kg en Press banca. Distinguir
+        // la barra de carga de barras de dominadas, fijas o simples obstáculos.
+        val weightedBar = eq == "barra" ||
+            (eq.startsWith("barra ") &&
+                listOf("barra de dominadas", "barra fija", "barra obstaculo")
+                    .none { eq.contains(it) })
+        val externalLoad = weightedBar ||
+            listOf("kettlebell", "mancuerna", "dumbbell", "barbell", "disco",
+                "saco", "lastre", "trineo", "yoke", "polea").any {eq.contains(it)}
         val support = listOf("cajon", "step", "anillas", "barra de dominadas", "barra fija",
             "cuerda de trepa", "pegboard", "paralelas", "pared", "banco", "rueda abdominal",
             "ghd", "plataforma elevada").any {eq.contains(it)}

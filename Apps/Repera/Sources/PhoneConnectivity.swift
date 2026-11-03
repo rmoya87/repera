@@ -18,6 +18,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession?
+    func phoneConnectivityLatestWorkoutsForToday() async -> [WorkoutSession]
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?)
     /// Persist then ACK. Returns sessionRevision after durable write (0 on failure).
     func phoneConnectivityDidReceiveLogSet(
@@ -36,6 +37,10 @@ extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
+    func phoneConnectivityLatestWorkoutsForToday() async -> [WorkoutSession] {
+        let single = await phoneConnectivityLatestWorkoutForToday()
+        return single.map { [$0] } ?? []
+    }
     func phoneConnectivityDidReceiveQuickLogRequest(exerciseId: UUID?) {}
     func phoneConnectivityDidReceiveLogSet(
         reps: Int,
@@ -75,6 +80,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     func send(
         session: WorkoutSession?,
         today: WorkoutSession? = nil,
+        todayPlans: [WorkoutSession] = [],
+        maxHeartRateBpm: Int = 190,
         quickLogHint: (id: UUID, name: String)? = nil,
         sessionRevision: Int = 0,
         completedAck: UUID? = nil,
@@ -100,9 +107,12 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         } else {
             payload["todayWorkout"] = Data()
         }
+        payload["todayWorkouts"] = (try? JSONEncoder().encode(todayPlans.isEmpty
+            ? today.map { [$0] } ?? [] : todayPlans)) ?? Data()
         payload["liveActivity"] = live.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         payload["recentLiveSportIDs"] = recentLiveSportIDs
         payload["audioMuted"] = audioMuted
+        payload["maxHeartRateBpm"] = (120...230).contains(maxHeartRateBpm) ? maxHeartRateBpm : 190
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
         if let completedAckHealthKitUUID {
             payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
@@ -272,13 +282,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             guard let delegate else {
                 return ["ok": false]
             }
-            let today = await delegate.phoneConnectivityLatestWorkoutForToday()
-            let data = today.flatMap { try? JSONEncoder().encode($0) } ?? Data()
+            let plans = await delegate.phoneConnectivityLatestWorkoutsForToday()
+            let data = plans.first.flatMap { try? JSONEncoder().encode($0) } ?? Data()
+            let plansData = (try? JSONEncoder().encode(plans)) ?? Data()
             delegate.phoneConnectivityDidRequestToday()
             // El contexto completo (recents, audio, live) se publica en sendWatchContextNow.
             return [
                 "ok": true,
                 "todayWorkout": data,
+                "todayWorkouts": plansData,
                 "todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
             ]
         case "quickLog":

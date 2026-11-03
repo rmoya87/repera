@@ -147,7 +147,8 @@ final class CompletedWODMuscleStimulusTests: XCTestCase {
         let load = MuscleLoadEngine.load(
             workouts: [workout], window: .week, now: now
         )
-        XCTAssertEqual(load["quadriceps"] ?? -1, 0.8, accuracy: 0.00001)
+        // Dos series reales cuentan una vez cada una; no se suma estímulo WOD estimado.
+        XCTAssertEqual(load["quadriceps"] ?? -1, 2.0, accuracy: 0.00001)
     }
 
     func testFinishedInputValuesCountAcrossEveryOccurrenceOfSameExercise() {

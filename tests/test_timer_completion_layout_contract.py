@@ -47,7 +47,7 @@ class TimerCompletionLayoutTests(unittest.TestCase):
         self.assertIn("summary.configuration.rounds", self.summary)
         self.assertIn("summary.configuration.workTotalSeconds", self.summary)
         self.assertIn("summary.configuration.restTotalSeconds", self.summary)
-        self.assertIn('Locale(identifier: "es_ES")', self.summary)
+        self.assertIn("SpanishDate.format(", self.summary)
         self.assertIn("completedSummary = summary", TIMER)
         self.assertIn("StandaloneTimerCompletionStore.save(summary)", TIMER)
 

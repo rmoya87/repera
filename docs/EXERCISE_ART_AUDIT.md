@@ -1,6 +1,6 @@
 # Auditoría + corrección parcial de ilustraciones Repera
 
-Última actualización: 2026-10-17  
+Última actualización: 2026-11-03  
 Repositorio: `rmoya87/repera` · Referencia: `art_ab_wheel.jpg`
 
 ## Alcance comprobado
@@ -90,3 +90,11 @@ Pendientes opcionales si reaparecen en QA: CTB con pecho inequívoco + agarre pr
 ## Reglas de cierre
 
 No etiquetar como corregido un JPG que aún sea temporal en `~/.cursor/projects/…/assets/`. No prometer consistencia total de persona, torso descubierto, equipo ni sombra hasta revisar **cada imagen** y haber exportado los binarios correctos al directorio de la app.
+
+## Auditoría estructural y política de bloqueo de CI (03/11/2026)
+
+El recuento de instrucciones técnicas de `CatalogSpanish.spanishInstructions` no es el número de captions de un carrusel: las instrucciones son indicaciones de ejecución y suelen ser más numerosas que las fotografías. La comparación directa producía **51 falsos defectos estructurales**. La auditoría corregida verifica JPEG, tamaños, full/miniatura, referencias y continuidad de los frames, pero no exige un número de instrucciones idéntico a los frames.
+
+Última ejecución tras corregir este error: **533 stems, 0 fallos estructurales, 109 WARN y el resto sin aprobación visual individual**. Esto **no significa que las imágenes estén aprobadas**: las incidencias de anatomía, equipo y continuidad visual se mantienen y requieren revisión humana.
+
+Para no bloquear los PR de código que no modifican fotografías por una deuda visual preexistente, GitHub Actions exige aprobación visual de los **JPG modificados por el PR**. Los PR que no cambian imágenes pueden superar este control sin alterar los dictámenes del inventario. La auditoría completa sigue disponible en `workflow_dispatch` y en la rama específica de auditoría de arte, con bloqueo estricto mientras haya imágenes sin aprobar. El listado completo no se convierte automáticamente en OK por pasar el PR.

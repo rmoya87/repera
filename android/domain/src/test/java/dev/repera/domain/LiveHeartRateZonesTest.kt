@@ -5,6 +5,12 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LiveHeartRateZonesTest {
+    @Test fun personalizedMaximumChangesZoneWithoutInventingHeartRate() {
+        assertEquals(4, LiveHeartRateZones.zone(150, 180.0))
+        assertEquals(3, LiveHeartRateZones.zone(150, 200.0))
+        assertNull(LiveHeartRateZones.zone(null, 180.0))
+    }
+
     @Test fun zonesMatchAppleWatchCutoffs() {
         assertEquals(1, LiveHeartRateZones.zone(113))
         assertEquals(2, LiveHeartRateZones.zone(114))

@@ -85,41 +85,32 @@ jobs:
       - name: Verificar versiones y script de Xcode
         run: |
           python3 scripts/sync_versions.py --check
-          python3 -m unittest discover -s tests -p 'test_sync_versions.py' -v
-          python3 -m unittest discover -s tests -p 'test_google_identity_linking_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_ai_realtime_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_ai_coach_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_ai_apple_permissions_sync_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_health_physio_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_health_permissions.py' -v
-          python3 -m unittest discover -s tests -p 'test_watch_healthkit_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_watch_widget_plist.py' -v
-          python3 -m unittest discover -s tests -p 'test_watch_complication_contract.py' -v
           python3 scripts/generate_watch_tinted_icon.py --check
           python3 scripts/check_watch_widget_plist.py
-          python3 -m unittest discover -s tests -p 'test_diary_week_scope_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_autosaved_series_progress_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_finished_workout_all_metrics_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_multi_session_and_sync_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_login_comenzar_progress_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_wod_play_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_completed_workout_edit_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_scaled_wod_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_wod_prescription_edit_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_mixed_session_review_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_verified_session_review_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_cross_format_comparisons.py' -v
-          python3 -m unittest discover -s tests -p 'test_ai_catalog_metadata.py' -v
-          python3 -m unittest discover -s tests -p 'test_mcp_v2_and_scan_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_mcp_wod_format_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_mcp_workout_crud_timezone_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_timer_completion_layout_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_timer_last_configuration_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_timer_history_persistence_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_no_legacy_brand_references.py' -v
-          python3 -m unittest discover -s tests -p 'test_weather_sources_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_live_heart_rate_zones_contract.py' -v
-          python3 -m unittest discover -s tests -p 'test_progress_confidence_contract.py' -v
+          # Ejecutar TODOS los contratos, aunque alguno falle, y marcar el
+          # trabajo como fallido al final. Evita ocultar regresiones posteriores.
+          python3 - <<'PY'
+          import subprocess
+          import sys
+
+          patterns = ["test_sync_versions.py","test_google_identity_linking_contract.py","test_ai_realtime_contract.py","test_ai_coach_contract.py","test_ai_apple_permissions_sync_contract.py","test_health_physio_contract.py","test_health_permissions.py","test_watch_healthkit_contract.py","test_watch_widget_plist.py","test_watch_complication_contract.py","test_diary_week_scope_contract.py","test_autosaved_series_progress_contract.py","test_finished_workout_all_metrics_contract.py","test_multi_session_and_sync_contract.py","test_login_comenzar_progress_contract.py","test_wod_play_contract.py","test_completed_workout_edit_contract.py","test_scaled_wod_contract.py","test_wod_prescription_edit_contract.py","test_mixed_session_review_contract.py","test_verified_session_review_contract.py","test_cross_format_comparisons.py","test_ai_catalog_metadata.py","test_mcp_v2_and_scan_contract.py","test_mcp_wod_format_contract.py","test_mcp_workout_crud_timezone_contract.py","test_timer_completion_layout_contract.py","test_timer_last_configuration_contract.py","test_timer_history_persistence_contract.py","test_no_legacy_brand_references.py","test_weather_sources_contract.py","test_live_heart_rate_zones_contract.py","test_progress_confidence_contract.py"]
+          failed = []
+          for pattern in patterns:
+              print(f"::group::Contract {pattern}", flush=True)
+              status = subprocess.run(
+                  ["python3", "-m", "unittest", "discover", "-s", "tests",
+                   "-p", pattern, "-v"],
+                  check=False,
+              ).returncode
+              print("::endgroup::", flush=True)
+              if status != 0:
+                  failed.append(pattern)
+
+          if failed:
+              print(f"::error title=Source contracts::Failed: {', '.join(failed)}")
+              sys.exit(1)
+          print(f"All {len(patterns)} source contract suites passed")
+          PY
 
   xcode-build:
     name: XcodeGen + build + test

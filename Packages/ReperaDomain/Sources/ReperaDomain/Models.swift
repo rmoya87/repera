@@ -30,6 +30,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var dailyStepsGoal: Int?
     public var dailyActiveEnergyGoalKcal: Int?
     public var dailyAverageHeartRateGoalBpm: Int?
+    /// FC máxima personal opcional para zonas de esfuerzo; nil = estimación provisional.
+    public var heartRateMaxBpm: Int?
     public var dailyWorkoutMinutesGoal: Int?
     public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
@@ -55,6 +57,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         dailyStepsGoal: Int? = nil,
         dailyActiveEnergyGoalKcal: Int? = nil,
         dailyAverageHeartRateGoalBpm: Int? = nil,
+        heartRateMaxBpm: Int? = nil,
         dailyWorkoutMinutesGoal: Int? = nil,
         weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
@@ -76,6 +79,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.dailyStepsGoal = dailyStepsGoal
         self.dailyActiveEnergyGoalKcal = dailyActiveEnergyGoalKcal
         self.dailyAverageHeartRateGoalBpm = dailyAverageHeartRateGoalBpm
+        self.heartRateMaxBpm = heartRateMaxBpm
         self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
@@ -93,7 +97,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
-        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -108,6 +112,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
         dailyStepsGoal = try c.decodeIfPresent(Int.self, forKey: .dailyStepsGoal)
         dailyActiveEnergyGoalKcal = try c.decodeIfPresent(Int.self, forKey: .dailyActiveEnergyGoalKcal)
         dailyAverageHeartRateGoalBpm = try c.decodeIfPresent(Int.self, forKey: .dailyAverageHeartRateGoalBpm)
+        heartRateMaxBpm = try c.decodeIfPresent(Int.self, forKey: .heartRateMaxBpm)
+            .flatMap { (120...230).contains($0) ? $0 : nil }
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear

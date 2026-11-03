@@ -2,7 +2,7 @@ package dev.repera.domain
 
 /**
  * Músculos dibujables en el BodyMap (orden cabeza → pies), alineados con
- * openGym. Port 1:1 de MuscleTaxonomy.swift (iOS).
+ * Repera. Port 1:1 de MuscleTaxonomy.swift (iOS).
  */
 object MuscleTaxonomy {
     val muscles: List<String> = listOf(

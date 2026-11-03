@@ -1683,7 +1683,14 @@ final class ReperaStore: NSObject {
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
             Task {
-                _ = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+                let removed = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+                if !removed {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("repera.healthDeletionFailed"),
+                        object: HealthKitStore.shared.lastError
+                            ?? "El registro de Apple Salud no pudo eliminarse."
+                    )
+                }
             }
         }
     }
@@ -2434,6 +2441,38 @@ final class ReperaStore: NSObject {
             ?? professionalWorkoutForWatchToday()
     }
 
+    /// Todos los planes para el selector nativo de Watch, sin colapsar las
+    /// sesiones personales o profesionales de un mismo día en la primera.
+    private func effectiveWatchPlansForCarousel() -> [WorkoutSession] {
+        let now = Date()
+        var plans: [WorkoutSession] = []
+        let personal = state.settings.scheduleMode == .rotation
+            ? routineForToday().map { [$0] } ?? []
+            : scheduledRoutines(on: now)
+        for routine in personal {
+            let preview = SessionController.from(routine: routine, exercises: state.exercises)
+            if !preview.exercises.isEmpty { plans.append(preview) }
+        }
+        let dayKey = BusinessDataStore.localDayKey(now)
+        for assigned in BusinessDataStore.shared.trainingSessions
+            where assigned.scheduledDate == dayKey &&
+                assigned.status == "scheduled" &&
+                assigned.prescription?.isCanonicalV1 == true {
+            guard let prescription = assigned.prescription,
+                  let routine = routineFromProfessionalPrescription(
+                    prescription, id: assigned.id, title: assigned.title,
+                    scheduledDate: parseBusinessDayKey(dayKey),
+                    scheduledTimeMinutes: assigned.scheduledTimeMinutes
+                  ) else { continue }
+            let preview = SessionController.from(routine: routine, exercises: state.exercises)
+            if !preview.exercises.isEmpty { plans.append(preview) }
+        }
+        if plans.isEmpty, let overdue = mostRecentOverdueWatchPlan() {
+            plans = [overdue]
+        }
+        return plans
+    }
+
     /// Hub del reloj: plan de hoy; si no hay, el pendiente más reciente atrasado.
     func effectiveWatchPlan() -> WorkoutSession? {
         currentWatchWorkoutForToday() ?? mostRecentOverdueWatchPlan()
@@ -2491,10 +2530,12 @@ final class ReperaStore: NSObject {
     }
 
     private func sendWatchContextNow() {
-        let today = effectiveWatchPlan()
+        let plans = effectiveWatchPlansForCarousel()
         connectivity.send(
             session: state.activeSession,
-            today: today,
+            today: plans.first,
+            todayPlans: plans,
+            maxHeartRateBpm: state.settings.heartRateMaxBpm ?? 190,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
             completedAck: lastWatchAcknowledgedSession,
@@ -3715,7 +3756,11 @@ extension ReperaStore: PhoneConnectivityDelegate {
     }
 
     nonisolated func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? {
-        await MainActor.run { self.effectiveWatchPlan() }
+        await MainActor.run { self.effectiveWatchPlansForCarousel().first }
+    }
+
+    nonisolated func phoneConnectivityLatestWorkoutsForToday() async -> [WorkoutSession] {
+        await MainActor.run { self.effectiveWatchPlansForCarousel() }
     }
 
     @discardableResult

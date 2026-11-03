@@ -47,7 +47,7 @@ struct SessionCardioEffortTests {
         #expect(updated.vsStandardSummary?.contains("FC media") == true)
     }
 
-    @Test func reviewEngineUsesCardioWhenProvided() {
+    @Test func cardioAloneDoesNotGeneratePersonalRatingWithoutHistory() {
         let session = makeFranSession(elapsedSeconds: 8 * 60)
         let without = SessionReviewEngine.review(session: session, history: [])
         let with = SessionReviewEngine.review(
@@ -60,10 +60,10 @@ struct SessionCardioEffortTests {
                 durationMinutes: 8
             )
         )
-        #expect(without != nil)
-        #expect(with != nil)
-        #expect((with?.overallScore ?? 0) >= (without?.overallScore ?? 0) - 1)
-        #expect(with?.vsStandardSummary?.contains("FC media") == true)
+        // La frecuencia cardiaca sirve de contexto, no genera una puntuación
+        // personal si faltan las dos sesiones previas comparables.
+        #expect(without == nil)
+        #expect(with == nil)
     }
 
     private func makeFranSession(elapsedSeconds: Int) -> WorkoutSession {

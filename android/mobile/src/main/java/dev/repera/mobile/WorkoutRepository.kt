@@ -1939,6 +1939,43 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return assembleTodayPlanSession(state, today, professional)
     }
 
+    /** Lista completa para el carrusel Wear: no ocultar la segunda sesión del mismo día. */
+    @Synchronized fun allTodayPlanSessions(
+        today: LocalDate = LocalDate.now(),
+        professional: List<BusinessCenterStore.ProfessionalSession> = emptyList()
+    ): List<JSONObject> {
+        val state = loadOrNull() ?: return emptyList()
+        if (!state.isNull("activeSession")) return emptyList()
+        val routines = state.optJSONArray("routines") ?: JSONArray()
+        val choices = (0 until routines.length()).mapNotNull { routines.optJSONObject(it) }
+        val personal = if (TrainingSettings.read(state).scheduleMode == "rotation") {
+            val next = RotationSettings.nextRoutineId(state)
+            choices.filter { it.optString("id") == next }
+        } else {
+            val dated = choices.filter { it.optString("scheduledDate").take(10) == today.toString() }
+            if (dated.isNotEmpty()) dated else choices.filter { routine ->
+                val scheduled = routine.optString("scheduledDate")
+                (scheduled.isBlank() || scheduled == "null") &&
+                    routine.optInt("weekday", -1) == today.dayOfWeek.value
+            }
+        }
+        val result = mutableListOf<JSONObject>()
+        personal.forEach { routine ->
+            runCatching { assembleSession(state, routine) }.getOrNull()?.let { preview ->
+                if ((preview.optJSONArray("exercises")?.length() ?: 0) > 0) result.add(preview)
+            }
+        }
+        professional.filter {
+            it.scheduledDate == today.toString() && it.status == "scheduled" &&
+                BusinessCenterStore.isCanonicalPrescription(it.prescription)
+        }.forEach { assigned ->
+            runCatching { projectProfessionalWatchPlan(state, assigned) }.getOrNull()?.let {
+                if ((it.optJSONArray("exercises")?.length() ?: 0) > 0) result.add(it)
+            }
+        }
+        return result
+    }
+
     /** Hub del reloj: plan de hoy; si no hay, el one-off atrasado más reciente sin entreno terminado. */
     @Synchronized fun effectivePlanSession(today: LocalDate = LocalDate.now(),
         professional: List<BusinessCenterStore.ProfessionalSession> = emptyList()): JSONObject? {

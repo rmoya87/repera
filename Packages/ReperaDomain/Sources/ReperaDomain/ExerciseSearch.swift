@@ -599,8 +599,9 @@ public enum ExerciseSearch {
 
         // Tokens sueltos solo contra el nombre (no aliases): evita que
         // «press + banca» pegue en «dumbbell bench press» → Press mancuernas.
-        let tokensInName = qTokens.filter { name.contains($0) }
-        if tokensInName.count == qTokens.count {
+        // Sin crear un Array por documento y por pulsación de búsqueda.
+        // allSatisfy sale pronto si el nombre no contiene todos los tokens.
+        if qTokens.allSatisfy({ name.contains($0) }) {
             let ordered = tokensAppearInOrder(qTokens, in: name)
             var s = (ordered ? Weight.allTokensInNameOrdered : Weight.allTokensInName)
             s -= name.count * Weight.lengthPenaltyPerChar

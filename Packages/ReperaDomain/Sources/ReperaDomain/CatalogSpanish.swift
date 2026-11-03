@@ -144,6 +144,7 @@ public enum CatalogSpanish {
         "Cluster": "Clean a rack + thruster (cargada y envío overhead).",
         "Ground to overhead": "Cualquier forma legal de llevar la carga del suelo a overhead.",
         "Plate ground to overhead": "Disco del suelo a overhead.",
+        "Burpee to target": "Burpee completo seguido de un salto vertical para tocar la diana elevada. El atleta debe cumplir el contacto con el objetivo y aterrizar con control; la altura y la mano exigidas dependen del estándar del WOD.",
         "Burpee": "Burpee: pecho al suelo, salto y palmada.",
         "Burpee al cajón": "Burpee completo terminado en salto al cajón.",
         "Bar facing burpee": "Burpee de cara a la barra, a menudo saltando sobre ella.",
@@ -935,6 +936,15 @@ public enum CatalogSpanish {
             "Error típico: press con lumbar arqueada o agarre inseguro.",
             "Usa disco con borde agarreable. Alternativa: DB ground to overhead.",
             "Estándar: disco del suelo a brazos extendidos arriba.",
+        ],
+        "Burpee to target": [
+            "Comprueba la altura y el contacto exigido para la diana según el estándar del WOD; deja espacio suficiente para saltar sin chocar con otros atletas.",
+            "Desde una posición de pie, coloca las manos al suelo y lleva el pecho y los muslos a tocarlo manteniendo el abdomen firme durante el descenso.",
+            "Recoge los pies hacia las manos, levanta el pecho y estabiliza ambos apoyos antes de comenzar el salto vertical.",
+            "Extiende las caderas, rodillas y tobillos de forma coordinada y busca el objetivo con la mano o manos indicadas sin arquear excesivamente la zona lumbar.",
+            "Toca la diana y aterriza amortiguando con ambos pies, rodillas alineadas y torso estable. Exhala al saltar y recupera la respiración antes de la siguiente repetición.",
+            "Error típico: saltar sin tocar la marca, apoyar solo las manos en el suelo o perder la alineación de las rodillas durante la caída; no cuentes esa repetición.",
+            "Progresión: domina primero el burpee, después realiza saltos verticales controlados y aumenta la altura de la diana gradualmente sin sacrificar el rango.",
         ],
         "Burpee": [
             "Pecho y muslos al suelo: manos a los lados, cuerpo plano.",

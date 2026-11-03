@@ -603,7 +603,7 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 
 ### MCP seguro, escáner foto y pulido iOS (22/10/2026)
 
-- **Diario**: sección «De tu entrenador IA» con los programas propuestos/activos/pausados y navegación al detalle; se elimina el acceso redundante desde Ajustes.
+- **Ajustes → Entrenamiento → Programas de entrenamiento IA**: acceso a programas propuestos, activos y pausados, con navegación a su detalle. El antiguo Diario fue retirado, por lo que el acceso está centralizado en Ajustes.
 - **Previo al entreno**: toca un movimiento reconocido para abrir su ficha de ejercicio, ver técnica e historial.
 - **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. No hay sincronización manual visible: los cambios llegan sin mostrar indicadores o subtítulos de transporte. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
 - **Compras**: StoreKit 2 es el fallback disponible sin clave pública de RevenueCat; no mostrar errores internos «build no configurado» a clientes. Si App Store Connect no devuelve ofertas, sí mostrar un estado de indisponibilidad y reintento. Una compra real requiere IDs vigentes en App Store Connect y pruebas sandbox/TestFlight.
@@ -739,3 +739,15 @@ El título mostrado es el del catálogo en el listado y la ficha de Ejercicios, 
 ## Grabación de entrenos programados (2026-11-02)
 
 En iOS, **Iniciar** ofrece **Comenzar en vivo** (apuntar series en directo) y **Grabar entreno** (registrar cronómetro, calorías y pulso sin marcar repeticiones). En Apple Watch, al pulsar el plan en Inicio se elige un modo **antes** de crear la sesión: la elección abre directamente su seguimiento y HealthKit se inicia solo entonces. Al preparar un nuevo bloque o reanudar una sesión previa, **Iniciar** continúa sin repetir el selector. En esa pantalla, **Descartar** utiliza el mismo ancho y márgenes que **Iniciar**. En el segundo modo el plan conserva sus ejercicios prescritos y los resultados se completan mediante el editor del iPhone. La sesión conserva `awaitingResultEntry=true` pero pasa a fase `finished` cuando termina en el reloj, aunque falten resultados reales; no se convierten objetivos en series realizadas. Los pendientes siguen accesibles desde Inicio. La sesión Apple Watch usa HealthKit ya abierto, sin crear otro entrenamiento. En deportes interiores los relojes ocultan ritmo/distancia y destacan FC/kcal. Pendiente validación en dispositivos reales y paridad del selector en Android/Wear OS.
+
+## Correcciones multi-dispositivo 03/11/2026
+
+En la rama de auditoría `fix/multiplatform-ux-audit-20261103`: los relojes
+pueden recibir y seleccionar varias sesiones de hoy, se personaliza la FC
+máxima opcional para las cinco zonas, y se refuerzan las notificaciones de
+finalización, gestos de Inicio, permisos GPS y edición rápida. Los datos
+pendientes y configuración del temporizador se separan por cuenta; no se
+atribuye automáticamente la información antigua sin propietario verificable.
+Los desarrollos todavía requieren compilaciones, pruebas en hardware y
+verificación de regresiones antes de distribuirse.
+Detalles: [auditoría de correcciones](AUDIT_FIXES_2026_11_03.md).

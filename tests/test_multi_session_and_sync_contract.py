@@ -40,16 +40,15 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         self.assertNotIn("scheduledRoutine(on: copyDate) == nil", copied)
 
     def test_diary_and_home_display_each_independent_session(self):
-        diary = read(IOS, "PlanView.swift")
+        # El Diario antiguo fue retirado; Inicio muestra cada sesión
+        # independientemente sin volver a introducir una pantalla paralela.
         home = read(IOS, "HomeView.swift")
-        self.assertIn("let routines = store.scheduledRoutines(on: date)", diary)
-        self.assertIn("ForEach(routines) { routine in", diary)
-        self.assertIn("store.removeScheduledRoutine(id: routine.id)", diary)
-        self.assertIn("assigningDay = date", diary)
+        self.assertIn("private var plannedRoutinesForSelectedDay: [Routine]", home)
+        self.assertIn("store.removeScheduledRoutine(id: routine.id)", home)
         self.assertIn("let planned = plannedRoutinesForSelectedDay", home)
         self.assertIn("ForEach(planned) { routine in", home)
         self.assertIn("let completedIDs = Set(workoutsOnSelectedDay.compactMap", home)
-        self.assertIn("!completedIDs.contains($0.id) && $0.id != activeID", home)
+        self.assertIn("if completedIDs.contains(routine.id) || routine.id == activeID { return false }", home)
         self.assertIn("ForEach(workouts) { session in", home)
         self.assertIn("store.removeScheduledRoutine(id: routine.id)", home)
 
@@ -58,9 +57,10 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         board = play.split("private func setsBoard(", 1)[1].split(
             "private func liveSetRow(", 1
         )[0]
-        self.assertIn("WorkoutSetSwipeDeleteRow(", board)
+        self.assertIn("OGSetSwipeDeleteRow(", board)
         self.assertNotIn('Image(systemName: "minus.circle")', board)
-        self.assertIn("DragGesture(minimumDistance: 18)", play)
+        self.assertIn("DragGesture(minimumDistance: 18)", read(IOS, "PlanView.swift"))
+        self.assertIn("openedSetID = projected < -revealWidth * 0.4 ? setID : nil", read(IOS, "PlanView.swift"))
         self.assertIn("liveSets.remove(at: index)", play)
         self.assertIn("performedSets: recorded", play)
         self.assertNotIn("guard liveSets.count > 1", play)
@@ -108,9 +108,10 @@ class MultiSessionAndSyncTests(unittest.TestCase):
         self.assertIn('client.from("athlete_workout_mirror")', sync)
         self.assertIn("for batch in pending.chunked", sync)
         self.assertIn("lastError = ", sync)
-        self.assertIn("Sincronizar ahora", settings)
-        self.assertIn("workoutSync.lastSyncAt", settings)
-        self.assertIn("workoutSync.lastError", settings)
+        # El espejo final se sincroniza después de persistir localmente;
+        # Ajustes no debe exponer un botón de sincronización redundante.
+        self.assertNotIn("Sincronizar ahora", settings)
+        self.assertIn("BusinessWorkoutSyncStore.shared.sync(store: self)", store)
 
     def test_multiple_recording_paths_reach_completed_history(self):
         store = read(IOS, "ReperaStore.swift")

@@ -121,9 +121,11 @@ object WearActiveSessionBridge {
         plan: JSONObject?,
         recentLiveSportIDs: List<String> = emptyList(),
         audioMuted: Boolean = false,
-        todayDayStart: String? = null
+        todayDayStart: String? = null,
+        maxHeartRateBpm: Int = 190
     ) {
-        publishHubMeta(context, plan, recentLiveSportIDs, audioMuted, todayDayStart)
+        publishHubMeta(context, plan, recentLiveSportIDs, audioMuted, todayDayStart,
+            maxHeartRateBpm)
     }
 
     fun publishHubMeta(
@@ -131,7 +133,8 @@ object WearActiveSessionBridge {
         plan: JSONObject?,
         recentLiveSportIDs: List<String> = emptyList(),
         audioMuted: Boolean = false,
-        todayDayStart: String? = null
+        todayDayStart: String? = null,
+        maxHeartRateBpm: Int = 190
     ) {
         val dayStart = todayDayStart ?: java.time.LocalDate.now().toString()
         val request = PutDataMapRequest.create("/repera/today-plan").apply {
@@ -139,6 +142,8 @@ object WearActiveSessionBridge {
                 plan?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf())
             dataMap.putStringArray("recentLiveSportIDs", recentLiveSportIDs.toTypedArray())
             dataMap.putBoolean("audioMuted", audioMuted)
+            dataMap.putInt("maxHeartRateBpm",
+                maxHeartRateBpm.takeIf { it in 120..230 } ?: 190)
             dataMap.putString("todayDayStart", dayStart)
             dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()

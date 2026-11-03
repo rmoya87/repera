@@ -1,5 +1,5 @@
 Repera exercise illustrations in this folder are original assets created for Repera.
-They are not copies of Gym visual / openGym catalogue media.
+These are original illustrations, not copies of third-party catalogue media.
 
 Última actualización: 2026-10-17
 

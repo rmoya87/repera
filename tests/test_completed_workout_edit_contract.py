@@ -68,7 +68,10 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         editor = source("Apps/Repera/Sources/PlanView.swift")
         self.assertIn("private func completedPrescribedValue(", editor)
         self.assertIn("reps == Int(prescribed) ? nil : reps", editor)
-        self.assertIn('Text(logged ? "Series registradas" : "Sin series registradas · prescripción")', editor)
+        # La edición terminada presenta los campos reales separados del
+        # valor Rx, sin volver a etiquetar inputs como series confirmadas.
+        self.assertIn('"REPS REALES"', editor)
+        self.assertIn('completedActualField(', editor)
         self.assertIn("InlineWODMovementSets(", editor)
         self.assertIn("format.resultCapture != .perMovementSets", editor)
 
@@ -127,7 +130,7 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         domain = source("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
         self.assertIn("CompletedWorkoutEditing.applying(", history)
         self.assertIn("store.saveWorkout(updated)", history)
-        self.assertIn("onApplyCompleted(edited, completedDetails)", editor)
+        self.assertIn("onApplyCompleted(edited, detailsToSave, recordNewSetsAsPerformed)", editor)
         self.assertIn("updated.wodResults = updated.wodResults.compactMap", domain)
         self.assertIn("if let recordedFormat = result.format, recordedFormat != currentFormat", domain)
         self.assertIn("entry.blockRestBetweenRoundsSeconds = block.restBetweenRoundsSeconds", domain)

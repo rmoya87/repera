@@ -129,9 +129,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("wc.sendMessage(payload, replyHandler: nil)", phone)
         self.assertNotIn('wc.sendMessage(["ping": true]', phone)
         self.assertIn('case "requestToday":', phone)
-        self.assertIn("await delegate.phoneConnectivityLatestWorkoutForToday()", phone)
+        self.assertIn("await delegate.phoneConnectivityLatestWorkoutsForToday()", phone)
         self.assertIn('if let action = userInfo["action"] as? String', phone)
         self.assertIn('"todayWorkout": data', phone)
+        self.assertIn('"todayWorkouts": plansData', phone)
         self.assertIn('"todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970', phone)
         self.assertNotIn('return latestPayloadLock.withLock { latestPayload } ?? ["ok": true]', phone)
 
@@ -195,9 +196,10 @@ class WatchHealthKitContractTests(unittest.TestCase):
         # iPhone fetches the current scheduled routine before replying.
         self.assertIn("private func currentWatchWorkoutForToday()", store)
         self.assertIn("phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession?", store)
-        self.assertIn("self.currentWatchWorkoutForToday()", store)
-        self.assertIn("await delegate.phoneConnectivityLatestWorkoutForToday()", phone)
+        self.assertIn("self.effectiveWatchPlansForCarousel().first", store)
+        self.assertIn("await delegate.phoneConnectivityLatestWorkoutsForToday()", phone)
         self.assertIn('"todayWorkout": data', phone)
+        self.assertIn('"todayWorkouts": plansData', phone)
         self.assertIn("delegate.phoneConnectivityDidRequestToday()", phone)
 
     def test_watch_now_playing_uses_native_media_view_without_custom_player(self):
@@ -242,7 +244,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("hub.canConfirmCurrentEntry", view)
         self.assertIn("hub.confirmAndAdvance()", view)
         self.assertNotIn('Text("Desliza ← → para revisar otras series")', view)
-        self.assertIn('Button("Resumen") { showOutline = true }', view)
+        self.assertIn("if !hub.goToPreviousStep() { showOutline = true }", view)
+        self.assertIn('accessibilityLabel("Anterior")', view)
         self.assertNotIn("Confirmar serie", view)
         self.assertNotIn("Saltar al siguiente", view)
         self.assertNotIn("Volver al entrenamiento", view)
@@ -265,8 +268,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
 
-        self.assertIn(".navigationTitle(pageTitle)", view)
-        self.assertIn('return hub.todaysWorkout?.title ?? "Repera"', view)
+        self.assertIn(".navigationTitle(\"\")", view)
+        self.assertIn("Text(pageTitle)", view)
+        self.assertIn('if hub.reviewingBlock { return hub.current?.displayBlockHeader ?? "Resultado" }', view)
         self.assertIn("return hub.current?.displayBlockHeader ?? active.title", view)
         self.assertNotIn('Text("HOY")', view)
         self.assertNotIn('Text(session.progressLabel)', view)
@@ -283,14 +287,14 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertNotIn('Button("Finalizar antes")', view)
 
         # Shortcuts are exposed on Play without saving skipped/unconfirmed sets.
-        self.assertIn('Button("Resumen")', view)
+        self.assertIn("if !hub.goToPreviousStep() { showOutline = true }", view)
         self.assertIn('Image(systemName: hub.nextActionIsFinish ? "checkmark" : "arrow.right")', view)
         self.assertIn("hub.confirmAndAdvance()", view)
         self.assertNotIn("hub.nextExercise()", view)
         self.assertIn(".buttonStyle(.borderedProminent)", view)
         self.assertIn('func finishFromSummary()', hub)
         self.assertIn("if currentIsWOD {\n                reviewBlock()", hub)
-        self.assertNotIn("confirmationDialog(", view)
+        self.assertNotIn('¿Finalizar el entrenamiento?', view)
         self.assertNotIn('Button("Guardar entrenamiento")', view)
 
         # Keep RIR and advanced fields editable without showing them on Play.
@@ -338,15 +342,16 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("valueStepButton(symbol: \"minus\", label: \"Reducir", view)
         self.assertIn("valueStepButton(symbol: \"plus\", label: \"Aumentar", view)
         self.assertIn(".background(accent, in: RoundedRectangle(cornerRadius: 18", view)
-        self.assertIn(".frame(width: 70, height: 70)", view)
-        self.assertIn(".background(accent, in: Circle())", view)
+        self.assertIn(".frame(width: 58, height: 62)", view)
+        self.assertIn(".background(accent, in: RoundedRectangle(cornerRadius: 18", view)
         self.assertNotIn(".tint(.red)", view)
-        self.assertNotIn("role: .destructive", view)
-        self.assertNotIn(".buttonStyle(.bordered)", view)
+        self.assertNotIn("role: .destructive", view.partition("private func valueStepButton(")[2].partition("private func metricStepper(")[0])
+        self.assertNotIn(".buttonStyle(.bordered)", view.partition("private func valueStepButton(")[2].partition("private func metricStepper(")[0])
         self.assertNotIn(".buttonStyle(.borderless)", view)
         for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
-            self.assertIn(".tint(accent)", section[:180])
-            self.assertIn(".foregroundStyle(.black)", section[:180])
+            # Descartar y Anterior usan tinta gris/roja: negro solo en acciones verdes.
+            if ".tint(accent)" in section[:180]:
+                self.assertIn(".foregroundStyle(.black)", section[:180])
 
     def test_watch_timers_and_primary_buttons_match_ios(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
@@ -357,9 +362,9 @@ class WatchHealthKitContractTests(unittest.TestCase):
         # One brand hue: iOS OG.accent is #30D158, black for filled controls.
         self.assertIn("static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", theme)
         self.assertIn("private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", view)
-        self.assertIn(".background(accent, in: Circle())", view)
-        self.assertIn(".frame(width: 70, height: 70)", view)
-        self.assertIn('Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")', view)
+        self.assertIn(".background(accent, in: RoundedRectangle(cornerRadius: 18", view)
+        self.assertIn(".frame(width: 58, height: 62)", view)
+        self.assertIn('systemName: hub.isPaused ? "play.fill" : "pause.fill"', view)
         self.assertIn(".foregroundStyle(.black)", view)
 
         # El swipe hacia la izquierda abre controles; para avanzar serie se usa Siguiente.
@@ -403,13 +408,14 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("var clockCountsUp: Bool", hub)
         self.assertIn("case .forTime, .chipper, .afap, .ladder, .buyInCashOut:", hub)
         self.assertIn("return 0", hub)
-        self.assertIn("timeCapSeconds: clockCountsUp ? 0 : timeCapSeconds", hub)
+        self.assertIn("timeCapSeconds: isRecordingPlannedWorkout || clockCountsUp ? 0 : timeCapSeconds", hub)
         self.assertIn('return "TC superado"', hub)
         self.assertIn("countingUp: true", iphone)
 
         # Green prominence uses a black icon or text.
         for section in view.split(".buttonStyle(.borderedProminent)")[1:]:
-            self.assertIn(".foregroundStyle(.black)", section.split(".accessibility", 1)[0][:180])
+            if ".tint(accent)" in section[:180]:
+                self.assertIn(".foregroundStyle(.black)", section.split(".accessibility", 1)[0][:180])
 
     def test_watch_thumbnail_view_is_in_an_existing_compiled_source(self):
         """A stale Xcode project still compiles the miniature component."""

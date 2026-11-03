@@ -32,7 +32,10 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertNotIn('Button("Permitir")', onboard)
         self.assertNotIn("await health.requestAccess(", onboard)
         self.assertNotIn("ensureWhenInUseAuthorized()", onboard)
-        self.assertIn(".task { onboarding.finishPermissions() }", onboard)
+        self.assertIn("Text(\"Tus datos, bajo tu control\")", onboard)
+        self.assertIn("onboarding.finishPermissions()", onboard)
+        self.assertNotIn(".task { onboarding.finishPermissions() }", onboard)
+        self.assertIn("Puedes rechazar los permisos", onboard)
         self.assertIn("await health.requestAccess(includeAllOptional: true)", health)
 
     def test_progress_does_not_show_independent_sleep_alert(self):
@@ -62,7 +65,7 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
         self.assertLess(tile.index("Image(systemName: icon)"), tile.index("Text(title)"))
         self.assertLess(tile.index("Text(title)"), tile.index("Text(value)"))
         self.assertIn("minHeight: 62", tile)
-        self.assertIn("VStack(alignment: .leading, spacing: 12)", tile)
+        self.assertIn("VStack(alignment: .center, spacing: 12)", tile)
         value = tile.split("Text(value)", 1)[1].split(".foregroundStyle(OG.label)", 1)[0]
         self.assertIn(".font(.system(size: 28, weight: .semibold))", value)
         self.assertIn(".minimumScaleFactor(0.7)", tile)

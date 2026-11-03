@@ -32,7 +32,7 @@ class CompletedWODPrescriptionTests(unittest.TestCase):
         view = read("Apps/Repera/Sources/PlanView.swift")
         self.assertIn("private func completedPrescribedValue(", view)
         self.assertIn("return entry.adaptedReps.map(String.init) ?? prescribed", view)
-        self.assertIn('return entry.adaptedWeightKg.map { String(format: "%g", $0) } ?? prescribed', view)
+        self.assertIn('return entry.adaptedWeightKg.map { ReperaNumberFormat.decimal($0) } ?? prescribed', view)
         self.assertIn("reps == Int(prescribed) ? nil : reps", view)
         self.assertIn("abs(kg - $0) < 0.05", view)
         self.assertNotIn("private func completedWODRxValue(", view)
@@ -40,7 +40,7 @@ class CompletedWODPrescriptionTests(unittest.TestCase):
 
     def test_completed_bridge_does_not_replace_rx_with_logged_sets(self):
         domain = read("Packages/ReperaDomain/Sources/ReperaDomain/CompletedWorkoutEditing.swift")
-        self.assertIn("preservePrescription: source.wodFormat?.resultCapture", domain)
+        self.assertIn("preservePrescription: block.wodFormat?.resultCapture != .perMovementSets", domain)
         self.assertIn("original?.explicitPlannedSets ?? entry.plannedSets", domain)
         self.assertIn("block.wodFormat == nil || block.wodFormat?.resultCapture == .perMovementSets", domain)
         self.assertIn("entry.plannedSets = sets", domain)
@@ -59,7 +59,7 @@ class CompletedWODPrescriptionTests(unittest.TestCase):
         self.assertIn("let isScaled = session.exercises.contains", review)
         self.assertIn("if !isScaled, let bands = template?.scoreBands", review)
         store = read("Apps/Repera/Sources/ReperaStore.swift")
-        self.assertIn("sessionReviewFormulaVersion = 11", store)
+        self.assertIn("sessionReviewFormulaVersion = 12", store)
 
 
 if __name__ == "__main__":

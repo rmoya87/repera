@@ -99,9 +99,10 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn(".photosPicker(",settings)
         self.assertNotIn("Quitar foto",settings)
         self.assertNotIn("Compras no configuradas en este build",settings)
-        self.assertNotIn("Programas de entrenamiento IA",settings)
-        self.assertIn("De tu entrenador IA",plan)
-        self.assertIn("AITrainingProgramsView()",plan)
+        # Eliminado Diario: los programas IA están disponibles desde Ajustes.
+        self.assertIn("Programas de entrenamiento IA", settings)
+        self.assertIn("AITrainingProgramsView()", settings)
+        self.assertNotIn("AITrainingProgramsView()", plan)
         self.assertNotIn("syncFeedback", settings)
 
     def test_percent_load_kept_as_percent_not_fabricated_kg(self):

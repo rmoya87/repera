@@ -608,7 +608,6 @@ internal fun HomeTab(
             occurrence = occurrence,
             snapshot = centerSnapshot,
             dayFmt = dayFmt,
-            dateFmt = dateFmt,
             submitting = centerSubmitting,
             loadRoster = loadClassRoster,
             onBook = onBookClass,

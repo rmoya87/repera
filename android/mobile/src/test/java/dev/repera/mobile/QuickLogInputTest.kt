@@ -3,6 +3,15 @@ import dev.repera.domain.ExerciseInputMode.*
 import org.junit.Assert.*
 import org.junit.Test
 class QuickLogInputTest {
+ @Test fun typedOutOfRangeValuesAreRejectedBeforeClamping() {
+  assertFalse(QuickLogInput.validIntText("150",99))
+  assertFalse(QuickLogInput.validIntText("99999999999999",100_000))
+  assertTrue(QuickLogInput.validIntText("42",99))
+  assertTrue(QuickLogInput.validIntText("",99))
+  assertFalse(QuickLogInput.validWeightText("2000"))
+  assertFalse(QuickLogInput.validWeightText("texto"))
+  assertTrue(QuickLogInput.validWeightText("42,5"))
+ }
  @Test fun intClampsToZeroAndCapLikeAppleParseInt() {
   assertEquals(0,QuickLogInput.int("",99));assertEquals(0,QuickLogInput.int("abc",99));assertEquals(0,QuickLogInput.int("-5",99))
   assertEquals(99,QuickLogInput.int("150",99));assertEquals(60,QuickLogInput.int("61",QuickLogInput.MAX_DEFICIT_CM))

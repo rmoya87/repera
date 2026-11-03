@@ -2986,6 +2986,11 @@ struct LiveActivityView: View {
                     kilometerSplitSummary
                         .padding(.horizontal, 8)
                 }
+                Image(systemName: mapDetailsExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(OG.label3)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
@@ -2997,6 +3002,7 @@ struct LiveActivityView: View {
                 mapDetailsExpanded ? "Contraer detalles del mapa" : "Ampliar detalles del mapa"
             )
             .accessibilityHint("Muestra u oculta desnivel y frecuencia cardíaca")
+            .accessibilityValue(mapDetailsExpanded ? "Desplegado" : "Contraído")
             .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: mapDetailsExpanded)
             .onChange(of: recorder.sessionID) { _, next in
                 if next != nil { mapDetailsExpanded = false }

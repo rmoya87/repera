@@ -169,6 +169,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    val maxHeartRateBpm = remember(accountId) {
+        trainingSettingsForAccount(context, accountId).heartRateMaxBpm ?: 190
+    }
     // Mapa begins compact for every new live activity; Métricas remains full.
     var mapDetailsExpanded by remember(accountId, state.gpsSessionID) {
         mutableStateOf(false)
@@ -326,8 +329,28 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         }
     }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        beginStartCountdown()
+    var confirmRecordingWithoutGPS by remember(accountId) { mutableStateOf(false) }
+    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) beginStartCountdown()
+        else confirmRecordingWithoutGPS = true
+    }
+    if (confirmRecordingWithoutGPS) {
+        AlertDialog(
+            onDismissRequest = { confirmRecordingWithoutGPS = false },
+            title = { Text("Ubicación no autorizada") },
+            text = { Text("Puedes registrar el tiempo sin recorrido GPS o volver para activar la ubicación.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRecordingWithoutGPS = false
+                    beginStartCountdown()
+                }) { Text("Continuar sin GPS") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRecordingWithoutGPS = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -862,7 +885,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                 } else {
                     LiveMapMetricStrip(state = state, nowTick = nowTick, bpm = displayedHeartRateBpm,
-                        expanded = mapDetailsExpanded)
+                        expanded = mapDetailsExpanded, maxBpm = maxHeartRateBpm.toDouble())
                 }
             }
         }
@@ -1022,7 +1045,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 state.phase == LiveActivityState.Phase.PAUSED) {
                 LiveHeartRateZoneBar(
                     bpm = displayedHeartRateBpm,
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
+                    estimatedMaxBpm = maxHeartRateBpm.toDouble()
                 )
             }
             if (state.sport.tracksElevation && state.hasElevationSamples) {
@@ -1222,7 +1246,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
             if (state.phase == LiveActivityState.Phase.RECORDING ||
                 state.phase == LiveActivityState.Phase.PAUSED) {
-                LiveHeartRateZoneBar(bpm = displayedHeartRateBpm)
+                LiveHeartRateZoneBar(bpm = displayedHeartRateBpm,
+                    estimatedMaxBpm = maxHeartRateBpm.toDouble())
             }
             if(state.sport.usesGPS) {
                 Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
@@ -1647,7 +1672,7 @@ private fun LiveKilometerSplitSummary(
 /** Panel activo: duración, ritmo/velocidad, distancia + parcial del km (paridad mapMetricStrip iOS). */
 @Composable
 private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?,
-    expanded: Boolean) {
+    expanded: Boolean, maxBpm: Double) {
     val durationSec = state.durationSeconds(nowTick)
     val durationText = LiveActivityClock.format(durationSec)
     val average = state.averageSpeedKmh(nowTick)
@@ -1701,7 +1726,8 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             LiveHeartRateZoneBar(
                 bpm = bpm,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                estimatedMaxBpm = maxBpm
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
@@ -1709,6 +1735,13 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
             state = state,
             nowTick = nowTick,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
+        Text(
+            if (expanded) "Ocultar detalles  ⌃" else "Mostrar detalles  ⌄",
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }

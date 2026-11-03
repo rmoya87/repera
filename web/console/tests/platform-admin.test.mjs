@@ -72,8 +72,8 @@ test('Planes se muestran agrupados y se edita solo un formulario',()=>{
 });
 
 test('Detalle de centro tiene acceso directo y control de estado sin formulario de motivo',()=>{
- const output=renderPlatformAdmin({...base,tab:'centers',selectedOrg:id});
- assert.match(output,/Datos del centro/);
+ const output=renderPlatformAdmin({...base,tab:'centers',selectedOrg:id,centerDetail:{center:{is_discoverable:false},team:[],clients:[],services:[],groups:[],payments:[]}});
+ assert.match(output,/Información del centro/);
  assert.match(output,/data-admin-action="access-center"/);
  assert.doesNotMatch(output,/data-admin-form="delegate"/);
  assert.doesNotMatch(output,/Motivo del acceso delegado/);

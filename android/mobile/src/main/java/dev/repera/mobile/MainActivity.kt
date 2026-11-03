@@ -692,7 +692,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     ?: return@runCatching false
                 (0 until rows.length()).any {
                     val w = rows.optJSONObject(it)
-                    w != null && w.optString("id") == workoutID && w.optString("phase") == "finished"
+                    w != null && w.optString("id") == workoutID &&
+                        w.optString("phase") == "finished" &&
+                        w.optBoolean("awaitingResultEntry") &&
+                        w.isNull("timerDetails")
                 }
             }.getOrDefault(false)
             return if (saved) "historial-editar/" + Uri.encode(workoutID) else "inicio"
@@ -2522,14 +2525,31 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val (plan, recents, muted) = withContext(Dispatchers.IO) {
                 val repo = WorkoutRepository(this@MainActivity, userId)
                 Triple(
-                    repo.effectivePlanSession(professional = pro),
+                    run {
+                        val plans = repo.allTodayPlanSessions(professional = pro)
+                        val primary = plans.firstOrNull() ?: repo.effectivePlanSession(professional = pro)
+                        primary?.let { current ->
+                            JSONObject(current.toString()).apply {
+                                if (plans.size > 1) {
+                                    put("_otherTodayPlans", org.json.JSONArray().apply {
+                                        plans.drop(1).forEach { put(it) }
+                                    })
+                                }
+                            }
+                        }
+                    },
                     repo.recentLiveSportIDsForWatch(),
                     WearActiveSessionBridge.watchHubAudioMuted(this@MainActivity)
                 )
             }
             if (profile?.uniqueId != userId) return@launch
+            val maxBpm = withContext(Dispatchers.IO) {
+                trainingSettingsForAccount(this@MainActivity, userId).heartRateMaxBpm ?: 190
+            }
+            if (profile?.uniqueId != userId) return@launch
             WearActiveSessionBridge.publishTodayPlan(
-                this@MainActivity, plan, recents, muted
+                this@MainActivity, plan, recents, muted,
+                maxHeartRateBpm = maxBpm
             )
         }
     }

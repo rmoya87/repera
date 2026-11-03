@@ -6,6 +6,7 @@ import os
 protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceive(session: WorkoutSession?)
     func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?)
+    func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?)
     func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)
     func watchConnectivityDidReceiveTerminal(sessionId: UUID, saved: Bool)
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
@@ -15,6 +16,7 @@ protocol WatchConnectivityClientDelegate: AnyObject {
 }
 
 extension WatchConnectivityClientDelegate {
+    func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?) {}
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
     func watchConnectivityDidBecomeReachable() {}
@@ -31,6 +33,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private var lastTerminalEvent: String?
     private var lastInboundToday: Data?
     private var lastInboundTodayDay: TimeInterval?
+    private var lastInboundTodayPlans: Data?
+    private var lastInboundTodayPlansDay: TimeInterval?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -375,6 +379,10 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 .flatMap(UUID.init(uuidString:))
             delegate?.watchConnectivityDidAcknowledge(sessionId: id, healthKitUUID: healthID)
         }
+        if let maxBpm = payload["maxHeartRateBpm"] as? Int,
+           (120...230).contains(maxBpm) {
+            UserDefaults.standard.set(maxBpm, forKey: "repera.watch.heartRate.maxBpm")
+        }
         if let data = payload["todayWorkout"] as? Data {
             let dayStamp = payload["todayDayStart"] as? TimeInterval
             if data != lastInboundToday || dayStamp != lastInboundTodayDay {
@@ -384,6 +392,18 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 let today = data.isEmpty ? nil : try? JSONDecoder().decode(WorkoutSession.self, from: data)
                 delegate?.watchConnectivityDidReceiveToday(
                     today, scheduledDay: dayStamp.map(Date.init(timeIntervalSince1970:))
+                )
+            }
+        }
+        if let data = payload["todayWorkouts"] as? Data {
+            let dayStamp = payload["todayDayStart"] as? TimeInterval
+            if data != lastInboundTodayPlans ||
+               dayStamp != lastInboundTodayPlansDay {
+                lastInboundTodayPlans = data
+                lastInboundTodayPlansDay = dayStamp
+                let plans = (try? JSONDecoder().decode([WorkoutSession].self, from: data)) ?? []
+                delegate?.watchConnectivityDidReceiveTodayPlans(
+                    plans, scheduledDay: dayStamp.map(Date.init(timeIntervalSince1970:))
                 )
             }
         }

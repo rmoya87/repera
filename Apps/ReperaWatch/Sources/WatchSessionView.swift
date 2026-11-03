@@ -301,10 +301,12 @@ struct WatchSessionView: View {
                         Button("Reintentar guardar") { hub.controlLiveActivity("finish") }
                             .buttonStyle(.borderedProminent)
                             .tint(accent)
+                            .foregroundStyle(.black)
                     }
                     Button("Volver al inicio") { hub.returnToHome() }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
+                        .foregroundStyle(.black)
                 }
             }
             .padding(.horizontal, 6)

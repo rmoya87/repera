@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-10-20 (alias EN variantes + tabla compartida con ExerciseSearch)
+Última actualización: 2026-11-03 (alias EN variantes, BTT, C&J y matching canónico de OCR)
 
 ## Objetivo
 
@@ -31,6 +31,8 @@ Regresión del 19/10/2026: pizarra con tres bloques:
 1. `EMOM 8’ @6-8`: 8 minutos, 2 High Hang Squat Snatch por estación; intensidad original conservada.
 2. `EVERY 2’ X 4` + `4-3-3-2 BACK SQUAT @6-8`: **bloque de fuerza** con series 4, 3, 3 y 2; la cadencia y el RPE quedan en notas, nunca convertidos arbitrariamente en RIR.
 3. `4 RFT (TC 12’)`: 4 rondas, cap 12 min, 6 Power Snatch 40/25, 8 BOB (**Bar facing burpee** / burpee over the bar), 10 Back Rack Reverse Lunges 40/25 y descanso de 60 s. Si OCR pega `4RFf` o `8BOB`, sigue siendo cabecera RFT + movimiento BOB (no un «Movimiento» suelto dentro del EVERY).
+
+El parser reconoce `C&J` como *Clean and Jerk* (incluida la variante con DB) antes de aplicar equivalencias parciales de `clean`; esto evita confundir la cargada con el compuesto de cargada y envión.\n\nLos nombres de los movimientos se enlazan con las fichas de catálogo usando sus identidades canónicas EN (`SportExerciseNames.canonicalName`), pero siguen mostrando sus alias ES en la UI. Así, `HIGH HSQ SNATCH`, `BACK RACK R. LUNGES`, `ALT DB HANG C&J` y `KB Goblet Alt Box Step Up` no deben perder el UUID por usar vocabulario de pizarra o confundirse con sentadilla goblet.
 
 El catálogo resuelve abreviaturas en inglés y español vía `CrossFitGlossary.canonicalName` (y, si falta en el glosario, la misma tabla EN↔catálogo que `ExerciseSearch`). Así `chin up`, `walking lunge`, `ring pull-up`, etc. caen en la ficha concreta. Una variante no encontrada no debe descartarse: se conserva como movimiento WOD editable. El emparejamiento local utiliza mapa indexado de nombres/canónicos, no comparación difusa por ejercicio; si se añaden nuevos alias, actualizarlos en `CrossFitGlossary` y/o `ExerciseSearch.bilingualPhrases`. En fuerza, se asigna `targetRir` **solo** cuando se identifica explícitamente `@RIR N`; `@6-8` no significa RIR y se mantiene como nota.
 

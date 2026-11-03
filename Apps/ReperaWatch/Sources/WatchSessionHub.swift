@@ -14,6 +14,7 @@ import WidgetKit
 final class WatchSessionHub: NSObject {
     private(set) var controller: SessionController?
     private(set) var todayPlan: WorkoutSession?
+    private(set) var todayPlans: [WorkoutSession] = []
     private(set) var lastFinished: WorkoutSession?
     private(set) var liveActivity: WatchLiveActivitySnapshot?
     private(set) var liveCommandError: String?
@@ -87,6 +88,7 @@ final class WatchSessionHub: NSObject {
     private struct OfflineState: Codable {
         var current: WorkoutSession?
         var today: WorkoutSession?
+        var todayPlans: [WorkoutSession]?
         var todayUpdatedAt: Date?
         var finished: WorkoutSession?
         var paused: Bool
@@ -120,14 +122,17 @@ final class WatchSessionHub: NSObject {
     var todaysWorkout: WorkoutSession? {
         // El día de sync es hoy; el plan puede ser de un día atrasado (efectivo).
         guard let todayUpdatedAt, Calendar.current.isDateInToday(todayUpdatedAt) else { return nil }
-        return todayPlan
+        return todayPlan ?? todayPlans.first
     }
 
-    /// Carrusel del hub: plan → recientes → resto del catálogo.
+    /// Carrusel del hub: todos los planes del día → recientes → catálogo.
     var hubCarouselItems: [WatchHubItem] {
         var items: [WatchHubItem] = []
-        if let plan = todaysWorkout, !plan.exercises.isEmpty {
-            items.append(.plan(plan))
+        if let updated = todayUpdatedAt, Calendar.current.isDateInToday(updated) {
+            let choices = todayPlans.isEmpty ? todayPlan.map { [$0] } ?? [] : todayPlans
+            for plan in choices where !plan.exercises.isEmpty {
+                items.append(.plan(plan))
+            }
         }
         var seen = Set<String>()
         for id in recentLiveSportIDs {
@@ -888,6 +893,12 @@ final class WatchSessionHub: NSObject {
             hubCarouselIndex = 0
             saveHubPrefs()
         }
+    }
+
+    func selectTodayPlan(_ id: UUID) {
+        guard let plan = todayPlans.first(where: { $0.id == id }) else { return }
+        todayPlan = plan
+        save()
     }
 
     func startToday() {
@@ -1733,7 +1744,8 @@ final class WatchSessionHub: NSObject {
 
     private func save() {
         let snapshot = OfflineState(
-            current: active, today: todayPlan, todayUpdatedAt: todayUpdatedAt,
+            current: active, today: todayPlan, todayPlans: todayPlans,
+            todayUpdatedAt: todayUpdatedAt,
             finished: lastFinished, paused: isPaused, restRemaining: restRemaining,
             blockElapsed: blockElapsed, sessionElapsed: sessionElapsed,
             workingReps: workingReps, workingWeightKg: workingWeightKg,
@@ -1757,6 +1769,7 @@ final class WatchSessionHub: NSObject {
               let snapshot = try? JSONDecoder().decode(OfflineState.self, from: data) else { return }
         controller = snapshot.current.map(SessionController.init(session:))
         todayPlan = snapshot.today
+        todayPlans = snapshot.todayPlans ?? snapshot.today.map { [$0] } ?? []
         todayUpdatedAt = snapshot.todayUpdatedAt
         lastFinished = snapshot.finished
         isPaused = snapshot.paused
@@ -1900,7 +1913,33 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 
     nonisolated func watchConnectivityDidReceiveToday(_ today: WorkoutSession?, scheduledDay: Date?) {
         Task { @MainActor in
-            self.todayPlan = today
+            let sameDay: Bool
+            if let day = scheduledDay, let previous = self.todayUpdatedAt {
+                sameDay = Calendar.current.isDate(day, inSameDayAs: previous)
+            } else {
+                sameDay = false
+            }
+            let selectedRoutineID = self.todayPlan?.routineId
+            let selectedStillAvailable = selectedRoutineID != nil && self.todayPlans.contains {
+                $0.routineId == selectedRoutineID
+            }
+            if !sameDay || !selectedStillAvailable {
+                self.todayPlan = today
+            }
+            self.todayUpdatedAt = scheduledDay
+            self.save()
+        }
+    }
+
+    nonisolated func watchConnectivityDidReceiveTodayPlans(
+        _ plans: [WorkoutSession], scheduledDay: Date?
+    ) {
+        Task { @MainActor in
+            let selectedRoutineID = self.todayPlan?.routineId
+            self.todayPlans = plans
+            self.todayPlan = plans.first(where: {
+                selectedRoutineID != nil && $0.routineId == selectedRoutineID
+            }) ?? plans.first
             self.todayUpdatedAt = scheduledDay
             self.save()
         }

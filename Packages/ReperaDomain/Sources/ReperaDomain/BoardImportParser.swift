@@ -876,9 +876,12 @@ public enum BoardImportParser {
         // RKBS → Kettlebell Swing, nunca Kip swing).
         let canonical = CrossFitGlossary.canonicalName(for: name)
         let candidates = [
-            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(canonical)),
+            // Exact match before fuzzy partial matches (DB clean + jerk, RKBS).
+            CrossFitGlossary.normalize(name),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(name)),
-            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(canonical)),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: cleaned))),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.expand(cleaned))),
             CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
             CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
             CrossFitGlossary.normalize(cleaned),
@@ -1512,7 +1515,13 @@ public enum CrossFitGlossary {
         }
 
         working = cleanMovementLabel(working)
-        let canonical = canonicalName(for: working.isEmpty ? raw : working)
+        // C&J must not be shortened to Clean by a partial glossary match.
+        let isCleanAndJerk = raw.range(
+            of: #"(?i)\bC\s*&\s*J\b|\bCLEAN\s*(?:AND|&)\s*JERK\b"#,
+            options: .regularExpression
+        ) != nil
+        let canonical = isCleanAndJerk ? "Clean and Jerk"
+            : canonicalName(for: working.isEmpty ? raw : working)
         let name = preferEquipmentVariant(
             name: canonical.isEmpty ? working : canonical,
             equipment: equipment
@@ -1626,7 +1635,7 @@ public enum CrossFitGlossary {
                 return "Step-up al cajón con doble mancuerna"
             }
             if n.contains("cargada y envion") || n.contains("clean and jerk") || n.contains("c&j") {
-                return "Cargada y envión con mancuerna"
+                return "Dumbbell Clean and Jerk"
             }
             if isSnatchFamily(n) { return "Snatch mancuerna" }
             if isCleanFamily(n) { return "Clean mancuerna" }
@@ -1651,6 +1660,10 @@ public enum CrossFitGlossary {
             if isCleanFamily(n) { return "Clean kettlebell" }
             if n.contains("thruster") { return "Thruster kettlebell" }
             if n.contains("swing") { return n.contains("american") ? "Swing americano" : "Swing kettlebell" }
+            // Goblet step-up is not a Goblet squat: preserve catalog UUID.
+            if n.contains("step up") || n.contains("stepup") {
+                return "Kettlebell Goblet Box Step-Up"
+            }
             if n.contains("goblet") || (n.contains("sentadilla") && n.contains("goblet")) {
                 return "Goblet squat"
             }
