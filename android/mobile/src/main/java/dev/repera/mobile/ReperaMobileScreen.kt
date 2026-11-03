@@ -439,9 +439,18 @@ fun ReperaMobileScreen(
         LaunchedEffect(hasLinkedCenter, currentRoute) {
             if (!hasLinkedCenter && currentRoute == "plus") navigateTab("inicio")
         }
-        LaunchedEffect(initialExternalRoute) {
-            initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" || it == "entreno-activo" }?.let {
-                navigateTab(LiveNavigationTarget.resolvedRoute(it,activeWorkout!=null))
+        LaunchedEffect(initialExternalRoute, overview?.completeHistory) {
+            val route = initialExternalRoute ?: return@LaunchedEffect
+            if (route.startsWith("historial-editar/")) {
+                // Wait for authenticated history: navigating during the splash
+                // would cause an empty editor and a premature back navigation.
+                val id = Uri.decode(route.substringAfter("historial-editar/"))
+                if (overview?.completeHistory.orEmpty().any { it.id == id }) {
+                    navController.navigate(route) { launchSingleTop = true }
+                    onExternalRouteHandled()
+                }
+            } else if (route == "en-vivo" || route == "inicio" || route == "entreno-activo") {
+                navigateTab(LiveNavigationTarget.resolvedRoute(route, activeWorkout != null))
                 onExternalRouteHandled()
             }
         }
