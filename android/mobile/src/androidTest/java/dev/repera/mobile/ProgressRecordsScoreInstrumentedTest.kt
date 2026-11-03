@@ -38,7 +38,7 @@ class ProgressRecordsScoreInstrumentedTest {
   compose.setContent {MaterialTheme(colorScheme=reperaColorScheme(false)) {Box(Modifier.fillMaxSize().safeDrawingPadding()) {
    SessionScoreProgressCard(listOf(ProgressDayPoint(java.time.LocalDate.of(2026,10,24),6.0),ProgressDayPoint(java.time.LocalDate.of(2026,10,25),8.0)))
   }}}
-  compose.onNodeWithText("7/10").assertIsDisplayed();capture("progreso_puntuaciones.png")
+  compose.onNodeWithContentDescription("Puntuación media 7 de 10").assertExists();capture("progreso_puntuaciones.png")
  }
  private fun capture(name:String) {
   compose.waitForIdle();val instrument=InstrumentationRegistry.getInstrumentation();val context=instrument.targetContext
