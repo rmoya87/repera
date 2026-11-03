@@ -81,7 +81,7 @@ internal fun SessionReviewCard(review: SessionReview, startsExpanded: Boolean = 
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        review.indicators.firstOrNull { it.score != null }?.let { metric ->
+                        review.indicators.filter { it.score != null }.forEach { metric ->
                             Text("${metric.dimension.title} · ${metric.score}/10",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
