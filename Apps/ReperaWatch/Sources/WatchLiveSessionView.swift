@@ -120,7 +120,7 @@ struct WatchLiveSessionView: View {
         guard let point = hub.watchLiveLastCoordinate else { return }
         conditionsLoading = conditions == nil
         lastConditionsFetch = Date()
-        let snap = await OpenMeteoConditionsClient.fetch(
+        let snap = await AppleWeatherConditionsClient.fetch(
             latitude: point.latitude,
             longitude: point.longitude,
             sportID: sport.rawValue

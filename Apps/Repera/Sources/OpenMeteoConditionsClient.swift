@@ -1,7 +1,7 @@
 import Foundation
 import ReperaDomain
 
-/// Condiciones Open-Meteo (gratis, sin API key): marea/oleaje/nieve.
+/// Solo marea, oleaje y profundidad de nieve no proporcionadas por WeatherKit.
 enum OpenMeteoConditionsClient {
     private static let userAgent = "ReperaiOS/1.0 (activity conditions; +https://repera.app)"
 
@@ -12,10 +12,11 @@ enum OpenMeteoConditionsClient {
         at date: Date = Date()
     ) async -> ActivityConditionsSnapshot? {
         let family = ActivityConditionsSnapshot.family(forLiveSportID: sportID)
-        guard family != .none else { return nil }
+        guard family == .water || family == .snow else { return nil }
         var forecastData: Data?
         var marineData: Data?
-        if let url = ActivityConditionsLogic.forecastURL(latitude: latitude, longitude: longitude) {
+        if family == .snow,
+           let url = ActivityConditionsLogic.snowDepthURL(latitude: latitude, longitude: longitude) {
             forecastData = try? await get(url)
         }
         if family == .water,

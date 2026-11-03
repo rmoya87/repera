@@ -1,5 +1,10 @@
 # Repera
 
+## Meteorología iPhone / Apple Watch — App Review 5.2.5 (2026-11-03)
+
+WeatherKit (Apple Weather) aporta temperatura, humedad, viento y nevada horaria en iOS/watchOS; Open-Meteo se reserva para mareas, oleaje y espesor de nieve que WeatherKit no proporciona. Ambos proveedores aparecen identificados en las tarjetas con enlaces legales, incluyendo la marca oficial Apple Weather. Android/Wear mantienen Open-Meteo. **Antes de publicar, activar WeatherKit en el identificador Watch, verificar los datos y la marca en dispositivos físicos, adjuntar vídeo a App Review y contratar una licencia comercial para el uso de la API Open-Meteo.** Guía: [docs/WEATHER_SOURCES.md](docs/WEATHER_SOURCES.md).
+
+
 ## Repera Business — PT agenda-first + F1–F9 (2026-11-01)
 
 Consola PT: nav **Agenda / Clientes**, ajustes al tocar identidad (sin Config), agenda mes/día, crear cita, invitar modal, ficha con entreno rápido/chat/bonos, tarifas bono/mensual/ilimitado, clases de gym asignadas (aceptar/mover/cancelar vía `coach_*`). Gym: recepción + menú completo. Favicon = AppIcon iOS. Chat/Center/invites/entitlements/push outbox (F1–F9). Migraciones `2026110112*`–`2026110118*`. Sin Stripe ni producción. Detalle: `docs/business/ESTADO_DESARROLLO.md`.

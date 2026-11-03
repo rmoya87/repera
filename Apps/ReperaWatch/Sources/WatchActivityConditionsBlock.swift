@@ -1,59 +1,90 @@
 import ReperaDomain
 import SwiftUI
 
-/// Muestra únicamente condiciones realmente disponibles para la actividad.
-/// No ocupa altura ni presenta una sección vacía mientras carga o falla Open-Meteo.
+/// Identifica la procedencia real de cada grupo; nunca atribuye Open-Meteo a Apple.
 struct WatchActivityConditionsBlock: View {
     let conditions: ActivityConditionsSnapshot?
     let loading: Bool
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
 
+    private var hasApple: Bool {
+        conditions?.airSource == .appleWeather ||
+            conditions?.snowfallSource == .appleWeather
+    }
+
+    private var hasMarineOrSnowDepth: Bool {
+        guard let conditions else { return false }
+        return conditions.tideHeightMeters != nil || conditions.nextTideLabel != nil ||
+            conditions.waveHeightMeters != nil || conditions.snowDepthMeters != nil
+    }
+
     var body: some View {
         Group {
-            if let conditions, hasVisibleMetrics(conditions) {
+            if let conditions, hasApple || hasMarineOrSnowDepth {
                 VStack(alignment: .leading, spacing: 9) {
                     Label("Condiciones", systemImage: "cloud.sun")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
 
-                    if let temp = valid(conditions.temperatureC) {
-                        row("thermometer", "Temperatura", String(format: "%.0f °C", temp))
-                    }
-                    if let wind = valid(conditions.windKmh) {
-                        row("wind", "Viento", String(format: "%.0f km/h", wind))
-                    }
-                    if conditions.family == .water {
-                        if let height = valid(conditions.tideHeightMeters) {
-                            let trend = conditions.tideTrendLabel.map { " · \($0)" } ?? ""
-                            row("water.waves", "Marea", String(format: "%.2f m%@", height, trend))
+                    if conditions.airSource == .appleWeather {
+                        sourceHeading("Apple Weather")
+                        if let temp = valid(conditions.temperatureC) {
+                            row("thermometer", "Temperatura", String(format: "%.0f °C", temp))
                         }
-                        if let next = conditions.nextTideLabel, !next.isEmpty {
-                            row("clock", "Próxima marea", next)
+                        if let humidity = valid(conditions.humidity) {
+                            row("humidity.fill", "Humedad", String(format: "%.0f %%", humidity * 100))
                         }
-                        if let waves = valid(conditions.waveHeightMeters) {
-                            row("water.waves", "Oleaje", String(format: "%.1f m", waves))
+                        if let wind = valid(conditions.windKmh) {
+                            row("wind", "Viento", String(format: "%.0f km/h", wind))
                         }
                     }
-                    if conditions.family == .snow {
-                        if let snowfall = valid(conditions.snowfallCm), snowfall > 0 {
-                            row("snowflake", "Nevada", String(format: "%.1f cm/h", snowfall))
+                    if conditions.family == .snow,
+                       conditions.snowfallSource == .appleWeather,
+                       let snowfall = valid(conditions.snowfallCm), snowfall > 0 {
+                        if conditions.airSource != .appleWeather {
+                            sourceHeading("Apple Weather")
                         }
-                        if let depth = valid(conditions.snowDepthMeters), depth > 0 {
-                            row("snowflake", "Nieve", String(format: "%.0f cm", depth * 100))
+                        row("snowflake", "Nevada", String(format: "%.1f cm/h", snowfall))
+                    }
+
+                    if hasMarineOrSnowDepth {
+                        sourceHeading("Open-Meteo")
+                        if conditions.family == .water {
+                            if let height = valid(conditions.tideHeightMeters) {
+                                let trend = conditions.tideTrendLabel.map { " · \($0)" } ?? ""
+                                row("water.waves", "Marea", String(format: "%.2f m%@", height, trend))
+                            }
+                            if let next = conditions.nextTideLabel, !next.isEmpty {
+                                row("clock", "Próxima marea", next)
+                            }
+                            if let waves = valid(conditions.waveHeightMeters) {
+                                row("water.waves", "Oleaje", String(format: "%.1f m", waves))
+                            }
+                        }
+                        if conditions.family == .snow,
+                           let depth = valid(conditions.snowDepthMeters), depth > 0 {
+                            row("snowflake", "Nieve acumulada", String(format: "%.0f cm", depth * 100))
                         }
                     }
 
-                    if let tip = conditions.disclaimer, !tip.isEmpty {
-                        Text(tip)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if !conditions.attribution.isEmpty {
-                        Text(conditions.attribution)
+                    if conditions.family == .water {
+                        Text("Mareas orientativas; no usar para navegar")
                             .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if hasApple {
+                        AppleWeatherAttributionView(compact: true)
+                    }
+                    if hasMarineOrSnowDepth {
+                        HStack(spacing: 3) {
+                            Link("Open-Meteo", destination: URL(string: "https://open-meteo.com/")!)
+                            Text("·")
+                            Link("CC BY 4.0", destination: URL(string: "https://creativecommons.org/licenses/by/4.0/")!)
+                        }
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -70,20 +101,10 @@ struct WatchActivityConditionsBlock: View {
         return value
     }
 
-    private func hasVisibleMetrics(_ conditions: ActivityConditionsSnapshot) -> Bool {
-        if valid(conditions.temperatureC) != nil || valid(conditions.windKmh) != nil {
-            return true
-        }
-        if conditions.family == .water {
-            return valid(conditions.tideHeightMeters) != nil
-                || (conditions.nextTideLabel?.isEmpty == false)
-                || valid(conditions.waveHeightMeters) != nil
-        }
-        if conditions.family == .snow {
-            return (valid(conditions.snowfallCm) ?? 0) > 0
-                || (valid(conditions.snowDepthMeters) ?? 0) > 0
-        }
-        return false
+    private func sourceHeading(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
     }
 
     private func row(_ symbol: String, _ label: String, _ value: String) -> some View {

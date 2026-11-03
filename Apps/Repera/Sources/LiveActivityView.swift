@@ -1556,7 +1556,7 @@ final class LiveActivityRecorder: NSObject {
         )
     }
 
-    /// Refresco Open-Meteo ~cada 12 min (o forzado) con la última coordenada.
+    /// Refresco WeatherKit + complementos marinos/nieve ~cada 12 min.
     func refreshConditionsIfNeeded(force: Bool = false) {
         let family = ActivityConditionsSnapshot.family(forLiveSportID: sport.rawValue)
         guard family != .none else { return }
@@ -1573,7 +1573,7 @@ final class LiveActivityRecorder: NSObject {
         let sportID = sport.rawValue
         conditionsTask?.cancel()
         conditionsTask = Task { @MainActor in
-            let snap = await OpenMeteoConditionsClient.fetch(
+            let snap = await AppleWeatherConditionsClient.fetch(
                 latitude: coord.latitude,
                 longitude: coord.longitude,
                 sportID: sportID

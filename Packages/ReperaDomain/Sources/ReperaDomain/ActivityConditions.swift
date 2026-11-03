@@ -8,13 +8,19 @@ public enum ActivityConditionsFamily: String, Codable, Sendable, Equatable {
     case none
 }
 
+/// Proveedor de cada grupo de datos (opcional para migrar snapshots antiguos).
+public enum ActivityConditionsSource: String, Codable, Sendable, Equatable {
+    case appleWeather
+    case openMeteo
+}
+
 public enum TideTrend: String, Codable, Sendable, Equatable {
     case rising
     case falling
     case slack
 }
 
-/// Snapshot gratuito (Open-Meteo) de condiciones; orientativo, no náutico.
+/// Snapshot de WeatherKit + complementos Open-Meteo; orientativo, no náutico.
 public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
     public var family: ActivityConditionsFamily
     public var capturedAt: Date
@@ -25,6 +31,11 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
     public var nextTideLabel: String?
     public var waveHeightMeters: Double?
     public var snowfallCm: Double?
+    /// Humedad obtenida exclusivamente de WeatherKit en Apple.
+    public var humidity: Double?
+    /// nil en snapshots anteriores; no se atribuyen datos históricos a Apple.
+    public var airSource: ActivityConditionsSource?
+    public var snowfallSource: ActivityConditionsSource?
     public var snowDepthMeters: Double?
     public var attribution: String
     public var disclaimer: String?
@@ -41,7 +52,10 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
         snowfallCm: Double? = nil,
         snowDepthMeters: Double? = nil,
         attribution: String = "Open-Meteo",
-        disclaimer: String? = nil
+        disclaimer: String? = nil,
+        humidity: Double? = nil,
+        airSource: ActivityConditionsSource? = nil,
+        snowfallSource: ActivityConditionsSource? = nil
     ) {
         self.family = family
         self.capturedAt = capturedAt
@@ -52,6 +66,9 @@ public struct ActivityConditionsSnapshot: Codable, Equatable, Sendable {
         self.nextTideLabel = nextTideLabel
         self.waveHeightMeters = waveHeightMeters
         self.snowfallCm = snowfallCm
+        self.humidity = humidity
+        self.airSource = airSource
+        self.snowfallSource = snowfallSource
         self.snowDepthMeters = snowDepthMeters
         self.attribution = attribution
         self.disclaimer = disclaimer
@@ -89,20 +106,17 @@ public enum ActivityConditionsLogic {
         (value * 100).rounded() / 100
     }
 
-    public static func forecastURL(latitude: Double, longitude: Double) -> URL? {
+    /// Solo acumulación de nieve: WeatherKit suministra temperatura/viento/nevada.
+    public static func snowDepthURL(latitude: Double, longitude: Double) -> URL? {
         let lat = roundCoordinate(latitude)
         let lon = roundCoordinate(longitude)
         var c = URLComponents(string: "https://api.open-meteo.com/v1/forecast")
         c?.queryItems = [
             .init(name: "latitude", value: "\(lat)"),
             .init(name: "longitude", value: "\(lon)"),
-            .init(
-                name: "hourly",
-                value: "temperature_2m,wind_speed_10m,snowfall,snow_depth"
-            ),
+            .init(name: "hourly", value: "snow_depth"),
             .init(name: "forecast_days", value: "2"),
-            .init(name: "timezone", value: "auto"),
-            .init(name: "wind_speed_unit", value: "kmh")
+            .init(name: "timezone", value: "auto")
         ]
         return c?.url
     }
@@ -141,12 +155,9 @@ public enum ActivityConditionsLogic {
            let times = hourly["time"] as? [String] {
             let idx = closestIndex(times: times, to: date)
             if let idx {
-                snap.temperatureC = doubleAt(hourly["temperature_2m"], idx)
-                snap.windKmh = doubleAt(hourly["wind_speed_10m"], idx)
-                    ?? doubleAt(hourly["windspeed_10m"], idx)
+                // El cliente Apple solo solicita snow_depth. Nunca mezcla
+                // temperatura, viento o nevada de Open-Meteo con WeatherKit.
                 if family == .snow {
-                    // Open-Meteo snowfall = cm en la hora; snow_depth = m.
-                    snap.snowfallCm = doubleAt(hourly["snowfall"], idx)
                     snap.snowDepthMeters = doubleAt(hourly["snow_depth"], idx)
                 }
             }
@@ -160,7 +171,8 @@ public enum ActivityConditionsLogic {
             if let idx = closestIndex(times: times, to: date) {
                 snap.tideHeightMeters = levels.indices.contains(idx) ? levels[idx] : nil
                 snap.waveHeightMeters = waves.indices.contains(idx) ? waves[idx] : nil
-                let prev = idx > 0 ? levels[idx - 1] : nil
+                let prev = idx > 0 && levels.indices.contains(idx - 1)
+                    ? levels[idx - 1] : nil
                 if let cur = snap.tideHeightMeters, let prev {
                     let delta = cur - prev
                     if abs(delta) < 0.02 {
@@ -174,9 +186,8 @@ public enum ActivityConditionsLogic {
                 )
             }
         }
-        let hasAny = snap.temperatureC != nil || snap.windKmh != nil
-            || snap.tideHeightMeters != nil || snap.waveHeightMeters != nil
-            || snap.snowfallCm != nil || snap.snowDepthMeters != nil
+        let hasAny = snap.tideHeightMeters != nil || snap.waveHeightMeters != nil
+            || snap.snowDepthMeters != nil
         return hasAny ? snap : nil
     }
 
@@ -216,7 +227,7 @@ public enum ActivityConditionsLogic {
     private static func nextExtremumLabel(
         levels: [Double?], times: [String], from idx: Int
     ) -> String? {
-        guard let cur = levels[idx] else { return nil }
+        guard levels.indices.contains(idx), levels[idx] != nil else { return nil }
         var i = idx + 1
         while i + 1 < levels.count {
             guard let a = levels[i - 1], let b = levels[i], let c = levels[i + 1] else {
@@ -232,7 +243,6 @@ public enum ActivityConditionsLogic {
             }
             i += 1
         }
-        _ = cur
         return nil
     }
 }
