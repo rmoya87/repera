@@ -679,6 +679,24 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private fun routeFromIntent(intent: android.content.Intent?): String? {
         val uri = intent?.data ?: return null
         if (uri.scheme != "repera") return null
+        if (uri.host == "complete-workout") {
+            val workoutID = uri.pathSegments.singleOrNull() ?: return "inicio"
+            if (runCatching { java.util.UUID.fromString(workoutID) }.isFailure) return "inicio"
+            val sessions = SessionStore(this)
+            val owner = sessions.load()?.uniqueId ?: return "inicio"
+            if (intent.getStringExtra("completedOwner") != owner ||
+                intent.getStringExtra("completedRevision") != sessions.identityRevision()) return "inicio"
+            val saved = runCatching {
+                val bytes = LocalSnapshotStore(this, owner).read() ?: return@runCatching false
+                val rows = JSONObject(String(bytes, Charsets.UTF_8)).optJSONArray("workouts")
+                    ?: return@runCatching false
+                (0 until rows.length()).any {
+                    val w = rows.optJSONObject(it)
+                    w?.optString("id") == workoutID && w.optString("phase") == "finished"
+                }
+            }.getOrDefault(false)
+            return if (saved) "historial-editar/" + Uri.encode(workoutID) else "inicio"
+        }
         if(intent.hasExtra("plannedSession")) {
             val sessions=SessionStore(this)
             val owner=sessions.load()?.uniqueId
@@ -1583,6 +1601,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         val ack=JSONObject().put("sessionId",sessionId).put("status","saved").toString().toByteArray(Charsets.UTF_8)
                         wearMessages.sendMessage(event.sourceNodeId,"/repera/session-finish-ack",ack)
                         reloadFor(signedIn.uniqueId)
+                        WearWorkoutCompletionNotification.show(
+                            this@MainActivity, signedIn.uniqueId, sessionId
+                        )
                         DriveSyncWorker.syncNow(this@MainActivity)
                         if(verifiedSupabase!=null) syncWorkoutMirror()
                         refineFinishedSessionWithHealth(sessionId)
