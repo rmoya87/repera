@@ -102,12 +102,16 @@ struct RootTabView: View {
                 UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
             }
         }
-        .onChange(of: store.state.workouts.filter(\.awaitingResultEntry).map(\.id)) { _, ids in
-            if pendingResultsEditorID == nil { pendingResultsEditorID = ids.first }
+        // Never force the editor open merely because an unfinished results form
+        // exists. Open only for an explicit notification tap (or the Inicio button).
+        .onReceive(NotificationCenter.default.publisher(for: WorkoutCompletionNotifier.openEvent)) { note in
+            if let id = note.object as? UUID { openNotifiedCompletedWorkout(id) }
         }
         .task(id: store.isHydrated) {
-            guard store.isHydrated, pendingResultsEditorID == nil else { return }
-            pendingResultsEditorID = store.state.workouts.first(where: \.awaitingResultEntry)?.id
+            if store.isHydrated { openPendingCompletedWorkoutNotification() }
+        }
+        .onChange(of: store.workoutsEpoch) { _, _ in
+            openPendingCompletedWorkoutNotification()
         }
         .task(id: store.isHydrated) {
             await LiveRoutesStore.shared.synchronizeWithICloud()
@@ -287,6 +291,25 @@ struct RootTabView: View {
         showStartHub = false
         flowPath = []
         tab = .start
+    }
+
+    private func openNotifiedCompletedWorkout(_ id: UUID) {
+        guard store.isHydrated,
+              store.state.workouts.contains(where: {
+                  $0.id == id && $0.finishedAt != nil && $0.timerDetails == nil
+              }) else { return }
+        // A notification targets exactly its finished session, not the currently
+        // active plan or the most recent workout on a different day.
+        flowPath = []
+        tab = .home
+        pendingResultsEditorID = id
+        UserDefaults.standard.removeObject(forKey: WorkoutCompletionNotifier.pendingKey)
+    }
+
+    private func openPendingCompletedWorkoutNotification() {
+        guard let raw = UserDefaults.standard.string(forKey: WorkoutCompletionNotifier.pendingKey),
+              let id = UUID(uuidString: raw) else { return }
+        openNotifiedCompletedWorkout(id)
     }
 
     private func handleOpenURL(_ url: URL) {
