@@ -46,7 +46,7 @@ internal fun RecoveryHistoryCards(
         cards.add { TrainingReadinessCard(recovery) }
         cards.add {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReperaSectionTitle("Evolución de recuperación")
+                ReperaSectionTitle("Evolución")
                 ReperaCard(Modifier.fillMaxWidth()) {
                     Column(
                         Modifier.padding(16.dp),
@@ -88,7 +88,7 @@ internal fun RecoveryHistoryCards(
         }
         cards.add {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReperaSectionTitle("Sueño esta semana")
+                ReperaSectionTitle("Sueño")
                 ReperaCard(Modifier.fillMaxWidth()) {
                     Column(
                         Modifier.padding(16.dp),
@@ -159,7 +159,7 @@ internal fun RecoveryHistoryCards(
         cards.add {
             if (pro) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ReperaSectionTitle("Constantes fisiológicas")
+                    ReperaSectionTitle("Constantes")
                     ReperaCard(Modifier.fillMaxWidth()) {
                         Column(
                             Modifier.padding(16.dp),
@@ -230,7 +230,7 @@ internal fun RecoveryHistoryCards(
                 }
             } else {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ReperaSectionTitle("Constantes fisiológicas")
+                    ReperaSectionTitle("Constantes")
                     RecoveryPhysiologyPreviewCard(today, physiologyHeight)
                 }
             }
