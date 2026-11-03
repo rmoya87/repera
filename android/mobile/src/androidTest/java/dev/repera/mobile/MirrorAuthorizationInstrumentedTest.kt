@@ -6,6 +6,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.UUID
 
 /** Disposable account IDs and intercepted requests. No real backend or session store. */
 class MirrorAuthorizationInstrumentedTest {
