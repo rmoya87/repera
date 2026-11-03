@@ -1683,7 +1683,14 @@ final class ReperaStore: NSObject {
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
             Task {
-                _ = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+                let removed = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+                if !removed {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("repera.healthDeletionFailed"),
+                        object: HealthKitStore.shared.lastError
+                            ?? "El registro de Apple Salud no pudo eliminarse."
+                    )
+                }
             }
         }
     }

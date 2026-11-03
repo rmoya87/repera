@@ -25,6 +25,7 @@ struct RootTabView: View {
     @State private var pendingResultsEditorID: UUID?
     @State private var pendingInvitationId: UUID?
     @State private var showInvitationSheet = false
+    @State private var healthDeletionError: String?
 
     enum AppTab: Hashable {
         case home, start, plus, stats, exercises
@@ -48,6 +49,20 @@ struct RootTabView: View {
         .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
         .onChange(of: hasLinkedCenter) { _, linked in
             if !linked && tab == .plus { tab = .home }
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: Notification.Name("repera.healthDeletionFailed")
+        )) { notification in
+            healthDeletionError = notification.object as? String
+                ?? "El entrenamiento se eliminó de Repera, pero no de Apple Salud."
+        }
+        .alert("No se pudo eliminar de Salud", isPresented: Binding(
+            get: { healthDeletionError != nil },
+            set: { if !$0 { healthDeletionError = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { healthDeletionError = nil }
+        } message: {
+            Text(healthDeletionError ?? "")
         }
         .sheet(isPresented: $showStartHub) { startHubSheet }
         .sheet(isPresented: Binding(

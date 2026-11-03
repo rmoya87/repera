@@ -326,8 +326,28 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         }
     }
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        beginStartCountdown()
+    var confirmRecordingWithoutGPS by remember(accountId) { mutableStateOf(false) }
+    val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.any { it }) beginStartCountdown()
+        else confirmRecordingWithoutGPS = true
+    }
+    if (confirmRecordingWithoutGPS) {
+        AlertDialog(
+            onDismissRequest = { confirmRecordingWithoutGPS = false },
+            title = { Text("Ubicación no autorizada") },
+            text = { Text("Puedes registrar el tiempo sin recorrido GPS o volver para activar la ubicación.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRecordingWithoutGPS = false
+                    beginStartCountdown()
+                }) { Text("Continuar sin GPS") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRecordingWithoutGPS = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
     val importGPX = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -1709,6 +1729,13 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
             state = state,
             nowTick = nowTick,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        )
+        Text(
+            if (expanded) "Ocultar detalles  ⌃" else "Mostrar detalles  ⌄",
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }

@@ -766,7 +766,7 @@ struct HomeView: View {
             .sheet(item: $workoutPendingDelete) { session in
                 OGConfirmSheet(
                     title: "¿Eliminar registro?",
-                    message: "Se borrará «\(session.title)» de este día. No se puede deshacer.",
+                    message: "Se borrará «\(session.title)» definitivamente. Si Repera lo guardó en Apple Salud, también intentará eliminarlo allí. No se puede deshacer.",
                     onConfirm: {
                         store.deleteWorkout(session.id)
                         workoutPendingDelete = nil

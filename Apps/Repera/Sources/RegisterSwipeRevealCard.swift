@@ -85,6 +85,9 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                 }
             }
         }
+        // El borrado no puede depender de descubrir un swipe: VoiceOver
+        // presenta la acción directamente aunque la tarjeta esté cerrada.
+        .accessibilityAction(named: Text(deleteAccessibilityLabel)) { onDelete() }
     }
 
     private func editControl(_ action: @escaping () -> Void) -> some View {
