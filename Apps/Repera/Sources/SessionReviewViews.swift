@@ -126,7 +126,7 @@ struct TrainingScoreConfidenceBar: View {
     let label: String?
     var caption: String = "Confianza"
 
-    private enum Level: CaseIterable {
+    private enum Level: CaseIterable, Hashable {
         case learning, low, medium, high
 
         var title: String {
