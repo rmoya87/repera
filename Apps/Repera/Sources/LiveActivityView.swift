@@ -2159,6 +2159,7 @@ private struct LiveSportPicker: View {
 
 struct LiveActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(SubscriptionManager.self) private var subscriptions
 
     @Environment(ReperaStore.self) private var store
@@ -2996,7 +2997,10 @@ struct LiveActivityView: View {
                 mapDetailsExpanded ? "Contraer detalles del mapa" : "Ampliar detalles del mapa"
             )
             .accessibilityHint("Muestra u oculta desnivel y frecuencia cardíaca")
-            .animation(.easeOut(duration: 0.18), value: mapDetailsExpanded)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: mapDetailsExpanded)
+            .onChange(of: recorder.sessionID) { _, next in
+                if next != nil { mapDetailsExpanded = false }
+            }
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
                 Task { await refreshLiveHeartRate() }
             }
