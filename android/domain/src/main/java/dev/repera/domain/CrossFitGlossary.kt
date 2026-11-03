@@ -207,6 +207,10 @@ object CrossFitGlossary {
     "devil press" to "Devil press",
     "devil presses" to "Devil press",
     "db devil press" to "Devil press",
+    "ddb step up" to "Step-up al cajón con doble mancuerna",
+    "ddb box step up" to "Step-up al cajón con doble mancuerna",
+    "double dumbbell step up" to "Step-up al cajón con doble mancuerna",
+    "double dumbbell box step up" to "Step-up al cajón con doble mancuerna",
     "ddb devil press" to "Devil press",
     "hspu" to "HSPU",
     "kipping hspu" to "HSPU",
@@ -292,6 +296,11 @@ object CrossFitGlossary {
     "thruster" to "Thruster",
     "thrusters" to "Thruster",
     "kb swing" to "Swing kettlebell",
+    "rkbs" to "Swing kettlebell",
+    "rkb" to "Swing kettlebell",
+    "russian kettlebell swing" to "Swing kettlebell",
+    "russian kb swing" to "Swing kettlebell",
+    "russian kettlebell swings" to "Swing kettlebell",
     "american swing" to "Swing americano",
     "american kb swing" to "Swing americano",
     "american kettlebell swing" to "Swing americano",
@@ -515,6 +524,8 @@ object CrossFitGlossary {
         val n = normalize(name)
         return when (kind) {
             EquipmentKind.DUMBBELL, EquipmentKind.DOUBLE_DUMBBELL -> when {
+                kind == EquipmentKind.DOUBLE_DUMBBELL &&
+                    (n.contains("step up") || n.contains("stepup")) -> "Step-up al cajón con doble mancuerna"
                 n.contains("cargada y envion") || n.contains("clean and jerk") ||
                     n.contains("c&j") -> "Cargada y envión con mancuerna"
                 isSnatchFamily(n) -> "Snatch mancuerna"
@@ -652,7 +663,19 @@ object CrossFitGlossary {
         var equipment: String? = null
         var rangeNote: String? = null
 
-        matchLeadingWave(working)?.let { wave ->
+        // «8-12M DDB STEP UP»: no dejar «8-» dentro del nombre.
+        Regex("^\\s*(\\d+)\\s*[-–]\\s*(\\d+)\\s*(?:m|metros?|meters?)\\b",
+            RegexOption.IGNORE_CASE).find(working)?.let { distanceRange ->
+            val first = distanceRange.groupValues[1].toIntOrNull()
+            val second = distanceRange.groupValues[2].toIntOrNull()
+            if (first != null && second != null) {
+                meters = maxOf(first, second)
+                rangeNote = "Distancia: \${minOf(first, second)}-\${maxOf(first, second)} m"
+                working = working.removeRange(distanceRange.range)
+            }
+        }
+
+        if (meters == null) matchLeadingWave(working)?.let { wave ->
             if (isAscendingRepRange(wave.first)) {
                 rangeNote = wave.first.joinToString("-")
                 reps = wave.first[1]
@@ -677,7 +700,7 @@ object CrossFitGlossary {
             }
         }
 
-        Regex("(\\d+)\\s*(?:m|metros?|meters?)\\b", RegexOption.IGNORE_CASE)
+        if (meters == null) Regex("(\\d+)\\s*(?:m|metros?|meters?)\\b", RegexOption.IGNORE_CASE)
             .find(working)?.let { mr ->
                 meters = firstIntToken(mr.value)
                 working = working.removeRange(mr.range)
