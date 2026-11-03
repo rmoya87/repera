@@ -9,7 +9,6 @@ dev.repera.mobile.ExerciseCatalogFiltersInstrumentedTest
 dev.repera.mobile.ExerciseOneRMInstrumentedTest
 dev.repera.mobile.FailureControlInstrumentedTest
 dev.repera.mobile.FinishedWorkoutEditorUiInstrumentedTest
-dev.repera.mobile.HealthConnectInstrumentedTest
 dev.repera.mobile.HomeWeeklyProgressInstrumentedTest
 dev.repera.mobile.LiveActivityControlsInstrumentedTest
 dev.repera.mobile.LiveSportHistoryInstrumentedTest
