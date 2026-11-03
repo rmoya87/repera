@@ -2600,6 +2600,7 @@ final class ReperaStore: NSObject {
     /// Guarda una rutina. Devuelve `false` si la política freemium bloquea una **nueva** plantilla de biblioteca.
     @discardableResult
     func saveRoutine(_ routine: Routine) -> Bool {
+        guard !state.deletedRoutineIDs.contains(routine.id) else { return false }
         let existing = state.routines.first { $0.id == routine.id }
         let isNew = existing == nil
         let isLibraryTemplate = routine.scheduledDate == nil && routine.weekday == nil
@@ -2639,6 +2640,25 @@ final class ReperaStore: NSObject {
                 state.routines[i].weekday = nil
             }
         }
+        if let original = existing {
+            let originallyPresent = Set(original.blocks.flatMap {
+                $0.exercises.map(\.id) + $0.movements.map(\.id)
+            })
+            let nowPresent = Set(draft.blocks.flatMap {
+                $0.exercises.map(\.id) + $0.movements.map(\.id)
+            })
+            let removed = originallyPresent.subtracting(nowPresent)
+            if !removed.isEmpty {
+                state.deletedRoutineExerciseIDs[draft.id.uuidString, default: []]
+                    .formUnion(removed)
+            }
+        }
+        if let removed = state.deletedRoutineExerciseIDs[draft.id.uuidString] {
+            for blockIndex in draft.blocks.indices {
+                draft.blocks[blockIndex].exercises.removeAll { removed.contains($0.id) }
+                draft.blocks[blockIndex].movements.removeAll { removed.contains($0.id) }
+            }
+        }
         if let idx = state.routines.firstIndex(where: { $0.id == draft.id }) {
             state.routines[idx] = draft
         } else {
@@ -2656,6 +2676,8 @@ final class ReperaStore: NSObject {
     }
 
     func deleteRoutine(_ id: UUID) {
+        guard state.routines.contains(where: { $0.id == id }) else { return }
+        state.deletedRoutineIDs.insert(id)
         state.routines.removeAll { $0.id == id }
         if var rotation = state.rotation {
             rotation.routineIds.removeAll { $0 == id }
