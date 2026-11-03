@@ -213,7 +213,8 @@ struct DayEditorView: View {
                         if completedWorkoutDraft?.routePoints.isEmpty == true {
                             editorCompletedPlaceRow
                         }
-                        if completedWorkoutDraft?.liveSportID != nil {
+                        if completedWorkoutDraft?.liveSportID != nil
+                            || completedWorkoutDraft?.awaitingResultEntry == true {
                             Toggle("Registrar nuevas series como realizadas", isOn: $recordNewSetsAsPerformed)
                                 .tint(OG.accent)
                             Text("Comprueba las repeticiones, pesos y RIR. Solo al activarlo, las series añadidas se reflejan como resultados reales en Progreso. Las calorías y el pulso registrados no se suman otra vez.")

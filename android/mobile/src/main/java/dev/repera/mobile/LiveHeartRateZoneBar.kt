@@ -33,16 +33,13 @@ internal fun LiveHeartRateZoneBar(
     bpm: Int?,
     modifier: Modifier = Modifier
 ) {
-    val zone = LiveHeartRateZones.zone(bpm)
+    // No pulse => no HR card, no colored bars, no placeholder line.
+    val zone = LiveHeartRateZones.zone(bpm) ?: return
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
     )
-    val announcement = if (zone != null) {
-        "Frecuencia cardíaca ${bpm ?: 0} pulsaciones, zona $zone de 5"
-    } else {
-        "Frecuencia cardíaca no disponible"
-    }
+    val announcement = "Frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -63,7 +60,7 @@ internal fun LiveHeartRateZoneBar(
                         .weight(if (active) 3f else 1f)
                         .height(if (active) 42.dp else 12.dp)
                         .clip(RoundedCornerShape(24.dp))
-                        .background(color.copy(alpha = if (zone == null) 0.30f else if (active) 1f else 0.38f)),
+                        .background(color.copy(alpha = if (active) 1f else 0.38f)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (active) {
@@ -86,13 +83,6 @@ internal fun LiveHeartRateZoneBar(
                     }
                 }
             }
-        }
-        if (zone == null) {
-            Text(
-                "Sin lectura de FC",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

@@ -31,6 +31,14 @@ class WearHealthSession(private val context: Context) {
 
     var heartRateBpm: Int? = null
         private set
+    private var lastHeartSampleAtElapsed = 0L
+    /** A Health Services state update is not necessarily a new HR measurement.
+     * Reuse the last valid sensor sample only for 20 seconds, never indefinitely.
+     */
+    val freshHeartRateBpm: Int?
+        get() = heartRateBpm?.takeIf {
+            android.os.SystemClock.elapsedRealtime() - lastHeartSampleAtElapsed in 0L..20_000L
+        }
     var energyKcal: Double? = null
         private set
     var recording: Boolean = false
@@ -62,8 +70,16 @@ class WearHealthSession(private val context: Context) {
             paused=state.isPaused
             if(state.isEnded) problem="El registro de sensores ha terminado. Tus series siguen guardadas."
             val hr = update.latestMetrics.getData(DataType.HEART_RATE_BPM)
-                .lastOrNull()?.value
-            heartRateBpm = hr?.takeIf {it.isFinite() && it in 25.0..250.0}?.toInt()
+                .lastOrNull()?.value?.takeIf { it.isFinite() && it in 25.0..250.0 }
+            if (state.isEnded) {
+                heartRateBpm = null
+                lastHeartSampleAtElapsed = 0L
+            } else if (hr != null) {
+                heartRateBpm = hr.toInt()
+                lastHeartSampleAtElapsed = android.os.SystemClock.elapsedRealtime()
+            } else if (freshHeartRateBpm == null) {
+                heartRateBpm = null
+            }
             update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
                 ?.takeIf {it.isFinite() && it>=0}?.let {energyKcal=it}
             onUpdate?.invoke()
@@ -128,6 +144,7 @@ class WearHealthSession(private val context: Context) {
         problem=null
         // Reattach awaits fresh provider samples, never show readings retained by a previous registration.
         heartRateBpm=null
+        lastHeartSampleAtElapsed=0L
         energyKcal=null
         paused=false
         check(stillAuthorized()) {"La sesión cambió antes de conectar sensores"}

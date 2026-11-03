@@ -46,11 +46,13 @@ struct WatchLiveSessionView: View {
                             WatchLiveMetricRow(label: "Desnivel", value: elevationValue)
                         }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("FC")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !sport.usesGPS)
+                    if let bpm = hub.heartRateBpm {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("FC")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            WatchHeartRateZoneBar(bpm: bpm, prominent: !sport.usesGPS)
+                        }
                     }
                     WatchLiveMetricRow(
                         label: "kcal",
@@ -193,9 +195,11 @@ struct WatchHeartRateZoneBar: View {
         return 5
     }
 
+    @ViewBuilder
     var body: some View {
+        if let bpm, let zone {
         HStack(spacing: 7) {
-            Text(bpm.map(String.init) ?? "—")
+            Text(String(bpm))
                 .font(.system(size: prominent ? 28 : 19, weight: .bold).monospacedDigit())
                 .frame(minWidth: prominent ? 50 : 34, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
@@ -207,17 +211,15 @@ struct WatchHeartRateZoneBar: View {
                             .frame(height: zone == level ? 12 : 8)
                     }
                 }
-                Text(zone.map { "Zona \($0)/5" } ?? "Sin lectura")
+                Text("Zona \(zone)/5")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            zone.map { "Frecuencia cardíaca \(bpm ?? 0) pulsaciones, zona \($0) de 5" }
-            ?? "Frecuencia cardíaca no disponible"
-        )
+        .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
+        }
     }
 }
 

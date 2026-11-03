@@ -1915,6 +1915,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if((0 until archive.length()).any {archive.getJSONObject(it).let {w ->w.optString("id")==sessionId && w.optString("phase")=="finished"}}) return true
         val active=state.optJSONObject("activeSession") ?: return false
         if(active.optString("id")!=sessionId) return false
+        // The Wear session has finished even when the actual reps/weights have
+        // yet to be reviewed on the phone. This is not a running session.
+        active.put("awaitingResultEntry", true)
         finishInPlace(state,active)
         return true
     }
@@ -2838,10 +2841,28 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         save(state)
     }
 
+    /** A previously mirrored UUID missing from the authenticated remote is
+     * a deletion on another device. Remove the actual local rows, never keep
+     * a deleted-ID record or enqueue another remote DELETE.
+     */
+    @Synchronized fun purgePreviouslyMirroredMissingRemotely(ids: Set<String>): Int {
+        if (ids.isEmpty()) return 0
+        val state = requireState()
+        val archive = state.getJSONArray("workouts")
+        var removed = 0
+        for (i in archive.length() - 1 downTo 0) {
+            if (archive.getJSONObject(i).optString("id") in ids) {
+                archive.remove(i)
+                removed++
+            }
+        }
+        if (removed > 0) save(state)
+        return removed
+    }
+
     /** Elimina un entreno registrado (solo tras consentimiento explícito). */
     @Synchronized fun deleteWorkout(id: String,expectedLocalDigest:String?=null) {
-        // Tombstone ANTES de borrar (paridad ReperaStore.deleteWorkout iOS): el
-        // espejo no debe resucitar el registro en el próximo sync.
+        // Delete the workout from the durable local JSON, not a soft-deleted row.
         val state = requireState()
         val archive = state.getJSONArray("workouts")
         val index = (0 until archive.length()).firstOrNull {
@@ -2851,9 +2872,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             "El entrenamiento local cambió mientras se revisaba la propuesta IA"
         }
         check(stillAuthorized()) {"La cuenta cambió antes de borrar el entrenamiento"}
-        mirror.noteDeleted(id)
         archive.remove(index)
+        // The CAS can fail; do NOT enqueue a remote DELETE until local commit
+        // actually succeeded. Otherwise the cloud copy would be deleted even
+        // though the athlete still sees a saved local workout.
         save(state)
+        mirror.noteDeleted(id)
     }
 
     /**
@@ -2865,8 +2889,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     internal fun resetUserDataJournaledForTests(resetId: String): ResetCoordinator.Outcome =
         ResetCoordinator(resetPorts()).reset(resetId)
 
-    /** Ids bloqueados en el almacen de tombstones de ESTE repositorio (clave = id de cuenta Google; ver doc de reset). */
+    /** Sólo IDs con eliminación remota AÚN pendiente (sin historial permanente). */
     fun mirrorBlockedIds(): Set<String> = mirror.blockedIds()
+
+    /** Called only by the authenticated Supabase mirror after account validation. */
+    fun transferPendingMirrorDeletesTo(remote: WorkoutMirrorStore) =
+        remote.importPendingFrom(mirror)
 
     /** Reconciliacion idempotente tras un corte; la llama el sync del espejo antes de usar tombstones. */
     fun recoverPendingReset(): ResetCoordinator.Recovery = ResetCoordinator(resetPorts()).recover()
@@ -3157,6 +3185,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
                 })
         }
+        // Confirmation is explicit: the workout remains finished, but no longer
+        // asks for another result-entry pass after Save.
+        target.put("awaitingResultEntry", false)
         if (edit.saveAsFavorite) {
             // Preferir toggleWorkoutFavorite (enlaza favoriteRoutineId) si aún no es favorito.
             if (!WorkoutFavoriteSupport.isWorkoutFavorite(state, target.optString("id"))) {
@@ -3235,7 +3266,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // se calcula con todo el historial y se persiste dentro de la sesión.
         val review = SessionReviewSupport.attachToFinishedSession(state, session)
         save(state)
-        if (review != null) {
+        if (review != null && !session.optBoolean("awaitingResultEntry")) {
             reviewPrefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
                 session.optString("id")).apply()
         }

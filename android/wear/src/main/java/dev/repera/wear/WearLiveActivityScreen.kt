@@ -188,9 +188,11 @@ private fun WearLiveMetricsPage(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-            WearHeartRateZoneBar(bpm = health?.first, prominent = !usesGps)
+        health?.first?.takeIf { it in 25..250 }?.let { bpm ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
+                WearHeartRateZoneBar(bpm = bpm, prominent = !usesGps)
+            }
         }
         WearLiveMetricRow(
             label = "kcal",
@@ -376,7 +378,7 @@ internal fun WearLiveMetricRow(label: String, value: String, prominent: Boolean 
 internal fun WearHeartRateZoneBar(
     bpm: Int?, estimatedMaxBpm: Double = 190.0, prominent: Boolean = false
 ) {
-    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, estimatedMaxBpm)
+    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
@@ -387,7 +389,7 @@ internal fun WearHeartRateZoneBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            bpm?.toString() ?: "—",
+            bpm.toString(),
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = if (prominent) 27.sp else MaterialTheme.typography.titleMedium.fontSize
@@ -412,7 +414,7 @@ internal fun WearHeartRateZoneBar(
                 }
             }
             Text(
-                zone?.let { "Zona $it/5" } ?: "Sin lectura",
+                "Zona $zone/5",
                 style = MaterialTheme.typography.labelSmall,
                 color = WearOg.label2,
                 maxLines = 1

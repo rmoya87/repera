@@ -25,21 +25,23 @@ struct HeartRateZoneBar: View {
         return 5
     }
 
+    @ViewBuilder
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        if let bpm, let zone {
+            VStack(alignment: .leading, spacing: 3) {
             GeometryReader { geo in
                 let gap: CGFloat = 4
                 // Cuatro tramos de una unidad + el tramo activo de tres.
                 // Sin muestra todos los tramos ocupan exactamente lo mismo.
-                let unit = max(0, (geo.size.width - 4 * gap) / (zone == nil ? 5 : 7))
+                let unit = max(0, (geo.size.width - 4 * gap) / 7)
                 HStack(spacing: gap) {
                     ForEach(1...5, id: \.self) { level in
                         let active = zone == level
                         Capsule()
-                            .fill(colors[level - 1].opacity(zone == nil ? 0.30 : active ? 1 : 0.38))
+                            .fill(colors[level - 1].opacity(active ? 1 : 0.38))
                             .frame(width: unit * (active ? 3 : 1), height: active ? 42 : 12)
                             .overlay {
-                                if active, let bpm {
+                                if active {
                                     VStack(spacing: 0) {
                                         Text("Zona \(level)")
                                         Text("\(bpm) lpm")
@@ -58,16 +60,9 @@ struct HeartRateZoneBar: View {
             }
             .frame(height: 44)
 
-            if zone == nil {
-                Text("Sin lectura de FC")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            zone.map { "Frecuencia cardíaca \(bpm ?? 0) pulsaciones, zona \($0) de 5" }
-                ?? "Frecuencia cardíaca no disponible"
-        )
     }
 }

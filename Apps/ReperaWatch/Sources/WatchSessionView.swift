@@ -259,11 +259,13 @@ struct WatchSessionView: View {
                         WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
                     }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("FC")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !outdoor)
+                    if let bpm = hub.heartRateBpm {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("FC")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            WatchHeartRateZoneBar(bpm: bpm, prominent: !outdoor)
+                        }
                     }
                     WatchLiveMetricRow(
                         label: "kcal",
@@ -542,9 +544,11 @@ struct WatchSessionView: View {
                         .monospacedDigit()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("FC").font(.caption2).foregroundStyle(.secondary)
-                    WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: true)
+                if let bpm = hub.heartRateBpm {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("FC").font(.caption2).foregroundStyle(.secondary)
+                        WatchHeartRateZoneBar(bpm: bpm, prominent: true)
+                    }
                 }
                 WatchLiveMetricRow(
                     label: "kcal",

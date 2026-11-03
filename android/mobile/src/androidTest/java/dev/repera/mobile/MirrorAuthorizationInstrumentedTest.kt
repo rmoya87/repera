@@ -6,6 +6,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.UUID
 
 /** Disposable account IDs and intercepted requests. No real backend or session store. */
 class MirrorAuthorizationInstrumentedTest {
@@ -16,10 +17,11 @@ class MirrorAuthorizationInstrumentedTest {
         var calls=0
         val http=OkHttpClient.Builder().addInterceptor {calls++;error("must not execute")}.build()
         val store=WorkoutMirrorStore(context,id,http) {false}
-        store.noteDeleted("synthetic-deleted")
+        val deletedID=UUID.randomUUID().toString()
+        store.noteDeleted(deletedID)
         val result=store.sync(session,WorkoutRepository(context,id))
         assertFalse(result.ok);assertEquals(0,calls)
-        assertTrue(store.pendingDeletes().contains("synthetic-deleted"))
+        assertTrue(store.pendingDeletes().contains(deletedID))
     }
     @Test fun revocationWhileMirrorReadsCannotApplyResponse() {
         val id="synthetic-guard-"+java.util.UUID.randomUUID()

@@ -243,6 +243,7 @@ class WearLiveCommandListener : WearableListenerService() {
                 authorized() && repo.finishWearSession(id)
             }.getOrDefault(false)
             if (saved) {
+                WearWorkoutCompletionNotification.show(this, owner.uniqueId, id)
                 Wearable.getMessageClient(this).sendMessage(
                     event.sourceNodeId, "/repera/session-finish-ack",
                     JSONObject().put("sessionId", id).put("status", "saved")

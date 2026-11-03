@@ -11,14 +11,13 @@ import java.util.UUID
 
 /**
  * COMPILADO, NO EJECUTADO (sin dispositivo). Caracteriza el riesgo de WorkoutRepository.deleteWorkout:
- * el tombstone del espejo se escribe ANTES de save(); si save() falla por CAS (otro escritor, p. ej. una
- * descarga de Drive, toco el snapshot entre la lectura y el guardado), el entreno sigue en local pero su
- * id queda como borrado pendiente. El espejo omite los ids de deletedIds() y el siguiente sync borraria el remoto.
+ * La sincronización solo se encola DESPUÉS de que save() confirme su CAS.
+ * Si otro escritor cambia el snapshot simultáneamente, no se debe borrar el remoto.
  * El hook usa stillAuthorized: llamada 1 = loadOrNull, llamada 2 = comprobacion de deleteWorkout (tras leer), llamada 3 = save.
  */
 @RunWith(AndroidJUnit4::class)
 class DeleteWorkoutCasFailureInstrumentedTest {
-    @Test fun casFailureLeavesPendingTombstoneWhileWorkoutRemainsLocal() {
+    @Test fun casFailureKeepsWorkoutLocalAndNeverQueuesRemoteDeletion() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val user = UUID.randomUUID().toString()
         val press = JSONObject().put("id", UUID.randomUUID().toString())
@@ -47,8 +46,7 @@ class DeleteWorkoutCasFailureInstrumentedTest {
         assertTrue("el CAS debia fallar", failed)
         val stillLocal = JSONObject(String(local.read()!!)).getJSONArray("workouts").length() == 1
         val pending = WorkoutMirrorStore(ctx, user).pendingDeletes().contains(id)
-        // Estado inseguro caracterizado: ambos true. Una correccion futura debe hacer que no se cumplan a la vez.
         assertTrue(stillLocal)
-        assertTrue(pending)
+        assertFalse("No encolar borrados si falla CAS",pending)
     }
 }

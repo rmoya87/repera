@@ -134,7 +134,8 @@ final class ReperaStore: NSObject {
         // Tras actualizar desde el antiguo plan recurrente, fijar las
         // asignaciones a fechas de ESTA semana (sin repetir indefinidamente).
         let migratedWeekly = migrateLegacyWeeklyPlans()
-        if migratedWeekly {
+        let repairedWatchFinish = repairCompletedWatchRecords()
+        if migratedWeekly || repairedWatchFinish {
             // No adelantar la revisión local antes de comparar iCloud:
             // una migración visual no debe eclipsar datos remotos más nuevos.
             store.persistLocal(state, immediate: true)
@@ -142,7 +143,7 @@ final class ReperaStore: NSObject {
         iCloudStatus = store.iCloudStatus
         syncPhase = store.syncPhase
         isHydrated = true
-        if changed || migratedWeekly {
+        if changed || migratedWeekly || repairedWatchFinish {
             catalogEpoch &+= 1
             workoutsEpoch &+= 1
             sessionEpoch &+= 1
@@ -165,6 +166,27 @@ final class ReperaStore: NSObject {
                 LaunchTiming.span("hydrate.seed", from: tSeed)
             }
         }
+    }
+
+    /// Repair earlier versions that archived watch completions as phase=.ready
+    /// (and sometimes left the same UUID active) despite having a finishedAt.
+    @discardableResult
+    private func repairCompletedWatchRecords() -> Bool {
+        var changed = false
+        for index in state.workouts.indices
+            where state.workouts[index].finishedAt != nil &&
+                state.workouts[index].phase != .finished {
+            state.workouts[index].phase = .finished
+            changed = true
+        }
+        if let active = state.activeSession,
+           state.workouts.contains(where: { $0.id == active.id && $0.finishedAt != nil }) {
+            state.activeSession = nil
+            restCoordinator.endForSessionClose()
+            workoutClock.stop()
+            changed = true
+        }
+        return changed
     }
 
     func bootstrap() {
@@ -752,6 +774,7 @@ final class ReperaStore: NSObject {
         switch outcome {
         case .adoptedRemote(let remote):
             state = remote
+            _ = repairCompletedWatchRecords()
             let migratedWeekly = migrateLegacyWeeklyPlans()
             stripSeededDemoPlanIfNeeded()
             _ = enrichCatalogMetadata()
@@ -766,9 +789,11 @@ final class ReperaStore: NSObject {
             if migratedWeekly { persist() }
             lastiCloudSyncMessage = "Datos restaurados desde iCloud"
         case .reconciledRouteData(let recovered):
+            // Includes permanent deletion markers as well as recovered routes.
             // Reconcile only matching workout IDs; do not replace an edited
             // session or lose its recorded route because of revision ordering.
             state = recovered
+            _ = repairCompletedWatchRecords()
             _ = enrichCatalogMetadata()
             _ = relinkOrphanSessionExercisesToCatalog()
             _ = relinkScheduledWODMovementsToCatalog()
@@ -1646,15 +1671,35 @@ final class ReperaStore: NSObject {
     }
 
     func deleteWorkout(_ id: UUID) {
-        // Persist a per-account tombstone before removing from local/iCloud.
+        guard state.workouts.contains(where: { $0.id == id }) else { return }
+        // Sólo cola de operación PENDIENTE mientras Supabase está desconectado.
+        // La fila remota se eliminará físicamente y se limpiará esta cola tras el ACK.
         BusinessWorkoutSyncStore.shared.noteDeleted(id)
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
         persistWorkouts()
+        // Evita que el Watch vuelva a transmitir una copia guardada tras el borrado.
+        connectivity.sendTerminalEvent(sessionID: id, saved: false)
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
         if let hkUUID {
             Task {
                 _ = await HealthKitStore.shared.deleteExternalWorkout(id: hkUUID)
+            }
+        }
+    }
+
+    /// Remote absence for a previously synchronized workout means that another
+    /// signed-in device deleted it. Purge the actual local data (not a marker).
+    func removePreviouslyMirroredWorkoutsMissingRemotely(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        let removed = state.workouts.filter { ids.contains($0.id) }
+        guard !removed.isEmpty else { return }
+        state.workouts.removeAll { ids.contains($0.id) }
+        persistWorkouts()
+        for workout in removed {
+            connectivity.sendTerminalEvent(sessionID: workout.id, saved: false)
+            if let healthID = workout.healthKitWorkoutUUID {
+                Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: healthID) }
             }
         }
     }
@@ -1902,20 +1947,41 @@ final class ReperaStore: NSObject {
                !existing.awaitingResultEntry {
                 // La rama habitual reconciliará únicamente las métricas verificadas.
             } else {
+                let firstArrival = !state.workouts.contains(where: { $0.id == session.id })
                 var pending = session
-                pending.phase = .ready
+                // Finished in HealthKit is finished in Repera, even while results
+                // remain editable. Do not turn it back into a running/ready workout.
+                pending.phase = .finished
                 if let old = state.workouts.first(where: { $0.id == session.id }) {
+                    // A delayed HealthKit update may only add verified metrics;
+                    // never reset sets that the athlete corrected on the phone.
+                    pending.exercises = old.exercises
+                    pending.routineBlocks = old.routineBlocks ?? session.routineBlocks
                     pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
                     pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
                     pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
                     pending.appleDurationSeconds = session.appleDurationSeconds ?? old.appleDurationSeconds
                 }
                 upsertWorkout(pending)
+                if session.finishedAt != nil {
+                    Task {
+                        await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
+                    }
+                }
+                if state.activeSession?.id == pending.id {
+                    state.activeSession = nil
+                    workoutClock.stop()
+                    restCoordinator.endForSessionClose()
+                    publishSessionChrome()
+                }
                 persistWorkouts()
                 let snapshot = state
                 Task { @MainActor in
                     await LocalStore.shared.persistAndFlush(snapshot)
                     guard LocalStore.shared.lastPersistenceError == nil else { return }
+                    if firstArrival {
+                        WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                    }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
                 }
@@ -1923,6 +1989,7 @@ final class ReperaStore: NSObject {
             }
         }
         if session.phase == .finished {
+            let firstArrival = !state.workouts.contains(where: { $0.id == session.id })
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
                 // An earlier offline transfer may arrive before HealthKit finishes saving.
@@ -1969,7 +2036,12 @@ final class ReperaStore: NSObject {
                 // guardar el historial sin volver a pedir confirmación en iPhone.
                 attachSessionReview(&completed, present: false)
                 upsertWorkout(completed)
-                if state.activeSession?.id == completed.id { state.activeSession = nil }
+                if state.activeSession?.id == completed.id {
+                    state.activeSession = nil
+                    workoutClock.stop()
+                    restCoordinator.endForSessionClose()
+                    publishSessionChrome()
+                }
                 // Una sesión recibida desde Watch también merece la localidad
                 // que Guardar entreno añade al terminar directamente en iPhone.
                 if let sportID = completed.liveSportID,
@@ -2010,6 +2082,9 @@ final class ReperaStore: NSObject {
                       self.state.workouts.first(where: { $0.id == session.id }) ==
                       snapshot.workouts.first(where: { $0.id == session.id })
                 else { return }
+                if firstArrival && session.timerDetails == nil {
+                    WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
                 if needsSync && BusinessAuthStore.shared.isConnected {
@@ -2072,9 +2147,14 @@ final class ReperaStore: NSObject {
         guard didCompleteInitialRemoteSync, !isSyncingiCloud else { return 0 }
         var known = Set(state.workouts.map(\.id))
         var imported = 0
+        var resultEntryNotifications: [UUID] = []
         for session in recovered where session.finishedAt != nil {
             guard known.insert(session.id).inserted else { continue }
-            state.workouts.append(normalizedFinishedWorkout(session))
+            let restored = normalizedFinishedWorkout(session)
+            state.workouts.append(restored)
+            if restored.awaitingResultEntry && restored.timerDetails == nil {
+                resultEntryNotifications.append(restored.id)
+            }
             imported += 1
         }
         if imported > 0 {
@@ -2083,6 +2163,16 @@ final class ReperaStore: NSObject {
                     ($1.finishedAt ?? $1.startedAt ?? .distantPast)
             }
             persistWorkouts()
+            if !resultEntryNotifications.isEmpty {
+                let snapshot = state
+                Task { @MainActor in
+                    await LocalStore.shared.persistAndFlush(snapshot)
+                    guard LocalStore.shared.lastPersistenceError == nil else { return }
+                    for id in resultEntryNotifications {
+                        WorkoutCompletionNotifier.shared.schedule(workoutID: id)
+                    }
+                }
+            }
         }
         return imported
     }
@@ -2093,8 +2183,16 @@ final class ReperaStore: NSObject {
     private func normalizedFinishedWorkout(_ session: WorkoutSession) -> WorkoutSession {
         guard session.phase == .finished || session.finishedAt != nil else { return session }
         var saved = session
+        // A stored finishedAt always wins over stale phase=.ready snapshots.
+        saved.phase = .finished
         for i in saved.exercises.indices {
-            saved.exercises[i].isCompleted = true
+            // A watch recording can finish before reps/weights are entered:
+            // leave its unrecorded prescription uncompleted until the athlete confirms.
+            if saved.awaitingResultEntry {
+                saved.exercises[i].isCompleted = !saved.exercises[i].loggedSets.isEmpty
+            } else {
+                saved.exercises[i].isCompleted = true
+            }
         }
         return saved
     }
@@ -2515,6 +2613,7 @@ final class ReperaStore: NSObject {
     }
 
     func deleteRoutine(_ id: UUID) {
+        guard state.routines.contains(where: { $0.id == id }) else { return }
         state.routines.removeAll { $0.id == id }
         if var rotation = state.rotation {
             rotation.routineIds.removeAll { $0 == id }
@@ -3162,7 +3261,8 @@ final class ReperaStore: NSObject {
     }
 
     func deleteExercise(_ id: UUID) {
-        state.exercises.removeAll { $0.id == id && $0.isCustom }
+        guard state.exercises.contains(where: { $0.id == id && $0.isCustom }) else { return }
+        state.exercises.removeAll { $0.id == id }
         catalogEpoch &+= 1
         persist()
     }
@@ -3268,6 +3368,7 @@ final class ReperaStore: NSObject {
         entry.exercise = catalog
         session.exercises[idx] = entry
         state.activeSession = session
+        persist()
         pushActiveToWatch(immediate: true)
         return true
     }

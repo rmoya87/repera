@@ -4,19 +4,21 @@ import org.junit.Test
 import org.junit.Assert.*
 import java.util.UUID
 class MirrorDeletionDurabilityInstrumentedTest {
- @Test fun uploadAckDoesNotEraseConcurrentDeleteAndKeepsPermanentRefusal() {
+ @Test fun serverAckKeepsConcurrentPendingDeleteButNeverKeepsDeletedHistory() {
   val c=InstrumentationRegistry.getInstrumentation().targetContext
   val user="test-delete-ledger-${UUID.randomUUID()}"
   val store=WorkoutMirrorStore(c,user)
-  store.noteDeleted("first")
+  val first=UUID.randomUUID().toString()
+  val later=UUID.randomUUID().toString()
+  store.noteDeleted(first)
   val uploaded=store.pendingDeletes()
-  WorkoutMirrorStore(c,user).noteDeleted("later")
+  WorkoutMirrorStore(c,user).noteDeleted(later)
   store.acknowledgeDeletes(uploaded)
   val restored=WorkoutMirrorStore(c,user)
-  assertEquals(setOf("later"),restored.pendingDeletes())
-  assertEquals(setOf("first","later"),restored.deletedIds())
-  restored.acknowledgeDeletes(setOf("later"))
+  assertEquals(setOf(later),restored.pendingDeletes())
+  assertEquals(setOf(later),restored.deletedIds())
+  restored.acknowledgeDeletes(setOf(later))
   assertTrue(restored.pendingDeletes().isEmpty())
-  assertEquals(setOf("first","later"),restored.deletedIds())
+  assertTrue(restored.deletedIds().isEmpty())
  }
 }

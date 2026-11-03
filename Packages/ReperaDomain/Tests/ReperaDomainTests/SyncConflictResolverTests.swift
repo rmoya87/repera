@@ -161,6 +161,30 @@ final class SyncConflictResolverTests: XCTestCase {
         )
     }
 
+    func testDeletionIsPhysicalNotAStoredTombstone() throws {
+        let workout = WorkoutSession(title: "Borrado", exercises: [],
+                                     phase: .finished, startedAt: Date(),
+                                     finishedAt: Date())
+        let previous = AppState(exercises: [], routines: [], workouts: [workout],
+                                syncRevision: 4, lastWriterDeviceId: "iphone")
+        var current = previous
+        current.workouts.removeAll { $0.id == workout.id }
+        current.syncRevision = previous.syncRevision + 1
+        current.updatedAt = Date().addingTimeInterval(1)
+
+        let chosen = SyncConflictResolver.pickNewest(local: current, remote: previous)
+        XCTAssertTrue(try XCTUnwrap(chosen).workouts.isEmpty)
+        let bytes = try JSONEncoder().encode(current)
+        let snapshot = try JSONDecoder().decode(AppState.self, from: bytes)
+        XCTAssertTrue(snapshot.workouts.isEmpty)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        XCTAssertFalse(json.keys.contains("deletedWorkoutIDs"))
+        XCTAssertFalse(json.keys.contains("deletedExerciseIDs"))
+        XCTAssertFalse(json.keys.contains("deletedRoutineIDs"))
+        XCTAssertFalse(json.keys.contains("deletedWorkoutExerciseIDs"))
+        XCTAssertFalse(json.keys.contains("deletedRoutineExerciseIDs"))
+    }
+
     func testLegacyZeroRevisionFallsBackToUpdatedAt() {
         let local = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 1), writer: "")
         let remote = state(revision: 0, updatedAt: Date(timeIntervalSince1970: 99), writer: "")

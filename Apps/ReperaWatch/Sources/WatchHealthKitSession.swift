@@ -31,6 +31,8 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     // resume request is in flight. Do not send the same command twice.
     private var pendingStateTransition: HKWorkoutSessionState?
     private(set) var pulseBpm: Int?
+    /// Time of the latest real HR sensor event, not the last energy update.
+    private(set) var pulseCapturedAt: Date?
     private(set) var kcal: Double?
     private(set) var averageBpm: Double?
     private(set) var permissionIssue: String?
@@ -124,6 +126,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pendingStateTransition = nil
         permissionIssue = nil
         pulseBpm = nil
+        pulseCapturedAt = nil
         kcal = nil
         averageBpm = nil
         onMetricsUpdated?()
@@ -314,14 +317,22 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let unit = HKUnit.count().unitDivided(by: .minute())
-        let bpm = workoutBuilder.statistics(for: heart)?.mostRecentQuantity()?.doubleValue(for: unit)
-        let average = workoutBuilder.statistics(for: heart)?.averageQuantity()?.doubleValue(for: unit)
+        // HKLiveWorkoutBuilder also calls this delegate for energy/distance.
+        // Do not treat an old cached HR statistic as a newly collected sample.
+        let gotHeartSample = collectedTypes.contains(heart)
+        let bpm = gotHeartSample
+            ? workoutBuilder.statistics(for: heart)?.mostRecentQuantity()?.doubleValue(for: unit)
+            : nil
+        let average = gotHeartSample
+            ? workoutBuilder.statistics(for: heart)?.averageQuantity()?.doubleValue(for: unit)
+            : nil
         let active = workoutBuilder.statistics(for: energy)?.sumQuantity()?.doubleValue(for: .kilocalorie())
         let identity = ObjectIdentifier(workoutBuilder)
         Task { @MainActor in
             guard self.builder.map({ ObjectIdentifier($0) }) == identity else { return }
             if let bpm, bpm.isFinite, (25...250).contains(bpm) {
                 self.pulseBpm = Int(bpm.rounded())
+                self.pulseCapturedAt = Date()
             }
             if let average, average.isFinite, average > 0 { self.averageBpm = average }
             if let active, active.isFinite, active >= 0 { self.kcal = active }
