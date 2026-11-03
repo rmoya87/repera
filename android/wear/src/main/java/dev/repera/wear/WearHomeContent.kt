@@ -1025,8 +1025,14 @@ private fun TransformingLazyColumnScope.runningItems(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { callbacks.onShowOutline(true) }) {
-                Text("Resumen", color = WearOg.accent)
+            Button(
+                onClick = { callbacks.onSwipeSet(-1) },
+                enabled = !state.sessionPaused && state.restRemaining == 0,
+                modifier = Modifier.semantics {
+                    contentDescription = "Anterior"
+                }
+            ) {
+                Text("←", color = WearOg.onAccent)
             }
             val zeroReps = state.repsInput == 0
             val isLast = session.exerciseIndex >= session.exerciseCount
@@ -1243,23 +1249,33 @@ private fun TransformingLazyColumnScope.strengthRunningBody(
 
 @Composable
 private fun RotaryRepsHost(
+    sessionKey: String,
     onMinus: () -> Unit,
     onPlus: () -> Unit,
-    content: @Composable () -> Unit
+    content: @Composable (onValueClick: () -> Unit, editing: Boolean) -> Unit
 ) {
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    var editing by remember(sessionKey) { mutableStateOf(false) }
+    // The list owns the rotary input by default. Only an explicit tap on the
+    // number transfers focus to this field and enables crown-based editing.
+    LaunchedEffect(editing) {
+        if (editing) focus.requestFocus()
+    }
     androidx.compose.foundation.layout.Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onRotaryScrollEvent { event ->
-                if (event.verticalScrollPixels > 0) onPlus() else onMinus()
-                true
-            }
-            .focusRequester(focus)
-            .focusable()
-            .semantics { contentDescription = "Repeticiones, ajustables con la corona" }
-    ) { content() }
+        modifier = Modifier.fillMaxWidth().then(
+            if (editing) Modifier
+                .onRotaryScrollEvent { event ->
+                    if (event.verticalScrollPixels > 0) onPlus() else onMinus()
+                    true
+                }
+                .focusRequester(focus)
+                .focusable()
+                .semantics { contentDescription = "Editando repeticiones con la corona" }
+            else Modifier
+        )
+    ) {
+        content({ editing = !editing }, editing)
+    }
 }
 
 private fun TransformingLazyColumnScope.seriesSteppers(
@@ -1271,15 +1287,18 @@ private fun TransformingLazyColumnScope.seriesSteppers(
     if (!session.mobilityHold) {
         item {
             RotaryRepsHost(
+                sessionKey = "${session.sessionId}:${session.exerciseIndex}",
                 onMinus = { callbacks.onRepsMinus() },
                 onPlus = { callbacks.onRepsPlus() }
-            ) {
+            ) { onValueClick, editing ->
                 WearMetricStepper(
                     if (session.inputMode in setOf("machineWork", "loadDistance"))
                         (if (state.unitInput == "meters") "m" else "cal")
                     else "Reps",
                     "${state.repsInput}",
                     enabled = !state.sessionPaused,
+                    onValueClick = onValueClick,
+                    valueEditing = editing,
                     onMinus = { callbacks.onRepsMinus() },
                     onPlus = { callbacks.onRepsPlus() }
                 )
