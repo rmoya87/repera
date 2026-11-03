@@ -273,7 +273,7 @@ class BusinessCenterStore(
     }
 
     private fun rpc(session: SupabaseIdentity.Session, fn: String,
-                    params: JSONObject): JSONArray {
+                    params: JSONObject, expectTrue: Boolean = false): JSONArray {
         val request = Request.Builder()
             .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/" + fn)
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
@@ -286,6 +286,9 @@ class BusinessCenterStore(
             if (!response.isSuccessful) {
                 throw IllegalStateException("HTTP " + response.code + " en " + fn +
                     ": " + body.take(200))
+            }
+            if (expectTrue && body.trim() != "true") {
+                throw IllegalStateException("No se ha confirmado la desvinculación. Inténtalo de nuevo.")
             }
             return if (body.startsWith("[")) JSONArray(body) else JSONArray()
         }
@@ -394,7 +397,19 @@ class BusinessCenterStore(
             .put("p_pass_kind",kind).put("p_note",note.orEmpty()))
     }
     fun leave(session:SupabaseIdentity.Session,organization:Organization) {
-        rpc(session,"leave_org_as_athlete",JSONObject().put("p_org",organization.id))
+        try {
+            rpc(session,"leave_org_as_athlete",JSONObject().put("p_org",organization.id),
+                expectTrue = true)
+        } catch (error: IllegalStateException) {
+            val reason = error.message.orEmpty()
+            val message = when {
+                "NOT_LINKED_CLIENT" in reason || "NOT_LINKED_ATHLETE" in reason ->
+                    "Ya no tienes una vinculación activa como cliente con este centro."
+                "No se ha confirmado la desvinculación" in reason -> reason
+                else -> "No se ha podido completar la desvinculación. Comprueba tu conexión e inténtalo de nuevo."
+            }
+            throw IllegalStateException(message, error)
+        }
     }
 
     fun accept(session: SupabaseIdentity.Session, invitation: Invitation) {
