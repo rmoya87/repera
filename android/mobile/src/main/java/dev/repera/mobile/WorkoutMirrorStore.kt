@@ -30,6 +30,7 @@ class WorkoutMirrorStore(
     private val stillAuthorized: () -> Boolean = { true }
 ) {
     private fun authorize() = check(stillAuthorized()) {"La cuenta cambió durante la sincronización del espejo"}
+    private val appContext = context.applicationContext
     private val prefs = context.getSharedPreferences(
         "repera.mirror.$userId", Context.MODE_PRIVATE)
 
@@ -137,6 +138,17 @@ class WorkoutMirrorStore(
             val seen = fingerprints()
             deletionIDs.forEach { seen.remove(it) }
             val existing = remote.associateBy { it.getString("id") }
+            // On another phone, already-mirrored IDs that vanished on the
+            // server are deleted, not new uploads. Keep no deleted-ID ledger.
+            val removedRemoteIDs = repository.finishedWorkoutsSnapshot()
+                .map { it.optString("id") }
+                .filter { it.isNotBlank() && it in seen && it !in existing }
+                .toSet()
+            if (removedRemoteIDs.isNotEmpty()) {
+                val purged = repository.purgePreviouslyMirroredMissingRemotely(removedRemoteIDs)
+                if (purged > 0) DriveSyncWorker.syncNow(appContext)
+                removedRemoteIDs.forEach { seen.remove(it) }
+            }
 
             // 0) Recuperación remota→local: un segundo dispositivo puede
             //    tener entrenos que este aún no conoce. Sólo IDs nunca
@@ -217,6 +229,11 @@ class WorkoutMirrorStore(
                 uploaded += batch.length()
                 offset = end
             }
+            // The fingerprint cache covers LIVE remote rows only, not deletions.
+            val liveIDs = existing.keys + (0 until uploads.length()).map {
+                uploads.getJSONObject(it).getString("id")
+            }
+            seen.keys.retainAll(liveIDs)
             saveFingerprints(seen)
             val mirrored = (remote.filter { it.isNull("deleted_at") }
                 .map { it.getString("id") }.toSet() +
@@ -275,7 +292,7 @@ class WorkoutMirrorStore(
                 offset += page.length()
             }
         }
-        return rows
+        throw IllegalStateException("El historial remoto supera el límite de sincronización segura")
     }
 
     private fun upsert(session: SupabaseIdentity.Session, rows: JSONArray) {
