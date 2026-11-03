@@ -52,35 +52,46 @@ struct SessionReviewCard: View {
                     withAnimation(.snappy(duration: 0.22)) { expanded.toggle() }
                 } label: {
                     HStack(alignment: .center, spacing: 14) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("NOTA GLOBAL")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        ZStack {
+                            Circle().stroke(OG.surface3, lineWidth: 9)
+                            Circle()
+                                .trim(from: 0, to: Double(review.overallScore) / 10)
+                                .stroke(OG.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                            VStack(spacing: 1) {
                                 Text("\(review.overallScore)")
-                                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                                    .font(.system(size: 31, weight: .bold, design: .rounded))
                                     .monospacedDigit()
-                                Text("/10")
-                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundStyle(OG.label)
+                                Text("de 10")
+                                    .font(.system(size: 10, weight: .medium))
                                     .foregroundStyle(OG.label2)
                             }
-                            .foregroundStyle(OG.label)
                         }
-                        Spacer(minLength: 8)
-                        VStack(alignment: .trailing, spacing: 5) {
+                        .frame(width: 88, height: 88)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Rendimiento personal")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(OG.label)
                             Text("Confianza: \(review.confidenceLabel ?? "En construcción")")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 12))
                                 .foregroundStyle(OG.label2)
                             if let coverage = review.evidenceCoverage {
-                                Text("\(Int((coverage * 100).rounded()))% con referencias")
+                                Text("\(Int((coverage * 100).rounded()))% del trabajo con referencias")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(OG.label2)
+                            }
+                            if let metric = review.indicators.first(where: { $0.score != nil }) {
+                                Text(metric.dimension.title + " · \(metric.score ?? 0)/10")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(OG.label3)
                             }
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(OG.label3)
-                                .rotationEffect(.degrees(expanded ? 180 : 0))
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OG.label3)
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
                     }
                     .padding(16)
                     .contentShape(Rectangle())
