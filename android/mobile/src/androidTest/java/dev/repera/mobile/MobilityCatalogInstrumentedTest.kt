@@ -125,7 +125,7 @@ class MobilityCatalogInstrumentedTest {
         val originalWorkout = existing.getJSONArray("workouts").toString()
         assertTrue(MobilityCatalogMigration.ensure(context, account))
         val migrated = JSONObject(String(store.read()!!))
-        assertEquals(281, migrated.getJSONArray("exercises").length())
+        assertEquals(282, migrated.getJSONArray("exercises").length())
         assertEquals(originalWorkout, migrated.getJSONArray("workouts").toString())
         assertEquals(13, migrated.getInt("syncRevision"))
         assertTrue((0 until migrated.getJSONArray("exercises").length()).any {

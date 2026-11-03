@@ -9,6 +9,17 @@ class ExerciseInputModeTest {
             ExerciseInput.mode("Press banca", "Barra", "pectorals", "Pecho"))
     }
 
+    @Test fun compoundBarbellEquipmentKeepsWeightLogging() {
+        assertEquals(ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Press banca", "Barra, Banco", "pectorals", "Pecho"))
+        assertEquals(ExerciseInputMode.LOAD_REPS,
+            ExerciseInput.mode("Press banca inclinado", "Barra, Banco", "pectorals", "Pecho"))
+        assertEquals(ExerciseInputMode.REPS_ONLY,
+            ExerciseInput.mode("Toes to bar", "Barra de dominadas", null, "Core"))
+        assertEquals(ExerciseInputMode.REPS_ONLY,
+            ExerciseInput.mode("Burpee over bar", "Barra (obstáculo)", null, "Cardio"))
+    }
+
     @Test fun bodyweightDoesNotInventKilograms() {
         assertEquals(ExerciseInputMode.REPS_ONLY,
             ExerciseInput.mode("Burpee", "Peso corporal", null, "Cardio"))
