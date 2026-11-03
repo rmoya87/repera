@@ -52,9 +52,9 @@ internal object RecoveryVitalBarGeometry {
  Surface(modifier,shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceVariant) {
   Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
    Text(title,style=MaterialTheme.typography.labelMedium)
-   Text(values.lastOrNull()?.let {formatted(it.value)} ?: "-",style=MaterialTheme.typography.titleMedium)
+   Text(values.lastOrNull()?.let {formatted(it.value)} ?: "—",style=MaterialTheme.typography.titleMedium)
    if(values.isEmpty()) {
-    EmptyHealthChart("Sin datos",0.0,100.0,98.dp)
+    EmptyHealthChart("Sin mediciones",0.0,100.0,98.dp)
    } else {
     selected?.let {Text(it.day.format(reperaDayFormatter)+": "+formatted(it.value),style=MaterialTheme.typography.labelSmall)}
     Canvas(Modifier.fillMaxWidth().height(98.dp).testTag("physiology_bar_$tag").semantics {
@@ -80,6 +80,13 @@ internal object RecoveryVitalBarGeometry {
       }
      }
     }
+   }
+   if (values.size < 2) {
+    Text(
+     "Repera está aprendiendo de ti · ${values.size}/2 días de mediciones. La preparación necesita 7 días previos.",
+     style = MaterialTheme.typography.labelSmall,
+     color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
    }
   }
  }
