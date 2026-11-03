@@ -7,7 +7,10 @@ drop policy if exists athlete_workout_private_delete on public.athlete_workout_m
 create policy athlete_workout_private_delete
     on public.athlete_workout_mirror
     for delete to authenticated
-    using (owner_id = (select auth.uid()));
+    using (
+        owner_id = (select auth.uid())
+        and (auth.jwt() ->> 'client_id') is null
+    );
 
 revoke delete on public.athlete_workout_mirror from public, anon;
 grant delete on public.athlete_workout_mirror to authenticated;
