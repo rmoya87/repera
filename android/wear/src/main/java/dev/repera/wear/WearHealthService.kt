@@ -9,6 +9,7 @@ import kotlinx.coroutines.*
 import org.json.JSONObject
 import androidx.health.services.client.data.ExerciseType
 import androidx.wear.ongoing.OngoingActivity
+import com.google.android.gms.wearable.Wearable
 
 /** Owns Health Services independently of Activity. Starts only from visible UI. */
 internal class WearHealthService:Service() {
@@ -24,6 +25,9 @@ internal class WearHealthService:Service() {
     private var starting=false
     // Last delivered start id: stopSelfResult(lastStartId) does not stop the service if a newer start request is pending.
     private var lastStartId=-1
+    private var lastHeartSentAt = 0L
+    private var lastHeartSentSession: String? = null
+    private var lastHeartSentBpm: Int? = null
     data class Snapshot(val sessionId:String?,val heart:Int?,val energy:Double?,val recording:Boolean,val paused:Boolean,val problem:String?)
     inner class Connection:Binder() {
         fun observe(callback:((Snapshot)->Unit)?) {observer=callback;if(callback!=null) callback(snapshot())}
@@ -50,6 +54,7 @@ internal class WearHealthService:Service() {
     private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
+        publishCompanionHeartRate()
         if(foreground) runCatching {
             // Update the existing foreground notification through the service API.
             // POST_NOTIFICATIONS is optional for FGS and must not gate sensor continuity.
@@ -66,6 +71,35 @@ internal class WearHealthService:Service() {
             ending=false;owner=null;stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;stopSelfResult(lastStartId)
         }
     }
+    /**
+     * Send actual Health Services samples to the phone-owned Comenzar session.
+     * This runs in the foreground sensor service even if WearMainActivity is hidden.
+     */
+    private fun publishCompanionHeartRate() {
+        val id = owner ?: return
+        if (cache.getString("companionLiveSessionId", null) != id) return
+        val bpm = sensors.heartRateBpm?.takeIf { it in 25..250 } ?: return
+        val now = System.currentTimeMillis()
+        if (lastHeartSentSession == id) {
+            val elapsed = now - lastHeartSentAt
+            if (elapsed < 3_000L || (lastHeartSentBpm == bpm && elapsed < 5_000L)) return
+        }
+        lastHeartSentSession = id
+        lastHeartSentBpm = bpm
+        lastHeartSentAt = now
+        val data = JSONObject()
+            .put("sessionId", id)
+            .put("bpm", bpm)
+            .put("capturedAt", now)
+            .toString().toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            nodes.forEach { node ->
+                Wearable.getMessageClient(this)
+                    .sendMessage(node.id, "/repera/live-heart-rate", data)
+            }
+        }
+    }
+
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         lastStartId=startId
         val id=intent?.getStringExtra("sessionId")
