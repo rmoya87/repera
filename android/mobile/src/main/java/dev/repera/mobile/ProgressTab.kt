@@ -252,7 +252,8 @@ internal fun ProgressTab(
                                 else ProgressPreview.sessionScores(today),
                             preview = !pro,
                             range = ProgressTimeRange.entries.first { it.wire == selectedRange },
-                            monday = monday
+                            monday = monday,
+                            confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
                         )
                     },
                     second = {
