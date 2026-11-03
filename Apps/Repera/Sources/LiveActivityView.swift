@@ -1079,6 +1079,26 @@ final class LiveActivityRecorder: NSObject {
     private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
     private(set) var spokenGuidanceEnabled = true
     private var gpsSessionID = UUID()
+    /// Última muestra real llegada desde el Watch para una sesión de iPhone concreta.
+    /// Solo memoria: nunca persiste pulsaciones ni acepta muestras de otra sesión.
+    private var companionHeart: (id: UUID, bpm: Int, capturedAt: Date)?
+
+    func receiveCompanionHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date) {
+        guard sessionID == sessionId,
+              phase == .recording || phase == .paused,
+              (25...250).contains(bpm),
+              abs(Date().timeIntervalSince(capturedAt)) <= 25 else { return }
+        companionHeart = (id: sessionId, bpm: bpm, capturedAt: capturedAt)
+    }
+
+    func latestCompanionHeartRateBpm(at now: Date = Date()) -> Int? {
+        guard phase == .recording || phase == .paused,
+              let heart = companionHeart, heart.id == sessionID else { return nil }
+        let age = now.timeIntervalSince(heart.capturedAt)
+        guard age >= 0, age <= 20 else { return nil }
+        return heart.bpm
+    }
+
     /// Recuperación exclusiva de una grabación interrumpida, no una pausa.
     private var needsInterruptedGPSRecovery = false
     private(set) var estimatedRecoveryMeters: Double = 0
@@ -2162,8 +2182,11 @@ struct LiveActivityView: View {
     @State private var savedWorkoutID: UUID?
     @State private var isSavingRecordedActivity = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
-    /// FC en vivo desde Salud (solo lectura; sin fabricar).
+    /// FC real reciente de Salud o del Watch vinculado al UUID de esta sesión.
     @State private var liveHeartRateBpm: Int?
+    private var displayedHeartRateBpm: Int? {
+        recorder.latestCompanionHeartRateBpm() ?? liveHeartRateBpm
+    }
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @Namespace private var routeZoomNamespace
@@ -2946,6 +2969,11 @@ struct LiveActivityView: View {
                                 value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                 }
                 elevationMetricStrip
+                // También en carrera, caminata, ciclismo y demás deportes GPS.
+                // No se dibuja una zona activa sin una muestra real de Salud.
+                Divider().overlay(OG.label2.opacity(0.18))
+                HeartRateZoneBar(bpm: displayedHeartRateBpm)
+                    .padding(.horizontal, 8)
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
@@ -2956,6 +2984,12 @@ struct LiveActivityView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
+            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
+                Task { await refreshLiveHeartRate() }
+            }
+            .task(id: "\(recorder.phase)-\(recorder.startedAt?.timeIntervalSince1970 ?? 0)") {
+                await refreshLiveHeartRate()
+            }
         }
     }
 
@@ -3089,8 +3123,11 @@ struct LiveActivityView: View {
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
+                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 10)
                 } else {
-                    Text(liveHeartRateBpm.map { "\($0)" } ?? "—")
+                    Text(displayedHeartRateBpm.map { "\($0)" } ?? "—")
                         .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                         .minimumScaleFactor(0.55).lineLimit(1)
                         .foregroundStyle(OG.label)
@@ -3102,7 +3139,7 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     Text("Calorías activas (kcal)")
                         .font(.subheadline).foregroundStyle(OG.label2)
-                    HeartRateZoneBar(bpm: liveHeartRateBpm)
+                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
                         .padding(.horizontal, 28)
                         .padding(.top, 10)
                 }
@@ -3148,18 +3185,20 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Lee la última FC de Salud desde el inicio de la sesión (Watch/banda si escriben).
+    /// Salud es la única fuente de pulsaciones: ninguna muestra sintética.
+    /// Una lectura antigua no debe simular una zona activa tras desconexión.
     private func refreshLiveHeartRate() async {
-        guard !recorder.sport.usesGPS,
-              recorder.phase == .recording || recorder.phase == .paused,
-              let start = recorder.startedAt
-        else {
-            if recorder.phase == .idle || recorder.phase == .review {
-                liveHeartRateBpm = nil
-            }
+        guard recorder.phase == .recording || recorder.phase == .paused,
+              let sessionStart = recorder.startedAt else {
+            liveHeartRateBpm = nil
             return
         }
-        liveHeartRateBpm = await HealthKitStore.shared.latestHeartRateBpm(since: start)
+        let freshStart = max(sessionStart, Date().addingTimeInterval(-60))
+        let reading = await HealthKitStore.shared.latestHeartRateBpm(since: freshStart)
+        // Ignorar respuestas tardías de un deporte o una sesión ya finalizados.
+        guard recorder.startedAt == sessionStart,
+              recorder.phase == .recording || recorder.phase == .paused else { return }
+        liveHeartRateBpm = reading
     }
 
     /// Últimas tres posiciones SIEMPRE fijas contra el margen derecho:

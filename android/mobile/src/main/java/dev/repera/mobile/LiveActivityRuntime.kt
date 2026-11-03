@@ -27,6 +27,32 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     var upcomingTurn: String? = null; private set
     var upcomingCue: dev.repera.domain.LiveRouteGuidance.Cue? = null; private set
     var latestKilometerReport: String? = null; private set
+    // Transient companion sensor reading; never written to disk/cloud.
+    private var wearHeartSessionID: String? = null
+    private var wearHeartBpm: Int? = null
+    private var wearHeartCapturedAt = 0L
+
+    fun acceptWearHeartRate(sessionID: String, bpm: Int, capturedAt: Long): Boolean {
+        val now = System.currentTimeMillis()
+        if (state.gpsSessionID != sessionID ||
+            state.phase !in setOf(LiveActivityState.Phase.RECORDING, LiveActivityState.Phase.PAUSED) ||
+            bpm !in 25..250 || capturedAt !in (now - 25_000L)..(now + 5_000L)) {
+            return false
+        }
+        wearHeartSessionID = sessionID
+        wearHeartBpm = bpm
+        wearHeartCapturedAt = capturedAt
+        revisions.value += 1L
+        return true
+    }
+
+    fun currentWearHeartRateBpm(now: Long = System.currentTimeMillis()): Int? {
+        if (state.phase != LiveActivityState.Phase.RECORDING &&
+            state.phase != LiveActivityState.Phase.PAUSED) return null
+        if (wearHeartSessionID != state.gpsSessionID ||
+            now - wearHeartCapturedAt !in 0L..20_000L) return null
+        return wearHeartBpm
+    }
     /** Condiciones Open-Meteo (marea/nieve) para Wear + Guardar. */
     var liveConditions: dev.repera.domain.ActivityConditionsSnapshot? = null; private set
     private var lastConditionsFetchMillis = 0L

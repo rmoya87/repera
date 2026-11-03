@@ -1,63 +1,73 @@
 import SwiftUI
 
-/// Barra de zonas FC (azul→verde→amarillo→naranja→rojo). Solo la barra;
-/// el LPM se pinta sobre la franja actual (paridad visual Watch, sin columna izquierda).
+/// Zonas de FC coherentes con Apple Watch (60/70/80/90 % de FCmáx estimada).
+/// No se atribuye una zona si Salud no aporta una lectura actual y válida.
 struct HeartRateZoneBar: View {
     var bpm: Int?
-    /// Estimación conservadora si no hay edad del usuario.
     var estimatedMaxBpm: Double = 190
 
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.25, green: 0.55, blue: 1.0),
-                                Color(red: 0.20, green: 0.85, blue: 0.40),
-                                Color(red: 0.95, green: 0.85, blue: 0.15),
-                                Color(red: 1.0, green: 0.55, blue: 0.10),
-                                Color(red: 0.95, green: 0.20, blue: 0.20)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .opacity(0.92)
+    private let colors: [Color] = [
+        Color(red: 0.25, green: 0.55, blue: 1),
+        Color(red: 0.20, green: 0.85, blue: 0.40),
+        Color(red: 0.95, green: 0.85, blue: 0.15),
+        Color(red: 1, green: 0.55, blue: 0.10),
+        Color(red: 0.95, green: 0.20, blue: 0.20)
+    ]
 
-                if let bpm, let fraction {
-                    Text("\(bpm)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(Color.white.opacity(0.95)))
-                        .shadow(color: .black.opacity(0.22), radius: 1.5, y: 0.5)
-                        .position(
-                            x: markerX(width: geo.size.width, fraction: fraction),
-                            y: geo.size.height / 2
-                        )
-                        .accessibilityHidden(true)
+    private var zone: Int? {
+        guard let bpm, (25...250).contains(bpm),
+              estimatedMaxBpm.isFinite, estimatedMaxBpm > 0 else { return nil }
+        let ratio = Double(bpm) / estimatedMaxBpm
+        if ratio < 0.60 { return 1 }
+        if ratio < 0.70 { return 2 }
+        if ratio < 0.80 { return 3 }
+        if ratio < 0.90 { return 4 }
+        return 5
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            GeometryReader { geo in
+                let gap: CGFloat = 4
+                // Cuatro tramos de una unidad + el tramo activo de tres.
+                // Sin muestra todos los tramos ocupan exactamente lo mismo.
+                let unit = max(0, (geo.size.width - 4 * gap) / (zone == nil ? 5 : 7))
+                HStack(spacing: gap) {
+                    ForEach(1...5, id: \.self) { level in
+                        let active = zone == level
+                        Capsule()
+                            .fill(colors[level - 1].opacity(zone == nil ? 0.30 : active ? 1 : 0.38))
+                            .frame(width: unit * (active ? 3 : 1), height: active ? 42 : 12)
+                            .overlay {
+                                if active, let bpm {
+                                    VStack(spacing: 0) {
+                                        Text("Zona \(level)")
+                                        Text("\(bpm) lpm")
+                                    }
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.black)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.7)
+                                    .accessibilityHidden(true)
+                                }
+                            }
+                            .accessibilityHidden(true)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(height: 44)
+
+            if zone == nil {
+                Text("Sin lectura de FC")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
-        .frame(height: 22)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(bpm.map { "Frecuencia cardíaca \($0) lpm" } ?? "Sin frecuencia cardíaca")
-    }
-
-    /// 0…1 dentro de un rango útil ~90…FCmáx (debajo de 90 se pega al inicio).
-    private var fraction: CGFloat? {
-        guard let bpm, estimatedMaxBpm > 100 else { return nil }
-        let floor = 90.0
-        let clamped = min(estimatedMaxBpm, max(floor, Double(bpm)))
-        return CGFloat((clamped - floor) / (estimatedMaxBpm - floor))
-    }
-
-    private func markerX(width: CGFloat, fraction: CGFloat) -> CGFloat {
-        let inset: CGFloat = 18
-        let usable = max(0, width - inset * 2)
-        return inset + usable * fraction
+        .accessibilityLabel(
+            zone.map { "Frecuencia cardíaca \(bpm ?? 0) pulsaciones, zona \($0) de 5" }
+                ?? "Frecuencia cardíaca no disponible"
+        )
     }
 }

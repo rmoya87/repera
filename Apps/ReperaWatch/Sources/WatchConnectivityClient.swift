@@ -74,6 +74,23 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         return true
     }
 
+    /// Muestra puntual de FC de HealthKit para la sesión Comenzar del iPhone.
+    /// Solo viaja si el teléfono está accesible; no se persiste ni se duplica un workout.
+    func sendLiveHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date = Date()) {
+        guard (25...250).contains(bpm),
+              WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              WCSession.default.isReachable else { return }
+        WCSession.default.sendMessage([
+            "action": "liveHeartRate",
+            "sessionId": sessionId.uuidString,
+            "bpm": bpm,
+            "capturedAt": capturedAt.timeIntervalSince1970
+        ], replyHandler: nil) { [weak self] error in
+            self?.logger.debug("Watch HR deferred: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     /// Encola cancelaciones por UUID: transferUserInfo entrega en segundo plano
     /// aunque el iPhone no esté accesible cuando se pulse Confirmar.
     /// La misma orden se envía por sendMessage para respuesta inmediata.

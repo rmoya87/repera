@@ -61,6 +61,9 @@ final class WatchSessionHub: NSObject {
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
     private var companionSensorID: UUID?
+    private var lastCompanionHeartSentAt = Date.distantPast
+    private var lastCompanionHeartSessionID: UUID?
+    private var lastCompanionHeartBpm: Int?
     private var lastComplicationReload = Date.distantPast
     private var startedOnThisWatch = false
     private var awaitingHealthSave = false
@@ -392,7 +395,10 @@ final class WatchSessionHub: NSObject {
 
     func activate() {
         health.onPauseResumeRequest = { [weak self] in self?.applyHealthPauseRequest() }
-        health.onMetricsUpdated = { [weak self] in self?.publishComplicationSnapshot() }
+        health.onMetricsUpdated = { [weak self] in
+            self?.publishComplicationSnapshot()
+            self?.publishCompanionHeartRateIfNeeded()
+        }
         health.onPauseStateChanged = { [weak self] paused in
             self?.alignWithHealthState(paused: paused)
         }
@@ -429,6 +435,26 @@ final class WatchSessionHub: NSObject {
         if let active, startedOnThisWatch {
             health.recoverIfNeeded(id: active.id)
         }
+    }
+
+    /// La frecuencia viene del sensor del reloj; no de un valor estimado.
+    /// Solo se comparte con la sesión Comenzar del teléfono y cada 3-5 s.
+    private func publishCompanionHeartRateIfNeeded() {
+        guard let sessionID = companionSensorID,
+              let live = liveActivity, live.id == sessionID,
+              live.phase == .recording || live.phase == .paused,
+              let bpm = health.pulseBpm, (25...250).contains(bpm) else { return }
+        let now = Date()
+        if lastCompanionHeartSessionID == sessionID {
+            let interval = now.timeIntervalSince(lastCompanionHeartSentAt)
+            if interval < 3 || (lastCompanionHeartBpm == bpm && interval < 5) {
+                return
+            }
+        }
+        lastCompanionHeartSessionID = sessionID
+        lastCompanionHeartBpm = bpm
+        lastCompanionHeartSentAt = now
+        connectivity.sendLiveHeartRate(sessionId: sessionID, bpm: bpm, capturedAt: now)
     }
 
     /// La esfera lee únicamente datos persistidos; WidgetKit puede espaciar

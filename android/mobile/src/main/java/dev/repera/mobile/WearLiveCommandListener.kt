@@ -21,6 +21,10 @@ internal object WearUiPresence {
 
 class WearLiveCommandListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/live-heart-rate") {
+            if (!WearUiPresence.active) handleBackgroundLiveHeartRate(event)
+            return
+        }
         if (event.path == "/repera/timer-state") {
             if (!WearUiPresence.active) handleTimerState(event)
             return
@@ -61,6 +65,22 @@ class WearLiveCommandListener : WearableListenerService() {
                 "resume" -> runtime.resume()
                 "finish" -> runtime.finish() // Review/Save remains on the phone.
             }
+        }
+    }
+
+    private fun handleBackgroundLiveHeartRate(event: MessageEvent) {
+        val owner = SessionStore(this).load()?.uniqueId ?: return
+        val payload = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val sessionID = payload.optString("sessionId")
+        val bpm = payload.optInt("bpm", -1)
+        val timestamp = payload.optLong("capturedAt", 0L)
+        if (sessionID.isBlank() || bpm !in 25..250) return
+        Handler(Looper.getMainLooper()).post {
+            if (SessionStore(this).load()?.uniqueId != owner) return@post
+            LiveActivityRuntime.forAccount(this, owner)
+                .acceptWearHeartRate(sessionID, bpm, timestamp)
         }
     }
 

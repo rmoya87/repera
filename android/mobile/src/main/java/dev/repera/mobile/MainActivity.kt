@@ -1443,6 +1443,21 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (event.path == "/repera/live-heart-rate") {
+            val payload = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8))
+            }.getOrNull() ?: return
+            val id = payload.optString("sessionId")
+            val bpm = payload.optInt("bpm", -1)
+            val capturedAt = payload.optLong("capturedAt", 0L)
+            if (id.isBlank() || bpm !in 25..250) return
+            runOnUiThread {
+                val account = profile?.uniqueId ?: return@runOnUiThread
+                LiveActivityRuntime.forAccount(this, account)
+                    .acceptWearHeartRate(id, bpm, capturedAt)
+            }
+            return
+        }
         // Apple 4a82b4b2/1d333b42/d350b42f: petición explícita del reloj -> plan de
         // HOY fresco del estado actual del teléfono (nunca caché viejo).
         if (event.path == "/repera/request-today-plan") {

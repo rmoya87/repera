@@ -12,6 +12,8 @@ protocol PhoneConnectivityDelegate: AnyObject {
     /// - Returns: `true` si el iPhone arrancó Comenzar; `false` si está ocupado.
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool)
+    /// Pulse forwarded by the paired Watch, scoped to the active phone-owned session.
+    func phoneConnectivityDidReceiveLiveHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date)
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?)
     func phoneConnectivityDidRequestToday()
     /// An explicit request replies with today's CURRENT prescription.
@@ -30,6 +32,7 @@ extension PhoneConnectivityDelegate {
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool { false }
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
     func phoneConnectivityDidReceiveAudioMuted(_ muted: Bool) {}
+    func phoneConnectivityDidReceiveLiveHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date) {}
     func phoneConnectivityDidReceiveDiscard(sessionId: UUID?) {}
     func phoneConnectivityDidRequestToday() {}
     func phoneConnectivityLatestWorkoutForToday() async -> WorkoutSession? { nil }
@@ -228,6 +231,19 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
         switch action {
+        case "liveHeartRate":
+            guard let raw = message["sessionId"] as? String,
+                  let id = UUID(uuidString: raw),
+                  let bpm = message["bpm"] as? Int,
+                  (25...250).contains(bpm),
+                  let timestamp = message["capturedAt"] as? TimeInterval,
+                  abs(Date().timeIntervalSince1970 - timestamp) <= 25 else {
+                return ["ok": false]
+            }
+            delegate?.phoneConnectivityDidReceiveLiveHeartRate(
+                sessionId: id, bpm: bpm, capturedAt: Date(timeIntervalSince1970: timestamp)
+            )
+            return ["ok": true]
         case "liveCommand":
             guard let raw = message["sessionId"] as? String,
                   let id = UUID(uuidString: raw),

@@ -172,6 +172,32 @@ class HealthConnectReader(private val context: Context) {
         return hasReadablePermission(granted)
     }
 
+    /**
+     * Repera Comenzar: latest *measured* pulse recently synchronized to Health Connect.
+     * Never request permissions implicitly, invent a reading or keep stale BPM onscreen.
+     * Devices that do not publish live Health Connect samples return null.
+     */
+    suspend fun latestHeartRateBpm(
+        sinceEpochMs: Long,
+        atEpochMs: Long = System.currentTimeMillis()
+    ): Int? {
+        if (!available() || sinceEpochMs >= atEpochMs) return null
+        val client = HealthConnectClient.getOrCreate(context)
+        if (HealthPermission.getReadPermission(HeartRateRecord::class) !in
+            client.permissionController.getGrantedPermissions()) return null
+
+        val from = maxOf(sinceEpochMs, atEpochMs - 60_000L)
+        val records = client.readAllRecords(
+            HeartRateRecord::class,
+            TimeRangeFilter.between(Instant.ofEpochMilli(from), Instant.ofEpochMilli(atEpochMs))
+        )
+        return records.asSequence().flatMap { it.samples.asSequence() }
+            .filter { it.time.toEpochMilli() in from..atEpochMs &&
+                it.beatsPerMinute.toInt() in 25..250 }
+            .maxByOrNull { it.time }
+            ?.beatsPerMinute?.toInt()
+    }
+
     suspend fun readToday(): TodayHealth = readDay(LocalDate.now())
 
     suspend fun readDay(day:LocalDate):TodayHealth {

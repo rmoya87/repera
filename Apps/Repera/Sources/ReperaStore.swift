@@ -3453,6 +3453,16 @@ extension ReperaStore: PhoneConnectivityDelegate {
         }
     }
 
+    nonisolated func phoneConnectivityDidReceiveLiveHeartRate(
+        sessionId: UUID, bpm: Int, capturedAt: Date
+    ) {
+        Task { @MainActor in
+            LiveActivityRecorder.shared.receiveCompanionHeartRate(
+                sessionId: sessionId, bpm: bpm, capturedAt: capturedAt
+            )
+        }
+    }
+
     nonisolated func phoneConnectivityDidReceiveLiveCommand(
         sessionId: UUID, command: String
     ) async -> Bool {

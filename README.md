@@ -1,5 +1,10 @@
 # Repera
 
+## Comenzar: zona de frecuencia cardiaca (2026-11-03)
+
+Carrera, caminata, senderismo, ciclismo y el resto de deportes GPS y no GPS muestran cinco barras de zona de FC de colores sólidos sin degradado; la zona actual se expande y contiene su número y pulsaciones medidas. En iPhone/Android se presenta tanto sobre el mapa GPS como en Métricas. HealthKit/Health Connect y los sensores de Apple Watch/Wear OS son las fuentes de medida; sin lectura válida se indica la ausencia y no se estima el pulso. Detalles y límites: [docs/FEATURES.md](docs/FEATURES.md) y [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+
 ## Meteorología iPhone / Apple Watch — App Review 5.2.5 (2026-11-03)
 
 WeatherKit (Apple Weather) aporta temperatura, humedad, viento y nevada horaria en iOS/watchOS; Open-Meteo se reserva para mareas, oleaje y espesor de nieve que WeatherKit no proporciona. Ambos proveedores aparecen identificados en las tarjetas con enlaces legales, incluyendo la marca oficial Apple Weather. Android/Wear mantienen Open-Meteo. **Antes de publicar, activar WeatherKit en el identificador Watch, verificar los datos y la marca en dispositivos físicos, adjuntar vídeo a App Review y contratar una licencia comercial para el uso de la API Open-Meteo.** Guía: [docs/WEATHER_SOURCES.md](docs/WEATHER_SOURCES.md).
