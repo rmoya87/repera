@@ -2946,6 +2946,11 @@ struct LiveActivityView: View {
                                 value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                 }
                 elevationMetricStrip
+                // También en carrera, caminata, ciclismo y demás deportes GPS.
+                // No se dibuja una zona activa sin una muestra real de Salud.
+                Divider().overlay(OG.label2.opacity(0.18))
+                HeartRateZoneBar(bpm: liveHeartRateBpm)
+                    .padding(.horizontal, 8)
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
@@ -2956,6 +2961,12 @@ struct LiveActivityView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
+            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
+                Task { await refreshLiveHeartRate() }
+            }
+            .task(id: "\(recorder.phase)-\(recorder.startedAt?.timeIntervalSince1970 ?? 0)") {
+                await refreshLiveHeartRate()
+            }
         }
     }
 
@@ -3089,6 +3100,9 @@ struct LiveActivityView: View {
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
+                    HeartRateZoneBar(bpm: liveHeartRateBpm)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 10)
                 } else {
                     Text(liveHeartRateBpm.map { "\($0)" } ?? "—")
                         .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
@@ -3148,18 +3162,20 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Lee la última FC de Salud desde el inicio de la sesión (Watch/banda si escriben).
+    /// Salud es la única fuente de pulsaciones: ninguna muestra sintética.
+    /// Una lectura antigua no debe simular una zona activa tras desconexión.
     private func refreshLiveHeartRate() async {
-        guard !recorder.sport.usesGPS,
-              recorder.phase == .recording || recorder.phase == .paused,
-              let start = recorder.startedAt
-        else {
-            if recorder.phase == .idle || recorder.phase == .review {
-                liveHeartRateBpm = nil
-            }
+        guard recorder.phase == .recording || recorder.phase == .paused,
+              let sessionStart = recorder.startedAt else {
+            liveHeartRateBpm = nil
             return
         }
-        liveHeartRateBpm = await HealthKitStore.shared.latestHeartRateBpm(since: start)
+        let freshStart = max(sessionStart, Date().addingTimeInterval(-60))
+        let reading = await HealthKitStore.shared.latestHeartRateBpm(since: freshStart)
+        // Ignorar respuestas tardías de un deporte o una sesión ya finalizados.
+        guard recorder.startedAt == sessionStart,
+              recorder.phase == .recording || recorder.phase == .paused else { return }
+        liveHeartRateBpm = reading
     }
 
     /// Últimas tres posiciones SIEMPRE fijas contra el margen derecho:
