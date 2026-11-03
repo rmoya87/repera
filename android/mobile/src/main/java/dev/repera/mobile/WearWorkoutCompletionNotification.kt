@@ -30,7 +30,7 @@ internal object WearWorkoutCompletionNotification {
         val workouts = state.optJSONArray("workouts") ?: return
         val finished = (0 until workouts.length()).any { index ->
             val row = workouts.optJSONObject(index)
-            row?.optString("id") == workoutID &&
+            row != null && row.optString("id") == workoutID &&
                 row.optString("phase") == "finished" &&
                 row.optBoolean("awaitingResultEntry")
         }
