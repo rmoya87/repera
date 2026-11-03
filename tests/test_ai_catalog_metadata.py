@@ -14,6 +14,7 @@ SQL = (ROOT / "supabase/migrations/20261021235000_complete_ai_catalog_muscle_map
 SQL_EXTRA = (ROOT / "supabase/migrations/20261022003500_new_photo_movements_crossfit.sql").read_text("utf-8")
 SQL_NATIVE_ADDED = (ROOT / "supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql").read_text("utf-8")
 SQL_EQUIPMENT = (ROOT / "supabase/migrations/20261103221000_native_equipment_metadata_parity.sql").read_text("utf-8")
+SQL_DDB = (ROOT / "supabase/migrations/20261103233000_board_scan_ddb_stepup_rkbs.sql").read_text("utf-8")
 CORRECTED_NAMES = set(re.findall(r"\('catalog:([^']+)', ARRAY\[", SQL_EQUIPMENT))
 NEW_NATIVE_NAMES = {
     "Tirón alto de arrancada",
@@ -35,7 +36,7 @@ EXTRA_NAMES = {
 FILES = {
     "CatalogHalterofilia.swift": ("h", 48),
     "CatalogGimnasia.swift": ("gy", 58),
-    "CatalogCrossFit.swift": ("cf", 47),
+    "CatalogCrossFit.swift": ("cf", 48),
 }
 CANONICAL = {
     "trapezius", "deltoids", "chest", "upper-back", "serratus",
@@ -95,6 +96,12 @@ class CatalogMetadataParityTests(unittest.TestCase):
                     self.assertIn(sql_array(primary), SQL_NATIVE_ADDED, name)
                     self.assertIn(sql_array(secondary), SQL_NATIVE_ADDED, name)
                     self.assertIn(sql_array(equipment), SQL_NATIVE_ADDED, name)
+                elif name == "Step-up al cajón con doble mancuerna":
+                    # This variant was added in the later non-destructive migration.
+                    self.assertIn("'catalog:" + name + "'", SQL_DDB)
+                    self.assertIn(sql_array(primary), SQL_DDB)
+                    self.assertIn(sql_array(secondary), SQL_DDB)
+                    self.assertIn("'native_ios_catalog'", SQL_DDB)
                 elif name in EXTRA_NAMES:
                     self.assertIn("'catalog:" + name + "'", SQL_EXTRA, name)
                     self.assertIn(sql_array(primary), SQL_EXTRA, name)
@@ -107,7 +114,7 @@ class CatalogMetadataParityTests(unittest.TestCase):
                         SQL, name,
                     )
                     self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
-        self.assertEqual(total, 153)
+        self.assertEqual(total, 154)
         self.assertEqual(len(CORRECTED_NAMES), 52)
         self.assertEqual(len(set(all_names)), total)
         self.assertEqual(

@@ -9,8 +9,9 @@ android {
         applicationId = "com.app.repera"
         minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        // Wear and mobile must receive monotonically increasing Play versions.
+        versionCode = providers.gradleProperty("REPERA_VERSION_CODE").map { it.toInt() }.orElse(1).get()
+        versionName = providers.gradleProperty("REPERA_VERSION_NAME").orElse("0.1.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }

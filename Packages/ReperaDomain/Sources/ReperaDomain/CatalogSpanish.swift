@@ -82,6 +82,7 @@ public enum CatalogSpanish {
         "Remo pliométrico en anillas pies elevados": "Remo horizontal explosivo con pies elevados y anillas: tracción rápida del pecho hacia las manos, recepción controlada y cuerpo en bloque. Requiere dominar primero el remo estricto en anillas.",
         "Fondos en anillas kipping": "Fondo en anillas con ayuda de impulso controlado de cadera. Es una variante avanzada que exige estabilidad de hombro, recepción segura y dominio previo de fondos estrictos.",
         "Kettlebell Goblet Box Step-Up": "Subida unilateral a un cajón con kettlebell sostenida delante del pecho en posición goblet. Entrena piernas, glúteos y estabilidad del tronco, sin impulsarse con la pierna que queda en el suelo.",
+        "Double Dumbbell Step Up": "Subida alterna a un cajón con dos mancuernas, una a cada lado del cuerpo. El trabajo debe recaer en la pierna apoyada arriba; controla la bajada sin utilizar rebotes ni impulsarte desde el suelo.",
         "Run": "Carrera continua, por distancia o intervalos, con zancada cómoda, postura erguida y respiración controlada. La intensidad depende del entrenamiento; ajusta ritmo y terreno a tu nivel.",
         "Dumbbell Clean and Jerk": "Cargada de mancuerna hasta el hombro seguida de envío overhead con impulso de piernas. Controla el recorrido de la carga, cambia de lado según la prescripción y estabiliza el bloqueo antes de repetir.",
         "Burpee box jump over": "Burpee seguido de salto al cajón y paso al otro lado. Exige controlar la recepción y la bajada, mantener la trayectoria libre de obstáculos y adaptar la altura al dominio de cada atleta.",
@@ -410,6 +411,14 @@ public enum CatalogSpanish {
             "Desciende de manera controlada, sin dejarte caer ni empujarte con la pierna de atrás para completar la repetición.",
             "Error típico: apoyar solo la punta del pie, impulsarse desde abajo o encorvar la espalda por exceso de peso o altura.",
             "Alterna piernas según la prescripción; empieza sin carga y aumenta primero el control, después la altura o la kettlebell.",
+        ],
+        "Double Dumbbell Step Up": [
+            "Antes de comenzar, elige un cajón estable y una altura que permita subir sin perder la alineación de la rodilla; coloca una mancuerna en cada mano.",
+            "Sitúa el pie completo de trabajo sobre el cajón, mantén el torso erguido y aprieta el abdomen para evitar balanceos con las dos cargas.",
+            "Empuja el cajón con la pierna superior hasta extender la cadera y la rodilla; evita ayudarte con un salto o impulso del pie que permanece abajo.",
+            "Termina de pie de forma estable sobre el cajón, con las mancuernas cerca de los muslos y los hombros relajados, antes de comenzar a bajar.",
+            "Desciende con control y alterna la pierna de apoyo según el entrenamiento; mantén un ritmo constante sin dejarte caer sobre la pierna inferior.",
+            "Error típico: elegir un cajón demasiado alto, despegar el talón, girar la rodilla hacia dentro o cargar demasiado peso. Progresión: primero sin carga, después una mancuerna y finalmente las dos.",
         ],
         "Run": [
             "Comienza con calentamiento de marcha y trote suave; adopta una postura erguida, mirada al frente y brazos relajados cerca del tronco.",

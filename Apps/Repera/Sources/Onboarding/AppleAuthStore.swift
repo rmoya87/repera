@@ -58,20 +58,16 @@ final class AppleAuthStore: NSObject {
             switch remote {
             case .authorized, .transferred:
                 credentialState = remote
-            case .revoked:
-                // NUNCA borrar Keychain/UserDefaults aquí. En Simulator (y a veces tras
-                // update) Apple reporta revoked de forma espuria; borrar forzaba login
-                // aunque Supabase/binding siguieran vivos.
-                credentialState = .authorized
-                lastErrorMessage = nil
-                AuthSessionTrace.event("credentialState revoked→keep identity (no wipe)")
-            case .notFound:
-                // Conservar identidad: tras update/reinstall parcial Apple a veces
-                // responde notFound aunque el usuario siga vinculado.
-                credentialState = .authorized
-                lastErrorMessage = nil
+            case .revoked, .notFound:
+                // A confirmed negative response is not a transient network error.
+                // Keep the local identity for deliberate reauthentication/recovery,
+                // but never promote a revoked credential to an authorized session.
+                credentialState = remote
+                lastErrorMessage = "La autorización de Apple debe verificarse de nuevo."
+                AuthSessionTrace.event("credentialState invalid; reauthentication required")
             @unknown default:
-                credentialState = .authorized
+                credentialState = .notFound
+                lastErrorMessage = "Estado de autorización Apple no reconocido."
             }
         } catch {
             // Error de red / temporal: no borrar la sesión local.

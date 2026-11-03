@@ -47,7 +47,13 @@ class DriveSyncWorker(
                 Identity.getAuthorizationClient(applicationContext).authorize(builder.build()),
                 30, TimeUnit.SECONDS
             )
-        }.getOrElse { return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success() }
+        }.getOrElse { error ->
+            if (runAttemptCount < MAX_ATTEMPTS) return Result.retry()
+            if (current()) SyncStatusStore(applicationContext).markFailed(
+                "No se pudo autorizar Drive tras varios intentos: " + (error.message ?: "error temporal")
+            )
+            return Result.failure()
+        }
 
         if(!current()) return Result.success()
         if (result.hasResolution()) {
@@ -64,8 +70,15 @@ class DriveSyncWorker(
             val outcome = DriveSnapshotService(token, store, stillAuthorized={current()}).synchronize()
             if(current()) SyncStatusStore(applicationContext).markSynced(outcome)
             Result.success()
-        }.getOrElse {
-            if (current() && runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
+        }.getOrElse { error ->
+            if (!current()) Result.success()
+            else if (runAttemptCount < MAX_ATTEMPTS) Result.retry()
+            else {
+                SyncStatusStore(applicationContext).markFailed(
+                    "La copia de Drive no se ha completado: " + (error.message ?: "error temporal")
+                )
+                Result.failure()
+            }
         }
     }
 

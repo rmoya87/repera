@@ -215,10 +215,12 @@ class DriveSnapshotService(
 
     private fun update(id: String, bytes: ByteArray, etag: String? = null) {
         val headers = linkedMapOf<String, String>()
-        // If-Match compara la etiqueta de entidad del archivo (ETag), no headRevisionId.
-        if (!etag.isNullOrBlank()) {
-            headers["If-Match"] = etag
+        // Never replace a remote revision without a concurrency precondition.
+        // A missing response ETag must fail closed, not silently become a blind PATCH.
+        check(!etag.isNullOrBlank()) {
+            "Google Drive no devolvió ETag; se evitó sobrescribir otra copia."
         }
+        headers["If-Match"] = etag
         request(
             "PATCH",
             "https://www.googleapis.com/upload/drive/v3/files/" + encode(id) + "?uploadType=media",

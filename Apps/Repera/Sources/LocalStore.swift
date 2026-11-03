@@ -132,10 +132,12 @@ actor AppStatePersistence {
         coalesceTask = Task {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
             guard !Task.isCancelled, generation == lastWriteGeneration, let pending = pendingState else { return }
-            pendingState = nil
             do {
                 try writeLocal(pending)
+                // Retire the queued snapshot only after the atomic write succeeds.
+                pendingState = nil
             } catch {
+                // Keep pendingState for an explicit flush or a subsequent save.
                 logger.error("Coalesced local write failed: \(String(describing: error), privacy: .public)")
             }
         }
@@ -145,8 +147,13 @@ actor AppStatePersistence {
         coalesceTask?.cancel()
         coalesceTask = nil
         if let pending = pendingState {
-            pendingState = nil
-            try? writeLocal(pending)
+            do {
+                try writeLocal(pending)
+                pendingState = nil
+            } catch {
+                // An unsuccessful flush must not silently discard the last snapshot.
+                logger.error("Pending local flush failed: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
