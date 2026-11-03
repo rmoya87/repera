@@ -1279,7 +1279,7 @@ struct HealthRecoveryProgressView: View {
             OGCardSectionTitle(title: "Preparación para entrenar")
             // Padding corto: el contenido define la altura (sin minHeight de gráfica).
             OGCard {
-                Group {
+                VStack(alignment: .leading, spacing: 10) {
                 if appliedRecoveryKey != trainingRecoveryRefreshKey && currentReadiness == nil {
                     HStack(spacing: 10) {
                         ProgressView().tint(OG.accent)
