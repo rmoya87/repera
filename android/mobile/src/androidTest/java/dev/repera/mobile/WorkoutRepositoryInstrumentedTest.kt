@@ -373,7 +373,9 @@ class WorkoutRepositoryInstrumentedTest {
         val afterWarmup = repo.active()!!
         assertEquals(8, afterWarmup.prescribedQuantity)
         assertEquals("warmup", afterWarmup.sets.single().phase)
-        assertEquals(4.0, afterWarmup.sets.single().rir!!, 0.001)
+        // Paridad WorkoutView.swift: calentamiento nunca registra RIR ni fallo implícito.
+        assertNull(afterWarmup.sets.single().rir)
+        assertFalse(afterWarmup.sets.single().toFailure)
         val stateAfterWarmup = JSONObject(String(store.read()!!))
         assertEquals(0, stateAfterWarmup.getJSONObject("activeSession")
             .getJSONArray("exercises").getJSONObject(0).getInt("completedReps"))
