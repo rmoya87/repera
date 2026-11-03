@@ -233,8 +233,10 @@ internal fun ProgressTab(
                             )
                         else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)
                     })
-                ReperaSectionTitle("Zonas cardíacas")
-                HeartZonesDemoCard()
+                if (PROGRESS_DEMO_CHARTS) {
+                    ReperaSectionTitle("Zonas cardíacas · ejemplo")
+                    HeartZonesDemoCard()
+                }
                 }
             }
             val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
