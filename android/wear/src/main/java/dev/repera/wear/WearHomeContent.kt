@@ -1051,7 +1051,7 @@ private fun TransformingLazyColumnScope.runningItems(
                         else -> callbacks.onQueueSet(session)
                     }
                 },
-                enabled = !state.sessionPaused || state.restRemaining > 0,
+                enabled = !state.sessionPaused,
                 modifier = Modifier.semantics {
                     contentDescription = when {
                         session.wodFormatLabel != null && !session.wodUsesSeries -> "Terminar"
@@ -1103,7 +1103,7 @@ private fun TransformingLazyColumnScope.wodRunningBody(
     if (session.globalScore) {
         item {
             Text(
-                "Resultado por bloque en el teléfono",
+                "Registra el resultado del bloque en el reloj",
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.labelSmall
             )

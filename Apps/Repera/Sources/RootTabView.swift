@@ -294,10 +294,16 @@ struct RootTabView: View {
     }
 
     private func openNotifiedCompletedWorkout(_ id: UUID) {
-        guard store.isHydrated,
-              store.state.workouts.contains(where: {
-                  $0.id == id && $0.finishedAt != nil && $0.timerDetails == nil
-              }) else { return }
+        guard store.isHydrated else { return }
+        // Una notificación tardía de un resultado ya editado o eliminado
+        // nunca debe reabrir un formulario obsoleto.
+        guard store.state.workouts.contains(where: {
+            $0.id == id && $0.finishedAt != nil && $0.timerDetails == nil &&
+                $0.awaitingResultEntry
+        }) else {
+            UserDefaults.standard.removeObject(forKey: WorkoutCompletionNotifier.pendingKey)
+            return
+        }
         // A notification targets exactly its finished session, not the currently
         // active plan or the most recent workout on a different day.
         flowPath = []

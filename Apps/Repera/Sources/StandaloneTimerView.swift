@@ -163,19 +163,27 @@ private enum StandaloneTimerConfigurationStore {
     }
 }
 
+@MainActor
 private enum StandaloneTimerCompletionStore {
-    // v2 guarda solo resultados pendientes de decisión; no reabre los resúmenes
-    // antiguos de solo lectura como si todavía esperasen Guardar/Descartar.
-    private static let key = "repera.timer.pendingCompletion.v2"
+    // Los resultados pendientes pueden contener una ubicación privada.
+    // Nunca leer el resultado de otra identidad ni el antiguo almacén global.
+    private static var key: String? {
+        guard let owner = AppleAuthStore.shared.userID, !owner.isEmpty else { return nil }
+        return "repera.timer.pendingCompletion.v3.\(owner)"
+    }
+
     static func load() -> StandaloneTimerCompletion? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let key, let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(StandaloneTimerCompletion.self, from: data)
     }
+
     static func save(_ completion: StandaloneTimerCompletion) {
-        guard let data = try? JSONEncoder().encode(completion) else { return }
+        guard let key, let data = try? JSONEncoder().encode(completion) else { return }
         UserDefaults.standard.set(data, forKey: key)
     }
+
     static func clear() {
+        guard let key else { return }
         UserDefaults.standard.removeObject(forKey: key)
     }
 }

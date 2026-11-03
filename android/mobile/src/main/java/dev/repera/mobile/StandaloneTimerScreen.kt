@@ -105,37 +105,37 @@ internal fun StandaloneTimerScreen(
     onSavedDay: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val store = remember { StandaloneTimerStore(context) }
+    val store = remember(accountId) { StandaloneTimerStore(context, accountId) }
     // Apertura desde el hub de favoritos (paridad FavoritesHubView iOS):
     // carga la configuración guardada y la edición queda anclada a ese id.
     // Sin favorito: restaurar última configuración (main 30aa3a37).
-    val openedFavorite = remember(favoriteId) {
+    val openedFavorite = remember(accountId, favoriteId) {
         favoriteId?.let { id -> store.favorites().firstOrNull { it.id == id } }
     }
     val usesLastConfiguration = openedFavorite == null
-    var config by remember {
+    var config by remember(accountId, favoriteId) {
         mutableStateOf(
             openedFavorite?.config
                 ?: (store.loadLastConfiguration()?.copy(mode = StandaloneTimerMode.UP)
                     ?: StandaloneTimerConfig())
         )
     }
-    var favorites by remember { mutableStateOf(store.favorites()) }
-    var editingFavoriteId by remember { mutableStateOf<String?>(openedFavorite?.id) }
+    var favorites by remember(accountId) { mutableStateOf(store.favorites()) }
+    var editingFavoriteId by remember(accountId, favoriteId) { mutableStateOf<String?>(openedFavorite?.id) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var saveTitle by remember { mutableStateOf("") }
-    var showClock by remember { mutableStateOf(false) }
-    var completedSummary by remember {
+    var showClock by remember(accountId) { mutableStateOf(false) }
+    var completedSummary by remember(accountId) {
         mutableStateOf(store.loadPendingCompletion())
     }
-    var locationPin by remember {
+    var locationPin by remember(accountId) {
         mutableStateOf<WorkoutLocationPin?>(completedSummary?.locationPin)
     }
     var completionSaveError by remember { mutableStateOf<String?>(null) }
     var timerStartedAtMs by remember { mutableStateOf<Long?>(null) }
 
     // Estado del reloj (anclado a reloj de pared).
-    var isRunning by remember { mutableStateOf(false) }
+    var isRunning by remember(accountId) { mutableStateOf(false) }
     var displaySeconds by remember { mutableIntStateOf(0) }
     var roundNumber by remember { mutableIntStateOf(1) }
     var phaseIsWork by remember { mutableStateOf(true) }

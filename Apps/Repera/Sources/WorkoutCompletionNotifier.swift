@@ -43,8 +43,9 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        let isWorkout = notification.request.identifier.hasPrefix(Self.prefix)
-        completionHandler(isWorkout ? [.banner, .sound] : [])
+        // Preserva avisos de descanso, clases y temporizadores en primer plano.
+        // El delegado único no debe silenciar las demás notificaciones de Repera.
+        completionHandler([.banner, .sound])
     }
 
     func userNotificationCenter(
