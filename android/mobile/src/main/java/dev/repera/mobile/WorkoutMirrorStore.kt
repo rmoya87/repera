@@ -52,9 +52,31 @@ class WorkoutMirrorStore(
     /** Queue the server DELETE only after the local snapshot commit succeeds. */
     fun noteDeleted(id: String) = synchronized(deletionLock) {
         require(runCatching { java.util.UUID.fromString(id) }.isSuccess)
-        check(prefs.edit().putStringSet(KEY_DELETED, pendingDeletes() + id).commit()) {
+        // Cola de DELETE y protección breve frente a snapshots tardíos del reloj:
+        // ambos en una única transacción de SharedPreferences. Tras ACK remoto
+        // se retira la cola, pero un reloj desconectado no puede reabrir el UUID.
+        val now = System.currentTimeMillis()
+        val recent = (recentlyDeleted(now) + (id to (now + REPLAY_GUARD_MS)))
+            .entries.sortedByDescending { it.value }.take(REPLAY_GUARD_MAX)
+        val json = JSONObject()
+        recent.forEach { (workoutId, expiresAt) -> json.put(workoutId, expiresAt) }
+        check(prefs.edit()
+            .putStringSet(KEY_DELETED, pendingDeletes() + id)
+            .putString(KEY_REPLAY_GUARD, json.toString())
+            .commit()) {
             "No se pudo encolar la eliminación remota pendiente"
         }
+    }
+
+    /** Ventana acotada de anti-replay Wear, no un histórico permanente de borrados. */
+    private fun recentlyDeleted(now: Long): Map<String, Long> {
+        val raw = prefs.getString(KEY_REPLAY_GUARD, null) ?: return emptyMap()
+        val parsed = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
+        return parsed.keys().asSequence().mapNotNull { id ->
+            val expiresAt = parsed.optLong(id, 0)
+            if (expiresAt > now && expiresAt <= now + REPLAY_GUARD_MS) id to expiresAt
+            else null
+        }.take(REPLAY_GUARD_MAX).toMap()
     }
 
     fun pendingDeletes(): Set<String> = synchronized(deletionLock) {
@@ -88,9 +110,10 @@ class WorkoutMirrorStore(
         check(prefs.edit().remove(KEY_RESET_INTENT).commit()) {"No se pudo borrar la intencion de reset"}
     }
 
-    /** Only currently pending operations or an unfinished reset block recovery. */
+    /** Pending deletes, unfinished reset and bounded protection from stale Wear snapshots. */
     fun blockedIds(): Set<String> = synchronized(deletionLock) {
-        pendingDeletes() + (loadResetIntent()?.let { runCatching {
+        pendingDeletes() + recentlyDeleted(System.currentTimeMillis()).keys +
+            (loadResetIntent()?.let { runCatching {
             val a = JSONObject(it).getJSONArray("ids"); (0 until a.length()).map { i -> a.getString(i) }
         }.getOrDefault(emptyList()) } ?: emptyList())
     }
@@ -404,6 +427,9 @@ class WorkoutMirrorStore(
         private const val KEY_RESET_INTENT = "reset-intent"
         private const val KEY_DELETED = "deleted"
         private const val KEY_DELETED_HISTORY = "deleted-history" // legacy: removed on init
+        private const val KEY_REPLAY_GUARD = "recent-stale-wear-sessions"
+        private val REPLAY_GUARD_MS = TimeUnit.DAYS.toMillis(30)
+        private const val REPLAY_GUARD_MAX = 256
 
         private val PRIVATE_KEYS = listOf(
             "notes", "sessionReview", "locationPin", "routePoints",
