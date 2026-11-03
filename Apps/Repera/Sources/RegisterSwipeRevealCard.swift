@@ -117,6 +117,28 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     }
 }
 
+// MARK: - A single revealed card at a time
+
+@MainActor
+private enum RegisterSwipeRevealRegistry {
+    private static var activeID: UUID?
+    private static var closeActive: (() -> Void)?
+
+    static func reveal(id: UUID, close: @escaping () -> Void) {
+        guard activeID != id else { return }
+        let previous = closeActive
+        activeID = id
+        closeActive = close
+        previous?()
+    }
+
+    static func close(id: UUID) {
+        guard activeID == id else { return }
+        activeID = nil
+        closeActive = nil
+    }
+}
+
 // MARK: - Scroll lock
 
 @MainActor
@@ -226,6 +248,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         var onRevealChange: @MainActor (Bool, Bool) -> Void
         private var deleteRevealed = false
         private var editRevealed = false
+        private let revealID = UUID()
 
         var host: UIHostingController<Content>?
         weak var cardView: UIView?
@@ -386,6 +409,13 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 deleteRevealed = shouldReveal
                 editRevealed = shouldRevealEdit
                 MainActor.assumeIsolated {
+                    if shouldReveal || shouldRevealEdit {
+                        RegisterSwipeRevealRegistry.reveal(id: revealID) { [weak self] in
+                            self?.settle(to: 0)
+                        }
+                    } else {
+                        RegisterSwipeRevealRegistry.close(id: revealID)
+                    }
                     onRevealChange(shouldReveal, shouldRevealEdit)
                 }
             }
