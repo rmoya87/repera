@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {renderBusinessHome,renderClient360} from '../src/ui/management-360.js';
 import {renderProfessionalPlanning} from '../src/ui/connected-planning.js';
-import {renderTrainerPassPanel} from '../src/ui/trainer-pass-panel.js';
+import {renderTrainerPassPanel,renderPassOfferForm} from '../src/ui/trainer-pass-panel.js';
 import {renderRequestsModal,renderBroadcastModal,renderTrainerAgenda,renderQuickWorkoutModal,countQuickWorkoutSessions} from '../src/ui/trainer-agenda.js';
 
 const client={id:'client-1',name:'María Deportista',email:'maria@example.com',user_id:'user-1',status:'active',avatar_url:'https://example.com/avatar.png'};
@@ -12,9 +12,9 @@ const booking={id:'b1',occurrence_id:'occ-1',client_id:'client-1',status:'booked
 
 test('inicio de entrenador: agenda, avisos, solicitudes e invitar',()=>{
  const html=renderBusinessHome({org:{kind:'personal_trainer'},clients:[{...client,status:'lead'}],occurrences:[occurrence],bookings:[],sessions:[training],manager:true,calendarMonth:'2099-10',requests:[{id:'r1',status:'pending',name:'Ana'}]});
- assert.match(html,/Crear cita/);
- assert.match(html,/open-broadcast-modal/);
- assert.match(html,/open-requests-modal/);
+ assert.match(html,/data-action="new-date-appointment"/);
+ assert.match(html,/open-notifications/);
+ assert.match(html,/open-notifications/);
  assert.match(html,/pt-badge/);
  assert.match(html,/open-invite-modal/);
  assert.match(html,/pt-cal-add/);
@@ -25,11 +25,11 @@ test('inicio de entrenador: agenda, avisos, solicitudes e invitar',()=>{
 
 test('ficha de entrenador reutiliza agenda PT con acciones del cliente',()=>{
  const html=renderClient360({clients:[client],selected:client.id,trainer:true,manager:true,passes:[{id:'pass-1',client_id:client.id,kind:'appointment',total_credits:10,remaining_credits:4,valid_until:'2099-11-30',status:'active'}],sessions:[training],bookings:[booking],occurrences:[occurrence],clientSection:'training',calendarMonth:'2099-10',agendaDay:'2099-10-30',agendaView:'month'});
- assert.match(html,/Agenda de María Deportista/);
+ assert.match(html,/María Deportista/);
  assert.match(html,/pt-agenda-shell/);
  assert.match(html,/pt-month-layout/);
  assert.match(html,/pt-day-rail/);
- assert.match(html,/pt-view-toggle/);
+ assert.match(html,/pt-month-cal/);
  assert.match(html,/open-quick-workout/);
  assert.match(html,/new-date-appointment/);
  assert.match(html,/Fuerza de tren inferior|Sesión individual/);
@@ -61,10 +61,10 @@ test('plan rápido: un día, semanal o plan completo',()=>{
 test('modales de avisos y solicitudes',()=>{
  const broadcast=renderBroadcastModal({clients:[client],occurrences:[],groups:[],manager:true});
  assert.match(broadcast,/Avisos a clientes|pt-sheet/);
- assert.match(broadcast,/pt-sheet-hero/);
+ assert.match(broadcast,/pt-notif-drawer/);
  const requests=renderRequestsModal({waiting:[{id:'r1',name:'Ana',email:'a@b.com',status:'pending'}],manager:true});
  assert.match(requests,/Aceptar/);
- assert.match(requests,/pt-sheet/);
+ assert.match(requests,/pt-notif-drawer/);
 });
 
 test('vista día en ficha cliente',()=>{
@@ -82,16 +82,17 @@ test('tarifas: mensual e ilimitado ocultan sesiones; asignar muestra formulario'
   clients:[client],offers:[{id:'o1',name:'Mensual',credits:9999,validity_days:30,price_cents:9000,is_active:true,billing_model:'monthly'}],
   passes:[],attendance:[],bookings:[],occurrences:[],seat:{used:1,max:5,left:4,label:'Prueba'},manager:true,
  });
- assert.match(html,/data-billing-fields="monthly"/);
- assert.match(html,/data-billing-fields="unlimited"/);
- assert.match(html,/data-connected="issue-offline-pass"/);
- assert.match(html,/Asignar tarifa/);
+ const form=renderPassOfferForm();
+ assert.match(form,/data-billing-fields="monthly"/);
+ assert.match(form,/data-billing-fields="unlimited"/);
+ assert.match(html,/data-action="open-create-plan-modal"/);
+ assert.match(html,/Planes asignados/);
  const empty=renderTrainerPassPanel({
   clients:[],offers:[],passes:[],attendance:[],bookings:[],occurrences:[],
   seat:{used:0,max:5,left:5,label:'Prueba'},manager:true,
  });
- assert.match(empty,/pt-assign-empty/);
- assert.match(empty,/Crear tarifa/);
+ assert.match(empty,/Sin planes emitidos/);
+ assert.match(empty,/Crear plan/);
 });
 
 test('el editor individual no obliga a guardar el entrenamiento en biblioteca',()=>{

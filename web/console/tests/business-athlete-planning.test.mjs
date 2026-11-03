@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {renderPlatformAdmin} from '../src/ui/platform-admin.js';
 import {renderAthleteActivity} from '../src/ui/athlete-activity.js';
+import {renderNotificationsDrawer} from '../src/ui/trainer-agenda.js';
 import {renderBusinessHome} from '../src/ui/management-360.js';
 import {renderProfessionalPlanning} from '../src/ui/connected-planning.js';
 import {ReperaAuthAPI} from '../src/core/auth.js';
@@ -46,16 +47,15 @@ test('Los títulos no pueden inyectar HTML y ejercicios desconocidos no reciben 
  assert.doesNotMatch(html,/src="\.\.\/assets\/exercises/);
 });
 
-test('Las solicitudes llegan a la portada con decisiones explícitas y actualizar',()=>{
- const html=renderBusinessHome({org:{id:org,name:'Centro',kind:'gym'},manager:true,
-  clients:[],occurrences:[],sessions:[],
-  requests:[{id:'request',name:'Aspirante',email:'a@example.org',pass_kind:'class',note:'Me interesa',status:'pending'}]});
- assert.match(html,/Solicitudes/);
- assert.match(html,/data-action="approve-enrollment"/);
- assert.match(html,/data-action="reject-enrollment"/);
- assert.match(html,/data-action="refresh-enrollments"/);
- assert.match(html,/Recepción/);
- assert.match(html,/data-action="go-invite-client"/);
+test('Las solicitudes se gestionan en Notificaciones con decisiones explícitas y actualización',()=>{
+ const html=renderBusinessHome({org:{kind:'gym'},clients:[],occurrences:[],bookings:[],sessions:[],manager:true,requests:[{id:'r1',name:'Ana',email:'ana@example.org',status:'pending'}]});
+ assert.match(html,/pt-agenda-shell/);
+ const drawer=renderNotificationsDrawer({waiting:[{id:'r1',name:'Ana',email:'ana@example.org',status:'pending'}],manager:true});
+ assert.match(drawer,/Solicitudes/);
+ assert.match(drawer,/data-action="approve-enrollment"/);
+ assert.match(drawer,/data-action="reject-enrollment"/);
+ assert.match(drawer,/data-action="refresh-enrollments"/);
+ assert.match(drawer,/pt-notif-drawer/);
 });
 
 test('El editor masivo ofrece plantilla, atletas, día/semana/rango y previsualización',()=>{
