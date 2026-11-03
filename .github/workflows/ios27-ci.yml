@@ -303,11 +303,25 @@ jobs:
             exit 1
           fi
           echo "Selected iOS 27 simulator: $DEST"
-          xcodebuild -project Repera.xcodeproj -scheme Repera \
+          # An early Xcode 27 simulator runner crash must not hide real failures.
+          # Retry just once, preserving both xcresult bundles, and fail if repeated.
+          if ! xcodebuild -project Repera.xcodeproj -scheme Repera \
+            -parallel-testing-enabled NO \
             -destination "platform=iOS Simulator,id=$DEST" \
             -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/ReperaUITests.xcresult" \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$RUNNER_TEMP/repera-ui-tests.log"
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$RUNNER_TEMP/repera-ui-tests.log"; then
+            echo "::warning::UI tests failed; retrying once after a simulator restart"
+            xcrun simctl shutdown "$DEST" || true
+            xcrun simctl boot "$DEST" || true
+            xcrun simctl bootstatus "$DEST" -b
+            xcodebuild -project Repera.xcodeproj -scheme Repera \
+              -parallel-testing-enabled NO \
+              -destination "platform=iOS Simulator,id=$DEST" \
+              -derivedDataPath "$RUNNER_TEMP/ReperaDerivedData" \
+              -resultBundlePath "$RUNNER_TEMP/ReperaUITests.retry.xcresult" \
+              CODE_SIGNING_ALLOWED=NO test 2>&1 | tee "$RUNNER_TEMP/repera-ui-tests-retry.log"
+          fi
       - name: Upload xcresult
         if: always()
         uses: actions/upload-artifact@v4
@@ -315,7 +329,9 @@ jobs:
           name: repera-ui-xcresult
           path: |
             ${{ runner.temp }}/ReperaUITests.xcresult
+            ${{ runner.temp }}/ReperaUITests.retry.xcresult
             ${{ runner.temp }}/repera-ios-build.log
             ${{ runner.temp }}/repera-watch-build.log
             ${{ runner.temp }}/repera-ui-tests.log
+            ${{ runner.temp }}/repera-ui-tests-retry.log
           if-no-files-found: ignore

@@ -73,7 +73,7 @@ final class ExerciseEquipmentGroupTests: XCTestCase {
     func testRealCatalogAlwaysHasAGroupWithoutChangingIdentity() {
         let originals = Catalog.seed()
         let ids = originals.map(\.id)
-        XCTAssertEqual(originals.count, 289)
+        XCTAssertEqual(originals.count, 290)
         for exercise in originals {
             XCTAssertFalse(ExerciseEquipmentGroup.category(for: exercise).isEmpty)
         }
