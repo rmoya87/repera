@@ -1646,7 +1646,10 @@ final class ReperaStore: NSObject {
     }
 
     func deleteWorkout(_ id: UUID) {
-        // Persist a per-account tombstone before removing from local/iCloud.
+        guard state.workouts.contains(where: { $0.id == id }) else { return }
+        // Keep a permanent personal tombstone in the iCloud document as well as
+        // the per-account Supabase outbox. Late Watch transfers must honor it.
+        state.deletedWorkoutIDs.insert(id)
         BusinessWorkoutSyncStore.shared.noteDeleted(id)
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
@@ -1762,7 +1765,16 @@ final class ReperaStore: NSObject {
 
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
+        guard !state.deletedWorkoutIDs.contains(session.id) else { return }
         var draft = session
+        if let existing = state.workouts.first(where: { $0.id == session.id }) {
+            let existingIDs = Set(existing.exercises.map(\.id))
+            let retainedIDs = Set(draft.exercises.map(\.id))
+            let removed = existingIDs.subtracting(retainedIDs)
+            if !removed.isEmpty {
+                state.deletedWorkoutExerciseIDs[draft.id.uuidString, default: []].formUnion(removed)
+            }
+        }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
@@ -1892,6 +1904,8 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        // A late/retried watch transfer cannot recreate a workout the athlete deleted.
+        guard !state.deletedWorkoutIDs.contains(session.id) else { return }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
         }
@@ -1902,20 +1916,36 @@ final class ReperaStore: NSObject {
                !existing.awaitingResultEntry {
                 // La rama habitual reconciliará únicamente las métricas verificadas.
             } else {
+                let firstArrival = !state.workouts.contains(where: { $0.id == session.id })
                 var pending = session
-                pending.phase = .ready
+                // Finished in HealthKit is finished in Repera, even while results
+                // remain editable. Do not turn it back into a running/ready workout.
+                pending.phase = .finished
                 if let old = state.workouts.first(where: { $0.id == session.id }) {
+                    // A delayed HealthKit update may only add verified metrics;
+                    // never reset sets that the athlete corrected on the phone.
+                    pending.exercises = old.exercises
+                    pending.routineBlocks = old.routineBlocks ?? session.routineBlocks
                     pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
                     pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
                     pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
                     pending.appleDurationSeconds = session.appleDurationSeconds ?? old.appleDurationSeconds
                 }
                 upsertWorkout(pending)
+                if state.activeSession?.id == pending.id {
+                    state.activeSession = nil
+                    workoutClock.stop()
+                    restCoordinator.endForSessionClose()
+                    publishSessionChrome()
+                }
                 persistWorkouts()
                 let snapshot = state
                 Task { @MainActor in
                     await LocalStore.shared.persistAndFlush(snapshot)
                     guard LocalStore.shared.lastPersistenceError == nil else { return }
+                    if firstArrival {
+                        WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                    }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
                 }
@@ -1923,6 +1953,7 @@ final class ReperaStore: NSObject {
             }
         }
         if session.phase == .finished {
+            let firstArrival = !state.workouts.contains(where: { $0.id == session.id })
             var changed = false
             if let index = state.workouts.firstIndex(where: { $0.id == session.id }) {
                 // An earlier offline transfer may arrive before HealthKit finishes saving.
@@ -1969,7 +2000,12 @@ final class ReperaStore: NSObject {
                 // guardar el historial sin volver a pedir confirmación en iPhone.
                 attachSessionReview(&completed, present: false)
                 upsertWorkout(completed)
-                if state.activeSession?.id == completed.id { state.activeSession = nil }
+                if state.activeSession?.id == completed.id {
+                    state.activeSession = nil
+                    workoutClock.stop()
+                    restCoordinator.endForSessionClose()
+                    publishSessionChrome()
+                }
                 // Una sesión recibida desde Watch también merece la localidad
                 // que Guardar entreno añade al terminar directamente en iPhone.
                 if let sportID = completed.liveSportID,
@@ -2010,6 +2046,9 @@ final class ReperaStore: NSObject {
                       self.state.workouts.first(where: { $0.id == session.id }) ==
                       snapshot.workouts.first(where: { $0.id == session.id })
                 else { return }
+                if firstArrival && session.timerDetails == nil {
+                    WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
                 if needsSync && BusinessAuthStore.shared.isConnected {
@@ -2073,8 +2112,20 @@ final class ReperaStore: NSObject {
         var known = Set(state.workouts.map(\.id))
         var imported = 0
         for session in recovered where session.finishedAt != nil {
-            guard known.insert(session.id).inserted else { continue }
-            state.workouts.append(normalizedFinishedWorkout(session))
+            guard !state.deletedWorkoutIDs.contains(session.id),
+                  known.insert(session.id).inserted else { continue }
+            var restored = normalizedFinishedWorkout(session)
+            if let removed = state.deletedWorkoutExerciseIDs[session.id.uuidString] {
+                restored.exercises.removeAll { removed.contains($0.id) }
+                if var blocks = restored.routineBlocks {
+                    for index in blocks.indices {
+                        blocks[index].exercises.removeAll { removed.contains($0.id) }
+                        blocks[index].movements.removeAll { removed.contains($0.id) }
+                    }
+                    restored.routineBlocks = blocks
+                }
+            }
+            state.workouts.append(restored)
             imported += 1
         }
         if imported > 0 {
@@ -2093,8 +2144,16 @@ final class ReperaStore: NSObject {
     private func normalizedFinishedWorkout(_ session: WorkoutSession) -> WorkoutSession {
         guard session.phase == .finished || session.finishedAt != nil else { return session }
         var saved = session
+        // A stored finishedAt always wins over stale phase=.ready snapshots.
+        saved.phase = .finished
         for i in saved.exercises.indices {
-            saved.exercises[i].isCompleted = true
+            // A watch recording can finish before reps/weights are entered:
+            // leave its unrecorded prescription uncompleted until the athlete confirms.
+            if saved.awaitingResultEntry {
+                saved.exercises[i].isCompleted = !saved.exercises[i].loggedSets.isEmpty
+            } else {
+                saved.exercises[i].isCompleted = true
+            }
         }
         return saved
     }
@@ -3162,7 +3221,10 @@ final class ReperaStore: NSObject {
     }
 
     func deleteExercise(_ id: UUID) {
-        state.exercises.removeAll { $0.id == id && $0.isCustom }
+        guard state.exercises.contains(where: { $0.id == id && $0.isCustom }) else { return }
+        // Persist the removal across iCloud conflicts before deleting the local row.
+        state.deletedExerciseIDs.insert(id)
+        state.exercises.removeAll { $0.id == id }
         catalogEpoch &+= 1
         persist()
     }
