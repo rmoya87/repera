@@ -63,6 +63,21 @@ class WorkoutMirrorStore(
     /** Compatibility alias: only unacknowledged operations are retained. */
     fun deletedIds():Set<String> = pendingDeletes()
 
+    /** Local snapshots are keyed by Google identity, while Supabase mirrors are
+     * keyed by auth.users.id. Move only PENDING deletes after authenticated
+     * binding, then remove the obsolete Google-keyed operation queue.
+     */
+    internal fun importPendingFrom(source: WorkoutMirrorStore) {
+        if (source.userId == userId) return
+        authorize()
+        val sourceIDs = source.pendingDeletes()
+        if (sourceIDs.isEmpty()) return
+        check(prefs.edit().putStringSet(KEY_DELETED, pendingDeletes() + sourceIDs).commit()) {
+            "No se pudo transferir el borrado pendiente al usuario remoto"
+        }
+        source.acknowledgeDeletes(sourceIDs)
+    }
+
     /** Diario de reset (ResetCoordinator): persistencia sincrona por cuenta. */
     fun loadResetIntent(): String? = synchronized(deletionLock) { prefs.getString(KEY_RESET_INTENT, null) }
     fun storeResetIntent(json: String) = synchronized(deletionLock) {
@@ -109,6 +124,7 @@ class WorkoutMirrorStore(
             authorize()
             check(session.userId==userId) {"La cuenta no corresponde al espejo"}
             repository.recoverPendingReset()
+            repository.transferPendingMirrorDeletesTo(this)
             // Physical DELETE first: a stale remote row must never be recovered
             // between a user's local deletion and the server acknowledgement.
             val deletionIDs = pendingDeletes()
