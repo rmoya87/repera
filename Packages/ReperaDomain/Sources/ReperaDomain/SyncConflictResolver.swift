@@ -55,6 +55,24 @@ public enum SyncConflictResolver: Sendable {
         let deletedWorkoutIDs = result.deletedWorkoutIDs
         result.exercises.removeAll { deletedExerciseIDs.contains($0.id) }
         result.workouts.removeAll { deletedWorkoutIDs.contains($0.id) }
+        if let active = result.activeSession,
+           deletedWorkoutIDs.contains(active.id) {
+            result.activeSession = nil
+        } else if var active = result.activeSession,
+                  let removed = result.deletedWorkoutExerciseIDs[active.id.uuidString],
+                  !removed.isEmpty {
+            active.exercises.removeAll { removed.contains($0.id) }
+            if var blocks = active.routineBlocks {
+                for index in blocks.indices {
+                    blocks[index].exercises.removeAll { removed.contains($0.id) }
+                    blocks[index].movements.removeAll { removed.contains($0.id) }
+                }
+                active.routineBlocks = blocks
+            }
+            active.currentIndex = active.exercises.isEmpty ? 0
+                : min(active.currentIndex, active.exercises.count - 1)
+            result.activeSession = active
+        }
         for index in result.workouts.indices {
             let key = result.workouts[index].id.uuidString
             guard let deleted = result.deletedWorkoutExerciseIDs[key], !deleted.isEmpty
