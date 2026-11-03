@@ -985,6 +985,7 @@ private struct ProgressSessionScoreChartCard: View {
     private struct ScoreDay: Identifiable {
         let date: Date
         let score: Double
+        let segment: Int
         var id: Date { date }
     }
 
@@ -997,7 +998,7 @@ private struct ProgressSessionScoreChartCard: View {
                 guard let date = calendar.date(byAdding: .day, value: index - 6, to: today) else {
                     return nil
                 }
-                return ScoreDay(date: date, score: scores[index])
+                return ScoreDay(date: date, score: scores[index], segment: 0)
             }
         }
         let rated: [(Date, Double)] = workouts.compactMap { session in
@@ -1007,13 +1008,72 @@ private struct ProgressSessionScoreChartCard: View {
             return (calendar.startOfDay(for: finishedAt), Double(review.overallScore))
         }
         let byDay = Dictionary(grouping: rated, by: { $0.0 })
+        var previous: Date?
+        var segment = 0
         return byDay.keys.sorted().compactMap { day in
             guard let scores = byDay[day], !scores.isEmpty else { return nil }
+            if let previous, (calendar.dateComponents([.day], from: previous, to: day).day ?? 0) > 1 {
+                segment += 1
+            }
+            previous = day
             return ScoreDay(
                 date: day,
-                score: (scores.reduce(0.0) { $0 + $1.1 } / Double(scores.count)).rounded()
+                score: (scores.reduce(0.0) { $0 + $1.1 } / Double(scores.count)).rounded(),
+                segment: segment
             )
         }
+    }
+
+    @ViewBuilder
+    private var scoreSummary: some View {
+        let values = points
+        let average = values.isEmpty ? nil :
+            Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
+        HStack(alignment: .center, spacing: 16) {
+            ZStack {
+                Circle()
+                    .stroke(OG.surface3, lineWidth: 9)
+                if let average {
+                    Circle()
+                        .trim(from: 0, to: Double(average) / 10)
+                        .stroke(OG.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                VStack(spacing: 1) {
+                    Text(average.map(String.init) ?? "—")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(OG.label)
+                    Text("de 10")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            .frame(width: 94, height: 94)
+            .accessibilityLabel(average.map { "Puntuación media \($0) de 10" } ?? "Puntuación pendiente de aprendizaje")
+            VStack(alignment: .leading, spacing: 5) {
+                Text(values.isEmpty ? "Repera está aprendiendo de ti" : "Tu rendimiento personal")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                if values.isEmpty {
+                    Text("Necesita 2 días previos con ejercicios o WOD comparables; algunos WOD requieren 3 días de referencia.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label2)
+                } else {
+                    Text("\(values.count) días con resultados evaluables")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(OG.label2)
+                    Text("Comparado con tus marcas anteriores, no con otros deportistas.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(OG.label2)
+                    Text("Detalle de factores y confianza en cada entrenamiento.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(OG.label3)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.bottom, 4)
     }
 
     var body: some View {
@@ -1023,21 +1083,17 @@ private struct ProgressSessionScoreChartCard: View {
                 OGCardSectionTitle(title: "Puntuación de entrenamiento")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
-                    Text("Ejemplo · \(Int((values.map(\.score).reduce(0, +) / Double(max(1, values.count))).rounded()))/10")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    Text("Ejemplo")
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
-                        .accessibilityLabel("Ejemplo con puntuaciones ficticias")
-                } else if !values.isEmpty {
-                    Text("\(Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded()))/10")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label)
                 }
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
+                    scoreSummary
                     if values.isEmpty {
                         ProgressEmptyChart(
-                            message: "Todavía no hay puntuaciones basadas en tu historial.",
+                            message: "Repera está aprendiendo de ti. Completa al menos 2 días previos comparables y registra un 60% de rendimiento evaluable.",
                             height: 205,
                             yRange: 0.0...10.0
                         )
@@ -1046,10 +1102,17 @@ private struct ProgressSessionScoreChartCard: View {
                             ForEach(values) { point in
                                 LineMark(
                                     x: .value("Día", point.date),
-                                    y: .value("Puntuación", point.score)
+                                    y: .value("Puntuación", point.score),
+                                    series: .value("Tramo observado", point.segment)
                                 )
                                 .interpolationMethod(.catmullRom)
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                                .foregroundStyle(OG.accent)
+                                PointMark(
+                                    x: .value("Día", point.date),
+                                    y: .value("Puntuación", point.score)
+                                )
+                                .symbolSize(22)
                                 .foregroundStyle(OG.accent)
                             }
                             if !isTeaserPreview, let selectedDate,
