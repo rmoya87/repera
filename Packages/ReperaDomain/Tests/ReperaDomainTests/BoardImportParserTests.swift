@@ -508,6 +508,9 @@ struct BoardImportParserTests {
         10 BBJO
         """
         let catalog = Catalog.seed()
+        // Evitar que el matching recorte el jerk al resolver un C&J con DB.
+        let compound = CrossFitGlossary.parseMovementLine("20 ALT DB HANG C&J 22,5/15")
+        #expect(compound.name == "Dumbbell Clean and Jerk")
         let blocks = BoardImportParser.parseBlocks(ocrText: ocr, catalog: catalog)
         #expect(blocks.count == 2)
         #expect(blocks[0].wodFormat == .emom)

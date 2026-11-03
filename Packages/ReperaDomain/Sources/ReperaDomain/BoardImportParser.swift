@@ -871,6 +871,11 @@ public enum BoardImportParser {
         guard !catalog.isEmpty else { return nil }
         let cleaned = stripMovementModifiers(CrossFitGlossary.cleanMovementLabel(name))
         let candidates = [
+            // El parser ya puede devolver el nombre canónico EN exacto.
+            // Consultarlo antes del glosario evita que "Dumbbell Clean and Jerk"
+            // se reduzca por coincidencia parcial a "Dumbbell Clean".
+            CrossFitGlossary.normalize(name),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(name)),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: name))),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: cleaned))),
             CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.expand(cleaned))),
