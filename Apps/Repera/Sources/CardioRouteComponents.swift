@@ -554,7 +554,7 @@ struct RouteWeatherStrip: View {
                     loading: isLoading
                 )
             }
-            if family == .water || family == .snow {
+            if (family == .water || family == .snow) && hasVisibleExtraConditions {
                 conditionsExtraRows
             }
             // Una sola línea: aviso (izq.) · Fuente + Apple Weather · Open-Meteo (der.).
@@ -684,6 +684,15 @@ struct RouteWeatherStrip: View {
                 }
             }
         }
+    }
+
+    private var hasVisibleExtraConditions: Bool {
+        let snap = conditions ?? persistedConditions
+        let snow = appleSnowfallCm
+            ?? ((snap?.snowfallSource == .appleWeather) ? snap?.snowfallCm : nil)
+        return (snap.map(hasSupplementalMetrics) ?? false)
+            || (snow.map { $0.isFinite && $0 > 0 } ?? false)
+            || conditionsLoading
     }
 
     private func hasSupplementalMetrics(_ snap: ActivityConditionsSnapshot) -> Bool {
