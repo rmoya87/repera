@@ -1611,11 +1611,14 @@ final class HealthKitStore {
                 sortDescriptors: [sort]
             ) { _, samples, _ in
                 let unit = HKUnit.count().unitDivided(by: .minute())
-                let bpm = (samples as? [HKQuantitySample])?.first?
-                    .quantity.doubleValue(for: unit)
-                cont.resume(returning: bpm.flatMap {
-                    $0.isFinite && $0 > 0 ? Int($0.rounded()) : nil
-                })
+                guard let sample = (samples as? [HKQuantitySample])?.first,
+                      (0...20).contains(end.timeIntervalSince(sample.endDate)) else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                let bpm = sample.quantity.doubleValue(for: unit)
+                cont.resume(returning: bpm.isFinite && (25...250).contains(bpm)
+                            ? Int(bpm.rounded()) : nil)
             }
             store.execute(q)
         }
