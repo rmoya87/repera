@@ -171,7 +171,8 @@ public enum ActivityConditionsLogic {
             if let idx = closestIndex(times: times, to: date) {
                 snap.tideHeightMeters = levels.indices.contains(idx) ? levels[idx] : nil
                 snap.waveHeightMeters = waves.indices.contains(idx) ? waves[idx] : nil
-                let prev = idx > 0 ? levels[idx - 1] : nil
+                let prev = idx > 0 && levels.indices.contains(idx - 1)
+                    ? levels[idx - 1] : nil
                 if let cur = snap.tideHeightMeters, let prev {
                     let delta = cur - prev
                     if abs(delta) < 0.02 {
@@ -226,7 +227,7 @@ public enum ActivityConditionsLogic {
     private static func nextExtremumLabel(
         levels: [Double?], times: [String], from idx: Int
     ) -> String? {
-        guard let cur = levels[idx] else { return nil }
+        guard levels.indices.contains(idx), levels[idx] != nil else { return nil }
         var i = idx + 1
         while i + 1 < levels.count {
             guard let a = levels[i - 1], let b = levels[i], let c = levels[i + 1] else {
@@ -242,7 +243,6 @@ public enum ActivityConditionsLogic {
             }
             i += 1
         }
-        _ = cur
         return nil
     }
 }
