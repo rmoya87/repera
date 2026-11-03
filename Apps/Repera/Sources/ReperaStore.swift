@@ -1688,6 +1688,22 @@ final class ReperaStore: NSObject {
         }
     }
 
+    /// Remote absence for a previously synchronized workout means that another
+    /// signed-in device deleted it. Purge the actual local data (not a marker).
+    func removePreviouslyMirroredWorkoutsMissingRemotely(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        let removed = state.workouts.filter { ids.contains($0.id) }
+        guard !removed.isEmpty else { return }
+        state.workouts.removeAll { ids.contains($0.id) }
+        persistWorkouts()
+        for workout in removed {
+            connectivity.sendTerminalEvent(sessionID: workout.id, saved: false)
+            if let healthID = workout.healthKitWorkoutUUID {
+                Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: healthID) }
+            }
+        }
+    }
+
     /// Apunte rápido desde ficha: guarda series terminadas sin abrir WorkoutView.
     @discardableResult
     func logQuickSets(
