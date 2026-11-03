@@ -502,7 +502,7 @@ private fun progressTileDeltaText(delta: Int?, unit: String): String = when (del
 private fun progressTileDeltaColor(delta: Int?): Color = when (delta) {
     null -> MaterialTheme.colorScheme.onSurfaceVariant
     0 -> MaterialTheme.colorScheme.onSurfaceVariant
-    else -> if (delta > 0) brandGreen else Color(0xFFFFD60A)
+    else -> if (delta > 0) brandGreen else MaterialTheme.colorScheme.error
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
