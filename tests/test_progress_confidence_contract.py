@@ -24,6 +24,20 @@ class ProgressConfidenceContractTests(unittest.TestCase):
         for title in ("Aprendiendo", "Baja", "Media", "Alta"):
             self.assertIn(title, confidence)
 
+    def test_free_preview_keeps_same_confidence_layout_as_pro(self):
+        ios = read("Apps/Repera/Sources/StatsView.swift")
+        start = ios.index("private var scoreSummary: some View")
+        end = ios.index("private func scoreMetric(", start)
+        summary = ios[start:end]
+        self.assertIn('label: isTeaserPreview ? "Media" : latestConfidenceLabel', summary)
+        self.assertNotIn("if !isTeaserPreview {", summary)
+        android = read(
+            "android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt"
+        )
+        self.assertIn('label = if (preview) "Media" else confidenceLabel', android)
+        self.assertIn("compactInProgress = true", android)
+        self.assertIn('Text("Ejemplo"', android)
+
     def test_ios_highlight_and_maximum_half_card_width(self):
         confidence = read("Apps/Repera/Sources/SessionReviewViews.swift")
         self.assertIn("geometry.size.width * (compactInProgress ? 0.5 : 1)", confidence)
