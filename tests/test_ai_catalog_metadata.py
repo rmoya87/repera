@@ -12,6 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain"
 SQL = (ROOT / "supabase/migrations/20261021235000_complete_ai_catalog_muscle_mappings.sql").read_text("utf-8")
 SQL_EXTRA = (ROOT / "supabase/migrations/20261022003500_new_photo_movements_crossfit.sql").read_text("utf-8")
+SQL_NATIVE_ADDED = (ROOT / "supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql").read_text("utf-8")
+NEW_NATIVE_NAMES = {
+    "Tirón alto de arrancada",
+    "Tirón alto de cargada",
+    "Peso muerto de cargada",
+    "Envión en sentadilla",
+    "Dip y drive de envión",
+    "Arrancada de potencia desde bloques",
+    "Cargada de potencia desde bloques",
+    "Push press con agarre de arrancada",
+    "Burpee to target"
+}
 EXTRA_NAMES = {
     "Carrera", "Dominadas lastradas",
     "Remo pliométrico en anillas pies elevados",
@@ -19,9 +31,9 @@ EXTRA_NAMES = {
 }
 
 FILES = {
-    "CatalogHalterofilia.swift": ("h", 40),
+    "CatalogHalterofilia.swift": ("h", 48),
     "CatalogGimnasia.swift": ("gy", 58),
-    "CatalogCrossFit.swift": ("cf", 46),
+    "CatalogCrossFit.swift": ("cf", 47),
 }
 CANONICAL = {
     "trapezius", "deltoids", "chest", "upper-back", "serratus",
@@ -70,7 +82,12 @@ class CatalogMetadataParityTests(unittest.TestCase):
                 if not primary:
                     cardio_names.append(name)
                     self.assertTrue(secondary, name)
-                if name in EXTRA_NAMES:
+                if name in NEW_NATIVE_NAMES:
+                    self.assertIn("'catalog:" + name + "'", SQL_NATIVE_ADDED, name)
+                    self.assertIn(sql_array(primary), SQL_NATIVE_ADDED, name)
+                    self.assertIn(sql_array(secondary), SQL_NATIVE_ADDED, name)
+                    self.assertIn(sql_array(equipment), SQL_NATIVE_ADDED, name)
+                elif name in EXTRA_NAMES:
                     self.assertIn("'catalog:" + name + "'", SQL_EXTRA, name)
                     self.assertIn(sql_array(primary), SQL_EXTRA, name)
                     self.assertIn(sql_array(secondary), SQL_EXTRA, name)
@@ -82,7 +99,7 @@ class CatalogMetadataParityTests(unittest.TestCase):
                         SQL, name,
                     )
                     self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
-        self.assertEqual(total, 144)
+        self.assertEqual(total, 153)
         self.assertEqual(len(set(all_names)), total)
         self.assertEqual(
             set(cardio_names),

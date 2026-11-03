@@ -485,3 +485,5 @@ son opcionales (120–230 lpm) con un fallback provisional de 190 lpm y nunca
 se usan para inventar una lectura de pulso. Las preferencias de temporizador
 son por identidad, excluyendo una migración automática de datos legados sin
 propietario. Véase [revisión y plan de pruebas](AUDIT_FIXES_2026_11_03.md).
+
+**Paridad de catálogo nativo/IA (03/11/2026).** La migración `supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql` añade de forma idempotente ocho ejercicios de halterofilia y `Burpee to target` al catálogo profesional y a sus metadatos musculares para IA. Respeta las políticas RLS de solo lectura para usuarios autenticados y solo sustituye metadatos previamente sin clasificar; no toca rutinas, historial ni datos personales. La cobertura se contrasta contra las 153 fichas nativas mediante `tests/test_ai_catalog_metadata.py`. Esta migración debe aplicarse con el proceso de despliegue de Supabase; un commit no implica aplicación en producción.
