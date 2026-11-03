@@ -51,7 +51,7 @@ internal class WearHealthService:Service() {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
     private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
-    private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
+    private fun snapshot()=Snapshot(owner,sensors.freshHeartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()
@@ -78,7 +78,7 @@ internal class WearHealthService:Service() {
     private fun publishCompanionHeartRate() {
         val id = owner ?: return
         if (cache.getString("companionLiveSessionId", null) != id) return
-        val bpm = sensors.heartRateBpm?.takeIf { it in 25..250 } ?: return
+        val bpm = sensors.freshHeartRateBpm?.takeIf { it in 25..250 } ?: return
         val now = System.currentTimeMillis()
         if (lastHeartSentSession == id) {
             val elapsed = now - lastHeartSentAt
