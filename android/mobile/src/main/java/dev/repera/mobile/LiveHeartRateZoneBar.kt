@@ -46,8 +46,8 @@ internal fun LiveHeartRateZoneBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .testTag("live_heart_zone_bar")
-            .clearAndSetSemantics { contentDescription = announcement },
+            .clearAndSetSemantics { contentDescription = announcement }
+            .testTag("live_heart_zone_bar"),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Row(
