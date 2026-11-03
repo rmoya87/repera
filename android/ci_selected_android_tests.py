@@ -24,11 +24,11 @@ def selected_tests() -> list[str]:
     discovered: set[str] = set()
     for path in sorted(SOURCES.rglob("*Test.kt")):
         content = path.read_text(encoding="utf-8")
-        package = re.search(r"(?m)^\\s*package\\s+([a-zA-Z0-9_.]+)", content)
+        package = re.search(r"(?m)^\s*package\s+([a-zA-Z0-9_.]+)", content)
         if package is None:
             raise RuntimeError(f"Missing package for test source {path}")
         class_name = path.stem
-        if not re.search(r"\\bclass\\s+" + re.escape(class_name) + r"\\b", content):
+        if not re.search(r"\bclass\s+" + re.escape(class_name) + r"\b", content):
             raise RuntimeError(f"Test class does not match source filename: {path}")
         discovered.add(package.group(1) + "." + class_name)
 
