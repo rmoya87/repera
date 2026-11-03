@@ -181,8 +181,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         target_start = pbx.index("888888888888888888888888 /* Sources */ =")
         target_end = pbx.index("};", target_start)
         old = pbx[target_start:target_end]
-        new = "\\n".join(
-            line for line in old.split("\\n")
+        new = "\n".join(
+            line for line in old.split("\n")
             if "AppleWeatherAttributionView.swift in Sources" not in line
         )
         self.pbx.write_text(pbx[:target_start] + new + pbx[target_end:], encoding="utf-8")
@@ -193,10 +193,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         path = self.root / "project.yml"
         spec = path.read_text(encoding="utf-8")
         # Remove just the Watch target declaration, leaving iOS untouched.
-        split_index = spec.index("  ReperaWatch:\\n")
+        split_index = spec.index("  ReperaWatch:\n")
         prefix, watch = spec[:split_index], spec[split_index:]
         watch = watch.replace(
-            "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\\n", ""
+            "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n", ""
         )
         path.write_text(prefix + watch, encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "AppleWeatherConditionsClient.swift"):
