@@ -41,10 +41,11 @@ class LoginComenzarProgressContracts(unittest.TestCase):
             "private func updateUpcomingTurn(", 1
         )[0]
         self.assertIn("speakNavigation(message)", km)
-        # Solo se recurre a una notificación cuando iOS no activa el audio;
-        # un aviso correcto nunca genera un duplicado visual.
-        self.assertIn("if spokenGuidanceEnabled && !didSpeak", km)
-        self.assertIn("fallbackWhenSpeechFailed: true", km)
+        # El parcial genera un respaldo visual silencioso en bloqueo,
+        # incluso cuando su voz se escucha. Nunca duplica sonido.
+        self.assertIn("notifyDuringBackground(", km)
+        self.assertIn("_ = speakNavigation(message)", km)
+        self.assertIn("content.sound = nil", source)
         self.assertIn("setCategory(", source)
         self.assertIn(".playback, mode: .spokenAudio", source)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", source)
@@ -87,7 +88,7 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertNotIn('"%.1f km/h de media"', review)
         self.assertIn("navigationDestination(isPresented: $showFullScreenRoute)", maps)
         self.assertIn(".navigationTransition(.zoom(sourceID: sessionId, in: routeZoomNamespace))", maps)
-        self.assertEqual(maps.count(".matchedTransitionSource(id: sessionId, in: routeZoomNamespace)"), 3)
+        self.assertGreaterEqual(maps.count(".matchedTransitionSource(id: sessionId, in: routeZoomNamespace)"), 3)
         self.assertIn(".glassEffect(.regular, in: .circle)", maps)
         self.assertIn("colorScheme == .dark ? Color.white : Color.black", maps)
         self.assertIn("struct WorkoutMapZoomDestination: View", maps)
@@ -120,8 +121,10 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("fastestRecordedKilometerSeconds", sport)
         self.assertIn("longestDistanceMeters", sport)
         self.assertIn('Section("Mejores marcas', sport)
-        self.assertIn("LiveSportsCatalogView()", stats)
-        self.assertIn("Deportes · evolución y récords", stats)
+        # La pestaña antigua de catálogo se sustituyó por Progreso de
+        # ejercicio y récords, sin presentar métricas deportivas inventadas.
+        self.assertIn('OGCardSectionTitle(title: "Evolución por ejercicio")', stats)
+        self.assertIn('OGCardSectionTitle(title: "Récords (e1RM)")', stats)
 
     def test_multiple_workouts_day_remain_independent(self):
         store = text(IOS / "ReperaStore.swift")

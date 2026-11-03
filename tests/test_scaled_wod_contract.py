@@ -45,7 +45,7 @@ class ScaledWODContractTests(unittest.TestCase):
         # No mostrar un segundo formulario de Rx: sólo los resultados reales.
         self.assertNotIn("completedWODRxFields(blockIndex: index, movementIndex: mIndex", view)
         self.assertIn("completedWODScalingFields(movementID: move.id", view)
-        self.assertIn("onApplyCompleted(edited, completedDetails)", view)
+        self.assertIn("onApplyCompleted(edited, detailsToSave, recordNewSetsAsPerformed)", view)
 
     def test_mcp_projects_scaled_values_without_fabricating_logged_sets(self):
         api = read("supabase/functions/repera-mcp/index.ts")
@@ -69,7 +69,7 @@ class ScaledWODContractTests(unittest.TestCase):
         self.assertIn("Versión adaptada", review)
         self.assertIn("partial / max(1, workPerRound)", review)
         self.assertIn("if !isScaled,", review)
-        self.assertIn("sessionReviewFormulaVersion = 11", store)
+        self.assertIn("sessionReviewFormulaVersion = 12", store)
         self.assertIn("exercise.adjustedSummaryLine", history)
 
 
