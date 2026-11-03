@@ -32,4 +32,44 @@ final class ActivityConditionsLogicTests: XCTestCase {
         XCTAssertEqual(result.waveHeightMeters ?? -1, 0.9, accuracy: 0.01)
         XCTAssertNotNil(result.temperatureC)
     }
+
+    func testSpecializedSnowRequestOnlyAsksForDepth() throws {
+        let url = try XCTUnwrap(ActivityConditionsLogic.snowDepthURL(
+            latitude: 40.42, longitude: -3.70
+        ))
+        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        let hourly = components.queryItems?.first(where: { $0.name == "hourly" })?.value
+        XCTAssertEqual(hourly, "snow_depth")
+        XCTAssertFalse(url.absoluteString.contains("temperature_2m"))
+        XCTAssertFalse(url.absoluteString.contains("snowfall"))
+    }
+
+    func testConditionProviderMetadataRoundTripAndLegacyDecode() throws {
+        var snapshot = ActivityConditionsSnapshot(
+            family: .snow, temperatureC: 2, windKmh: 9,
+            snowfallCm: 1.4, snowDepthMeters: 0.65, attribution: "Apple Weather + Open-Meteo"
+        )
+        snapshot.humidity = 0.71
+        snapshot.airSource = .appleWeather
+        snapshot.snowfallSource = .appleWeather
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(snapshot)
+        let decoded = try JSONDecoder().decode(ActivityConditionsSnapshot.self, from: data)
+        XCTAssertEqual(decoded.airSource, .appleWeather)
+        XCTAssertEqual(decoded.snowfallSource, .appleWeather)
+        XCTAssertEqual(decoded.humidity ?? -1, 0.71, accuracy: 0.001)
+
+        // Copias ya guardadas en iCloud/Watch no contienen los campos añadidos.
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        legacy.removeValue(forKey: "humidity")
+        legacy.removeValue(forKey: "airSource")
+        legacy.removeValue(forKey: "snowfallSource")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+        let restored = try JSONDecoder().decode(ActivityConditionsSnapshot.self, from: legacyData)
+        XCTAssertNil(restored.airSource)
+        XCTAssertNil(restored.snowfallSource)
+        XCTAssertNil(restored.humidity)
+        XCTAssertEqual(restored.snowDepthMeters ?? -1, 0.65, accuracy: 0.001)
+    }
 }
