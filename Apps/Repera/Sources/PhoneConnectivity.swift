@@ -81,6 +81,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         session: WorkoutSession?,
         today: WorkoutSession? = nil,
         todayPlans: [WorkoutSession] = [],
+        maxHeartRateBpm: Int = 190,
         quickLogHint: (id: UUID, name: String)? = nil,
         sessionRevision: Int = 0,
         completedAck: UUID? = nil,
@@ -111,6 +112,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         payload["liveActivity"] = live.flatMap { try? JSONEncoder().encode($0) } ?? Data()
         payload["recentLiveSportIDs"] = recentLiveSportIDs
         payload["audioMuted"] = audioMuted
+        payload["maxHeartRateBpm"] = (120...230).contains(maxHeartRateBpm) ? maxHeartRateBpm : 190
         if let completedAck { payload["completedAck"] = completedAck.uuidString }
         if let completedAckHealthKitUUID {
             payload["completedAckHealthKitUUID"] = completedAckHealthKitUUID.uuidString
