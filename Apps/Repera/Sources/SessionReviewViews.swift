@@ -28,14 +28,12 @@ struct SessionReviewSheet: View {
     }
 }
 
-/// Una única fuente de verdad para Inicio, Historial y fin de entreno.
-/// Jamás vuelve a presentar puntuaciones históricas/heurísticas de la fórmula
-/// anterior: un review sin indicadores verificables se considera no evaluado.
+/// Anillo y métricas siempre visibles, con la misma jerarquía que Recuperación.
+/// No hay «Ver cómo se calcula»: las fuentes y su confianza son parte de la tarjeta.
 struct SessionReviewCard: View {
     let review: SessionReview
+    /// Conservado por compatibilidad con la hoja post-entreno.
     var startsExpanded: Bool = false
-
-    @State private var expanded = false
 
     private var isVerified: Bool {
         review.scoreBasis == .personalHistory
@@ -44,125 +42,148 @@ struct SessionReviewCard: View {
             && (review.evidenceCoverage ?? 0) >= 0.60
     }
 
+    private var evolutionScore: Int? {
+        review.indicators.first(where: { $0.dimension == .personalProgress })?.score
+            ?? (review.indicators.isEmpty ? review.overallScore : nil)
+    }
+
+    private var performanceScore: Int {
+        // Un WOD usa su componente verificado; fuerza, GPS y las sesiones
+        // comparables sin WOD usan la nota personal global. No se fabrica
+        // puntuación para temporizadores sin mediciones deportivas.
+        review.indicators.first(where: { $0.dimension == .wodPerformance })?.score
+            ?? review.indicators.first(where: { $0.dimension == .personalProgress })?.score
+            ?? review.overallScore
+    }
+
     @ViewBuilder
     var body: some View {
         if isVerified {
-            VStack(alignment: .leading, spacing: 0) {
-                Button {
-                    withAnimation(.snappy(duration: 0.22)) { expanded.toggle() }
-                } label: {
-                    HStack(alignment: .center, spacing: 14) {
-                        ZStack {
-                            Circle().stroke(OG.surface3, lineWidth: 9)
-                            Circle()
-                                .trim(from: 0, to: Double(review.overallScore) / 10)
-                                .stroke(OG.accent, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                            VStack(spacing: 1) {
-                                Text("\(review.overallScore)")
-                                    .font(.system(size: 31, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(OG.label)
-                                Text("de 10")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(OG.label2)
-                            }
+            VStack(alignment: .leading, spacing: 13) {
+                HStack(alignment: .center, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        metric("Evolución personal", value: evolutionScore.map { "\($0)/10" } ?? "—")
+                        metric("Rendimiento", value: "\(performanceScore)/10")
+                        if let coverage = review.evidenceCoverage {
+                            metric("Cobertura", value: "\(Int((coverage * 100).rounded())) %")
                         }
-                        .frame(width: 88, height: 88)
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Rendimiento personal")
-                                .font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    ZStack {
+                        Circle().stroke(OG.surface3, lineWidth: 10)
+                        Circle()
+                            .trim(from: 0, to: Double(review.overallScore) / 10)
+                            .stroke(OG.accent, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        VStack(spacing: 1) {
+                            Text("\(review.overallScore)")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .monospacedDigit()
                                 .foregroundStyle(OG.label)
-                            Text("Confianza: \(review.confidenceLabel ?? "En construcción")")
-                                .font(.system(size: 12))
+                            Text("de 10")
+                                .font(.caption2.weight(.medium))
                                 .foregroundStyle(OG.label2)
-                            if let coverage = review.evidenceCoverage {
-                                Text("\(Int((coverage * 100).rounded()))% del trabajo con referencias")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(OG.label2)
-                            }
-                            ForEach(review.indicators.filter { $0.score != nil }, id: \.dimension) { metric in
-                                Text(metric.dimension.title + " · \(metric.score ?? 0)/10")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(OG.label3)
-                            }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(OG.label3)
-                            .rotationEffect(.degrees(expanded ? 180 : 0))
                     }
-                    .padding(16)
-                    .contentShape(Rectangle())
+                    .frame(width: 112, height: 112)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Puntuación global de rendimiento \(review.overallScore) de 10")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Nota global \(review.overallScore) sobre 10, confianza \(review.confidenceLabel ?? "en construcción")")
-                .accessibilityHint(expanded ? "Contraer desglose"
-                    : (review.indicators.isEmpty ? "Mostrar comparación personal" : "Mostrar los tres indicadores"))
-
-                if expanded {
-                    VStack(spacing: 8) {
-                        ForEach(review.indicators, id: \.dimension) { indicator in
-                            indicatorRow(indicator)
-                        }
-
-                        Text(review.indicators.isEmpty
-                            ? ([review.vsHistorySummary, review.vsStandardSummary]
-                                .compactMap { $0 }.joined(separator: " "))
-                            : "Solo se puntúa el rendimiento con al menos dos sesiones anteriores comparables. Las series registradas no aportan puntos; la nota no mide técnica ni esfuerzo percibido.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(OG.label3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 5)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 16)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                TrainingScoreConfidenceBar(label: review.confidenceLabel)
+                if let summary = review.vsHistorySummary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-            .onAppear { if startsExpanded { expanded = true } }
         }
     }
 
-    private func indicatorRow(_ indicator: ReviewIndicator) -> some View {
-        HStack(alignment: .top, spacing: 11) {
-            Image(systemName: indicator.dimension.symbol)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(OG.accent)
-                .frame(width: 28, height: 28)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(indicator.dimension.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(OG.label)
-                if indicator.score != nil, let tier = indicator.comparisonLevel {
-                    Text(tier == 1 ? "Nivel 1 · Referencia idéntica"
-                         : tier == 2 ? "Nivel 2 · Mismo ejercicio"
-                         : "Nivel 3 · Estímulo comparable")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(tier == 3 ? OG.label3 : OG.accent)
-                }
-                Text(indicator.detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 4)
-            if let score = indicator.score {
-                Text("\(score)/10")
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(OG.label)
-            } else {
-                Text(indicator.dimension == .adherence ? "Registro" : "Sin referencia")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                    .multilineTextAlignment(.trailing)
+    private func metric(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(OG.label2)
+            Text(value)
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Cuatro tramos semánticos: aprendiendo no equivale a «baja confianza».
+/// Solo el tramo observado destaca; el resto mantiene el color atenuado.
+struct TrainingScoreConfidenceBar: View {
+    let label: String?
+    var caption: String = "Confianza"
+
+    private enum Level: CaseIterable {
+        case learning, low, medium, high
+
+        var title: String {
+            switch self {
+            case .learning: "Aprendiendo"
+            case .low: "Baja"
+            case .medium: "Media"
+            case .high: "Alta"
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+        var color: Color {
+            switch self {
+            case .learning: OG.label3
+            case .low: OG.red
+            case .medium: OG.yellow
+            case .high: OG.accent
+            }
+        }
+    }
+
+    private var currentLevel: Level {
+        let text = (label ?? "").lowercased()
+        if text.contains("alta") { return .high }
+        if text.contains("media") { return .medium }
+        if text.contains("baja") { return .low }
+        return .learning
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(caption)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OG.label2)
+            HStack(spacing: 4) {
+                ForEach(Level.allCases, id: \.self) { level in
+                    let selected = level == currentLevel
+                    Text(level.title)
+                        .font(.system(size: 10, weight: selected ? .bold : .medium))
+                        .foregroundStyle(selected
+                            ? (level == .learning ? OG.label : Color.black)
+                            : OG.label2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity, minHeight: 28)
+                        .background(
+                            selected ? level.color : level.color.opacity(0.18),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(selected ? OG.label.opacity(0.45) : .clear, lineWidth: 1)
+                        }
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(caption): \(label ?? "En construcción")")
     }
 }
