@@ -106,7 +106,13 @@ class ResetJournalAccountScopeInstrumentedTest {
         val id = JSONObject(String(local.read()!!)).getJSONArray("workouts").getJSONObject(0).getString("id")
         repo.deleteWorkout(id)
         assertTrue(id in WorkoutMirrorStore(ctx, googleId).pendingDeletes())
-        // Lo que lee el sync de MainActivity (clave = id Supabase): vacio.
-        assertTrue(WorkoutMirrorStore(ctx, supabaseId).pendingDeletes().isEmpty())
+        // Supabase sync transfers the temporary operation without keeping a
+        // permanent Google-id ledger or creating a soft-deleted server row.
+        val remote = WorkoutMirrorStore(ctx, supabaseId)
+        repo.transferPendingMirrorDeletesTo(remote)
+        assertTrue(WorkoutMirrorStore(ctx, googleId).pendingDeletes().isEmpty())
+        assertTrue(id in remote.pendingDeletes())
+        remote.acknowledgeDeletes(setOf(id))
+        assertTrue(remote.deletedIds().isEmpty())
     }
 }
