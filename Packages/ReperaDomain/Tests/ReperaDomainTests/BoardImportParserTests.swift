@@ -516,6 +516,7 @@ struct BoardImportParserTests {
         #expect(blocks[0].movements[0].exerciseId != nil)
         #expect(blocks[0].wodNotes?.contains("FOR QUALITY") == true)
         #expect(blocks[1].movements[0].name == "Dumbbell Clean and Jerk")
+        #expect(blocks[1].movements[0].exerciseId == catalog.first(where: { $0.name == "Dumbbell Clean and Jerk" })?.id)
         #expect(blocks[1].movements[1].name == "Burpee box jump over")
         #expect(blocks[1].movements[1].exerciseId != nil)
     }

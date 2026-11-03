@@ -84,9 +84,13 @@ class WatchComplicationTests(unittest.TestCase):
         self.assertIn('Image(systemName: selected.symbolName)', home)
         self.assertNotIn(".overlay(alignment: .topLeading)", home)
         self.assertIn(".ignoresSafeArea(.container, edges: .bottom)", home)
-        self.assertIn(".overlay(alignment: .bottomLeading)", home)
-        self.assertIn(".overlay(alignment: .bottomTrailing)", home)
-        self.assertEqual(home.count(".offset(y: 10)"), 2)
+        # El hub nativo concentra ambos botones en el HStack inferior de su ZStack;
+        # no vuelve al overlay antiguo que interrumpía los toques de Inicio.
+        self.assertIn("ZStack(alignment: .bottom)", home)
+        self.assertIn('label: hub.audioMuted ? "Activar audio" : "Silenciar audio"', home)
+        self.assertIn('cornerCircleButton(systemName: "timer", label: "Temporizador")', home)
+        self.assertIn(".zIndex(1)", home)
+        self.assertEqual(home.count(".offset(y: 10)"), 1)
         self.assertIn("ToolbarItem(placement: .topBarLeading)", root)
         self.assertIn(".offset(y: -11)", root)
         self.assertIn('.navigationTitle("")', root)

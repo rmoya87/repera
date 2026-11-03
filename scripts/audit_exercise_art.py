@@ -21,7 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / "Apps/Repera/Resources/ExerciseArt"
 THUMBS = ART / "thumbs"
 SWIFT = ROOT / "Apps/Repera/Sources/ExerciseArt.swift"
-SPANISH = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/CatalogSpanish.swift"
 OUTPUT = ROOT / "docs/EXERCISE_ART_AUDIT.csv"
 SEQ_RE = re.compile(r"^(art_.+)_([1-8])$")
 
@@ -148,18 +147,6 @@ def get_mapping() -> dict[str, str]:
     return dict(re.findall(r'"([^"]+)": "(art_[^"]+)"', match.group()))
 
 
-def get_caption_counts() -> dict[str, int]:
-    text = SPANISH.read_text(encoding="utf-8")
-    match = re.search(r"private static let spanishInstructions:[\s\S]*?\n    \]", text)
-    if not match:
-        raise RuntimeError("No se encuentra spanishInstructions")
-    block = match.group()
-    result = {}
-    for entry in re.finditer(r'^\s*"([^"]+)": \[([\s\S]*?)^\s*\],', block, re.MULTILINE):
-        result[entry.group(1)] = len(re.findall(r'^\s*"', entry.group(2), re.MULTILINE))
-    return result
-
-
 def git_blob_sha(path: Path) -> str:
     content = path.read_bytes()
     prefix = f"blob {len(content)}\0".encode("ascii")
@@ -186,7 +173,6 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true", help="Retorna código 1 si quedan defectos")
     args = parser.parse_args()
     mapping = get_mapping()
-    captions = get_caption_counts()
     by_base = {stem: exercise for exercise, stem in mapping.items()}
     full = sorted(p for p in ART.glob("art_*.jpg") if p.is_file())
     thumbs = {p.stem: p for p in THUMBS.glob("art_*.jpg") if p.is_file()}
@@ -218,9 +204,10 @@ def main() -> int:
             count = 0
             while base + "_" + str(count + 1) in frames:
                 count += 1
-            actual = captions.get(exercise)
-            if count >= 2 and actual is not None and actual != count:
-                problems.append(f"Carrusel: {count} frames y {actual} captions")
+            # Las instrucciones técnicas de CatalogSpanish (5–10 por ejercicio)
+            # NO son captions del carrusel (2–8 imágenes). Comparar ambos
+            # recuentos generaba 51 falsos defectos estructurales; la auditoría
+            # estructural exige miniaturas, imágenes y secuencias válidas.
             if count == 1:
                 problems.append("Paso aislado, sin carrusel completo")
 

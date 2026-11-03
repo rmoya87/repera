@@ -1479,7 +1479,15 @@ public enum CrossFitGlossary {
         }
 
         working = cleanMovementLabel(working)
-        let canonical = canonicalName(for: working.isEmpty ? raw : working)
+        // C&J en una pizarra significa dos movimientos consecutivos (clean + jerk).
+        // La coincidencia parcial con "clean" del glosario puede convertirlo
+        // erróneamente en una cargada simple; conservar el compuesto completo.
+        let isCleanAndJerk = raw.range(
+            of: #"(?i)\bC\s*&\s*J\b|\bCLEAN\s*(?:AND|&)\s*JERK\b"#,
+            options: .regularExpression
+        ) != nil
+        let canonical = isCleanAndJerk ? "Clean and Jerk"
+            : canonicalName(for: working.isEmpty ? raw : working)
         let name = preferEquipmentVariant(
             name: canonical.isEmpty ? working : canonical,
             equipment: equipment
