@@ -1190,8 +1190,8 @@ struct HealthRecoveryProgressView: View {
             ? summary : "\(summary) · \(day.date.formatted(date: .abbreviated, time: .omitted))"
     }
 
-    /// La puntuación requiere sueño reciente, pero las mediciones observadas
-    /// se muestran de forma independiente aunque hoy no haya registro de sueño.
+    /// La puntuación completa requiere sueño; la preparación parcial solo
+    /// aparece con constantes calibradas. El sueño ausente se indica como «—».
     private var latestSleepLabel: String {
         guard recovery.sleepEnabled,
               let night = recovery.nights.last,
