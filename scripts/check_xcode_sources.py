@@ -36,6 +36,10 @@ WATCH_REQUIRED = (
     "WatchConnectivityClient.swift",
     "WatchHealthKitSession.swift",
 )
+SHARED_WEATHER_REQUIRED = (
+    "AppleWeatherConditionsClient.swift",
+    "AppleWeatherAttributionView.swift",
+)
 
 
 def _target_compile_sources(pbx: str, target: str) -> str:
@@ -83,6 +87,16 @@ def validate(root: Path) -> None:
             + ". Ejecuta git pull origin main antes de regenerar Xcode."
         )
 
+    shared = root / "Apps" / "Shared"
+    missing_shared = [
+        name for name in SHARED_WEATHER_REQUIRED if not (shared / name).is_file()
+    ]
+    if missing_shared:
+        raise ValueError(
+            "Faltan fuentes WeatherKit compartidas: " + ", ".join(missing_shared)
+            + ". Ejecuta git pull --ff-only origin main antes de regenerar Xcode."
+        )
+
     spec = (root / "project.yml").read_text(encoding="utf-8")
     if "- path: Apps/Repera/Sources" not in spec:
         raise ValueError("project.yml ya no incluye el directorio del target Repera.")
@@ -102,18 +116,35 @@ def validate(root: Path) -> None:
     if "product: Supabase" not in spec:
         raise ValueError("El target Repera carece de la dependencia de Supabase.")
 
+    # The weather sources live outside the directory-scanned target roots.
+    # A stale project.yml or project.pbxproj can therefore compile Watch
+    # screens but fail with "Cannot find AppleWeatherConditionsClient in scope".
+    for target in ("Repera", "ReperaWatch"):
+        section = re.search(
+            rf"^  {re.escape(target)}:\n(.*?)(?=^  [A-Za-z][A-Za-z0-9_]*:\n|\Z)",
+            spec, re.MULTILINE | re.DOTALL,
+        )
+        if section is None:
+            raise ValueError(f"project.yml no declara el target {target}.")
+        for name in SHARED_WEATHER_REQUIRED:
+            if f"- path: Apps/Shared/{name}" not in section.group(1):
+                raise ValueError(
+                    f"project.yml no incluye {name} en {target}. "
+                    "Actualiza project.yml desde main y regenera con XcodeGen."
+                )
+
     project = root / "Repera.xcodeproj" / "project.pbxproj"
     if not project.is_file():
         raise ValueError("No existe Repera.xcodeproj. Regenera con xcodegen generate --spec project.yml.")
 
     pbx = project.read_text(encoding="utf-8")
     app_sources = _target_compile_sources(pbx, "Repera")
-    for name in REQUIRED:
+    for name in (*REQUIRED, *SHARED_WEATHER_REQUIRED):
         # A file reference alone is not enough: the Swift source must belong to
         # the app's Compile Sources phase, or references to its types will fail.
         if f"{name} in Sources" not in app_sources:
             raise ValueError(
-                f"Xcode utiliza un proyecto antiguo sin {name}. "
+                f"Xcode utiliza un proyecto antiguo sin {name} en Repera. "
                 "Cierra Xcode y ejecuta xcodegen generate --spec project.yml."
             )
 
@@ -121,7 +152,7 @@ def validate(root: Path) -> None:
     # Verify every current Watch Swift source, not just a fixed list:
     # adding a new view must not silently leave its type out of this target.
     watch_swift = {p.name for p in watch.glob("*.swift")}
-    for name in sorted(watch_swift | set(WATCH_REQUIRED)):
+    for name in sorted(watch_swift | set(WATCH_REQUIRED) | set(SHARED_WEATHER_REQUIRED)):
         if f"{name} in Sources" not in watch_sources:
             raise ValueError(
                 f"ReperaWatch no compila {name}: falta en Build Phases → Compile Sources. "
@@ -158,7 +189,10 @@ def main() -> int:
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print("OK: fuentes iOS, ReperaWatch, Widget y En vivo incluidas en Compile Sources.")
+    print(
+        "OK: fuentes iOS, ReperaWatch, Widget, WeatherKit y En vivo "
+        "incluidas en Compile Sources."
+    )
     return 0
 
 
