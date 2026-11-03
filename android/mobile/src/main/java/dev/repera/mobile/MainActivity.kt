@@ -2525,7 +2525,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val (plan, recents, muted) = withContext(Dispatchers.IO) {
                 val repo = WorkoutRepository(this@MainActivity, userId)
                 Triple(
-                    repo.effectivePlanSession(professional = pro),
+                    run {
+                        val plans = repo.allTodayPlanSessions(professional = pro)
+                        val primary = plans.firstOrNull() ?: repo.effectivePlanSession(professional = pro)
+                        primary?.let { current ->
+                            JSONObject(current.toString()).apply {
+                                if (plans.size > 1) {
+                                    put("_otherTodayPlans", org.json.JSONArray().apply {
+                                        plans.drop(1).forEach { put(it) }
+                                    })
+                                }
+                            }
+                        }
+                    },
                     repo.recentLiveSportIDsForWatch(),
                     WearActiveSessionBridge.watchHubAudioMuted(this@MainActivity)
                 )
