@@ -2176,6 +2176,8 @@ struct LiveActivityView: View {
     /// La persona elige Mapa o Métricas incluso antes de pulsar Play.
     /// Conservar la elección entre sesiones: iniciar/pausar no cambia la pantalla.
     @AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false
+    /// In Mapa only: preserve the route view by default. Métricas stays expanded.
+    @State private var mapDetailsExpanded = false
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
@@ -2968,12 +2970,15 @@ struct LiveActivityView: View {
                     smallMetric("Distancia (km)",
                                 value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
                 }
-                elevationMetricStrip
-                // También en carrera, caminata, ciclismo y demás deportes GPS.
-                // No se dibuja una zona activa sin una muestra real de Salud.
-                Divider().overlay(OG.label2.opacity(0.18))
-                HeartRateZoneBar(bpm: displayedHeartRateBpm)
-                    .padding(.horizontal, 8)
+                if mapDetailsExpanded {
+                    elevationMetricStrip
+                    // FC appears only for measured, still-fresh samples.
+                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                        Divider().overlay(OG.label2.opacity(0.18))
+                        HeartRateZoneBar(bpm: bpm)
+                            .padding(.horizontal, 8)
+                    }
+                }
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
                     Divider().overlay(OG.label2.opacity(0.18))
@@ -2984,6 +2989,14 @@ struct LiveActivityView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 14)
             .glassEffect(.regular, in: .rect(cornerRadius: 22))
+            .contentShape(RoundedRectangle(cornerRadius: 22))
+            .onTapGesture { mapDetailsExpanded.toggle() }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(
+                mapDetailsExpanded ? "Contraer detalles del mapa" : "Ampliar detalles del mapa"
+            )
+            .accessibilityHint("Muestra u oculta desnivel y frecuencia cardíaca")
+            .animation(.easeOut(duration: 0.18), value: mapDetailsExpanded)
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
                 Task { await refreshLiveHeartRate() }
             }
@@ -3123,9 +3136,11 @@ struct LiveActivityView: View {
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
-                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 10)
+                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                        HeartRateZoneBar(bpm: bpm)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 10)
+                    }
                 } else {
                     Text(displayedHeartRateBpm.map { "\($0)" } ?? "—")
                         .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
@@ -3139,9 +3154,11 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     Text("Calorías activas (kcal)")
                         .font(.subheadline).foregroundStyle(OG.label2)
-                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 10)
+                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                        HeartRateZoneBar(bpm: bpm)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 10)
+                    }
                 }
                 if recorder.sport.tracksElevation && recorder.hasElevationSamples {
                     HStack {
