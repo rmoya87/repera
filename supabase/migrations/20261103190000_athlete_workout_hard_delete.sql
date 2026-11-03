@@ -23,13 +23,13 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $$
 begin
     delete from public.athlete_workout_mirror
     where id = new.id and owner_id = new.owner_id;
     return null;
 end;
-$;
+$$;
 revoke all on function private.remove_legacy_workout_tombstone() from public, anon;
 drop trigger if exists athlete_workout_legacy_hard_delete
     on public.athlete_workout_mirror;
