@@ -33,6 +33,24 @@ final class ActivityConditionsLogicTests: XCTestCase {
         XCTAssertNil(result.temperatureC)
     }
 
+    func testWaveOnlyMarineDoesNotCrashWithoutSeaLevels() throws {
+        let marine = """
+        {"hourly":{"time":["2026-10-31T12:00","2026-10-31T13:00","2026-10-31T14:00"],
+        "wave_height":[0.8,0.9,1.0]}}
+        """.data(using: .utf8)
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        let date = try XCTUnwrap(formatter.date(from: "2026-10-31T13:00"))
+        let result = try XCTUnwrap(ActivityConditionsLogic.parse(
+            family: .water, forecastJSON: nil, marineJSON: marine, at: date
+        ))
+        XCTAssertNil(result.tideHeightMeters)
+        XCTAssertNil(result.nextTideLabel)
+        XCTAssertEqual(result.waveHeightMeters ?? -1, 0.9, accuracy: 0.01)
+    }
+
     func testSpecializedSnowRequestOnlyAsksForDepth() throws {
         let url = try XCTUnwrap(ActivityConditionsLogic.snowDepthURL(
             latitude: 40.42, longitude: -3.70
