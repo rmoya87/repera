@@ -50,6 +50,23 @@ class ProgressConfidenceContractTests(unittest.TestCase):
         self.assertIn("showSelectedLevelInCaption = true", confidence)
         self.assertNotIn("LinearGradient", confidence)
 
+    def test_period_comparator_colors_are_semantic_for_free_and_pro(self):
+        ios = read("Apps/Repera/Sources/StatsView.swift")
+        android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
+        # Both iOS paths (freeTilesGrid / tilesGrid) reuse the same tile() renderer.
+        self.assertIn("private var freeTilesGrid: some View", ios)
+        self.assertIn("private var tilesGrid: some View", ios)
+        self.assertIn(
+            "delta > 0 ? OG.accent : delta < 0 ? OG.red : OG.label3", ios
+        )
+        self.assertNotIn("delta < 0 ? OG.yellow", ios)
+        # Android routes both tiers through ProgressMetricsTilesGrid.
+        self.assertIn("ProgressMetricsTilesGrid(snapshot, pro)", android)
+        self.assertIn("null -> MaterialTheme.colorScheme.onSurfaceVariant", android)
+        self.assertIn("0 -> MaterialTheme.colorScheme.onSurfaceVariant", android)
+        self.assertIn("else -> if (delta > 0) brandGreen else MaterialTheme.colorScheme.error", android)
+        self.assertNotIn("else Color(0xFFFFD60A)", android)
+
     def test_android_shows_selected_level_and_limits_width(self):
         progress = read(
             "android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt"
