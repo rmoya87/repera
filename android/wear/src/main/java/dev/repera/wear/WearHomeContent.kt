@@ -123,7 +123,16 @@ internal fun wearHubCarouselItems(
     recentLiveSportIDs: List<String>
 ): List<WearHubCarouselItem> {
     val items = mutableListOf<WearHubCarouselItem>()
-    plan?.let { items += WearHubCarouselItem.Plan(it) }
+    plan?.let { primary ->
+        items += WearHubCarouselItem.Plan(primary)
+        primary.optJSONArray("_otherTodayPlans")?.let { alternatives ->
+            for (index in 0 until alternatives.length()) {
+                alternatives.optJSONObject(index)?.let {
+                    items += WearHubCarouselItem.Plan(it)
+                }
+            }
+        }
+    }
     val seen = mutableSetOf<String>()
     for (id in recentLiveSportIDs) {
         val sport = LiveSport.byId(id) ?: continue
