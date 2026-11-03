@@ -39,6 +39,36 @@ public enum SyncConflictResolver: Sendable {
         return candidate == local
     }
 
+    /// A deletion on either device survives a stale or higher-revision cloud snapshot.
+    /// Keep historical recorded data only for entries that the athlete has not removed.
+    public static func reconcilingDeletionTombstones(
+        in preferred: AppState, from other: AppState
+    ) -> AppState {
+        var result = preferred
+        result.deletedWorkoutIDs.formUnion(other.deletedWorkoutIDs)
+        result.deletedExerciseIDs.formUnion(other.deletedExerciseIDs)
+        for (workoutID, ids) in other.deletedWorkoutExerciseIDs {
+            result.deletedWorkoutExerciseIDs[workoutID, default: []].formUnion(ids)
+        }
+
+        result.exercises.removeAll { result.deletedExerciseIDs.contains($0.id) }
+        result.workouts.removeAll { result.deletedWorkoutIDs.contains($0.id) }
+        for index in result.workouts.indices {
+            let key = result.workouts[index].id.uuidString
+            guard let deleted = result.deletedWorkoutExerciseIDs[key], !deleted.isEmpty
+            else { continue }
+            result.workouts[index].exercises.removeAll { deleted.contains($0.id) }
+            if var blocks = result.workouts[index].routineBlocks {
+                for blockIndex in blocks.indices {
+                    blocks[blockIndex].exercises.removeAll { deleted.contains($0.id) }
+                    blocks[blockIndex].movements.removeAll { deleted.contains($0.id) }
+                }
+                result.workouts[index].routineBlocks = blocks
+            }
+        }
+        return result
+    }
+
     /// Preserve genuine GPS captured in the complete personal iCloud document
     /// when a newer copy of the same workout only contains summary fields.
     /// Never create sessions, resurrect deleted IDs or infer coordinates.
