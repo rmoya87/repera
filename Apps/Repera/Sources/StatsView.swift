@@ -1040,7 +1040,7 @@ private struct ProgressSessionScoreChartCard: View {
                         .rotationEffect(.degrees(-90))
                 }
                 VStack(spacing: 1) {
-                    Text(average.map(String.init) ?? "—")
+                    Text(average.map { String($0) } ?? "—")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(OG.label)
