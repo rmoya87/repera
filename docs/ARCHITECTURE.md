@@ -2,7 +2,7 @@
 
 ## Confianza segmentada en Progreso → Entrenamiento (2026-11-03)
 
-`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 3:1:1:1 con altura destacada 36 frente a 13. Los resúmenes post-sesión usan el mismo componente sin limitar su ancho. `tests/test_progress_confidence_contract.py` protege estos invariantes de presentación.
+`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 3:1:1:1 con altura destacada 36 frente a 13. Los resúmenes post-sesión usan el mismo componente sin limitar su ancho. La vista gratuita usa idéntica composición en la tarjeta de ejemplo, con nivel «Media» explícitamente ilustrativo; Pro utiliza datos reales. `tests/test_progress_confidence_contract.py` protege estos invariantes de presentación.
 
 ## Pulso en vivo y zonas de Comenzar, iOS / Android (2026-11-03)
 
