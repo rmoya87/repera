@@ -406,6 +406,7 @@ fun ReperaMobileScreen(
         var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
+        val hasLinkedCenter = centerSnapshot?.athleteCenterIds?.isNotEmpty() == true
         val darkTheme = isSystemInDarkTheme()
         SideEffect {
             val activity = activityContext as? Activity ?: return@SideEffect
@@ -428,11 +429,15 @@ fun ReperaMobileScreen(
             }
         }
         val navigateTab: (String) -> Unit = { route ->
-            navController.navigate(route) {
+            if (route != "plus" || hasLinkedCenter) navController.navigate(route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
             }
+        }
+        // Si se revoca la última vinculación mientras estaba en «+», volver a Inicio.
+        LaunchedEffect(hasLinkedCenter, currentRoute) {
+            if (!hasLinkedCenter && currentRoute == "plus") navigateTab("inicio")
         }
         LaunchedEffect(initialExternalRoute) {
             initialExternalRoute?.takeIf { it == "en-vivo" || it == "inicio" || it == "entreno-activo" }?.let {
@@ -623,6 +628,7 @@ fun ReperaMobileScreen(
                         showTabBar = showTabBar,
                         selectedRoute = currentRoute,
                         onTabSelected = navigateTab,
+                        showCenterTab = hasLinkedCenter,
                         continueTitle = continueTitle,
                         continueProgress = continueProgress,
                         continueExercise = continueExercise,
