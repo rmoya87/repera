@@ -55,7 +55,7 @@ internal fun RecoveryHistoryCards(
                         if (pro) {
                             if (trend.size < 2) {
                                 EmptyHealthChart(
-                                    "Aún no hay suficientes registros para ver la recuperación.",
+                                    "Repera está aprendiendo de ti. Necesita 2 días evaluables. Sin sueño: 7 días previos de constantes.",
                                     0.0, 10.0, readinessHeight
                                 )
                             } else {
@@ -165,16 +165,16 @@ internal fun RecoveryHistoryCards(
                             Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            val hrv = vitals.mapNotNull { it.hrvMilliseconds?.let { v -> ProgressDayPoint(it.day, v) } }
+                            val hrv = vitals.mapNotNull { it.hrvAllDayMilliseconds?.let { v -> ProgressDayPoint(it.day, v) } }
                             val rest =
-                                vitals.mapNotNull { it.restingHeartRateBpm?.let { v -> ProgressDayPoint(it.day, v) } }
+                                vitals.mapNotNull { it.restingHeartRateAllDayBpm?.let { v -> ProgressDayPoint(it.day, v) } }
                             RecoveryVitalTrend(hrv, physiologyHeight)
                             Text(
                                 "RMSSD de Health Connect no equivale a SDNN de Apple Salud.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             val breathing =
-                                vitals.mapNotNull { it.respiratoryRateBpm?.let { v -> ProgressDayPoint(it.day, v) } }
+                                vitals.mapNotNull { it.respiratoryRateAllDayBpm?.let { v -> ProgressDayPoint(it.day, v) } }
                             RecoveryVitalBars(rest, breathing)
                             val latest = recovery.vitals.maxByOrNull { it.day }
                             if (latest != null &&
