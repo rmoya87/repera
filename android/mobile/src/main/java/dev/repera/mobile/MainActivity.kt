@@ -692,7 +692,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     ?: return@runCatching false
                 (0 until rows.length()).any {
                     val w = rows.optJSONObject(it)
-                    w?.optString("id") == workoutID && w.optString("phase") == "finished"
+                    w != null && w.optString("id") == workoutID && w.optString("phase") == "finished"
                 }
             }.getOrDefault(false)
             return if (saved) "historial-editar/" + Uri.encode(workoutID) else "inicio"
