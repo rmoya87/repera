@@ -385,7 +385,10 @@ final class HealthPhysiologyStore {
                 respiratoryRateBpm: median(breathing, for: day, valid: 6...40, beforeTrainingMorning: true),
                 oxygenSaturationPercent: oxygenValue.map { $0 <= 1 ? $0 * 100 : $0 },
                 wristTemperatureCelsius: median(wrist, for: day, valid: 25...42),
-                heartRateRecoveryBpm: median(hrRecovery, for: day, valid: 0...100)
+                heartRateRecoveryBpm: median(hrRecovery, for: day, valid: 0...100),
+                hrvAllDayMilliseconds: median(hrv, for: day, valid: 5...300),
+                restingHeartRateAllDayBpm: median(rest, for: day, valid: 30...130),
+                respiratoryRateAllDayBpm: median(breathing, for: day, valid: 6...40)
             )
         }
         lastRefreshed = Date()
@@ -617,30 +620,36 @@ struct HealthRecoveryProgressView: View {
         let now = Date()
         let result = await Task.detached(priority: .userInitiated) {
             let calendar = Calendar.current
-            let points: [TrainingRecoveryPoint] = nights.compactMap { night in
-                guard selectedRange.contains(night.date, now: now, weekStartsOnMonday: mondayFirst),
+            let nightByDay = Dictionary(
+                nights.map { (calendar.startOfDay(for: $0.date), $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
+            // La tendencia también puede tener días con preparación parcial:
+            // no exigir una noche de sueño para enumerar los días candidatos.
+            let days = Set(nights.map { calendar.startOfDay(for: $0.date) }
+                + vitalHistory.map { calendar.startOfDay(for: $0.date) })
+            let points: [TrainingRecoveryPoint] = days.sorted().compactMap { day in
+                guard selectedRange.contains(day, now: now, weekStartsOnMonday: mondayFirst),
                       let morning = calendar.date(
-                        bySettingHour: 7, minute: 0, second: 0, of: night.date
+                        bySettingHour: 7, minute: 0, second: 0, of: day
                       ), morning <= now,
                       let value = RecoveryEngine.trainingReadiness(
-                        at: morning, sleepHours: night.hours,
+                        at: morning, sleepHours: nightByDay[day]?.hours,
                         recentAverageSleepHours: averageHours,
                         workouts: workouts, vitalHistory: vitalHistory,
                         observedActivities: external
                       ) else { return nil }
-                return TrainingRecoveryPoint(date: night.date, score: value.score)
+                return TrainingRecoveryPoint(date: day, score: value.score)
             }
             let todayNight = nights.last {
                 calendar.isDate($0.date, inSameDayAs: now)
             }
-            let current = todayNight.flatMap { night in
-                RecoveryEngine.trainingReadiness(
-                    at: now, sleepHours: night.hours,
-                    recentAverageSleepHours: averageHours,
-                    workouts: workouts, vitalHistory: vitalHistory,
-                    observedActivities: external
-                )
-            }
+            let current = RecoveryEngine.trainingReadiness(
+                at: now, sleepHours: todayNight?.hours,
+                recentAverageSleepHours: averageHours,
+                workouts: workouts, vitalHistory: vitalHistory,
+                observedActivities: external
+            )
             return (points.sorted { $0.date < $1.date }, current, todayNight?.hours)
         }.value
         guard !Task.isCancelled, key == trainingRecoveryRefreshKey else { return }
@@ -754,7 +763,7 @@ struct HealthRecoveryProgressView: View {
                     OGCardSectionTitle(title: "Evolución de recuperación")
                     OGCard {
                         ProgressEmptyChart(
-                            message: "Aún no hay suficientes registros para ver la recuperación.",
+                            message: "Repera está aprendiendo de ti. Necesita al menos 2 días con preparación evaluable. Sin sueño: 7 días previos de constantes.",
                             height: primaryChartHeight
                         )
                         .frame(height: readinessChartHeight)
@@ -1010,8 +1019,8 @@ struct HealthRecoveryProgressView: View {
             } else {
                 ProgressEmptyChart(
                     message: values.isEmpty
-                        ? "Sin mediciones en este periodo."
-                        : "Una medición; aún no hay tendencia.",
+                        ? "Repera está aprendiendo de ti. Necesita al menos 2 días con mediciones para mostrar la tendencia."
+                        : "Repera está aprendiendo de ti: 1 de 2 días con mediciones.",
                     height: physiologyChartHeight,
                     yRange: 0.0...100.0
                 )
@@ -1072,6 +1081,12 @@ struct HealthRecoveryProgressView: View {
                     yRange: 0.0...100.0
                 )
             }
+            if values.count < 2 {
+                Text("Repera está aprendiendo de ti · \(values.count)/2 días. Para preparación: 7 días previos.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -1097,11 +1112,11 @@ struct HealthRecoveryProgressView: View {
             OGCardSectionTitle(title: "Constantes fisiológicas")
             OGCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvMilliseconds)
+                    vitalChart("Variabilidad cardíaca (VFC)", unit: "ms", keyPath: \.hrvAllDayMilliseconds)
                     Divider().opacity(0.25)
                     HStack(alignment: .top, spacing: 10) {
-                        vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \.restingHeartRateBpm)
-                        vitalBarTile("Respiración", unit: "resp/min", keyPath: \.respiratoryRateBpm)
+                        vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \.restingHeartRateAllDayBpm)
+                        vitalBarTile("Respiración", unit: "resp/min", keyPath: \.respiratoryRateAllDayBpm)
                     }
                     if let latest = physiology.days.last {
                         HStack(alignment: .top, spacing: 10) {
@@ -1200,6 +1215,14 @@ struct HealthRecoveryProgressView: View {
         return minutes > 0 ? "\(Int(minutes.rounded())) min" : "—"
     }
 
+    private var readinessLearningMessage: String {
+        let days = RecoveryEngine.vitalLearningDays(at: Date(), history: physiology.days)
+        if measuredTrainingLoadLabel == "—" {
+            return "Repera está aprendiendo de ti. Registra al menos 1 entrenamiento finalizado con duración real durante los últimos 7 días."
+        }
+        return "Repera está aprendiendo de ti. Sin sueño medido, necesita 7 días anteriores con VFC, pulso en reposo o respiración y una lectura de hoy (\(days)/7 días). O registra una noche de sueño."
+    }
+
     private func readinessFactor(
         _ title: String, icon: String, value: String
     ) -> some View {
@@ -1285,6 +1308,12 @@ struct HealthRecoveryProgressView: View {
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Preparación \(Int(readiness.score.rounded())) de 10")
                     }
+                    if readiness.isPartial {
+                        Text("Estimación parcial · sin sueño registrado. Basada en carga real y constantes calibradas.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 } else {
                     HStack(alignment: .center, spacing: 14) {
                         VStack(alignment: .leading, spacing: 7) {
@@ -1306,6 +1335,11 @@ struct HealthRecoveryProgressView: View {
                         .overlay(Circle().stroke(OG.surface3, lineWidth: 11))
                         .accessibilityLabel("Preparación actual sin puntuación")
                     }
+                    Text(readinessLearningMessage)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel(readinessLearningMessage)
                 }
                 }
                 .frame(
