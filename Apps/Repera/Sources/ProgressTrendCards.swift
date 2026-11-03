@@ -42,6 +42,7 @@ struct ProgressEmptyChart: View {
 struct ProgressHeartZonesCard: View {
     let workouts: [WorkoutSession]
     var isTeaserPreview: Bool = false
+    var showTitle: Bool = true
     @State private var zones: HealthKitStore.WorkoutHeartZones?
 
     private struct ZoneSlice: Identifiable {
@@ -82,9 +83,11 @@ struct ProgressHeartZonesCard: View {
                 )
             } else {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Zonas cardíacas")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
+                    if showTitle {
+                        Text("Zonas cardíacas")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                    }
                     Text("Sin zonas registradas en Apple Salud para el último entreno.")
                         .font(.caption)
                         .foregroundStyle(OG.label2)
@@ -110,10 +113,12 @@ struct ProgressHeartZonesCard: View {
         let total = max(1.0, slices.reduce(0) { $0 + $1.seconds })
         return VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Zonas cardíacas")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(OG.label)
-                Spacer(minLength: 8)
+                if showTitle {
+                    Text("Zonas cardíacas")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
+                }
                 if isExample {
                     Text("Ejemplo")
                         .font(.caption.weight(.semibold))
@@ -210,6 +215,7 @@ struct ProgressHeartZonesCard: View {
 struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
     var workouts: [WorkoutSession] = []
+    var showZones: Bool = true
     @State private var selectedDate: Date?
 
     private var points: [ProgressPreparedCharts.HeartRatePlotPoint] { prepared.heartRate }
@@ -371,12 +377,13 @@ struct ProgressCardioChartCard: View {
                             yRange: 60.0...160.0
                         )
                     }
-                    Divider().opacity(0.35)
-                    // Integrado debajo de los tres tiles FC: nunca otra tarjeta.
-                    ProgressHeartZonesCard(
-                        workouts: workouts,
-                        isTeaserPreview: prepared.isTeaserPreview
-                    )
+                    if showZones {
+                        Divider().opacity(0.35)
+                        ProgressHeartZonesCard(
+                            workouts: workouts,
+                            isTeaserPreview: prepared.isTeaserPreview
+                        )
+                    }
                 }
             }
         }
