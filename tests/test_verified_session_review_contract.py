@@ -42,12 +42,15 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
         self.assertIn("review.scoreBasis == .personalHistory",review)
         self.assertIn("review.indicators.count == ReviewDimension.allCases.count",review)
         self.assertIn("if isVerified {",review)
-        self.assertIn("Text(\"NOTA GLOBAL\")",review)
+        # La valoración moderna distingue progreso de rendimiento y confianza.
+        self.assertIn('metric("Evolución personal"', review)
+        self.assertIn('metric("Rendimiento"', review)
+        self.assertIn("TrainingScoreConfidenceBar(label: review.confidenceLabel)", review)
         for label in ("Evolución personal","Cumplimiento","Rendimiento WOD"):
             self.assertIn(label,model)
         self.assertIn("if let score {",home)
         self.assertIn("review.scoreBasis == .personalHistory",home)
-        self.assertIn("private static let sessionReviewFormulaVersion = 11",
+        self.assertIn("private static let sessionReviewFormulaVersion = 12",
                       read("Apps/Repera/Sources/ReperaStore.swift"))
 
     def test_synthetic_cardio_points_not_in_new_engine(self):

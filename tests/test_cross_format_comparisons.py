@@ -45,8 +45,11 @@ class CrossFormatRatingContracts(unittest.TestCase):
         self.assertIn('confidence = "Baja · estímulo estimado"',s)
         self.assertIn('confidence = "Media · distinto contexto"',s)
         self.assertIn("public var comparisonLevel: Int?",model)
-        self.assertIn('Text(tier == 1 ? "Nivel 1 · Referencia idéntica"',ui)
-        self.assertIn("if indicator.score != nil, let tier = indicator.comparisonLevel",ui)
+        # La barra expresa confianza agregada sin jerarquías de puntuación
+        # que puedan sugerir un estándar global sin evidencia.
+        self.assertIn("TrainingScoreConfidenceBar(label: review.confidenceLabel)", ui)
+        self.assertIn('private var isVerified: Bool', ui)
+        self.assertIn("review.evidenceCoverage ?? 0", ui)
 
     def test_old_scoring_stays_gated_and_new_version_forces_review(self):
         s=read("Packages/ReperaDomain/Sources/ReperaDomain/VerifiedSessionReviewEngine.swift")
@@ -54,7 +57,7 @@ class CrossFormatRatingContracts(unittest.TestCase):
         self.assertIn("guard coverage >= minimumEvidenceCoverage else { return nil }",s)
         self.assertIn("referenceSessions: movementEvidence.map",s)
         self.assertIn("dimension: .adherence,\n                score: nil",s)
-        self.assertIn("sessionReviewFormulaVersion = 11",read("Apps/Repera/Sources/ReperaStore.swift"))
+        self.assertIn("sessionReviewFormulaVersion = 12",read("Apps/Repera/Sources/ReperaStore.swift"))
         # HomeView no longer renders the removed dayScore tile: the scoring gate
         # remains protected above by the domain-level evidence requirements.
 
