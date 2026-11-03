@@ -217,7 +217,7 @@ enum WatchHubItem: Identifiable, Equatable {
 
     var id: String {
         switch self {
-        case .plan(let session): "plan-\(session.id.uuidString)"
+        case .plan(let session): "plan-\((session.routineId ?? session.id).uuidString)"
         case .sport(let sport): "sport-\(sport.rawValue)"
         }
     }
