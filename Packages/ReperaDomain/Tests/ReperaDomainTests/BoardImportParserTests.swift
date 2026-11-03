@@ -277,6 +277,44 @@ struct BoardImportParserTests {
         #expect(swapped.weightFemaleKg == 12.5)
     }
 
+    @Test func ddbStepUpRangeAndRussianSwingFromBoardScan() {
+        let step = CrossFitGlossary.parseMovementLine("8-12M DDB STEP UP @7-8")
+        #expect(step.name == "Step-up al cajón con doble mancuerna")
+        #expect(step.distanceMeters == 12)
+        #expect(step.reps == nil)
+        #expect(step.equipmentNote?.contains("8-12 m") == true)
+        #expect(step.equipmentNote?.contains("Doble mancuerna") == true)
+
+        let swing = CrossFitGlossary.parseMovementLine("20 RKBS 24/16")
+        #expect(swing.name == "Swing kettlebell")
+        #expect(swing.reps == 20)
+        #expect(swing.weightMaleKg == 24)
+        #expect(swing.weightFemaleKg == 16)
+
+        let catalog = Catalog.seed()
+        #expect(catalog.contains { $0.name == "Double Dumbbell Step Up" })
+        let board = """
+        EMOM 12'
+        3-2-2-1 W.S. PULL UPS @RIR 2-1
+        8-12M DDB STEP UP @7-8
+        1' REST
+
+        AMRAP 18'
+        20 RKBS 24/16
+        400M RUN
+        10 HSPU
+        16/12 CAL
+        """
+        let blocks = BoardImportParser.parseBlocks(ocrText: board, catalog: catalog)
+        #expect(blocks.count == 2)
+        #expect(blocks[0].movements.contains {
+            $0.name == "Double Dumbbell Step Up" && $0.exerciseId != nil
+        })
+        #expect(blocks[1].movements.contains {
+            $0.name == "Kettlebell Swing" && $0.exerciseId != nil
+        })
+    }
+
     @Test func parseMovementLineTreats5to10AsRangeNotWave() {
         let hspu = CrossFitGlossary.parseMovementLine("5-10 KIPPING HSPU @FQ")
         #expect(hspu.name == "HSPU")

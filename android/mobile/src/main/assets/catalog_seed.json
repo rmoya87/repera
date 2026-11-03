@@ -5863,6 +5863,37 @@
   "id": "04d8ed2d-aa48-5564-83ee-b21399773c5e"
  },
  {
+  "name": "Double Dumbbell Step Up",
+  "muscleGroup": "Piernas",
+  "catalogId": null,
+  "detailDescription": "Subida a un cajón con dos mancuernas, una en cada mano, sin impulso de la pierna de abajo.",
+  "equipment": "Cajón, Mancuernas",
+  "instructions": [
+   "Sujeta una mancuerna a cada lado del cuerpo.",
+   "Apoya el pie completo sobre el cajón y sube extendiendo cadera y rodilla.",
+   "Desciende con control y alterna las piernas según la prescripción."
+  ],
+  "isCustom": false,
+  "isFavorite": false,
+  "primaryRegions": [
+   "quadriceps",
+   "gluteal"
+  ],
+  "secondaryMuscles": [
+   "glutes",
+   "hamstrings",
+   "core"
+  ],
+  "secondaryRegions": [
+   "hamstring",
+   "abs"
+  ],
+  "targetMuscle": "quads",
+  "bodyPart": "upper legs",
+  "sportTag": "CrossFit",
+  "id": "9139471f-288a-53a4-9363-b91d0de2b5ab"
+ },
+ {
   "name": "Box Step-Up",
   "muscleGroup": "Piernas",
   "catalogId": null,

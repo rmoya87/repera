@@ -1,6 +1,6 @@
 {
  "provenance": {
-  "source": "rmoya87/repera main e579bbc",
+  "source": "rmoya87/repera fix/board-ddb-step-up-rkbs-20261103",
   "files": [
    "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
    "CatalogEnrichment.swift",
@@ -12,8 +12,8 @@
    "MuscleTaxonomy.swift",
    "SportExerciseNames.swift"
   ],
-  "generated_by": "android/tools/extract_catalog.py --git-ref origin/main",
-  "frozen_at": "2026-10-25"
+  "generated_by": "android/tools/extract_catalog.py (base) + Double Dumbbell Step Up parity addition",
+  "frozen_at": "2026-11-03"
  },
  "entries": [
   {
@@ -5706,6 +5706,36 @@
    "sportTag": "CrossFit"
   },
   {
+   "name": "Double Dumbbell Step Up",
+   "muscleGroup": "Piernas",
+   "catalogId": null,
+   "detailDescription": "Subida a un cajón con dos mancuernas, una en cada mano, sin impulso de la pierna de abajo.",
+   "equipment": "Cajón, Mancuernas",
+   "instructions": [
+    "Sujeta una mancuerna a cada lado del cuerpo.",
+    "Apoya el pie completo sobre el cajón y sube extendiendo cadera y rodilla.",
+    "Desciende con control y alterna las piernas según la prescripción."
+   ],
+   "isCustom": false,
+   "isFavorite": false,
+   "primaryRegions": [
+    "quadriceps",
+    "gluteal"
+   ],
+   "secondaryMuscles": [
+    "glutes",
+    "hamstrings",
+    "core"
+   ],
+   "secondaryRegions": [
+    "hamstring",
+    "abs"
+   ],
+   "targetMuscle": "quads",
+   "bodyPart": "upper legs",
+   "sportTag": "CrossFit"
+  },
+  {
    "name": "Box Step-Up",
    "muscleGroup": "Piernas",
    "catalogId": null,
@@ -8869,6 +8899,9 @@
  "post_bd4_additions": {
   "e048d814": [
    "Burpee to target"
+  ],
+  "20261103_ddb_scan": [
+   "Double Dumbbell Step Up"
   ]
  }
 }

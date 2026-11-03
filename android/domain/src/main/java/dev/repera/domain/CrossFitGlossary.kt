@@ -670,7 +670,7 @@ object CrossFitGlossary {
             val second = distanceRange.groupValues[2].toIntOrNull()
             if (first != null && second != null) {
                 meters = maxOf(first, second)
-                rangeNote = "Distancia: \${minOf(first, second)}-\${maxOf(first, second)} m"
+                rangeNote = "Distancia: FIX m"
                 working = working.removeRange(distanceRange.range)
             }
         }
