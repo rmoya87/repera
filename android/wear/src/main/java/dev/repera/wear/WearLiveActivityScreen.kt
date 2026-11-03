@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
@@ -378,7 +379,11 @@ internal fun WearLiveMetricRow(label: String, value: String, prominent: Boolean 
 internal fun WearHeartRateZoneBar(
     bpm: Int?, estimatedMaxBpm: Double = 190.0, prominent: Boolean = false
 ) {
-    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return
+    val context = LocalContext.current
+    val configuredMax = context.getSharedPreferences("repera.wear.session",
+        android.content.Context.MODE_PRIVATE).getInt("maxHeartRateBpm", 190)
+    val effectiveMax = if (estimatedMaxBpm == 190.0) configuredMax.toDouble() else estimatedMaxBpm
+    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, effectiveMax) ?: return
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
