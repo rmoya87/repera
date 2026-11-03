@@ -376,16 +376,7 @@ internal fun WearLiveMetricRow(label: String, value: String, prominent: Boolean 
 internal fun WearHeartRateZoneBar(
     bpm: Int?, estimatedMaxBpm: Double = 190.0, prominent: Boolean = false
 ) {
-    val zone = bpm?.takeIf { it in 25..250 && estimatedMaxBpm > 0 }?.let {
-        val ratio = it / estimatedMaxBpm
-        when {
-            ratio < 0.60 -> 1
-            ratio < 0.70 -> 2
-            ratio < 0.80 -> 3
-            ratio < 0.90 -> 4
-            else -> 5
-        }
-    }
+    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, estimatedMaxBpm)
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
