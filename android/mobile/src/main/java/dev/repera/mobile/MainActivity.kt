@@ -2851,6 +2851,7 @@ data class StateOverview(
     val testedOneRMByExercise:Map<String,Double> = emptyMap(),
     val externalHealthHistory:List<ExternalHealthHistoryEntry> = emptyList(),
     val sessionScoresByRange:Map<String,List<dev.repera.domain.ProgressDayPoint>> = emptyMap(),
+    val sessionScoreConfidenceByRange:Map<String,String?> = emptyMap(),
     val wodTemplateFavorites:Set<String> = emptySet(),
     internal val wodLibraryHistory:Map<String,List<WodLibraryResult>> = emptyMap()
 ) {
@@ -3302,6 +3303,7 @@ data class StateOverview(
                 countsByDay[day]=(countsByDay[day] ?: 0)+1}
             return StateOverview(wodLibraryHistory=WodLibraryHistory.read(json),wodTemplateFavorites=WodTemplateFavorites.read(json),
                 sessionScoresByRange=dev.repera.domain.ProgressTimeRange.entries.associate {it.wire to SessionScoreProgress.points(json,it,trainingSettings.weekStartsOnMonday)},
+                sessionScoreConfidenceByRange=dev.repera.domain.ProgressTimeRange.entries.associate {it.wire to SessionScoreProgress.latestConfidence(json,it,trainingSettings.weekStartsOnMonday)},
                 dayWorkoutMinutes=minutesByDay,dayWorkoutCounts=countsByDay,
                 prCountBySessionId=dev.repera.domain.StatsEngine.personalRecordCountsBySessionId(
                     ProgressSnapshotBuilder.statsWorkouts(json)),
