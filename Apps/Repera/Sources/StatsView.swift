@@ -1064,11 +1064,13 @@ private struct ProgressSessionScoreChartCard: View {
     }
 
     private var latestConfidenceLabel: String? {
-        workouts.filter {
+        let rated = workouts.filter {
             $0.finishedAt != nil && $0.sessionReview?.scoreBasis == .personalHistory
         }
-        .max { ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast) }?
-        .sessionReview?.confidenceLabel
+        guard let latest = rated.max(by: {
+            ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
+        }) else { return nil }
+        return latest.sessionReview?.confidenceLabel
     }
 
     @ViewBuilder
