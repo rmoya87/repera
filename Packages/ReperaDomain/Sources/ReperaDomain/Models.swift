@@ -2522,6 +2522,10 @@ public struct AppState: Codable, Sendable, Equatable {
     /// Monotonic deletion markers: an older iCloud snapshot must never restore removed data.
     public var deletedWorkoutIDs: Set<UUID>
     public var deletedExerciseIDs: Set<UUID>
+    /// Permanent deletion of dated sessions or library routine templates.
+    public var deletedRoutineIDs: Set<UUID>
+    /// Routine UUID -> deleted movement item UUIDs across strength and WOD blocks.
+    public var deletedRoutineExerciseIDs: [String: Set<UUID>]
     /// Workout UUID string -> deleted session-entry UUIDs (not catalog exercise IDs).
     public var deletedWorkoutExerciseIDs: [String: Set<UUID>]
     /// Wall-clock stamp for display / coarse ordering.
@@ -2544,6 +2548,8 @@ public struct AppState: Codable, Sendable, Equatable {
         exerciseLoadPrefs: [String: ExerciseLoadPreference] = [:],
         deletedWorkoutIDs: Set<UUID> = [],
         deletedExerciseIDs: Set<UUID> = [],
+        deletedRoutineIDs: Set<UUID> = [],
+        deletedRoutineExerciseIDs: [String: Set<UUID>] = [:],
         deletedWorkoutExerciseIDs: [String: Set<UUID>] = [:],
         updatedAt: Date = Date(),
         syncRevision: Int = 0,
@@ -2561,6 +2567,8 @@ public struct AppState: Codable, Sendable, Equatable {
         self.exerciseLoadPrefs = exerciseLoadPrefs
         self.deletedWorkoutIDs = deletedWorkoutIDs
         self.deletedExerciseIDs = deletedExerciseIDs
+        self.deletedRoutineIDs = deletedRoutineIDs
+        self.deletedRoutineExerciseIDs = deletedRoutineExerciseIDs
         self.deletedWorkoutExerciseIDs = deletedWorkoutExerciseIDs
         self.updatedAt = updatedAt
         self.syncRevision = syncRevision
@@ -2569,7 +2577,7 @@ public struct AppState: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case settings, exercises, routines, workouts, bodyWeights, activeSession, rotation, favoriteTimers, favoriteSportActivities
-        case exerciseLoadPrefs, deletedWorkoutIDs, deletedExerciseIDs, deletedWorkoutExerciseIDs
+        case exerciseLoadPrefs, deletedWorkoutIDs, deletedExerciseIDs, deletedRoutineIDs, deletedRoutineExerciseIDs, deletedWorkoutExerciseIDs
         case updatedAt, syncRevision, lastWriterDeviceId
     }
 
@@ -2587,6 +2595,8 @@ public struct AppState: Codable, Sendable, Equatable {
         exerciseLoadPrefs = try c.decodeIfPresent([String: ExerciseLoadPreference].self, forKey: .exerciseLoadPrefs) ?? [:]
         deletedWorkoutIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .deletedWorkoutIDs) ?? []
         deletedExerciseIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .deletedExerciseIDs) ?? []
+        deletedRoutineIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .deletedRoutineIDs) ?? []
+        deletedRoutineExerciseIDs = try c.decodeIfPresent([String: Set<UUID>].self, forKey: .deletedRoutineExerciseIDs) ?? [:]
         deletedWorkoutExerciseIDs = try c.decodeIfPresent([String: Set<UUID>].self, forKey: .deletedWorkoutExerciseIDs) ?? [:]
         updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
         syncRevision = try c.decodeIfPresent(Int.self, forKey: .syncRevision) ?? 0
@@ -2607,6 +2617,8 @@ public struct AppState: Codable, Sendable, Equatable {
         try c.encode(exerciseLoadPrefs, forKey: .exerciseLoadPrefs)
         try c.encode(deletedWorkoutIDs, forKey: .deletedWorkoutIDs)
         try c.encode(deletedExerciseIDs, forKey: .deletedExerciseIDs)
+        try c.encode(deletedRoutineIDs, forKey: .deletedRoutineIDs)
+        try c.encode(deletedRoutineExerciseIDs, forKey: .deletedRoutineExerciseIDs)
         try c.encode(deletedWorkoutExerciseIDs, forKey: .deletedWorkoutExerciseIDs)
         try c.encode(updatedAt, forKey: .updatedAt)
         try c.encode(syncRevision, forKey: .syncRevision)
