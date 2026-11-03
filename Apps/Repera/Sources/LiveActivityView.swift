@@ -1079,6 +1079,25 @@ final class LiveActivityRecorder: NSObject {
     private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
     private(set) var spokenGuidanceEnabled = true
     private var gpsSessionID = UUID()
+    /// Última muestra real llegada desde el Watch para una sesión de iPhone concreta.
+    /// Solo memoria: nunca persiste pulsaciones ni acepta muestras de otra sesión.
+    private var companionHeart: (id: UUID, bpm: Int, capturedAt: Date)?
+
+    func receiveCompanionHeartRate(sessionId: UUID, bpm: Int, capturedAt: Date) {
+        guard sessionID == sessionId,
+              phase == .recording || phase == .paused,
+              (25...250).contains(bpm),
+              abs(Date().timeIntervalSince(capturedAt)) <= 25 else { return }
+        companionHeart = (id: sessionId, bpm: bpm, capturedAt: capturedAt)
+    }
+
+    func latestCompanionHeartRateBpm(at now: Date = Date()) -> Int? {
+        guard phase == .recording || phase == .paused,
+              let heart = companionHeart, heart.id == sessionID,
+              (0...20).contains(now.timeIntervalSince(heart.capturedAt)) else { return nil }
+        return heart.bpm
+    }
+
     /// Recuperación exclusiva de una grabación interrumpida, no una pausa.
     private var needsInterruptedGPSRecovery = false
     private(set) var estimatedRecoveryMeters: Double = 0
@@ -2162,8 +2181,11 @@ struct LiveActivityView: View {
     @State private var savedWorkoutID: UUID?
     @State private var isSavingRecordedActivity = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
-    /// FC en vivo desde Salud (solo lectura; sin fabricar).
+    /// FC real reciente de Salud o del Watch vinculado al UUID de esta sesión.
     @State private var liveHeartRateBpm: Int?
+    private var displayedHeartRateBpm: Int? {
+        recorder.latestCompanionHeartRateBpm() ?? liveHeartRateBpm
+    }
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @Namespace private var routeZoomNamespace
@@ -2949,7 +2971,7 @@ struct LiveActivityView: View {
                 // También en carrera, caminata, ciclismo y demás deportes GPS.
                 // No se dibuja una zona activa sin una muestra real de Salud.
                 Divider().overlay(OG.label2.opacity(0.18))
-                HeartRateZoneBar(bpm: liveHeartRateBpm)
+                HeartRateZoneBar(bpm: displayedHeartRateBpm)
                     .padding(.horizontal, 8)
                 if recorder.sport.usesGPS &&
                    (recorder.phase == .recording || recorder.phase == .paused) {
@@ -3100,7 +3122,7 @@ struct LiveActivityView: View {
                         .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                         .foregroundStyle(OG.label)
                     Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
-                    HeartRateZoneBar(bpm: liveHeartRateBpm)
+                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
                         .padding(.horizontal, 28)
                         .padding(.top, 10)
                 } else {
@@ -3116,7 +3138,7 @@ struct LiveActivityView: View {
                         .foregroundStyle(OG.label)
                     Text("Calorías activas (kcal)")
                         .font(.subheadline).foregroundStyle(OG.label2)
-                    HeartRateZoneBar(bpm: liveHeartRateBpm)
+                    HeartRateZoneBar(bpm: displayedHeartRateBpm)
                         .padding(.horizontal, 28)
                         .padding(.top, 10)
                 }
