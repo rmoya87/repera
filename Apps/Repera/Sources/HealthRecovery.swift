@@ -590,6 +590,7 @@ struct HealthRecoveryProgressView: View {
     private struct TrainingRecoveryPoint: Identifiable, Sendable {
         let date: Date
         let score: Double
+        let segment: Int
         var id: Date { date }
     }
 
@@ -628,6 +629,8 @@ struct HealthRecoveryProgressView: View {
             // no exigir una noche de sueño para enumerar los días candidatos.
             let days = Set(nights.map { calendar.startOfDay(for: $0.date) }
                 + vitalHistory.map { calendar.startOfDay(for: $0.date) })
+            var previousScoredDay: Date?
+            var segment = 0
             let points: [TrainingRecoveryPoint] = days.sorted().compactMap { day in
                 guard selectedRange.contains(day, now: now, weekStartsOnMonday: mondayFirst),
                       let morning = calendar.date(
@@ -639,7 +642,12 @@ struct HealthRecoveryProgressView: View {
                         workouts: workouts, vitalHistory: vitalHistory,
                         observedActivities: external
                       ) else { return nil }
-                return TrainingRecoveryPoint(date: day, score: value.score)
+                if let previousScoredDay,
+                   (calendar.dateComponents([.day], from: previousScoredDay, to: day).day ?? 0) > 1 {
+                    segment += 1
+                }
+                previousScoredDay = day
+                return TrainingRecoveryPoint(date: day, score: value.score, segment: segment)
             }
             let todayNight = nights.last {
                 calendar.isDate($0.date, inSameDayAs: now)
@@ -1361,7 +1369,8 @@ struct HealthRecoveryProgressView: View {
                     ForEach(recoveryPoints) { point in
                     LineMark(
                         x: .value("Día", point.date),
-                        y: .value("Recuperación", point.score)
+                        y: .value("Recuperación", point.score),
+                        series: .value("Tramo observado", point.segment)
                     )
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
@@ -1380,7 +1389,12 @@ struct HealthRecoveryProgressView: View {
                         )
                     )
                     .alignsMarkStylesWithPlotArea()
-
+                    PointMark(
+                        x: .value("Día", point.date),
+                        y: .value("Recuperación", point.score)
+                    )
+                    .symbolSize(18)
+                    .foregroundStyle(OG.accent)
                 }
                 if let selectedRecoveryDate,
                    let selected = recoveryPoints.min(by: {
