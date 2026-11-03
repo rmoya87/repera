@@ -151,6 +151,7 @@ public enum CatalogSpanish {
         "Burpee pull-up": "Burpee pull-up: ejecuta el movimiento con rango completo, core firme y control.",
         "Salto al cajón": "Salto al cajón: ejecuta el movimiento con rango completo, core firme y control.",
         "Step-up al cajón": "Subida al cajón paso a paso.",
+        "Step-up al cajón con doble mancuerna": "Subida al cajón con una mancuerna en cada mano. Trabaja la estabilidad y la extensión de la pierna de apoyo sin impulsarte con el pie que queda en el suelo.",
         "Box jump over": "Box jump over: ejecuta el movimiento con rango completo, core firme y control.",
         "Broad jump": "Salto horizontal a máxima distancia.",
         "Walking lunge": "Zancadas caminando en línea.",
@@ -1005,6 +1006,14 @@ public enum CatalogSpanish {
             "Altura que permita control. Mancuernas opcionales a los lados.",
             "Progresión a box jump. Si duele la rodilla, baja altura.",
             "Estándar: bipedestación completa sobre el cajón cada rep.",
+        ],
+        "Step-up al cajón con doble mancuerna": [
+            "Coloca un cajón de altura que te permita apoyar toda la planta del pie sin perder la posición neutra de espalda y pelvis.",
+            "Sujeta una mancuerna en cada mano, brazos a los lados; mantén hombros estables y el abdomen activo antes de subir.",
+            "Apoya el pie completo encima del cajón e impulsa el cuerpo principalmente con esa pierna; evita saltar con el pie de abajo.",
+            "Extiende la cadera y la rodilla arriba hasta quedar erguido, sin inclinarte hacia delante ni abrir la rodilla hacia dentro.",
+            "Baja con control apoyando el pie que desciende y alterna la pierna de inicio cuando la prescripción lo indique.",
+            "Error típico: ganar altura empujando con la pierna del suelo. Si no controlas el movimiento, reduce carga o altura y trabaja la progresión sin mancuernas.",
         ],
         "Box jump over": [
             "Flexiona frente al cajón, brazos atrás.",

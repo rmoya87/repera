@@ -59,7 +59,7 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
         let mobility = exercise("Gato-vaca")
         XCTAssertEqual(mobility.disciplineTags, ["Movilidad"])
         let all = Catalog.seed()
-        XCTAssertEqual(all.count, 289)
+        XCTAssertEqual(all.count, 290)
         XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         XCTAssertEqual(Set(all.map(\.name)).count, all.count)
         XCTAssertTrue(all.allSatisfy { $0.disciplineTags.count == Set($0.disciplineTags).count })

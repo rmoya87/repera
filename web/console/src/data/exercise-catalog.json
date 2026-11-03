@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 288,
+  "count": 290,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -1029,6 +1029,17 @@
       "catalogKey": "catalog:Step-up al cajón",
       "name": "Step-up al cajón",
       "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Step-up al cajón con doble mancuerna",
+      "name": "Double Dumbbell Step Up",
+      "category": "CrossFit",
+      "aliases": [
+        "Step-up al cajón con doble mancuerna",
+        "DDB Step Up",
+        "DDB Box Step Up",
+        "Double Dumbbell Box Step Up"
+      ]
     },
     {
       "catalogKey": "catalog:Box jump over",
