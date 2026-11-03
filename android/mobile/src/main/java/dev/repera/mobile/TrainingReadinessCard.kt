@@ -126,7 +126,7 @@ internal fun TrainingReadinessCard(recovery: RecoveryState) {
                         val message = if (recovery.trainingMinutes96h == null) {
                             "Repera está aprendiendo de ti. Necesita al menos 1 entrenamiento finalizado con duración medida durante los últimos 7 días."
                         } else {
-                            "Repera está aprendiendo de ti. Sin sueño registrado necesita 7 días anteriores con pulso en reposo, VFC o respiración (\$learned/7) y una medición de hoy, o 1 noche de sueño."
+                            "Repera está aprendiendo de ti. Sin sueño registrado necesita 7 días anteriores con pulso en reposo, VFC o respiración ($learned/7) y una medición de hoy, o 1 noche de sueño."
                         }
                         Text(
                             message,
