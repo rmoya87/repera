@@ -125,6 +125,9 @@ struct SessionReviewCard: View {
 struct TrainingScoreConfidenceBar: View {
     let label: String?
     var caption: String = "Confianza"
+    /// Progreso: los cuatro segmentos no deben superar el 50 % de la tarjeta.
+    var compactInProgress = false
+    var showSelectedLevelInCaption = false
 
     private enum Level: CaseIterable, Hashable {
         case learning, low, medium, high
@@ -158,32 +161,40 @@ struct TrainingScoreConfidenceBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(caption)
+            Text(showSelectedLevelInCaption
+                 ? "\(caption) · \(currentLevel.title)" : caption)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(OG.label2)
-            HStack(spacing: 4) {
-                ForEach(Level.allCases, id: \.self) { level in
-                    let selected = level == currentLevel
-                    Text(level.title)
-                        .font(.system(size: 10, weight: selected ? .bold : .medium))
-                        .foregroundStyle(selected
-                            ? (level == .learning ? OG.label : Color.black)
-                            : OG.label2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity, minHeight: 28)
-                        .background(
-                            selected ? level.color : level.color.opacity(0.18),
-                            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        )
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(selected ? OG.label.opacity(0.45) : .clear, lineWidth: 1)
-                        }
+            GeometryReader { geometry in
+                let width = max(0, geometry.size.width * (compactInProgress ? 0.5 : 1))
+                let gap: CGFloat = 4
+                let unit = max(0, (width - 3 * gap) / 6)
+                HStack(spacing: gap) {
+                    ForEach(Level.allCases, id: \.self) { level in
+                        let selected = level == currentLevel
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(level.color.opacity(selected ? 1 : 0.25))
+                            .frame(width: unit * (selected ? 3 : 1),
+                                   height: selected ? 36 : 13)
+                            .overlay {
+                                if selected {
+                                    Text(level.title)
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(level == .learning ? OG.label : Color.black)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.65)
+                                        .padding(.horizontal, 2)
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                    }
                 }
+                .frame(width: width, height: 38, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(height: 38)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(caption): \(label ?? "En construcción")")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Confianza: \(currentLevel.title)")
     }
 }
