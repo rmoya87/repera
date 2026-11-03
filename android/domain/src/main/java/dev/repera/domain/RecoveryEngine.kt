@@ -29,7 +29,11 @@ object RecoveryEngine {
         val respiratoryRateBpm: Double? = null,
         val oxygenSaturationPercent: Double? = null,
         val wristTemperatureCelsius: Double? = null,
-        val heartRateRecoveryBpm: Double? = null
+        val heartRateRecoveryBpm: Double? = null,
+        /** Lecturas de todo el día para tendencias, no para preparar el entreno. */
+        val hrvAllDayMilliseconds: Double? = null,
+        val restingHeartRateAllDayBpm: Double? = null,
+        val respiratoryRateAllDayBpm: Double? = null
     )
 
     data class VitalContext(
@@ -37,6 +41,24 @@ object RecoveryEngine {
         val calibratedSignals: Int,
         val notes: List<String>
     )
+
+    const val MINIMUM_VITAL_LEARNING_DAYS = 7
+
+    /** Días válidos de la señal más completa, sin mezclar señales. */
+    fun vitalLearningDays(at: LocalDate, history: List<DailyVitals>): Int {
+        val prior = history.filter { it.day.isBefore(at) && !it.day.isBefore(at.minusDays(28)) }
+        fun count(select: (DailyVitals) -> Double?, range: ClosedFloatingPointRange<Double>): Int =
+            prior.mapNotNull { row ->
+                select(row)?.takeIf { it.isFinite() && it in range }?.let { row.day }
+            }.toSet().size
+        return min(MINIMUM_VITAL_LEARNING_DAYS, max(
+            count({ it.hrvMilliseconds }, 5.0..300.0),
+            max(
+                count({ it.restingHeartRateBpm }, 30.0..130.0),
+                count({ it.respiratoryRateBpm }, 6.0..40.0)
+            )
+        ))
+    }
 
     /** Calibra cada señal aceptada contra ≥7 días distintos previos en los
      *  28 anteriores. Ignora muestras ausentes o inválidas. */
@@ -139,11 +161,12 @@ object RecoveryEngine {
         val physiologicalPenalty: Double = 0.0,
         val calibratedVitalSignals: Int = 0,
         val vitalNotes: List<String> = emptyList(),
-        val cardioMinutes48h: Double? = null
+        val cardioMinutes48h: Double? = null,
+        val isPartial: Boolean = false
     )
 
     /**
-     * Estimación de disposición para entrenar. Requiere sueño observado y
+     * Estimación de disposición para entrenar. Requiere sueño o señal calibrada y
      * actividad finalizada en los últimos siete días; jamás inventa cero
      * esfuerzo sin registros. Los workouts llegan como StatsWorkout con
      * epochMillis = momento de finalización.
@@ -157,8 +180,12 @@ object RecoveryEngine {
         observedActivities: List<ObservedActivity> = emptyList(),
         zone: ZoneId = ZoneId.systemDefault()
     ): TrainingReadiness? {
-        if (sleepHours == null || !sleepHours.isFinite() || sleepHours <= 0) return null
-        val sleep = sleepIndex(sleepHours, recentAverageSleepHours) ?: return null
+        val sleep = sleepIndex(sleepHours, recentAverageSleepHours)
+        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+        val vitals = vitalContext(today, vitalHistory)
+        // La ausencia de sueño solo permite nota parcial con ≥7 días de
+        // referencia para al menos una señal actual.
+        if (sleep == null && vitals.calibratedSignals == 0) return null
 
         val sevenDays = 7L * 24 * 3_600_000
         val twoDays = 48L * 3_600_000
@@ -217,13 +244,12 @@ object RecoveryEngine {
         val load = if (musclePressure > 0)
             0.7 * muscleLoad + 0.3 * durationPressure
         else durationPressure
-        val sleepContribution = (sleep / 10.0 - 7.0) * 0.45
+        val sleepContribution = sleep?.let { (it / 10.0 - 7.0) * 0.45 } ?: 0.0
         val penalty = 3.5 * load
-        val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
-        val vitals = vitalContext(today, vitalHistory)
         var score = max(0.0, min(10.0, 7.5 + sleepContribution - penalty - vitals.penalty))
-        // Una noche corta no debe catalogarse «lista».
-        if (sleepHours < 6) score = min(score, 5.0)
+        // No declarar preparación óptima cuando el sueño se desconoce.
+        if (sleep == null) score = min(score, 7.0)
+        if (sleepHours != null && sleepHours < 6) score = min(score, 5.0)
         score = round(score)
         val advice = if (score >= 7.5) TrainingReadinessAdvice.USUAL
         else if (score >= 5.5) TrainingReadinessAdvice.MODERATE
@@ -239,7 +265,8 @@ object RecoveryEngine {
             vitalNotes = vitals.notes,
             cardioMinutes48h = if (recentExternal.any {
                     it.isCardio && nowMillis - it.epochMillis <= twoDays
-                }) cardioMinutes48h else null
+                }) cardioMinutes48h else null,
+            isPartial = sleep == null
         )
     }
 
