@@ -1106,13 +1106,7 @@ struct HealthRecoveryProgressView: View {
                     yRange: 0.0...100.0
                 )
             }
-            if values.count < 2 {
-                Text("Repera está aprendiendo de ti · \(values.count)/2 días. Para preparación: 7 días previos.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12))
@@ -1142,6 +1136,13 @@ struct HealthRecoveryProgressView: View {
                     HStack(alignment: .top, spacing: 10) {
                         vitalBarTile("Pulso en reposo", unit: "lpm", keyPath: \.restingHeartRateAllDayBpm)
                         vitalBarTile("Respiración", unit: "resp/min", keyPath: \.respiratoryRateAllDayBpm)
+                    }
+                    let restingDays = vitalValues(\.restingHeartRateAllDayBpm).count
+                    if restingDays < 2 {
+                        Text("Repera está aprendiendo de ti · pulso en reposo \(restingDays)/2 días. Para interpretar la preparación necesita 7 días anteriores.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     if let latest = physiology.days.last {
                         HStack(alignment: .top, spacing: 10) {
