@@ -466,6 +466,29 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
+                Stepper(value: Binding(
+                    get: { store.state.settings.heartRateMaxBpm ?? 190 },
+                    set: { next in
+                        var settings = store.state.settings
+                        settings.heartRateMaxBpm = min(230, max(120, next))
+                        store.updateSettings(settings)
+                    }
+                ), in: 120...230, step: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label("FC máxima", systemImage: "heart")
+                        Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm" +
+                             (store.state.settings.heartRateMaxBpm == nil ? " · provisional" : ""))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if store.state.settings.heartRateMaxBpm != nil {
+                    Button("Restaurar estimación provisional") {
+                        var settings = store.state.settings
+                        settings.heartRateMaxBpm = nil
+                        store.updateSettings(settings)
+                    }
+                    .font(.footnote)
+                }
                 NavigationLink {
                     HistoryView()
                 } label: {
