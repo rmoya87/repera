@@ -121,7 +121,9 @@ private enum class TrainingConfidence(val title: String) {
 @Composable
 internal fun TrainingScoreConfidenceBar(
     label: String?,
-    caption: String = "Confianza"
+    caption: String = "Confianza",
+    compactInProgress: Boolean = false,
+    showSelectedLevelInCaption: Boolean = false
 ) {
     val normalized = label.orEmpty().lowercase(java.util.Locale.ROOT)
     val current = when {
@@ -131,40 +133,55 @@ internal fun TrainingScoreConfidenceBar(
         else -> TrainingConfidence.LEARNING
     }
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth().semantics {
-        contentDescription = "$caption: ${label ?: "En construcción"}"
-    }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(caption, style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TrainingConfidence.entries.forEach { tier ->
-                val selected = tier == current
-                val tint = when (tier) {
-                    TrainingConfidence.LEARNING -> colors.onSurfaceVariant
-                    TrainingConfidence.LOW -> colors.error
-                    TrainingConfidence.MEDIUM -> colors.tertiary
-                    TrainingConfidence.HIGH -> colors.primary
-                }
-                Box(
-                    Modifier.weight(1f).height(28.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(tint.copy(alpha = if (selected) 1f else 0.18f))
-                        .border(
-                            if (selected) 1.dp else 0.dp,
-                            if (selected) colors.onSurface.copy(alpha = 0.4f) else Color.Transparent,
-                            RoundedCornerShape(6.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        tier.title,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selected && tier != TrainingConfidence.LEARNING)
-                            Color.Black else colors.onSurface,
-                        softWrap = false
-                    )
+    Column(
+        Modifier.fillMaxWidth().semantics {
+            contentDescription = "Confianza: ${current.title}"
+        },
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            if (showSelectedLevelInCaption) "$caption · ${current.title}" else caption,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.onSurfaceVariant
+        )
+        // La tarjeta de Progreso limita la barra completa al 50 % del ancho
+        // interior; solo el segmento destacado crece (3:1) y contiene el nivel.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val barWidth = maxWidth * (if (compactInProgress) 0.5f else 1f)
+            Row(
+                Modifier.width(barWidth).height(38.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TrainingConfidence.entries.forEach { tier ->
+                    val selected = tier == current
+                    val tint = when (tier) {
+                        TrainingConfidence.LEARNING -> colors.onSurfaceVariant
+                        TrainingConfidence.LOW -> colors.error
+                        TrainingConfidence.MEDIUM -> colors.tertiary
+                        TrainingConfidence.HIGH -> colors.primary
+                    }
+                    Box(
+                        Modifier
+                            .weight(if (selected) 3f else 1f)
+                            .height(if (selected) 36.dp else 13.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(tint.copy(alpha = if (selected) 1f else 0.25f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (selected) {
+                            Text(
+                                tier.title,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                fontWeight = FontWeight.Bold,
+                                color = if (tier == TrainingConfidence.LEARNING) colors.onSurface
+                                    else Color.Black,
+                                softWrap = false
+                            )
+                        }
+                    }
                 }
             }
         }
