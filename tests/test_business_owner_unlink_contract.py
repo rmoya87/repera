@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20261103160000_allow_staff_client_self_unlink.sql"
+MIGRATION = ROOT / "supabase/migrations/20261103145143_allow_staff_client_self_unlink.sql"
 
 
 class OwnerClientUnlinkContractTests(unittest.TestCase):
