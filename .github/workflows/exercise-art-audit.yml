@@ -12,6 +12,7 @@ on:
   push:
     branches:
       - fix/exercise-art-audit-20261017
+  workflow_dispatch:
 
 jobs:
   assets:
@@ -64,21 +65,64 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check Pillow==11.3.0
-      - name: Block release while FAIL or WARN assets remain
+      - name: Require visual QA for changed art in PR, all art before release
+        env:
+          AUDIT_EVENT: ${{ github.event_name }}
+          AUDIT_BASE: ${{ github.base_ref }}
         run: |
           python scripts/audit_exercise_art.py
           python - <<'PY'
           import csv
+          import os
           from pathlib import Path
-          rows=list(csv.DictReader(Path('docs/EXERCISE_ART_AUDIT.csv').open(encoding='utf-8')))
-          remaining=[r for r in rows if r['verdict']!='OK']
-          print(f'{len(remaining)} stems require visual approval before release')
-          if remaining:
-              print(f'::error title=Visual QA required::{len(remaining)} assets are not approved')
-              raise SystemExit(1)
+          import subprocess
+          import sys
+
+          rows = list(csv.DictReader(Path('docs/EXERCISE_ART_AUDIT.csv').open(encoding='utf-8')))
+          by_stem = {row['stem']: row for row in rows}
+          pending = [row for row in rows if row['verdict'] != 'OK']
+          print(f"Full visual backlog: {len(pending)} unapproved stems (not automatically OK)")
+
+          if os.environ['AUDIT_EVENT'] == 'pull_request':
+              # A maintenance PR cannot visually approve 533 pre-existing JPGs.
+              # Every added/edited/deleted JPG in this PR still requires approval.
+              base = os.environ['AUDIT_BASE']
+              changed = subprocess.run(
+                  ['git', 'diff', '--name-only', f'origin/{base}...HEAD', '--',
+                   'Apps/Repera/Resources/ExerciseArt/'],
+                  capture_output=True, text=True, check=True,
+              ).stdout.splitlines()
+              stems = {
+                  Path(path).stem for path in changed
+                  if path.lower().endswith(('.jpg', '.jpeg'))
+              }
+              if not stems:
+                  print("No JPG art changed: visual backlog remains open, but this PR adds no art risk")
+                  sys.exit(0)
+              missing = [stem for stem in stems if stem not in by_stem]
+              unapproved = [
+                  row for stem in sorted(stems)
+                  if (row := by_stem.get(stem)) is not None and row['verdict'] != 'OK'
+              ]
+              for stem in missing:
+                  print(f'::error title=Missing art review::{stem} not present in audit')
+              for row in unapproved:
+                  print(f"::error title=Visual QA required::{row['stem']}: {row['verdict']}")
+              if missing or unapproved:
+                  sys.exit(1)
+              print(f'{len(stems)} changed JPG stems approved')
+          else:
+              # workflow_dispatch / art-release branch: strict full-inventory gate.
+              for row in pending[:30]:
+                  print(f"::error title=Unapproved art::{row['stem']}: {row['verdict']}")
+              if pending:
+                  print(f'::error title=Visual QA required::{len(pending)} assets are not approved')
+                  sys.exit(1)
           PY
