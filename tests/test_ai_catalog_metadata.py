@@ -13,6 +13,8 @@ CATALOG = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain"
 SQL = (ROOT / "supabase/migrations/20261021235000_complete_ai_catalog_muscle_mappings.sql").read_text("utf-8")
 SQL_EXTRA = (ROOT / "supabase/migrations/20261022003500_new_photo_movements_crossfit.sql").read_text("utf-8")
 SQL_NATIVE_ADDED = (ROOT / "supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql").read_text("utf-8")
+SQL_EQUIPMENT = (ROOT / "supabase/migrations/20261103221000_native_equipment_metadata_parity.sql").read_text("utf-8")
+CORRECTED_NAMES = set(re.findall(r"\('catalog:([^']+)', ARRAY\[", SQL_EQUIPMENT))
 NEW_NATIVE_NAMES = {
     "Tirón alto de arrancada",
     "Tirón alto de cargada",
@@ -82,7 +84,13 @@ class CatalogMetadataParityTests(unittest.TestCase):
                 if not primary:
                     cardio_names.append(name)
                     self.assertTrue(secondary, name)
-                if name in NEW_NATIVE_NAMES:
+                if name in CORRECTED_NAMES:
+                    self.assertIn("'catalog:" + name + "'", SQL_EQUIPMENT)
+                    self.assertIn(
+                        sql_array(primary) + ", " + sql_array(secondary) + ", " + sql_array(equipment),
+                        SQL_EQUIPMENT, name,
+                    )
+                elif name in NEW_NATIVE_NAMES:
                     self.assertIn("'catalog:" + name + "'", SQL_NATIVE_ADDED, name)
                     self.assertIn(sql_array(primary), SQL_NATIVE_ADDED, name)
                     self.assertIn(sql_array(secondary), SQL_NATIVE_ADDED, name)
@@ -100,6 +108,7 @@ class CatalogMetadataParityTests(unittest.TestCase):
                     )
                     self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
         self.assertEqual(total, 153)
+        self.assertEqual(len(CORRECTED_NAMES), 52)
         self.assertEqual(len(set(all_names)), total)
         self.assertEqual(
             set(cardio_names),
