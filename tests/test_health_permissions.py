@@ -32,7 +32,10 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertNotIn('Button("Permitir")', onboard)
         self.assertNotIn("await health.requestAccess(", onboard)
         self.assertNotIn("ensureWhenInUseAuthorized()", onboard)
-        self.assertIn(".task { onboarding.finishPermissions() }", onboard)
+        self.assertIn("Text(\"Tus datos, bajo tu control\")", onboard)
+        self.assertIn("onboarding.finishPermissions()", onboard)
+        self.assertNotIn(".task { onboarding.finishPermissions() }", onboard)
+        self.assertIn("Puedes rechazar los permisos", onboard)
         self.assertIn("await health.requestAccess(includeAllOptional: true)", health)
 
     def test_progress_does_not_show_independent_sleep_alert(self):

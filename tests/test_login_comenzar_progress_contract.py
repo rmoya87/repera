@@ -103,11 +103,13 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn(".stroke(run.edge, style: StrokeStyle(", maps)
         self.assertIn(".stroke(run.core, style: StrokeStyle(", maps)
         self.assertIn("LinearGradient(", maps)
-        self.assertIn("lineWidth: 11", maps)
-        self.assertIn(".stroke(segment.color, lineWidth: 6)", maps)
+        self.assertIn("let maxVertices = 450", maps)
+        self.assertIn("let rgb = AdaptiveRoutePace.rgb(", maps)
+        self.assertIn("haloStops.append(.init(color: color.opacity(0.23)", maps)
+        self.assertIn("edgeStops.append(.init(color: color.opacity(0.75)", maps)
         self.assertIn("var isWaterSport: Bool = false", maps)
-        self.assertIn("water ? (0.00, 1.00, 0.45) : (0.00, 1.00, 0.25)", maps)
-        self.assertIn("(1.00, 0.98, 0.00), (1.00, 0.43, 0.00), (1.00, 0.07, 0.15)", maps)
+        self.assertIn("water: water)", maps)
+        self.assertIn("let scale = AdaptiveRoutePace.scale(", maps)
         self.assertNotIn("(0.06, 0.39, 0.98)", maps)
 
     def test_cardio_fatigue_and_records_include_start_sports_without_fake_e1rm(self):

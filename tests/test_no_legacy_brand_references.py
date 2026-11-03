@@ -10,8 +10,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 # Construido en tiempo de ejecución para no añadir el propio nombre antiguo
 # al repositorio durante la comprobación.
-LEGACY_PATTERN = "open" + r"[[:space:]_.-]*" + "gym"
-PATH_PATTERN = re.compile("open" + r"[\s_.-]*" + "gym", re.IGNORECASE)
+LEGACY_PATTERN = "open" + "gym"
+# "open gym" y "open_gym" son modalidades genéricas del centro, no la marca antigua.
+PATH_PATTERN = re.compile("open" + "gym", re.IGNORECASE)
 
 
 class LegacyBrandReferencesContract(unittest.TestCase):
