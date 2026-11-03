@@ -106,6 +106,42 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("trainingPrompt = .finish", session)
         self.assertIn("trainingPrompt = .discard", session)
 
+    def test_watch_live_back_and_explicit_crown_editing(self):
+        view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        running = view.split("private func runningView(", 1)[1].split(
+            "private var seriesContent:", 1
+        )[0]
+        self.assertNotIn('Button("Resumen")', running)
+        self.assertIn("if !hub.goToPreviousStep() { showOutline = true }", running)
+        self.assertIn("func goToPreviousStep() -> Bool", hub)
+        self.assertIn("swipeSet(-1)", hub)
+        self.assertIn("editingRepsWithCrown.toggle()", view)
+        self.assertIn(".focusable(editingRepsWithCrown)", view)
+        self.assertIn(".focused($repsCrownFocused)", view)
+
+    def test_wear_live_back_and_rotary_scroll_by_default(self):
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
+        activity = source("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        chrome = source("android/wear/src/main/java/dev/repera/wear/WearChrome.kt")
+        running = wear.split("private fun TransformingLazyColumnScope.runningItems(", 1)[1].split(
+            "private fun TransformingLazyColumnScope.wodRunningBody(", 1
+        )[0]
+        reps = wear.split("private fun RotaryRepsHost(", 1)[1].split(
+            "private fun TransformingLazyColumnScope.seriesSteppers(", 1
+        )[0]
+        self.assertNotIn('Text("Resumen"', running)
+        self.assertIn('callbacks.onPreviousStep()', running)
+        self.assertIn("private fun goToPreviousLiveStep()", activity)
+        self.assertIn('showOutline = true', activity)
+        self.assertIn("lastOrNull { it.first <= currentIndex }", activity)
+        self.assertIn('.put("currentIndex", previousIndex)', activity)
+        self.assertIn('onSwipeSet = { delta ->', activity)
+        self.assertIn("if (editing) focus.requestFocus()", reps)
+        self.assertNotIn("LaunchedEffect(Unit) { focus.requestFocus() }", reps)
+        self.assertIn("onValueClick = onValueClick", wear)
+        self.assertIn("Modifier.clickable(onClick = onValueClick)", chrome)
+
     def test_wear_left_swipe_controls_cover_all_sessions(self):
         live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         planned = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")

@@ -1,6 +1,7 @@
 package dev.repera.wear
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -219,6 +220,8 @@ internal fun WearMetricStepper(
     value: String,
     enabled: Boolean = true,
     flatControls: Boolean = false,
+    onValueClick: (() -> Unit)? = null,
+    valueEditing: Boolean = false,
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
@@ -251,7 +254,13 @@ internal fun WearMetricStepper(
             }
             Text(
                 value,
-                modifier = Modifier.widthIn(min = 36.dp, max = 72.dp),
+                modifier = Modifier.widthIn(min = 36.dp, max = 72.dp)
+                    .then(
+                        if (enabled && onValueClick != null)
+                            Modifier.clickable(onClick = onValueClick)
+                        else Modifier
+                    ),
+                color = if (valueEditing) WearOg.accent else MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontSize = 24.sp,

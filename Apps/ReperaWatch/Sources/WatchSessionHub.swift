@@ -1257,6 +1257,38 @@ final class WatchSessionHub: NSObject {
         }
     }
 
+    /// Navigate backwards without recording a set or changing the running session.
+    /// The caller shows the block overview when no earlier step exists.
+    @discardableResult
+    func goToPreviousStep() -> Bool {
+        guard let session = active, session.phase == .counting,
+              !reviewingBlock, !isPaused, restRemaining == 0 else { return false }
+
+        if currentIsWOD {
+            guard wodUsesSeries, session.currentIndex > 0,
+                  let blockID = current?.blockId,
+                  session.exercises[session.currentIndex - 1].blockId == blockID else {
+                return false
+            }
+            moveWithinBlock(-1)
+            return true
+        }
+
+        let count = current?.loggedSets.count ?? 0
+        let position = selectedSetIndex ?? count
+        if position > 0 {
+            swipeSet(-1)
+            return true
+        }
+        guard session.currentIndex > 0,
+              let blockID = current?.blockId,
+              session.exercises[session.currentIndex - 1].blockId == blockID else {
+            return false
+        }
+        moveWithinBlock(-1)
+        return true
+    }
+
     /// Go to the next exercise without manufacturing or confirming a set.
     /// Within a block the workout clock continues; a new block opens prepared.
     func nextExercise() {

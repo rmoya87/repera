@@ -1,5 +1,12 @@
 # Funcionalidades Repera
 
+## Navegación y corona en entrenamientos programados en vivo (03/11/2026)
+
+- **Apple Watch:** durante un bloque en ejecución, «Resumen» deja de ocupar la acción inferior. «Anterior» (flecha a la izquierda de «Siguiente») permite revisar la serie anterior o el ejercicio anterior dentro del mismo bloque; desde su primer paso abre el resumen de bloques. Volver no registra nuevas series ni finaliza la sesión.
+- **Wear OS:** la misma acción «Anterior» se muestra junto a «Siguiente». Vuelve al ejercicio previo del mismo bloque sin detener el cronómetro local ni crear registros y, desde el primer ejercicio, abre el resumen. Las flechas internas para consultar series siguen siendo independientes de esta navegación.
+- **Corona digital y selector rotatorio:** inicialmente desplazan el contenido vertical, sin alterar las repeticiones. Para modificar repeticiones girando la corona hay que pulsar primero sobre su valor; los botones táctiles «+» y «−» siguen siendo explícitos. El valor en modo edición se distingue en verde.
+- **Validación pendiente:** compilar en Xcode/Gradle y realizar pruebas de scroll, foco, navegación, pausa, WOD, primera/última serie, sesiones sin conexión y tamaños de esfera en simulador y reloj físico.
+
 ## Plazas ocupadas en tarjetas de clases (02/11/2026)
 
 Las tarjetas de Clases en iOS y Android muestran los inscritos frente al aforo, por ejemplo 1/12, igual que el detalle. Primero se usa get_service_availability y, cuando no hay recuento de esa clase, el valor reserved de class_occurrence_roster. Solo se guardan los números, sin exponer asistentes; tras cambiar una reserva se vuelve a consultar el respaldo. Si no hay cifras verificadas se muestra —/12, nunca 12 plazas como sustituto del total de apuntados.
