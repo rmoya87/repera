@@ -231,6 +231,60 @@ final class RecoveryEngineTests: XCTestCase {
         XCTAssertEqual(informed!.score, informed!.score.rounded())
     }
 
+    func testPartialReadinessNeedsSevenPriorDaysOfTheSameVital() {
+        let calendar = Calendar.current
+        let now = calendar.startOfDay(for: Date()).addingTimeInterval(10 * 3_600)
+        let recent = RecoveryEngine.ObservedActivity(
+            date: now.addingTimeInterval(-12 * 3_600),
+            durationMinutes: 50, isCardio: true
+        )
+        let earlier = (1...7).map { offset in
+            RecoveryEngine.DailyVitals(
+                date: calendar.date(byAdding: .day, value: -offset, to: now)!,
+                restingHeartRateBpm: 56
+            )
+        }
+        let current = RecoveryEngine.DailyVitals(
+            date: now, restingHeartRateBpm: 58,
+            restingHeartRateAllDayBpm: 54
+        )
+        let six = Array(earlier.prefix(6)) + [current]
+        XCTAssertEqual(RecoveryEngine.vitalLearningDays(at: now, history: six), 6)
+        XCTAssertNil(RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: nil, recentAverageSleepHours: 8,
+            workouts: [], vitalHistory: six, observedActivities: [recent]
+        ))
+        let seven = earlier + [current]
+        XCTAssertEqual(RecoveryEngine.vitalLearningDays(at: now, history: seven), 7)
+        let result = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: nil, recentAverageSleepHours: 8,
+            workouts: [], vitalHistory: seven, observedActivities: [recent]
+        )
+        XCTAssertNotNil(result)
+        XCTAssertTrue(result?.isPartial == true)
+        XCTAssertLessThanOrEqual(result!.score, 7)
+        XCTAssertEqual(result?.calibratedVitalSignals, 1)
+        let complete = RecoveryEngine.trainingReadiness(
+            at: now, sleepHours: 8, recentAverageSleepHours: 8,
+            workouts: [], vitalHistory: seven, observedActivities: [recent]
+        )
+        XCTAssertFalse(complete?.isPartial ?? true)
+    }
+
+    func testVitalLearningDaysDoesNotCombineDifferentSignals() {
+        let calendar = Calendar.current
+        let now = calendar.startOfDay(for: Date())
+        let hrv = (1...4).map { day in RecoveryEngine.DailyVitals(
+            date: calendar.date(byAdding: .day, value: -day, to: now)!,
+            hrvMilliseconds: 50
+        ) }
+        let resting = (5...8).map { day in RecoveryEngine.DailyVitals(
+            date: calendar.date(byAdding: .day, value: -day, to: now)!,
+            restingHeartRateBpm: 55
+        ) }
+        XCTAssertEqual(RecoveryEngine.vitalLearningDays(at: now, history: hrv + resting), 4)
+    }
+
     func testUnknownWithInsufficientOrIrregularCycles() {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(secondsFromGMT: 0)!
