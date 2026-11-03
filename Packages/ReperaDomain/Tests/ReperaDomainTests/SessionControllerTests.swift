@@ -129,7 +129,8 @@ final class SessionControllerTests: XCTestCase {
         ))
         XCTAssertEqual(controller.session.currentExercise?.loggedSets.count, 2)
         XCTAssertEqual(controller.session.currentExercise?.completedReps, 10)
-        XCTAssertEqual(controller.session.totalVolumeKg, 690, accuracy: 0.001)
+        // Una sesión todavía en curso no entra en las estadísticas históricas.
+        XCTAssertEqual(controller.session.totalVolumeKg, 0, accuracy: 0.001)
         controller.finishWorkout()
         let restored = try JSONDecoder().decode(
             WorkoutSession.self, from: JSONEncoder().encode(controller.session)
