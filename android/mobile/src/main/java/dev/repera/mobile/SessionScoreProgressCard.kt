@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import dev.repera.domain.*
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** StatsView.ProgressSessionScoreChartCard geometry; prepared verified daily values unchanged. */
 @Composable
@@ -45,15 +46,8 @@ internal fun SessionScoreProgressCard(
                 if (preview) "Puntuación de entrenamiento · ejemplo" else "Puntuación de entrenamiento",
                 modifier = Modifier.weight(1f, fill = false)
             )
-            if (values.isNotEmpty()) {
-                Text(
-                    "${Math.round(values.map { it.value }.average())}/10",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-                )
+            if (preview) {
+                Text("Ejemplo", style = MaterialTheme.typography.labelSmall)
             }
         }
         ReperaCard(Modifier.fillMaxWidth()) {
@@ -61,9 +55,67 @@ internal fun SessionScoreProgressCard(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val average = values.takeIf { it.isNotEmpty() }
+                    ?.map { it.value }?.average()?.roundToInt()
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        Modifier.size(94.dp).semantics {
+                            contentDescription = if (average == null) "Puntuación pendiente de aprendizaje"
+                            else "Puntuación media $average de 10"
+                        },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(Modifier.fillMaxSize().padding(5.dp)) {
+                            val stroke = 9.dp.toPx()
+                            drawCircle(rule.copy(alpha = 0.15f), style = Stroke(stroke))
+                            if (average != null) {
+                                drawArc(
+                                    color = accent,
+                                    startAngle = -90f,
+                                    sweepAngle = average * 36f,
+                                    useCenter = false,
+                                    style = Stroke(stroke, cap = StrokeCap.Round)
+                                )
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                average?.toString() ?: "—",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text("de 10", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            if (average == null) "Repera está aprendiendo de ti" else "Tu rendimiento personal",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        if (average == null) {
+                            Text(
+                                "Necesita 2 días previos con ejercicios o WOD comparables; algunos WOD requieren 3 días de referencia.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Text("${values.size} días con resultados evaluables", style = MaterialTheme.typography.bodySmall)
+                            Text("Comparación con tus marcas anteriores, no con otros deportistas.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Consulta los factores y la confianza en cada entrenamiento.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
                 if (values.isEmpty()) {
                     EmptyHealthChart(
-                        "Todavía no hay puntuaciones basadas en tu historial.",
+                        "Repera está aprendiendo de ti. Necesita 2 días previos comparables y un 60% del rendimiento registrado con referencias.",
                         0.0, 10.0, 205.dp
                     )
                 } else {
@@ -126,16 +178,32 @@ internal fun SessionScoreProgressCard(
                                 val positions = values.indices.map {
                                     ReadinessCurve.Point(x(it), y(values[it].value))
                                 }
-                                val path = Path()
-                                path.moveTo(positions.first().x, positions.first().y)
-                                ReadinessCurve.segments(positions).forEach { c ->
-                                    path.cubicTo(
-                                        c.control1.x, c.control1.y,
-                                        c.control2.x, c.control2.y,
-                                        c.end.x, c.end.y
-                                    )
+                                // No unir días sin puntuación como si existieran datos.
+                                val groups = mutableListOf<MutableList<ReadinessCurve.Point>>()
+                                positions.forEachIndexed { i, point ->
+                                    if (i == 0 || java.time.temporal.ChronoUnit.DAYS
+                                            .between(values[i - 1].day, values[i].day) > 1) {
+                                        groups.add(mutableListOf())
+                                    }
+                                    groups.last().add(point)
                                 }
-                                drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+                                groups.forEach { group ->
+                                    if (group.size > 1) {
+                                        val path = Path()
+                                        path.moveTo(group.first().x, group.first().y)
+                                        ReadinessCurve.segments(group).forEach { c ->
+                                            path.cubicTo(
+                                                c.control1.x, c.control1.y,
+                                                c.control2.x, c.control2.y,
+                                                c.end.x, c.end.y
+                                            )
+                                        }
+                                        drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+                                    }
+                                    group.forEach { point ->
+                                        drawCircle(accent, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
+                                    }
+                                }
                                 selected?.let { i ->
                                     drawLine(
                                         rule,
