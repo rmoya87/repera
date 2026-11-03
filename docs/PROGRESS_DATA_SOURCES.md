@@ -12,14 +12,23 @@
 
 La información de clases se carga por usuario autenticado desde `BusinessDataStore`, respetando los permisos y los vínculos existentes en Supabase.
 
-## Puntuación de entrenamiento
+## Organización de Progreso (iOS y Android, 03/11/2026)
+
+- **Entreno:** tarjetas resumen Entrenos/Tiempo/Racha, **Entrenamiento** (anillo y evolución de puntuaciones verificadas), Equilibrio muscular, Movilidad, Progreso por ejercicio, Récords, Deportes e Historial. En pantallas Duo/tablet, puntuación y mapa muscular se muestran en dos columnas. La cuadrícula de KPI ocupa todo el ancho.
+- **Actividad:** Días activos (heatmap de tiempo/volumen), **Frecuencia cardíaca** diaria (mínima, media y máxima), Calorías y Peso; son datos de movimiento y Salud generales, no notas de rendimiento deportivo. En pantallas grandes, calendario ancho y gráficas en cuadrícula adaptativa.
+- **Recuperación:** **Recuperación** (estado actual), **Evolución** (tendencia), **Sueño** y **Constantes**, más Ciclo si existe información. Las dos primeras y las dos siguientes forman parejas en Duo.
+- **Cardio de entrenamiento:** iOS consulta zonas y carga cardiovascular **del entrenamiento asociado** en Apple Salud dentro de Entreno; Actividad no las duplica. Android muestra, si existe, FC media y energía de sesión **medidas**; no inventa límites ni tiempos en zonas cuando Health Connect no aporta un desglose verificable. La opción de pruebas con zonas sintéticas no aparece en sesiones reales.
+- **Gratis/Pro:** las vistas gratuitas conservan contenido real permitido y previsualizaciones explícitamente identificadas como «Ejemplo» para las funciones bloqueadas; no se mezclan muestras ficticias con registros reales.
+
+## Entrenamiento (puntuación personal)
 
 Solo se muestran valoraciones verificadas `scoreBasis == personalHistory`, calculadas sobre mediciones deportivas reales y comparaciones de rendimiento propio. No se suman puntos por la cantidad de series anotadas ni por datos fisiológicos.
 
 - Fuerza y WOD: mediana de hasta cinco días personales comparables en los últimos 180 días; se exigen al menos **2 días anteriores** en el mismo ejercicio y contexto (o equivalencias conservadoras), y **≥60% de cobertura** de las unidades de rendimiento prescritas. Un estímulo WOD calibrado de otra sesión compatible exige **3 días anteriores**. La nota usa `clamp(round(7 + 11 × ln(actual/referencia)), 1, 10)` con pesos por nivel de evidencia.
 - Salidas GPS desde Comenzar: distancia real de al menos 500 m, tiempo activo y **2 días anteriores** del mismo deporte y distancia comparable (±20%, dentro de los 180 días previos). La mediana personal sirve de referencia.
 - Sin referencias suficientes: **sin nota**, no un cero ni una estimación. Se muestra «Repera está aprendiendo de ti» con los mínimos de **2/3 días comparables**, según el tipo de evaluación.
-- En Progreso, un **anillo** presenta la puntuación media de los días con nota, junto con número de días evaluables y naturaleza de la comparación. El detalle de cada sesión muestra anillo y, a su derecha, **confianza, cobertura y los indicadores de rendimiento**; el desglose expandible explica la procedencia de cada factor.
+- En **Progreso → Entreno**, la tarjeta **Entrenamiento** presenta **Última nota, Mejor nota y Días evaluados a la izquierda**, la puntuación media del periodo en un **anillo a la derecha** y la **confianza del último entrenamiento evaluable en una barra segmentada debajo**. No existe un cálculo de confianza media del periodo.
+- En el detalle post-entreno, los KPI **Evolución personal, Rendimiento y Cobertura** aparecen a la izquierda del anillo global. **Rendimiento** es un nombre transversal para resultados de fuerza, WOD o actividad deportiva comparable, no una nota de WOD impuesta a otras sesiones. La confianza se presenta con cuatro niveles (*Aprendiendo, Baja, Media, Alta*), destacando el nivel real. No hay control «Ver cómo se calcula» ni nota ilustrativa. Un temporizador sin rendimiento comparable **no recibe puntuación inventada**.
 - La gráfica agrupa por fecha los entrenamientos puntuados (media redondeada si hay varios) y separa tramos sin valores. No interpola días sin nota ni los rellena con 0.
 
 La puntuación deportiva no constituye una recomendación médica ni mide el estado de salud o la calidad técnica del entrenamiento.
