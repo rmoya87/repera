@@ -61,7 +61,7 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
   Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
    ReperaSectionTitle(
-    if (preview) "Cardio · ejemplo" else "Cardio",
+    if (preview) "Frecuencia cardíaca · ejemplo" else "Frecuencia cardíaca",
     modifier = Modifier.weight(1f, fill = false)
    )
    if (!preview && charts.heartRate.isNotEmpty()) {
