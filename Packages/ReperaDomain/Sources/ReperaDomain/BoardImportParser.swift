@@ -871,9 +871,9 @@ public enum BoardImportParser {
         guard !catalog.isEmpty else { return nil }
         let cleaned = stripMovementModifiers(CrossFitGlossary.cleanMovementLabel(name))
         let candidates = [
-            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: name)),
-            CrossFitGlossary.normalize(CrossFitGlossary.canonicalName(for: cleaned)),
-            CrossFitGlossary.normalize(CrossFitGlossary.expand(cleaned)),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: name))),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.canonicalName(for: cleaned))),
+            CrossFitGlossary.normalize(SportExerciseNames.canonicalName(CrossFitGlossary.expand(cleaned))),
             CrossFitGlossary.normalize(cleaned),
         ].filter { !$0.isEmpty }
 
@@ -1590,7 +1590,7 @@ public enum CrossFitGlossary {
         switch kind {
         case .dumbbell, .doubleDumbbell:
             if n.contains("cargada y envion") || n.contains("clean and jerk") || n.contains("c&j") {
-                return "Cargada y envión con mancuerna"
+                return "Dumbbell Clean and Jerk"
             }
             if isSnatchFamily(n) { return "Snatch mancuerna" }
             if isCleanFamily(n) { return "Clean mancuerna" }
@@ -1615,6 +1615,10 @@ public enum CrossFitGlossary {
             if isCleanFamily(n) { return "Clean kettlebell" }
             if n.contains("thruster") { return "Thruster kettlebell" }
             if n.contains("swing") { return n.contains("american") ? "Swing americano" : "Swing kettlebell" }
+            // Un step-up goblet no es una sentadilla goblet: conservar el movimiento y su UUID.
+            if n.contains("step up") || n.contains("stepup") {
+                return "Kettlebell Goblet Box Step-Up"
+            }
             if n.contains("goblet") || (n.contains("sentadilla") && n.contains("goblet")) {
                 return "Goblet squat"
             }

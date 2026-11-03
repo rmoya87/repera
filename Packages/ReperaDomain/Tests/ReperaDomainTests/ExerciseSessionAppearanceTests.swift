@@ -69,7 +69,10 @@ struct ExerciseSessionAppearanceTests {
         )
         let row = StatsEngine.appearance(of: snatchId, in: session, catalog: [snatch])
         #expect(row?.isGlobalWodScore == false)
-        #expect(row?.prescriptionLine?.contains("21") == true)
+        // En entrenamientos terminados los inputs aceptados ya son series efectivas,
+        // y se muestran en setLines en lugar de duplicar la prescripción.
+        #expect(row?.setLines.contains(where: { $0.contains("21") }) == true)
+        #expect(row?.prescriptionLine == nil)
         #expect(row?.wodScoreLabel == "9:00")
     }
 
