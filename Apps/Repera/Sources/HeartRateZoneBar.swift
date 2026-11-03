@@ -25,8 +25,10 @@ struct HeartRateZoneBar: View {
         return 5
     }
 
+    @ViewBuilder
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        if let bpm, let zone {
+            VStack(alignment: .leading, spacing: 3) {
             GeometryReader { geo in
                 let gap: CGFloat = 4
                 // Cuatro tramos de una unidad + el tramo activo de tres.
@@ -58,16 +60,9 @@ struct HeartRateZoneBar: View {
             }
             .frame(height: 44)
 
-            if zone == nil {
-                Text("Sin lectura de FC")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            zone.map { "Frecuencia cardíaca \(bpm ?? 0) pulsaciones, zona \($0) de 5" }
-                ?? "Frecuencia cardíaca no disponible"
-        )
     }
 }
