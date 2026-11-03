@@ -12,7 +12,7 @@ struct AppleWeatherAttributionView: View {
 
     var body: some View {
         Link(destination: attribution?.legalPageURL ?? legalFallback) {
-            HStack(spacing: 5) {
+            HStack(alignment: .bottom, spacing: 5) {
                 if let markURL = colorScheme == .dark
                     ? attribution?.combinedMarkDarkURL : attribution?.combinedMarkLightURL {
                     AsyncImage(url: markURL) { phase in
@@ -27,12 +27,14 @@ struct AppleWeatherAttributionView: View {
                     fallbackMark
                 }
                 Text("Fuentes legales")
-                    .font(.system(size: compact ? 9 : 10))
+                    .font(.system(size: compact ? 9 : 10, weight: .medium))
                     .underline()
+                    .foregroundStyle(compact ? Color.primary : Color.black)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .bottomLeading)
         }
         .accessibilityLabel("Apple Weather. Abrir fuentes legales de WeatherKit")
         .task {
