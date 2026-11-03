@@ -161,93 +161,28 @@ final class SyncConflictResolverTests: XCTestCase {
         )
     }
 
-    func testDeletionTombstonesSurviveJSONRoundTripAndLegacyState() throws {
-        let exerciseID = UUID(), workoutID = UUID(), entryID = UUID()
-        var state = self.state(revision: 5, updatedAt: Date(), writer: "local")
-        state.deletedExerciseIDs = [exerciseID]
-        state.deletedRoutineIDs = [UUID()]
-        state.deletedRoutineExerciseIDs[workoutID.uuidString] = [entryID]
-        state.deletedWorkoutIDs = [workoutID]
-        state.deletedWorkoutExerciseIDs[workoutID.uuidString] = [entryID]
+    func testDeletionIsPhysicalNotAStoredTombstone() throws {
+        let workout = WorkoutSession(title: "Borrado", exercises: [],
+                                     phase: .finished, startedAt: Date(),
+                                     finishedAt: Date())
+        let previous = AppState(exercises: [], routines: [], workouts: [workout],
+                                syncRevision: 4, lastWriterDeviceId: "iphone")
+        var current = previous
+        current.workouts.removeAll { $0.id == workout.id }
+        current.syncRevision = previous.syncRevision + 1
+        current.updatedAt = Date().addingTimeInterval(1)
 
-        let bytes = try JSONEncoder().encode(state)
-        let restored = try JSONDecoder().decode(AppState.self, from: bytes)
-        XCTAssertEqual(restored.deletedExerciseIDs, [exerciseID])
-        XCTAssertEqual(restored.deletedRoutineIDs, state.deletedRoutineIDs)
-        XCTAssertEqual(restored.deletedRoutineExerciseIDs, state.deletedRoutineExerciseIDs)
-        XCTAssertEqual(restored.deletedWorkoutIDs, [workoutID])
-        XCTAssertEqual(restored.deletedWorkoutExerciseIDs[workoutID.uuidString], [entryID])
-
-        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
-        legacy.removeValue(forKey: "deletedExerciseIDs")
-        legacy.removeValue(forKey: "deletedRoutineIDs")
-        legacy.removeValue(forKey: "deletedRoutineExerciseIDs")
-        legacy.removeValue(forKey: "deletedWorkoutIDs")
-        legacy.removeValue(forKey: "deletedWorkoutExerciseIDs")
-        let migrated = try JSONDecoder().decode(
-            AppState.self, from: JSONSerialization.data(withJSONObject: legacy)
-        )
-        XCTAssertTrue(migrated.deletedExerciseIDs.isEmpty)
-        XCTAssertTrue(migrated.deletedRoutineIDs.isEmpty)
-        XCTAssertTrue(migrated.deletedRoutineExerciseIDs.isEmpty)
-        XCTAssertTrue(migrated.deletedWorkoutIDs.isEmpty)
-        XCTAssertTrue(migrated.deletedWorkoutExerciseIDs.isEmpty)
-    }
-
-    func testStaleCloudCannotResurrectRemovedCatalogExerciseOrWorkout() {
-        let custom = Exercise(name: "Mi ejercicio", muscleGroup: "Otros", isCustom: true)
-        let workout = WorkoutSession(title: "Entreno borrado", exercises: [], phase: .finished,
-                                     startedAt: Date(), finishedAt: Date())
-        var stale = state(revision: 20, updatedAt: Date(), writer: "remote")
-        stale.exercises = [custom]
-        stale.workouts = [workout]
-        var deleted = state(revision: 19, updatedAt: Date(), writer: "local")
-        deleted.deletedExerciseIDs = [custom.id]
-        deleted.deletedWorkoutIDs = [workout.id]
-
-        let recovered = SyncConflictResolver.reconcilingDeletionTombstones(in: stale, from: deleted)
-        XCTAssertTrue(recovered.exercises.isEmpty)
-        XCTAssertTrue(recovered.workouts.isEmpty)
-        XCTAssertTrue(recovered.deletedExerciseIDs.contains(custom.id))
-        XCTAssertTrue(recovered.deletedWorkoutIDs.contains(workout.id))
-        XCTAssertEqual(recovered.syncRevision, stale.syncRevision)
-    }
-
-    func testOldCloudCopyCannotRestoreRemovedPlannedExercise() {
-        let movement = RoutineExercise(exerciseId: UUID(), plannedSets: [])
-        let block = RoutineBlock.strength(exercises: [movement])
-        let planned = Routine(title: "Entreno del día", blocks: [block])
-        var stale = state(revision: 50, updatedAt: Date(), writer: "cloud")
-        stale.routines = [planned]
-        var deleted = state(revision: 40, updatedAt: Date(), writer: "iphone")
-        deleted.deletedRoutineExerciseIDs[planned.id.uuidString] = [movement.id]
-        let recovered = SyncConflictResolver.reconcilingDeletionTombstones(
-            in: stale, from: deleted
-        )
-        XCTAssertEqual(recovered.routines.count, 1)
-        XCTAssertTrue(recovered.routines[0].blocks[0].exercises.isEmpty)
-
-        deleted.deletedRoutineIDs = [planned.id]
-        let fullyDeleted = SyncConflictResolver.reconcilingDeletionTombstones(
-            in: stale, from: deleted
-        )
-        XCTAssertTrue(fullyDeleted.routines.isEmpty)
-    }
-
-    func testStaleCloudCannotRestoreDeletedEntryFromFinishedWorkout() {
-        let exercise = Exercise(name: "Ejercicio", muscleGroup: "Otros", isCustom: true)
-        let entry = SessionExercise(exercise: exercise, plannedSets: [])
-        let workout = WorkoutSession(title: "Entreno", exercises: [entry], phase: .finished,
-                                     startedAt: Date(), finishedAt: Date())
-        var stale = state(revision: 7, updatedAt: Date(), writer: "remote")
-        stale.workouts = [workout]
-        var deleted = state(revision: 6, updatedAt: Date(), writer: "local")
-        deleted.deletedWorkoutExerciseIDs[workout.id.uuidString] = [entry.id]
-
-        let recovered = SyncConflictResolver.reconcilingDeletionTombstones(in: stale, from: deleted)
-        XCTAssertEqual(recovered.workouts.count, 1)
-        XCTAssertTrue(recovered.workouts[0].exercises.isEmpty)
-        XCTAssertEqual(recovered.deletedWorkoutExerciseIDs[workout.id.uuidString], [entry.id])
+        let chosen = SyncConflictResolver.pickNewest(local: current, remote: previous)
+        XCTAssertTrue(try XCTUnwrap(chosen).workouts.isEmpty)
+        let bytes = try JSONEncoder().encode(current)
+        let snapshot = try JSONDecoder().decode(AppState.self, from: bytes)
+        XCTAssertTrue(snapshot.workouts.isEmpty)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        XCTAssertFalse(json.keys.contains("deletedWorkoutIDs"))
+        XCTAssertFalse(json.keys.contains("deletedExerciseIDs"))
+        XCTAssertFalse(json.keys.contains("deletedRoutineIDs"))
+        XCTAssertFalse(json.keys.contains("deletedWorkoutExerciseIDs"))
+        XCTAssertFalse(json.keys.contains("deletedRoutineExerciseIDs"))
     }
 
     func testLegacyZeroRevisionFallsBackToUpdatedAt() {
