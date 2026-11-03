@@ -1919,7 +1919,11 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             } else {
                 sameDay = false
             }
-            if !sameDay || !self.todayPlans.contains(where: { $0.id == self.todayPlan?.id }) {
+            let selectedRoutineID = self.todayPlan?.routineId
+            let selectedStillAvailable = selectedRoutineID != nil && self.todayPlans.contains {
+                $0.routineId == selectedRoutineID
+            }
+            if !sameDay || !selectedStillAvailable {
                 self.todayPlan = today
             }
             self.todayUpdatedAt = scheduledDay
