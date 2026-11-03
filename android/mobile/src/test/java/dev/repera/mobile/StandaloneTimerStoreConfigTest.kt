@@ -12,6 +12,27 @@ import org.robolectric.annotation.Config
 @Config(sdk = [30])
 class StandaloneTimerStoreConfigTest {
     @Test
+    fun differentAccountsNeverReadEachOthersPendingLocationOrFavorites() {
+        val ctx = RuntimeEnvironment.getApplication()
+        val a = StandaloneTimerStore(ctx, "athlete-isolation-A")
+        val b = StandaloneTimerStore(ctx, "athlete-isolation-B")
+        a.saveLastConfiguration(StandaloneTimerConfig(durationMinutes = 13))
+        a.save(FavoriteTimer(id = "fav-A", title = "Privado A", config = StandaloneTimerConfig()))
+        val pending = StandaloneTimerCompletion(
+            id = "private-A", startedAtMillis = 1000L, finishedAtMillis = 2000L,
+            config = StandaloneTimerConfig(),
+            locationPin = dev.repera.domain.WorkoutLocationPin(
+                latitude = 40.4168, longitude = -3.7038, recordedAtEpochMs = 1700000000000L
+            )
+        )
+        a.savePendingCompletion(pending)
+        assertNull(b.loadPendingCompletion())
+        assertNull(b.loadLastConfiguration())
+        assertEquals(emptyList<FavoriteTimer>(), b.favorites())
+        assertEquals("private-A", StandaloneTimerStore(ctx, "athlete-isolation-A").loadPendingCompletion()?.id)
+        a.clearPendingCompletion()
+    }
+    @Test
     fun lastConfigurationRoundTripAndPendingCompletion() {
         val ctx = RuntimeEnvironment.getApplication()
         val store = StandaloneTimerStore(ctx)

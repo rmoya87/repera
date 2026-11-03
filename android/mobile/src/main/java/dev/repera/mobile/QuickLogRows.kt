@@ -39,6 +39,13 @@ internal object QuickLogInput {
  const val MAX_WEIGHT_KG=1500.0
  const val MAX_DEFICIT_CM=60
  const val MAX_DURATION_SECONDS=86_400
+ /** Validate typed values before clamping them, preventing silent data changes. */
+ fun validIntText(text:String,cap:Int):Boolean =
+  text.isBlank() || text.trim().toIntOrNull()?.let { it in 0..cap } == true
+ fun validWeightText(text:String):Boolean =
+  text.isBlank() || dev.repera.domain.ReperaNumberFormat.parse(text.trim())?.let {
+   it.isFinite() && it in 0.0..MAX_WEIGHT_KG
+  } == true
  fun quantityCap(mode:ExerciseInputMode):Int=when(mode) {ExerciseInputMode.MACHINE_WORK->100_000;ExerciseInputMode.REPS_AND_TIME->999;ExerciseInputMode.REPS_ONLY->99;else->50}
  /** Apple 1d1edc8b/f7109bd7 quantityMetric cap: metros en recorridos -> 100_000. */
  fun quantityCap(mode:ExerciseInputMode,unit:String,repsOrMeters:Boolean):Int=
