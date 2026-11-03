@@ -190,7 +190,12 @@ final class WatchSessionHub: NSObject {
         }
         return workingReps
     }
-    var heartRateBpm: Int? { health.pulseBpm }
+    var heartRateBpm: Int? {
+        guard let bpm = health.pulseBpm,
+              let measuredAt = health.pulseCapturedAt,
+              (0...20).contains(Date().timeIntervalSince(measuredAt)) else { return nil }
+        return bpm
+    }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { health.permissionIssue }
     var healthRecording: Bool { health.isRecording }
