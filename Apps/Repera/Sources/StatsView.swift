@@ -66,11 +66,13 @@ struct StatsView: View {
                                 if isPro {
                                     tilesGrid
                                     trainingScoreAndMuscleSections
+                                    trainingHeartZonesSection
                                     mobilityProgressCard
                                     proAdvancedSections
                                 } else {
                                     freeTilesGrid
                                     trainingScoreAndMuscleSections
+                                    trainingHeartZonesSection
                                     mobilityProgressCard
                                     freeExerciseTrendPreview
                                     ProTeaserCard(
@@ -390,6 +392,24 @@ struct StatsView: View {
         if isPro { sessionScoreSection } else { freeHealthScoreCard }
     }
 
+    /// Solo actividades finalizadas, con zonas vinculadas a datos de Salud.
+    /// En la modalidad gratuita la vista de ejemplo queda rotulada.
+    @ViewBuilder
+    private var trainingHeartZonesSection: some View {
+        if !isPro || snap.filteredWorkouts.contains(where: { $0.finishedAt != nil }) {
+            VStack(alignment: .leading, spacing: 8) {
+                OGCardSectionTitle(title: "Zonas cardíacas")
+                OGCard {
+                    ProgressHeartZonesCard(
+                        workouts: snap.filteredWorkouts,
+                        isTeaserPreview: !isPro,
+                        showTitle: false
+                    )
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var healthSections: some View {
         healthChartsLayout {
@@ -432,7 +452,8 @@ struct StatsView: View {
     private var cardioHealthSection: some View {
         ProgressCardioChartCard(
             prepared: snap.charts,
-            workouts: snap.filteredWorkouts
+            workouts: snap.filteredWorkouts,
+            showZones: false
         )
     }
 
@@ -553,7 +574,7 @@ struct StatsView: View {
     private var freeHealthPreview: some View {
         let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
         healthChartsLayout {
-            ProgressCardioChartCard(prepared: sample)
+            ProgressCardioChartCard(prepared: sample, showZones: false)
             ProgressCaloriesChartCard(prepared: sample)
             freeHealthWeightCard
         }
