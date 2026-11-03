@@ -107,7 +107,9 @@ internal fun SessionScoreProgressCard(
                 if (!preview) {
                     TrainingScoreConfidenceBar(
                         label = confidenceLabel,
-                        caption = if (values.isEmpty()) "Confianza" else "Confianza · última sesión"
+                        caption = "Confianza",
+                        compactInProgress = true,
+                        showSelectedLevelInCaption = true
                     )
                 }
                 if (values.isEmpty()) {
