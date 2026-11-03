@@ -78,6 +78,55 @@ class RecoveryEngineTest {
     }
 
     @Test
+    fun `readiness parcial sin sueno exige siete dias calibrados`() {
+        val zone = java.time.ZoneId.of("Europe/Madrid")
+        val now = today.atTime(10, 0).atZone(zone).toInstant().toEpochMilli()
+        val previous = (1..7).map { n ->
+            RecoveryEngine.DailyVitals(today.minusDays(n.toLong()), restingHeartRateBpm = 55.0)
+        }
+        val current = RecoveryEngine.DailyVitals(
+            today, restingHeartRateBpm = 57.0, restingHeartRateAllDayBpm = 52.0
+        )
+        val external = RecoveryEngine.ObservedActivity(
+            now - 12L * 3_600_000L, 45.0, true
+        )
+        val insufficient = previous.take(6) + current
+        assertEquals(6, RecoveryEngine.vitalLearningDays(today, insufficient))
+        assertNull(RecoveryEngine.trainingReadiness(
+            nowMillis = now, sleepHours = null, recentAverageSleepHours = 8.0,
+            workouts = emptyList(), vitalHistory = insufficient,
+            observedActivities = listOf(external), zone = zone
+        ))
+        val calibrated = previous + current
+        val partial = RecoveryEngine.trainingReadiness(
+            nowMillis = now, sleepHours = null, recentAverageSleepHours = 8.0,
+            workouts = emptyList(), vitalHistory = calibrated,
+            observedActivities = listOf(external), zone = zone
+        )
+        assertEquals(7, RecoveryEngine.vitalLearningDays(today, calibrated))
+        assertTrue(partial?.isPartial == true)
+        assertTrue((partial?.score ?: 10.0) <= 7.0)
+        assertEquals(1, partial?.calibratedVitalSignals)
+        val full = RecoveryEngine.trainingReadiness(
+            nowMillis = now, sleepHours = 8.0, recentAverageSleepHours = 8.0,
+            workouts = emptyList(), vitalHistory = calibrated,
+            observedActivities = listOf(external), zone = zone
+        )
+        assertEquals(false, full?.isPartial)
+    }
+
+    @Test
+    fun `aprendizaje no mezcla dias de senales distintas`() {
+        val hrv = (1..4).map { n ->
+            RecoveryEngine.DailyVitals(today.minusDays(n.toLong()), hrvMilliseconds = 48.0)
+        }
+        val resting = (5..8).map { n ->
+            RecoveryEngine.DailyVitals(today.minusDays(n.toLong()), restingHeartRateBpm = 58.0)
+        }
+        assertEquals(4, RecoveryEngine.vitalLearningDays(today, hrv + resting))
+    }
+
+    @Test
     fun `readiness noche corta no llega a usual`() {
         // 5h de sueño: score máximo 5 -> consejo rest.
         val now = java.time.ZonedDateTime.of(2026, 6, 15, 10, 0, 0, 0,
