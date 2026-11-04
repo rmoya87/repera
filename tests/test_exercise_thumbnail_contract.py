@@ -61,6 +61,31 @@ class ExerciseThumbnailContracts(unittest.TestCase):
         self.assertIn("fetchedName == name ? fetched : nil", ART)
         self.assertIn("if Task.isCancelled { return }", ART)
 
+    def test_remote_thumbnail_bypasses_bundle_only_manifest(self):
+        source = (SRC / "ThumbImageLoader.swift").read_text(encoding="utf-8")
+        gate = source.split("if manifestBuilt,", 1)[1].split("return nil", 1)[0]
+        self.assertIn("!existingNames.contains(name)", gate)
+        self.assertIn("Self.remoteFileURL(named: name).path", gate)
+        # The remote folder grows after the bundle manifest was first built.
+        # It must be checked live, not added only to a one-time snapshot.
+        self.assertIn("FileManager.default.fileExists", gate)
+
+    def test_remote_thumbnail_is_an_imageio_candidate_before_bundle(self):
+        source = (SRC / "ThumbImageLoader.swift").read_text(encoding="utf-8")
+        helper = source.split("private static func remoteFileURL", 1)[1].split(
+            "private static func candidateURLs", 1
+        )[0]
+        remote = (SRC / "RemoteExerciseArtCache.swift").read_text(encoding="utf-8")
+        for value in (".applicationSupportDirectory", "Repera/ExerciseArtRemote"):
+            self.assertIn(value, helper)
+            self.assertIn(value, remote)
+        candidates = source.split("private static func candidateURLs", 1)[1]
+        self.assertIn("return [remote, thumbs]", candidates)
+        self.assertIn("return [remote, full]", candidates)
+        self.assertIn("return [remote, flat]", candidates)
+        self.assertIn("return [remote] + [", candidates)
+        self.assertIn("kCGImageSourceThumbnailMaxPixelSize: maxPixel", source)
+
     def test_every_explicit_exercise_hero_has_an_image_file(self):
         mapping = ART.split("private static let nameMap:", 1)[1].split(
             "\n    ]", 1

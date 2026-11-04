@@ -61,7 +61,8 @@ actor ThumbImageLoader {
         if let hit = memory.image(for: key) { return hit }
         if Task.isCancelled { return nil }
         // Manifiesto: evita abrir ImageIO para nombres que no existen.
-        if manifestBuilt, !existingNames.contains(name) {
+        if manifestBuilt, !existingNames.contains(name),
+           !FileManager.default.fileExists(atPath: Self.remoteFileURL(named: name).path) {
             return nil
         }
         if let existing = inFlight[key] {
@@ -177,19 +178,34 @@ actor ThumbImageLoader {
         return nil
     }
 
-    /// Sin `fileExists` en hot path — Bundle URL + ImageIO fallan barato si no hay archivo.
+    /// El manifiesto del bundle es inmutable; el directorio remoto puede crecer
+    /// tras una sincronización. Comprobarlo en cada carga evita rechazos obsoletos.
+    nonisolated private static func remoteFileURL(named name: String) -> URL {
+        let safe = name
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "..", with: "_")
+        return FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        )[0]
+        .appendingPathComponent("Repera/ExerciseArtRemote", isDirectory: true)
+        .appendingPathComponent("\(safe).jpg")
+    }
+
+    /// ImageIO reduce el JPG remoto a la resolución de lista, sin necesitar
+    /// un segundo objeto /thumbs/ en Storage. Si falla, conserva el fallback local.
     nonisolated private static func candidateURLs(named name: String) -> [URL] {
         let bundle = Bundle.main
+        let remote = remoteFileURL(named: name)
         if let thumbs = bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt/thumbs") {
-            return [thumbs]
+            return [remote, thumbs]
         }
         if let full = bundle.url(forResource: name, withExtension: "jpg", subdirectory: "ExerciseArt") {
-            return [full]
+            return [remote, full]
         }
         if let flat = bundle.url(forResource: name, withExtension: "jpg") {
-            return [flat]
+            return [remote, flat]
         }
-        return [
+        return [remote] + [
             bundle.resourceURL?.appendingPathComponent("ExerciseArt/thumbs/\(name).jpg"),
             bundle.resourceURL?.appendingPathComponent("ExerciseArt/\(name).jpg"),
             bundle.resourceURL?.appendingPathComponent("\(name).jpg"),
