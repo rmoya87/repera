@@ -212,21 +212,32 @@ install_dsym_for_binary() {
 
 collect_app_bundle_candidates() {
   local bundles=()
-  local candidate root
+  local candidate root product
+  # Prefer FULL_PRODUCT_NAME (Repera.app); WRAPPER_NAME is often empty mid-phase.
+  product="${FULL_PRODUCT_NAME:-${WRAPPER_NAME:-}}"
 
-  for candidate in \
-    "${TARGET_BUILD_DIR:-}/${WRAPPER_NAME:-}" \
-    "${BUILT_PRODUCTS_DIR:-}/${WRAPPER_NAME:-}" \
-    "${CONFIGURATION_BUILD_DIR:-}/${WRAPPER_NAME:-}" \
-    "${DSTROOT:-}${INSTALL_PATH:-}/${WRAPPER_NAME:-}" \
-    "${INSTALL_DIR:-}/${WRAPPER_NAME:-}" \
-    "${ARCHIVE_PRODUCTS_PATH:-}/Applications/${WRAPPER_NAME:-}"; do
-    [[ "${candidate}" == *.app && -d "${candidate}" ]] && bundles+=("${candidate}")
-  done
+  # CODESIGNING_FOLDER_PATH is the .app Xcode is signing during Archive/install.
+  if [[ -n "${CODESIGNING_FOLDER_PATH:-}" && "${CODESIGNING_FOLDER_PATH}" == *.app && -d "${CODESIGNING_FOLDER_PATH}" ]]; then
+    bundles+=("${CODESIGNING_FOLDER_PATH}")
+  fi
+
+  if [[ -n "${product}" ]]; then
+    for candidate in \
+      "${TARGET_BUILD_DIR:-}/${product}" \
+      "${BUILT_PRODUCTS_DIR:-}/${product}" \
+      "${CONFIGURATION_BUILD_DIR:-}/${product}" \
+      "${DSTROOT:-}${INSTALL_PATH:-}/${product}" \
+      "${INSTALL_DIR:-}/${product}" \
+      "${ARCHIVE_PRODUCTS_PATH:-}/Applications/${product}"; do
+      [[ "${candidate}" == *.app && -d "${candidate}" ]] && bundles+=("${candidate}")
+    done
+  fi
 
   for root in \
     "${ARCHIVE_PATH_ARG:+${ARCHIVE_PATH_ARG}/Products}" \
     "${ARCHIVE_PRODUCTS_PATH:-}" \
+    "${BUILT_PRODUCTS_DIR:-}" \
+    "${TARGET_BUILD_DIR:-}" \
     "${DSTROOT:-}"; do
     [[ -n "${root}" && -d "${root}" ]] || continue
     while IFS= read -r candidate; do
@@ -281,8 +292,15 @@ embed_dsyms_from_app_bundles() {
   done < <(collect_app_bundle_candidates)
 
   if [[ "${#generated[@]}" -eq 0 && "${#failed[@]}" -eq 0 ]]; then
-    echo "warning: embed_ios_archive_dsyms: no .app found (mode ${MODE})."
-    echo "warning: After Archive, run: scripts/embed_ios_archive_dsyms.sh --archive <path.xcarchive>"
+    if [[ "${MODE}" == "build-phase" ]]; then
+      # Common during Archive: the install phase can run before WRAPPER_NAME /
+      # products settle. The scheme Archive post-action (--archive) is the
+      # reliable pass; do not fail the build on this soft miss.
+      echo "note: embed_ios_archive_dsyms: no .app yet (build-phase); Archive post-action will embed."
+    else
+      echo "warning: embed_ios_archive_dsyms: no .app found in archive Products."
+      echo "warning: Re-run: scripts/embed_ios_archive_dsyms.sh --archive <path.xcarchive>"
+    fi
     return 0
   fi
 

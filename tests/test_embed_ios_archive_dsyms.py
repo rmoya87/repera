@@ -61,6 +61,33 @@ class EmbedIosArchiveDsymsTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_build_phase_install_without_app_is_soft_note(self) -> None:
+        """Archive install phase may run before .app paths settle; must not fail."""
+        env = os.environ.copy()
+        env["ACTION"] = "install"
+        env["DWARF_DSYM_FOLDER_PATH"] = tempfile.mkdtemp(prefix="repera-dsym-")
+        env.pop("CODESIGNING_FOLDER_PATH", None)
+        env.pop("FULL_PRODUCT_NAME", None)
+        env.pop("WRAPPER_NAME", None)
+        env.pop("TARGET_BUILD_DIR", None)
+        env.pop("BUILT_PRODUCTS_DIR", None)
+        env.pop("CONFIGURATION_BUILD_DIR", None)
+        env.pop("DSTROOT", None)
+        env.pop("ARCHIVE_PRODUCTS_PATH", None)
+        result = subprocess.run(
+            [str(SCRIPT)],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        combined = result.stdout + result.stderr
+        self.assertIn("no .app yet (build-phase)", combined)
+        self.assertNotIn("warning: embed_ios_archive_dsyms: no .app found", combined)
+        self.assertIn("CODESIGNING_FOLDER_PATH", SCRIPT.read_text(encoding="utf-8"))
+        self.assertIn("FULL_PRODUCT_NAME", SCRIPT.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()
