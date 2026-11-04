@@ -636,6 +636,8 @@ struct WatchSessionView: View {
                             : "Guardar la serie confirmada y avanzar cuando corresponda"
                     )
                     .disabled(!hub.canConfirmCurrentEntry)
+                    // El doble toque equivale al botón visible, nunca a una finalización destructiva.
+                    .handGestureShortcut(.primaryAction, isEnabled: hub.canConfirmCurrentEntry && !hub.nextActionIsFinish)
                 }
             }
             .padding(.horizontal, 5)
