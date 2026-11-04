@@ -532,6 +532,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         timerRetryJob = lifecycleScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(15_000)
+                // Sólo con la app visible y si existen series sin ACK. La cola
+                // conserva UUID estable y el teléfono deduplica las entregas.
+                if (runCatching { pendingStore.count() }.getOrDefault(0) > 0) {
+                    resendPending()
+                }
                 resendPendingTimers()
             }
         }
