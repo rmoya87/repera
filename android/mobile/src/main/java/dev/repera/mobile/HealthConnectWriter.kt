@@ -150,7 +150,7 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
         routePoints: List<dev.repera.domain.WorkoutRoutePoint>,
         candidates: List<SessionHealthMatcher.CandidateSession>
     ) {
-        if (routePoints.size < 2) return
+        if (!stillAuthorized() || routePoints.size < 2) return
         if (!granted.contains(HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)) return
         if (!granted.contains(HealthPermission.getReadPermission(ExerciseSessionRecord::class))) return
         val own = candidates.firstOrNull {
@@ -159,6 +159,7 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
         } ?: return
         runCatching {
             val existing = client.readRecord(ExerciseSessionRecord::class, own.id).record
+            if (!stillAuthorized()) return@runCatching
             val alreadyHasRoute = (existing.exerciseRouteResult as? ExerciseRouteResult.Data)
                 ?.exerciseRoute?.route?.isNotEmpty() == true
             if (alreadyHasRoute) return@runCatching
@@ -179,6 +180,9 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
                 ),
                 exerciseRoute = route
             )
+            // No escribir un registro de otra identidad si la sesión cambió
+            // mientras Health Connect resolvía la ruta.
+            if (!stillAuthorized()) return@runCatching
             client.insertRecords(listOf(updated))
         }
     }
