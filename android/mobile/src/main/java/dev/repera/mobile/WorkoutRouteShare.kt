@@ -23,8 +23,10 @@ internal object WorkoutRouteShare {
         val intent = Intent(Intent.ACTION_SEND)
             .setType("application/gpx+xml")
             .putExtra(Intent.EXTRA_STREAM, uri)
-            .setClipData(ClipData.newUri(context.contentResolver, "Recorrido GPX", uri))
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .apply {
+                clipData = ClipData.newUri(context.contentResolver, "Recorrido GPX", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
         context.startActivity(Intent.createChooser(intent, "Compartir recorrido GPX"))
         return true
     }
