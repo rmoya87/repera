@@ -675,6 +675,9 @@ struct WorkoutPlacePickerRow: View {
     /// En Crear/Play un pin GPS anónimo no cuenta como lugar. En Editar un
     /// entreno ya guardado, sí precarga el mapa que muestra el detalle.
     var showsExistingAnonymousPin: Bool = false
+    /// Sólo en Play de fuerza/HIIT interior, nunca al editar planes futuros
+    /// ni una ruta GPS grabada.
+    var suggestNearbyPlaceOnAppear: Bool = false
     @State private var showSearch = false
     /// Evita reconstruir la tarjeta/mapa subyacente durante la animación
     /// de cierre: la selección se aplica únicamente en onDismiss.
@@ -740,6 +743,16 @@ struct WorkoutPlacePickerRow: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+        .task {
+            guard suggestNearbyPlaceOnAppear, !showsExistingAnonymousPin,
+                  pin == nil, WorkoutLocationTracker.shared.isAuthorized,
+                  let fix = await WorkoutLocationTracker.shared.capturePin(),
+                  let usual = RecentPlacesStore.nearbyNamedPin(
+                      latitude: fix.latitude, longitude: fix.longitude
+                  ),
+                  pin == nil else { return }
+            pin = usual
         }
         .sheet(isPresented: $showSearch, onDismiss: {
             if let pendingSelection {
