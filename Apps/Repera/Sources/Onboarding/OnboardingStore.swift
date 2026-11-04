@@ -42,8 +42,20 @@ final class OnboardingStore {
     }
 
     func advance(to next: OnboardingStep) {
+        let previous = step
         step = next
         defaults.set(next.rawValue, forKey: stepKey)
+        if previous != .done, next == .done {
+            ReperaAnalytics.track(.onboardingCompleted, parameters: [
+                "feature_area": "onboarding",
+                "result": "success"
+            ])
+        } else if previous == .appleSignIn, next != .appleSignIn, next != .done {
+            ReperaAnalytics.track(.onboardingStarted, parameters: [
+                "feature_area": "onboarding",
+                "result": "success"
+            ])
+        }
     }
 
     /// Legacy migration step: new permission requests happen when a feature needs them.

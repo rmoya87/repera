@@ -745,6 +745,11 @@ struct StandaloneTimerView: View {
     }
 
     private func discardCompletedTimer() {
+        ReperaAnalytics.track(.timerDiscarded, parameters: [
+            "feature_area": "timer",
+            "timer_type": "standalone",
+            "result": "cancelled"
+        ])
         dismissCompletedTimer()
     }
 
@@ -779,6 +784,11 @@ struct StandaloneTimerView: View {
             completionSaveError = "No se ha podido registrar la sesión en el historial. Puedes volver a intentarlo sin perder el temporizador."
             return
         }
+        ReperaAnalytics.track(.timerCompleted, parameters: [
+            "feature_area": "timer",
+            "timer_type": "standalone",
+            "result": "success"
+        ])
         savedDateToOpenOnDismiss = summary.startedAt
         dismissCompletedTimer()
     }
@@ -923,6 +933,13 @@ struct StandaloneTimerView: View {
         }
         RunLoop.main.add(ticker, forMode: .common)
         timer = ticker
+        if timerStartedAt == nil {
+            ReperaAnalytics.track(.timerStarted, parameters: [
+                "feature_area": "timer",
+                "timer_type": "standalone",
+                "result": "success"
+            ])
+        }
     }
 
     private func syncFromWallClock() {

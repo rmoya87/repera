@@ -5,7 +5,7 @@ import dev.repera.domain.monetization.PaywallContext
 import dev.repera.domain.monetization.ReperaFeature
 import dev.repera.mobile.analytics.ReperaAnalytics
 
-/** Mantiene el logger Debug; los eventos GA4 pasan por consentimiento y allowlist. */
+/** Mantiene el logger Debug; los eventos GA4 pasan por allowlist cuando Firebase está configurado. */
 object MonetizationAnalytics {
     private const val TAG = "Monetization"
 

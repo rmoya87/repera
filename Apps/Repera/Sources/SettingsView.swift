@@ -30,7 +30,6 @@ struct SettingsView: View {
     @State private var isVerifyingSubscription = false
     @State private var notificationsStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmSignOut = false
-    @State private var analyticsConsent = ReperaAnalytics.hasConsent
     @State private var googleLinkFeedback: String?
     @State private var openLinkedCenter: BusinessOrganization?
     var body: some View {
@@ -389,25 +388,6 @@ struct SettingsView: View {
                 Text("Debug Pro (solo Debug)")
             }
             #endif
-
-            if ReperaAnalytics.isConfigured {
-                Section {
-                    Toggle(isOn: $analyticsConsent) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Permitir estadísticas de uso")
-                            Text("Ayuda a mejorar Repera sin enviar datos de Salud, rutas ni texto personal.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .tint(OG.accent)
-                    .onChange(of: analyticsConsent) { _, value in
-                        ReperaAnalytics.setConsent(value)
-                    }
-                } header: {
-                    Text("Privacidad")
-                }
-            }
 
             Section {
                 permissionStatusRow(

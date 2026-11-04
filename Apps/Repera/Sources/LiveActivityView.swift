@@ -1535,6 +1535,14 @@ final class LiveActivityRecorder: NSObject {
         liveConditions = nil
         lastConditionsFetch = .distantPast
         phase = .recording
+        ReperaAnalytics.track(.workoutStarted, parameters: [
+            "feature_area": "live_sport",
+            "workout_type": "live_sport",
+            "activity_type": sport.rawValue,
+            "activity_family": ReperaAnalytics.activityFamily(forSportGroup: sport.group),
+            "session_origin_platform": "ios",
+            "result": "success"
+        ])
         let sessionID = gpsSessionID
         let workoutStart = startedAt ?? Date()
         let selectedSport = sport
@@ -1626,6 +1634,12 @@ final class LiveActivityRecorder: NSObject {
     }
 
     func pause() {
+        ReperaAnalytics.track(.workoutPaused, parameters: [
+            "feature_area": "live_sport",
+            "workout_type": "live_sport",
+            "activity_type": sport.rawValue,
+            "result": "success"
+        ])
         guard phase == .recording else { return }
         ensureRouteRestored()
         pausedAt = Date()
@@ -1650,6 +1664,12 @@ final class LiveActivityRecorder: NSObject {
         if sport.usesGPS { startGPS() }
         persistSnapshot()
         updateLiveActivity()
+        ReperaAnalytics.track(.workoutResumed, parameters: [
+            "feature_area": "live_sport",
+            "workout_type": "live_sport",
+            "activity_type": sport.rawValue,
+            "result": "success"
+        ])
     }
 
     /// The watch is a companion display for a phone-owned Comenzar session.
@@ -2389,7 +2409,8 @@ struct LiveActivityView: View {
                     if recorder.sport == sport {
                         ReperaAnalytics.track(.activitySelected, parameters: [
                             "feature_area": "live_sport",
-                            "activity_type": sport.rawValue
+                            "activity_type": sport.rawValue,
+                            "activity_family": ReperaAnalytics.activityFamily(forSportGroup: sport.group)
                         ])
                     }
                     // La preferencia Mapa/Métricas pertenece al usuario,
@@ -4588,6 +4609,12 @@ private struct LiveRouteLibraryDetailView: View {
                     Button {
                         do {
                             try routes.setFavorite(routeID, !route.isFavorite)
+                            if !route.isFavorite {
+                                ReperaAnalytics.track(.sportFavoriteAdded, parameters: [
+                                    "feature_area": "live_sport",
+                                    "result": "success"
+                                ])
+                            }
                         } catch {
                             editError = "No se pudo actualizar el favorito."
                         }

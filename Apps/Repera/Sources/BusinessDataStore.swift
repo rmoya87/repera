@@ -1128,6 +1128,11 @@ final class BusinessDataStore {
                     userID: currentUser, bookings: bookings, occurrences: occurrences
                 )
             }
+            ReperaAnalytics.track(.classBookingConfirmed, parameters: [
+                "feature_area": "center",
+                "service_kind": "class",
+                "result": "success"
+            ])
         } catch {
             let raw = error.localizedDescription
             if raw.localizedCaseInsensitiveContains("REQUEST_ID_REUSED") {
@@ -1163,6 +1168,11 @@ final class BusinessDataStore {
                                           "p_request": PendingRequestID.reuse(for: intent)]).execute()
             PendingRequestID.confirm(intent)
             await refresh()
+            ReperaAnalytics.track(.classBookingCancelled, parameters: [
+                "feature_area": "center",
+                "service_kind": "class",
+                "result": "success"
+            ])
         } catch {
             if error.localizedDescription.localizedCaseInsensitiveContains("REQUEST_ID_REUSED") {
                 PendingRequestID.confirm(intent)
@@ -1185,6 +1195,11 @@ final class BusinessDataStore {
                 ]
             ).execute()
             await refresh()
+            // Request accepted by API; coach may still need to approve membership.
+            ReperaAnalytics.track(.centerLinkCompleted, parameters: [
+                "feature_area": "center",
+                "result": "pending"
+            ])
             return true
         } catch {
             errorMessage = "No se ha podido vincular: \(error.localizedDescription)"
@@ -1228,6 +1243,10 @@ final class BusinessDataStore {
             await refresh()
             // The unlink already succeeded in the database even if the
             // subsequent network refresh could not fetch remaining centers.
+            ReperaAnalytics.track(.centerUnlinked, parameters: [
+                "feature_area": "center",
+                "result": "success"
+            ])
             return true
         } catch {
             let raw = error.localizedDescription

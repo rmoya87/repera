@@ -213,9 +213,11 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 
 | Archivo | Rol |
 |---------|-----|
-| `Apps/Repera/Sources/Analytics/ReperaAnalytics.swift` | Fachada GA4 iOS (consentimiento off por defecto; Firebase opcional). Declarada **explícitamente** en `project.yml` para que XcodeGen no la omita. |
+| `Apps/Repera/Sources/Analytics/ReperaAnalytics.swift` | Fachada GA4 iOS (estilo Cafesito: activa si hay Firebase; sin UI consent; dedup `trackOnce`). Declarada **explícitamente** en `project.yml`. |
 | `android/.../analytics/ReperaAnalytics.kt` | Misma taxonomía (`analytics/contract.json`); sin cambios de flujo deportivo. |
+| `ReperaStore` / `WorkoutRepository` | Emiten `workout_completed` (y discard/delete/edit) tras persistencia duradera. |
 | `MonetizationAnalytics` (iOS/Android) | Reenvía los 8 eventos comerciales al adaptador canónico. |
+| `docs/analytics/` | Plan, privacidad, setup Firebase, matriz de instrumentación. |
 | Detalle | [analytics/IMPLEMENTATION_PLAN.md](analytics/IMPLEMENTATION_PLAN.md) |
 
 ## Swipe bidireccional de Inicio (27/10/2026)

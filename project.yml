@@ -155,7 +155,7 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
-        # No automatic telemetry until explicit consent; no ad personalization.
+        # Collection stays off until configure() finds GoogleService-Info; no ad personalization.
         FIREBASE_ANALYTICS_COLLECTION_ENABLED: false
         FirebaseAutomaticScreenReportingEnabled: false
         GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS: false

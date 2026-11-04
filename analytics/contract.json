@@ -121,6 +121,26 @@
       "rest",
       "interval",
       "wod"
+    ],
+    "workout_type": [
+      "planned",
+      "free",
+      "live_sport",
+      "timer",
+      "quick_log",
+      "imported"
+    ],
+    "activity_family": [
+      "foot",
+      "cycling",
+      "strength_fitness",
+      "racket",
+      "water",
+      "winter",
+      "team",
+      "combat",
+      "cardio_gym",
+      "other"
     ]
   },
   "events_by_area": {

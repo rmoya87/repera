@@ -319,12 +319,29 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             let applied = await delegate?.phoneConnectivityDidReceiveLiveCommand(
                 sessionId: id, command: command
             ) ?? false
+            await MainActor.run {
+                ReperaAnalytics.track(.watchCommandUsed, parameters: [
+                    "feature_area": "reliability",
+                    "action_name": command,
+                    "result": applied ? "success" : "failure",
+                    "session_origin_platform": "watchos"
+                ])
+            }
             return ["ok": applied]
         case "startLive":
             guard let sportID = message["sportID"] as? String, !sportID.isEmpty else {
                 return ["ok": false]
             }
             let started = await (delegate?.phoneConnectivityDidReceiveStartLive(sportID: sportID) ?? false)
+            await MainActor.run {
+                ReperaAnalytics.track(.watchCommandUsed, parameters: [
+                    "feature_area": "live_sport",
+                    "action_name": "start_live",
+                    "activity_type": sportID,
+                    "result": started ? "success" : "failure",
+                    "session_origin_platform": "watchos"
+                ])
+            }
             return ["ok": started]
         case "setAudioMuted":
             let muted = message["audioMuted"] as? Bool ?? false

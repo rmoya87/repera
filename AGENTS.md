@@ -161,6 +161,16 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 
 - Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
+#### Apple — Microbenchmarks en CI (ExerciseSearch)
+
+```swift
+// ❌ BAD — umbral 3.0 ms en mediana; runners compartidos fallan ~3.3 ms
+XCTAssertLessThan(medianMs, 3.0)
+
+// ✅ GOOD — presupuesto ≤5 ms tras warm-up + mediana de lotes (PR #223)
+XCTAssertLessThan(medianMs, 5.0)
+```
+
 #### Apple — WorkoutKit (PR #221)
 
 ```swift

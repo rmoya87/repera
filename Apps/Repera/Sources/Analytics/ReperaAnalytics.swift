@@ -6,6 +6,7 @@ import FirebaseAnalytics
 #endif
 
 /// Shared wire contract: analytics/contract.json. Only iOS hosts Firebase; watchOS relays later.
+/// Product metrics (Cafesito-style): enable when Firebase is configured. No in-app consent UI.
 /// No HealthKit, GPS, user-entered labels or auth credentials may reach this boundary.
 @MainActor
 enum ReperaAnalytics {
@@ -100,8 +101,7 @@ enum ReperaAnalytics {
         case dataExportCompleted = "data_export_completed"
     }
 
-    private static let consentKey = "repera.analytics.consent.v1"
-    static var hasConsent: Bool { UserDefaults.standard.bool(forKey: consentKey) }
+    private static let completedKeysStore = "repera.analytics.completed.v1"
     private(set) static var isConfigured = false
     private static let allowedKeys: Set<String> = [
         "feature_area", "screen_name", "section_name", "entry_point",
@@ -113,6 +113,38 @@ enum ReperaAnalytics {
     ]
     private static let safeValue = try! NSRegularExpression(pattern: "^[a-zA-Z0-9_]{1,40}$")
 
+    /// Maps LiveSport UI groups to closed GA4 family IDs (never Spanish labels).
+    static func activityFamily(forSportGroup group: String) -> String {
+        switch group {
+        case "A pie": return "foot"
+        case "Ciclismo": return "cycling"
+        case "Fuerza y fitness": return "strength_fitness"
+        case "Deportes de raqueta": return "racket"
+        case "Deportes acuáticos": return "water"
+        case "Deportes de invierno": return "winter"
+        case "Deportes de equipo": return "team"
+        case "Combate": return "combat"
+        case "Cardio y gimnasio": return "cardio_gym"
+        default: return "other"
+        }
+    }
+
+    /// Resolves catalog activity for completed sessions. Planned gym work without
+    /// `liveSportID` maps to `strength` / `crossfit` — never free-text titles.
+    static func resolveActivity(
+        liveSportID: String?,
+        hasWodBlocks: Bool,
+        hasExercises: Bool
+    ) -> (activityType: String?, activityFamily: String?) {
+        if let liveSportID, !liveSportID.isEmpty {
+            // Family resolved by caller when LiveSport is available; keep type here.
+            return (liveSportID, nil)
+        }
+        if hasWodBlocks { return ("crossfit", "strength_fitness") }
+        if hasExercises { return ("strength", "strength_fitness") }
+        return (nil, nil)
+    }
+
     /// The plist is supplied by the real Firebase project, not embedded as a placeholder.
     /// Missing configuration leaves Analytics disabled and does not affect app startup.
     static func configure() {
@@ -121,25 +153,71 @@ enum ReperaAnalytics {
               let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
               let options = FirebaseOptions(contentsOfFile: path) else { return }
         if FirebaseApp.app() == nil { FirebaseApp.configure(options: options) }
-        Analytics.setAnalyticsCollectionEnabled(UserDefaults.standard.bool(forKey: consentKey))
+        // Product metrics (not ads): enable collection once Firebase is present.
+        Analytics.setAnalyticsCollectionEnabled(true)
         isConfigured = true
         #endif
     }
 
-    /// Called exclusively after explicit user choice; no consent UI is wired in phase 1.
-    static func setConsent(_ granted: Bool) {
-        UserDefaults.standard.set(granted, forKey: consentKey)
-        #if canImport(FirebaseAnalytics)
-        if isConfigured {
-            Analytics.setAnalyticsCollectionEnabled(granted)
-            if !granted { Analytics.setUserID(nil) }
-        }
-        #endif
+    /// Clears local completion dedup (e.g. account switch). Does not touch Firebase identity.
+    static func clearLocalState() {
+        UserDefaults.standard.removeObject(forKey: completedKeysStore)
     }
 
     static func track(_ event: Event, parameters: [String: String] = [:]) {
         #if canImport(FirebaseAnalytics)
-        guard isConfigured, UserDefaults.standard.bool(forKey: consentKey) else { return }
+        guard isConfigured else { return }
+        Analytics.logEvent(event.rawValue, parameters: sanitized(parameters))
+        #endif
+    }
+
+    /// Emits at most once per opaque logical key (session UUID hashed locally; never sent to GA4).
+    @discardableResult
+    static func trackOnce(
+        _ event: Event,
+        logicalKey: String,
+        parameters: [String: String] = [:]
+    ) -> Bool {
+        guard isConfigured else { return false }
+        let token = opaqueToken(logicalKey)
+        var seen = Set(UserDefaults.standard.stringArray(forKey: completedKeysStore) ?? [])
+        guard !seen.contains(token) else { return false }
+        seen.insert(token)
+        // Bound growth: keep the most recent ~400 completions.
+        if seen.count > 400 {
+            seen = Set(seen.suffix(400))
+        }
+        UserDefaults.standard.set(Array(seen), forKey: completedKeysStore)
+        track(event, parameters: parameters)
+        return true
+    }
+
+    static func trackWorkoutCompleted(
+        sessionID: UUID,
+        workoutType: String,
+        activityType: String? = nil,
+        activityFamily: String? = nil,
+        wodFormat: String? = nil,
+        featureArea: String = "training",
+        sessionOrigin: String = "ios",
+        completionPlatform: String = "ios",
+        accessTier: String? = nil
+    ) {
+        var parameters: [String: String] = [
+            "feature_area": featureArea,
+            "workout_type": workoutType,
+            "result": "success",
+            "session_origin_platform": sessionOrigin,
+            "completion_platform": completionPlatform
+        ]
+        if let activityType { parameters["activity_type"] = activityType }
+        if let activityFamily { parameters["activity_family"] = activityFamily }
+        if let wodFormat { parameters["wod_format"] = wodFormat }
+        if let accessTier { parameters["access_tier"] = accessTier }
+        _ = trackOnce(.workoutCompleted, logicalKey: sessionID.uuidString, parameters: parameters)
+    }
+
+    private static func sanitized(_ parameters: [String: String]) -> [String: Any] {
         var data: [String: Any] = [
             "schema_version": 1,
             "origin_platform": "ios",
@@ -150,7 +228,11 @@ enum ReperaAnalytics {
             guard safeValue.firstMatch(in: value, range: range) != nil else { continue }
             data[key] = value
         }
-        Analytics.logEvent(event.rawValue, parameters: data)
-        #endif
+        return data
+    }
+
+    private static func opaqueToken(_ logicalKey: String) -> String {
+        // Stable local token; not a GA4 dimension.
+        String(logicalKey.utf8.reduce(UInt64(5381)) { ($0 << 5) &+ $0 &+ UInt64($1) }, radix: 16)
     }
 }
