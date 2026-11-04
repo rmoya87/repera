@@ -73,7 +73,7 @@ internal class SessionStore(context: Context) {
             val editor=preferences.edit().putString(KEY_BLOB,packed)
             if(identityChanged || identityRevision()==null) editor.putString(KEY_IDENTITY_REVISION,java.util.UUID.randomUUID().toString())
             check(editor.commit()) {"No se pudo guardar la sesión"}
-            if (identityChanged) ReperaWidgetRefresh.enqueue(appContext)
+            if (identityChanged) runCatching { ReperaWidgetRefresh.enqueue(appContext) }
         }
     }
 
@@ -100,7 +100,7 @@ internal class SessionStore(context: Context) {
                     .putString(KEY_IDENTITY_REVISION, java.util.UUID.randomUUID().toString())
                     .commit()
             ) { "No se pudo cerrar la sesión guardada" }
-            ReperaWidgetRefresh.enqueue(appContext)
+            runCatching { ReperaWidgetRefresh.enqueue(appContext) }
         }
     }
 
