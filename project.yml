@@ -148,6 +148,7 @@ targets:
         CFBundleDisplayName: Repera
         # No automatic telemetry until explicit consent; no ad personalization.
         FIREBASE_ANALYTICS_COLLECTION_ENABLED: false
+        FirebaseAutomaticScreenReportingEnabled: false
         GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
