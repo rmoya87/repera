@@ -125,6 +125,7 @@ internal class LiveActivityService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(r.state.sport.title).setContentText(text).setOngoing(true).setOnlyAlertOnce(true)
+            .setRequestPromotedOngoing(Build.VERSION.SDK_INT >= 36)
             .setContentIntent(open)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .addAction(0,if(paused) "Reanudar" else "Pausar",action(if(paused) ACTION_RESUME else ACTION_PAUSE,602))
