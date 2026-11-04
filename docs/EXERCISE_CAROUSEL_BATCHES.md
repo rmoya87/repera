@@ -5,12 +5,12 @@ primero la principal que lo representa, generar el carrusel paso a paso donde ha
 falta y revisar el "cómo hacerlo". Se trabaja en origin/main (iOS + Android), sin
 compilar ni publicar. Generación de imágenes limitada (~50/día): tandas nocturnas.
 
-## Estado del catálogo (290 ejercicios, main @ 26951803)
+## Estado del catálogo (290 ejercicios, tras tanda 3)
 
 - 0 ejercicios sin hero (resolver iOS/Android replicado).
-- 147 con carrusel propio tras la tanda 2 (139 + 8 nuevos).
+- 152 con carrusel propio tras la tanda 3 (139 + 8 + 5; art_cf_power_clean sirve a 2 ejercicios).
 - 33 holds estáticos con imagen única por diseño.
-- 43 con carrusel PRESTADO (movementFrames "interim") — PENDIENTE, prioridad 1.
+- 37 con carrusel PRESTADO (movementFrames "interim") — PENDIENTE, prioridad 1.
 - 63 solo hero: monoestructurales/estáticos se quedan con 1 imagen (aprobado);
   dinámicos (Pájaros, Shrimp squat, Sled push/pull, Yoke carry, Cossack squat,
   Candlestick, comba dobles/triples, Walking lunge, Plate GTO, Bear crawl,
@@ -35,6 +35,15 @@ compilar ni publicar. Generación de imágenes limitada (~50/día): tandas noctu
   snatch, snatch balance. Pasos 1–3 reescritos donde no describían fases
   visuales (colgante completa, con pausa, de potencia, desde bloques, en split).
 
+- Tanda 3: carruseles propios de 6 ejercicios de cargada (frames _1.._3, QA
+  visual): cargada colgante completa (art_hl_hang_sq_clean), cargada con pausa
+  (art_hl_pause_clean), cargada de potencia (art_cf_power_clean), cargada
+  muscular (art_hl_muscle_clean), cargada y press (art_hl_clean_press), hang
+  power clean (art_cf_hpc). Pasos 1-3 reescritos como captions 1:1.
+  NOTA pipeline: al subir los frames propios _1..N, el resolver los prioriza
+  solo sobre movementFrames (imageNames(for:) prueba base_1..8 primero); no
+  hace falta tocar ExerciseArt.swift salvo nameMap para stems nuevos.
+
 ## Pipeline por ejercicio (repetir en la siguiente tanda)
 
 1. Elegir 2-3 fases visuales; captions = los primeros N pasos de
@@ -54,13 +63,12 @@ compilar ni publicar. Generación de imágenes limitada (~50/día): tandas noctu
    "Falta miniatura" nuevos) + resolver replicado (/tmp/repera/inventory.py).
 7. Push a origin/main y lista de ejercicios cubiertos al usuario.
 
-## Pendiente inmediato (43 carruseles prestados)
+## Pendiente inmediato (37 carruseles prestados)
 
-Cargada colgante completa, Cargada con pausa, Cargada de potencia, Cargada
-desde bloques, Cargada muscular, Cargada y press, Hang power clean, Hang power
-snatch, Tall clean, Tall snatch, Tirón de cargada, Peso muerto agarre
-arrancada, Drop snatch, Balance de envión, Envión detrás de nuca, Press detrás
-de nuca, Power jerk, Push jerk, Push press, Sots press, Sumo high pull,
+Cargada desde bloques, Hang power snatch, Tall clean, Tall snatch, Tirón de
+cargada, Peso muerto agarre arrancada, Drop snatch, Balance de envión, Envión
+detrás de nuca, Press detrás de nuca, Power jerk, Push jerk, Push press, Sots
+press, Sumo high pull,
 Dominadas estrictas, Dominadas kipping, Dominadas butterfly, Dominadas supinas,
 Dominadas en anillas, Muscle-up estricto barra, Muscle-up estricto anillas,
 Toes to bar estrictos, Knees to elbows, Kip swing, Hip to bar, Pull-over barra,
