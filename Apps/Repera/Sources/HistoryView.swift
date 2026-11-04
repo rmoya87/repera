@@ -2181,6 +2181,10 @@ struct WorkoutMapZoomDestination: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var exportedRoute: URL?
     var points: [HealthKitStore.RoutePoint]
+    private var routeExportIdentity: String {
+        guard let first = points.first, let last = points.last else { return "empty" }
+        return "\(points.count)-\(first.date.timeIntervalSince1970)-\(last.date.timeIntervalSince1970)-\(first.latitude)-\(last.longitude)"
+    }
     var pin: WorkoutLocationPin? = nil
     var isWaterSport: Bool = false
     var paceMode: AdaptiveRoutePace.Mode = .walking
@@ -2235,7 +2239,7 @@ struct WorkoutMapZoomDestination: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .background(OG.bg)
-        .task(id: points.count) {
+        .task(id: routeExportIdentity) {
             exportedRoute = try? RouteGPXExporter.export(points: points)
         }
     }
