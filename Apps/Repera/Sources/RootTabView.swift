@@ -136,7 +136,13 @@ struct RootTabView: View {
         )) { _ in
             LiveRoutesStore.shared.requestICloudSynchronization()
         }
-        .task { restoreActiveSessionOnLaunch() }
+        .task { restoreActiveSessionOnLaunch(); openPendingSystemCommand() }
+        .task(id: store.isHydrated) {
+            if store.isHydrated { openPendingSystemCommand() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ReperaSystemCommand.notification)) { _ in
+            openPendingSystemCommand()
+        }
         .onOpenURL(perform: handleOpenURL)
         .sheet(isPresented: $showInvitationSheet) {
             InvitationDeepLinkSheet(
@@ -333,6 +339,26 @@ struct RootTabView: View {
         openNotifiedCompletedWorkout(id)
     }
 
+    private func openPendingSystemCommand() {
+        guard store.isHydrated, let destination = ReperaSystemCommand.takePending() else { return }
+        switch destination {
+        case .today:
+            flowPath = []
+            tab = .home
+            openTodayPreview()
+        case .live:
+            flowPath = []
+            tab = .start
+        case .tools:
+            flowPath = []
+            tab = .home
+            showStartHub = true
+        case .exercises:
+            flowPath = []
+            tab = .exercises
+        }
+    }
+
     private func handleOpenURL(_ url: URL) {
         guard url.scheme == "repera" else { return }
         switch url.host {
@@ -346,6 +372,17 @@ struct RootTabView: View {
                 flowPath = []
                 tab = .home
             }
+        case "today":
+            flowPath = []
+            tab = .home
+            openTodayPreview()
+        case "tools":
+            flowPath = []
+            tab = .home
+            showStartHub = true
+        case "exercises":
+            flowPath = []
+            tab = .exercises
         case "invitation":
             let idString = url.pathComponents.dropFirst().first
                 ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
