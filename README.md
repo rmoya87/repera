@@ -31,7 +31,7 @@ La administración web muestra cada Atleta con fila pulsable, buscador limpio, c
 
 Las solicitudes de vinculación enviadas por iOS pueden llegar al centro: portada con bandeja, Aceptar/Rechazar y refresco manual, sin enlazar un atleta hasta que el responsable lo autorice. Entrenamientos incluye publicación individual y masiva de plantillas a varios deportistas y fechas, con vista previa, validación de límites y prevención de duplicados. La vista delegada de soporte sigue usando el JWT real del administrador, sin suplantar al propietario.
 
-Migraciones `20261027181000_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas en Supabase Repera. CI y prueba E2E de roles distintos requieren verificación; una fusión a main no equivale a desplegar IONOS.
+Migraciones `20261027141021_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas en Supabase Repera. CI y prueba E2E de roles distintos requieren verificación; una fusión a main no equivale a desplegar IONOS.
 
 
 ## Administración global renovada (27/10/2026)
