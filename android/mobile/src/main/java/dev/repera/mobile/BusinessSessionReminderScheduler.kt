@@ -39,7 +39,9 @@ internal object BusinessSessionReminderScheduler {
         if (sessions.load()?.uniqueId != accountId) return
         val byId = snapshot.occurrences.associateBy { it.id }
         val now = System.currentTimeMillis()
-        val desired = snapshot.bookings.asSequence()
+        val bookedOccurrences = snapshot.bookings
+            .filter { it.status == "booked" }.map { it.occurrenceId }.toSet()
+        val reserved = snapshot.bookings.asSequence()
             .filter { it.status == "booked" }
             .mapNotNull { booking ->
                 val occurrence = byId[booking.occurrenceId] ?: return@mapNotNull null
@@ -51,9 +53,24 @@ internal object BusinessSessionReminderScheduler {
                 if (notifyAt - now !in 60_000L..(60L * 86_400_000L)) return@mapNotNull null
                 Triple(booking.id, occurrence.title, notifyAt)
             }
-            .sortedBy { it.third }
-            .take(40)
             .toList()
+        val direct = snapshot.trainingSessions.asSequence()
+            .filter { it.status == "scheduled" }
+            .filter { it.sourceOccurrenceId == null || it.sourceOccurrenceId !in bookedOccurrences }
+            .mapNotNull { session ->
+                val minutes = session.scheduledTimeMinutes
+                    ?.takeIf { it in 0..1439 } ?: return@mapNotNull null
+                val start = runCatching {
+                    java.time.LocalDate.parse(session.scheduledDate)
+                        .atTime(minutes / 60, minutes % 60)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant().toEpochMilli()
+                }.getOrNull() ?: return@mapNotNull null
+                val notifyAt = start - 3_600_000L
+                if (notifyAt - now !in 60_000L..(60L * 86_400_000L)) return@mapNotNull null
+                Triple("training." + session.id, session.title, notifyAt)
+            }.toList()
+        val desired = (reserved + direct).sortedBy { it.third }.take(40)
         val work = WorkManager.getInstance(context)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val desiredIds = desired.map { it.first }.toSet()
