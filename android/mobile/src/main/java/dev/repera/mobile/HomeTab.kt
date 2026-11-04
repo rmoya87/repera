@@ -331,34 +331,41 @@ internal fun HomeTab(
                         WearLiveTimerHomeCard(wearTimerMirror, onWearTimerCommand)
                     }
                     val reviewDismissContext = LocalContext.current
-                    var dismissedReviewIds by remember {
-                        mutableStateOf(HomeReviewActionDismissals.load(reviewDismissContext))
+                    var dismissedReviewIds by remember(accountId) {
+                        mutableStateOf(
+                            HomeReviewActionDismissals.load(reviewDismissContext, accountId)
+                        )
+                    }
+                    fun acknowledgeReviewActions(workoutId: String) {
+                        val next = dismissedReviewIds + workoutId
+                        dismissedReviewIds = next
+                        HomeReviewActionDismissals.save(
+                            reviewDismissContext, next, accountId
+                        )
                     }
                     dayWorkouts.forEach { workout ->
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            HomeSwipeRevealCard(
-                                key = workout.id,
-                                busy = busy,
-                                onDelete = { onDeleteWorkout(workout.id) },
-                                // Swipe Editar → misma página de crear/editar (historial-editar).
-                                onEdit = if (workout.timerDetails == null)
-                                    ({ onEditFinishedWorkout(workout.id) }) else null
-                            ) {
-                                HomeCompletedWorkoutCard(
-                                    workout, day,
-                                    prCount = overview?.prCountBySessionId?.get(workout.id) ?: 0
-                                ) { onOpenFinishedWorkout(workout.id) }
-                            }
-                            if (workout.timerDetails == null && workout.id !in dismissedReviewIds) {
-                                HomeSavedWorkoutActionRow(
-                                    onDiscard = {
-                                        val next = dismissedReviewIds + workout.id
-                                        dismissedReviewIds = next
-                                        HomeReviewActionDismissals.save(reviewDismissContext, next)
-                                    },
-                                    onReview = { onEditFinishedWorkout(workout.id) }
-                                )
-                            }
+                        val showActions =
+                            workout.timerDetails == null && workout.id !in dismissedReviewIds
+                        HomeSwipeRevealCard(
+                            key = workout.id,
+                            busy = busy,
+                            onDelete = { onDeleteWorkout(workout.id) },
+                            // Swipe Editar → misma página de crear/editar (historial-editar).
+                            onEdit = if (workout.timerDetails == null)
+                                ({ onEditFinishedWorkout(workout.id) }) else null
+                        ) {
+                            HomeCompletedWorkoutCard(
+                                workout = workout,
+                                day = day,
+                                prCount = overview?.prCountBySessionId?.get(workout.id) ?: 0,
+                                onClick = { onOpenFinishedWorkout(workout.id) },
+                                showReviewActions = showActions,
+                                onDiscardActions = { acknowledgeReviewActions(workout.id) },
+                                onReview = {
+                                    acknowledgeReviewActions(workout.id)
+                                    onEditFinishedWorkout(workout.id)
+                                }
+                            )
                         }
                     }
                     dayExternal.forEach { entry ->

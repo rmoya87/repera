@@ -332,7 +332,7 @@ struct OGRegisterChipsRow<Content: View>: View {
     }
 }
 
-/// Misma secuencia de chips en Inicio e Historial (min / kcal / nota / PR [/ notas]).
+/// Misma secuencia de chips en Inicio e Historial (min / kcal / FC / nota / PR [/ notas]).
 enum WorkoutRegisterChips {
     /// Entreno Repera terminado.
     @ViewBuilder
@@ -345,10 +345,15 @@ enum WorkoutRegisterChips {
         } else if minutes > 0 {
             OGRegisterChip(text: "\(Int(minutes.rounded())) min", icon: "timer")
         }
-        // Nunca usar session.appleActiveEnergyKcal: en versiones anteriores
-        // podía ser un valor MET estimado, incluso escrito por Repera en Salud.
-        if let kcal = verifiedHealthKcal, kcal > 0 {
+        // Preferir kcal verificada de Salud; si no, la medida persistida en la sesión
+        // (Watch/HealthKit autenticado). No inventar MET.
+        let kcal = (verifiedHealthKcal.flatMap { $0 > 0 ? $0 : nil })
+            ?? (session.appleActiveEnergyKcal.flatMap { $0 > 0 ? $0 : nil })
+        if let kcal {
             OGRegisterChip(text: "\(Int(kcal.rounded())) kcal", icon: "flame.fill")
+        }
+        if let bpm = session.appleAverageHeartRateBpm, bpm > 0 {
+            OGRegisterChip(text: "\(Int(bpm.rounded())) lpm", icon: "heart.fill")
         }
         if let review = session.sessionReview {
             OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)

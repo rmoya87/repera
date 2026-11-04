@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocalFireDepartment
@@ -366,32 +368,36 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
     }
 }
 
-/** Persistencia de «Descartar» en Inicio: no borra el entreno, solo oculta la fila de acciones. */
+/** Persistencia de Descartar|Revisar en Inicio: no borra el entreno, solo oculta la fila. */
 internal object HomeReviewActionDismissals {
     private const val PREFS = "repera.home.dismissedReviewActions"
     private const val KEY = "ids"
 
-    fun load(context: Context): Set<String> =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getStringSet(KEY, emptySet())
-            ?.toSet()
-            ?: emptySet()
+    fun prefsName(accountId: String): String =
+        if (accountId.isBlank()) PREFS else "$PREFS.$accountId"
 
-    fun save(context: Context, ids: Set<String>) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun load(context: Context, accountId: String = ""): Set<String> {
+        val prefs = context.getSharedPreferences(prefsName(accountId), Context.MODE_PRIVATE)
+        // Copia nueva: putStringSet de Android falla si se muta el Set original.
+        return HashSet(prefs.getStringSet(KEY, emptySet()) ?: emptySet())
+    }
+
+    fun save(context: Context, ids: Set<String>, accountId: String = "") {
+        context.getSharedPreferences(prefsName(accountId), Context.MODE_PRIVATE)
             .edit()
-            .putStringSet(KEY, ids)
+            .putStringSet(KEY, HashSet(ids))
             .apply()
     }
 }
 
-/** Descartar (izq., no borra) | Revisar (der., editar terminado). Misma línea bajo la card. */
+/** Descartar (izq., outline blanco/negro) | Revisar (der., verde). Dentro de la card. */
 @Composable
 internal fun HomeSavedWorkoutActionRow(
     onDiscard: () -> Unit,
     onReview: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val discardFill = if (isSystemInDarkTheme()) Color.Black else Color.White
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -402,8 +408,10 @@ internal fun HomeSavedWorkoutActionRow(
                 .weight(1f)
                 .testTag("home_saved_discard"),
             colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = discardFill,
                 contentColor = MaterialTheme.colorScheme.onSurface
-            )
+            ),
+            border = ButtonDefaults.outlinedButtonBorder(enabled = true)
         ) {
             Text(stringResource(R.string.home_day_cards_descartar))
         }
@@ -427,7 +435,10 @@ internal fun HomeCompletedWorkoutCard(
     workout: WorkoutHistoryEntry,
     day: LocalDate,
     prCount: Int = 0,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showReviewActions: Boolean = false,
+    onDiscardActions: (() -> Unit)? = null,
+    onReview: (() -> Unit)? = null,
 ) {
     val chips = buildList {
         if (workout.awaitingResultEntry && workout.timerDetails == null) {
@@ -440,6 +451,12 @@ internal fun HomeCompletedWorkoutCard(
             homeMinutesLabel(workout.displayDurationMinutes().takeIf { it > 0 }?.times(60.0))?.let {
                 add(Icons.Outlined.Schedule to it)
             }
+        }
+        workout.appleActiveEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+            add(Icons.Outlined.LocalFireDepartment to "${it.toInt()} kcal")
+        }
+        workout.appleAverageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }?.let {
+            add(Icons.Outlined.Favorite to "${it.toInt()} lpm")
         }
         workout.recordedDistanceMeters?.takeIf { it > 0 }?.let {
             add(Icons.Outlined.Route to "${dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)} km")
@@ -456,13 +473,65 @@ internal fun HomeCompletedWorkoutCard(
         workout.liveSportID != null -> Icons.AutoMirrored.Outlined.DirectionsWalk
         else -> Icons.Outlined.FitnessCenter
     }
-    HomeDayRegisterCard(
-        caption = homeDayTimeCaption(day, homeTimeFromIso(workout.startedAtIso ?: workout.startedAt)),
-        title = workout.title,
-        leadingIcon = icon,
-        chips = chips,
-        onClick = onClick
-    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(registerCardShape)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f), registerCardShape)
+            .padding(vertical = 10.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HomeRegisterLeadingIcon(icon, tint = brandGreen)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        homeDayTimeCaption(day, homeTimeFromIso(workout.startedAtIso ?: workout.startedAt)),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 0.3.sp,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        workout.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 17.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2
+                    )
+                }
+            }
+            if (chips.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .padding(start = 70.dp, end = 14.dp, top = 6.dp)
+                        .height(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    chips.forEach { (chipIcon, label) -> HomeRegisterChip(label, chipIcon) }
+                }
+            }
+        }
+        if (showReviewActions && onDiscardActions != null && onReview != null) {
+            HomeSavedWorkoutActionRow(
+                onDiscard = onDiscardActions,
+                onReview = onReview,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
+    }
 }
 
 /**

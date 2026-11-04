@@ -5,7 +5,7 @@ import UIKit
 /// Card de registro Inicio.
 /// Swipe vía UIKit (`transform` + pan): desactiva `UIScrollView` de chips durante el pan
 /// y no recrea el hosting a mitad del gesto → sin temblor.
-struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
+struct RegisterSwipeRevealCard<Title: View, Chips: View, Footer: View>: View {
     var onOpen: () -> Void
     var onDelete: () -> Void
     /// Ausente para tarjetas de Salud o entidades externas de solo lectura.
@@ -14,13 +14,15 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
     /// Color de tarjeta configurable sin alterar el estilo usado en otras pantallas.
     private let cardBackground: Color
     private let minimumCardHeight: CGFloat
+    /// Altura inferior reservada a footer (botones): el tap no abre el detalle ahí.
+    private let footerExclusionHeight: CGFloat
     @State private var isDeleteRevealed = false
     @State private var isEditRevealed = false
     private let title: () -> Title
     private let chips: () -> Chips
+    private let footer: () -> Footer
 
     private let revealWidth: CGFloat = 72
-    private let chipsBandHeight: CGFloat = 48
 
     init(
         onOpen: @escaping () -> Void,
@@ -29,8 +31,10 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         deleteAccessibilityLabel: String = "Eliminar",
         cardBackground: Color = OG.surface2,
         minimumCardHeight: CGFloat = 0,
+        footerExclusionHeight: CGFloat = 0,
         @ViewBuilder title: @escaping () -> Title,
-        @ViewBuilder chips: @escaping () -> Chips
+        @ViewBuilder chips: @escaping () -> Chips,
+        @ViewBuilder footer: @escaping () -> Footer
     ) {
         self.onOpen = onOpen
         self.onDelete = onDelete
@@ -38,8 +42,15 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         self.deleteAccessibilityLabel = deleteAccessibilityLabel
         self.cardBackground = cardBackground
         self.minimumCardHeight = minimumCardHeight
+        self.footerExclusionHeight = footerExclusionHeight
         self.title = title
         self.chips = chips
+        self.footer = footer
+    }
+
+    private var swipeBottomExclusion: CGFloat {
+        // Banda de chips (~48) + footer de acciones si existe.
+        48 + max(0, footerExclusionHeight)
     }
 
     var body: some View {
@@ -59,7 +70,8 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
 
             SmoothSwipeCardHost(
                 revealWidth: revealWidth,
-                chipsBandHeight: chipsBandHeight,
+                chipsBandHeight: swipeBottomExclusion,
+                footerExclusionHeight: footerExclusionHeight,
                 onOpen: onOpen,
                 onDelete: onDelete,
                 onEdit: onEdit,
@@ -72,6 +84,7 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
                     title()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     chips()
+                    footer()
                 }
                 .padding(.vertical, 10)
                 // Altura real de la ficha, no un frame vacío exterior que
@@ -114,6 +127,32 @@ struct RegisterSwipeRevealCard<Title: View, Chips: View>: View {
         .buttonStyle(.plain)
         .padding(.trailing, 8)
         .accessibilityLabel(deleteAccessibilityLabel)
+    }
+}
+
+extension RegisterSwipeRevealCard where Footer == EmptyView {
+    init(
+        onOpen: @escaping () -> Void,
+        onDelete: @escaping () -> Void,
+        onEdit: (() -> Void)? = nil,
+        deleteAccessibilityLabel: String = "Eliminar",
+        cardBackground: Color = OG.surface2,
+        minimumCardHeight: CGFloat = 0,
+        @ViewBuilder title: @escaping () -> Title,
+        @ViewBuilder chips: @escaping () -> Chips
+    ) {
+        self.init(
+            onOpen: onOpen,
+            onDelete: onDelete,
+            onEdit: onEdit,
+            deleteAccessibilityLabel: deleteAccessibilityLabel,
+            cardBackground: cardBackground,
+            minimumCardHeight: minimumCardHeight,
+            footerExclusionHeight: 0,
+            title: title,
+            chips: chips,
+            footer: { EmptyView() }
+        )
     }
 }
 
@@ -165,6 +204,7 @@ private enum SwipeCardScrollLock {
 private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     var revealWidth: CGFloat
     var chipsBandHeight: CGFloat
+    var footerExclusionHeight: CGFloat
     var onOpen: () -> Void
     var onDelete: () -> Void
     var onEdit: (() -> Void)?
@@ -175,6 +215,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
         Coordinator(
             revealWidth: revealWidth,
             chipsBandHeight: chipsBandHeight,
+            footerExclusionHeight: footerExclusionHeight,
             onOpen: onOpen,
             onDelete: onDelete,
             onEdit: onEdit,
@@ -216,6 +257,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     func updateUIView(_ uiView: SwipeCardContainerView, context: Context) {
         context.coordinator.revealWidth = revealWidth
         context.coordinator.chipsBandHeight = chipsBandHeight
+        context.coordinator.footerExclusionHeight = footerExclusionHeight
         context.coordinator.onOpen = onOpen
         context.coordinator.onDelete = onDelete
         context.coordinator.onEdit = onEdit
@@ -242,6 +284,7 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var revealWidth: CGFloat
         var chipsBandHeight: CGFloat
+        var footerExclusionHeight: CGFloat
         var onOpen: () -> Void
         var onDelete: () -> Void
         var onEdit: (() -> Void)?
@@ -261,12 +304,14 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
 
         init(
             revealWidth: CGFloat, chipsBandHeight: CGFloat,
+            footerExclusionHeight: CGFloat,
             onOpen: @escaping () -> Void, onDelete: @escaping () -> Void,
             onEdit: (() -> Void)?,
             onRevealChange: @escaping @MainActor (Bool, Bool) -> Void
         ) {
             self.revealWidth = revealWidth
             self.chipsBandHeight = chipsBandHeight
+            self.footerExclusionHeight = footerExclusionHeight
             self.onOpen = onOpen
             self.onDelete = onDelete
             self.onEdit = onEdit
@@ -301,6 +346,10 @@ private struct SmoothSwipeCardHost<Content: View>: UIViewRepresentable {
                 let isEditTap = point.x <= revealWidth
                 settle(to: 0)
                 if isEditTap { onEdit?() }
+            } else if footerExclusionHeight > 0,
+                      point.y >= view.bounds.height - footerExclusionHeight - 10 {
+                // Footer Descartar|Revisar: no abrir detalle; deja el toque a SwiftUI.
+                return
             } else {
                 onOpen()
             }

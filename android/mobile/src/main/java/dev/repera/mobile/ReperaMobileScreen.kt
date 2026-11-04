@@ -2083,6 +2083,49 @@ internal fun SettingsTab(
         val trainingBusy = busy || overview == null
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column {
+                // Programas IA: se ven en Inicio el día asignado; sin fila aquí.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${training.heartRateMaxBpm ?: 190} lpm",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        TextButton(
+                            enabled = !trainingBusy && (training.heartRateMaxBpm ?: 190) > 120,
+                            onClick = {
+                                onUpdateTrainingSettings(
+                                    training.copy(
+                                        heartRateMaxBpm =
+                                            ((training.heartRateMaxBpm ?: 190) - 5).coerceAtLeast(120)
+                                    )
+                                )
+                            }
+                        ) { Text("−") }
+                        TextButton(
+                            enabled = !trainingBusy && (training.heartRateMaxBpm ?: 190) < 230,
+                            onClick = {
+                                onUpdateTrainingSettings(
+                                    training.copy(
+                                        heartRateMaxBpm =
+                                            ((training.heartRateMaxBpm ?: 190) + 5).coerceAtMost(230)
+                                    )
+                                )
+                            }
+                        ) { Text("+") }
+                    }
+                }
+                SettingsCardDivider()
                 SettingsListRow(
                     title = "Historial",
                     enabled = !trainingBusy,
@@ -2333,6 +2376,13 @@ private fun SettingsHealthRows(
             )
         )
     }
+    fun openHealthSystemSettings() {
+        val hcIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
+        runCatching { context.startActivity(hcIntent) }.onFailure { openAppSettings() }
+    }
+    val healthPromptPrefs = remember {
+        context.getSharedPreferences("repera.health.settings", android.content.Context.MODE_PRIVATE)
+    }
     fun openNotificationSettings() {
         val intent = Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
             putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -2363,10 +2413,22 @@ private fun SettingsHealthRows(
         SettingsCardDivider()
         SettingsListRow(
             title = "Salud",
-            trailing = if (healthAuthorized) "Conectada" else null,
+            trailing = when {
+                healthAuthorized -> "Conectada"
+                healthPromptPrefs.getBoolean("prompted", false) -> "Revisar en Ajustes"
+                else -> null
+            },
             leadingIcon = Icons.Outlined.FavoriteBorder,
             enabled = !busy,
-            onClick = onOpenHealth
+            onClick = {
+                val alreadyPrompted = healthPromptPrefs.getBoolean("prompted", false)
+                if (healthAuthorized || alreadyPrompted) {
+                    openHealthSystemSettings()
+                } else {
+                    healthPromptPrefs.edit().putBoolean("prompted", true).apply()
+                    onOpenHealth()
+                }
+            }
         )
         SettingsCardDivider()
         SettingsListRow(

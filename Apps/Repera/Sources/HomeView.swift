@@ -66,6 +66,7 @@ struct HomeView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(BusinessDataStore.self) private var businessData
+    @Environment(\.colorScheme) private var colorScheme
     var onOpenWorkout: () -> Void
     var focusDay: Date? = nil
     var onStart: () -> Void
@@ -447,6 +448,8 @@ struct HomeView: View {
         homeToolbarContent
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
+                // Recargar acks por si la cuenta ya está lista (fallback → scoped).
+                dismissedHomeReviewActions = HomeReviewActionDismissals.load()
                 refreshAvatarIfNeeded()
                 if let focusDay, focusDay != lastAppliedFocusDay {
                     lastAppliedFocusDay = focusDay
@@ -1268,12 +1271,7 @@ struct HomeView: View {
                 .tint(OG.accent)
             }
             ForEach(workouts) { session in
-                VStack(spacing: 8) {
-                    dayWorkoutCard(session)
-                    if showsHomeReviewActions(for: session) {
-                        homeSavedWorkoutActionRow(for: session)
-                    }
-                }
+                dayWorkoutCard(session)
             }
             ForEach(planned) { routine in
                 plannedDayCard(routine)
@@ -1689,41 +1687,68 @@ struct HomeView: View {
         )
     }
 
-    /// Fila bajo la card guardada: Descartar (oculta acciones, no borra) | Revisar (editar terminado).
+    /// Acciones dentro de la card guardada: Descartar (oculta, no borra) | Revisar (editar).
     private func showsHomeReviewActions(for session: WorkoutSession) -> Bool {
         session.timerDetails == nil && !dismissedHomeReviewActions.contains(session.id)
     }
 
+    private static let homeReviewFooterHeight: CGFloat = 52
+
+    private func acknowledgeHomeReviewActions(for sessionID: UUID) {
+        dismissedHomeReviewActions.insert(sessionID)
+        HomeReviewActionDismissals.save(dismissedHomeReviewActions)
+    }
+
+    @ViewBuilder
     private func homeSavedWorkoutActionRow(for session: WorkoutSession) -> some View {
         HStack(spacing: 8) {
-            Button("Descartar") {
-                dismissedHomeReviewActions.insert(session.id)
-                HomeReviewActionDismissals.save(dismissedHomeReviewActions)
+            Button {
+                acknowledgeHomeReviewActions(for: session.id)
+            } label: {
+                Text("Descartar")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
-            .buttonStyle(.bordered)
-            .tint(OG.label)
-            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
+            .foregroundStyle(OG.label)
+            .background(
+                (colorScheme == .dark ? Color.black : Color.white),
+                in: Capsule()
+            )
+            .overlay {
+                Capsule().strokeBorder(OG.surface3, lineWidth: 1)
+            }
 
-            Button("Revisar") {
+            Button {
+                acknowledgeHomeReviewActions(for: session.id)
                 editOwnCompletedWorkout(session)
+            } label: {
+                Text("Revisar")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(OG.accent)
+            .buttonStyle(.plain)
             .foregroundStyle(.black)
-            .frame(maxWidth: .infinity)
+            .background(OG.accent, in: Capsule())
         }
-        .controlSize(.regular)
+        .padding(.horizontal, Self.registerCardPad)
+        .padding(.top, 8)
         .accessibilityElement(children: .contain)
     }
 
     private func dayWorkoutCard(_ session: WorkoutSession) -> some View {
         let prs = prCountBySessionId[session.id] ?? 0
-        return registerCardWithChipsOverlay(
-            open: { openWorkoutId = session.id },
-            accessibilityHint: "Toca para ver el detalle del entreno",
-            deleteLabel: "Eliminar registro de entreno",
+        let showActions = showsHomeReviewActions(for: session)
+        return RegisterSwipeRevealCard(
+            onOpen: { openWorkoutId = session.id },
             onDelete: { workoutPendingDelete = session },
             onEdit: session.timerDetails == nil ? { editOwnCompletedWorkout(session) } : nil,
+            deleteAccessibilityLabel: "Eliminar registro de entreno",
+            cardBackground: OG.surface,
+            minimumCardHeight: singleWorkoutMinHeight,
+            footerExclusionHeight: showActions ? Self.homeReviewFooterHeight : 0,
             title: {
                 HStack(alignment: .top, spacing: 12) {
                     // Completado: mismo símbolo que un plan gris, en verde.
@@ -1754,18 +1779,28 @@ struct HomeView: View {
                 .padding(.horizontal, Self.registerCardPad)
             },
             chips: {
-                if let meters = session.recordedDistanceMeters, meters > 0 {
-                    OGRegisterChip(text: "\(ReperaNumberFormat.decimal(meters / 1000)) km", icon: "point.topleft.down.curvedto.point.bottomright.up")
-                }
-                WorkoutRegisterChips.repera(
-                    session: session,
-                    prCount: prs,
-                    verifiedHealthKcal: session.healthKitWorkoutUUID.flatMap {
-                        health.verifiedWorkoutEnergyKcal[$0]
+                OGRegisterChipsRow(leadingInset: Self.chipsTitleLeading) {
+                    if let meters = session.recordedDistanceMeters, meters > 0 {
+                        OGRegisterChip(text: "\(ReperaNumberFormat.decimal(meters / 1000)) km", icon: "point.topleft.down.curvedto.point.bottomright.up")
                     }
-                )
+                    WorkoutRegisterChips.repera(
+                        session: session,
+                        prCount: prs,
+                        verifiedHealthKcal: session.healthKitWorkoutUUID.flatMap {
+                            health.verifiedWorkoutEnergyKcal[$0]
+                        }
+                    )
+                }
+                .frame(height: 24, alignment: .center)
+                .padding(.top, 0)
+            },
+            footer: {
+                if showActions {
+                    homeSavedWorkoutActionRow(for: session)
+                }
             }
         )
+        .accessibilityHint("Toca para ver el detalle del entreno")
     }
 
     private func healthActivityCard(_ activity: HealthKitStore.ExternalActivity) -> some View {
@@ -2413,24 +2448,34 @@ struct HomeView: View {
     }
 }
 
-/// Persistencia local de «Descartar» en Inicio: no elimina el entreno, solo la fila de acciones.
-/// Aislada por cuenta; la lista global anterior no tiene dueño conocido y se descarta.
+/// Persistencia de Descartar|Revisar en Inicio: no elimina el entreno, solo la fila.
+/// Preferencia por cuenta; si aún no hay sesión, fallback local para no perder el ack.
 @MainActor
 private enum HomeReviewActionDismissals {
     private static let legacyGlobalKey = "repera.home.dismissedReviewActions"
-    private static var key: String? {
-        AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2")
+    private static let localFallbackKey = "repera.home.dismissedReviewActions.v2.local"
+
+    private static var key: String {
+        AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2") ?? localFallbackKey
     }
 
     static func load() -> Set<UUID> {
-        UserDefaults.standard.removeObject(forKey: legacyGlobalKey)
-        guard let key else { return [] }
-        let raw = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: legacyGlobalKey)
+        // Si acaba de haber cuenta, fusionar el fallback local (mismo dispositivo).
+        if let scoped = AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2"),
+           let local = defaults.stringArray(forKey: localFallbackKey), !local.isEmpty {
+            var merged = Set((defaults.stringArray(forKey: scoped) ?? []).compactMap(UUID.init(uuidString:)))
+            merged.formUnion(local.compactMap(UUID.init(uuidString:)))
+            defaults.set(merged.map(\.uuidString).sorted(), forKey: scoped)
+            defaults.removeObject(forKey: localFallbackKey)
+            return merged
+        }
+        let raw = defaults.stringArray(forKey: key) ?? []
         return Set(raw.compactMap(UUID.init(uuidString:)))
     }
 
     static func save(_ ids: Set<UUID>) {
-        guard let key else { return }
         UserDefaults.standard.set(ids.map(\.uuidString).sorted(), forKey: key)
     }
 }

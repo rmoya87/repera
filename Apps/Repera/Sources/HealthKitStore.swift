@@ -52,6 +52,9 @@ final class HealthKitStore {
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
     /// Write access for workouts / active energy (sharingAuthorized).
     var isAuthorized = false
+    /// El usuario ya respondió al diálogo de Salud (autorizó o denegó escritura).
+    /// Si es true, Ajustes debe abrir Ajustes del sistema en lugar de la pantalla in-app.
+    var hasDecidedHealthSharing = false
     /// Read access for workouts — distinct from write; empty results ≠ denied.
     var canReadWorkouts = false
     var canWriteWorkouts = false
@@ -375,6 +378,7 @@ final class HealthKitStore {
     func refreshAuthorizationStatus() {
         guard isAvailable else {
             isAuthorized = false
+            hasDecidedHealthSharing = false
             canReadWorkouts = false
             canWriteWorkouts = false
             return
@@ -389,6 +393,8 @@ final class HealthKitStore {
         canReadWorkouts = isAvailable
         // Conectado = podemos escribir entrenos o al menos energía activa.
         isAuthorized = canWriteWorkouts || energyStatus == .sharingAuthorized
+        hasDecidedHealthSharing =
+            workoutStatus != .notDetermined || energyStatus != .notDetermined
     }
 
     func refreshToday() async {

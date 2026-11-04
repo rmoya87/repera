@@ -3,6 +3,7 @@ package dev.repera.mobile
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.ProgressionPolicy
@@ -18,21 +19,39 @@ import dev.repera.domain.ProgressionPolicy
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("rir","rpe").forEach {unit -> ReperaFilterChip(selected=value.effortUnit==unit,enabled=!busy,onClick={onChange(value.copy(effortUnit=unit))},label={Text(unit.uppercase())})}
         }
-        Text("FC máxima personal: ${value.heartRateMaxBpm ?: 190} lpm" +
-            (if(value.heartRateMaxBpm == null) " · provisional" else ""),
-            style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled=!busy && (value.heartRateMaxBpm ?: 190)>120,
-                onClick={onChange(value.copy(heartRateMaxBpm=((value.heartRateMaxBpm ?: 190)-5).coerceAtLeast(120)))}) {
-                Text("−5")
-            }
-            OutlinedButton(enabled=!busy && (value.heartRateMaxBpm ?: 190)<230,
-                onClick={onChange(value.copy(heartRateMaxBpm=((value.heartRateMaxBpm ?: 190)+5).coerceAtMost(230)))}) {
-                Text("+5")
-            }
-            if (value.heartRateMaxBpm != null) TextButton(
-                enabled=!busy,onClick={onChange(value.copy(heartRateMaxBpm=null))}
-            ) { Text("Restaurar") }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "${value.heartRateMaxBpm ?: 190} lpm",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                enabled = !busy && (value.heartRateMaxBpm ?: 190) > 120,
+                onClick = {
+                    onChange(
+                        value.copy(
+                            heartRateMaxBpm = ((value.heartRateMaxBpm ?: 190) - 5).coerceAtLeast(120)
+                        )
+                    )
+                }
+            ) { Text("−5") }
+            OutlinedButton(
+                enabled = !busy && (value.heartRateMaxBpm ?: 190) < 230,
+                onClick = {
+                    onChange(
+                        value.copy(
+                            heartRateMaxBpm = ((value.heartRateMaxBpm ?: 190) + 5).coerceAtMost(230)
+                        )
+                    )
+                }
+            ) { Text("+5") }
         }
         Text("Modo de plan")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {

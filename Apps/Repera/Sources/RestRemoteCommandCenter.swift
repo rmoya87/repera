@@ -45,7 +45,7 @@ enum RestRemoteCommandCenter {
             return
         }
 
-        var info: [String: Any] = [
+        let info: [String: Any] = [
             MPMediaItemPropertyTitle: exerciseName?.isEmpty == false ? "Descanso · \(exerciseName!)" : "Descanso Repera",
             MPMediaItemPropertyArtist: "Repera",
             MPMediaItemPropertyPlaybackDuration: Double(max(total, remaining)),
@@ -53,7 +53,6 @@ enum RestRemoteCommandCenter {
             MPNowPlayingInfoPropertyPlaybackRate: paused ? 0.0 : 1.0
         ]
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        _ = info
     }
 
     static func clear() {

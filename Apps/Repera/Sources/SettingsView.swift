@@ -401,17 +401,29 @@ struct SettingsView: View {
                         await refreshNotificationsStatus()
                     }
                 }
-                NavigationLink {
-                    ConnectedHealthSettingsView()
-                } label: {
-                    HStack(spacing: 10) {
-                        Label(
-                            health.isAuthorized ? "Apple Salud" : "Conectar con Salud",
-                            systemImage: "heart"
-                        )
-                        .foregroundStyle(OG.label)
-                        Spacer(minLength: 8)
-
+                if health.hasDecidedHealthSharing {
+                    // Ya autorizado o denegado: gestionar en Ajustes del iPhone → Repera / Salud.
+                    Button {
+                        health.refreshAuthorizationStatus()
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Label("Apple Salud", systemImage: "heart")
+                                .foregroundStyle(OG.label)
+                            Spacer(minLength: 8)
+                            Text(health.isAuthorized ? "Conectada" : "Revisar en Ajustes")
+                                .font(.subheadline)
+                                .foregroundStyle(OG.label2)
+                        }
+                    }
+                } else {
+                    NavigationLink {
+                        ConnectedHealthSettingsView()
+                    } label: {
+                        Label("Conectar con Salud", systemImage: "heart")
+                            .foregroundStyle(OG.label)
                     }
                 }
 
@@ -466,12 +478,7 @@ struct SettingsView: View {
             }
 
             Section("Entrenamiento") {
-                NavigationLink {
-                    AITrainingProgramsView()
-                } label: {
-                    Label("Programas de entrenamiento IA", systemImage: "sparkles.rectangle.stack")
-                        .foregroundStyle(OG.label)
-                }
+                // Programas IA: se aplican en Inicio el día asignado; no hay pantalla aquí.
                 Stepper(value: Binding(
                     get: { store.state.settings.heartRateMaxBpm ?? 190 },
                     set: { next in
@@ -480,20 +487,13 @@ struct SettingsView: View {
                         store.updateSettings(settings)
                     }
                 ), in: 120...230, step: 1) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 10) {
                         Label("FC máxima", systemImage: "heart")
-                        Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm" +
-                             (store.state.settings.heartRateMaxBpm == nil ? " · provisional" : ""))
-                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
                     }
-                }
-                if store.state.settings.heartRateMaxBpm != nil {
-                    Button("Restaurar estimación provisional") {
-                        var settings = store.state.settings
-                        settings.heartRateMaxBpm = nil
-                        store.updateSettings(settings)
-                    }
-                    .font(.footnote)
                 }
                 NavigationLink {
                     HistoryView()
