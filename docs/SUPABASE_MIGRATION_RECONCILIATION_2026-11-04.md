@@ -25,9 +25,17 @@ Primero se ejecutó una prueba transaccional con `ROLLBACK` y se confirmó que n
 
 **Estado tras estas tres migraciones: 97 versiones compartidas, 31 solo en git y 0 solo en remoto.** Las 31 restantes requieren verificación del esquema existente y de la cadena de despliegue.
 
+## Recordatorios: despliegue independiente de esquema
+
+Se ha probado `20261101160000_business_push_outbox.sql` en transacción revertida y, tras verificar que no existían las tablas, se ha desplegado por la herramienta oficial de migraciones de Supabase como `20261104073557_business_push_outbox_reconciled`. El SQL es idéntico, y el archivo ahora utiliza la versión realmente registrada.
+
+Comprobaciones: cuatro tablas nuevas con RLS activo, un trigger de reservas instalado, función de claim ejecutable **solo** por `service_role` y registro de tokens **solo** para `authenticated`. Las tablas no existían antes. El servicio externo de envío de push `repera-business-push` no estaba desplegado en el proyecto al verificarlo: el esquema está listo, pero el envío efectivo exige despliegue y secretos de proveedor.
+
+**Estado posterior: 98 versiones compartidas, 30 solo en git, 0 solo en remoto.**
+
 ## Regla de seguridad
 
-No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 31 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
+No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 30 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
 
 ## Mapeo de renombrados verificados
 
