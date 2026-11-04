@@ -2,7 +2,7 @@ import Foundation
 import ReperaDomain
 import os
 
-/// Instrumentación comercial: logging local y adaptador GA4 solo tras consentimiento.
+/// Instrumentación comercial: logging local y adaptador GA4 (activo si Firebase está configurado).
 @MainActor
 enum MonetizationAnalytics {
     private static let log = Logger(subsystem: "com.app.repera", category: "Monetization")

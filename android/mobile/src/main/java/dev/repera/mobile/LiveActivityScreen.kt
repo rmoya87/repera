@@ -465,7 +465,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                                     runtime.choose(sport)
                                     ReperaAnalytics.track(
                                         ReperaAnalytics.Event.ACTIVITY_SELECTED,
-                                        mapOf("feature_area" to "live_sport", "activity_type" to sport.id)
+                                        mapOf(
+                                            "feature_area" to "live_sport",
+                                            "activity_type" to sport.id,
+                                            "activity_family" to ReperaAnalytics.activityFamily(sport.group)
+                                        )
                                     )
                                     showSportPicker = false
                                 },

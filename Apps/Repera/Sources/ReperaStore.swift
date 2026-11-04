@@ -1178,7 +1178,15 @@ final class ReperaStore: NSObject {
             "\(result.source.rawValue): \(result.workouts.count) entrenos, \(result.matchedSets) series"
             + (result.createdExercises.isEmpty ? "" : ", \(result.createdExercises.count) ejercicios nuevos")
         persistWorkouts()
-        if !result.workouts.isEmpty { requestExerciseCatalogRefresh() }
+        if !result.workouts.isEmpty {
+            requestExerciseCatalogRefresh()
+            // Historical imports are not new completions; only count the import action.
+            ReperaAnalytics.track(.dataImportCompleted, parameters: [
+                "feature_area": "training",
+                "result": "success",
+                "flow_type": "csv"
+            ])
+        }
         return result
     }
 
@@ -1224,6 +1232,7 @@ final class ReperaStore: NSObject {
             advanceRotationIfNeeded(finishedRoutineId: finishedRoutineId)
             persistWorkouts()
             requestExerciseCatalogRefresh()
+            emitWorkoutCompletedAnalytics(session, sessionOrigin: "ios", completionPlatform: "ios")
 
             let sessionId = session.id
             let title = session.title
@@ -1295,6 +1304,11 @@ final class ReperaStore: NSObject {
                 HealthKitStore.shared.discardRecordedGPSRoute(sessionID: session.id)
                 await HealthKitStore.shared.discardLiveTracking()
             }
+            ReperaAnalytics.track(.workoutDiscarded, parameters: [
+                "feature_area": "training",
+                "result": "cancelled",
+                "workout_type": analyticsWorkoutType(session)
+            ])
         }
     }
 
@@ -1686,6 +1700,10 @@ final class ReperaStore: NSObject {
         let hkUUID = state.workouts.first(where: { $0.id == id })?.healthKitWorkoutUUID
         state.workouts.removeAll { $0.id == id }
         persistWorkouts()
+        ReperaAnalytics.track(.workoutDeleted, parameters: [
+            "feature_area": "training",
+            "result": "success"
+        ])
         // Evita que el Watch vuelva a transmitir una copia guardada tras el borrado.
         connectivity.sendTerminalEvent(sessionID: id, saved: false)
         // También quitar de Salud: si no, reaparece como actividad externa «propia».
@@ -1768,6 +1786,7 @@ final class ReperaStore: NSObject {
         upsertWorkout(saved)
         persistWorkouts()
         requestExerciseCatalogRefresh()
+        emitWorkoutCompletedAnalytics(saved, sessionOrigin: "ios", completionPlatform: "ios")
 
         let sessionId = saved.id
         let title = saved.title
@@ -1829,6 +1848,7 @@ final class ReperaStore: NSObject {
 
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
+        let alreadyArchived = state.workouts.contains(where: { $0.id == session.id && $0.phase == .finished })
         var draft = session
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
@@ -1855,6 +1875,17 @@ final class ReperaStore: NSObject {
         upsertWorkout(draft)
         persistWorkouts()
         requestExerciseCatalogRefresh()
+        if draft.phase == .finished {
+            if alreadyArchived {
+                ReperaAnalytics.track(.workoutEdited, parameters: [
+                    "feature_area": analyticsFeatureArea(draft),
+                    "workout_type": analyticsWorkoutType(draft),
+                    "result": "success"
+                ])
+            } else {
+                emitWorkoutCompletedAnalytics(draft, sessionOrigin: "ios", completionPlatform: "ios")
+            }
+        }
         if draft.phase == .finished && draft.timerDetails == nil {
             Task {
                 // Una edición permite reintentar una escritura de Salud pendiente.
@@ -2064,6 +2095,13 @@ final class ReperaStore: NSObject {
                     publishSessionChrome()
                 }
                 persistWorkouts()
+                if firstArrival {
+                    emitWorkoutCompletedAnalytics(
+                        pending,
+                        sessionOrigin: "watchos",
+                        completionPlatform: "watchos"
+                    )
+                }
                 let snapshot = state
                 Task { @MainActor in
                     await LocalStore.shared.persistAndFlush(snapshot)
@@ -2144,6 +2182,11 @@ final class ReperaStore: NSObject {
                     restCoordinator.endForSessionClose()
                     publishSessionChrome()
                 }
+                emitWorkoutCompletedAnalytics(
+                    completed,
+                    sessionOrigin: "watchos",
+                    completionPlatform: "watchos"
+                )
                 // Una sesión recibida desde Watch también merece la localidad
                 // que Guardar entreno añade al terminar directamente en iPhone.
                 if let sportID = completed.liveSportID,
@@ -2311,6 +2354,43 @@ final class ReperaStore: NSObject {
             ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast)
         }
         bumpTestedOneRMs(for: session.exercises.map(\.exercise.id))
+    }
+
+    private func emitWorkoutCompletedAnalytics(
+        _ session: WorkoutSession,
+        sessionOrigin: String,
+        completionPlatform: String
+    ) {
+        let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+        let formats = Set((session.routineBlocks ?? []).compactMap { block -> String? in
+            guard block.kind == .wod else { return nil }
+            return block.wodFormat?.rawValue
+        })
+        ReperaAnalytics.trackWorkoutCompleted(
+            sessionID: session.id,
+            workoutType: analyticsWorkoutType(session),
+            activityType: sport?.rawValue,
+            activityFamily: sport.map { ReperaAnalytics.activityFamily(forSportGroup: $0.group) },
+            wodFormat: formats.count == 1 ? formats.first : nil,
+            featureArea: analyticsFeatureArea(session),
+            sessionOrigin: sessionOrigin,
+            completionPlatform: completionPlatform
+        )
+    }
+
+    private func analyticsWorkoutType(_ session: WorkoutSession) -> String {
+        if session.liveSportID != nil { return "live_sport" }
+        if session.timerDetails != nil { return "timer" }
+        if session.routineId != nil { return "planned" }
+        if session.exercises.count == 1,
+           session.title.hasPrefix("Apuntar") { return "quick_log" }
+        return "free"
+    }
+
+    private func analyticsFeatureArea(_ session: WorkoutSession) -> String {
+        if session.liveSportID != nil { return "live_sport" }
+        if session.timerDetails != nil { return "timer" }
+        return "training"
     }
 
     /// Si el e1RM del historial supera el 1RM guardado, sube el tope automáticamente.

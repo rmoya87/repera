@@ -99,7 +99,7 @@ object ReperaAnalytics {
     }
 
     private const val PREFERENCES = "repera.analytics"
-    private const val CONSENT_KEY = "consent.v1"
+    private const val COMPLETED_KEYS = "completed.v1"
     private val allowedKeys = setOf(
         "feature_area", "screen_name", "section_name", "entry_point",
         "access_tier", "result", "flow_type", "activity_family",
@@ -110,43 +110,105 @@ object ReperaAnalytics {
     )
     private val safeValue = Regex("^[a-zA-Z0-9_]{1,40}$")
     @Volatile private var firebase: FirebaseAnalytics? = null
-    @Volatile private var consentGranted = false
+    @Volatile private var appContext: Context? = null
     @Volatile private var deviceClass = "phone"
 
     fun isConfigured(): Boolean = firebase != null
-    fun hasConsent(context: Context): Boolean = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        .getBoolean(CONSENT_KEY, false)
+
+    /** Maps LiveSport UI groups to closed GA4 family IDs (never Spanish labels). */
+    fun activityFamily(forSportGroup: String): String = when (forSportGroup) {
+        "A pie" -> "foot"
+        "Ciclismo" -> "cycling"
+        "Fuerza y fitness" -> "strength_fitness"
+        "Deportes de raqueta" -> "racket"
+        "Deportes acuáticos" -> "water"
+        "Deportes de invierno" -> "winter"
+        "Deportes de equipo" -> "team"
+        "Combate" -> "combat"
+        "Cardio y gimnasio" -> "cardio_gym"
+        else -> "other"
+    }
 
     /** No Firebase resource? No-op. Never break the app or simulate configured analytics. */
     fun configure(context: Context) {
-        deviceClass = if (context.resources.configuration.smallestScreenWidthDp >= 600) "tablet" else "phone"
-        consentGranted = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .getBoolean(CONSENT_KEY, false)
-        val app = FirebaseApp.initializeApp(context) ?: return
+        val appContext = context.applicationContext
+        this.appContext = appContext
+        deviceClass = if (appContext.resources.configuration.smallestScreenWidthDp >= 600) "tablet" else "phone"
+        val app = FirebaseApp.initializeApp(appContext) ?: return
         firebase = FirebaseAnalytics.getInstance(app.applicationContext).also {
-            it.setAnalyticsCollectionEnabled(consentGranted)
+            // Product metrics (not ads): enable once Firebase initializes from real google-services.json.
+            it.setAnalyticsCollectionEnabled(true)
         }
     }
 
-    fun setConsent(context: Context, granted: Boolean) {
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit().putBoolean(CONSENT_KEY, granted).apply()
-        consentGranted = granted
-        firebase?.setAnalyticsCollectionEnabled(granted)
-        if (!granted) firebase?.setUserId(null)
+    fun clearLocalState(context: Context) {
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit().remove(COMPLETED_KEYS).apply()
     }
 
     fun track(event: Event, parameters: Map<String, String> = emptyMap()) {
         val service = firebase ?: return
-        if (!consentGranted) return
-        val data = Bundle().apply {
-            putLong("schema_version", 1)
-            putString("origin_platform", "android")
-            putString("device_class", deviceClass)
-            parameters.forEach { (key, value) ->
-                if (key in allowedKeys && safeValue.matches(value)) putString(key, value)
-            }
+        service.logEvent(event.wire, bundle(parameters))
+    }
+
+    /** Emits at most once per opaque logical key (session id hashed locally; never sent to GA4). */
+    fun trackOnce(event: Event, logicalKey: String, parameters: Map<String, String> = emptyMap()): Boolean {
+        if (firebase == null) return false
+        val prefs = (appContext ?: return false)
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val token = opaqueToken(logicalKey)
+        val seen = prefs.getStringSet(COMPLETED_KEYS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        if (!seen.add(token)) return false
+        if (seen.size > 400) {
+            val trimmed = seen.toList().takeLast(400).toSet()
+            prefs.edit().putStringSet(COMPLETED_KEYS, HashSet(trimmed)).apply()
+        } else {
+            prefs.edit().putStringSet(COMPLETED_KEYS, HashSet(seen)).apply()
         }
-        service.logEvent(event.wire, data)
+        track(event, parameters)
+        return true
+    }
+
+    fun trackWorkoutCompleted(
+        sessionId: String,
+        workoutType: String,
+        activityType: String? = null,
+        activityFamily: String? = null,
+        wodFormat: String? = null,
+        featureArea: String = "training",
+        sessionOrigin: String = "android",
+        completionPlatform: String = "android",
+        accessTier: String? = null
+    ) {
+        val parameters = mutableMapOf(
+            "feature_area" to featureArea,
+            "workout_type" to workoutType,
+            "result" to "success",
+            "session_origin_platform" to sessionOrigin,
+            "completion_platform" to completionPlatform
+        )
+        activityType?.let { parameters["activity_type"] = it }
+        activityFamily?.let { parameters["activity_family"] = it }
+        wodFormat?.let { parameters["wod_format"] = it }
+        accessTier?.let { parameters["access_tier"] = it }
+        trackOnce(Event.WORKOUT_COMPLETED, sessionId, parameters)
+    }
+
+    private fun bundle(parameters: Map<String, String>): Bundle = Bundle().apply {
+        putLong("schema_version", 1)
+        putString("origin_platform", "android")
+        putString("device_class", deviceClass)
+        parameters.forEach { (key, value) ->
+            if (key in allowedKeys && safeValue.matches(value)) putString(key, value)
+        }
+    }
+
+    private fun opaqueToken(logicalKey: String): String {
+        var hash = 5381L
+        for (ch in logicalKey) {
+            hash = ((hash shl 5) + hash) + ch.code
+        }
+        return java.lang.Long.toHexString(hash)
     }
 }

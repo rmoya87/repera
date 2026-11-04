@@ -3,9 +3,11 @@ package dev.repera.mobile
 import android.content.Context
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
+import dev.repera.domain.LiveSport
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 import dev.repera.domain.SessionReview
+import dev.repera.mobile.analytics.ReperaAnalytics
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -207,7 +209,13 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("speedMps", p.speedMps ?: JSONObject.NULL).put("altitudeMeters", p.altitudeMeters ?: JSONObject.NULL)
             .put("horizontalAccuracyMeters", p.horizontalAccuracyMeters ?: JSONObject.NULL)
             .put("verticalAccuracyMeters", p.verticalAccuracyMeters ?: JSONObject.NULL) }))
-        archive.put(session); save(state); return snapshot.gpsSessionID
+        archive.put(session); save(state)
+        emitWorkoutCompleted(
+            session,
+            sessionOrigin = "android",
+            completionPlatform = "android"
+        )
+        return snapshot.gpsSessionID
     }
 
     /**
@@ -2941,6 +2949,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // though the athlete still sees a saved local workout.
         save(state)
         mirror.noteDeleted(id)
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.WORKOUT_DELETED,
+            mapOf("feature_area" to "training", "result" to "success")
+        )
     }
 
     /**
@@ -3098,8 +3110,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
     @Synchronized fun discardActiveSession(): Boolean {
         val state = loadOrNull() ?: return false
         if (state.isNull("activeSession")) return false
+        val discarded = state.optJSONObject("activeSession")
         state.remove("activeSession")
         save(state)
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.WORKOUT_DISCARDED,
+            mapOf(
+                "feature_area" to "training",
+                "result" to "cancelled",
+                "workout_type" to analyticsWorkoutType(discarded)
+            )
+        )
         return true
     }
 
@@ -3309,6 +3330,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
         }
         save(state)
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.WORKOUT_EDITED,
+            mapOf(
+                "feature_area" to analyticsFeatureArea(target),
+                "workout_type" to analyticsWorkoutType(target),
+                "result" to "success"
+            )
+        )
         return true
     }
 
@@ -3384,6 +3413,54 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             reviewPrefs.edit().putString(SessionReviewSupport.PREFS_PENDING_KEY,
                 session.optString("id")).apply()
         }
+        val fromWear = session.optBoolean("awaitingResultEntry") ||
+            session.optString("appleHealthProvenance").contains("watch", ignoreCase = true) ||
+            session.optString("source").equals("wearOS", ignoreCase = true)
+        emitWorkoutCompleted(
+            session,
+            sessionOrigin = if (fromWear) "wearos" else "android",
+            completionPlatform = if (fromWear) "wearos" else "android"
+        )
+    }
+
+    private fun emitWorkoutCompleted(
+        session: JSONObject,
+        sessionOrigin: String,
+        completionPlatform: String
+    ) {
+        val sportId = session.optString("liveSportID").takeIf { it.isNotBlank() }
+        val sport = sportId?.let { LiveSport.byId(it) }
+        val blocks = session.optJSONArray("routineBlocks") ?: JSONArray()
+        val formats = (0 until blocks.length()).mapNotNull { i ->
+            val block = blocks.optJSONObject(i) ?: return@mapNotNull null
+            if (block.optString("kind") != "wod") return@mapNotNull null
+            block.optString("wodFormat").takeIf { it.isNotBlank() }
+        }.toSet()
+        ReperaAnalytics.trackWorkoutCompleted(
+            sessionId = session.optString("id"),
+            workoutType = analyticsWorkoutType(session),
+            activityType = sportId,
+            activityFamily = sport?.let { ReperaAnalytics.activityFamily(it.group) },
+            wodFormat = formats.singleOrNull(),
+            featureArea = analyticsFeatureArea(session),
+            sessionOrigin = sessionOrigin,
+            completionPlatform = completionPlatform
+        )
+    }
+
+    private fun analyticsWorkoutType(session: JSONObject?): String {
+        if (session == null) return "free"
+        if (session.optString("liveSportID").isNotBlank()) return "live_sport"
+        if (!session.isNull("timerDetails")) return "timer"
+        if (session.optString("routineId").isNotBlank()) return "planned"
+        if (session.optString("title").startsWith("Apuntar")) return "quick_log"
+        return "free"
+    }
+
+    private fun analyticsFeatureArea(session: JSONObject): String {
+        if (session.optString("liveSportID").isNotBlank()) return "live_sport"
+        if (!session.isNull("timerDetails")) return "timer"
+        return "training"
     }
 
     /** Id del registro de Health Connect vinculado a la sesión

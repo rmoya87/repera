@@ -1,6 +1,6 @@
 # Plan integral de instrumentación GA4 — Repera
 
-**Fecha:** 2026-11-04 · **Estado:** ejecución por fases · **Rama:** `feat/analytics-cross-platform-foundation-20261104`
+**Fecha:** 2026-11-04 · **Estado:** A+B en código (Cafesito + workouts confirmados) · ver `INSTRUMENTATION_MATRIX.md`
 
 ## Alcance y principios
 
@@ -12,9 +12,9 @@ El evento lógico y sus parámetros son comunes entre plataformas. `origin_platf
 
 | Fase | Alcance | Criterio de aceptación | Estado |
 | --- | --- | --- | --- |
-| 0. Inventario y contrato | Catálogo de eventos, semántica, parámetros, privacidad, IDs de deporte y WOD, matriz funcional | La fuente de eventos y valores es única y testeable | En curso |
-| 1. SDK móvil y consentimiento | Firebase Analytics en iOS/Android; configuración externa y recopilación desactivada por defecto; revocación y borrado | Sin consentimiento no se transmiten eventos; sin Firebase la app no falla | En curso |
-| 2. Embudos núcleo | Alta/onboarding, pantallas, entrenamiento y persistencia, favoritos, temporizadores, progreso y escáner | 1 evento lógico por acción real, comparables y sin duplicados | Pendiente |
+| 0. Inventario y contrato | Catálogo de eventos, semántica, parámetros, privacidad, IDs de deporte y WOD, matriz funcional | La fuente de eventos y valores es única y testeable | Hecho (base) |
+| 1. SDK móvil | Firebase Analytics iOS/Android; sin UI consent (estilo Cafesito); off hasta configurar; sin IDFA/AD_ID | Sin Firebase la app no falla; con Firebase se activan métricas de producto | Hecho (falta plist/json reales) |
+| 2. Embudos núcleo | Alta/onboarding, pantallas, entrenamiento y persistencia, favoritos, temporizadores, progreso y escáner | 1 evento lógico por acción real, comparables y sin duplicados | Parcial: completed/discard/delete/edit + sports/progress/subs |
 | 3. Relojes | Cola duradera, transporte WatchConnectivity/Data Layer, ACK, deduplicación y atribución de origen | Offline/reintentos/cambio de cuenta sin pérdida silenciosa ni doble cómputo | Pendiente |
 | 4. Negocio y monetización | Clases, citas, acceso libre, asistencia, IA, compras verificadas y paywall real | Reservas != asistencia; compra comprobada; patrocinio != compra | Pendiente |
 | 5. Todas las interacciones | Matriz pantalla/sección/componente/acción; gestos, hojas, filtros y accesos del SO | Cada control significativo tiene un nombre estable y pruebas de paridad | Pendiente |

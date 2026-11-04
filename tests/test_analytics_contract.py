@@ -8,6 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = json.loads((ROOT / "analytics/contract.json").read_text())
 IOS = (ROOT / "Apps/Repera/Sources/Analytics/ReperaAnalytics.swift").read_text()
 ANDROID = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/analytics/ReperaAnalytics.kt").read_text()
+IOS_STORE = (ROOT / "Apps/Repera/Sources/ReperaStore.swift").read_text()
+ANDROID_REPO = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt").read_text()
+IOS_SETTINGS = (ROOT / "Apps/Repera/Sources/SettingsView.swift").read_text()
+ANDROID_SETTINGS = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt").read_text()
 
 
 class AnalyticsContractTests(unittest.TestCase):
@@ -35,7 +39,7 @@ class AnalyticsContractTests(unittest.TestCase):
             self.assertRegex(swift_wod, r"\bcase\s+" + re.escape(wod) + r"\b")
             self.assertIn('("' + wod + '")', kotlin_wod)
 
-    def test_opt_in_and_no_health_sdk_in_analytics_adapter(self):
+    def test_collection_disabled_until_firebase_configure_and_no_health_imports(self):
         plist = (ROOT / "Apps/Repera/Resources/Info.plist").read_text()
         android_manifest = (ROOT / "android/mobile/src/main/AndroidManifest.xml").read_text()
         self.assertRegex(
@@ -43,12 +47,22 @@ class AnalyticsContractTests(unittest.TestCase):
             r"<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>\s*<false/>",
         )
         self.assertIn('android:name="firebase_analytics_collection_enabled" android:value="false"', android_manifest)
-        self.assertIn("if (!consentGranted) return", ANDROID)
-        self.assertIn("UserDefaults.standard.bool(forKey: consentKey)", IOS)
+        self.assertIn("setAnalyticsCollectionEnabled(true)", IOS)
+        self.assertIn("setAnalyticsCollectionEnabled(true)", ANDROID)
+        self.assertIn("trackOnce", IOS)
+        self.assertIn("trackOnce", ANDROID)
         self.assertNotIn("import HealthKit", IOS)
         self.assertNotIn("import androidx.health", ANDROID)
         self.assertNotIn("import CoreLocation", IOS)
         self.assertNotIn("import android.location", ANDROID)
+
+    def test_no_in_app_analytics_consent_ui(self):
+        self.assertNotIn("Permitir estadísticas de uso", IOS_SETTINGS)
+        self.assertNotIn("Permitir estadísticas de uso", ANDROID_SETTINGS)
+        self.assertNotIn("setConsent", IOS_SETTINGS)
+        self.assertNotIn("setConsent", ANDROID_SETTINGS)
+        self.assertNotIn("hasConsent", IOS)
+        self.assertNotIn("fun setConsent", ANDROID)
 
     def test_no_tracking_sdk_linked_to_watches(self):
         project = (ROOT / "project.yml").read_text()
@@ -67,7 +81,6 @@ class AnalyticsContractTests(unittest.TestCase):
                      "android/mobile/src/main/java/dev/repera/mobile/monetization/MonetizationAnalytics.kt"):
             self.assertIn("ReperaAnalytics.track", (ROOT / path).read_text())
 
-
     def test_first_sports_and_progress_interactions_are_instrumented_consistently(self):
         swift_sports = (ROOT / "Apps/Repera/Sources/LiveActivityView.swift").read_text()
         android_sports = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt").read_text()
@@ -75,12 +88,30 @@ class AnalyticsContractTests(unittest.TestCase):
         android_progress = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt").read_text()
         self.assertIn("ReperaAnalytics.track(.activitySelected", swift_sports)
         self.assertIn("ReperaAnalytics.Event.ACTIVITY_SELECTED", android_sports)
+        self.assertIn("activity_family", swift_sports)
+        self.assertIn("activity_family", android_sports)
         self.assertIn("ReperaAnalytics.track(.progressSectionViewed", swift_progress)
         self.assertIn("ReperaAnalytics.Event.PROGRESS_SECTION_VIEWED", android_progress)
-        ios_settings = (ROOT / "Apps/Repera/Sources/SettingsView.swift").read_text()
-        android_settings = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt").read_text()
-        self.assertIn("ReperaAnalytics.setConsent", ios_settings)
-        self.assertIn("ReperaAnalytics.setConsent", android_settings)
+
+    def test_workout_completion_hooks_after_persistence(self):
+        self.assertIn("emitWorkoutCompletedAnalytics", IOS_STORE)
+        self.assertIn("trackWorkoutCompleted", IOS)
+        self.assertIn("emitWorkoutCompleted(", ANDROID_REPO)
+        self.assertIn("trackWorkoutCompleted", ANDROID)
+        self.assertIn("workoutDiscarded", IOS_STORE)
+        self.assertIn("WORKOUT_DISCARDED", ANDROID_REPO)
+        self.assertIn("workoutDeleted", IOS_STORE)
+        self.assertIn("WORKOUT_DELETED", ANDROID_REPO)
+        self.assertIn("workoutEdited", IOS_STORE)
+        self.assertIn("WORKOUT_EDITED", ANDROID_REPO)
+        emitted_types = ("planned", "free", "live_sport", "timer", "quick_log")
+        for value in emitted_types:
+            self.assertIn(value, CONTRACT["enum_values"]["workout_type"])
+            self.assertIn(f'return "{value}"', IOS_STORE)
+            self.assertIn(f'return "{value}"', ANDROID_REPO)
+        for value in CONTRACT["enum_values"]["activity_family"]:
+            self.assertIn(f'return "{value}"', IOS)
+            self.assertIn(f'"{value}"', ANDROID)
 
 
 if __name__ == "__main__":

@@ -2389,7 +2389,8 @@ struct LiveActivityView: View {
                     if recorder.sport == sport {
                         ReperaAnalytics.track(.activitySelected, parameters: [
                             "feature_area": "live_sport",
-                            "activity_type": sport.rawValue
+                            "activity_type": sport.rawValue,
+                            "activity_family": ReperaAnalytics.activityFamily(forSportGroup: sport.group)
                         ])
                     }
                     // La preferencia Mapa/Métricas pertenece al usuario,

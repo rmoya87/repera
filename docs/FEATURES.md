@@ -1,5 +1,12 @@
 # Funcionalidades Repera
 
+## Analytics GA4 (04/11/2026)
+
+- Métricas de producto vía Firebase Analytics (iOS/Android), estilo cafesito-app: **sin toggle en Ajustes**, sin IDFA/`AD_ID`.
+- Sin `GoogleService-Info.plist` / `google-services.json` la app funciona igual y no envía nada; con configuración real se activan eventos.
+- Se registran, entre otros: pantallas, deporte elegido (`activity_type` + familia), secciones de Progreso, embudo Pro y **entrenamientos completados/descartados/borrados/editados** tras persistencia (deduplicados).
+- No se envían salud, GPS, títulos libres ni datos personales. Relojes sin SDK Firebase (relay pendiente). Detalle: `docs/analytics/`.
+
 ## Superficies nativas del SO — fase 5 (04/11/2026)
 
 - **Compartir / Abrir con:** Share Extension iOS y intents Android `SEND`/`VIEW` para GPX y foto de pizarra; la app hidratada importa la ruta o abre el OCR (sin sensores en la extensión).
