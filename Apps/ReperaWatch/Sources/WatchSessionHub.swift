@@ -83,6 +83,10 @@ final class WatchSessionHub: NSObject {
     private var watchLivePoints: [WorkoutRoutePoint] = []
     private var lastAltitude: Double?
     private let locationManager = CLLocationManager()
+    /// Lectura puntual inicial de un workout; la ruta outdoor es independiente.
+    private var startLocationSessionID: UUID?
+    private var startLocationRequestedAt: Date?
+    private var watchLiveStartPin: WorkoutLocationPin?
     private var watchLiveTick: Timer?
 
     private struct OfflineState: Codable {
@@ -678,13 +682,7 @@ final class WatchSessionHub: NSObject {
             outdoor: sport.usesGPS
         )
         publishComplicationSnapshot(force: true)
-        if sport.usesGPS {
-            locationManager.delegate = self
-            locationManager.desiredAccuracy = kCLLocationAccuracyBest
-            locationManager.activityType = .fitness
-            locationManager.requestWhenInUseAuthorization()
-            locationManager.startUpdatingLocation()
-        }
+        captureStartLocation(sessionID: id, recordsRoute: sport.usesGPS)
         watchLiveTick?.invalidate()
         watchLiveTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickWatchLive() }
@@ -740,6 +738,7 @@ final class WatchSessionHub: NSObject {
         tickWatchLive()
         let finishedAt = Date()
         let points = watchLivePoints
+        let startPin = watchLiveStartPin
         let distance = watchLiveDistanceMeters
         let elapsed = watchLiveElapsedSeconds
         let kcalSnapshot = health.kcal
@@ -752,6 +751,7 @@ final class WatchSessionHub: NSObject {
             phase: .finished,
             startedAt: started,
             finishedAt: finishedAt,
+            locationPin: startPin,
             routePoints: points,
             liveSportID: sport.rawValue,
             recordedDistanceMeters: distance > 0 ? distance : nil,
@@ -838,6 +838,9 @@ final class WatchSessionHub: NSObject {
         watchLivePausedAt = nil
         watchLivePausedAccum = 0
         watchLivePoints = []
+        watchLiveStartPin = nil
+        startLocationSessionID = nil
+        startLocationRequestedAt = nil
         lastAltitude = nil
         watchLiveTick?.invalidate()
         watchLiveTick = nil
@@ -929,6 +932,7 @@ final class WatchSessionHub: NSObject {
         lastFinished = nil
         summaryDismissed = false
         acknowledgedSessionID = nil
+        captureStartLocation(sessionID: next.session.id, recordsRoute: false)
         isPaused = false
         reviewingBlock = false
         restRemaining = 0
@@ -1562,12 +1566,72 @@ final class WatchSessionHub: NSObject {
             lastFinished = nil
         }
         startedOnThisWatch = false
+        if startLocationSessionID == discardedID {
+            startLocationSessionID = nil
+            startLocationRequestedAt = nil
+        }
         summaryDismissed = true
         resetSetDraft()
         save()
         if !fromPhone {
             connectivity.sendDiscarded(sessionID: discardedID)
         }
+    }
+
+    /// Una posición inicial, sin crear track, distancia ni un segundo workout.
+    private func captureStartLocation(sessionID: UUID, recordsRoute: Bool) {
+        startLocationSessionID = sessionID
+        startLocationRequestedAt = Date()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        locationManager.activityType = .fitness
+        switch locationManager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            if recordsRoute { locationManager.startUpdatingLocation() }
+            else { locationManager.requestLocation() }
+        case .notDetermined:
+            // El permiso solo se solicita tras la acción explícita Iniciar.
+            locationManager.requestWhenInUseAuthorization()
+        default:
+            startLocationSessionID = nil
+            startLocationRequestedAt = nil
+        }
+    }
+
+    private func acceptStartLocation(_ location: CLLocation) {
+        guard let id = startLocationSessionID,
+              let began = startLocationRequestedAt,
+              location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 100,
+              location.timestamp.timeIntervalSince(began) >= -15,
+              location.timestamp.timeIntervalSince(began) <= 45 else { return }
+        let pin = WorkoutLocationPin(
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            recordedAt: location.timestamp,
+            horizontalAccuracyMeters: location.horizontalAccuracy,
+            source: "appleWatch"
+        )
+        if watchLiveSessionID == id {
+            if watchLiveStartPin == nil { watchLiveStartPin = pin }
+            startLocationSessionID = nil
+            startLocationRequestedAt = nil
+            return
+        }
+        if var current = controller?.session, current.id == id {
+            if current.locationPin == nil {
+                current.locationPin = pin
+                controller = SessionController(session: current)
+                checkpoint() // Sincronización actual + copia offline.
+            }
+        } else if var finished = lastFinished, finished.id == id,
+                  finished.locationPin == nil {
+            finished.locationPin = pin
+            lastFinished = finished
+            save()
+            connectivity.sendFinished(finished)
+        }
+        startLocationSessionID = nil
+        startLocationRequestedAt = nil
     }
 
     private func completeSession() {
@@ -1979,8 +2043,28 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
 }
 
 extension WatchSessionHub: CLLocationManagerDelegate {
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        Task { @MainActor in
+            guard let id = self.startLocationSessionID else { return }
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                if self.watchLiveSessionID == id && self.watchLiveSport?.usesGPS == true {
+                    self.locationManager.startUpdatingLocation()
+                } else {
+                    self.locationManager.requestLocation()
+                }
+            } else if status == .denied || status == .restricted {
+                self.startLocationSessionID = nil
+                self.startLocationRequestedAt = nil
+            }
+        }
+    }
+
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor in
+            if let fix = locations.first(where: { $0.horizontalAccuracy >= 0 }) {
+                self.acceptStartLocation(fix)
+            }
             guard self.watchLiveSport?.usesGPS == true, !self.watchLivePaused else { return }
             for location in locations where location.horizontalAccuracy >= 0 && location.horizontalAccuracy < 50 {
                 if let last = self.watchLivePoints.last {

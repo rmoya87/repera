@@ -1174,7 +1174,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         state.durationSeconds(now),
                         title,
                         notes,
-                        activityConditions = runtime.liveConditions
+                        activityConditions = runtime.liveConditions,
+                        locationPin = runtime.startLocationPin
                     )
                     if (runtime.discard()) {
                         LiveActivityService.stop(context)
@@ -1232,7 +1233,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Button(onClick={
                 if (hasActiveWorkout) onOpenWorkout()
                 else if (startCountdown > 0) cancelStartCountdown()
-                else if(state.sport.usesGPS && ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
+                else if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
                     permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
                 else beginStartCountdown()
             },modifier=Modifier.testTag("live_start")) {

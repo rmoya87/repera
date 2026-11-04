@@ -3,7 +3,13 @@ package dev.repera.mobile
 import android.content.Context
 import dev.repera.domain.LiveActivityState
 import dev.repera.domain.LiveSport
+import dev.repera.domain.WorkoutLocationPin
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.json.JSONObject
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.security.MessageDigest
@@ -18,6 +24,20 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private val folder = File(app.filesDir,"users/" + MessageDigest.getInstance("SHA-256")
         .digest(accountID.toByteArray()).joinToString("") { "%02x".format(it) })
     private val store = LiveActivitySnapshotStore(File(folder,"live_activity.json"))
+    private val startPinFile = File(folder, "live_start_pin.json")
+    private val pointCaptureScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /** El punto se vincula al UUID real; jamás se hereda al siguiente entreno. */
+    val startLocationPin: WorkoutLocationPin?
+        get() = runCatching {
+            val data = JSONObject(startPinFile.readText())
+            if (data.optString("sessionId") != state.gpsSessionID) null else WorkoutLocationPin(
+                latitude = data.getDouble("latitude"),
+                longitude = data.getDouble("longitude"),
+                recordedAtEpochMs = data.getLong("recordedAtEpochMs"),
+                horizontalAccuracyMeters = data.optDouble("horizontalAccuracyMeters"),
+                source = "androidPhone"
+            )
+        }.getOrNull()
     private var lastSaveMillis = 0L
     private var lastWearPublishMillis = 0L
     private var lastWearPhase: LiveActivityState.Phase? = null
@@ -156,6 +176,27 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         if (recoveryBlocked || state.phase != LiveActivityState.Phase.IDLE) return
         latestKilometerReport=null
         state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
+        runCatching { startPinFile.delete() }
+        // Para indoor solo una posición inicial; nunca acumular routePoints.
+        if (!state.sport.usesGPS) captureIndoorStartLocation(state.gpsSessionID)
+    }
+
+    private fun captureIndoorStartLocation(id: String) {
+        pointCaptureScope.launch {
+            val pin = runCatching { WorkoutLocationTracker(app).capturePin() }.getOrNull()
+            if (pin != null && state.gpsSessionID == id &&
+                state.phase in setOf(LiveActivityState.Phase.RECORDING,
+                    LiveActivityState.Phase.PAUSED, LiveActivityState.Phase.REVIEW)) {
+                val json = JSONObject().put("sessionId", id)
+                    .put("latitude", pin.latitude).put("longitude", pin.longitude)
+                    .put("recordedAtEpochMs", pin.recordedAtEpochMs)
+                    .put("horizontalAccuracyMeters", pin.horizontalAccuracyMeters)
+                runCatching {
+                    folder.mkdirs()
+                    startPinFile.writeText(json.toString())
+                }
+            }
+        }
     }
     fun pause() {
         if (state.phase != LiveActivityState.Phase.RECORDING) return
@@ -187,7 +228,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { store.clear() } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();runCatching { startPinFile.delete() };recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()
