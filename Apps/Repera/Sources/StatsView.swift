@@ -239,7 +239,7 @@ struct StatsView: View {
 
     /// Progresiones e1RM solo con sesiones del periodo del hub (no 3 meses fijos).
     private var exerciseProgressDeltas: [(id: UUID, name: String, ratio: Double)] {
-        var rows: [(UUID, String, Double)] = []
+        var rows: [(id: UUID, name: String, ratio: Double)] = []
         let workouts = snap.filteredWorkouts
         for exercise in snap.chartExercises.prefix(40) {
             let points = StatsEngine.exerciseProgressSeries(
@@ -254,7 +254,7 @@ struct StatsView: View {
             else { continue }
             rows.append((id: exercise.id, name: exercise.name, ratio: last / first))
         }
-        return rows.sorted { $0.ratio > $1.ratio }
+        return rows.sorted { lhs, rhs in lhs.ratio > rhs.ratio }
     }
 
     private var improvedExerciseCount: Int { exerciseProgressDeltas.count }
