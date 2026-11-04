@@ -64,6 +64,18 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         session = source("android/mobile/src/main/java/dev/repera/mobile/SessionStore.kt")
         self.assertIn("if (identityChanged) runCatching { ReperaWidgetRefresh.enqueue(appContext) }", session)
 
+    def test_workoutkit_only_exports_goals_with_explicit_user_action(self):
+        source_text = source("Apps/Repera/Sources/AppleWorkoutExportSheet.swift")
+        self.assertIn("SingleGoalWorkout.supportsActivity", source_text)
+        self.assertIn("SingleGoalWorkout.supportsGoal", source_text)
+        self.assertIn("try await plan.openInWorkoutApp()", source_text)
+        self.assertIn("case .running, .walking, .hiking", source_text)
+        self.assertIn("utiliza Entreno de Apple o Repera", source_text)
+        self.assertNotIn("HKWorkoutSession(", source_text)
+        screen = source("Apps/Repera/Sources/LiveActivityView.swift")
+        self.assertIn("if recorder.phase == .idle, !recorder.isStartCountingDown", screen)
+        self.assertIn("AppleWorkoutExportSheet(sport: recorder.sport)", screen)
+
     def test_export_is_explicit_and_uses_unmodified_gps(self):
         export = source("Apps/Repera/Sources/RouteGPXExporter.swift")
         self.assertIn("RouteGPXExporter", export)
