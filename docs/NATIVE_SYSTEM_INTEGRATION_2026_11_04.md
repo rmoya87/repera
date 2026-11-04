@@ -30,5 +30,8 @@ Implementación incremental sobre la PR #221. Distinguir **implementado / compil
 | Entrega remota garantizada de recordatorios | Credenciales + deploy |
 | Conciliación HealthKit/Health Connect en dispositivo real | Hardware |
 | Emuladores API 30/35/37.2 y Wear 5.1/6.0 | CI (ver checks de la PR) |
+| Share Extension / intent GPX a nivel sistema | Pendiente (import in-app ya existe) |
+| AppSearch de rutinas **privadas** (además del catálogo público) | No implementado a propósito: solo público opt-in |
+| Banner «Usar este lugar» Android paridad total con `SportNearbyPlaceSuggester` iOS | Parcial (título/geocoder; falta POI ≤50 m + aceptar/descartar) |
 
 No marcar las cuatro fases como «terminadas» sin CI verde e integración en `main`.
