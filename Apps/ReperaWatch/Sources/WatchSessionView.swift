@@ -7,6 +7,8 @@ struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
     @State private var showOutline = false
     @State private var showSetDetails = false
+    @State private var showSpokenSet = false
+    @State private var spokenDraft = ""
     @State private var editingRepsWithCrown = false
     @FocusState private var repsCrownFocused: Bool
     private enum WatchTrainingPrompt { case start, finish, discard }
@@ -91,6 +93,7 @@ struct WatchSessionView: View {
                 if let workout = hub.active { outlineView(workout) }
             }
             .sheet(isPresented: $showSetDetails) { setDetailsView }
+            .sheet(isPresented: $showSpokenSet) { dictatedSetSheet }
             .confirmationDialog(
                 trainingPromptTitle,
                 isPresented: Binding(
@@ -821,6 +824,17 @@ struct WatchSessionView: View {
                 }
                 .disabled(hub.isPaused)
             }
+            Button {
+                spokenDraft = ""
+                showSpokenSet = true
+            } label: {
+                Label("Dictar valores de la serie", systemImage: "mic")
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 34)
+            }
+            .buttonStyle(.bordered)
+            .disabled(hub.isPaused)
+            .accessibilityHint("Dictar y revisar repeticiones o kilos antes de aplicar. No confirma la serie.")
 
             Text(hub.loggingStyle == .machineWork ? hub.setDraft.unit.shortLabel
                  : (hub.loggingStyle == .repsAndTime ? "Veces" : "Reps"))
@@ -896,6 +910,57 @@ struct WatchSessionView: View {
             value: timeLabel(hub.setDraft.durationSeconds ?? 0),
             down: { hub.adjustDuration(-5) },
             up: { hub.adjustDuration(5) })
+    }
+
+    /// watchOS supplies its native text input, including speech dictation.
+    /// Applying changes the visible draft only. Siguiente still confirms it.
+    private var dictatedSetSheet: some View {
+        let parsed = WatchSpokenSet.parse(spokenDraft)
+        let allowsWeight = hub.current?.exercise.loadField == .weightKg
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Dictar serie", systemImage: "mic")
+                    .font(.headline)
+                Text("Ejemplo: 12 repeticiones, 45 kilos")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                TextField("Repeticiones y peso", text: $spokenDraft)
+                    .textContentType(.none)
+                if let parsed {
+                    if let reps = parsed.reps {
+                        Text("Repeticiones: \(reps)")
+                    }
+                    if let kg = parsed.weightKg {
+                        Text("Peso: \(ReperaNumberFormat.decimal(kg)) kg")
+                    }
+                    if parsed.weightKg != nil && !allowsWeight {
+                        Text("Este ejercicio no registra kilos.")
+                            .foregroundStyle(.orange)
+                            .font(.caption2)
+                    }
+                } else {
+                    Text("Indica el número seguido de «repeticiones» o «kilos».")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Aplicar valores") {
+                    guard let parsed, !hub.isPaused else { return }
+                    if let reps = parsed.reps {
+                        hub.adjustReps(reps - hub.workingReps)
+                    }
+                    if allowsWeight, let kg = parsed.weightKg {
+                        hub.adjustWeight(kg - (hub.workingWeightKg ?? 0))
+                    }
+                    showSpokenSet = false
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(parsed == nil || hub.isPaused ||
+                    (parsed?.weightKg != nil && !allowsWeight))
+                Button("Cancelar") { showSpokenSet = false }
+                    .buttonStyle(.bordered)
+            }
+            .padding(10)
+        }
     }
 
     /// One identical, glanceable interaction for reps, weight, deficit,
