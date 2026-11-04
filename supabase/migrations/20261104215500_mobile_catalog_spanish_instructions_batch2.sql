@@ -122,7 +122,7 @@ where catalog_key = 'catalog:Cargada muscular';
 
 update public.business_exercise_catalog
 set mobile_instructions = array[
-  'Inicio en rack frontal: de pie con la barra sobre los hombros, codos ligeramente altos y pies a la anchura de la cadera.',
+  'Cargada a rack frontal: recibe la barra sobre los hombros en cuarto de squat, codos altos, torso erguido y cadera por encima de las rodillas.',
   'Press estricto: la barra sube por delante de la cara con las piernas bloqueadas y el torso vertical.',
   'Bloqueo overhead: brazos extendidos con la barra sobre el mediopié y la cabeza ligeramente adelantada.',
   'Si el press falla, baja la carga del clean o haz push press programado.',
