@@ -3,8 +3,9 @@ package dev.repera.mobile.monetization
 import android.util.Log
 import dev.repera.domain.monetization.PaywallContext
 import dev.repera.domain.monetization.ReperaFeature
+import dev.repera.mobile.analytics.ReperaAnalytics
 
-/** Instrumentación desacoplada: hoy solo logging local en builds debug. Sin terceros. */
+/** Mantiene el logger Debug; los eventos GA4 pasan por consentimiento y allowlist. */
 object MonetizationAnalytics {
     private const val TAG = "Monetization"
 
@@ -26,6 +27,14 @@ object MonetizationAnalytics {
         productID: String? = null,
         result: String? = null
     ) {
+        ReperaAnalytics.Event.entries.firstOrNull { it.wire == event.wire }?.let { canonical ->
+            val parameters = buildMap<String, String> {
+                feature?.let { put("feature_id", it.wire) }
+                context?.let { put("paywall_context", it.wire) }
+                result?.let { put("result", it) }
+            }
+            ReperaAnalytics.track(canonical, parameters)
+        }
         if (!dev.repera.mobile.BuildConfig.DEBUG) return
         val parts = mutableListOf(event.wire)
         feature?.let { parts += "feature=${it.wire}" }

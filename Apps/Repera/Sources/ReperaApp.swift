@@ -53,6 +53,7 @@ struct ReperaApp: App {
     }
 
     init() {
+        ReperaAnalytics.configure()
         // Parallel disk/catalog warm before first frame / HealthKitStore.init.
         LaunchWarmup.start()
         WorkoutCompletionNotifier.shared.install()

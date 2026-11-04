@@ -156,7 +156,7 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn('"ownerScope": expectedOwner', phone)
         self.assertIn('message["ownerScope"] as? String == expectedOwner', phone)
         self.assertIn("incoming != currentOwnerScope", watch)
-        self.assertIn('owners[id.uuidString] == currentOwnerScope', watch)
+        self.assertIn('owners[session.id.uuidString] == currentOwnerScope', watch)
         self.assertIn('self?.applyContext(payload)', watch)
 
     def test_watch_prefills_exact_prescribed_series_and_requests_fresh_today(self):
@@ -345,7 +345,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
     def test_watch_large_controls_share_green_black_design(self):
         view = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         accent = "Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)"
-        self.assertIn(accent, view)
+        self.assertIn(accent, source("Apps/ReperaWatch/Sources/WatchTheme.swift"))
+        self.assertIn("private var accent: Color { WatchTheme.accent }", view)
         self.assertIn("private func valueStepButton(", view)
         self.assertIn('valueStepButton(symbol: "minus", label: "Restar repetición")', view)
         self.assertIn('valueStepButton(symbol: "plus", label: "Sumar repetición")', view)
@@ -375,7 +376,8 @@ class WatchHealthKitContractTests(unittest.TestCase):
 
         # One brand hue: iOS OG.accent is #30D158, black for filled controls.
         self.assertIn("static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", theme)
-        self.assertIn("private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", view)
+        self.assertIn("static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)", source("Apps/ReperaWatch/Sources/WatchTheme.swift"))
+        self.assertIn("private var accent: Color { WatchTheme.accent }", view)
         self.assertIn(".background(accent, in: RoundedRectangle(cornerRadius: 18", view)
         self.assertIn(".frame(width: 58, height: 62)", view)
         self.assertIn('systemName: hub.isPaused ? "play.fill" : "pause.fill"', view)

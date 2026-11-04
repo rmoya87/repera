@@ -1,5 +1,26 @@
 # Repera Android / Wear OS — matriz de paridad verificada en código
 
+## Corrección del runner de Wear OS 5.1 (04/11/2026)
+
+El job **Wear integration tests on Wear OS images (API 35)** del run
+[`41829036961`](https://github.com/rmoya87/repera/actions/runs/41829036961)
+falló antes de ejecutar ninguna prueba: el emulador mostró
+`FATAL | Not enough space to create userdata partition`
+(5,26 GB libres frente a 7,37 GB requeridos), seguido de
+`device emulator-5554 not found` y timeout de arranque. **No fue un
+fallo de la app ni de una aserción de Wear**, sino de infraestructura CI.
+
+La configuración de `.github/workflows/android-native-ci.yml` ahora libera
+las herramientas grandes preinstaladas del runner antes de iniciar el AVD,
+limita explícitamente `disk-size: 4096M`, registra el espacio disponible y
+conserva la exigencia de **al menos una prueba instrumentada real**, con
+despliegue beta bloqueado mientras fallen los jobs dependientes.
+
+**Pendiente de confirmar** el resultado en el nuevo run. No interpretar una
+compilación verde como aprobación de los tests instrumentados o un despliegue
+publicado en Play.
+
+
 **Hub Deportes 31/10/2026:** `WearHubHome` fullscreen (plan → recientes →
 catálogo); swipe/rotary; mute/timer **abajo** (`FilledTonalIconButton` +
 `touchTargetAwareSize`); títulos con `TextAutoSize`; timer sin chips de 3;

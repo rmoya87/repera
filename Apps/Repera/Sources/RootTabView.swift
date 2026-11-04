@@ -89,7 +89,17 @@ struct RootTabView: View {
         .onChange(of: horizontalSizeClass) { _, _ in
             updateDuoLayout(availableSize: lastAvailableSize)
         }
-        .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
+        .onAppear {
+            updateDuoLayout(availableSize: lastAvailableSize)
+            let initialScreen: String = switch tab {
+            case .home: "home"
+            case .start: "start"
+            case .plus: "center"
+            case .stats: "progress"
+            case .exercises: "exercises"
+            }
+            ReperaAnalytics.track(.screenView, parameters: ["screen_name": initialScreen])
+        }
         .onChange(of: hasLinkedCenter) { _, linked in
             if !linked && tab == .plus { tab = .home }
         }
@@ -155,6 +165,14 @@ struct RootTabView: View {
         .animation(.easeOut(duration: 0.18), value: flowPath.isEmpty)
         .tint(OG.accent)
         .onChange(of: tab) { _, newTab in
+            let screen: String = switch newTab {
+            case .home: "home"
+            case .start: "start"
+            case .plus: "center"
+            case .stats: "progress"
+            case .exercises: "exercises"
+            }
+            ReperaAnalytics.track(.screenView, parameters: ["screen_name": screen])
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
             if newTab != .start && LiveActivityRecorder.shared.phase == .idle {
                 UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")

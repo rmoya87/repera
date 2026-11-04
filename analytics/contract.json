@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "description": "Contrato transversal GA4. Los eventos son logicos, la plataforma de origen se declara en parametros. Sin datos de Salud, localizacion o texto introducido por usuarios.",
+  "common_parameters": [
+    "schema_version",
+    "origin_platform",
+    "device_class",
+    "feature_area",
+    "screen_name",
+    "section_name",
+    "entry_point",
+    "access_tier",
+    "result"
+  ],
+  "optional_parameters": [
+    "session_origin_platform",
+    "completion_platform",
+    "flow_type",
+    "activity_family",
+    "activity_type",
+    "workout_type",
+    "wod_format",
+    "service_kind",
+    "class_category",
+    "interaction_type",
+    "component_id",
+    "action_name",
+    "timer_type",
+    "paywall_context",
+    "feature_id",
+    "error_code",
+    "event_id",
+    "screen_label",
+    "section_label"
+  ],
+  "enum_values": {
+    "origin_platform": [
+      "ios",
+      "android",
+      "watchos",
+      "wearos"
+    ],
+    "device_class": [
+      "phone",
+      "tablet",
+      "watch"
+    ],
+    "feature_area": [
+      "account",
+      "onboarding",
+      "home",
+      "training",
+      "live_sport",
+      "timer",
+      "exercises",
+      "scanner",
+      "progress",
+      "center",
+      "subscription",
+      "ai",
+      "settings",
+      "reliability"
+    ],
+    "access_tier": [
+      "free",
+      "pro",
+      "sponsored",
+      "unknown"
+    ],
+    "service_kind": [
+      "class",
+      "appointment",
+      "open_access"
+    ],
+    "result": [
+      "success",
+      "failure",
+      "cancelled",
+      "pending"
+    ],
+    "progress_section": [
+      "training",
+      "strength",
+      "fitness",
+      "heart",
+      "recovery",
+      "sports"
+    ],
+    "interaction_type": [
+      "tap",
+      "swipe",
+      "long_press",
+      "selection",
+      "toggle",
+      "submit",
+      "dismiss",
+      "zoom",
+      "pan",
+      "crown",
+      "voice",
+      "shortcut"
+    ],
+    "wod_format": [
+      "amrap",
+      "emom",
+      "forTime",
+      "tabata",
+      "chipper",
+      "deathBy",
+      "strength",
+      "afap",
+      "ladder",
+      "partner",
+      "buyInCashOut",
+      "roundsForQuality",
+      "circuit",
+      "maxEffort"
+    ],
+    "timer_type": [
+      "standalone",
+      "rest",
+      "interval",
+      "wod"
+    ]
+  },
+  "events_by_area": {
+    "account": [
+      "screen_view",
+      "login",
+      "sign_up",
+      "settings_changed"
+    ],
+    "onboarding": [
+      "onboarding_started",
+      "onboarding_completed"
+    ],
+    "home": [
+      "ui_interaction",
+      "watch_app_opened"
+    ],
+    "training": [
+      "workout_created",
+      "workout_scheduled",
+      "workout_edited",
+      "workout_deleted",
+      "workout_started",
+      "workout_paused",
+      "workout_resumed",
+      "workout_set_recorded",
+      "workout_block_completed",
+      "workout_save_requested",
+      "workout_completed",
+      "workout_discarded",
+      "workout_save_failed",
+      "favorite_added",
+      "favorite_reused",
+      "favorite_removed"
+    ],
+    "live_sport": [
+      "activity_selected",
+      "route_loaded",
+      "route_saved",
+      "navigation_started",
+      "navigation_mode_changed",
+      "map_recenter_requested",
+      "sport_favorite_added"
+    ],
+    "timer": [
+      "timer_started",
+      "timer_paused",
+      "timer_resumed",
+      "timer_completed",
+      "timer_discarded",
+      "rest_timer_skipped"
+    ],
+    "exercises": [
+      "exercise_search_used",
+      "exercise_detail_viewed",
+      "custom_exercise_created"
+    ],
+    "scanner": [
+      "scan_started",
+      "scan_processed",
+      "scan_result_accepted",
+      "scan_saved",
+      "scan_failed"
+    ],
+    "progress": [
+      "progress_section_viewed",
+      "progress_period_selected",
+      "progress_detail_opened",
+      "exercise_history_viewed",
+      "personal_record_viewed"
+    ],
+    "center": [
+      "center_search_used",
+      "center_invite_opened",
+      "center_link_completed",
+      "center_unlinked",
+      "class_list_viewed",
+      "class_viewed",
+      "class_booking_requested",
+      "class_booking_confirmed",
+      "class_booking_cancelled",
+      "class_waitlist_joined",
+      "class_attended",
+      "appointment_confirmed",
+      "class_plan_opened"
+    ],
+    "subscription": [
+      "premium_feature_tapped",
+      "free_limit_reached",
+      "paywall_viewed",
+      "paywall_dismissed",
+      "checkout_started",
+      "checkout_cancelled",
+      "trial_started",
+      "subscription_started",
+      "subscription_restored",
+      "purchase_failed",
+      "entitlement_changed"
+    ],
+    "ai": [
+      "ai_connection_started",
+      "ai_connection_verified",
+      "ai_program_received",
+      "ai_program_activated",
+      "ai_program_paused"
+    ],
+    "reliability": [
+      "operation_failed",
+      "sync_completed",
+      "sync_failed",
+      "watch_command_used",
+      "watch_sync_confirmed",
+      "watch_sync_failed",
+      "notification_opened",
+      "data_import_completed",
+      "data_export_completed"
+    ]
+  },
+  "sport_ids": [
+    "running",
+    "cycling",
+    "walking",
+    "hiking",
+    "trail",
+    "mountainBike",
+    "gravel",
+    "crossfit",
+    "strength",
+    "hiit",
+    "hyrox",
+    "tennis",
+    "padel",
+    "surfing",
+    "swimming",
+    "windsurfing",
+    "kitesurfing",
+    "kayaking",
+    "rowing",
+    "canoeing",
+    "sailing",
+    "golf",
+    "skiing",
+    "iceSkating",
+    "snowboarding",
+    "crossCountrySkiing",
+    "soccer",
+    "basketball",
+    "volleyball",
+    "climbing",
+    "dance",
+    "pilates",
+    "skateboarding",
+    "boxing",
+    "kickboxing",
+    "martialArts",
+    "wrestling",
+    "badminton",
+    "pickleball",
+    "squash",
+    "functionalStrength",
+    "coreTraining",
+    "elliptical",
+    "stairClimbing",
+    "americanFootball",
+    "baseball",
+    "softball",
+    "hockey",
+    "lacrosse",
+    "rugby",
+    "yoga",
+    "mobility",
+    "other"
+  ],
+  "privacy": {
+    "allow_user_supplied_labels": false,
+    "excluded": [
+      "health_samples",
+      "heart_rate",
+      "sleep",
+      "hrv",
+      "body_weight",
+      "calories",
+      "gps",
+      "coordinates",
+      "routes",
+      "personal_notes",
+      "class_title",
+      "workout_title",
+      "organization_name",
+      "coach_name",
+      "email",
+      "phone_number",
+      "auth_token",
+      "exercise_user_text",
+      "ocr_text"
+    ],
+    "notes": "Solo IDs de catalogos publicos y claves de categoria controladas. No registrar busquedas, títulos libres ni IDs persistentes de sesiones como dimensiones GA4."
+  }
+}
