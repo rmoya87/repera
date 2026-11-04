@@ -98,6 +98,8 @@ struct DayEditorView: View {
     /// Edición de una sesión terminada usando exactamente los mismos bloques/reordenación.
     var onApplyCompleted: ((Routine, WorkoutSession, Bool) -> Void)? = nil
     var completedSession: WorkoutSession? = nil
+    /// Salud puede tener la ruta aunque aún no esté en el snapshot local.
+    var completedHasHealthRoute: Bool = false
     var embedsNavigationStack: Bool = true
     /// Página push (Entreno → Editar): título large + chevron volver; sin X.
     var usesPageCloseHeader: Bool = false
@@ -136,6 +138,11 @@ struct DayEditorView: View {
 
     private var completedWorkoutDraft: WorkoutSession? {
         completedDetails ?? completedSession
+    }
+
+    /// Una ruta grabada es el registro del reloj/GPS, no un lugar editable.
+    private var completedHasRecordedRoute: Bool {
+        (completedWorkoutDraft?.routePoints.count ?? 0) >= 2 || completedHasHealthRoute
     }
 
     private func ensureCompletedWorkoutDraft() {
@@ -264,9 +271,9 @@ struct DayEditorView: View {
                 }
             }
 
-            // El lugar del entreno realizado es editable también si hubo ruta GPS.
-            // Se muestra antes de los resultados, sin duplicarlo en la cabecera.
-            if isEditingCompletedWorkout {
+            // Lugar editable solo si no hay ruta real del reloj o del teléfono.
+            // Una ruta GPS se muestra intacta en el detalle del entrenamiento.
+            if isEditingCompletedWorkout && !completedHasRecordedRoute {
                 Section {
                     editorCompletedPlaceRow
                 } header: {
@@ -1103,9 +1110,10 @@ struct DayEditorView: View {
     /// Usa la posición guardada durante el entrenamiento, nunca el GPS actual
     /// al abrir un histórico: editar un entreno antiguo no debe reubicarlo.
     private func hydrateCompletedWorkoutPlace() async {
-        guard isEditingCompletedWorkout, let session = completedSession else { return }
+        guard isEditingCompletedWorkout, !completedHasRecordedRoute,
+              let session = completedSession else { return }
         let stored = store.state.workouts.first(where: { $0.id == session.id }) ?? session
-        guard !completedPlaceEdited,
+        guard !completedPlaceEdited, !completedHasRecordedRoute,
               completedWorkoutDraft?.locationPin?.hasChosenPlace != true else { return }
 
         // El guardado del fin de sesión puede completar el pin mientras se
@@ -1128,7 +1136,7 @@ struct DayEditorView: View {
             routePoints: stored.routePoints,
             existingPin: pin
         )
-        guard !Task.isCancelled, !completedPlaceEdited,
+        guard !Task.isCancelled, !completedPlaceEdited, !completedHasRecordedRoute,
               completedWorkoutDraft?.locationPin?.hasChosenPlace != true,
               let suggested else { return }
         ensureCompletedWorkoutDraft()
@@ -1200,6 +1208,13 @@ struct DayEditorView: View {
                 edited.title = "Entreno"
             }
             var detailsToSave = completedDetails
+            if completedHasRecordedRoute {
+                // Protección adicional: ni un borrador antiguo ni una selección
+                // tardía pueden cambiar la localización de una ruta GPS.
+                detailsToSave.locationPin = store.state.workouts.first(where: {
+                    $0.id == completedDetails.id
+                })?.locationPin ?? completedSession?.locationPin
+            }
             if saveAsFavorite {
                 // Editar un histórico no debe crear duplicados si ya tiene
                 // una plantilla favorita. Tampoco modifica el plan original.
