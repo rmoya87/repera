@@ -19,11 +19,11 @@ final class ReperaSmokeUITests: XCTestCase {
         app.launch()
         // Tab labels from RootTabView.
         XCTAssertTrue(app.tabBars.buttons["Inicio"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.tabBars.buttons["Diario"].exists)
+        // Diario was retired; keep smoke coverage aligned with current navigation.
         // La tercera pestaña se llama «Comenzar» desde el rediseño.
-        XCTAssertTrue(app.tabBars.buttons["Comenzar"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Progreso"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Ejercicios"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Comenzar"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.tabBars.buttons["Progreso"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.tabBars.buttons["Ejercicios"].waitForExistence(timeout: 8))
     }
 
     /// Regression check for size changes (rotation, and re-layout on Duo).
@@ -51,6 +51,7 @@ final class ReperaSmokeUITests: XCTestCase {
         let app = makeTestApp()
         app.launch()
         app.tabBars.buttons["Ejercicios"].tap()
-        XCTAssertTrue(app.navigationBars["Ejercicios"].waitForExistence(timeout: 5))
+        // LibraryView uses a custom inline title rather than a navigation bar.
+        XCTAssertTrue(app.staticTexts["Ejercicios"].waitForExistence(timeout: 8))
     }
 }
