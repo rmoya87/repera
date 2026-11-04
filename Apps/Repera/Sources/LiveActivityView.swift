@@ -860,6 +860,7 @@ private final class LiveGPXParser: NSObject, XMLParserDelegate {
     private var dateText = ""
     private var parsingTime = false
     private var activePoint: WorkoutRoutePoint?
+    private let isoFormatter = ISO8601DateFormatter()
 
     func parse(_ data: Data) throws -> [WorkoutRoutePoint] {
         let parser = XMLParser(data: data)
@@ -891,7 +892,7 @@ private final class LiveGPXParser: NSObject, XMLParserDelegate {
                 qualifiedName qName: String?) {
         let tag = name.components(separatedBy: ":").last ?? name
         if tag == "time" {
-            if let date = ISO8601DateFormatter().date(from: dateText) {
+            if let date = isoFormatter.date(from: dateText) {
                 activePoint?.recordedAt = date
             }
             parsingTime = false
@@ -999,7 +1000,8 @@ private struct LiveSnapshot: Codable {
     var pausedAt: Date?
     var pausedSeconds: TimeInterval
     var recordedDistanceMeters: Double
-    var routePoints: [WorkoutRoutePoint]
+    /// Legacy only: geometry now lives in `RouteCheckpointStore` files.
+    var routePoints: [WorkoutRoutePoint]?
     var savedAt: Date
     var selectedRouteID: UUID?
     var kilometerSplits: [LiveKmSplit]?
@@ -1030,7 +1032,20 @@ final class LiveActivityRecorder: NSObject {
     private(set) var pausedAt: Date?
     private(set) var pausedSeconds: TimeInterval = 0
     private(set) var recordedDistanceMeters: Double = 0
-    private(set) var routePoints: [WorkoutRoutePoint] = []
+    /// The GPS buffer is not observed per fix; views refresh via `routeRevision`
+    /// (at most once per second while recording).
+    @ObservationIgnored private var routeStorage: [WorkoutRoutePoint] = []
+    private(set) var routeRevision = 0
+    @ObservationIgnored private var lastRoutePublish = Date.distantPast
+    @ObservationIgnored private var routePublishTask: Task<Void, Never>?
+    var routePoints: [WorkoutRoutePoint] {
+        _ = routeRevision
+        return routeStorage
+    }
+    /// Recovered geometry is decoded off the main actor after launch.
+    @ObservationIgnored private var pendingRouteRestore = false
+    @ObservationIgnored private var persistedRouteCount = 0
+    private static let routeCheckpointFile = "live-current"
     private(set) var elevationGainMeters: Double = 0
     private(set) var elevationLossMeters: Double = 0
     private var elevationReferenceMeters: Double?
@@ -1051,8 +1066,8 @@ final class LiveActivityRecorder: NSObject {
     private(set) var followingTurnMeters: Int?
     private(set) var followingTurnSymbol: String?
     private(set) var upcomingTurnStreet: String?
-    private var streetNamesByTurn: [Int: String] = [:]
-    private var lastStreetTurnIndex: Int?
+    @ObservationIgnored private var streetNamesByTurn: [Int: String] = [:]
+    @ObservationIgnored private var lastStreetTurnIndex: Int?
     @ObservationIgnored private var streetRequest: MKReverseGeocodingRequest?
     /// El widget recibe únicamente la próxima maniobra; no recibe el GPX.
     var navigationCue: TrainingActivityAttributes.ContentState.NavigationCue? {
@@ -1066,19 +1081,19 @@ final class LiveActivityRecorder: NSObject {
         )
     }
     private var lastKilometerBoundarySeconds: TimeInterval = 0
-    private var previousFixActiveSeconds: TimeInterval?
-    private var selectedRouteDistance: [Double] = []
-    private var selectedRouteTurns: [LiveRouteTurn] = []
-    private var announcedTurnIndices: Set<Int> = []
+    @ObservationIgnored private var previousFixActiveSeconds: TimeInterval?
+    @ObservationIgnored private var selectedRouteDistance: [Double] = []
+    @ObservationIgnored private var selectedRouteTurns: [LiveRouteTurn] = []
+    @ObservationIgnored private var announcedTurnIndices: Set<Int> = []
     /// Avisos de aproximación, una vez por giro; los avisos cercanos se controlan aparte.
-    private var announcedApproachTurnIndices: Set<Int> = []
+    @ObservationIgnored private var announcedApproachTurnIndices: Set<Int> = []
     // Los avisos por voz son opt-out; las notificaciones de segundo plano
     // siguen dependiendo del permiso del usuario.
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
     @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
-    private var guidanceAudioActive = false
+    @ObservationIgnored private var guidanceAudioActive = false
     /// No cerrar AVAudioSession entre dos frases que AVSpeechSynthesizer ha encolado.
-    private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
+    @ObservationIgnored private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
     private(set) var spokenGuidanceEnabled = true
     private var gpsSessionID = UUID()
     /// Última muestra real llegada desde el Watch para una sesión de iPhone concreta.
@@ -1102,11 +1117,11 @@ final class LiveActivityRecorder: NSObject {
     }
 
     /// Recuperación exclusiva de una grabación interrumpida, no una pausa.
-    private var needsInterruptedGPSRecovery = false
+    @ObservationIgnored private var needsInterruptedGPSRecovery = false
     private(set) var estimatedRecoveryMeters: Double = 0
-    private var lastSave = Date.distantPast
-    private var lastLiveActivityUpdate = Date.distantPast
-    private var lastPublishedDistanceMeters: Double = 0
+    @ObservationIgnored private var lastSave = Date.distantPast
+    @ObservationIgnored private var lastLiveActivityUpdate = Date.distantPast
+    @ObservationIgnored private var lastPublishedDistanceMeters: Double = 0
     private let snapshotKey = "repera.live.current.v1"
     /// Condiciones Open-Meteo (marea/nieve) para Watch y revisión.
     private(set) var liveConditions: ActivityConditionsSnapshot?
@@ -1131,31 +1146,17 @@ final class LiveActivityRecorder: NSObject {
             pausedAt = snapshot.pausedAt ?? snapshot.savedAt
             pausedSeconds = snapshot.pausedSeconds
             recordedDistanceMeters = snapshot.recordedDistanceMeters
-            routePoints = snapshot.routePoints
             estimatedRecoveryMeters = snapshot.estimatedRecoveryMeters ?? 0
-            rebuildElevationFromRoute()
             gpsSessionID = snapshot.gpsSessionID ?? UUID()
             reviewLocationPin = snapshot.locationPin
-            // The independent GPS checkpoint may include later fixes than the
-            // UI snapshot, especially after a sudden process termination.
-            if let gps = WorkoutLocationTracker.shared.restoreForResume(sessionID: gpsSessionID),
-               gps.points.count > routePoints.count {
-                routePoints = gps.points
-                recordedDistanceMeters = max(recordedDistanceMeters, gps.meters)
-                rebuildElevationFromRoute()
-            }
             kilometerSplits = snapshot.kilometerSplits ?? []
             lastKilometerBoundarySeconds = snapshot.lastKilometerBoundarySeconds ?? 0
             latestKilometerReport = kilometerSplits.last.map {
                 "Km \($0.kilometer) · \($0.clock) min/km"
             }
-            currentCoordinate = routePoints.last.map {
-                CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-            }
             chosenRoute = snapshot.selectedRouteID.flatMap { id in
                 LiveRoutesStore.shared.routes.first { $0.id == id }
             }
-            prepareRouteNavigation()
             // Si iOS terminó el proceso durante una grabación reciente,
             // recuperar tiempo y GPS; las pausas manuales se mantienen pausadas.
             let age = Date().timeIntervalSince(snapshot.savedAt)
@@ -1164,13 +1165,31 @@ final class LiveActivityRecorder: NSObject {
             if needsInterruptedGPSRecovery {
                 phase = .recording
                 pausedAt = nil
-                // Reconstruct the missing time of each estimated kilometre
-                // between the last authentic fix and the next GPS contact.
-                previousFixActiveSeconds = routePoints.last.map {
-                    max(0, $0.recordedAt.timeIntervalSince(snapshot.startedAt) - pausedSeconds)
-                }
             } else {
                 phase = .paused
+            }
+            if let legacy = snapshot.routePoints, !legacy.isEmpty {
+                // Pre-2026-11 snapshot: move its geometry into the file store
+                // and keep only metadata in UserDefaults.
+                routeStorage = legacy
+                RouteCheckpointStore.save(
+                    RouteCheckpoint(id: gpsSessionID, points: legacy, meters: recordedDistanceMeters),
+                    name: Self.routeCheckpointFile
+                )
+                var metadata = snapshot
+                metadata.routePoints = nil
+                if let data = try? JSONEncoder().encode(metadata) {
+                    UserDefaults.standard.set(data, forKey: snapshotKey)
+                }
+            }
+            pendingRouteRestore = true
+            let sessionID = gpsSessionID
+            Task { @MainActor [weak self] in
+                let own = await RouteCheckpointStore.loadAsync(
+                    RouteCheckpoint.self, name: Self.routeCheckpointFile
+                )
+                let gps = await WorkoutLocationTracker.storedCheckpointAsync(for: sessionID)
+                self?.completeRouteRestore(own: own, gps: gps)
             }
         } else if let savedSport = UserDefaults.standard.string(forKey: "repera.live.lastSport"),
                   let restored = LiveSport(rawValue: savedSport) {
@@ -1183,8 +1202,68 @@ final class LiveActivityRecorder: NSObject {
 
     var isActive: Bool { phase != .idle }
 
+    /// Any mutation that reads or writes the route waits for recovery; the
+    /// async load is normally done long before the first user action.
+    private func ensureRouteRestored() {
+        guard pendingRouteRestore else { return }
+        completeRouteRestore(
+            own: RouteCheckpointStore.load(RouteCheckpoint.self, name: Self.routeCheckpointFile),
+            gps: WorkoutLocationTracker.storedCheckpoint(for: gpsSessionID)
+        )
+    }
+
+    /// The independent GPS checkpoint may include later fixes than the
+    /// recorder's own copy, especially after a sudden process termination.
+    private func completeRouteRestore(own: RouteCheckpoint?, gps: RouteCheckpoint?) {
+        guard pendingRouteRestore else { return }
+        pendingRouteRestore = false
+        for candidate in [own, gps].compactMap({ $0 }) where candidate.id == gpsSessionID
+            && candidate.points.count > routeStorage.count {
+            routeStorage = candidate.points
+            recordedDistanceMeters = max(recordedDistanceMeters, candidate.meters)
+        }
+        persistedRouteCount = own?.id == gpsSessionID ? own?.points.count ?? 0 : 0
+        rebuildElevationFromRoute()
+        currentCoordinate = routeStorage.last.map {
+            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+        }
+        prepareRouteNavigation()
+        if needsInterruptedGPSRecovery, let startedAt {
+            // Reconstruct the missing time of each estimated kilometre
+            // between the last authentic fix and the next GPS contact.
+            previousFixActiveSeconds = routeStorage.last.map {
+                max(0, $0.recordedAt.timeIntervalSince(startedAt) - pausedSeconds)
+            }
+        }
+        publishRoute(force: true)
+    }
+
+    private func setRoute(_ points: [WorkoutRoutePoint]) {
+        routeStorage = points
+        publishRoute(force: true)
+    }
+
+    private func publishRoute(force: Bool = false) {
+        let now = Date()
+        if force || now.timeIntervalSince(lastRoutePublish) >= 1 {
+            routePublishTask?.cancel()
+            routePublishTask = nil
+            lastRoutePublish = now
+            routeRevision &+= 1
+            return
+        }
+        guard routePublishTask == nil else { return }
+        routePublishTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, !Task.isCancelled else { return }
+            self.routePublishTask = nil
+            self.publishRoute(force: true)
+        }
+    }
+
     /// Tras relanzar el proceso, restaurar el sensor sin pulsar Iniciar.
     func resumeInterruptedRecordingIfNeeded() {
+        ensureRouteRestored()
         guard needsInterruptedGPSRecovery, phase == .recording else { return }
         needsInterruptedGPSRecovery = false
         if sport.usesGPS { startGPS(bridgingInterruption: true) }
@@ -1429,7 +1508,9 @@ final class LiveActivityRecorder: NSObject {
         pausedAt = nil
         pausedSeconds = 0
         recordedDistanceMeters = 0
-        routePoints = []
+        setRoute([])
+        persistedRouteCount = 0
+        RouteCheckpointStore.remove(name: Self.routeCheckpointFile)
         reviewLocationPin = nil
         estimatedRecoveryMeters = 0
         needsInterruptedGPSRecovery = false
@@ -1494,6 +1575,7 @@ final class LiveActivityRecorder: NSObject {
     }
 
     private func startGPS(bridgingInterruption: Bool = false) {
+        ensureRouteRestored()
         let expected = gpsSessionID
         Task { @MainActor [weak self] in
             let tracker = WorkoutLocationTracker.shared
@@ -1545,6 +1627,7 @@ final class LiveActivityRecorder: NSObject {
 
     func pause() {
         guard phase == .recording else { return }
+        ensureRouteRestored()
         pausedAt = Date()
         phase = .paused
         if sport.usesGPS { stopGPS(clear: false) }
@@ -1662,6 +1745,7 @@ final class LiveActivityRecorder: NSObject {
 
     func finish() {
         guard phase == .recording || phase == .paused else { return }
+        ensureRouteRestored()
         let now = Date()
         if let pausedAt { pausedSeconds += now.timeIntervalSince(pausedAt) }
         pausedAt = nil
@@ -1679,6 +1763,7 @@ final class LiveActivityRecorder: NSObject {
 
     func makeSession(title: String, notes: String) -> WorkoutSession? {
         guard phase == .review, let startedAt, let finishedAt else { return nil }
+        ensureRouteRestored()
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return WorkoutSession(
@@ -1731,7 +1816,10 @@ final class LiveActivityRecorder: NSObject {
         startedAt = nil
         finishedAt = nil
         pausedAt = nil
-        routePoints = []
+        pendingRouteRestore = false
+        setRoute([])
+        persistedRouteCount = 0
+        RouteCheckpointStore.remove(name: Self.routeCheckpointFile)
         recordedDistanceMeters = 0
         elevationGainMeters = 0
         elevationLossMeters = 0
@@ -1760,12 +1848,24 @@ final class LiveActivityRecorder: NSObject {
         )
     }
 
+    /// Metadata goes to UserDefaults; geometry is written to a file only when
+    /// the shared GPS tracker is not already checkpointing this session
+    /// (review, or a recovered route without a running sensor).
     private func persistSnapshot() {
         guard let start = startedAt, phase != .idle else { return }
+        ensureRouteRestored()
+        let trackerOwnsRoute = WorkoutLocationTracker.shared.trackingSessionID == gpsSessionID
+        if !trackerOwnsRoute, !routeStorage.isEmpty, routeStorage.count != persistedRouteCount {
+            RouteCheckpointStore.save(
+                RouteCheckpoint(id: gpsSessionID, points: routeStorage, meters: recordedDistanceMeters),
+                name: Self.routeCheckpointFile
+            )
+            persistedRouteCount = routeStorage.count
+        }
         let snap = LiveSnapshot(
             sport: sport.rawValue, phase: phase.rawValue,
             startedAt: start, pausedAt: pausedAt, pausedSeconds: pausedSeconds,
-            recordedDistanceMeters: recordedDistanceMeters, routePoints: routePoints,
+            recordedDistanceMeters: recordedDistanceMeters, routePoints: nil,
             savedAt: Date(), selectedRouteID: chosenRoute?.id,
             kilometerSplits: kilometerSplits,
             lastKilometerBoundarySeconds: lastKilometerBoundarySeconds,
@@ -1798,10 +1898,11 @@ final class LiveActivityRecorder: NSObject {
         }
         previousFixActiveSeconds = activeSeconds
         if !update.bridgedPoints.isEmpty {
-            routePoints.append(contentsOf: update.bridgedPoints)
+            routeStorage.append(contentsOf: update.bridgedPoints)
             estimatedRecoveryMeters += update.bridgedDistanceMeters
         }
-        routePoints.append(update.point)
+        routeStorage.append(update.point)
+        publishRoute()
         if sport.tracksElevation, let altitude = update.point.altitudeMeters,
            let accuracy = update.point.verticalAccuracyMeters, accuracy <= 15 {
             integrateElevation(altitude)
@@ -1832,7 +1933,7 @@ final class LiveActivityRecorder: NSObject {
         elevationLossMeters = 0
         elevationReferenceMeters = nil
         guard sport.tracksElevation else { return }
-        for point in routePoints {
+        for point in routeStorage {
             if let altitude = point.altitudeMeters {
                 integrateElevation(altitude)
             }
@@ -2213,6 +2314,9 @@ struct LiveActivityView: View {
     }
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
+    /// Rebuilt only when the recorder publishes a new route revision, not on
+    /// every continuous map-camera change.
+    @State private var liveSegments: [LiveColoredMapSegment] = []
     @Namespace private var routeZoomNamespace
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     /// La cámara visible existe incluso mientras el GPS obtiene su primer punto.
@@ -2376,10 +2480,11 @@ struct LiveActivityView: View {
     /// se pierde la señal. Se agrupan colores consecutivos para no crear miles
     /// de overlays en MapKit durante entrenamientos prolongados.
     /// Mismo motor adaptativo del historial, incluyendo muestras GPS estimadas.
-    private var coloredLiveSegments: [LiveColoredMapSegment] {
-        let points = recorder.routePoints
+    private static func coloredLiveSegments(
+        points: [WorkoutRoutePoint], sport: LiveSport
+    ) -> [LiveColoredMapSegment] {
         guard points.count >= 2 else { return [] }
-        let limit = recorder.sport.maxGPSMetersPerSecond
+        let limit = sport.maxGPSMetersPerSecond
         var measurements: [(index: Int, start: CLLocationCoordinate2D,
                             end: CLLocationCoordinate2D, speed: Double,
                             meters: Double, isEstimated: Bool)] = []
@@ -2418,7 +2523,7 @@ struct LiveActivityView: View {
             AdaptiveRoutePace.Sample(speedMps: smoothed[$0],
                                      distanceMeters: measurements[$0].meters,
                                      isEstimated: measurements[$0].isEstimated)
-        }, mode: recorder.sport.routePaceMode)
+        }, mode: sport.routePaceMode)
         var output: [LiveColoredMapSegment] = []
         var previousIndex = -1, previousBucket = -1
         for (i, sample) in measurements.enumerated() {
@@ -2429,7 +2534,7 @@ struct LiveActivityView: View {
                 output[output.count - 1].coordinates.append(sample.end)
             } else {
                 let rgb = AdaptiveRoutePace.rgb(position: Double(bucket) / 8,
-                                                water: recorder.sport.isWaterSport)
+                                                water: sport.isWaterSport)
                 output.append(LiveColoredMapSegment(
                     id: sample.index, coordinates: [sample.start, sample.end],
                     color: Color(red: rgb.red, green: rgb.green, blue: rgb.blue),
@@ -2471,7 +2576,7 @@ struct LiveActivityView: View {
                     })
                     .stroke(OG.blue, lineWidth: 5)
                 }
-                ForEach(coloredLiveSegments) { segment in
+                ForEach(liveSegments) { segment in
                     MapPolyline(coordinates: segment.coordinates)
                         .stroke(segment.color, style: StrokeStyle(
                             lineWidth: 5, lineCap: .round, lineJoin: .round,
@@ -2525,6 +2630,11 @@ struct LiveActivityView: View {
                 // en 3D no deben interrumpir automáticamente el seguimiento.
             }
             .ignoresSafeArea()
+            .onChange(of: recorder.routeRevision, initial: true) {
+                liveSegments = Self.coloredLiveSegments(
+                    points: recorder.routePoints, sport: recorder.sport
+                )
+            }
 
             // Adaptación real al tamaño de la ventana, también para DUO y
             // pantallas plegables: no depender solo de la orientación física.
@@ -4332,6 +4442,15 @@ private struct LiveRouteLibraryDetailView: View {
         completeAttempts.compactMap(\.activeDurationSeconds).min()
     }
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @ScaledMetric(relativeTo: .body) private var scaledRouteMapHeight: CGFloat = 230
+
+    /// Crece con Dynamic Type y en anchura regular, sin ocupar toda la pantalla.
+    private var routeMapHeight: CGFloat {
+        let base = horizontalSizeClass == .regular ? scaledRouteMapHeight * 1.35 : scaledRouteMapHeight
+        return min(max(base, 200), 400)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -4345,7 +4464,7 @@ private struct LiveRouteLibraryDetailView: View {
                         .stroke(OG.accent, lineWidth: 5)
                     }
                     .mapControlVisibility(.hidden)
-                    .frame(height: 230)
+                    .frame(height: routeMapHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .task(id: route.id) {
                         position = .region(region(for: route.points))

@@ -217,7 +217,7 @@ internal object SessionSummaryTilesBuilder {
         // "For Time · 12:34" / "AMRAP · 3 rondas + 45 reps" / "… · 150"
         val afterDot = first.substringAfter("·", missingDelimiterValue = first).trim()
         Regex("""^(\d+):(\d{2})$""").find(afterDot)?.let { m ->
-            return "%d:%02d".format(m.groupValues[1].toInt(), m.groupValues[2].toInt())
+            return "%d:%02d".format(java.util.Locale.ROOT, m.groupValues[1].toInt(), m.groupValues[2].toInt())
         }
         Regex("""(\d+)\s*rondas?\s*\+\s*(\d+)""", RegexOption.IGNORE_CASE).find(afterDot)?.let { m ->
             return "${m.groupValues[1]}+${m.groupValues[2]}"
@@ -238,7 +238,7 @@ internal object SessionSummaryTilesBuilder {
                 .takeIf { it.isFinite() }?.roundToInt()
                 ?: score.optInt("elapsedSeconds", -1).takeIf { it >= 0 }
             if (elapsed != null && elapsed >= 0) {
-                return "%d:%02d".format(elapsed / 60, elapsed % 60)
+                return "%d:%02d".format(java.util.Locale.ROOT, elapsed / 60, elapsed % 60)
             }
         }
         if (score.has("totalReps") && !score.isNull("totalReps")) {
@@ -294,7 +294,7 @@ internal object SessionSummaryTilesBuilder {
         val h = s / 3600
         val m = (s % 3600) / 60
         val sec = s % 60
-        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+        return if (h > 0) "%d:%02d:%02d".format(java.util.Locale.ROOT, h, m, sec) else "%d:%02d".format(java.util.Locale.ROOT, m, sec)
     }
 
     fun paceOrSpeedLabel(
@@ -309,7 +309,7 @@ internal object SessionSummaryTilesBuilder {
             ReperaNumberFormat.decimal(meters / seconds * 3.6)
         } else {
             val secPerKm = (seconds / (meters / 1000.0)).roundToInt()
-            "%d:%02d".format(secPerKm / 60, secPerKm % 60)
+            "%d:%02d".format(java.util.Locale.ROOT, secPerKm / 60, secPerKm % 60)
         }
     }
 }

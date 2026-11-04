@@ -39,6 +39,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             )
         }.getOrNull()
     private var lastSaveMillis = 0L
+    @Volatile private var checkpointGeneration = 0L
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var lastWearPublishMillis = 0L
     private var lastWearPhase: LiveActivityState.Phase? = null
     private val voice = LiveSpokenGuidance(app)
@@ -225,7 +227,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     fun discard(): Boolean {
         // Primero retirar el checkpoint. Si falla no afirmar descarte ni
         // perder la actividad que sigue recuperable en disco.
-        try { store.clear() } catch (_: Exception) {
+        checkpointGeneration++
+        try { synchronized(store) { store.clear() } } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
         voice.stop();location.stop(state.gpsSessionID);state.discard();runCatching { startPinFile.delete() };recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
@@ -234,8 +237,21 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         val now=System.currentTimeMillis()
         if (!force && now-lastSaveMillis<10_000) return
         val snapshot=state.snapshot(now) ?: return
-        try { store.write(snapshot);lastSaveMillis=now }
-        catch (_: Exception) { lastError="No se pudo guardar el punto de recuperación. Comprueba el almacenamiento." }
+        lastSaveMillis=now
+        val generation=checkpointGeneration
+        // Writes are serialized off the main looper; a discard bumps the generation
+        // under the store lock so a queued write can never resurrect a discarded activity.
+        checkpointIO.execute {
+            try { synchronized(store) { if (generation==checkpointGeneration) store.write(snapshot) } }
+            catch (_: Exception) {
+                mainHandler.post {
+                    if (generation!=checkpointGeneration) return@post
+                    lastSaveMillis=0L
+                    lastError="No se pudo guardar el punto de recuperación. Comprueba el almacenamiento."
+                    revisions.value += 1
+                }
+            }
+        }
     }
     private fun startGPS(bridgingInterruption: Boolean = false) {
         if (!state.sport.usesGPS) return
@@ -265,6 +281,9 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         }
     }
     companion object {
+        private val checkpointIO = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+            Thread(r, "repera-live-checkpoint").apply { isDaemon = true }
+        }
         private var current: LiveActivityRuntime? = null
         @Synchronized fun forAccount(context: Context, accountID: String): LiveActivityRuntime {
             require(accountID.isNotBlank())

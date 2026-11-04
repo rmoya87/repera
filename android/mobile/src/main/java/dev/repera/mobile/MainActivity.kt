@@ -68,6 +68,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     private var syncing by mutableStateOf(false)
     private var status by mutableStateOf<String?>(null)
     private var snapshot by mutableStateOf<StateOverview?>(null)
+    private val snapshotCache = SnapshotDerivedCache()
+    /** Fresh read + parse off the main thread; derivations memoized per snapshot content. */
+    private suspend fun <T : Any> deriveFromSnapshot(key: Any, compute: (JSONObject) -> T?): T? {
+        val uid = profile?.uniqueId ?: return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                snapshotCache.publish(uid, LocalSnapshotStore(this@MainActivity, uid).read())
+                snapshotCache.derive(uid, key, compute)
+            }.getOrNull()
+        }.takeIf { profile?.uniqueId == uid }
+    }
     private var activeWorkout by mutableStateOf<ActiveWorkout?>(null)
     private var wearTimerMirror by mutableStateOf<JSONObject?>(null)
     private var pendingReview by mutableStateOf<dev.repera.domain.SessionReview?>(null)
@@ -687,7 +698,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        externalRoute = routeFromIntent(intent)
+        resolveExternalRoute(intent)
+    }
+    private var externalRouteJob: kotlinx.coroutines.Job? = null
+    /** Deep-link validation reads the session and app_state.json: off the main thread, latest intent wins. */
+    private fun resolveExternalRoute(intent: android.content.Intent?) {
+        externalRouteJob?.cancel()
+        externalRouteJob = lifecycleScope.launch {
+            externalRoute = withContext(Dispatchers.IO) { routeFromIntent(intent) }
+        }
     }
     private fun routeFromIntent(intent: android.content.Intent?): String? {
         val uri = intent?.data ?: return null
@@ -719,7 +738,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val activeId=owner?.let {runCatching {LocalSnapshotStore(this,it).read()?.let {b ->org.json.JSONObject(String(b,Charsets.UTF_8)).optJSONObject("activeSession")?.optString("id")}}.getOrNull()}
             if(!PlannedWorkoutReopen.valid(owner,sessions.identityRevision(),activeId,intent.getStringExtra("plannedOwner"),intent.getStringExtra("plannedRevision"),intent.getStringExtra("plannedSession"))) return "inicio"
         }
-        return LiveNavigationTarget.route(uri.host)
+        return LiveNavigationTarget.route(uri.host, uri.pathSegments.orEmpty())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -735,7 +754,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             )
         )
         super.onCreate(savedInstanceState)
-        externalRoute = routeFromIntent(intent)
+        resolveExternalRoute(intent)
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
         setContent {
@@ -745,16 +764,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val sessionMovementProvider: suspend (String) -> dev.repera.domain.SessionMovement? = { sessionId ->
                 val uid = profile?.uniqueId
                 val revision = centerGate.revision
-                if (uid == null) null else {
-                    val reader = HealthConnectReader(this)
+                if (uid == null) null else withContext(Dispatchers.IO) {
+                    val reader = HealthConnectReader(this@MainActivity)
                     runCatching {
                         if (!reader.available() || !reader.hasPermissions()) return@runCatching null
-                        val repo = WorkoutRepository(this, uid)
+                        val repo = WorkoutRepository(this@MainActivity, uid)
                         val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
                         reader.readSessionMovement(range.first, range.second,
                             linkedRecordId = repo.healthRecordId(sessionId), linkedSessionId = sessionId)
-                    }.getOrNull().takeIf { profile?.uniqueId == uid && centerGate.revision == revision }
-                }
+                    }.getOrNull()
+                }.takeIf { profile?.uniqueId == uid && centerGate.revision == revision }
             }
             CompositionLocalProvider(LocalSubscriptions provides subscriptions, LocalSessionMovement provides sessionMovementProvider, LocalManualMirrorSync provides ManualMirrorSyncState(manualMirrorSyncing, verifiedSupabase != null, manualMirrorLastAt, manualMirrorCount, manualMirrorError, ::syncWorkoutMirrorNow), LocalRemovePendingSet provides { id: String -> runWorkoutAction { removePendingSet(id) } }, LocalEditPendingSet provides { id: String, reps: Int, kg: Double? -> runWorkoutAction { editPendingSet(id, reps, kg) } }, LocalPersistLiveRows provides { sid: String, index: Int, rows: List<ActiveSessionDraft.Row>, unit: String? -> persistLiveRowsNow(sid, index, rows, unit) }) {
             if (restoringSession) {
@@ -780,28 +799,20 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onWearTimerCommand = { command -> sendWearTimerCommand(command) },
                 onSetTestedOneRM = { id,value -> runWorkoutAction { setTestedOneRM(id,value) } },
                 exerciseSummary = { exerciseId ->
-                    val uid = profile?.uniqueId
-                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
-                    if (bytes == null) null else dev.repera.domain.StatsEngine.exerciseHistory(
-                        exerciseId,
-                        workouts = ProgressSnapshotBuilder.statsWorkouts(
-                            org.json.JSONObject(String(bytes, Charsets.UTF_8))))
+                    deriveFromSnapshot(listOf("summary", exerciseId)) { root ->
+                        dev.repera.domain.StatsEngine.exerciseHistory(
+                            exerciseId, workouts = ProgressSnapshotBuilder.statsWorkouts(root))
+                    }
                 },
                 exerciseSeries = { exerciseId, metric, range ->
-                    val uid = profile?.uniqueId
-                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
-                    if (bytes == null) emptyList() else ExerciseProgressSeries.compute(
-                        org.json.JSONObject(String(bytes, Charsets.UTF_8))
-                            .optJSONArray("workouts") ?: org.json.JSONArray(),
-                        exerciseId, metric, range)
+                    deriveFromSnapshot(listOf("series", exerciseId, metric, range)) { root ->
+                        ExerciseProgressSeries.compute(
+                            root.optJSONArray("workouts") ?: org.json.JSONArray(),
+                            exerciseId, metric, range)
+                    }.orEmpty()
                 },
                 sessionAppearances = { exerciseId, highlightSessionId, instanceId ->
-                    val uid = profile?.uniqueId
-                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
-                    if (bytes == null) {
-                        null to null
-                    } else {
-                        val root = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                    deriveFromSnapshot(listOf("appearances", exerciseId, highlightSessionId, instanceId)) { root ->
                         val workouts = root.optJSONArray("workouts")
                             ?: org.json.JSONArray()
                         val catalog = root.optJSONArray("exercises")
@@ -826,31 +837,32 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             excludingSessionId = highlightSessionId, limit = 1
                         ).firstOrNull()
                         thisAppearance to prior
-                    }
+                    } ?: (null to null)
                 },
                 heartSeriesProvider = { sessionId ->
                     val uid = profile?.uniqueId
                     val revision=centerGate.revision
-                    if (uid == null) emptyList() else {
-                        val reader = HealthConnectReader(this)
+                    if (uid == null) emptyList() else withContext(Dispatchers.IO) {
+                        val reader = HealthConnectReader(this@MainActivity)
                         runCatching {
                             if (!reader.available() || !reader.hasPermissions())
                                 return@runCatching emptyList()
-                            val range = WorkoutRepository(this, uid)
+                            val range = WorkoutRepository(this@MainActivity, uid)
                                 .sessionTimeRange(sessionId)
                                 ?: return@runCatching emptyList()
                             reader.readSessionHeartSeries(range.first, range.second,
-                                linkedRecordId = WorkoutRepository(this, uid).healthRecordId(sessionId),
+                                linkedRecordId = WorkoutRepository(this@MainActivity, uid).healthRecordId(sessionId),
                                 linkedSessionId = sessionId)
-                        }.getOrDefault(emptyList()).takeIf {profile?.uniqueId==uid && centerGate.revision==revision}.orEmpty()
-                    }
+                        }.getOrDefault(emptyList())
+                    }.takeIf {profile?.uniqueId==uid && centerGate.revision==revision}.orEmpty()
                 },
                 loadGuideProvider = { exerciseId, targetReps, targetRir ->
-                    val uid = profile?.uniqueId
-                    val bytes = uid?.let { LocalSnapshotStore(this, it).read() }
-                    if (bytes == null) null else ExerciseLoadGuide.guide(
-                        org.json.JSONObject(String(bytes, Charsets.UTF_8)),
-                        exerciseId, targetReps, targetRir)
+                    // Synchronous call sites in composition: only the snapshot already parsed off-main is used.
+                    profile?.uniqueId?.let { uid ->
+                        snapshotCache.derive(uid, listOf("loadGuide", exerciseId, targetReps, targetRir)) { root ->
+                            ExerciseLoadGuide.guide(root, exerciseId, targetReps, targetRir)
+                        }
+                    }
                 },
                 todayHealth = todayHealth,
                 healthAccess = healthAccess,
@@ -1052,6 +1064,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     }
                 },
                 onCenterDecline = { inv -> centerAction { s -> decline(s, inv) } },
+                onLoadCenterInvitationPreview = preview@{ id ->
+                    val session = verifiedSupabase
+                        ?: return@preview BusinessCenterStore.InvitationPreviewResult.Unavailable
+                    withContext(Dispatchers.IO) {
+                        BusinessCenterStore().loadInvitationPreview(session, id)
+                    }
+                },
                 centerChatThread = centerChatThread,
                 onLoadCenterThread = loadThread@{ org ->
                     val session = verifiedSupabase ?: return@loadThread
@@ -1503,34 +1522,69 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             return
         }
         if (event.path == "/repera/live-start") {
+            val node = event.sourceNodeId
             val sportId = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8)).optString("sportId")
             }.getOrNull().orEmpty()
-            if (sportId.isBlank()) return
+            if (sportId.isBlank()) {
+                WearLiveCommandListener.ackLiveStart(this, node, false, "Deporte no válido")
+                return
+            }
             runOnUiThread {
-                val account = profile?.uniqueId ?: return@runOnUiThread
-                if (activeWorkout != null || busy) return@runOnUiThread
-                val sport = dev.repera.domain.LiveSport.byId(sportId) ?: return@runOnUiThread
+                val account = profile?.uniqueId
+                if (account == null) {
+                    WearLiveCommandListener.ackLiveStart(this, node, false, "Inicia sesión en el móvil")
+                    return@runOnUiThread
+                }
+                if (activeWorkout != null || busy) {
+                    WearLiveCommandListener.ackLiveStart(
+                        this, node, false, "Hay otra actividad pendiente en el móvil"
+                    )
+                    return@runOnUiThread
+                }
+                val sport = dev.repera.domain.LiveSport.byId(sportId)
+                if (sport == null) {
+                    WearLiveCommandListener.ackLiveStart(this, node, false, "Deporte no válido")
+                    return@runOnUiThread
+                }
                 val runtime = LiveActivityRuntime.forAccount(this, account)
                 val phase = runtime.state.phase
-                // Ya en curso: publicar estado al Wear (espejo).
+                // Ya en curso: publicar estado al Wear (espejo) y confirmar.
                 if (phase == dev.repera.domain.LiveActivityState.Phase.RECORDING ||
                     phase == dev.repera.domain.LiveActivityState.Phase.PAUSED
                 ) {
                     WearActiveSessionBridge.publishLive(this, runtime)
                     runCatching { LiveActivityService.startFromVisibleUI(this, account) }
+                    WearLiveCommandListener.ackLiveStart(this, node, true, null)
                     return@runOnUiThread
                 }
                 // Revisión pendiente: descartar para arrancar la nueva desde Wear.
                 if (phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) {
                     runtime.discard()
                 }
-                if (runtime.state.phase != dev.repera.domain.LiveActivityState.Phase.IDLE) return@runOnUiThread
-                if (LiveActivityRuntime.hasPendingActivity(this, account) && runtime.recoveryBlocked) return@runOnUiThread
+                if (runtime.state.phase != dev.repera.domain.LiveActivityState.Phase.IDLE) {
+                    WearLiveCommandListener.ackLiveStart(
+                        this, node, false, "Hay otra actividad pendiente en el móvil"
+                    )
+                    return@runOnUiThread
+                }
+                if (LiveActivityRuntime.hasPendingActivity(this, account) && runtime.recoveryBlocked) {
+                    WearLiveCommandListener.ackLiveStart(
+                        this, node, false, "Hay otra actividad pendiente en el móvil"
+                    )
+                    return@runOnUiThread
+                }
                 runtime.choose(sport)
                 runtime.start()
-                runCatching { LiveActivityService.startFromVisibleUI(this, account) }
-                    .onFailure { runtime.pause() }
+                val started = runCatching { LiveActivityService.startFromVisibleUI(this, account) }
+                if (started.isFailure) {
+                    runtime.pause()
+                    WearLiveCommandListener.ackLiveStart(
+                        this, node, false, "No se pudo iniciar la actividad en el móvil"
+                    )
+                } else {
+                    WearLiveCommandListener.ackLiveStart(this, node, true, null)
+                }
             }
             return
         }
@@ -2072,6 +2126,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 centerError = null
                 profile = null
                 snapshot = null
+                snapshotCache.clear()
                 activeWorkout = null
                 status = "No se ha podido autenticar: " + (error.localizedMessage ?: "error desconocido")
             } finally {
@@ -2506,6 +2561,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             // Recalcula notas persistidas si subió la fórmula (iOS v11).
             runCatching { repository.refreshSessionReviewsIfNeeded() }
             val bytes = store.read()
+            runCatching { snapshotCache.publish(id, bytes) }
             Triple(StateOverview.fromBytes(bytes, healthSamples, recoveryRead), repository.active(), bytes)
         }
         if(!current()) return
@@ -2870,6 +2926,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 }
                 profile = null
                 snapshot = null
+                snapshotCache.clear()
                 activeWorkout = null
                 wodTimer = null
                 WodTimerService.sync(this@MainActivity, null, null, null)
@@ -2968,7 +3025,7 @@ data class StateOverview(
                         when {
                             score.has("elapsedSeconds") && !score.isNull("elapsedSeconds") -> {
                                 val total = score.getInt("elapsedSeconds")
-                                "%d:%02d".format(total / 60, total % 60)
+                                "%d:%02d".format(java.util.Locale.ROOT, total / 60, total % 60)
                             }
                             score.has("roundsCompleted") && !score.isNull("roundsCompleted") &&
                                 score.has("totalReps") && !score.isNull("totalReps") ->
@@ -3035,7 +3092,7 @@ data class StateOverview(
                                 val seconds = score.optDouble("elapsedSeconds", Double.NaN)
                                     .takeIf { it.isFinite() }?.toInt()
                                     ?: score.optInt("elapsedSeconds", -1).takeIf { it >= 0 }
-                                seconds?.let { "%d:%02d".format(it / 60, it % 60) }
+                                seconds?.let { "%d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) }
                             }
                             score.has("roundsCompleted") && !score.isNull("roundsCompleted") &&
                                 score.has("totalReps") && !score.isNull("totalReps") ->

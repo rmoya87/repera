@@ -144,7 +144,7 @@ internal class WodTimerService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(title)
-            .setContentText("%d:%02d".format(seconds / 60, seconds % 60) +
+            .setContentText("%d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60) +
                 (label?.let { " · $it" } ?: ""))
             .setOngoing(true)
             .setOnlyAlertOnce(true)

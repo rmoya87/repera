@@ -35,6 +35,16 @@ class BusinessCenterStore(
     data class Invitation(val id: String, val organizationId: String,
         val invitedRole: String, val expiresAt: String?, val acceptedAt: String?,
         val cancelledAt: String?)
+    data class InvitationPreview(val invitationId: String, val organizationId: String,
+        val organizationName: String, val organizationKind: String,
+        val organizationTagline: String?, val expiresAt: String?)
+    sealed interface InvitationPreviewResult {
+        data class Found(val preview: InvitationPreview) : InvitationPreviewResult
+        /** Inexistente, de otro correo, aceptada, cancelada o caducada: el servidor no distingue. */
+        data object Unavailable : InvitationPreviewResult
+        data object Offline : InvitationPreviewResult
+        data object Failed : InvitationPreviewResult
+    }
     data class ClientLink(val id: String, val orgId: String, val userId: String)
     data class OperationSettings(
         val orgId: String?,
@@ -386,6 +396,47 @@ class BusinessCenterStore(
         }
     }
 
+    /** Port de BusinessDataStore.loadInvitationPreview (RPC get_my_invitation_preview). */
+    fun loadInvitationPreview(session: SupabaseIdentity.Session, invitationId: String): InvitationPreviewResult {
+        val id = runCatching { UUID.fromString(invitationId).toString() }.getOrNull()
+            ?: return InvitationPreviewResult.Unavailable
+        return try {
+            val request = Request.Builder()
+                .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/get_my_invitation_preview")
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
+                .post(JSONObject().put("p_invitation_id", id).toString()
+                    .toRequestBody("application/json".toMediaType()))
+                .build()
+            http.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return if (response.code in 400..499) InvitationPreviewResult.Unavailable
+                    else InvitationPreviewResult.Failed
+                }
+                parseInvitationPreview(body)?.takeIf { it.invitationId.equals(id, ignoreCase = true) }
+                    ?.let { InvitationPreviewResult.Found(it) }
+                    ?: InvitationPreviewResult.Failed
+            }
+        } catch (_: java.io.IOException) {
+            InvitationPreviewResult.Offline
+        } catch (_: Exception) {
+            InvitationPreviewResult.Failed
+        }
+    }
+
+    internal fun parseInvitationPreview(body: String): InvitationPreview? = runCatching {
+        val row = JSONObject(body.trim())
+        InvitationPreview(
+            invitationId = row.getString("invitation_id"),
+            organizationId = row.getString("organization_id"),
+            organizationName = row.optString("organization_name"),
+            organizationKind = row.optString("organization_kind"),
+            organizationTagline = row.optString("organization_tagline").takeIf { it.isNotBlank() && it != "null" },
+            expiresAt = row.optString("expires_at").takeIf { it.isNotBlank() && it != "null" })
+    }.getOrNull()
+
     fun searchDirectory(session:SupabaseIdentity.Session,query:String):List<Organization> =
         parseOrganizations(rpc(session,"search_discoverable_organizations",JSONObject().put("p_query",query)))
 
@@ -423,16 +474,38 @@ class BusinessCenterStore(
     }
 
     fun book(session: SupabaseIdentity.Session, occurrence: Occurrence, pass: Pass) {
-        rpc(session, "book_service_occurrence", JSONObject()
+        val intent = "book:${session.userId}:${occurrence.id}:${pass.id}"
+        idempotentRpc(session, intent, "book_service_occurrence", JSONObject()
             .put("p_occurrence", occurrence.id)
-            .put("p_pass", pass.id)
-            .put("p_request", UUID.randomUUID().toString()))
+            .put("p_pass", pass.id))
     }
 
     fun cancel(session: SupabaseIdentity.Session, booking: Booking) {
-        rpc(session, "cancel_service_booking", JSONObject()
-            .put("p_booking", booking.id)
-            .put("p_request", UUID.randomUUID().toString()))
+        idempotentRpc(session, "cancel:${session.userId}:${booking.id}", "cancel_service_booking",
+            JSONObject().put("p_booking", booking.id))
+    }
+
+    /** Retries of the same intent reuse `p_request` until the server answers (RPCs are idempotent per id). */
+    private fun idempotentRpc(session: SupabaseIdentity.Session, intent: String, fn: String, params: JSONObject) {
+        try {
+            rpc(session, fn, params.put("p_request", PendingRequestIds.reuse(intent)))
+        } catch (error: Exception) {
+            if ("REQUEST_ID_REUSED" in error.message.orEmpty()) PendingRequestIds.confirm(intent)
+            throw error
+        }
+        PendingRequestIds.confirm(intent)
+    }
+
+    internal object PendingRequestIds {
+        private const val TTL_MS = 24L * 60 * 60 * 1000
+        private val ids = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
+        fun reuse(intent: String, now: Long = System.currentTimeMillis()): String {
+            ids.entries.removeIf { now - it.value.second >= TTL_MS }
+            return ids.computeIfAbsent(intent) { UUID.randomUUID().toString() to now }.first
+        }
+
+        fun confirm(intent: String) { ids.remove(intent) }
     }
 
     fun sendMessage(session:SupabaseIdentity.Session,orgId:String,title:String,body:String) {

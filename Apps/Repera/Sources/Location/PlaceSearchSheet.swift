@@ -546,16 +546,22 @@ enum PlaceCategoryStyle {
 
 // MARK: - Recientes
 
+/// Recent places are location history: isolated per account. The former
+/// global list has no known owner and is dropped instead of reassigned.
+@MainActor
 enum RecentPlacesStore {
-    private static let key = "repera.places.recent.v1"
+    private static let legacyGlobalKey = "repera.places.recent.v1"
+    private static var key: String? { AccountScopedDefaults.key("repera.places.recent.v2") }
     private static let limit = 5
 
     static func load() -> [WorkoutLocationPin] {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+        UserDefaults.standard.removeObject(forKey: legacyGlobalKey)
+        guard let key, let data = UserDefaults.standard.data(forKey: key) else { return [] }
         return (try? JSONDecoder().decode([WorkoutLocationPin].self, from: data)) ?? []
     }
 
     static func remember(_ pin: WorkoutLocationPin) {
+        guard let key else { return }
         var next = load().filter { !$0.isSamePlace(as: pin) }
         next.insert(pin, at: 0)
         if next.count > limit { next = Array(next.prefix(limit)) }

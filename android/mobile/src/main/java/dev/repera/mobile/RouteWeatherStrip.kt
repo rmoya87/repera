@@ -202,23 +202,23 @@ private fun conditionItems(snap: dev.repera.domain.ActivityConditionsSnapshot): 
     if (snap.family == dev.repera.domain.ActivityConditionsFamily.WATER) {
         val tide = snap.tideHeightMeters?.let { h ->
             val t = snap.tideTrendLabel?.let { " · $it" }.orEmpty()
-            String.format("%.2f m%s", h, t)
+            String.format(dev.repera.domain.ReperaNumberFormat.displayLocale, "%.2f m%s", h, t)
         }
         items += ConditionItem("Marea", tide)
         snap.nextTideLabel?.let { items += ConditionItem("Próxima", it) }
         items += ConditionItem(
             "Oleaje",
-            snap.waveHeightMeters?.let { String.format("%.1f m", it) }
+            snap.waveHeightMeters?.let { String.format(dev.repera.domain.ReperaNumberFormat.displayLocale, "%.1f m", it) }
         )
     }
     if (snap.family == dev.repera.domain.ActivityConditionsFamily.SNOW) {
         items += ConditionItem(
             "Nevada",
-            snap.snowfallCm?.let { String.format("%.1f cm/h", it) }
+            snap.snowfallCm?.let { String.format(dev.repera.domain.ReperaNumberFormat.displayLocale, "%.1f cm/h", it) }
         )
         items += ConditionItem(
             "Nieve",
-            snap.snowDepthMeters?.let { String.format("%.0f cm", it * 100) }
+            snap.snowDepthMeters?.let { String.format(dev.repera.domain.ReperaNumberFormat.displayLocale, "%.0f cm", it * 100) }
         )
     }
     return items

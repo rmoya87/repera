@@ -16,7 +16,9 @@ internal fun externalHealthSport(typeKey:String):LiveSport = when(typeKey) {
  else -> LiveSport.entries.firstOrNull {it.healthKey==typeKey} ?: LiveSport.OTHER
 }
 
+/** El tipo tipado del proveedor puede diferir del título libre: TalkBack lo anuncia. */
 @Composable internal fun ExternalHealthActivityIcon(typeKey:String) {
- Icon(externalHealthSport(typeKey).materialIcon, contentDescription=null,
+ val sport = externalHealthSport(typeKey)
+ Icon(sport.materialIcon, contentDescription=sport.title.takeIf { sport != LiveSport.OTHER },
   modifier=Modifier.size(26.dp))
 }

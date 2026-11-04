@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -34,7 +35,7 @@ internal fun HomeWeeklyProgressCard(days: List<WeeklyWorkoutDay>, goal: Int?, mo
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Text(
-                    "Progreso semanal",
+                    stringResource(R.string.home_weekly_progress_card_progreso_semanal),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(Modifier.weight(1f))

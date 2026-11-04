@@ -30,6 +30,7 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TextButton
+import androidx.wear.compose.material3.touchTargetAwareSize
 import dev.repera.domain.WearSessionDuration
 
 /** Tokens alineados a OG watchOS (fondo negro, accent #30D158, onAccent negro). */
@@ -54,12 +55,12 @@ internal fun WearStepButton(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    // Compacto para esfera redonda: el 58×62 anterior desbordaba con − valor +.
+    // Compacto para esfera redonda (40 dp visibles); el área táctil sigue siendo ≥ 48 dp.
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .size(width = 40.dp, height = 40.dp)
+            .touchTargetAwareSize(40.dp)
             .semantics { this.contentDescription = contentDescription },
         shape = CircleShape
     ) {
@@ -245,7 +246,7 @@ internal fun WearMetricStepper(
                 TextButton(
                     onClick = onMinus,
                     enabled = enabled,
-                    modifier = Modifier.size(44.dp).semantics {
+                    modifier = Modifier.touchTargetAwareSize(44.dp).semantics {
                         contentDescription = "Reducir $label"
                     }
                 ) { Text("−", color = Color.White, style = MaterialTheme.typography.titleLarge) }
@@ -274,7 +275,7 @@ internal fun WearMetricStepper(
                 TextButton(
                     onClick = onPlus,
                     enabled = enabled,
-                    modifier = Modifier.size(44.dp).semantics {
+                    modifier = Modifier.touchTargetAwareSize(44.dp).semantics {
                         contentDescription = "Aumentar $label"
                     }
                 ) { Text("+", color = Color.White, style = MaterialTheme.typography.titleLarge) }

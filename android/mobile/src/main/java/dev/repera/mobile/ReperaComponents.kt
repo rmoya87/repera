@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +37,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetState
@@ -95,20 +98,23 @@ fun reperaPrimaryButtonColors() = ButtonDefaults.buttonColors(
     contentColor = MaterialTheme.colorScheme.onPrimary
 )
 
-/** Colores tipo UISwitch iOS: pista verde #30D158 / gris, knob blanco. */
+/** Colores tipo UISwitch iOS: pista verde #30D158 / gris adaptativo, knob blanco. */
 @Composable
-fun reperaSwitchColors() = SwitchDefaults.colors(
-    checkedTrackColor = brandGreen,
-    checkedThumbColor = Color.White,
-    checkedBorderColor = Color.Transparent,
-    uncheckedTrackColor = Color(0xFFE9E9EB),
-    uncheckedThumbColor = Color.White,
-    uncheckedBorderColor = Color(0xFFE9E9EB),
-    disabledCheckedTrackColor = brandGreen.copy(alpha = 0.4f),
-    disabledCheckedThumbColor = Color.White,
-    disabledUncheckedTrackColor = Color(0xFFE9E9EB).copy(alpha = 0.5f),
-    disabledUncheckedThumbColor = Color.White
-)
+fun reperaSwitchColors(): androidx.compose.material3.SwitchColors {
+    val off = MaterialTheme.reperaColors.switchTrackOff
+    return SwitchDefaults.colors(
+        checkedTrackColor = brandGreen,
+        checkedThumbColor = Color.White,
+        checkedBorderColor = Color.Transparent,
+        uncheckedTrackColor = off,
+        uncheckedThumbColor = Color.White,
+        uncheckedBorderColor = off,
+        disabledCheckedTrackColor = brandGreen.copy(alpha = 0.4f),
+        disabledCheckedThumbColor = Color.White,
+        disabledUncheckedTrackColor = off.copy(alpha = 0.5f),
+        disabledUncheckedThumbColor = Color.White
+    )
+}
 
 @Composable
 fun reperaFilterChipColors() = FilterChipDefaults.filterChipColors(
@@ -281,7 +287,7 @@ fun ReperaPageHeader(
 @Composable
 fun ReperaDoneCheckButton(
     onClick: () -> Unit,
-    contentDescription: String = "Listo",
+    contentDescription: String = stringResource(R.string.action_done),
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
     testTag: String? = null
@@ -292,6 +298,7 @@ fun ReperaDoneCheckButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(44.dp)
             .background(
                 if (enabled) brandGreen else brandGreen.copy(alpha = 0.4f),
@@ -325,7 +332,7 @@ fun DayEditorTopBar(
     ) {
         ReperaToolbarGlassIconButton(
             icon = Icons.AutoMirrored.Outlined.ArrowBack,
-            contentDescription = "Volver",
+            contentDescription = stringResource(R.string.action_back),
             onClick = onBack,
             enabled = !busy,
             modifier = Modifier.testTag("editor_back")
@@ -425,7 +432,7 @@ fun ReperaSwipeDeleteRow(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             Icons.Outlined.Delete,
-                            contentDescription = "Eliminar",
+                            contentDescription = stringResource(R.string.action_delete),
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
@@ -623,12 +630,14 @@ internal fun libraryExerciseSubtitle(entry: ExerciseEntry): String {
     return parts.joinToString(" · ")
 }
 
+/** Decorativa por defecto: las filas que la usan ya muestran el nombre; pasar [contentDescription] si va sola. */
 @Composable
 internal fun ExerciseListThumb(
     name: String,
     sportTag: String?,
     aliases: Map<String, String>,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
 ) {
     val context = LocalContext.current
     val stem = remember(name, sportTag) {
@@ -641,12 +650,12 @@ internal fun ExerciseListThumb(
         ).firstOrNull()
     }
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, stem) {
-        value = stem?.let { ExerciseArtImages.load(context, it) }
+        value = stem?.let { ExerciseArtImages.load(context, it, ExerciseArtImages.THUMBNAIL_PX) }
     }
     if (bitmap != null) {
         Image(
             bitmap = bitmap!!,
-            contentDescription = null,
+            contentDescription = contentDescription,
             modifier = modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(10.dp)),
@@ -744,7 +753,7 @@ fun ReperaConfirmSheet(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = if (confirmDestructive) Color(0xFFFF453A)
+                    tint = if (confirmDestructive) MaterialTheme.reperaColors.destructive
                     else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(44.dp)
                 )
@@ -767,12 +776,13 @@ fun ReperaConfirmSheet(
                     onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .heightIn(min = 50.dp)
                         .testTag("confirm_sheet_confirm"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (confirmDestructive) Color(0xFFFF453A)
+                        containerColor = if (confirmDestructive) MaterialTheme.reperaColors.destructive
                         else brandGreen,
-                        contentColor = Color.White
+                        contentColor = if (confirmDestructive) MaterialTheme.reperaColors.onDestructive
+                        else MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = RoundedCornerShape(999.dp)
                 ) {
@@ -782,13 +792,13 @@ fun ReperaConfirmSheet(
                     onClick = onCancel,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("confirm_sheet_cancel"),
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color.Black
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
-                    Text("Cancelar", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.action_cancel), fontWeight = FontWeight.SemiBold)
                 }
             }
         }

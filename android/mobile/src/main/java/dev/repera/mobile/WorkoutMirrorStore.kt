@@ -157,10 +157,9 @@ class WorkoutMirrorStore(
                 deleteRemote(session, id)
                 acknowledgeDeletes(setOf(id))
             }
-            val remote = fetchRemote(session)
+            val existing = fetchRemoteIndex(session)
             val seen = fingerprints()
             deletionIDs.forEach { seen.remove(it) }
-            val existing = remote.associateBy { it.getString("id") }
             // On another phone, already-mirrored IDs that vanished on the
             // server are deleted, not new uploads. Keep no deleted-ID ledger.
             val removedRemoteIDs = repository.finishedWorkoutsSnapshot()
@@ -173,13 +172,20 @@ class WorkoutMirrorStore(
                 removedRemoteIDs.forEach { seen.remove(it) }
             }
 
+            // Payload sólo donde una decisión lo necesita: remotos nunca vistos
+            // (recuperación) y locales cuyo remoto no consta idéntico.
+            val localDigests = repository.finishedWorkoutsSnapshot()
+                .associate { it.optString("id") to canonicalDigest(privatize(it)) }
+            val payloads = fetchPayloads(session,
+                payloadIdsNeeded(existing, localDigests, seen, deletionIDs))
+
             // 0) Recuperación remota→local: un segundo dispositivo puede
             //    tener entrenos que este aún no conoce. Sólo IDs nunca
             //    vistos, no borrados y con payload íntegro.
             val recoveredCount=CloudSyncGate.recoverUnlessDrive {
                 authorize()
                 val localIds=repository.finishedWorkoutsSnapshot().map {it.optString("id")}.toSet()
-                val recovered=selectRecoverable(remote,localIds,blockedIds()+repository.mirrorBlockedIds(),seen)
+                val recovered=selectRecoverable(payloads.values.toList(),localIds,blockedIds()+repository.mirrorBlockedIds(),seen)
                 if(recovered.isEmpty()) 0 else {
                     authorize()
                     repository.recordMirrorRecovered(recovered.associate {it.getString("id") to canonicalDigest(it)})
@@ -214,7 +220,7 @@ class WorkoutMirrorStore(
                     // segura: restaurar el snapshot de bloques que falta en un
                     // WOD legacy cuando TODO lo demás coincide (iOS
                     // SyncConflictResolver.canRestoreMissingBlockSnapshot).
-                    val remotePayload = remoteRow.optJSONObject("payload")
+                    val remotePayload = payloads[id]?.optJSONObject("payload")
                     if (remotePayload == null ||
                         !canRestoreMissingBlockSnapshot(clean, remotePayload)) {
                         seen[id] = checksum
@@ -258,7 +264,7 @@ class WorkoutMirrorStore(
             }
             seen.keys.retainAll(liveIDs)
             saveFingerprints(seen)
-            val mirrored = (remote.filter { it.isNull("deleted_at") }
+            val mirrored = (existing.values.filter { it.isNull("deleted_at") }
                 .map { it.getString("id") }.toSet() +
                 (0 until uploads.length()).map {
                     uploads.getJSONObject(it).getString("id")
@@ -291,31 +297,57 @@ class WorkoutMirrorStore(
         }
     }
 
-    private fun fetchRemote(session: SupabaseIdentity.Session): List<JSONObject> {
-        val rows = mutableListOf<JSONObject>()
-        var offset = 0
-        while (offset < 20_000) {
+    /**
+     * Existencia remota sin payload, paginada por la clave primaria inmutable:
+     * sin tope de filas y sin que una edición concurrente salte el cursor y
+     * parezca un borrado. Se detiene sólo con página vacía (max-rows menor).
+     */
+    private fun fetchRemoteIndex(session: SupabaseIdentity.Session): Map<String, JSONObject> {
+        val rows = linkedMapOf<String, JSONObject>()
+        var after: String? = null
+        while (true) {
             val url = BuildConfig.SUPABASE_URL + "/rest/v1/athlete_workout_mirror" +
-                "?select=id,payload,deleted_at&owner_id=eq.$userId" +
-                "&order=finished_at.desc&limit=200&offset=$offset"
-            val request = Request.Builder().url(url)
-                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
-                .header("Authorization", "Bearer " + session.accessToken)
-                .get().build()
-            authorize()
-            http.newCall(request).execute().use { response ->
-                authorize()
-                val body = response.body?.string().orEmpty()
-                authorize()
-                if (!response.isSuccessful)
-                    throw IllegalStateException("HTTP " + response.code)
-                val page = JSONArray(body)
-                for (i in 0 until page.length()) rows.add(page.getJSONObject(i))
-                if (page.length() < 200) return rows
-                offset += page.length()
+                "?select=id,deleted_at&owner_id=eq.$userId" +
+                (after?.let { "&id=gt.$it" } ?: "") +
+                "&order=id.asc&limit=$INDEX_PAGE_SIZE"
+            val page = getArray(session, url)
+            if (page.length() == 0) return rows
+            for (i in 0 until page.length()) {
+                val row = page.getJSONObject(i)
+                rows[row.getString("id")] = row
+            }
+            after = java.util.UUID.fromString(page.getJSONObject(page.length() - 1).getString("id")).toString()
+        }
+    }
+
+    private fun fetchPayloads(session: SupabaseIdentity.Session, ids: List<String>): Map<String, JSONObject> {
+        val rows = mutableMapOf<String, JSONObject>()
+        for (chunk in ids.chunked(PAYLOAD_CHUNK)) {
+            val list = chunk.joinToString(",") { java.util.UUID.fromString(it).toString() }
+            val url = BuildConfig.SUPABASE_URL + "/rest/v1/athlete_workout_mirror" +
+                "?select=id,payload,deleted_at&owner_id=eq.$userId&id=in.($list)"
+            val page = getArray(session, url)
+            for (i in 0 until page.length()) {
+                val row = page.getJSONObject(i)
+                rows[row.getString("id")] = row
             }
         }
-        throw IllegalStateException("El historial remoto supera el límite de sincronización segura")
+        return rows
+    }
+
+    private fun getArray(session: SupabaseIdentity.Session, url: String): JSONArray {
+        val request = Request.Builder().url(url)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .get().build()
+        authorize()
+        http.newCall(request).execute().use { response ->
+            authorize()
+            val body = response.body?.string().orEmpty()
+            authorize()
+            if (!response.isSuccessful) throw IllegalStateException("HTTP " + response.code)
+            return JSONArray(body)
+        }
     }
 
     private fun upsert(session: SupabaseIdentity.Session, rows: JSONArray) {
@@ -407,6 +439,22 @@ class WorkoutMirrorStore(
 
     companion object {
         private val deletionLock=Any()
+        private const val INDEX_PAGE_SIZE = 1000
+        private const val PAYLOAD_CHUNK = 50
+
+        /** Remotos vivos cuyo payload hace falta: nunca vistos sin copia local, o
+         *  con copia local cuya huella no coincide con la última subida. */
+        internal fun payloadIdsNeeded(
+            existing: Map<String, JSONObject>, localDigests: Map<String, String>,
+            seen: Map<String, String>, deletionIDs: Set<String>
+        ): List<String> = existing.values
+            .filter { it.isNull("deleted_at") || !it.has("deleted_at") }
+            .map { it.getString("id") }
+            .filter { id ->
+                id !in deletionIDs && localDigests[id].let { local ->
+                    if (local != null) seen[id] != local else seen[id] == null
+                }
+            }
         /** Filas recuperables: nunca vistas y sin DELETE pendiente; filas legacy se ignoran. */
         internal fun selectRecoverable(
             remote: List<JSONObject>, localIds: Set<String>, deletionIDs: Set<String>, seen: Map<String, String>

@@ -27,9 +27,7 @@ struct RestLiveActivityWidget: Widget {
             } compactLeading: {
                 Image(systemName: "timer")
             } compactTrailing: {
-                clockText(context.state)
-                    .monospacedDigit()
-                    .frame(width: 44)
+                RestCompactClock(text: clockText(context.state))
             } minimal: {
                 Image(systemName: "timer")
             }
@@ -66,11 +64,28 @@ struct RestLiveActivityWidget: Widget {
             }
             Spacer()
             clockText(context.state)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(.title, design: .rounded, weight: .bold))
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .padding()
         .activityBackgroundTint(.black.opacity(0.35))
+    }
+}
+
+/// `Text(timerInterval:)` se dimensiona para el valor más largo posible:
+/// el ancho fijo evita que ocupe toda la isla, pero escala con Dynamic Type.
+private struct RestCompactClock: View {
+    let text: Text
+    @ScaledMetric(relativeTo: .body) private var width: CGFloat = 44
+
+    var body: some View {
+        text
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(width: min(width, 64))
     }
 }
 

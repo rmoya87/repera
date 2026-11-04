@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -110,7 +112,11 @@ internal data class WearHomeState(
     val liveActivity: JSONObject? = null,
     val hubIndex: Int = 0,
     val recentLiveSportIDs: List<String> = emptyList(),
-    val audioMuted: Boolean = false
+    val audioMuted: Boolean = false,
+    /** Hub feedback for watch-initiated phone activities (pending, timeout, rejection). */
+    val hubNotice: String? = null,
+    val liveNotice: String? = null,
+    val companionFinishPending: Boolean = false
 )
 
 /** Ítems del carrusel estilo Deportes: plan → recientes → catálogo. */
@@ -222,6 +228,7 @@ internal class WearHomeCallbacks(
     val onHubIndexChange: (Int) -> Unit = {},
     val onOpenTimer: () -> Unit = {},
     val onToggleHubAudioMuted: () -> Unit = {},
+    val onHubNoticeTap: () -> Unit = {},
     /** Sale de la live companion (p. ej. revisión) al hub sin reabrir el snapshot. */
     val onDismissLiveToHome: () -> Unit = {}
 )
@@ -280,7 +287,7 @@ internal fun WearHomeContent(
                 onSyncRequest = callbacks.onSyncRequest,
                 modifier = Modifier.fillMaxSize()
             )
-            if (state.pendingCount > 0) {
+            if (state.pendingCount > 0 || state.hubNotice != null) {
                 // Arriba, para no tapar mute/timer del borde inferior (patrón Deportes).
                 Column(
                     modifier = Modifier
@@ -289,7 +296,20 @@ internal fun WearHomeContent(
                         .padding(horizontal = 18.dp, vertical = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    hubPendingStrip(state, callbacks)
+                    state.hubNotice?.let { notice ->
+                        WearHubScalingTitle(
+                            text = notice,
+                            modifier = Modifier
+                                .zIndex(3f)
+                                .clickable(onClickLabel = stringResource(R.string.wear_cd_retry)) {
+                                    callbacks.onHubNoticeTap()
+                                },
+                            maxFontSp = 12.sp,
+                            minFontSp = 10.sp,
+                            maxLines = 2
+                        )
+                    }
+                    if (state.pendingCount > 0) hubPendingStrip(state, callbacks)
                 }
             }
         }
@@ -300,6 +320,8 @@ internal fun WearHomeContent(
         WearLiveActivityScreen(
             live = live,
             health = state.health,
+            notice = state.liveNotice,
+            finishPending = state.companionFinishPending,
             onLiveCommand = callbacks.onLiveCommand,
             onDismissLiveToHome = callbacks.onDismissLiveToHome,
             modifier = modifier.fillMaxSize()
@@ -477,14 +499,13 @@ private fun TransformingLazyColumnScope.finishedItems(
 @Composable
 private fun hubPendingStrip(state: WearHomeState, callbacks: WearHomeCallbacks) {
     WearHubScalingTitle(
-        text = if (state.pendingCount == 1) "1 serie pendiente"
-        else "${state.pendingCount} series pendientes",
+        text = pluralStringResource(R.plurals.wear_pending_sets, state.pendingCount, state.pendingCount),
         maxFontSp = 12.sp,
         minFontSp = 10.sp,
         maxLines = 1
     )
     TextButton(onClick = { callbacks.onResendPending() }) {
-        Text("Reintentar", style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Text(stringResource(R.string.wear_cd_retry), style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 
@@ -559,6 +580,12 @@ internal fun WearHubHome(
             .focusable()
     ) {
         val current = items.getOrNull(index)
+        val currentTitle = when (current) {
+            is WearHubCarouselItem.Plan -> current.plan.optString("title").ifBlank { "Entreno" }
+            is WearHubCarouselItem.Sport -> current.title
+            null -> null
+        }
+        val startLabel = currentTitle?.let { stringResource(R.string.wear_cd_start_item, it) }
         // Misma geometría que WatchHomeHubView: centro con márgenes; mute/timer abajo.
         Box(
             modifier = Modifier
@@ -566,7 +593,8 @@ internal fun WearHubHome(
                 .padding(start = 22.dp, end = 22.dp, top = 28.dp, bottom = 44.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
-                    indication = null
+                    indication = null,
+                    onClickLabel = startLabel
                 ) {
                     when {
                         current != null -> onHubPlay(current)
@@ -603,6 +631,7 @@ internal fun WearHubHome(
                     is WearHubCarouselItem.Plan -> {
                         Icon(
                             imageVector = Icons.Outlined.FitnessCenter,
+                            // Decorative: the plan title below is the accessible name.
                             contentDescription = null,
                             tint = WearOg.accent,
                             modifier = Modifier.size(36.dp)
@@ -647,9 +676,6 @@ internal fun WearHubHome(
                 .zIndex(2f)
                 .padding(start = 10.dp, bottom = 8.dp)
                 .touchTargetAwareSize(cornerBtn)
-                .semantics {
-                    contentDescription = if (audioMuted) "Activar audio" else "Silenciar audio"
-                }
         ) {
             Icon(
                 imageVector = if (audioMuted) {
@@ -657,7 +683,9 @@ internal fun WearHubHome(
                 } else {
                     Icons.AutoMirrored.Outlined.VolumeUp
                 },
-                contentDescription = null,
+                contentDescription = stringResource(
+                    if (audioMuted) R.string.wear_cd_unmute else R.string.wear_cd_mute
+                ),
                 modifier = Modifier.size(cornerIcon)
             )
         }
@@ -668,11 +696,10 @@ internal fun WearHubHome(
                 .zIndex(2f)
                 .padding(end = 10.dp, bottom = 8.dp)
                 .touchTargetAwareSize(cornerBtn)
-                .semantics { contentDescription = "Temporizador" }
         ) {
             Icon(
                 imageVector = Icons.Outlined.Timer,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.wear_cd_timer),
                 modifier = Modifier.size(cornerIcon)
             )
         }

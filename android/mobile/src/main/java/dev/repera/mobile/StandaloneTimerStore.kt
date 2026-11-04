@@ -44,19 +44,19 @@ data class StandaloneTimerConfig(
     val shortLabel: String
         get() = when (mode) {
             StandaloneTimerMode.UP ->
-                "Arriba · %d:%02d".format(durationMinutes, durationSeconds)
+                "Arriba · %d:%02d".format(java.util.Locale.ROOT, durationMinutes, durationSeconds)
             StandaloneTimerMode.DOWN ->
-                "Abajo · %d:%02d".format(durationMinutes, durationSeconds)
+                "Abajo · %d:%02d".format(java.util.Locale.ROOT, durationMinutes, durationSeconds)
             StandaloneTimerMode.INTERVALS ->
-                "Intervalos · %d× %d:%02d/%d:%02d".format(
+                "Intervalos · %d× %d:%02d/%d:%02d".format(java.util.Locale.ROOT,
                     rounds, workMinutes, workSeconds, restMinutes, restSeconds)
         }
 
     val defaultFavoriteTitle: String
         get() = when (mode) {
-            StandaloneTimerMode.UP -> "Cronómetro %d:%02d".format(durationMinutes, durationSeconds)
-            StandaloneTimerMode.DOWN -> "Cuenta atrás %d:%02d".format(durationMinutes, durationSeconds)
-            StandaloneTimerMode.INTERVALS -> "Intervalos %d×".format(rounds)
+            StandaloneTimerMode.UP -> "Cronómetro %d:%02d".format(java.util.Locale.ROOT, durationMinutes, durationSeconds)
+            StandaloneTimerMode.DOWN -> "Cuenta atrás %d:%02d".format(java.util.Locale.ROOT, durationMinutes, durationSeconds)
+            StandaloneTimerMode.INTERVALS -> "Intervalos %d×".format(java.util.Locale.ROOT, rounds)
         }
 
     fun toJson(): JSONObject = JSONObject()

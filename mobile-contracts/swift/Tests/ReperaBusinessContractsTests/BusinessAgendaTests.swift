@@ -45,4 +45,19 @@ final class BusinessAgendaTests: XCTestCase {
             title: "No permitida", deepLink: "https://external.example/appointment"
         ).isValidLink)
     }
+
+    /// Mirror of BusinessAgendaSmoke.kt: same source default and same merge order.
+    func testSourceDefaultAndOrderingMatchKotlin() throws {
+        let json = """
+        [{"id":"t","kind":"training","date":"2026-10-19","title":"Fuerza","deep_link":"repera://diary/t"},
+         {"id":"c","kind":"class","date":"2026-10-19","title":"Clase","source":"center","deep_link":"repera://classes/c"},
+         {"id":"a","kind":"appointment","date":"2026-10-19","title":"PT","source":"","deep_link":"repera://appointments/a"}]
+        """
+        let events = try JSONDecoder().decode([BusinessAgendaEvent].self, from: Data(json.utf8))
+        XCTAssertEqual(events.map(\.source), ["professional", "center", "professional"])
+        let merged = BusinessAgendaMerger.merge(existing: [], incoming: events)
+        XCTAssertEqual(merged.map(\.id), ["a", "c", "t"])
+        let roundTrip = try JSONDecoder().decode(BusinessAgendaEvent.self, from: JSONEncoder().encode(events[1]))
+        XCTAssertEqual(roundTrip, events[1])
+    }
 }

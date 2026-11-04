@@ -67,7 +67,7 @@ class HealthCaloriesOriginContractTests(unittest.TestCase):
         self.assertIn("minHeight: 62", tile)
         self.assertIn("VStack(alignment: .center, spacing: 12)", tile)
         value = tile.split("Text(value)", 1)[1].split(".foregroundStyle(OG.label)", 1)[0]
-        self.assertIn(".font(.system(size: 28, weight: .semibold))", value)
+        self.assertIn(".font(.title.weight(.semibold))", value)
         self.assertIn(".minimumScaleFactor(0.7)", tile)
         for label in ("Calorías", "Tiempo", "Pasos"):
             self.assertIn(f'title: "{label}"', home)

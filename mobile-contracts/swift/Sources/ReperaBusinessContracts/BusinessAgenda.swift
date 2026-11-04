@@ -26,6 +26,20 @@ public struct BusinessAgendaEvent: Codable, Sendable, Hashable, Identifiable {
         self.id=id;self.kind=kind;self.date=date;self.title=title;self.source=source
         self.assignmentId=assignmentId;self.bookingId=bookingId;self.exerciseText=exerciseText;self.deepLink=deepLink
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        date = try c.decode(String.self, forKey: .date)
+        title = try c.decode(String.self, forKey: .title)
+        let rawSource = try c.decodeIfPresent(String.self, forKey: .source)?.trimmingCharacters(in: .whitespaces)
+        source = (rawSource?.isEmpty == false ? rawSource : nil) ?? "professional"
+        assignmentId = try c.decodeIfPresent(String.self, forKey: .assignmentId)
+        bookingId = try c.decodeIfPresent(String.self, forKey: .bookingId)
+        exerciseText = try c.decodeIfPresent(String.self, forKey: .exerciseText)
+        deepLink = try c.decode(String.self, forKey: .deepLink)
+    }
     /// External URLs cannot be injected into Repera deep-link navigation.
     public var isValidLink: Bool {
         let allowed=["repera://diary/","repera://classes/","repera://appointments/","repera://today/","repera://passes/"]

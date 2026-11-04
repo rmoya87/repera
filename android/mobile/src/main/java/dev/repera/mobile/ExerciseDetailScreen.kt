@@ -78,12 +78,12 @@ internal fun ExerciseDetailScreen(
     onQuickLog:()->Unit = {},
     // Apple ExerciseDetailView toolbar: star next to quick log. Null hides it.
     onToggleFavorite:(()->Unit)? = null,
-    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+    exerciseSeries: suspend (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
-    exerciseSummary: (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
+    exerciseSummary: suspend (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
     highlightSessionId: String? = null,
     highlightInstanceId: String? = null,
-    sessionAppearances: (exerciseId: String, highlightSessionId: String,
+    sessionAppearances: suspend (exerciseId: String, highlightSessionId: String,
         instanceId: String?) ->
         Pair<SessionAppearance?, SessionAppearance?> = { _, _, _ -> null to null },
     onBack: () -> Unit,
@@ -93,8 +93,12 @@ internal fun ExerciseDetailScreen(
     val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     // Bloque «Esta sesión» (paridad ExerciseThisSessionCard iOS): solo al
     // abrir la ficha desde un entreno terminado.
-    val appearancePair = remember(entry.id, highlightSessionId, highlightInstanceId) {
-        highlightSessionId?.let { sessionAppearances(entry.id, it, highlightInstanceId) }
+    val appearancePair by produceState<Pair<SessionAppearance?, SessionAppearance?>?>(
+        null, entry.id, highlightSessionId, highlightInstanceId) {
+        value = highlightSessionId?.let { sessionAppearances(entry.id, it, highlightInstanceId) }
+    }
+    val historySummary by produceState<dev.repera.domain.ExerciseHistorySummary?>(null, entry.id) {
+        value = exerciseSummary(entry.id)
     }
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second
@@ -204,7 +208,7 @@ internal fun ExerciseDetailScreen(
                     testedOneRM = testedOneRM,
                     onSetTestedOneRM = onSetTestedOneRM,
                     busy = busy,
-                    summary = exerciseSummary(entry.id)
+                    summary = historySummary
                 )
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
@@ -324,7 +328,7 @@ private fun ExerciseArtHero(
 @Composable
 internal fun ExerciseEvolutionSection(
     entry: ExerciseEntry,
-    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+    exerciseSeries: suspend (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint>,
     testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean,
     summary: dev.repera.domain.ExerciseHistorySummary? = null
@@ -340,9 +344,10 @@ internal fun ExerciseEvolutionSection(
     val selectedMetric = metrics.firstOrNull { it.wire == metric } ?: metrics.first()
     val selectedRange = ExerciseProgressRange.entries
         .firstOrNull { it.wire == range } ?: ExerciseProgressRange.ALL
-    val points = remember(entry.id, metric, range) {
-        exerciseSeries(entry.id, selectedMetric, selectedRange)
+    val loadedPoints by produceState<List<ExerciseProgressPoint>?>(null, entry.id, metric, range) {
+        value = exerciseSeries(entry.id, selectedMetric, selectedRange)
     }
+    val points = loadedPoints.orEmpty()
     var selectedPoint by remember(entry.id,metric,range) {mutableStateOf<Int?>(null)}
     var editingTope by remember { mutableStateOf(false) }
     var topeDraft by remember { mutableStateOf("") }
@@ -383,7 +388,7 @@ internal fun ExerciseEvolutionSection(
                 val isStrength = !isMobility && style == "loadAndReps"
                 fun fmtDur(sec: Int): String {
                     val m = sec / 60; val ss = sec % 60
-                    return if (ss == 0) "$m:00" else "%d:%02d".format(m, ss)
+                    return if (ss == 0) "$m:00" else "%d:%02d".format(java.util.Locale.ROOT, m, ss)
                 }
                 if (isMobility) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -493,7 +498,7 @@ internal fun ExerciseEvolutionSection(
                 val (low,high)=ExerciseChartGeometry.bounds(points.map {it.value},ceiling)
                 Column(Modifier.testTag("exercise_evolution_empty")) {
                     EmptyHealthChartAxes(low,high,220.dp)
-                    Text(if(points.isEmpty()) "Aún no hay valores registrados." else "Haz al menos 2 sesiones para ver la tendencia.",style=MaterialTheme.typography.bodyMedium)
+                    if (loadedPoints != null) Text(if(points.isEmpty()) "Aún no hay valores registrados." else "Haz al menos 2 sesiones para ver la tendencia.",style=MaterialTheme.typography.bodyMedium)
                     points.singleOrNull()?.let {point ->
                         Text("Último: ${formatPointValue(selectedMetric,point)}",style=MaterialTheme.typography.bodySmall)
                         Text(java.time.Instant.ofEpochMilli(point.epochMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter),style=MaterialTheme.typography.bodySmall)

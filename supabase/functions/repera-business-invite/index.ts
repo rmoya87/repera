@@ -7,9 +7,14 @@ const base=Deno.env.get("REPERA_PUBLIC_URL")||"";
 const ios=Deno.env.get("REPERA_IOS_URL")||"";
 const android=Deno.env.get("REPERA_ANDROID_URL")||"";
 const esc=(value:string)=>String(value||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
-const json=(obj:unknown,status=200)=>new Response(JSON.stringify(obj),{
- status,headers:{"Content-Type":"application/json","Access-Control-Allow-Origin":"*",
- "Access-Control-Allow-Headers":"authorization,apikey,content-type","Vary":"Origin"}});
+// Comma-separated exact origins (e.g. add http://localhost:8080 only in a dev project).
+const allowedOrigins=new Set((Deno.env.get("REPERA_BUSINESS_ORIGINS")||"https://repera.app,https://www.repera.app")
+ .split(",").map(o=>o.trim()).filter(o=>/^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(o)));
+const cors=(origin:string|null):Record<string,string>=>origin&&allowedOrigins.has(origin)?{
+ "Access-Control-Allow-Origin":origin,"Access-Control-Allow-Headers":"authorization,apikey,content-type",
+ "Access-Control-Allow-Methods":"POST,OPTIONS","Access-Control-Max-Age":"600","Vary":"Origin"}:{"Vary":"Origin"};
+const json=(obj:unknown,status:number,headers:Record<string,string>)=>new Response(JSON.stringify(obj),{
+ status,headers:{"Content-Type":"application/json","Cache-Control":"no-store",...headers}});
 const safeHttps=(url:string)=>{try{const u=new URL(url);return u.protocol==="https:"?u.toString():"";}catch{return ""}};
 function emailHtml(payload:{org_name:string,recipient:string,org_type:string,mode?:string},url:string){
  const name=esc(payload.org_name),link=esc(url);
@@ -35,24 +40,29 @@ function emailHtml(payload:{org_name:string,recipient:string,org_type:string,mod
  <p style="font-size:11px;line-height:1.6;color:#819588">Si no conoces este centro o no quieres unirte, ignora este mensaje. La invitación caduca automáticamente.</p></div></main></body></html>`;
 }
 Deno.serve(async(request:Request)=>{
- if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"POST,OPTIONS"}});
- if(request.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405);
- if(!project||!publicKey)return json({error:"SERVICE_UNAVAILABLE"},503);
- if(!resendKey||!sender||!safeHttps(base))return json({error:"EMAIL_PROVIDER_NOT_CONFIGURED"},503);
+ const origin=request.headers.get("origin");
+ const corsHeaders=cors(origin);
+ const reply=(obj:unknown,status=200)=>json(obj,status,corsHeaders);
+ if(request.method==="OPTIONS")return new Response(null,{status:origin&&allowedOrigins.has(origin)?204:403,headers:corsHeaders});
+ if(origin&&!allowedOrigins.has(origin))return reply({error:"ORIGIN_NOT_ALLOWED"},403);
+ if(request.method!=="POST")return reply({error:"METHOD_NOT_ALLOWED"},405);
+ if(Number(request.headers.get("content-length")||0)>2048)return reply({error:"PAYLOAD_TOO_LARGE"},413);
+ if(!project||!publicKey)return reply({error:"SERVICE_UNAVAILABLE"},503);
+ if(!resendKey||!sender||!safeHttps(base))return reply({error:"EMAIL_PROVIDER_NOT_CONFIGURED"},503);
  const jwt=request.headers.get("authorization")||"";
- if(!/^Bearer\s+\S+$/i.test(jwt))return json({error:"AUTH_REQUIRED"},401);
+ if(!/^Bearer\s+\S+$/i.test(jwt))return reply({error:"AUTH_REQUIRED"},401);
  const identity=await fetch(project+"/auth/v1/user",{headers:{Authorization:jwt,apikey:publicKey}});
- if(!identity.ok)return json({error:"INVALID_SESSION"},401);
+ if(!identity.ok)return reply({error:"INVALID_SESSION"},401);
  let body:{invitationId?:string,provisioningId?:string};
- try{body=await request.json()}catch{return json({error:"INVALID_BODY"},400)}
+ try{body=await request.json()}catch{return reply({error:"INVALID_BODY"},400)}
  const owner=typeof body.provisioningId==="string";
  const id=owner?body.provisioningId:body.invitationId;
- if(!/^[0-9a-f-]{36}$/i.test(id||""))return json({error:"INVALID_INVITATION"},400);
+ if(!/^[0-9a-f-]{36}$/i.test(id||""))return reply({error:"INVALID_INVITATION"},400);
  const auth=await fetch(project+"/rest/v1/rpc/"+
   (owner?"platform_admin_owner_email_payload":"business_invite_email_payload"),{
  method:"POST",headers:{Authorization:jwt,apikey:publicKey,"Content-Type":"application/json"},
  body:JSON.stringify(owner?{p_provision:id}:{p_invitation:id})});
- if(!auth.ok)return json({error:auth.status===403?"NOT_AUTHORIZED":"INVITATION_UNAVAILABLE"},auth.status===403?403:400);
+ if(!auth.ok)return reply({error:auth.status===403?"NOT_AUTHORIZED":"INVITATION_UNAVAILABLE"},auth.status===403?403:400);
  const invitation=await auth.json();
  const target=new URL("/console/",safeHttps(base));
  if(!owner)target.searchParams.set("invitation",invitation.invitation_id);
@@ -62,6 +72,6 @@ Deno.serve(async(request:Request)=>{
  subject:owner?"Completa tu registro de "+invitation.org_name+" en Repera":
   ""+invitation.org_name+" te invita a entrenar con Repera",
  html:emailHtml({...invitation,mode:owner?"owner":"athlete"},target.toString())})});
- if(!response.ok)return json({error:"EMAIL_DELIVERY_FAILED"},502);
- return json({sent:true});
+ if(!response.ok)return reply({error:"EMAIL_DELIVERY_FAILED"},502);
+ return reply({sent:true});
 });

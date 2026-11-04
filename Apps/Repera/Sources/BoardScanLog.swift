@@ -87,16 +87,19 @@ enum BoardScanLog {
         step("jpeg.ready", "bytes=\(bytes) path=\(path)")
     }
 
+    /// Release builds log counts only: the board text can contain names or
+    /// other personal notes and never leaves the debug console.
     static func ocr(_ text: String) {
         let lines = text.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        // Solo resumen en archivo (las líneas van a print/Logger; evitar I/O masivo en MainActor).
         step("ocr.text", "chars=\(text.count) lines=\(lines.count)")
+        #if DEBUG
         for (i, line) in lines.prefix(20).enumerated() {
             print("[BoardScan]     ocr[\(i)] \(line)")
         }
         if lines.count > 20 {
             print("[BoardScan]     ocr… +\(lines.count - 20) líneas")
         }
+        #endif
     }
 
     static func parse(blocks: Int, lines: Int, movements: Int) {
@@ -155,21 +158,28 @@ enum BoardScanLog {
 
     private enum Level { case debug, info, notice, error }
 
+    /// Debug-level lines carry parsed movement names/titles: DEBUG builds only.
+    /// Release keeps step timings and counts, with message text private in the
+    /// unified log.
     private static func emit(_ message: String, level: Level) {
         let id = currentPassId()
         let line = "[\(id)] \(message)"
-        // Siempre a stdout (Xcode console) para depurar en dispositivo.
+        #if DEBUG
         print("[BoardScan] \(line)")
         appendToFile(line)
+        #else
+        if level == .debug { return }
+        appendToFile(line)
+        #endif
         switch level {
         case .debug:
-            logger.debug("\(line, privacy: .public)")
+            logger.debug("\(line, privacy: .private)")
         case .info:
-            logger.info("\(line, privacy: .public)")
+            logger.info("\(line, privacy: .private)")
         case .notice:
-            logger.notice("\(line, privacy: .public)")
+            logger.notice("\(line, privacy: .private)")
         case .error:
-            logger.error("\(line, privacy: .public)")
+            logger.error("\(line, privacy: .private)")
         }
     }
 

@@ -58,6 +58,16 @@ final class WatchSessionHub: NSObject {
     private(set) var reviewElapsedSeconds: Int?
     private(set) var reviewingBlock = false
     private(set) var acknowledgedSessionID: UUID?
+    private(set) var phoneReachable = false
+    private(set) var phoneHasOwnerScope = false
+    /// El iPhone no confirmó con un snapshot el inicio pedido desde el reloj.
+    private(set) var companionStartTimedOut = false
+    /// Salud recuperó tras un cierre inesperado un entreno sin estado de Repera
+    /// que lo identifique: el usuario decide guardarlo o descartarlo.
+    private(set) var needsHealthRecoveryDecision = false
+    /// La live del reloj se restauró, pero su sesión de Salud no pudo recuperarse.
+    private(set) var liveRecoveryNotice: String?
+    private(set) var lastFailedLiveCommand: String?
 
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
@@ -65,17 +75,28 @@ final class WatchSessionHub: NSObject {
     private var lastCompanionHeartSentAt = Date.distantPast
     private var lastCompanionHeartSessionID: UUID?
     private var lastCompanionHeartBpm: Int?
-    private var lastComplicationReload = Date.distantPast
+    private var lastComplicationMetricsWrite = Date.distantPast
+    private var publishedComplication: ReperaComplicationSnapshot?
+    private var publishedComplicationLoaded = false
     private var startedOnThisWatch = false
     private var awaitingHealthSave = false
     private let motion = CMMotionManager()
     private var repCounter = MotionRepCounter()
-    private var motionTimer: Timer?
     private var clockTimer: Timer?
     private var lastClockTick: Date?
     private var lastIntervalIndex = 0
     private var todayUpdatedAt: Date?
+    private var checkpointSendTask: Task<Void, Never>?
+    private var companionStartTimeoutTask: Task<Void, Never>?
+    /// Inicio en iPhone abandonado tras el tiempo de espera: un snapshot tardío
+    /// de esa grabación se cancela para no grabar en dos dispositivos.
+    private var abandonedCompanionStartAt: Date?
+    private var lastLiveStateSave = Date.distantPast
+    /// Clave antigua de UserDefaults; el estado vive en un fichero protegido.
     private let persistenceKey = "repera.watch.offlineState.v1"
+    private let persistenceFile = "offlineState.v1.json"
+    private static let maxLiveRoutePoints = 20_000
+    private static let companionStartTimeout: Duration = .seconds(9)
     private var watchLiveSessionID: UUID?
     private var watchLiveStartedAt: Date?
     private var watchLivePausedAt: Date?
@@ -112,6 +133,23 @@ final class WatchSessionHub: NSObject {
         var acknowledgedSessionID: UUID?
         var startedOnThisWatch: Bool?
         var isRecordingPlannedWorkout: Bool?
+        var live: PersistedWatchLive?
+        var companionSensorID: UUID?
+    }
+
+    /// Actividad Comenzar grabada por el reloj: lo mínimo para reconstruir la UI
+    /// tras un cierre inesperado mientras HealthKit sigue grabando.
+    private struct PersistedWatchLive: Codable {
+        var id: UUID
+        var sportID: String
+        var startedAt: Date
+        var paused: Bool
+        var pausedAt: Date?
+        var pausedAccum: TimeInterval
+        var distanceMeters: Double
+        var elevationGainMeters: Double
+        var startPin: WorkoutLocationPin?
+        var points: [WorkoutRoutePoint]
     }
 
     override init() {
@@ -206,7 +244,34 @@ final class WatchSessionHub: NSObject {
         return bpm
     }
     var measuredEnergyKcal: Double? { health.kcal }
-    var healthWarning: String? { health.permissionIssue }
+    var healthWarning: String? { liveRecoveryNotice ?? health.permissionIssue }
+
+    /// Origen para `Text(timerInterval:)` en Always-On (nil si está en pausa).
+    var watchLiveTimerAnchor: Date? {
+        guard !watchLivePaused, let started = watchLiveStartedAt else { return nil }
+        return started.addingTimeInterval(watchLivePausedAccum)
+    }
+
+    var sessionClockAnchor: Date? {
+        guard hasWorkoutInProgress, !isPaused, let lastClockTick else { return nil }
+        return lastClockTick.addingTimeInterval(-Double(sessionElapsed))
+    }
+
+    enum PlanSyncStatus: Equatable {
+        case ready
+        /// El iPhone aún no ha enviado una cuenta (sin sesión o sin abrir Repera).
+        case phoneSignedOut
+        case unreachable
+        case noPlanToday
+        case syncing
+    }
+
+    var planSyncStatus: PlanSyncStatus {
+        if let plan = todaysWorkout, !plan.exercises.isEmpty { return .ready }
+        if !phoneHasOwnerScope { return .phoneSignedOut }
+        if let todayUpdatedAt, Calendar.current.isDateInToday(todayUpdatedAt) { return .noPlanToday }
+        return phoneReachable ? .syncing : .unreachable
+    }
     var healthRecording: Bool { health.isRecording }
     var hasWorkoutInProgress: Bool {
         guard let session = active else { return false }
@@ -418,24 +483,32 @@ final class WatchSessionHub: NSObject {
         }
         connectivity.delegate = self
         connectivity.activate()
-        if let active, startedOnThisWatch { health.recoverIfNeeded(id: active.id) }
-        if let finished = lastFinished, startedOnThisWatch,
+        phoneHasOwnerScope = connectivity.hasOwnerScope
+        phoneReachable = connectivity.isReachable
+        if let finished = lastFinished, startedOnThisWatch, active == nil,
            finished.appleHealthProvenance == "watchHealthKitPending",
            finished.healthKitWorkoutUUID == nil {
             // Recovered workouts must be stopped and saved before the user can
             // discard the summary. A locked Watch can return no HKWorkout UUID.
             awaitingHealthSave = true
-            health.recoverIfNeeded(id: finished.id) { [weak self] recovered in
+            health.recoverIfNeeded(id: finished.id, expectedStart: finished.startedAt) { [weak self] outcome in
                 guard let self else { return }
-                if recovered {
+                switch outcome {
+                case .recovered:
                     self.health.finish { [weak self] result in
                         self?.applySavedHealth(result, to: finished.id)
                     }
-                } else {
+                case .none:
                     self.awaitingHealthSave = false
+                    self.save()
+                case .mismatch:
+                    self.awaitingHealthSave = false
+                    self.needsHealthRecoveryDecision = true
                     self.save()
                 }
             }
+        } else {
+            recoverHealthSession()
         }
         if let finished = lastFinished, acknowledgedSessionID != finished.id {
             connectivity.sendFinished(finished)
@@ -445,10 +518,56 @@ final class WatchSessionHub: NSObject {
         publishComplicationSnapshot(force: true)
     }
 
+    /// Tras un cierre inesperado watchOS relanza la app con el workout aún activo.
+    /// Nunca dejar Salud grabando sin una pantalla que permita terminarlo.
     func recoverHealthSession() {
         if let active, startedOnThisWatch {
-            health.recoverIfNeeded(id: active.id)
+            health.recoverIfNeeded(id: active.id, expectedStart: active.startedAt) { [weak self] outcome in
+                if outcome == .mismatch { self?.needsHealthRecoveryDecision = true }
+            }
+        } else if let id = watchLiveSessionID, watchLiveSport != nil {
+            health.recoverIfNeeded(id: id, expectedStart: watchLiveStartedAt) { [weak self] outcome in
+                guard let self, self.watchLiveSessionID == id else { return }
+                switch outcome {
+                case .recovered:
+                    self.liveRecoveryNotice = nil
+                case .none:
+                    self.liveRecoveryNotice = "Salud dejó de grabar esta actividad. Puedes finalizarla o cancelarla."
+                case .mismatch:
+                    self.needsHealthRecoveryDecision = true
+                }
+            }
+        } else if !awaitingHealthSave {
+            // Sin estado local: solo puede tratarse del sensor de una live del
+            // iPhone (se descarta siempre) o de un workout huérfano.
+            let sensorID = companionSensorID
+            health.recoverIfNeeded(id: sensorID) { [weak self] outcome in
+                guard let self else { return }
+                switch outcome {
+                case .recovered where sensorID != nil && self.liveActivity?.id != sensorID:
+                    self.health.discard()
+                    self.companionSensorID = nil
+                    self.save()
+                case .mismatch:
+                    self.needsHealthRecoveryDecision = true
+                default:
+                    break
+                }
+            }
         }
+    }
+
+    /// Workout de Salud recuperado sin ejecución de Repera asociada.
+    /// Guardar lo conserva solo en Salud; no se fabrica una sesión de Repera.
+    func resolveRecoveredHealthWorkout(save: Bool) {
+        if save {
+            health.finish { _ in }
+        } else {
+            health.discard()
+        }
+        needsHealthRecoveryDecision = false
+        if companionSensorID != nil && liveActivity == nil { companionSensorID = nil }
+        self.save()
     }
 
     /// La frecuencia viene del sensor del reloj; no de un valor estimado.
@@ -477,50 +596,58 @@ final class WatchSessionHub: NSObject {
         lastCompanionHeartSentAt = now
     }
 
-    /// La esfera lee únicamente datos persistidos; WidgetKit puede espaciar
-    /// las actualizaciones aunque el reloj siga recibiendo sensores en vivo.
+    /// La esfera lee únicamente datos persistidos y calcula el tiempo sola
+    /// (`timerAnchor`). Se reescribe al instante en cambios estructurales
+    /// (inicio, pausa, reanudación, fin, cambio de sesión) y, para FC/kcal/
+    /// distancia, como mucho cada 60 s: WidgetKit limita las recargas.
     func publishComplicationSnapshot(force: Bool = false) {
         let now = Date()
         let live: ReperaComplicationSnapshot?
         if let sport = watchLiveSport, let id = watchLiveSessionID {
             live = ReperaComplicationSnapshot(
-                sessionID: id.uuidString, title: sport.title,
-                startedAt: watchLiveStartedAt ?? now, capturedAt: now,
+                sessionID: id.uuidString, title: sport.title, capturedAt: now,
                 elapsedSeconds: watchLiveElapsedSeconds,
+                timerAnchor: watchLiveTimerAnchor,
                 distanceMeters: sport.usesGPS ? watchLiveDistanceMeters : nil,
-                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
-                paused: watchLivePaused, activityKind: "sport"
+                heartRateBpm: heartRateBpm, energyKcal: health.kcal,
+                paused: watchLivePaused
             )
         } else if let companion = liveActivity, companion.phase != .review {
+            let elapsed = companion.displayElapsed(at: now)
             live = ReperaComplicationSnapshot(
                 sessionID: companion.id.uuidString, title: companion.sportTitle,
-                startedAt: now.addingTimeInterval(-companion.displayElapsed(at: now)),
-                capturedAt: now, elapsedSeconds: Int(companion.displayElapsed(at: now)),
+                capturedAt: now, elapsedSeconds: Int(elapsed),
+                timerAnchor: companion.phase == .recording ? now.addingTimeInterval(-elapsed) : nil,
                 distanceMeters: companion.distanceMeters,
-                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
-                paused: companion.phase == .paused, activityKind: "companion"
+                heartRateBpm: heartRateBpm, energyKcal: health.kcal,
+                paused: companion.phase == .paused
             )
         } else if let workout = active, workout.phase == .counting {
             live = ReperaComplicationSnapshot(
                 sessionID: workout.id.uuidString, title: workout.title,
-                startedAt: workout.startedAt ?? now, capturedAt: now,
-                elapsedSeconds: sessionElapsed, distanceMeters: nil,
-                heartRateBpm: health.pulseBpm, energyKcal: health.kcal,
-                paused: isPaused, activityKind: "planned"
+                capturedAt: now, elapsedSeconds: sessionElapsed,
+                timerAnchor: sessionClockAnchor, distanceMeters: nil,
+                heartRateBpm: heartRateBpm, energyKcal: health.kcal,
+                paused: isPaused
             )
         } else {
             live = nil
         }
-        let previous = ReperaComplicationSharedStore.read()
-        if previous != live {
-            guard ReperaComplicationSharedStore.write(live) else { return }
+        if !publishedComplicationLoaded {
+            publishedComplication = ReperaComplicationSharedStore.read()
+            publishedComplicationLoaded = true
         }
-        if force || (previous?.sessionID != live?.sessionID)
+        let previous = publishedComplication
+        let structural = force
+            || previous?.sessionID != live?.sessionID
             || previous?.paused != live?.paused
-            || now.timeIntervalSince(lastComplicationReload) >= 25 {
-            lastComplicationReload = now
-            WidgetCenter.shared.reloadTimelines(ofKind: "com.app.repera.watch.complication.brand6")
-        }
+            || previous?.title != live?.title
+        let metricsDue = live != nil && now.timeIntervalSince(lastComplicationMetricsWrite) >= 60
+        guard structural || metricsDue else { return }
+        guard ReperaComplicationSharedStore.write(live) else { return }
+        publishedComplication = live
+        lastComplicationMetricsWrite = now
+        WidgetCenter.shared.reloadTimelines(ofKind: "com.app.repera.watch.complication.brand6")
     }
 
     /// Refresh the prescription without touching an offline workout in progress.
@@ -548,6 +675,7 @@ final class WatchSessionHub: NSObject {
         }
         returnToHome()
         save()
+        WKInterfaceDevice.current().play(.click)
         return true
     }
 
@@ -566,9 +694,13 @@ final class WatchSessionHub: NSObject {
                     guard let self else { return }
                     self.isFinishingCompanionLive = false
                     guard saved else {
-                        self.liveCommandError = "No se pudo guardar en iPhone. Reintenta."
+                        self.liveCommandError = "No se pudo guardar en el iPhone. Reintenta."
+                        self.lastFailedLiveCommand = "finish"
+                        WKInterfaceDevice.current().play(.failure)
                         return
                     }
+                    self.lastFailedLiveCommand = nil
+                    WKInterfaceDevice.current().play(.success)
                     let elapsed = Int(live.displayElapsed(at: Date()))
                     let finished = WorkoutSession(
                         id: live.id, title: live.sportTitle, exercises: [],
@@ -593,14 +725,32 @@ final class WatchSessionHub: NSObject {
             }
             if !sent {
                 isFinishingCompanionLive = false
-                liveCommandError = "Conecta el iPhone para guardar esta actividad"
+                liveCommandError = Self.companionOfflineMessage
+                lastFailedLiveCommand = "finish"
+                WKInterfaceDevice.current().play(.failure)
             }
             return
         }
         guard live.phase != .review else { return }
-        liveCommandError = connectivity.sendLiveCommand(
-            sessionId: live.id, command: command
-        ) ? nil : "Conecta el iPhone para controlar esta actividad"
+        if connectivity.sendLiveCommand(sessionId: live.id, command: command) {
+            liveCommandError = nil
+            lastFailedLiveCommand = nil
+            WKInterfaceDevice.current().play(.click)
+        } else {
+            liveCommandError = Self.companionOfflineMessage
+            lastFailedLiveCommand = command
+            WKInterfaceDevice.current().play(.failure)
+        }
+    }
+
+    /// Esta actividad la graba el iPhone: Pausar y Finalizar necesitan conexión;
+    /// Cancelar queda en una cola duradera y funciona sin ella.
+    static let companionOfflineMessage =
+        "Sin conexión con el iPhone. Pausar y Finalizar lo necesitan; Cancelar funciona sin conexión."
+
+    func retryLastLiveCommand() {
+        guard let command = lastFailedLiveCommand else { return }
+        controlLiveActivity(command)
     }
 
     /// Cierra el resumen y vuelve al hub (sin reabrir la actividad).
@@ -634,14 +784,16 @@ final class WatchSessionHub: NSObject {
         if liveActivity?.phase == .review {
             liveActivity = nil
         }
+        companionStartTimedOut = false
+        abandonedCompanionStartAt = nil
         if connectivity.sendStartLive(sportID: sport.rawValue, onResult: { [weak self] ok in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, self.pendingCompanionSport == sport else { return }
                 if ok {
                     // iPhone es dueño: esperar liveActivity (no grabar en local).
-                    self.pendingCompanionSport = sport
                     return
                 }
+                self.cancelCompanionStartTimeout()
                 self.pendingCompanionSport = nil
                 // Sin iPhone / entreno programado activo → grabar en el reloj.
                 self.startWatchOwnedLive(sport: sport)
@@ -649,10 +801,52 @@ final class WatchSessionHub: NSObject {
         }) {
             // Mensaje enviado: UI companion en cuanto llegue el snapshot.
             pendingCompanionSport = sport
+            scheduleCompanionStartTimeout(for: sport)
             return false
         }
         startWatchOwnedLive(sport: sport)
         return true
+    }
+
+    private func scheduleCompanionStartTimeout(for sport: WatchLiveSport) {
+        companionStartTimeoutTask?.cancel()
+        companionStartTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.companionStartTimeout)
+            guard !Task.isCancelled, let self,
+                  self.pendingCompanionSport == sport, self.liveActivity == nil else { return }
+            self.companionStartTimedOut = true
+            WKInterfaceDevice.current().play(.failure)
+        }
+    }
+
+    private func cancelCompanionStartTimeout() {
+        companionStartTimeoutTask?.cancel()
+        companionStartTimeoutTask = nil
+        companionStartTimedOut = false
+    }
+
+    /// Tras el tiempo de espera: grabar en el reloj. Si el iPhone arranca tarde,
+    /// esa grabación se cancela por UUID (ver `watchConnectivityDidReceiveLive`).
+    func startPendingSportOnWatch() {
+        guard let sport = pendingCompanionSport else { return }
+        abandonedCompanionStartAt = Date()
+        cancelCompanionStartTimeout()
+        pendingCompanionSport = nil
+        startWatchOwnedLive(sport: sport)
+    }
+
+    func retryPendingCompanionStart() {
+        guard let sport = pendingCompanionSport else { return }
+        cancelCompanionStartTimeout()
+        pendingCompanionSport = nil
+        _ = playHubSport(sport)
+    }
+
+    func abandonPendingCompanionStart() {
+        guard pendingCompanionSport != nil else { return }
+        abandonedCompanionStartAt = Date()
+        cancelCompanionStartTimeout()
+        pendingCompanionSport = nil
     }
 
     private func startWatchOwnedLive(sport: WatchLiveSport) {
@@ -681,14 +875,36 @@ final class WatchSessionHub: NSObject {
             activityType: sport.healthKitActivityType,
             outdoor: sport.usesGPS
         )
+        liveRecoveryNotice = nil
         publishComplicationSnapshot(force: true)
         captureStartLocation(sessionID: id, recordsRoute: sport.usesGPS)
+        startWatchLiveTick()
+        saveLiveState()
+        if !audioMuted {
+            WKInterfaceDevice.current().play(.start)
+        }
+    }
+
+    private func startWatchLiveTick() {
         watchLiveTick?.invalidate()
         watchLiveTick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickWatchLive() }
         }
-        if !audioMuted {
-            WKInterfaceDevice.current().play(.start)
+    }
+
+    /// Live restaurada tras un cierre: reanuda reloj y GPS; Salud se recupera aparte.
+    private func resumeRestoredWatchLive() {
+        guard let sport = watchLiveSport, watchLiveSessionID != nil else { return }
+        tickWatchLive()
+        startWatchLiveTick()
+        if sport.usesGPS && !watchLivePaused {
+            configureLocationManager(recordsRoute: true)
+            switch locationManager.authorizationStatus {
+            case .authorizedWhenInUse, .authorizedAlways:
+                locationManager.startUpdatingLocation()
+            default:
+                break
+            }
         }
     }
 
@@ -702,6 +918,7 @@ final class WatchSessionHub: NSObject {
             watchLivePaused = false
             health.resume()
             if watchLiveSport?.usesGPS == true {
+                configureLocationManager(recordsRoute: true)
                 locationManager.startUpdatingLocation()
             }
         } else {
@@ -710,7 +927,14 @@ final class WatchSessionHub: NSObject {
             health.pause()
             locationManager.stopUpdatingLocation()
         }
+        WKInterfaceDevice.current().play(.click)
         publishComplicationSnapshot(force: true)
+        saveLiveState()
+    }
+
+    private func saveLiveState() {
+        lastLiveStateSave = Date()
+        save()
     }
 
     /// Cancela una actividad grabada por el reloj sin crear resultados,
@@ -723,8 +947,10 @@ final class WatchSessionHub: NSObject {
         watchLiveDistanceMeters = 0
         watchLiveElevationGainMeters = 0
         summaryDismissed = true
+        liveRecoveryNotice = nil
         returnToHome()
         save()
+        WKInterfaceDevice.current().play(.click)
     }
 
     /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
@@ -737,7 +963,8 @@ final class WatchSessionHub: NSObject {
         locationManager.stopUpdatingLocation()
         tickWatchLive()
         let finishedAt = Date()
-        let points = watchLivePoints
+        // Ruta simplificada (sin puntos nuevos): menos memoria y transporte.
+        let points = WatchRouteSimplifier.simplify(watchLivePoints, toleranceMeters: 3, maxPoints: 4_000)
         let startPin = watchLiveStartPin
         let distance = watchLiveDistanceMeters
         let elapsed = watchLiveElapsedSeconds
@@ -763,11 +990,14 @@ final class WatchSessionHub: NSObject {
         let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending
         summaryDismissed = false
+        liveRecoveryNotice = nil
         clearWatchLive()
         publishComplicationSnapshot(force: true)
         save()
+        WKInterfaceDevice.current().play(.success)
 
-        if let coord {
+        // Las condiciones se piden solo con la app en primer plano (resumen visible).
+        if let coord, WKApplication.shared().applicationState == .active {
             Task { @MainActor in
                 let snap = await AppleWeatherConditionsClient.fetch(
                     latitude: coord.0, longitude: coord.1, sportID: sport.rawValue
@@ -827,7 +1057,10 @@ final class WatchSessionHub: NSObject {
         guard let started = watchLiveStartedAt, !watchLivePaused else { return }
         let paused = watchLivePausedAccum
         watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
-        publishComplicationSnapshot()
+        // La complicación calcula el tiempo sola; aquí solo la copia de recuperación.
+        if Date().timeIntervalSince(lastLiveStateSave) >= 30 {
+            saveLiveState()
+        }
     }
 
     private func clearWatchLive() {
@@ -947,7 +1180,7 @@ final class WatchSessionHub: NSObject {
         lastIntervalIndex = 0
         lastClockTick = Date()
         startClock()
-        checkpoint()
+        checkpoint(flush: true)
     }
 
     /// Graba tiempo y Salud sin obligar a marcar series. Los valores reales se
@@ -967,7 +1200,7 @@ final class WatchSessionHub: NSObject {
             lastClockTick = Date()
             if ctrl.session.phase == .counting && restRemaining == 0 { startMotion() }
             if startedOnThisWatch { health.resume() }
-            checkpoint()
+            checkpoint(flush: true)
             return
         }
         if ctrl.session.phase == .ready {
@@ -994,7 +1227,7 @@ final class WatchSessionHub: NSObject {
             reviewingBlock = false
             lastClockTick = Date()
             startMotion()
-            checkpoint()
+            checkpoint(flush: true)
         }
     }
 
@@ -1005,7 +1238,7 @@ final class WatchSessionHub: NSObject {
         lastClockTick = nil
         stopMotion()
         if startedOnThisWatch { health.pause() }
-        checkpoint()
+        checkpoint(flush: true)
     }
 
     func skipRest() {
@@ -1540,6 +1773,7 @@ final class WatchSessionHub: NSObject {
     /// Cancela la sesión en curso sin guardar (iPhone terminó/descartó, o el atleta elige Descartar).
     func discardActiveSession(fromPhone: Bool = false) {
         let discardedID = active?.id ?? lastFinished?.id
+        cancelPendingCheckpointSend()
         stopMotion()
         stopClock()
         // Si el iPhone manda nil mientras guardamos HealthKit tras finalizar,
@@ -1582,9 +1816,7 @@ final class WatchSessionHub: NSObject {
     private func captureStartLocation(sessionID: UUID, recordsRoute: Bool) {
         startLocationSessionID = sessionID
         startLocationRequestedAt = Date()
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.activityType = .fitness
+        configureLocationManager(recordsRoute: recordsRoute)
         switch locationManager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             if recordsRoute { locationManager.startUpdatingLocation() }
@@ -1595,6 +1827,20 @@ final class WatchSessionHub: NSObject {
         default:
             startLocationSessionID = nil
             startLocationRequestedAt = nil
+        }
+    }
+
+    /// Ruta: máxima precisión con filtro de 5 m (suficiente para ritmo de carrera,
+    /// sin un punto por segundo parado). Ubicación inicial: un solo fix de ~10 m.
+    private func configureLocationManager(recordsRoute: Bool) {
+        locationManager.delegate = self
+        locationManager.activityType = .fitness
+        if recordsRoute {
+            locationManager.desiredAccuracy = kCLLocationAccuracyBest
+            locationManager.distanceFilter = 5
+        } else {
+            locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            locationManager.distanceFilter = kCLDistanceFilterNone
         }
     }
 
@@ -1636,6 +1882,7 @@ final class WatchSessionHub: NSObject {
 
     private func completeSession() {
         guard let finished = controller?.session, lastFinished?.id != finished.id else { return }
+        cancelPendingCheckpointSend()
         stopMotion()
         stopClock()
         var result = finished
@@ -1765,32 +2012,37 @@ final class WatchSessionHub: NSObject {
         }
     }
 
+    /// El contador solo rellena series sin prescripción: con reps prescritas el
+    /// sensor no se enciende. 10 Hz bastan para picos de repetición (≥ 0,45 s).
     private func startMotion() {
         stopMotion()
         guard !isRecordingPlannedWorkout, !isPaused, restRemaining == 0,
+              !reviewingBlock, selectedSetIndex == nil,
               motion.isDeviceMotionAvailable,
               active?.phase == .counting,
+              current?.plannedSets.isEmpty != false,
               loggingStyle != .machineWork, loggingStyle != .repsAndTime else { return }
-        motion.deviceMotionUpdateInterval = 1.0 / 25.0
-        motion.startDeviceMotionUpdates(using: .xArbitraryZVertical)
-        motionTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tickMotion() }
+        motion.deviceMotionUpdateInterval = 1.0 / 10.0
+        motion.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: .main) { [weak self] data, _ in
+            guard let u = data?.userAcceleration else { return }
+            let magnitude = sqrt(u.x * u.x + u.y * u.y + u.z * u.z) + 1.0
+            MainActor.assumeIsolated { self?.ingestMotion(magnitude) }
         }
     }
 
     private func stopMotion() {
-        motionTimer?.invalidate()
-        motionTimer = nil
+        guard motion.isDeviceMotionActive else { return }
         motion.stopDeviceMotionUpdates()
     }
 
-    private func tickMotion() {
+    private func ingestMotion(_ magnitude: Double) {
         guard !isPaused, !reviewingBlock, restRemaining == 0,
               active?.phase == .counting,
               loggingStyle != .machineWork, loggingStyle != .repsAndTime,
-              selectedSetIndex == nil, let data = motion.deviceMotion else { return }
-        let u = data.userAcceleration
-        let magnitude = sqrt(u.x * u.x + u.y * u.y + u.z * u.z) + 1.0
+              selectedSetIndex == nil else {
+            stopMotion()
+            return
+        }
         repCounter.ingest(magnitude: magnitude)
         // Never overwrite a prefilled prescription or a manual +/- correction
         // with the zero-based motion estimate.
@@ -1799,11 +2051,64 @@ final class WatchSessionHub: NSObject {
         }
     }
 
-    private func checkpoint() {
+    /// Guarda en disco al instante; el envío al iPhone se agrupa (350 ms) para no
+    /// mandar la sesión entera en cada toque. `flush` para inicio/pausa/reanudación.
+    private func checkpoint(flush: Bool = false) {
         save()
+        checkpointSendTask?.cancel()
+        checkpointSendTask = nil
+        guard active != nil else { return }
+        if flush {
+            sendCheckpointNow()
+            return
+        }
+        checkpointSendTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            self?.sendCheckpointNow()
+        }
+    }
+
+    private func sendCheckpointNow() {
+        checkpointSendTask = nil
         if let current = active {
             connectivity.sendCurrent(current)
         }
+    }
+
+    private func cancelPendingCheckpointSend() {
+        checkpointSendTask?.cancel()
+        checkpointSendTask = nil
+    }
+
+    private func persistedLiveState() -> PersistedWatchLive? {
+        guard let sport = watchLiveSport, let id = watchLiveSessionID,
+              let started = watchLiveStartedAt else { return nil }
+        return PersistedWatchLive(
+            id: id, sportID: sport.rawValue, startedAt: started,
+            paused: watchLivePaused, pausedAt: watchLivePausedAt,
+            pausedAccum: watchLivePausedAccum,
+            distanceMeters: watchLiveDistanceMeters,
+            elevationGainMeters: watchLiveElevationGainMeters,
+            startPin: watchLiveStartPin,
+            points: WatchRouteSimplifier.simplify(watchLivePoints, toleranceMeters: 3, maxPoints: 1_500)
+        )
+    }
+
+    private func restoreLiveState(_ live: PersistedWatchLive) {
+        guard let sport = WatchLiveSport(rawValue: live.sportID) else { return }
+        watchLiveSessionID = live.id
+        watchLiveSport = sport
+        watchLiveStartedAt = live.startedAt
+        watchLivePaused = live.paused
+        watchLivePausedAt = live.pausedAt
+        watchLivePausedAccum = live.pausedAccum
+        watchLiveDistanceMeters = live.distanceMeters
+        watchLiveElevationGainMeters = live.elevationGainMeters
+        watchLiveStartPin = live.startPin
+        watchLivePoints = live.points
+        let reference = live.paused ? (live.pausedAt ?? Date()) : Date()
+        watchLiveElapsedSeconds = max(0, Int(reference.timeIntervalSince(live.startedAt) - live.pausedAccum))
     }
 
     private func save() {

@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-11-03 (alias EN variantes, BTT, C&J y matching canónico de OCR)
+Última actualización: 2026-11-04 (logs de release sin texto OCR; antes: alias EN variantes, BTT, C&J y matching canónico de OCR)
 
 ## Objetivo
 
@@ -135,7 +135,10 @@ Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de serie
 
 ## Logs
 
-`BoardScanLog` → **siempre** `print` + `Logger` (subsystem `com.app.repera`, category `BoardScan`) + archivo `Documents/BoardScan.log` en el contenedor de la app.
+`BoardScanLog` → `Logger` (subsystem `com.app.repera`, category `BoardScan`) + archivo `Documents/BoardScan.log` en el contenedor de la app.
+
+- **DEBUG:** además `print` en la consola de Xcode, las primeras 20 líneas de OCR y el detalle por bloque/movimiento (nivel debug).
+- **Release:** solo pasos, tiempos y recuentos (`chars=`, `lines=`, `blocks=`…). El texto OCR y los nombres de movimientos no se imprimen ni se escriben en el archivo; el mensaje en el log unificado es `privacy: .private` (visible con Xcode conectado, redactado en Consola).
 
 En Xcode: filtro `[BoardScan]`. Cada pasada tiene un id corto y tiempos `+Nms · ΣTotalms`:
 

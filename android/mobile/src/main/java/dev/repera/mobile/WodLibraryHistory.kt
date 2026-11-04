@@ -3,7 +3,7 @@ import org.json.JSONObject
 
 data class WodLibraryResult(val id:String,val templateId:String,val elapsedSeconds:Int?,val totalReps:Int?,val rounds:Int?,val format:String?) {
     val summary:String get()=when {
-        elapsedSeconds!=null -> "%d:%02d".format(elapsedSeconds/60,elapsedSeconds%60)
+        elapsedSeconds!=null -> "%d:%02d".format(java.util.Locale.ROOT, elapsedSeconds/60,elapsedSeconds%60)
         rounds!=null && totalReps!=null -> "$rounds rondas + $totalReps reps"
         totalReps!=null -> "$totalReps reps"
         rounds!=null -> "$rounds rondas"

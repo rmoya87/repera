@@ -67,7 +67,10 @@ fun AIProgramsScreen(
                 }
             }
         }
-        items(programs ?: emptyList()) { program ->
+        val programList = programs.orEmpty()
+        val programKeys = LazyListKeys.unique(programList.map { it.id })
+        items(programList.size, key = { programKeys[it] }) { index ->
+            val program = programList[index]
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {

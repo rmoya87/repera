@@ -6,6 +6,23 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
+/// El texto de la app solo existe en español, pero números, unidades, calendario
+/// y horas siguen la región y las preferencias del usuario (es_MX, es_US, es_AR…).
+enum ReperaLocale {
+    static let app: Locale = resolve(from: .autoupdatingCurrent)
+
+    static func resolve(from current: Locale) -> Locale {
+        guard let region = current.region else { return Locale(identifier: "es_ES") }
+        var components = Locale.Components(locale: current)
+        components.languageComponents = Locale.Language.Components(
+            languageCode: .spanish,
+            region: region
+        )
+        components.region = region
+        return Locale(components: components)
+    }
+}
+
 @main
 struct ReperaApp: App {
     @State private var store = ReperaStore()
@@ -55,7 +72,7 @@ struct ReperaApp: App {
     /// Isolate the root environment graph from the startup/lifecycle closures.
     private var appEnvironmentContent: some View {
             launchRootView
-                .environment(\.locale, Locale(identifier: "es_ES"))
+                .environment(\.locale, ReperaLocale.app)
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }

@@ -2,6 +2,38 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
+/// Único punto de validación de los enlaces `repera://` (widgets, Live Activity,
+/// invitaciones). Cualquier esquema, host o ruta no reconocidos se ignoran.
+enum ReperaDeepLink: Equatable {
+    case live
+    case workout
+    case today
+    case tools
+    case exercises
+    case invitation(UUID)
+
+    static let scheme = "repera"
+
+    init?(url: URL) {
+        guard url.scheme?.lowercased() == Self.scheme,
+              url.user == nil, url.password == nil, url.port == nil,
+              let host = url.host(percentEncoded: false)?.lowercased() else { return nil }
+        let path = url.pathComponents.filter { $0 != "/" }
+        switch (host, path.count) {
+        case ("live", 0): self = .live
+        case ("workout", 0): self = .workout
+        case ("today", 0): self = .today
+        case ("tools", 0): self = .tools
+        case ("exercises", 0): self = .exercises
+        case ("invitation", 1):
+            guard let id = UUID(uuidString: path[0]) else { return nil }
+            self = .invitation(id)
+        default:
+            return nil
+        }
+    }
+}
+
 enum WorkoutFlowRoute: Hashable {
     case sessionPreview(routineId: UUID?)
     case editWorkout(routineId: UUID)
@@ -407,43 +439,37 @@ struct RootTabView: View {
     }
 
     private func handleOpenURL(_ url: URL) {
-        guard url.scheme == "repera" else { return }
-        switch url.host {
-        case "live":
+        guard let link = ReperaDeepLink(url: url) else { return }
+        switch link {
+        case .live:
             flowPath = []
             tab = .start
-        case "workout":
+        case .workout:
             if store.hasActiveSession {
                 openWorkout()
             } else {
                 flowPath = []
                 tab = .home
             }
-        case "today":
+        case .today:
             flowPath = []
             tab = .home
             openTodayPreview()
-        case "tools":
+        case .tools:
             flowPath = []
             tab = .home
             showStartHub = true
-        case "exercises":
+        case .exercises:
             flowPath = []
             tab = .exercises
-        case "invitation":
-            let idString = url.pathComponents.dropFirst().first
-                ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            if let id = UUID(uuidString: idString) {
-                pendingInvitationId = id
-                showInvitationSheet = true
-                tab = .home
-                NotificationCenter.default.post(
-                    name: Notification.Name("repera.openSettingsForInvitation"),
-                    object: id
-                )
-            }
-        default:
-            break
+        case .invitation(let id):
+            pendingInvitationId = id
+            showInvitationSheet = true
+            tab = .home
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.openSettingsForInvitation"),
+                object: id
+            )
         }
     }
 
@@ -648,10 +674,10 @@ private struct ContinueAccessoryContent: View {
                 )
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Continuar")
-                        .font(.system(size: isInline ? 11 : 12, weight: .medium))
+                        .font((isInline ? Font.caption2 : .caption).weight(.medium))
                         .foregroundStyle(OG.label2)
                     Text(model.title)
-                        .font(.system(size: isInline ? 14 : 16, weight: .semibold))
+                        .ogFont(isInline ? 14 : 16, weight: .semibold, relativeTo: .subheadline)
                         .foregroundStyle(OG.label)
                         .lineLimit(1)
                 }
@@ -661,7 +687,7 @@ private struct ContinueAccessoryContent: View {
                     // Mismas métricas en expandido y comprimido: duración + ritmo + distancia.
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(model.progressLabel)
-                            .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
+                            .font((isInline ? Font.caption : .footnote).weight(.semibold).monospacedDigit())
                         HStack(spacing: 6) {
                             if let pace = model.paceLabel {
                                 Text(pace)
@@ -670,14 +696,14 @@ private struct ContinueAccessoryContent: View {
                                 Text(distance)
                             }
                         }
-                        .font(.system(size: isInline ? 11 : 12, weight: .semibold).monospacedDigit())
+                        .font((isInline ? Font.caption2 : .caption).weight(.semibold).monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     }
                     .foregroundStyle(OG.orange)
                 } else {
                     Text(model.progressLabel)
-                        .font(.system(size: isInline ? 12 : 13, weight: .semibold).monospacedDigit())
+                        .font((isInline ? Font.caption : .footnote).weight(.semibold).monospacedDigit())
                         .foregroundStyle(model.isLiveActivity ? OG.orange : OG.accent)
                 }
             }
@@ -689,6 +715,8 @@ private struct ContinueAccessoryContent: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
+        // El accesorio de la barra de pestañas tiene alto fijo del sistema.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityLabel("Continuar \(model.title)")
     }
 }
@@ -743,13 +771,27 @@ private struct ContinueAccessoryThumb: View {
 }
 
 /// Aceptar / rechazar invitación abierta por `repera://invitation/{id}`.
+/// Nunca se queda «buscando»: tras refrescar distingue sesión, red y validez.
 private struct InvitationDeepLinkSheet: View {
     let invitationId: UUID?
     var onDone: () -> Void
     @Environment(BusinessDataStore.self) private var business
     @Environment(BusinessAuthStore.self) private var auth
-    @State private var status = ""
+    @State private var phase: Phase = .loading
     @State private var preview: BusinessInvitationPreview?
+    @State private var actionError: String?
+
+    private enum Phase: Equatable {
+        case loading
+        case found
+        case signedOut
+        case unreachable
+        case unavailable(Unavailability)
+    }
+
+    private enum Unavailability: Equatable {
+        case notFound, expired, alreadyAccepted, cancelled
+    }
 
     private var invitation: BusinessInvitation? {
         guard let invitationId else { return nil }
@@ -757,77 +799,224 @@ private struct InvitationDeepLinkSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                if !auth.isConnected {
-                    Text("Inicia sesión en Repera con el correo de la invitación para aceptar la vinculación.")
-                        .foregroundStyle(OG.label2)
-                } else if let invitation {
-                    Text(preview?.organizationName ?? "Centro o entrenador")
-                        .font(.title2.weight(.bold))
-                    if let preview {
-                        Text(preview.kindLabel)
-                            .foregroundStyle(OG.label2)
-                        if let tagline = preview.organizationTagline, !tagline.isEmpty {
-                            Text(tagline)
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                    Text("Al aceptar verás este centro en Ajustes, con tus clases, bonos y mensajes asociados.")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-                    HStack(spacing: 12) {
-                        Button("Aceptar vinculación") {
-                            Task {
-                                await business.accept(invitation)
-                                status = "Vinculación aceptada. Abriendo Ajustes…"
-                                onDone()
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(OG.accent)
-                        .disabled(business.isSubmitting)
-                        Button("Rechazar", role: .destructive) {
-                            Task {
-                                await business.decline(invitation)
-                                status = "Invitación rechazada."
-                                onDone()
-                            }
-                        }
-                        .disabled(business.isSubmitting)
-                    }
-                } else {
-                    Text("Buscando invitación…")
-                        .foregroundStyle(OG.label2)
-                    Text("Si no aparece, inicia sesión con el correo invitado o pide un enlace nuevo.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
-                if !status.isEmpty {
-                    Text(status).foregroundStyle(OG.accent)
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            OGPageHeader(title: "Invitación") {
+                CloseToolbarButton(action: onDone)
             }
-            .padding(OG.pad)
-            .navigationTitle("Aceptar centro")
-            .navigationBarTitleDisplayMode(.inline)
-            .task(id: invitationId) {
-                guard let invitationId else { return }
-                await business.refresh()
-                preview = await business.loadInvitationPreview(id: invitationId)
+            content
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .ogFittedHeight()
+        .ogFittedSheet()
+        .task(id: invitationId) { await lookUp() }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch phase {
+        case .loading:
+            HStack(spacing: 12) {
+                ProgressView().tint(OG.accent)
+                Text("Buscando invitación…")
+                    .foregroundStyle(OG.label2)
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar", action: onDone)
-                }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        case .found:
+            if let invitation {
+                foundContent(invitation)
             }
-            .task {
-                if auth.isConnected {
-                    await business.refresh()
-                }
+        case .signedOut:
+            stateMessage(
+                title: "Inicia sesión para continuar",
+                systemImage: "person.crop.circle.badge.exclamationmark",
+                message: "Entra en Repera con el correo al que llegó la invitación. Después podrás aceptarla."
+            )
+            primaryButton("Iniciar sesión") {
+                onDone()
+                NotificationCenter.default.post(
+                    name: Notification.Name("repera.openSettingsForInvitation"),
+                    object: invitationId
+                )
+            }
+            secondaryButton("Reintentar") { Task { await lookUp() } }
+        case .unreachable:
+            stateMessage(
+                title: "No se ha podido comprobar la invitación",
+                systemImage: "wifi.exclamationmark",
+                message: "Revisa tu conexión a internet e inténtalo de nuevo."
+            )
+            primaryButton("Reintentar") { Task { await lookUp() } }
+            secondaryButton("Cerrar", action: onDone)
+        case .unavailable(let reason):
+            stateMessage(
+                title: reason == .alreadyAccepted ? "Invitación ya aceptada" : "Invitación no disponible",
+                systemImage: reason == .alreadyAccepted ? "checkmark.circle" : "envelope.badge",
+                message: Self.message(for: reason)
+            )
+            primaryButton("Cerrar", action: onDone)
+            if reason == .notFound {
+                secondaryButton("Reintentar") { Task { await lookUp() } }
             }
         }
-        .ogSheetChrome(detents: [.medium])
+    }
+
+    @ViewBuilder
+    private func foundContent(_ invitation: BusinessInvitation) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(preview?.organizationName ?? "Centro o entrenador")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(OG.label)
+            if let preview {
+                Text(preview.kindLabel)
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                if let tagline = preview.organizationTagline, !tagline.isEmpty {
+                    Text(tagline)
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            if let expires = BusinessDataStore.date(invitation.expiresAt) {
+                Text("Caduca el \(SpanishDate.format(expires, date: .abbreviated, time: .omitted))")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label3)
+            }
+        }
+        Text("Al aceptar verás este centro en Ajustes, con tus clases, bonos y mensajes asociados. Tu historial personal no se comparte.")
+            .font(.subheadline)
+            .foregroundStyle(OG.label2)
+            .fixedSize(horizontal: false, vertical: true)
+        if let actionError {
+            Label(actionError, systemImage: "exclamationmark.triangle.fill")
+                .font(.footnote)
+                .foregroundStyle(OG.red)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        primaryButton(business.isSubmitting ? "Aceptando…" : "Aceptar vinculación") {
+            Task { await accept(invitation) }
+        }
+        .disabled(business.isSubmitting)
+        Button(role: .destructive) {
+            Task { await decline(invitation) }
+        } label: {
+            Text("Rechazar")
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .disabled(business.isSubmitting)
+    }
+
+    private func stateMessage(title: String, systemImage: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: systemImage)
+                .font(.headline)
+                .foregroundStyle(OG.label)
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(OG.accent)
+        .foregroundStyle(.black)
+    }
+
+    private func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .tint(OG.label)
+    }
+
+    private static func message(for reason: Unavailability) -> String {
+        switch reason {
+        case .expired:
+            "Esta invitación ha caducado. Pide a tu centro o entrenador que te envíe un enlace nuevo."
+        case .alreadyAccepted:
+            "Ya estás vinculado con este centro. Lo encontrarás en Ajustes."
+        case .cancelled:
+            "El centro ha cancelado esta invitación. Si es un error, pídele un enlace nuevo."
+        case .notFound:
+            "No encontramos esta invitación en tu cuenta. Puede haber caducado o estar dirigida a otro correo."
+        }
+    }
+
+    private func lookUp() async {
+        phase = .loading
+        actionError = nil
+        guard let invitationId else {
+            phase = .unavailable(.notFound)
+            return
+        }
+        if !auth.isConnected {
+            await auth.restoreSession()
+            if !auth.isConnected {
+                _ = auth.connectFromCachedSessionIfPossible()
+            }
+        }
+        guard auth.isConnected else {
+            phase = .signedOut
+            return
+        }
+        // `refresh()` no espera a otra carga en curso (p. ej. la del arranque).
+        var waited = 0
+        while business.isLoading && waited < 75 && !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(200))
+            waited += 1
+        }
+        await business.refresh()
+        guard !Task.isCancelled else { return }
+        guard auth.isConnected else {
+            phase = .signedOut
+            return
+        }
+        guard let invitation else {
+            phase = business.errorMessage == nil ? .unavailable(.notFound) : .unreachable
+            return
+        }
+        if invitation.acceptedAt != nil {
+            phase = .unavailable(.alreadyAccepted)
+        } else if invitation.cancelledAt != nil {
+            phase = .unavailable(.cancelled)
+        } else if let expires = BusinessDataStore.date(invitation.expiresAt), expires <= Date() {
+            phase = .unavailable(.expired)
+        } else {
+            preview = await business.loadInvitationPreview(id: invitationId)
+            phase = .found
+        }
+    }
+
+    private func accept(_ invitation: BusinessInvitation) async {
+        actionError = nil
+        await business.accept(invitation)
+        if let message = business.errorMessage, message.hasPrefix("No se ha podido aceptar") {
+            actionError = message
+        } else {
+            onDone()
+        }
+    }
+
+    private func decline(_ invitation: BusinessInvitation) async {
+        actionError = nil
+        await business.decline(invitation)
+        if business.invitations.contains(where: { $0.id == invitation.id }) {
+            actionError = business.errorMessage ?? "No se ha podido rechazar la invitación. Inténtalo de nuevo."
+        } else {
+            onDone()
+        }
     }
 }

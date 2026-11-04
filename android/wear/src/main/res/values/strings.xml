@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_app_name">Repera</string>
+
+    <!-- Inicio de actividad desde el reloj (propiedad del teléfono) -->
+    <string name="wear_live_start_pending">Iniciando %1$s…</string>
+    <string name="wear_live_start_generic_activity">actividad</string>
+    <string name="wear_live_start_timeout">El móvil no respondió. Toca aquí para reintentar.</string>
+    <string name="wear_live_start_failed">El móvil no pudo iniciar la actividad; abre Repera</string>
+    <string name="wear_live_start_disconnected">Móvil desconectado; abre Repera en el teléfono</string>
+    <string name="wear_live_running_on_phone">Actividad en curso en el teléfono</string>
+    <string name="wear_live_finish_pending">Finalizando en el teléfono…</string>
+    <string name="wear_live_finish_timeout">El teléfono no confirmó el fin. Inténtalo de nuevo.</string>
+    <string name="wear_live_phone_disconnected">Móvil desconectado; actividad conservada</string>
+
+    <!-- Sensores -->
+    <string name="wear_sensors_reopen_watch">Vuelve a abrir Repera en el reloj para activar los sensores</string>
+    <string name="wear_sensors_permission_denied">Sin permiso de pulso: el entreno continúa sin FC. Puedes activarlo en Ajustes &gt; Apps &gt; Repera.</string>
+    <string name="wear_sensors_start_failed">No se pudo iniciar la actividad</string>
+
+    <!-- Notificación y Ongoing Activity -->
+    <string name="wear_notification_channel">Entrenamiento</string>
+    <string name="wear_notification_title">Repera · Entrenamiento</string>
+    <string name="wear_notification_ending">Terminando sensores</string>
+    <string name="wear_notification_paused">Sensores en pausa</string>
+    <string name="wear_notification_recording">Registro de sensores activo</string>
+    <string name="wear_notification_measuring">Pulso en directo para la actividad del móvil</string>
+    <string name="wear_notification_connecting">Conectando con sensores</string>
+    <string name="wear_ongoing_description">Volver al entrenamiento en curso de Repera</string>
+
+    <!-- Tile y complicación -->
+    <string name="wear_today_plan_untitled">Entreno de hoy</string>
+    <string name="wear_no_plan_today">Sin plan para hoy</string>
+    <string name="wear_active_session">Entrenamiento activo</string>
+    <string name="wear_tile_continue">Continuar</string>
+    <string name="wear_tile_open">Abrir</string>
+    <string name="wear_complication_open">Abrir Repera</string>
+
+    <!-- Modo ambiente -->
+    <string name="wear_ambient_paused">En pausa</string>
+    <string name="wear_ambient_rest_until">Descanso hasta %1$s</string>
+    <string name="wear_ambient_started_at">Desde %1$s</string>
+    <string name="wear_ambient_elapsed_minutes">%1$d min</string>
+    <string name="wear_ambient_heart_rate">%1$d lpm</string>
+    <string name="wear_ambient_distance">%1$s km</string>
+    <string name="wear_ambient_set">Serie %1$d de %2$d</string>
+
+    <plurals name="wear_pending_sets">
+        <item quantity="one">%d serie pendiente</item>
+        <item quantity="other">%d series pendientes</item>
+    </plurals>
+
+    <!-- Accesibilidad -->
+    <string name="wear_cd_pause">Pausar</string>
+    <string name="wear_cd_resume">Reanudar</string>
+    <string name="wear_cd_finish">Finalizar</string>
+    <string name="wear_cd_mute">Silenciar audio</string>
+    <string name="wear_cd_unmute">Activar audio</string>
+    <string name="wear_cd_timer">Temporizador</string>
+    <string name="wear_cd_start_item">Comenzar %1$s</string>
+    <string name="wear_cd_retry">Reintentar</string>
+
+    <!-- Privacidad de permisos de salud (Wear OS 6 / API 36) -->
+    <string name="wear_health_privacy_title">Datos de salud</string>
+    <string name="wear_health_privacy_body">Repera lee tu frecuencia cardíaca solo durante un entrenamiento que hayas iniciado, para mostrarla en el reloj y enviarla a la actividad abierta en tu móvil emparejado.\n\nNo genera valores ficticios ni vende datos de salud. Sin permiso, el entreno funciona igual y la FC aparece como no disponible.\n\nPuedes revocar el permiso en Ajustes &gt; Apps &gt; Repera &gt; Permisos.</string>
+</resources>

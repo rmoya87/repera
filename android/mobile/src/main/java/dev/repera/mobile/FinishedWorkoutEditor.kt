@@ -83,7 +83,7 @@ internal fun FinishedWorkoutEditorSection(
         return
     }
     // Borrador: se reinicia cada vez que se entra en edición.
-    var title by remember(accountId, workout.id) { mutableStateOf(workout.title) }
+    var title by androidx.compose.runtime.saveable.rememberSaveable(accountId, workout.id) { mutableStateOf(workout.title) }
     var startIso by remember(accountId, workout.id) { mutableStateOf(workout.startedAtIso) }
     var endIso by remember(accountId, workout.id) { mutableStateOf(workout.finishedAtIso) }
     var notes by remember(accountId, workout.id) { mutableStateOf(workout.notes.orEmpty()) }
@@ -172,7 +172,7 @@ internal fun FinishedWorkoutEditorSection(
                 }
                 WorkoutDateTimeDurationRow(
                     dayIso = startZ.toLocalDate().toString(),
-                    clock = "%02d:%02d".format(startZ.hour, startZ.minute),
+                    clock = "%02d:%02d".format(java.util.Locale.ROOT, startZ.hour, startZ.minute),
                     durationMinutes = durationMin,
                     onDayIso = { iso ->
                         val d = runCatching { java.time.LocalDate.parse(iso) }.getOrNull()

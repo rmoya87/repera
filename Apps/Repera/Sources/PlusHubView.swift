@@ -33,6 +33,10 @@ struct PlusHubView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
+                // Igual que Progreso: el título se desplaza con el contenido, sin franja opaca.
+                OGFixedTopBar(title: "Clases y centro", drawsBackground: false) {
+                    EmptyView()
+                }
                 VStack(alignment: .leading, spacing: 18) {
                     Picker("Sección", selection: $hubTab) {
                         ForEach(HubTab.allCases) { tab in
@@ -64,13 +68,13 @@ struct PlusHubView: View {
                     }
                 }
                 .padding(.horizontal, OG.pad)
-                .padding(.top, 12)
+                .padding(.top, 4)
                 .padding(.bottom, 40)
                 .ogReadableColumn()
             }
             .background(OG.bg)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(.hidden, for: .navigationBar)
+            .refreshable { await refresh() }
+            .ogContentTitleNav()
             .navigationDestination(for: BusinessOccurrence.self) { occurrence in
                 ClassOccurrenceDetailPage(
                     occurrence: occurrence,
@@ -153,7 +157,7 @@ struct PlusHubView: View {
         let headerDate = classCalendarScrollID.flatMap(BusinessDataStore.parseDayKey) ?? selectedDay
         return VStack(alignment: .leading, spacing: 8) {
             Text(headerDate.formatted(Date.FormatStyle().month(.wide).year().locale(SpanishDate.appLocale)))
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(OG.label2)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.horizontal, OG.pad)
@@ -216,11 +220,15 @@ struct PlusHubView: View {
         let dayName = labels[cal.component(.weekday, from: day) - 1]
         return VStack(spacing: 2) {
             Text(dayName)
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label2)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Text("\(cal.component(.day, from: day))")
-                .font(.system(size: 17, weight: selected ? .semibold : .medium))
+                .font(.body.weight(selected ? .semibold : .medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             if hasClass {
                 Circle()
                     .fill(selected ? OG.onAccent : OG.accent)
@@ -245,8 +253,10 @@ struct PlusHubView: View {
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        // Casilla de lado fijo por el ancho de 7 días: el texto no puede crecer sin límite.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
+        .accessibilityLabel(day.formatted(Date.FormatStyle(date: .complete, time: .omitted).locale(SpanishDate.appLocale)))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
@@ -648,12 +658,12 @@ struct PlusHubView: View {
 
                 if unlimited {
                     Text("Acceso ilimitado")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(.title, design: .rounded, weight: .bold))
                         .foregroundStyle(OG.accent)
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(pass.remainingCredits)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .ogFont(36, weight: .bold, design: .rounded, relativeTo: .largeTitle)
                             .foregroundStyle(OG.accent)
                         Text("de \(pass.totalCredits) sesiones")
                             .font(.subheadline.weight(.semibold))
@@ -928,7 +938,7 @@ struct ClassOccurrenceDetailPage: View {
                 .ogScrollingTitleListRow()
             if !daySubtitle.isEmpty {
                 Text(daySubtitle)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -1086,7 +1096,7 @@ struct ClassOccurrenceDetailPage: View {
             }
         } label: {
             Text(booking == nil ? "Apuntarme" : "Cancelar clase")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.callout.weight(.semibold))
                 .foregroundStyle(booking == nil ? Color.black : Color.white)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 52)

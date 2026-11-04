@@ -28,7 +28,7 @@ object FreeUsageLedger {
         calendar.timeInMillis = now
         val year = calendar.get(Calendar.YEAR)
         val month = calendar.get(Calendar.MONTH) + 1
-        return "%04d-%02d".format(year, month)
+        return "%04d-%02d".format(java.util.Locale.ROOT, year, month)
     }
 
     /** Asegura que el estado refleja el mes actual; resetea contadores al cambiar de periodo. */

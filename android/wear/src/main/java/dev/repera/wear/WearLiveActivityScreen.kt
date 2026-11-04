@@ -15,10 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
@@ -29,13 +27,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -44,12 +45,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.FilledIconButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButtonDefaults
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScrollIndicator
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.touchTargetAwareSize
 import dev.repera.domain.ActivityConditionsSnapshot
@@ -68,7 +72,9 @@ internal fun WearLiveActivityScreen(
     health: Pair<Int?, Double?>?,
     onLiveCommand: (String) -> Unit,
     onDismissLiveToHome: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    notice: String? = null,
+    finishPending: Boolean = false
 ) {
     val phase = live.optString("phase")
     val sport = LiveSport.byId(live.optString("sportId"))
@@ -83,9 +89,11 @@ internal fun WearLiveActivityScreen(
         ) { page ->
             when {
                 phase == "review" -> WearLiveReviewPage(onDismissLiveToHome)
-                page == 0 -> WearLiveMetricsPage(live = live, sport = sport, health = health)
+                page == 0 -> WearLiveMetricsPage(live = live, sport = sport, health = health, notice = notice)
                 else -> WearLiveControlsPage(
                     phase = phase,
+                    notice = notice,
+                    finishPending = finishPending,
                     onPauseResume = {
                         onLiveCommand(if (phase == "paused") "resume" else "pause")
                     },
@@ -110,15 +118,20 @@ internal fun WearLiveActivityScreen(
 private fun WearLiveMetricsPage(
     live: JSONObject,
     sport: LiveSport?,
-    health: Pair<Int?, Double?>?
+    health: Pair<Int?, Double?>?,
+    notice: String?
 ) {
     val phase = live.optString("phase")
     val now = remember(live.optString("sessionId")) {
         mutableLongStateOf(System.currentTimeMillis())
     }
+    val latest by rememberUpdatedState(live)
     LaunchedEffect(live.optString("sessionId"), phase) {
-        while (true) {
-            kotlinx.coroutines.delay(1_000)
+        // Only a recording clock moves; align to its own second boundary.
+        while (phase == "recording") {
+            val sinceCapture = System.currentTimeMillis() - latest.optLong("capturedAtMillis") +
+                (latest.optDouble("elapsedSeconds", 0.0) * 1000).toLong()
+            kotlinx.coroutines.delay(wearMsUntilNextSecond(sinceCapture))
             now.longValue = System.currentTimeMillis()
         }
     }
@@ -136,92 +149,130 @@ private fun WearLiveMetricsPage(
     val elevation = live.optDouble("elevationGainMeters")
         .takeIf { !live.isNull("elevationGainMeters") && showElevation && it > 0 }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 16.dp),
+    val list = rememberTransformingLazyColumnState()
+    // Rotary scrolling is on by default for TransformingLazyColumn.
+    Box(modifier = Modifier.fillMaxSize()) {
+    TransformingLazyColumn(
+        state = list,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 12.dp, end = 12.dp, top = 6.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
+        notice?.let { message ->
+            item { WearLiveNotice(message) }
+        }
         when (phase) {
-            "paused" -> Text(
+            "paused" -> item { Text(
                 "En pausa",
                 color = WearOg.orange,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
-            )
-            "review" -> Text(
+            ) }
+            "review" -> item { Text(
                 "Revisar en el teléfono",
                 color = WearOg.label2,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
+            ) }
+        }
+
+        item {
+            Text(
+                LiveSportHistory.formatDuration(elapsed),
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
-        Text(
-            LiveSportHistory.formatDuration(elapsed),
-            style = MaterialTheme.typography.displayMedium.copy(
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.fillMaxWidth()
-        )
-
         if (usesGps) {
-            WearLiveMetricRow(
-                label = "km",
-                value = if (meters > 0) ReperaNumberFormat.decimal(meters / 1000.0) else "—"
-            )
-            if (showSpeed) {
+            item {
                 WearLiveMetricRow(
-                    label = "km/h",
-                    value = speed?.let { ReperaNumberFormat.decimal(it) } ?: "—"
+                    label = "km",
+                    value = if (meters > 0) ReperaNumberFormat.decimal(meters / 1000.0) else "—"
                 )
-            } else {
-                WearLiveMetricRow(label = "Ritmo", value = companionPaceLabel(meters, elapsed))
+            }
+            item {
+                if (showSpeed) {
+                    WearLiveMetricRow(
+                        label = "km/h",
+                        value = speed?.let { ReperaNumberFormat.decimal(it) } ?: "—"
+                    )
+                } else {
+                    WearLiveMetricRow(label = "Ritmo", value = companionPaceLabel(meters, elapsed))
+                }
             }
             if (showElevation) {
-                WearLiveMetricRow(
-                    label = "Desnivel",
-                    value = elevation?.let { String.format("+%.0f m", it) } ?: "—"
-                )
+                item {
+                    WearLiveMetricRow(
+                        label = "Desnivel",
+                        value = elevation?.let { String.format("+%.0f m", it) } ?: "—"
+                    )
+                }
             }
         }
 
         health?.first?.takeIf { it in 25..250 }?.let { bpm ->
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-                WearHeartRateZoneBar(bpm = bpm, prominent = !usesGps)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
+                    WearHeartRateZoneBar(bpm = bpm, prominent = !usesGps)
+                }
             }
         }
-        WearLiveMetricRow(
-            label = "kcal",
-            value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—",
-            prominent = !usesGps
-        )
-
-        if (!live.isNull("nextTurn") && phase != "review") {
-            Text(
-                live.optString("nextTurn"),
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                    .padding(7.dp)
+        item {
+            WearLiveMetricRow(
+                label = "kcal",
+                value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—",
+                prominent = !usesGps
             )
         }
 
-        live.optJSONObject("conditions")?.let { conditionsBlock(it) }
+        if (!live.isNull("nextTurn") && phase != "review") {
+            item {
+                Text(
+                    live.optString("nextTurn"),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                        .padding(7.dp)
+                )
+            }
+        }
 
+        live.optJSONObject("conditions")?.let { conditions ->
+            item { conditionsBlock(conditions) }
+        }
     }
+    ScrollIndicator(state = list, modifier = Modifier.align(Alignment.CenterEnd))
+    }
+}
+
+@Composable
+private fun WearLiveNotice(message: String) {
+    Text(
+        message,
+        color = WearOg.yellow,
+        style = MaterialTheme.typography.labelSmall,
+        textAlign = TextAlign.Center,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
 private fun WearLiveControlsPage(
     phase: String,
+    notice: String?,
+    finishPending: Boolean,
     onPauseResume: () -> Unit,
     onRequestFinish: () -> Unit
 ) {
@@ -233,6 +284,7 @@ private fun WearLiveControlsPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)
     ) {
+        notice?.let { WearLiveNotice(it) }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -240,26 +292,24 @@ private fun WearLiveControlsPage(
         ) {
             FilledIconButton(
                 onClick = onPauseResume,
-                modifier = Modifier
-                    .touchTargetAwareSize(btn)
-                    .semantics {
-                        contentDescription = if (phase == "paused") "Reanudar" else "Pausar"
-                    },
+                enabled = !finishPending,
+                modifier = Modifier.touchTargetAwareSize(btn),
                 colors = IconButtonDefaults.filledIconButtonColors()
             ) {
                 Icon(
                     imageVector = if (phase == "paused") Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                    contentDescription = null
+                    contentDescription = stringResource(
+                        if (phase == "paused") R.string.wear_cd_resume else R.string.wear_cd_pause
+                    )
                 )
             }
             FilledIconButton(
                 onClick = onRequestFinish,
-                modifier = Modifier
-                    .touchTargetAwareSize(btn)
-                    .semantics { contentDescription = "Finalizar" },
+                enabled = !finishPending,
+                modifier = Modifier.touchTargetAwareSize(btn),
                 colors = IconButtonDefaults.filledIconButtonColors()
             ) {
-                Icon(imageVector = Icons.Filled.Flag, contentDescription = null)
+                Icon(imageVector = Icons.Filled.Flag, contentDescription = stringResource(R.string.wear_cd_finish))
             }
         }
     }
@@ -389,7 +439,11 @@ internal fun WearHeartRateZoneBar(
         Color(0xFFFF8C1A), Color(0xFFF23333)
     )
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics {
+                contentDescription = "Frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {

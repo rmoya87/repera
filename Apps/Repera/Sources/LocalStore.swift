@@ -51,7 +51,7 @@ actor AppStatePersistence {
     private var warmedLocalRead: Result<AppState?, PersistenceError>?
 
     init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = URL.applicationSupportDirectory
             .appendingPathComponent("Repera", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         localURL = dir.appendingPathComponent("app_state.json")
@@ -493,7 +493,7 @@ final class LocalStore {
     /// Cold start: local only. Prefer `loadLocalOnlyAsync` so first frame is not blocked.
     func loadLocalOnly() -> AppState {
         syncPhase = .loadingLocal
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let url = URL.applicationSupportDirectory
             .appendingPathComponent("Repera", isDirectory: true)
             .appendingPathComponent("app_state.json")
         if FileManager.default.fileExists(atPath: url.path),

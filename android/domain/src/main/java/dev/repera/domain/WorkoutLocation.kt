@@ -46,6 +46,10 @@ object WorkoutLocationLogic {
 
     const val MIN_DISTANCE_METERS = 8f
     const val MAX_ROUTE_POINTS = 400
+    /** Play sessions only track outdoor routes (shouldTrackRoute) and downsample to
+     *  MAX_ROUTE_POINTS; full GPS accuracy at 2 s keeps the shape at half the 1 s wakeups.
+     *  En vivo uses its own 1 s odometer (LiveLocationSource) for pace and splits. */
+    const val ROUTE_MIN_TIME_MS = 2_000L
 
     /** Heurística: carrera / bici / caminata / outdoor en título o nombres de
      *  ejercicio. Plegado diacrítico 1:1 con `folding(.diacriticInsensitive)`. */

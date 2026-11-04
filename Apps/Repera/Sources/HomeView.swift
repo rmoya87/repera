@@ -96,6 +96,7 @@ struct HomeView: View {
     @State private var cachedAvatarJPEG: Data?
     @State private var cachedAvatarImage: UIImage?
     @ScaledMetric(relativeTo: .body) private var weekCarouselHeight: CGFloat = 72
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// Shared baseline for a single exercise card and the no-workout state.
     /// Keeps the activity/progress cards below steady while changing days.
     @ScaledMetric(relativeTo: .body) private var singleWorkoutMinHeight: CGFloat = 108
@@ -878,7 +879,7 @@ struct HomeView: View {
     private var weekSelectorCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(visibleCalendarMonthTitle)
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(OG.label2)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.horizontal, OG.pad)
@@ -940,13 +941,15 @@ struct HomeView: View {
         let hasCompletedWorkout = hasCompletedWorkoutOnDay(day.iso)
         return VStack(spacing: 2) {
             Text(day.lbl)
-                .font(.system(size: 11, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label2)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text("\(day.num)")
-                .font(.system(size: 17, weight: selected ? .semibold : .medium))
+                .font(.body.weight(selected ? .semibold : .medium))
                 .foregroundStyle(selected ? OG.onAccent : OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             // Mismo punto para entrenos realizados y planes de hoy o futuro.
             // No convertir planes pasados sin realizar en registros completados.
             let isTodayOrFuture = calendar.startOfDay(for: day.date)
@@ -975,6 +978,8 @@ struct HomeView: View {
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        // Casilla de lado fijo por el ancho de 7 días: el texto no puede crecer sin límite.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(day.lbl) \(day.num)")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
@@ -994,18 +999,18 @@ struct HomeView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Progreso semanal")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.headline)
                             .foregroundStyle(OG.label)
                         if isExpandedLayout {
                             Text("\(days.filter(\.hasWorkout).count) días entrenados")
-                                .font(.system(size: 12))
+                                .font(.caption)
                                 .foregroundStyle(OG.label2)
                         }
                     }
                     Spacer(minLength: 8)
                     if !isExpandedLayout || store.state.settings.weeklyWorkoutGoal != nil {
                         Text(weeklyProgressSummary(for: days))
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundStyle(OG.label2)
                     }
                 }
@@ -1013,8 +1018,10 @@ struct HomeView: View {
                     ForEach(days, id: \.iso) { day in
                         VStack(spacing: 9) {
                             Text(day.lbl)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.caption2.weight(.medium))
                                 .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
                             ZStack {
                                 Circle()
                                     .fill(day.hasWorkout ? OG.accent : Color.clear)
@@ -1083,10 +1090,14 @@ struct HomeView: View {
         return OGCard {
             VStack(alignment: .leading, spacing: 14) {
                 Text(calendar.isDateInToday(selectedDay) ? "Actividad de hoy" : "Actividad del día")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.headline)
                     .foregroundStyle(OG.label)
 
-                HStack(alignment: .top, spacing: 8) {
+                // En tamaños de accesibilidad las tres métricas no caben en fila.
+                let metricsLayout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 14))
+                    : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+                metricsLayout {
                     homeActivityMetric(
                         title: "Pasos",
                         value: selectedDaySteps.map { ReperaNumberFormat.integer($0) } ?? "—",
@@ -1126,10 +1137,10 @@ struct HomeView: View {
                             .frame(width: 26, alignment: .leading)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Puntuación del entrenamiento")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.footnote.weight(.medium))
                                 .foregroundStyle(OG.label2)
                             Text("\(score)/10")
-                                .font(.system(size: 24, weight: .bold))
+                                .ogFont(24, weight: .bold, relativeTo: .title2)
                                 .foregroundStyle(OG.label)
                         }
                         Spacer(minLength: 0)
@@ -1157,7 +1168,7 @@ struct HomeView: View {
                     .foregroundStyle(tint)
                     .frame(width: 20, alignment: .leading)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(OG.label2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -1167,14 +1178,14 @@ struct HomeView: View {
             // Número y unidad comparten línea, sin incrementar la altura.
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 22, weight: .semibold))
+                    .font(.title2.weight(.semibold))
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                     .layoutPriority(1)
                 if !unit.isEmpty {
                     Text(unit)
-                        .font(.system(size: 11))
+                        .font(.caption2)
                         .foregroundStyle(OG.label2)
                         .lineLimit(1)
                 }
@@ -1347,12 +1358,12 @@ struct HomeView: View {
                     OGRegisterLeadingIcon(systemName: symbol, tint: OG.label2)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(caption)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
                             .lineLimit(2)
                         Text(title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1411,11 +1422,11 @@ struct HomeView: View {
                     )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(caption)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
                         Text(session.title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1463,11 +1474,11 @@ struct HomeView: View {
                 OGRegisterLeadingIcon(systemName: "calendar.badge.minus", tint: OG.label3)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(WorkoutListCaption.dayTimeLine(for: selectedDay, time: nil))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(OG.label3)
                         .tracking(0.3)
                     Text("Sin entrenamientos programados")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.body.weight(.medium))
                         .foregroundStyle(OG.label)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1477,9 +1488,9 @@ struct HomeView: View {
 
             HStack(spacing: 7) {
                 Image(systemName: "moon.stars")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.caption.weight(.medium))
                 Text("Día libre · puedes añadir un entrenamiento")
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(OG.label2)
@@ -1505,14 +1516,14 @@ struct HomeView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
+                    .ogFont(18, weight: .bold, relativeTo: .callout)
                     .foregroundStyle(OG.onAccent)
                 Text("Añadir nuevo entreno")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(OG.onAccent)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.footnote.weight(.bold))
                     .foregroundStyle(OG.onAccent.opacity(0.85))
             }
             .padding(.horizontal, 18)
@@ -1571,11 +1582,11 @@ struct HomeView: View {
                                 SpanishDate.time(minutesFromMidnight: $0)
                             }
                         ))
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
                         Text(routine.title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1625,11 +1636,11 @@ struct HomeView: View {
                     )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(caption)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(OG.label3)
                             .tracking(0.3)
                         Text(routine.title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1729,11 +1740,11 @@ struct HomeView: View {
                             for: selectedDay,
                             time: session.startedAt.map(SpanishDate.time)
                         ))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(OG.label3)
                         .tracking(0.3)
                         Text(session.title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1772,11 +1783,11 @@ struct HomeView: View {
                             for: selectedDay,
                             time: SpanishDate.time(activity.start)
                         ))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(OG.label3)
                         .tracking(0.3)
                         Text(activity.title)
-                            .font(.system(size: 17, weight: .medium))
+                            .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -1936,36 +1947,36 @@ struct HomeView: View {
                 Text(inProgress
                      ? "EN CURSO"
                      : WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(OG.label3)
                     .tracking(0.3)
                 Text(selectedDayTitle)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(OG.label)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if inProgress {
                     Text("Toca para continuar · desliza para eliminar")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
                 } else if planned != nil {
                     Text("Toca para abrir y empezar")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
                 } else if !hasCompletedActivityOnSelectedDay {
                     Text("Día libre · toca para añadir un entreno")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
                 } else {
                     Text("Toca para añadir un entreno")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(OG.label2)
                 }
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(OG.label3)
         }
         .padding(.horizontal, 14)
@@ -1977,17 +1988,17 @@ struct HomeView: View {
         VStack(alignment: .center, spacing: 12) {
             HStack(spacing: 7) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(tint)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(OG.label3)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             Text(value)
-                .font(.system(size: 28, weight: .semibold))
+                .font(.title.weight(.semibold))
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -2016,7 +2027,7 @@ struct HomeView: View {
                             Image(systemName: "flame.fill")
                                 .foregroundStyle(OG.orange)
                             Text(cachedStreakTitle)
-                                .font(.system(size: 22, weight: .semibold))
+                                .font(.title2.weight(.semibold))
                                 .foregroundStyle(OG.label)
                                 .tracking(-0.4)
                         }
@@ -2025,12 +2036,12 @@ struct HomeView: View {
                             planned: cachedStreakPlanned,
                             total: cachedStreakTotal
                         ))
-                            .font(.system(size: 13))
+                            .font(.footnote)
                             .foregroundStyle(OG.label2)
                     }
                     Spacer()
                     Image(systemName: "calendar")
-                        .font(.system(size: 18))
+                        .ogFont(18, relativeTo: .body)
                         .foregroundStyle(OG.label3)
                 }
             }
@@ -2398,20 +2409,28 @@ struct HomeView: View {
 
     private func dayKey(_ date: Date) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
-        return "\(c.year!)-\(c.month!)-\(c.day!)"
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
     }
 }
 
 /// Persistencia local de «Descartar» en Inicio: no elimina el entreno, solo la fila de acciones.
+/// Aislada por cuenta; la lista global anterior no tiene dueño conocido y se descarta.
+@MainActor
 private enum HomeReviewActionDismissals {
-    static let key = "repera.home.dismissedReviewActions"
+    private static let legacyGlobalKey = "repera.home.dismissedReviewActions"
+    private static var key: String? {
+        AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2")
+    }
 
     static func load() -> Set<UUID> {
+        UserDefaults.standard.removeObject(forKey: legacyGlobalKey)
+        guard let key else { return [] }
         let raw = UserDefaults.standard.stringArray(forKey: key) ?? []
         return Set(raw.compactMap(UUID.init(uuidString:)))
     }
 
     static func save(_ ids: Set<UUID>) {
+        guard let key else { return }
         UserDefaults.standard.set(ids.map(\.uuidString).sorted(), forKey: key)
     }
 }
@@ -2444,7 +2463,7 @@ private struct WatchTimerHomeCard: View {
                             .foregroundStyle(.secondary)
                         let value = timer.displayedSeconds(at: context.date)
                         Text(String(format: "%d:%02d", value / 60, value % 60))
-                            .font(.system(size: 31, weight: .bold, design: .monospaced))
+                            .ogFont(31, weight: .bold, design: .monospaced, relativeTo: .title)
                             .foregroundStyle(Color(red: 1, green: 0.22, blue: 0.18))
                             .monospacedDigit()
                     }

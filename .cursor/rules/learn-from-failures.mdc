@@ -1,0 +1,28 @@
+---
+description: Aprender de fallos reales; no repetir APIs mal usadas ni código inconsistente
+alwaysApply: true
+---
+
+# Aprender de fallos (lineas maestras)
+
+Tras **cualquier** fallo de CI, compilacion, revision o bug reproducido:
+
+1. Corregir la causa raiz (no parches sintomaticos).
+2. Anadir o actualizar la leccion concreta en `.cursor/rules/native-platform-lessons.mdc`.
+3. Preferir un contrato/test que falle si se reintroduce el error.
+4. No declarar «terminado» solo porque el codigo compile: distinguir implementado / compilado / CI / hardware.
+
+## Antes de escribir codigo nuevo
+
+- Reutilizar flujos, tokens `OG*`, stores y contratos existentes; no inventar capas paralelas.
+- Comprobar **disponibilidad por plataforma** en el SDK del target (swiftinterface / docs Apple-Google), no asumir simetria iOS↔watchOS ni phone↔Wear.
+- Preferir APIs **nativas** del SO actual frente a hacks, polyfills o dependencias de terceros innecesarias.
+- Optimizar: menos trabajo en main thread, sin duplicar sensores/sesiones/Health, sin inventar GPS ni metricas.
+
+## Prohibido
+
+- Usar APIs marcadas `@available(iOS, unavailable)` (u otra plataforma) desde ese target.
+- Confirmar series, escribir HealthKit/Health Connect o arrancar GPS desde widgets, tiles, receivers o Live Activity intents.
+- Mezclar ownership de sesion (dos grabaciones a la vez Repera + Entreno / HC).
+- Afirmar paridad o «probado en hardware» sin evidencia.
+- Dejar docs que contradigan el codigo tras un cambio de comportamiento.

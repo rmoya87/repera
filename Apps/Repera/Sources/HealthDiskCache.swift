@@ -61,9 +61,9 @@ enum HealthDiskCache {
     /// Apple identity mirror is available without a main-actor hop during warm start.
     private static var activeOwnerScope: String? {
         let defaults = UserDefaults.standard
-        if let apple = defaults.string(forKey: "repera.apple.userID.v1"),
+        if let apple = defaults.string(forKey: AppleAuthStore.ownerScopeDefaultsKey),
            !apple.isEmpty, !defaults.bool(forKey: "repera.apple.credentialInvalid.v1") {
-            return apple
+            return "apple:" + apple
         }
         if defaults.bool(forKey: "repera.business.googleSignedIn.v1"),
            let owner = defaults.string(forKey: "repera.business.localOwnerSupabaseUserID.v1"),

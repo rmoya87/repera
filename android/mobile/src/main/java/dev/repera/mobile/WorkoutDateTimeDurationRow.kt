@@ -55,7 +55,7 @@ internal fun WorkoutDateTimeDurationRow(
     val day = dayIso?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
     val time = runCatching { LocalTime.parse(clock) }.getOrElse { LocalTime.of(18, 0) }
     val dayLabel = day.format(dayDisplayFmt)
-    val timeLabel = "%02d:%02d".format(time.hour, time.minute)
+    val timeLabel = "%02d:%02d".format(java.util.Locale.ROOT, time.hour, time.minute)
 
     var showDurationPad by remember { mutableStateOf(false) }
     var durationDraft by remember { mutableStateOf(durationMinutes.toString()) }
@@ -108,7 +108,7 @@ internal fun WorkoutDateTimeDurationRow(
             onClick = {
                 TimePickerDialog(
                     ctx,
-                    { _, h, mi -> onClock("%02d:%02d".format(h, mi)) },
+                    { _, h, mi -> onClock("%02d:%02d".format(java.util.Locale.ROOT, h, mi)) },
                     time.hour,
                     time.minute,
                     true

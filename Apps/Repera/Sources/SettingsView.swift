@@ -796,6 +796,31 @@ struct SettingsView: View {
         }
     }
 
+    /// The bearer token is only sent to the exact HTTPS host configured in
+    /// Info.plist (`ReperaSupabaseURL`), never to a host with credentials,
+    /// query or a different scheme.
+    static func accountDeletionEndpoint(
+        configuredBase: String? = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String
+    ) -> URL? {
+        guard let configuredBase,
+              let base = URLComponents(string: configuredBase),
+              base.scheme?.lowercased() == "https",
+              let host = base.host?.lowercased(), !host.isEmpty,
+              base.user == nil, base.password == nil,
+              base.query == nil, base.fragment == nil,
+              base.path.isEmpty || base.path == "/"
+        else { return nil }
+        var endpoint = URLComponents()
+        endpoint.scheme = "https"
+        endpoint.host = host
+        endpoint.port = base.port
+        endpoint.path = "/functions/v1/repera-delete-account"
+        guard let url = endpoint.url, url.host?.lowercased() == host, url.scheme == "https" else {
+            return nil
+        }
+        return url
+    }
+
     /// El endpoint jamás acepta un UUID aportado por la app: usa el del JWT
     /// personal verificado por Supabase. La fase previa evita borrar iCloud
     /// si el usuario aún tiene responsabilidades empresariales.
@@ -806,9 +831,7 @@ struct SettingsView: View {
         }
         let session = try await client.auth.session
         guard !session.isExpired, !session.accessToken.isEmpty,
-              let base = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String,
-              let url = URL(string: base + "/functions/v1/repera-delete-account"),
-              url.scheme == "https", url.host == "uvzgujlrqohreoucirms.supabase.co"
+              let url = Self.accountDeletionEndpoint()
         else { throw AccountDeletionError.message("No se pudo verificar la conexión segura con Repera.") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

@@ -1,6 +1,6 @@
 # Rendimiento (iOS 27)
 
-Última actualización: 2026-10-28 (Inicio, carrusel y navegación por entrenamientos antiguos)
+Última actualización: 2026-11-04 (GPS fuera de UserDefaults, Historial cacheado, formatters y temporizador de descanso)
 
 Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arranque.
 
@@ -51,11 +51,24 @@ Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arr
 - `WorkoutDetailView` ya no ejecuta `repairHistoricalWODExercisesIfNeeded()` de **todo el historial** al abrir una sesión; la reparación se realiza durante el bootstrap y la recuperación iCloud.
 - `ensureSessionReview` reutiliza la valoración guardada; `refreshSessionReviewWithCardio` evita `persistWorkouts()` cuando la valoración calculada no cambió. Esto previene escrituras y sincronizaciones redundantes al abrir y volver.
 - El detalle libera primero el primer frame con `Task.yield()`; las lecturas de Salud y GPS mantienen su comportamiento asíncrono. Para Editar, `CompletedWorkoutEditing.routine` se ejecuta una vez al pulsar el lápiz, no en cada reevaluación del destino. El modelo preparado permanece durante el pop nativo.
+- Lista de Historial: `daySections` (filtro de terminados + Salud + agrupación por día + orden) se cachea en una caja de referencia y solo se recalcula al cambiar `workoutsEpoch`, `healthDataRevision`, el número de entrenos/actividades o el día actual (títulos «Hoy»/«Ayer»).
 - Regresión estática: `tests/test_home_history_performance_contract.py`. La validación real debe medir scroll, pushes/pops y carga con Apple Health + iCloud en dispositivo usando Instruments (Time Profiler / SwiftUI).
+
+## GPS en directo (Comenzar / Play)
+
+- La ruta se guarda en archivos de `Application Support/RouteCheckpoints/` (no en `UserDefaults`), codificada fuera del MainActor por un único dueño a la vez; ver `GPS_TRACKING.md`.
+- `LiveActivityRecorder`: búfer de puntos `@ObservationIgnored`; `routeRevision` como máximo 1 Hz. Contadores internos (giros anunciados, temporizadores de guardado, audio) tampoco son observables.
+- El mapa de Comenzar cachea los tramos coloreados en `@State` y los recalcula solo con una nueva `routeRevision`; `onMapCameraChange(.continuous)` ya no recalcula O(n) por fotograma.
+- Recuperación tras cierre: metadatos síncronos y decodificación de la ruta en segundo plano.
+- `WorkoutLocationTracker` envía ubicaciones a HealthKit por lotes (12 fixes / 10 s).
 
 ## Sesión / chrome
 
 - Reloj WOD: `TimelineView` solo lectura (`displaySeconds(at:)`); catch-up de intervalos en `feedbackTask`.
+- Descanso (`RestSessionCoordinator`): sin bucle de 1 s; la tarea de feedback despierta solo en los umbrales de 3, 2 y 1 s y el final lo gestiona `scheduleCompletion`. Pausa/reanudar reprograman.
+- Temporizador libre: el `Timer` de 1 s se mantiene porque gobierna transiciones de fase y pitidos; la UI sigue en `TimelineView`.
+- Formatters: `SpanishDate` usa `DateFormatter` estáticos (no se mutan tras configurarse); `BusinessDataStore.localDayKey`/`parseDayKey` usan componentes del calendario gregoriano en la zona horaria actual en cada llamada (un formatter cacheado congelaría la zona); el parser GPX reutiliza un `ISO8601DateFormatter`.
+- Miniaturas de movimientos libres de WOD: `ExerciseArt.imageName(forFreeMovement:)` memoiza nombre→imagen (antes normalizaba en cada `body`).
 - Tab / Inicio observan `hasActiveSession` + `continueAccessory` (Equatable), no el grafo completo de `activeSession`.
 - Watch: `updateApplicationContext` con debounce ~280 ms al loguear series; flush inmediato en start/end/inbound Watch.
 

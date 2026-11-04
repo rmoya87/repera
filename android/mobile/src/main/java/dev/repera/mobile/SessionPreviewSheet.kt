@@ -188,6 +188,6 @@ private fun dayLabel(routine: RoutineEntry): String {
         } ?: LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, locale)
             .replaceFirstChar { it.uppercase(locale) }
     val minutes = routine.timeMinutes
-    return if (minutes != null) "%s · %02d:%02d".format(day, minutes / 60, minutes % 60) else day
+    return if (minutes != null) "%s · %02d:%02d".format(java.util.Locale.ROOT, day, minutes / 60, minutes % 60) else day
 }
 

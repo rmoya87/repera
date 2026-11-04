@@ -107,7 +107,7 @@ internal object ActiveSessionDraft {
   val item=(0 until ex.length()).map {ex.getJSONObject(it)}.firstOrNull {it.optString("id")==exerciseId}?:return false
   val planned=item.optJSONArray("plannedSets")?:return false
   val logged=item.optJSONArray("loggedSets")
-  val workDone=(0 until (logged?.length()?:0)).count {logged!!.getJSONObject(it).optString("phase","work")=="work"}
+  val workDone=(0 until (logged?.length()?:0)).count {logged?.optJSONObject(it)?.optString("phase","work")=="work"}
   val at=(0 until planned.length()).firstOrNull {planned.getJSONObject(it).optString("id")==setId}?:return false
   if(at<workDone) return false
   val kept=JSONArray();for(i in 0 until planned.length()) if(i!=at) kept.put(planned.get(i))
@@ -124,7 +124,7 @@ internal object ActiveSessionDraft {
   val item=(0 until ex.length()).map {ex.getJSONObject(it)}.firstOrNull {it.optString("id")==exerciseId}?:return false
   val planned=item.optJSONArray("plannedSets")?:return false
   val logged=item.optJSONArray("loggedSets")
-  val workDone=(0 until (logged?.length()?:0)).count {logged!!.getJSONObject(it).optString("phase","work")=="work"}
+  val workDone=(0 until (logged?.length()?:0)).count {logged?.optJSONObject(it)?.optString("phase","work")=="work"}
   val at=(0 until planned.length()).firstOrNull {planned.getJSONObject(it).optString("id")==setId}?:return false
   if(at<workDone) return false
   val copy=JSONArray(planned.toString())

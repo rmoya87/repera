@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -49,10 +50,10 @@ internal fun LiveSportsCatalogScreen(
     LazyColumn(modifier.fillMaxSize().testTag("live_sports_catalog"),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (sports.isEmpty()) item {
-            Text("Sin actividades deportivas", style = MaterialTheme.typography.titleMedium)
-            Text("Las actividades guardadas desde En vivo aparecerán aquí, con sus recorridos y su evolución.")
+            Text(stringResource(R.string.live_sport_history_screens_sin_actividades_deportivas), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.live_sport_history_screens_las_actividades_guardadas_desde_en_vivo))
         } else {
-            item { Text("Deportes registrados", style = MaterialTheme.typography.titleMedium) }
+            item { Text(stringResource(R.string.live_sport_history_screens_deportes_registrados), style = MaterialTheme.typography.titleMedium) }
             items(sports, key = { it.id }) { sport ->
                 ReperaCard(Modifier.fillMaxWidth().testTag("sport_${sport.id}").clickable { onOpenSport(sport) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -82,13 +83,13 @@ internal fun LiveSportHistoryScreen(
     LazyColumn(modifier.fillMaxSize().testTag("live_sport_history"),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Volver a Deportes") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.live_sport_history_screens_volver_a_deportes)) }
             Text(sport.title, style = MaterialTheme.typography.headlineMedium)
         }
         item {
             ReperaCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Resumen", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.live_sport_history_screens_resumen), style = MaterialTheme.typography.titleMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         WorkoutSummaryTile("Actividades", "${summary.activityCount}", sport.materialIcon, Modifier.weight(1f))
                         WorkoutSummaryTile("Tiempo", LiveSportHistory.formatDuration(summary.totalDurationSeconds), Icons.Outlined.AccessTime, Modifier.weight(1f))
@@ -117,12 +118,12 @@ internal fun LiveSportHistoryScreen(
                         records.longestActiveSeconds?.let {
                             WorkoutSummaryTile("Mayor duración", LiveSportHistory.formatDuration(it), Icons.Outlined.AccessTime, Modifier.weight(1f)) }
                     }
-                    Text("Marcas basadas en actividades guardadas de este deporte. No representan récords de fuerza.", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.live_sport_history_screens_marcas_basadas_en_actividades_guardadas_de), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
         if (sport.usesGPS && favoriteRoutes.isNotEmpty()) {
-            item { Text("Rutas favoritas · evolución", style = MaterialTheme.typography.titleMedium) }
+            item { Text(stringResource(R.string.live_sport_history_screens_rutas_favoritas_evolucion), style = MaterialTheme.typography.titleMedium) }
             items(favoriteRoutes, key = { "route-${it.id}" }) { route ->
                 OutlinedButton(onClick = { onOpenRoute(route) }, modifier = Modifier.fillMaxWidth()) {
                     Text("${route.title} · ${own.count { it.liveRouteID == route.id }} veces · favorita")
@@ -174,7 +175,7 @@ private fun SaveRouteSwipeRow(id:String,enabled:Boolean,onSave:()->Unit,content:
         }) {
         if(enabled && offset<0f) TextButton(onClick={onSave();offset=0f},
             modifier=Modifier.align(androidx.compose.ui.Alignment.CenterEnd).width(112.dp)
-                .testTag("save_route_$id")) { Text("Guardar ruta") }
+                .testTag("save_route_$id")) { Text(stringResource(R.string.live_sport_history_screens_guardar_ruta)) }
         Box(Modifier.offset { IntOffset(offset.roundToInt(),0) }) { content() }
     }
 }
@@ -244,14 +245,14 @@ internal fun LiveKilometerSplitsSection(seconds: List<Double>, displaysSpeed: Bo
             heartRate.map { dev.repera.domain.CardioRouteAnalysis.HeartSample(it.first/1000.0,it.second.toDouble()) }).splits
     }
     Column(Modifier.fillMaxWidth().testTag("live_kilometer_splits"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Parciales por kilómetro", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.live_sport_history_screens_parciales_por_kilometro), style = MaterialTheme.typography.titleMedium)
         val rows = dev.repera.domain.SessionSportMetrics.splitRows(seconds, displaysSpeed,
             measured.mapNotNull { sp -> sp.averageBpm?.let { sp.kilometer to it } }.toMap())
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("KM", Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
-            Text("Tiempo", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.live_sport_history_screens_km), Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.home_day_cards_tiempo), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
             Text(if (displaysSpeed) "km/h" else "Ritmo", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
-            Text("Frec. cardiaca", Modifier.width(88.dp), style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+            Text(stringResource(R.string.live_sport_history_screens_frec_cardiaca), Modifier.width(88.dp), style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.End)
         }
         rows.forEach { r ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

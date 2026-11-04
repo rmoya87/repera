@@ -65,7 +65,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
                         val span=(high-low).coerceAtLeast(0.001)
                         Text(unit,style=MaterialTheme.typography.labelSmall)
                         Canvas(Modifier.fillMaxWidth().height(200.dp).semantics {
-                            contentDescription="${chart.size} intentos: " + chart.joinToString {"%.2f %s".format(it.second,unit)}
+                            contentDescription="${chart.size} intentos: " + chart.joinToString {"%.2f %s".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it.second,unit)}
                         }) {
                             val vertices = chart.map { (session,value) ->
                                 androidx.compose.ui.geometry.Offset(
@@ -86,7 +86,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
                             vertices.forEach { drawCircle(color,5f,it) }
                             drawPath(path,color,style=Stroke(width=3f))
                         }
-                        Text("%.2f - %.2f %s".format(low,high,unit),style=MaterialTheme.typography.bodySmall)
+                        Text("%.2f - %.2f %s".format(dev.repera.domain.ReperaNumberFormat.displayLocale, low,high,unit),style=MaterialTheme.typography.bodySmall)
                     } else {
                         Text("Sin evolución todavía",style=MaterialTheme.typography.titleSmall)
                         Text("Repite esta ruta para comparar tus tiempos, ritmo y distancia.")
@@ -99,7 +99,7 @@ internal fun LiveRouteEvolutionScreen(route: LiveSavedRoute, sport: LiveSport,
             OutlinedButton(onClick={onOpenSession(session.id)},modifier=Modifier.fillMaxWidth()) {
                 Column(Modifier.fillMaxWidth()) {
                     Text(session.startedEpochMillis?.let {Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm"))} ?: session.title)
-                    Text("%.2f km · %s".format((session.recordedDistanceMeters ?: 0.0)/1000,LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0)))
+                    Text("%.2f km · %s".format(dev.repera.domain.ReperaNumberFormat.displayLocale, (session.recordedDistanceMeters ?: 0.0)/1000,LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0)))
                 }
             }
         }

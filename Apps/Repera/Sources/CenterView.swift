@@ -127,9 +127,14 @@ struct CenterView: View {
         }
         .background(OG.bg)
         .ogFixedTopBar("Center") {
-            OGToolbarGlassButton(systemName: "arrow.clockwise", accessibilityLabel: "Actualizar Center") {
+            OGToolbarGlassButton(
+                systemName: "arrow.clockwise",
+                accessibilityLabel: "Actualizar centros",
+                appliesGlass: true
+            ) {
                 Task { await refreshCenters() }
             }
+            .disabled(business.isLoading)
         }
         .task { await refreshCenters() }
         .navigationDestination(item: $chatOrgId) { orgId in
@@ -199,7 +204,7 @@ struct CenterView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Invitación a un centro", systemImage: "envelope.badge")
                     .font(.headline)
-                Text("Perfil: \(invitation.invitedRole). Aceptar vinculará tu cuenta sin compartir tu historial personal.")
+                Text("Perfil: \(Self.invitedRoleLabel(invitation.invitedRole)). Aceptar vinculará tu cuenta sin compartir tu historial personal.")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
                 HStack(spacing: 12) {
@@ -263,6 +268,18 @@ struct CenterView: View {
         }
         guard auth.isConnected else { return }
         await business.refresh()
+    }
+
+    /// `organization_role` de Supabase → texto visible.
+    static func invitedRoleLabel(_ role: String) -> String {
+        switch role {
+        case "athlete": "deportista"
+        case "coach": "entrenador"
+        case "reception": "recepción"
+        case "admin": "administrador"
+        case "owner": "propietario"
+        default: "miembro"
+        }
     }
 
     private var cancellationNotice: String {
@@ -361,7 +378,7 @@ struct CenterView: View {
                         }
                     }
                 } else {
-                    Text("El aforo no está sincronizado. Actualiza Center antes de reservar.")
+                    Text("El aforo no está sincronizado. Actualiza los centros antes de reservar.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                 }

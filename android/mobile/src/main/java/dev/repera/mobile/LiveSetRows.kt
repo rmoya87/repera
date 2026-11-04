@@ -1,5 +1,10 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.minimumInteractiveComponentSize
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -224,9 +229,9 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
    verticalAlignment = Alignment.CenterVertically,
    horizontalArrangement = Arrangement.spacedBy(8.dp)
   ) {
-   Text("SERIE", style = MaterialTheme.typography.labelSmall,
+   Text(stringResource(R.string.live_set_rows_serie), style = MaterialTheme.typography.labelSmall,
     modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
-   Text("ANTERIOR", style = MaterialTheme.typography.labelSmall,
+   Text(stringResource(R.string.live_set_rows_anterior), style = MaterialTheme.typography.labelSmall,
     modifier = Modifier.weight(1f))
    Text(
     when (unit) { "calories" -> "CAL"; "meters" -> "M"; else -> "REPS" },
@@ -251,12 +256,15 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
      verticalAlignment = Alignment.CenterVertically,
      horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+     val badgeLabel = stringResource(R.string.live_set_badge_a11y, i + 1)
      Box(
       Modifier
+       .minimumInteractiveComponentSize()
        .size(34.dp)
        .clip(CircleShape)
        .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-       .clickable { toggleCompleted(i) }
+       .toggleable(value = row.completed, role = androidx.compose.ui.semantics.Role.Checkbox) { toggleCompleted(i) }
+       .semantics { contentDescription = badgeLabel }
        .testTag("set_badge_${i+1}"),
       contentAlignment=Alignment.Center
      ) {
@@ -342,6 +350,6 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
     if(active.allowsDeficit) active.prescribedWeightKg?.toInt() else null,null,null,false)
    // Apple addLiveSet: hereda déficit/peso de la fila previa.
    rows.add(seed.copy(id=java.util.UUID.randomUUID().toString(),completed=false));touch()
-  },enabled=rows.size<100) {Text("+ Serie")}
+  },enabled=rows.size<100) {Text(stringResource(R.string.live_set_rows_serie_2))}
  }
 }

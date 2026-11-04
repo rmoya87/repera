@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -178,9 +180,9 @@ internal fun HomeSwipeRevealCard(
                     modifier = Modifier
                         .width(72.dp)
                         .fillMaxHeight()
-                        .background(Color(0xFF0A84FF))
+                        .background(ReperaAccents.swipeEdit)
                 ) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "Editar", tint = Color.White)
+                    Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.home_day_cards_editar), tint = Color.White)
                 }
             } else {
                 Spacer(Modifier.width(0.dp))
@@ -194,7 +196,7 @@ internal fun HomeSwipeRevealCard(
                 modifier = Modifier
                     .width(88.dp)
                     .fillMaxHeight()
-                    .background(Color(0xFFFF3B30)) // rojo eléctrico (systemRed)
+                    .background(ReperaAccents.swipeDelete)
             ) {
                 Icon(
                     Icons.Outlined.Delete,
@@ -333,7 +335,7 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Sin entrenamientos programados",
+                    stringResource(R.string.home_day_cards_sin_entrenamientos_programados),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Medium,
                         fontSize = 17.sp
@@ -356,7 +358,7 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "Día libre · puedes añadir un entrenamiento",
+                stringResource(R.string.home_day_cards_dia_libre_puedes_anadir_un_entrenamiento),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -403,7 +405,7 @@ internal fun HomeSavedWorkoutActionRow(
                 contentColor = MaterialTheme.colorScheme.onSurface
             )
         ) {
-            Text("Descartar")
+            Text(stringResource(R.string.home_day_cards_descartar))
         }
         Button(
             onClick = onReview,
@@ -415,7 +417,7 @@ internal fun HomeSavedWorkoutActionRow(
                 contentColor = Color.Black
             )
         ) {
-            Text("Revisar")
+            Text(stringResource(R.string.home_day_cards_revisar))
         }
     }
 }
@@ -508,7 +510,7 @@ internal fun HomePlannedRoutineCard(
     day: LocalDate,
     onClick: () -> Unit
 ) {
-    val time = routine.timeMinutes?.let { "%d:%02d".format(it / 60, it % 60) }
+    val time = routine.timeMinutes?.let { "%d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) }
     val chips = buildList {
         if (routine.blocks.isNotEmpty()) {
             add(Icons.Outlined.Layers to "${routine.blocks.size} bloq.")
@@ -538,14 +540,14 @@ internal fun HomeAddWorkoutButton(enabled: Boolean, onClick: () -> Unit) {
             .background(brandGreen)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp)
-            .height(54.dp),
+            .heightIn(min = 54.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(Icons.Outlined.Add, contentDescription = null, tint = Color.Black,
             modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Text(
-            "Añadir nuevo entreno",
+            stringResource(R.string.home_day_cards_anadir_nuevo_entreno),
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = Color.Black
         )
@@ -586,7 +588,7 @@ internal fun HomeActivityTodayCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 HomeActivityMetricTile(
-                    title = "Pasos",
+                    title = stringResource(R.string.home_day_cards_pasos),
                     value = steps?.let { dev.repera.domain.ReperaNumberFormat.integer(it.toInt()) } ?: "—",
                     unit = "",
                     icon = Icons.AutoMirrored.Outlined.DirectionsWalk,
@@ -595,24 +597,24 @@ internal fun HomeActivityTodayCard(
                     modifier = Modifier.weight(1f)
                 )
                 HomeActivityMetricTile(
-                    title = "Calorías",
+                    title = stringResource(R.string.home_day_cards_calorias),
                     value = energyKcal?.let {
                         dev.repera.domain.ReperaNumberFormat.integer(it.toInt())
                     } ?: "—",
                     unit = "kcal",
                     icon = Icons.Outlined.LocalFireDepartment,
-                    tint = Color(0xFFFF9F0A),
+                    tint = ReperaAccents.energy,
                     progress = progressOrNull(energyKcal, energyGoal?.toDouble()),
                     modifier = Modifier.weight(1f)
                 )
                 HomeActivityMetricTile(
-                    title = "Tiempo",
+                    title = stringResource(R.string.home_day_cards_tiempo),
                     value = minutes?.let {
                         dev.repera.domain.ReperaNumberFormat.integer(it.toInt())
                     } ?: "—",
                     unit = "min",
                     icon = Icons.Outlined.Schedule,
-                    tint = Color(0xFF0A84FF),
+                    tint = ReperaAccents.minutes,
                     progress = progressOrNull(minutes, minutesGoal?.toDouble()),
                     modifier = Modifier.weight(1f)
                 )

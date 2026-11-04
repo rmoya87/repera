@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.layout.heightIn
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -218,7 +219,7 @@ import kotlinx.coroutines.withContext
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(56.dp)
+            .heightIn(min = 56.dp)
     ) {
         Box(
             modifier = Modifier
@@ -313,7 +314,7 @@ import kotlinx.coroutines.withContext
                 Text(
                     "Cerrar sesión",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFFFF453A).copy(alpha = if (busy) 0.38f else 1f),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = if (busy) 0.38f else 1f),
                     modifier = Modifier.clickable(enabled = !busy, onClick = onRequestSignOut)
                 )
             }

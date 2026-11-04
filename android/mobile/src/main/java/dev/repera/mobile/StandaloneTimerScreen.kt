@@ -454,7 +454,7 @@ internal fun StandaloneTimerScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Duración configurada: %d:%02d".format(
+                        "Duración configurada: %d:%02d".format(java.util.Locale.ROOT,
                             summary.configuredSeconds / 60,
                             summary.configuredSeconds % 60
                         )

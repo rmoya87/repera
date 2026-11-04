@@ -148,16 +148,41 @@ private struct StandaloneTimerCompletion: Codable {
     }
 }
 
+/// Per-account UserDefaults keys built from the hashed owner scope, never the
+/// raw Apple user ID. Unowned legacy global data is never assigned to an account.
+@MainActor
+enum AccountScopedDefaults {
+    static func key(_ base: String) -> String? {
+        guard let scope = AppleAuthStore.shared.ownerScope else { return nil }
+        return "\(base).\(scope)"
+    }
+
+    /// Same as `key`, moving a value stored under the older raw-user-ID key
+    /// (same account, so ownership is known) to the hashed key first.
+    static func migratedKey(_ base: String) -> String? {
+        guard let key = key(base), let userID = AppleAuthStore.shared.userID, !userID.isEmpty else {
+            return nil
+        }
+        let defaults = UserDefaults.standard
+        let legacy = "\(base).\(userID)"
+        if let value = defaults.object(forKey: legacy) {
+            if defaults.object(forKey: key) == nil { defaults.set(value, forKey: key) }
+            defaults.removeObject(forKey: legacy)
+        }
+        return key
+    }
+}
+
 /// Última configuración del temporizador, independiente de los favoritos.
 @MainActor
 private enum StandaloneTimerConfigurationStore {
     private static var key: String? {
-        guard let owner = AppleAuthStore.shared.userID, !owner.isEmpty else { return nil }
-        return "repera.timer.lastConfiguration.v3.\(owner)"
+        AccountScopedDefaults.key("repera.timer.lastConfiguration.v3")
     }
 
     static func load() -> StandaloneTimerConfig? {
-        guard let key, let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let key = AccountScopedDefaults.migratedKey("repera.timer.lastConfiguration.v3"),
+              let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(StandaloneTimerConfig.self, from: data)
     }
 
@@ -172,12 +197,12 @@ private enum StandaloneTimerCompletionStore {
     // Los resultados pendientes pueden contener una ubicación privada.
     // Nunca leer el resultado de otra identidad ni el antiguo almacén global.
     private static var key: String? {
-        guard let owner = AppleAuthStore.shared.userID, !owner.isEmpty else { return nil }
-        return "repera.timer.pendingCompletion.v3.\(owner)"
+        AccountScopedDefaults.key("repera.timer.pendingCompletion.v3")
     }
 
     static func load() -> StandaloneTimerCompletion? {
-        guard let key, let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let key = AccountScopedDefaults.migratedKey("repera.timer.pendingCompletion.v3"),
+              let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(StandaloneTimerCompletion.self, from: data)
     }
 
@@ -187,7 +212,7 @@ private enum StandaloneTimerCompletionStore {
     }
 
     static func clear() {
-        guard let key else { return }
+        guard let key = AccountScopedDefaults.migratedKey("repera.timer.pendingCompletion.v3") else { return }
         UserDefaults.standard.removeObject(forKey: key)
     }
 }
@@ -891,12 +916,13 @@ struct StandaloneTimerView: View {
     private func startTicking() {
         timer?.invalidate()
         // Feedback / phase transitions only — UI uses TimelineView + wall clock.
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        let ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
                 syncFromWallClock()
             }
         }
-        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(ticker, forMode: .common)
+        timer = ticker
     }
 
     private func syncFromWallClock() {

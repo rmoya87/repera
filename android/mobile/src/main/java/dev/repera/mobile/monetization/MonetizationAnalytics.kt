@@ -4,7 +4,7 @@ import android.util.Log
 import dev.repera.domain.monetization.PaywallContext
 import dev.repera.domain.monetization.ReperaFeature
 
-/** Instrumentación desacoplada: hoy solo logging local. Sin terceros. */
+/** Instrumentación desacoplada: hoy solo logging local en builds debug. Sin terceros. */
 object MonetizationAnalytics {
     private const val TAG = "Monetization"
 
@@ -26,6 +26,7 @@ object MonetizationAnalytics {
         productID: String? = null,
         result: String? = null
     ) {
+        if (!dev.repera.mobile.BuildConfig.DEBUG) return
         val parts = mutableListOf(event.wire)
         feature?.let { parts += "feature=${it.wire}" }
         context?.let { parts += "context=${it.wire}" }

@@ -210,10 +210,18 @@ class WearLiveCommandListener : WearableListenerService() {
     }
 
     private fun ackLiveStart(node: String, ok: Boolean, reason: String?) {
-        val body = JSONObject().put("ok", ok).put("reason", reason ?: "")
-        Wearable.getMessageClient(this).sendMessage(
-            node, "/repera/live-start-ack", body.toString().toByteArray(Charsets.UTF_8)
-        )
+        Companion.ackLiveStart(this, node, ok, reason)
+    }
+
+    companion object {
+        /** Same ACK used by MainActivity (foreground) and this listener (background). */
+        fun ackLiveStart(context: android.content.Context, node: String, ok: Boolean, reason: String?) {
+            if (node.isBlank()) return
+            val body = JSONObject().put("ok", ok).put("reason", reason ?: "")
+            Wearable.getMessageClient(context.applicationContext).sendMessage(
+                node, "/repera/live-start-ack", body.toString().toByteArray(Charsets.UTF_8)
+            )
+        }
     }
 
     /** The Activity listener is absent while the phone is locked. Wear keeps

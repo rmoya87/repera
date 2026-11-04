@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,15 +24,15 @@ internal fun ProgressRecordsCard(records:List<PersonalRecord>,onExercise:(String
   }}
  }
  ReperaCard(Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-  Text("Récords del periodo",style=MaterialTheme.typography.titleMedium)
+  Text(stringResource(R.string.progress_records_card_records_del_periodo),style=MaterialTheme.typography.titleMedium)
   if(recent.isEmpty()) ReperaEmptyState(
-    title = "Sin récords en el periodo",
-    subtitle = "Entrena y apunta pesos para ver e1RM"
+    title = stringResource(R.string.progress_records_card_sin_records_en_el_periodo),
+    subtitle = stringResource(R.string.progress_records_card_entrena_y_apunta_pesos_para_ver)
   )
   recent.take(5).forEach {record(it)}
   if(recent.size>5) TextButton(onClick={all=true}) {Text("Ver todos los récords (${recent.size})")}
  }}
- if(all) AlertDialog(onDismissRequest={all=false},title={Text("Todos los récords")},
+ if(all) AlertDialog(onDismissRequest={all=false},title={Text(stringResource(R.string.progress_records_card_todos_los_records))},
   text={Column(Modifier.verticalScroll(rememberScrollState())) {recent.forEach {record(it)}}},
-  confirmButton={TextButton(onClick={all=false}) {Text("Cerrar")}})
+  confirmButton={TextButton(onClick={all=false}) {Text(stringResource(R.string.action_close))}})
 }

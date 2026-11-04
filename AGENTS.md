@@ -120,8 +120,13 @@ Pipeline: OCR → Apple Intelligence si hay → si no, `BoardImportParser`. Deta
 
 Solo cuando el usuario lo pida. Seguir las user rules de git/PR del entorno.
 
+## Lecciones de fallos (obligatorio)
+
+Tras un fallo real de CI/compilación/producto: corregir causa raíz **y** registrar la lección en `.cursor/rules/native-platform-lessons.mdc` (proceso en `.cursor/rules/learn-from-failures.mdc`). Priorizar APIs nativas por SO, sin duplicar sensores ni inventar datos. No dar por cerrado un trabajo solo porque compile.
+
 ## No hacer
 
 - No asumir backend social.
 - No meter API keys de LLM cloud para el escáner (on-device o parser local).
 - No reintroducir el botón «+ Plan» en la lista de ejercicios sin pedirlo.
+- No reutilizar APIs de otra plataforma sin comprobar disponibilidad en el SDK del target (p. ej. `openInWorkoutApp` solo watchOS).

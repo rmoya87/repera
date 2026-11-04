@@ -77,6 +77,8 @@ class AIPlansRealtimeListener(
         val topic = "realtime:public:ai_training_plans:owner_id=eq." + session.userId
         val events = LinkedBlockingQueue<ServerEvent>()
         val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        // Realtime requires the public apikey in the query; the user JWT only travels in the join payload.
+        // Never add an OkHttp logging interceptor here: it would print the URL and frames.
         val url = BuildConfig.SUPABASE_URL.replace("https://", "wss://") +
             "/realtime/v1/websocket?apikey=" + BuildConfig.SUPABASE_PUBLISHABLE_KEY +
             "&vsn=1.0.0"

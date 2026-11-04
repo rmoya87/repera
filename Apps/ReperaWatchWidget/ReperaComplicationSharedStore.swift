@@ -1,17 +1,23 @@
 import Foundation
 
 /// Estado de lectura para WidgetKit. El widget no arranca sensores ni rutas.
+/// Solo lo que la esfera muestra; se borra al terminar o al cerrar sesión.
 struct ReperaComplicationSnapshot: Codable, Equatable {
     var sessionID: String
     var title: String
-    var startedAt: Date
     var capturedAt: Date
+    /// Tiempo en `capturedAt`; en pausa es el valor congelado que se muestra.
     var elapsedSeconds: Int
+    /// Mientras corre, el widget dibuja `Text(timerAnchor, style: .timer)` y no
+    /// necesita recargas por segundo. `nil` en pausa.
+    var timerAnchor: Date?
     var distanceMeters: Double?
     var heartRateBpm: Int?
     var energyKcal: Double?
     var paused: Bool
-    var activityKind: String
+
+    /// Métricas de sensor antiguas no se presentan como actuales.
+    static let metricsFreshness: TimeInterval = 10 * 60
 
     var elapsedLabel: String {
         let seconds = max(0, elapsedSeconds)
@@ -25,12 +31,17 @@ struct ReperaComplicationSnapshot: Codable, Equatable {
         guard let distanceMeters, distanceMeters.isFinite, distanceMeters >= 0 else { return nil }
         return String(format: "%.2f km", distanceMeters / 1000)
     }
+
+    func metricsAreFresh(at date: Date) -> Bool {
+        date.timeIntervalSince(capturedAt) <= Self.metricsFreshness
+    }
 }
 
 /// App Group deliberado: WidgetKit corre en otro proceso/sandbox.
 enum ReperaComplicationSharedStore {
     static let groupID = "group.com.app.repera.watch"
-    private static let key = "com.app.repera.watch.complication.v2"
+    private static let key = "com.app.repera.watch.complication.v3"
+    private static let legacyKeys = ["com.app.repera.watch.complication.v2"]
 
     static func read() -> ReperaComplicationSnapshot? {
         guard let data = UserDefaults(suiteName: groupID)?.data(forKey: key) else { return nil }
@@ -40,6 +51,7 @@ enum ReperaComplicationSharedStore {
     @discardableResult
     static func write(_ value: ReperaComplicationSnapshot?) -> Bool {
         guard let store = UserDefaults(suiteName: groupID) else { return false }
+        legacyKeys.forEach(store.removeObject(forKey:))
         if let value, let data = try? JSONEncoder().encode(value) {
             store.set(data, forKey: key)
         } else {

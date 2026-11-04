@@ -87,15 +87,16 @@ private struct ProgressCategoryChip: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Image(systemName: category.systemImage)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(iconForeground)
                     Text(category.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(secondaryForeground)
                         .lineLimit(1)
                 }
                 Text(value)
-                    .font(.system(size: 18, weight: .bold).monospacedDigit())
+                    .ogFont(18, weight: .bold, relativeTo: .body)
+                    .monospacedDigit()
                     .foregroundStyle(foreground)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -135,16 +136,16 @@ struct ProgressInsightHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(tint)
                 .symbolRenderingMode(.hierarchical)
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.callout.weight(.semibold))
                 .foregroundStyle(tint)
             Spacer(minLength: 0)
             if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(OG.label3)
             }
         }
@@ -186,7 +187,7 @@ struct ProgressInsightCard<Content: View>: View {
                     showsChevron: showsChevron
                 )
                 Text(narrative)
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundStyle(OG.label2)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(2)
@@ -208,19 +209,20 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(value)
-                        .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        .ogFont(44, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                        .monospacedDigit()
                         .foregroundStyle(OG.label)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                     if let unit {
                         Text(unit)
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.headline)
                             .foregroundStyle(OG.label2)
                     }
                 }
                 if let caption {
                     Text(caption)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.footnote.weight(.medium))
                         .foregroundStyle(OG.label3)
                 }
             }
@@ -241,18 +243,18 @@ struct ProgressMetricGlanceCard: View {
         OGCard {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(tint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
+                    .font(.system(.title, design: .rounded, weight: .bold).monospacedDigit())
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 if let footnote {
                     Text(footnote)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(OG.label3)
                         .lineLimit(1)
                 }
@@ -321,8 +323,10 @@ struct ProgressConsistencyDots: View {
                             }
                         }
                     Text(day.label)
-                        .font(.system(size: 10, weight: day.isToday ? .semibold : .regular))
+                        .ogFont(10, weight: day.isToday ? .semibold : .regular, relativeTo: .caption2)
                         .foregroundStyle(day.isToday ? accent : OG.label3)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity)
             }

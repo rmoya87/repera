@@ -63,7 +63,7 @@ object ExerciseSessionAppearances {
     fun wodScoreSummaryLabel(score: JSONObject): String {
         if (score.has("elapsedSeconds") && !score.isNull("elapsedSeconds")) {
             val total = score.getInt("elapsedSeconds")
-            return "%d:%02d".format(total / 60, total % 60)
+            return "%d:%02d".format(java.util.Locale.ROOT, total / 60, total % 60)
         }
         if (score.has("totalReps") && !score.isNull("totalReps")) {
             if (score.has("roundsCompleted") && !score.isNull("roundsCompleted")) {
