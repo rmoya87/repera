@@ -19,7 +19,7 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("HKWorkoutSession(", swift)
         self.assertNotIn("startActivity(with:", swift)
         root = source("Apps/Repera/Sources/RootTabView.swift")
-        self.assertIn("guard store.isHydrated, let destination", root)
+        self.assertIn("guard store.isHydrated else { return }", root)
         self.assertIn('case "today":', root)
 
     def test_apple_widgets_and_watch_gesture_are_connected(self):
@@ -45,6 +45,24 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("BIND_QUICK_SETTINGS_TILE", manifest)
         self.assertIn("repera_home_widget_info", manifest)
         self.assertIn("repera_shortcuts", manifest)
+        self.assertIn("repera://exercises", source("android/mobile/src/main/res/xml/repera_shortcuts.xml"))
+
+    def test_search_index_and_widget_invalidation_are_account_safe(self):
+        spotlight = source("Apps/Repera/Sources/ExerciseSpotlightIndexer.swift")
+        self.assertIn("!$0.isCustom && !$0.isCatalogArchived", spotlight)
+        self.assertIn("lastIndexedSignature", spotlight)
+        self.assertIn('domain = "com.app.repera.public-exercises"', spotlight)
+        self.assertNotIn("state.workouts", spotlight)
+        app = source("Apps/Repera/Sources/ReperaApp.swift")
+        self.assertIn("CSSearchableItemActionType", app)
+        widget = source("android/mobile/src/main/java/dev/repera/mobile/ReperaWidgetRefreshWorker.kt")
+        self.assertIn("ReperaHomeWidget().updateAll(applicationContext)", widget)
+        self.assertIn("ExistingWorkPolicy.KEEP", widget)
+        self.assertNotIn("ExerciseClient", widget)
+        storage = source("android/mobile/src/main/java/dev/repera/mobile/LocalSnapshotStore.kt")
+        self.assertIn("ReperaWidgetRefresh.enqueue(appContext)", storage)
+        session = source("android/mobile/src/main/java/dev/repera/mobile/SessionStore.kt")
+        self.assertIn("if (identityChanged) ReperaWidgetRefresh.enqueue(appContext)", session)
 
     def test_export_is_explicit_and_uses_unmodified_gps(self):
         export = source("Apps/Repera/Sources/RouteGPXExporter.swift")
