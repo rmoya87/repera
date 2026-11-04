@@ -1920,6 +1920,8 @@ internal fun SettingsTab(
             )
         }
         ReperaPageHeader(title = "Ajustes")
+        val analyticsContext = LocalContext.current
+        var analyticsConsent by remember { mutableStateOf(ReperaAnalytics.hasConsent(analyticsContext)) }
         val settingsSubs = LocalSubscriptions.current
         val settingsScope = rememberCoroutineScope()
         var restoreBusy by remember { mutableStateOf(false) }
@@ -2071,6 +2073,32 @@ internal fun SettingsTab(
                     enabled = !busy,
                     onClick = onOpenAIAccess
                 )
+            }
+        }
+        if (ReperaAnalytics.isConfigured()) {
+            ReperaSectionTitle("Privacidad", uppercase = false)
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Permitir estadísticas de uso", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Ayuda a mejorar Repera sin enviar datos de Salud, rutas ni texto personal.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = analyticsConsent,
+                        onCheckedChange = { granted ->
+                            analyticsConsent = granted
+                            ReperaAnalytics.setConsent(analyticsContext, granted)
+                        }
+                    )
+                }
             }
         }
         if (dev.repera.mobile.BuildConfig.DEBUG) {
