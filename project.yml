@@ -22,6 +22,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS.git
     exactVersion: 10.1.0
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: 12.0.0
 
 configFiles:
   Debug: Configs/Version.xcconfig
@@ -120,6 +123,9 @@ targets:
         product: Supabase
       - package: GoogleSignIn
         product: GoogleSignIn
+      # Analytics-only, no IDFA product. Not linked on watchOS.
+      - package: Firebase
+        product: FirebaseAnalyticsCore
       - target: ReperaWatch
         embed: true
       - target: ReperaRestWidget
@@ -140,6 +146,9 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        # No automatic telemetry until explicit consent; no ad personalization.
+        FIREBASE_ANALYTICS_COLLECTION_ENABLED: false
+        GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
         GIDClientID: "$(REPERA_GOOGLE_IOS_CLIENT_ID)"
