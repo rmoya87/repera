@@ -129,6 +129,12 @@ struct AITrainingProgramsView: View {
                 .eq("owner_id",value:session.user.id.uuidString)
                 .eq("id",value:item.id.uuidString)
                 .eq("revision",value:item.revision).execute()
+            if status == "paused" {
+                ReperaAnalytics.track(.aiProgramPaused, parameters: [
+                    "feature_area": "ai",
+                    "result": "success"
+                ])
+            }
             await reload()
         } catch { errorMessage="No se pudo actualizar el programa: \(error.localizedDescription)" }
     }

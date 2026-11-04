@@ -173,6 +173,14 @@ struct RootTabView: View {
             case .exercises: "exercises"
             }
             ReperaAnalytics.track(.screenView, parameters: ["screen_name": screen])
+            ReperaAnalytics.track(.uiInteraction, parameters: [
+                "feature_area": "home",
+                "interaction_type": "selection",
+                "component_id": "tab_bar",
+                "action_name": "select",
+                "screen_name": screen,
+                "result": "success"
+            ])
             if newTab == .exercises { store.requestExerciseCatalogRefresh() }
             if newTab != .start && LiveActivityRecorder.shared.phase == .idle {
                 UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")

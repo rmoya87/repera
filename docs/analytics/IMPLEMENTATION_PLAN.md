@@ -15,11 +15,11 @@ El evento lógico y sus parámetros son comunes entre plataformas. `origin_platf
 | 0. Inventario y contrato | Catálogo de eventos, semántica, parámetros, privacidad, IDs de deporte y WOD, matriz funcional | La fuente de eventos y valores es única y testeable | Hecho (base) |
 | 1. SDK móvil | Firebase Analytics iOS/Android; sin UI consent (estilo Cafesito); off hasta configurar; sin IDFA/AD_ID | Sin Firebase la app no falla; con Firebase se activan métricas de producto | Hecho (falta plist/json reales) |
 | 2. Embudos núcleo | Alta/onboarding, pantallas, entrenamiento y persistencia, favoritos, temporizadores, progreso y escáner | 1 evento lógico por acción real, comparables y sin duplicados | Hecho en código (faltan plist/json reales) |
-| 3. Relojes | Cola duradera, transporte WatchConnectivity/Data Layer, ACK, deduplicación y atribución de origen | Offline/reintentos/cambio de cuenta sin pérdida silenciosa ni doble cómputo | Parcial: relay `watch_app_opened` + ACK logSet; Wear durable pendiente |
-| 4. Negocio y monetización | Clases, citas, acceso libre, asistencia, IA, compras verificadas y paywall real | Reservas != asistencia; compra comprobada; patrocinio != compra | Hecho en apps (Business web pendiente) |
-| 5. Todas las interacciones | Matriz pantalla/sección/componente/acción; gestos, hojas, filtros y accesos del SO | Cada control significativo tiene un nombre estable y pruebas de paridad | Pendiente |
-| 6. Informes y operación | GA4, dimensiones limitadas, BigQuery, informes comparativos y calidad de datos | Rankings por deporte, formato, clase, sección, plataforma y usuario activo | Pendiente |
-| 7. E2E y rollout | Contratos Swift/Kotlin, pruebas reales cuatro dispositivos, QA privacidad, CI y activación progresiva | DebugView, prueba real de consentimiento, cero PII, regresiones verificadas | Pendiente |
+| 3. Relojes | Cola duradera, transporte WatchConnectivity/Data Layer, ACK, deduplicación y atribución de origen | Offline/reintentos/cambio de cuenta sin pérdida silenciosa ni doble cómputo | Hecho: Watch relay + Wear outbox/ACK analytics |
+| 4. Negocio y monetización | Clases, citas, acceso libre, asistencia, IA, compras verificadas y paywall real | Reservas != asistencia; compra comprobada; patrocinio != compra | Hecho apps + hooks Business web (gtag opcional) |
+| 5. Todas las interacciones | Matriz pantalla/sección/componente/acción; gestos, hojas, filtros y accesos del SO | Cada control significativo tiene un nombre estable y pruebas de paridad | Parcial: allowlist contrato + tabs |
+| 6. Informes y operación | GA4, dimensiones limitadas, BigQuery, informes comparativos y calidad de datos | Rankings por deporte, formato, clase, sección, plataforma y usuario activo | SQL plantillas listas; link BigQuery manual |
+| 7. E2E y rollout | Contratos Swift/Kotlin, pruebas reales cuatro dispositivos, QA privacidad, CI y activación progresiva | DebugView, prueba real de consentimiento, cero PII, regresiones verificadas | Contratos en CI; DebugView/hardware pendiente de plist |
 
 ## Arquitectura de integración
 

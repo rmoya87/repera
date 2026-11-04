@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.analytics.ReperaAnalytics
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -451,6 +452,10 @@ class BusinessCenterStore(
         try {
             rpc(session,"leave_org_as_athlete",JSONObject().put("p_org",organization.id),
                 expectTrue = true)
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.CENTER_UNLINKED,
+                mapOf("feature_area" to "center", "result" to "success")
+            )
         } catch (error: IllegalStateException) {
             val reason = error.message.orEmpty()
             val message = when {
@@ -463,26 +468,73 @@ class BusinessCenterStore(
         }
     }
 
-    fun accept(session: SupabaseIdentity.Session, invitation: Invitation) {
-        rpc(session, "accept_org_invitation",
-            JSONObject().put("p_invitation_id", invitation.id))
-    }
-
     fun decline(session: SupabaseIdentity.Session, invitation: Invitation) {
         rpc(session, "decline_org_invitation",
             JSONObject().put("p_invitation_id", invitation.id))
     }
 
     fun book(session: SupabaseIdentity.Session, occurrence: Occurrence, pass: Pass) {
+        val serviceKind = if (occurrence.kind == "appointment") "appointment" else "class"
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.CLASS_BOOKING_REQUESTED,
+            mapOf(
+                "feature_area" to "center",
+                "service_kind" to serviceKind,
+                "result" to "pending"
+            )
+        )
         val intent = "book:${session.userId}:${occurrence.id}:${pass.id}"
-        idempotentRpc(session, intent, "book_service_occurrence", JSONObject()
-            .put("p_occurrence", occurrence.id)
-            .put("p_pass", pass.id))
+        try {
+            idempotentRpc(session, intent, "book_service_occurrence", JSONObject()
+                .put("p_occurrence", occurrence.id)
+                .put("p_pass", pass.id))
+        } catch (error: Exception) {
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.OPERATION_FAILED,
+                mapOf(
+                    "feature_area" to "center",
+                    "error_code" to "booking_failed",
+                    "result" to "failure"
+                )
+            )
+            throw error
+        }
+        // Status (booked vs waitlist) is resolved after refreshCenter().
+        ReperaAnalytics.track(
+            if (occurrence.kind == "appointment") ReperaAnalytics.Event.APPOINTMENT_CONFIRMED
+            else ReperaAnalytics.Event.CLASS_BOOKING_CONFIRMED,
+            mapOf(
+                "feature_area" to "center",
+                "service_kind" to serviceKind,
+                "result" to "success"
+            )
+        )
     }
 
     fun cancel(session: SupabaseIdentity.Session, booking: Booking) {
         idempotentRpc(session, "cancel:${session.userId}:${booking.id}", "cancel_service_booking",
             JSONObject().put("p_booking", booking.id))
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.CLASS_BOOKING_CANCELLED,
+            mapOf(
+                "feature_area" to "center",
+                "service_kind" to "class",
+                "result" to "success"
+            )
+        )
+    }
+
+    fun accept(session: SupabaseIdentity.Session, invitation: Invitation) {
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.CENTER_INVITE_OPENED,
+            mapOf("feature_area" to "center", "result" to "pending")
+        )
+        rpc(session, "accept_org_invitation",
+            JSONObject().put("p_invitation_id", invitation.id))
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.CENTER_LINK_COMPLETED,
+            mapOf("feature_area" to "center", "result" to "success")
+        )
     }
 
     /** Retries of the same intent reuse `p_request` until the server answers (RPCs are idempotent per id). */

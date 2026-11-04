@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import dev.repera.mobile.analytics.ReperaAnalytics
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -137,6 +138,21 @@ fun AIAccessScreen(
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
         var disconnectingProvider by remember {
             mutableStateOf<AIAccessStore.AIProvider?>(null) }
+        var verifiedTokenIds by remember { mutableStateOf(emptySet<String>()) }
+        LaunchedEffect(tokens) {
+            val connectedIds = tokens.orEmpty()
+                .filter { it.hasConnected }
+                .map { it.id }
+                .toSet()
+            val newly = connectedIds - verifiedTokenIds
+            if (newly.isNotEmpty()) {
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.AI_CONNECTION_VERIFIED,
+                    mapOf("feature_area" to "ai", "result" to "success")
+                )
+            }
+            verifiedTokenIds = connectedIds
+        }
         // R6 P0-2: Volver + título large + tarjeta «Elige tu asistente».
         if (onBack != null) {
             ReperaToolbarGlassIconButton(
@@ -172,7 +188,17 @@ fun AIAccessScreen(
                         OutlinedButton(
                             onClick = {
                                 if (verified) disconnectingProvider = provider
-                                else instructionsFor = provider
+                                else {
+                                    ReperaAnalytics.track(
+                                        ReperaAnalytics.Event.AI_CONNECTION_STARTED,
+                                        mapOf(
+                                            "feature_area" to "ai",
+                                            "entry_point" to provider.id,
+                                            "result" to "pending"
+                                        )
+                                    )
+                                    instructionsFor = provider
+                                }
                             },
                             enabled = connected,
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),

@@ -141,6 +141,34 @@
       "combat",
       "cardio_gym",
       "other"
+    ],
+    "component_id": [
+      "tab_bar",
+      "primary_cta",
+      "secondary_cta",
+      "chip_filter",
+      "period_picker",
+      "map_fab",
+      "paywall_cta",
+      "settings_toggle",
+      "booking_cta",
+      "ai_connect_cta"
+    ],
+    "action_name": [
+      "open",
+      "close",
+      "select",
+      "confirm",
+      "cancel",
+      "skip",
+      "retry",
+      "nav_2d",
+      "nav_3d",
+      "log_set",
+      "start_live",
+      "pause",
+      "resume",
+      "finish"
     ]
   },
   "events_by_area": {

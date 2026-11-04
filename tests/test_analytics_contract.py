@@ -151,6 +151,16 @@ class AnalyticsContractTests(unittest.TestCase):
         watch = (ROOT / "Apps/ReperaWatch/Sources/WatchConnectivityClient.swift").read_text()
         self.assertIn("enqueueAnalyticsEvent", watch)
         self.assertIn("analyticsEvent", (ROOT / "Apps/Repera/Sources/PhoneConnectivity.swift").read_text())
+        wear_store = (ROOT / "android/wear/src/main/java/dev/repera/wear/WearPendingAnalyticsStore.kt").read_text()
+        self.assertIn("watch_app_opened", wear_store)
+        self.assertIn("/repera/analytics-event", (ROOT / "android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt").read_text())
+        self.assertIn("/repera/analytics-event", (ROOT / "android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt").read_text())
+        self.assertIn("component_id", CONTRACT["enum_values"])
+        self.assertIn("action_name", CONTRACT["enum_values"])
+        self.assertIn("product-analytics.js", (ROOT / "web/console/src/core/auth.js").read_text())
+        self.assertIn(".aiProgramPaused", sources)
+        self.assertIn(".workoutSaveFailed", sources)
+        self.assertIn(".uiInteraction", sources)
 
 
 if __name__ == "__main__":
