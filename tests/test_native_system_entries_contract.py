@@ -20,7 +20,7 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("startActivity(with:", swift)
         root = source("Apps/Repera/Sources/RootTabView.swift")
         self.assertIn("guard store.isHydrated else { return }", root)
-        self.assertIn('case "today":', root)
+        self.assertIn('case ("today", 0): self = .today', root)
 
     def test_control_center_scene_routing_cannot_start_sensors(self):
         control = source("Apps/ReperaRestWidget/ReperaControls.swift")
