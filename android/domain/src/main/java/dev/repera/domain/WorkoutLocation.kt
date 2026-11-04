@@ -13,7 +13,11 @@ data class WorkoutLocationPin(
     /** Identificador del proveedor de mapas para reconstruir el marcador. */
     val mapItemIdentifier: String? = null,
     /** Categoría de punto de interés del proveedor de mapas. */
-    val pointOfInterestCategory: String? = null
+    val pointOfInterestCategory: String? = null,
+    /** Accuracy of the measured point in metres (null for manual/historical pins). */
+    val horizontalAccuracyMeters: Double? = null,
+    /** Origin of this point: wearOS, androidPhone, appleWatch or iPhone. */
+    val source: String? = null
 ) {
     /** Lugar elegido (nombre o MapItem). Un pin GPS anónimo no cuenta (iOS hasChosenPlace). */
     val hasChosenPlace: Boolean

@@ -2208,8 +2208,20 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if((0 until archive.length()).any {archive.getJSONObject(it).optString("id")==id}) return false
         if(id in mirror.blockedIds()) return false
         val active = state.optJSONObject("activeSession")
-        if (active != null) return active.optString("id") == id
-        state.put("activeSession", JSONObject(sessionJson.toString()))
+        if (active != null) {
+            if (active.optString("id") != id) return false
+            val pin = sessionJson.optJSONObject("locationPin")
+            if (pin != null && applyWearStartPin(active, pin)) save(state)
+            return true
+        }
+        val adopted = JSONObject(sessionJson.toString())
+        // Never accept an invalid or forged wrist coordinate during adoption.
+        val incoming = adopted.optJSONObject("locationPin")
+        if (incoming != null) {
+            adopted.remove("locationPin")
+            applyWearStartPin(adopted, incoming)
+        }
+        state.put("activeSession", adopted)
         save(state)
         return true
     }
@@ -3077,11 +3089,60 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return true
     }
 
+    /** Validar el punto de origen del reloj antes de editar un workout.
+     * El UUID y el inicio real son imprescindibles; nunca altera una ruta o
+     * un lugar elegido a mano. Es idempotente con reintentos offline.
+     */
+    private fun applyWearStartPin(session: JSONObject, incoming: JSONObject): Boolean {
+        if ((session.optJSONArray("routePoints")?.length() ?: 0) >= 2) return false
+        val current = session.optJSONObject("locationPin")
+        if (current != null && (!current.optString("name").isNullOrBlank() ||
+                !current.optString("mapItemIdentifier").isNullOrBlank())) return false
+        val latitude = incoming.optDouble("latitude", Double.NaN)
+        val longitude = incoming.optDouble("longitude", Double.NaN)
+        val accuracy = incoming.optDouble("horizontalAccuracyMeters", Double.NaN)
+        val recorded = incoming.optLong("recordedAtEpochMs", -1L)
+        val started = runCatching { java.time.Instant.parse(session.getString("startedAt")).toEpochMilli() }
+            .getOrNull() ?: return false
+        if (!latitude.isFinite() || latitude !in -90.0..90.0 ||
+            !longitude.isFinite() || longitude !in -180.0..180.0 ||
+            !accuracy.isFinite() || accuracy !in 0.0..100.0 ||
+            incoming.optString("source") != "wearOS" ||
+            recorded - started !in -15_000L..60_000L) return false
+        // Prefer the watch-origin fix over an anonymous phone fallback, not
+        // over another valid wrist fix with better accuracy.
+        if (current?.optString("source") == "wearOS" &&
+            current.optDouble("horizontalAccuracyMeters", Double.MAX_VALUE) <= accuracy) return false
+        session.put("locationPin", JSONObject()
+            .put("latitude", latitude).put("longitude", longitude)
+            .put("recordedAtEpochMs", recorded)
+            .put("horizontalAccuracyMeters", accuracy).put("source", "wearOS"))
+        return true
+    }
+
+    @Synchronized fun attachWearStartPin(sessionId: String, incoming: JSONObject): Boolean {
+        val state = loadOrNull() ?: return false
+        val session = state.optJSONObject("activeSession")?.takeIf { it.optString("id") == sessionId }
+            ?: state.optJSONArray("workouts")?.let { archive ->
+                (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+                    .firstOrNull { it.optString("id") == sessionId }
+            } ?: return false
+        // A delayed offline replay must not relabel an old workout using now.
+        if (!applyWearStartPin(session, incoming)) return false
+        save(state)
+        return true
+    }
+
     /** Pin de inicio (gym/sitio) sobre la sesión ACTIVA (capturePin iOS). */
     @Synchronized fun attachLocationPin(sessionId: String, pin: dev.repera.domain.WorkoutLocationPin) {
         val state = loadOrNull() ?: return
         val session = state.optJSONObject("activeSession") ?: return
         if (session.optString("id") != sessionId) return
+        // No sobrescribir un lugar manual ni la posición medida por el reloj.
+        val existing = session.optJSONObject("locationPin")
+        if (existing?.optString("name")?.isNotBlank() == true ||
+            existing?.optString("mapItemIdentifier")?.isNotBlank() == true ||
+            existing?.optString("source") == "wearOS") return
         session.put("locationPin", JSONObject()
             .put("latitude", pin.latitude)
             .put("longitude", pin.longitude)
@@ -3090,6 +3151,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 pin.name?.let { put("name", it) }
                 pin.mapItemIdentifier?.let { put("mapItemIdentifier", it) }
                 pin.pointOfInterestCategory?.let { put("pointOfInterestCategory", it) }
+                pin.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                pin.source?.let { put("source", it) }
             })
         save(state)
     }
