@@ -199,12 +199,7 @@ enum ProgressDataEngine {
             weekStartsOnMonday: monday,
             now: now
         )
-        let filteredHighEffortStimuli = StatsEngine.filterStimuli(
-            highEffortStimuli,
-            range: range,
-            weekStartsOnMonday: monday,
-            now: now
-        )
+        // Fatiga/hard sets usan highEffortStimuli sin filtrar (estado actual retenido).
         if Task.isCancelled { return nil }
 
         let charts = ProgressChartBuilder.build(
