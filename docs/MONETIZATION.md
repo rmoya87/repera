@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-11-04 (StoreKit / Play Billing propios; sin RevenueCat)
+Última actualización: 2026-11-04 (StoreKit / Play + Pro patrocinado B2B; sin RevenueCat)
 
 ## 1. Arquitectura
 
@@ -80,3 +80,13 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 ## 7. Offline
 
 Si el refresh falla, se conserva un Pro **previamente verificado** un tiempo limitado (`lastVerifiedPro*`). Sin snapshot verificado → Gratis (fail-closed).
+
+iOS persiste el último Pro StoreKit verificado en `UserDefaults` (`repera.commercial.verifiedPro.v1`) para rehidratar al arranque antes del refresh. Si StoreKit responde vacío pero la caducidad verificada sigue en el futuro, no se degrada a Gratis de inmediato.
+
+## 8. Pro patrocinado (Center / B2B)
+
+Además de StoreKit/Play, un atleta con `business_sponsored_pro` del RPC `get_my_effective_entitlements` obtiene acceso Pro completo (`businessSponsoredAccess` en `SubscriptionManager`).
+
+- **iOS:** `BusinessDataStore.refreshEntitlements` → `ReperaApp.wireSubscriptionGates` (también al cambiar `entitlements?.businessSponsoredPro`).
+- **Android:** `BusinessCenterStore.refresh` carga el mismo RPC y `MainActivity` llama `setBusinessSponsoredAccess`.
+- No basta con estar vinculado a un centro: hace falta el flag de servidor (bono de pago + plan/trial del org).

@@ -88,6 +88,15 @@ class BusinessCenterStore(
     data class Availability(val occurrenceId: String, val capacity: Int,
         val reserved: Int)
 
+    /** Port de BusinessEntitlements (iOS): Pro patrocinado B2B vía RPC. */
+    data class Entitlements(
+        val effectivePro: Boolean = false,
+        val storePro: Boolean = false,
+        val businessSponsoredPro: Boolean = false,
+        val storeGatePending: Boolean = true,
+        val primarySponsorName: String? = null
+    )
+
     data class Snapshot(
         val centers: List<Organization> = emptyList(),
         val invitations: List<Invitation> = emptyList(),
@@ -102,8 +111,12 @@ class BusinessCenterStore(
         val availability: Map<String, Availability> = emptyMap(),
         val notices:List<Notice> = emptyList(),
         val chatMessages: List<ChatMessage> = emptyList(),
-        val trainingSessions:List<ProfessionalSession> = emptyList()
+        val trainingSessions:List<ProfessionalSession> = emptyList(),
+        val entitlements: Entitlements? = null
     ) {
+        val grantsFullAppAccess: Boolean
+            get() = entitlements?.businessSponsoredPro == true
+
         fun openAccessEnabled(orgId: String): Boolean =
             operationSettingsByOrg[orgId]?.openAccessEnabled == true
 
@@ -351,6 +364,7 @@ class BusinessCenterStore(
             }
             val now = Instant.now()
             val linkedIds = myLinks.map { it.orgId }.toSet()
+            val entitlements = refreshEntitlements(session)
             LoadResult.Loaded(Snapshot(
                 centers = centers,
                 invitations = invitations.filter {
@@ -366,9 +380,44 @@ class BusinessCenterStore(
                 passOffers = offers.filter { it.isActive && it.orgId in linkedIds },
                 bookings = bookings.filter { it.clientId in ownedClientIds },
                 availability = counts,notices=ownedNotices(notices,ownedClientIds),
-                trainingSessions=ownedTraining(training,ownedClientIds)))
+                trainingSessions=ownedTraining(training,ownedClientIds),
+                entitlements = entitlements))
         } catch (error: Exception) {
             LoadResult.Failed(friendlyCentersLoadError(error))
+        }
+    }
+
+    /** Port de BusinessDataStore.refreshEntitlements → get_my_effective_entitlements (jsonb). */
+    fun refreshEntitlements(session: SupabaseIdentity.Session): Entitlements? {
+        return try {
+            val request = Request.Builder()
+                .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/get_my_effective_entitlements")
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
+                .post("{}".toRequestBody("application/json".toMediaType()))
+                .build()
+            http.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful || body.isBlank()) return null
+                val root = when {
+                    body.trimStart().startsWith("{") -> JSONObject(body)
+                    body.trimStart().startsWith("[") -> JSONArray(body).optJSONObject(0) ?: return null
+                    else -> return null
+                }
+                val sponsors = root.optJSONArray("sponsors")
+                val sponsorName = sponsors?.optJSONObject(0)?.optString("org_name")
+                    ?.takeIf { it.isNotBlank() }
+                Entitlements(
+                    effectivePro = root.optBoolean("effective_pro", false),
+                    storePro = root.optBoolean("store_pro", false),
+                    businessSponsoredPro = root.optBoolean("business_sponsored_pro", false),
+                    storeGatePending = root.optBoolean("store_gate_pending", true),
+                    primarySponsorName = sponsorName
+                )
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 

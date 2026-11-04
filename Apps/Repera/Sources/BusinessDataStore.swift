@@ -1412,6 +1412,7 @@ final class BusinessDataStore {
         } catch {
             entitlements = nil
         }
+        // Observation: mutar entitlements dispara onChange en ReperaApp → wireSubscriptionGates.
     }
 
     func activePasses(for orgId: UUID) -> [BusinessPass] {

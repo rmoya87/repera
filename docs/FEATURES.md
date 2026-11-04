@@ -112,7 +112,7 @@ La gráfica de **Puntuación de entrenamiento** y el detalle de sesión presenta
 
 ## Hub Progreso por chips temáticos (04/11/2026)
 
-Progreso usa chips horizontales **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa, héroe numérico y mini viz). Métricas 2×2; «Esta semana» / «A largo plazo» con consistencia visual. Gratis: semana; Pro: mes + largo plazo.
+Progreso usa chips horizontales **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa, héroe numérico y mini viz). Métricas 2×2; «Esta semana» / «A largo plazo» con consistencia visual. Gratis: semana; Pro: mes + largo plazo (StoreKit/Play o Pro patrocinado Center). Chips Recuperación/Deportes muestran nota de preparación y nº de salidas (no «·»). Fuerza: barras = volumen semanal; Forma: duración en h+min si ≥1 h; Corazón: FC real sin barras inventadas; Deportes: hub con salidas, plan y ejercicios activos además del enlace a evolución.
 
 ## Redistribución de Progreso y confianza visual (03/11/2026)
 

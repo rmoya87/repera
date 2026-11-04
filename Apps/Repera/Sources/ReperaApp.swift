@@ -399,6 +399,11 @@ struct ReperaApp: App {
                 .onChange(of: businessData.athleteCenterIds) { _, _ in
                     wireSubscriptionGates()
                 }
+                .onChange(of: businessData.entitlements?.businessSponsoredPro) { _, _ in
+                    // refreshEntitlements() llega después de athleteCenterIds;
+                    // sin este cable Pro patrocinado queda en Gratis.
+                    wireSubscriptionGates()
+                }
                 .onChange(of: store.didCompleteInitialRemoteSync) { _, finished in
                     if finished && businessAuth.isConnected {
                         Task {

@@ -201,10 +201,18 @@ internal fun ProgressTab(
                             ProgressCategory.STRENGTH ->
                                 snapshot?.records?.size?.takeIf { it > 0 }?.let { "$it PR" } ?: "—"
                             ProgressCategory.FITNESS ->
-                                snapshot?.summary?.totalMinutes?.toInt()?.takeIf { it > 0 }?.let { "$it′" } ?: "—"
+                                snapshot?.summary?.totalMinutes?.toInt()?.takeIf { it > 0 }
+                                    ?.let { compactActiveDuration(it) } ?: "—"
                             ProgressCategory.HEART -> "—"
-                            ProgressCategory.RECOVERY -> "·"
-                            ProgressCategory.SPORTS -> "·"
+                            ProgressCategory.RECOVERY ->
+                                overview?.recovery?.readiness?.score
+                                    ?.takeIf { it > 0 }
+                                    ?.let { "${it.toInt()}" } ?: "—"
+                            ProgressCategory.SPORTS -> {
+                                val sports = overview?.liveSportSessions?.size
+                                    ?: overview?.history.orEmpty().count { it.liveSportID != null }
+                                if (sports > 0) "$sports" else "—"
+                            }
                         }
                     },
                     onSelected = { category = it.name },
@@ -332,14 +340,18 @@ internal fun ProgressTab(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
                             tint = ProgressCategory.STRENGTH.accent,
-                            narrative = if (snapshot.records.isEmpty()) {
-                                "Cuando registres series de fuerza, verás récords y volumen aquí."
-                            } else {
-                                "Has logrado ${snapshot.records.size} marcas en el periodo. Abajo tienes el detalle por ejercicio y e1RM."
-                            },
+                            narrative = strengthInsightCopy(
+                                prCount = snapshot.records.size,
+                                volumeKg = snapshot.summary.volumeKg.toInt()
+                            ),
                             heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
-                            heroCaption = if (snapshot.records.isEmpty()) "sin marcas aún" else "en el periodo"
+                            heroCaption = when {
+                                snapshot.summary.volumeKg > 0 ->
+                                    "${snapshot.summary.volumeKg.toInt()} kg de carga"
+                                snapshot.records.isEmpty() -> "sin marcas aún"
+                                else -> "en el periodo"
+                            }
                         )
                     }
                     item {
@@ -388,17 +400,14 @@ internal fun ProgressTab(
                 item { ReperaSectionTitle("Forma física") }
                 item {
                     val minutes = snapshot?.summary?.totalMinutes?.toInt() ?: 0
+                    val hero = activeDurationHero(minutes)
                     ProgressSaludInsightCard(
                         title = stringResource(R.string.progress_tab_estimulo_activo),
                         icon = Icons.Outlined.DirectionsWalk,
                         tint = ProgressCategory.FITNESS.accent,
-                        narrative = if (minutes > 0) {
-                            "Has acumulado $minutes minutos de actividad en el periodo. El mapa muestra tus días activos."
-                        } else {
-                            "Cuando camines o entrenes, verás aquí tu estímulo y el mapa de días activos."
-                        },
-                        heroValue = if (minutes > 0) "$minutes" else "—",
-                        heroUnit = if (minutes > 0) "min" else null,
+                        narrative = activeDurationNarrative(minutes),
+                        heroValue = hero.first,
+                        heroUnit = hero.second,
                         heroCaption = if (pro) "este mes" else "esta semana"
                     )
                 }
@@ -514,7 +523,57 @@ internal fun ProgressTab(
                 }
             }
             ProgressCategory.SPORTS -> {
+                val sportCount = overview?.liveSportSessions?.size
+                    ?: overview?.history.orEmpty().count { it.liveSportID != null }
+                val planned = overview?.history.orEmpty().count { !it.routineId.isNullOrBlank() }
+                // Sin serie temporal de delta en Android: ejercicios con ≥2 sesiones y e1RM.
+                val improved = overview?.exerciseProgress?.values?.count { summary ->
+                    summary.timesPerformed >= 2 && (summary.estimatedOneRM ?: 0.0) > 0
+                } ?: 0
                 item { ReperaSectionTitle("Deportes") }
+                item {
+                    ProgressSaludInsightCard(
+                        title = "Actividad deportiva",
+                        icon = Icons.Outlined.Flag,
+                        tint = ProgressCategory.SPORTS.accent,
+                        narrative = sportsHubNarrative(sportCount, improved, planned),
+                        heroValue = if (sportCount > 0) "$sportCount" else "—",
+                        heroUnit = if (sportCount > 0) "salidas" else null,
+                        heroCaption = if (sportCount > 0) "En vivo" else "sin salidas En vivo aún"
+                    )
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ProgressMetricGlanceCard(
+                            title = "Ejercicios activos",
+                            value = if (improved > 0) "$improved" else "—",
+                            modifier = Modifier.weight(1f),
+                            tint = ProgressCategory.SPORTS.accent
+                        )
+                        ProgressMetricGlanceCard(
+                            title = "Del plan",
+                            value = if (planned > 0) "$planned" else "—",
+                            modifier = Modifier.weight(1f),
+                            tint = ProgressCategory.SPORTS.accent
+                        )
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ProgressMetricGlanceCard(
+                            title = stringResource(R.string.progress_tab_entrenos),
+                            value = "${snapshot?.summary?.sessionCount ?: 0}",
+                            modifier = Modifier.weight(1f),
+                            tint = ProgressCategory.SPORTS.accent
+                        )
+                        ProgressMetricGlanceCard(
+                            title = stringResource(R.string.home_day_cards_tiempo),
+                            value = compactActiveDuration(snapshot?.summary?.totalMinutes?.toInt() ?: 0),
+                            modifier = Modifier.weight(1f),
+                            tint = ProgressCategory.SPORTS.accent
+                        )
+                    }
+                }
                 item {
                     ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -526,7 +585,11 @@ internal fun ProgressTab(
                                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                stringResource(R.string.progress_tab_consulta_distancias_ritmos_y_marcas_por),
+                                if (sportCount == 0) {
+                                    "Las salidas guardadas desde En vivo aparecerán aquí con distancias, ritmos y marcas."
+                                } else {
+                                    stringResource(R.string.progress_tab_consulta_distancias_ritmos_y_marcas_por)
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -537,6 +600,58 @@ internal fun ProgressTab(
         }
     }
     }
+}
+
+private fun strengthInsightCopy(prCount: Int, volumeKg: Int): String {
+    if (prCount == 0 && volumeKg == 0) {
+        return "Cuando registres series de fuerza, verás aquí la carga (volumen) y tus marcas (PR / e1RM)."
+    }
+    val parts = buildList {
+        if (volumeKg > 0) add("Has movido $volumeKg kg en el periodo")
+        if (prCount > 0) add("$prCount marca${if (prCount == 1) "" else "s"} personal${if (prCount == 1) "" else "es"}")
+    }
+    return parts.joinToString(" · ") + "."
+}
+
+private fun compactActiveDuration(minutes: Int): String {
+    if (minutes <= 0) return "—"
+    if (minutes < 60) return "${minutes}′"
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (m == 0) "$h h" else "$h h $m"
+}
+
+private fun activeDurationHero(minutes: Int): Pair<String, String?> {
+    if (minutes <= 0) return "—" to null
+    if (minutes < 60) return "$minutes" to "min"
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (m == 0) "$h" to "h" else "$h h $m" to "min"
+}
+
+private fun activeDurationNarrative(minutes: Int): String {
+    if (minutes <= 0) {
+        return "Cuando camines o entrenes, verás aquí tu estímulo y el mapa de días activos."
+    }
+    if (minutes < 60) {
+        return "Has acumulado $minutes minutos de actividad en el periodo. El mapa muestra tus días activos."
+    }
+    val h = minutes / 60
+    val m = minutes % 60
+    val label = if (m == 0) "$h h" else "$h h $m min"
+    return "Has acumulado $label de actividad en el periodo. El mapa muestra tus días activos."
+}
+
+private fun sportsHubNarrative(sportCount: Int, improved: Int, planned: Int): String {
+    if (sportCount == 0 && improved == 0 && planned == 0) {
+        return "Aquí verás salidas En vivo, entrenos del plan y ejercicios que mejoran."
+    }
+    val parts = buildList {
+        if (sportCount > 0) add("$sportCount salida${if (sportCount == 1) "" else "s"} En vivo")
+        if (planned > 0) add("$planned del plan en el periodo")
+        if (improved > 0) add("$improved ejercicio${if (improved == 1) "" else "s"} con historial")
+    }
+    return parts.joinToString(" · ") + "."
 }
 
 

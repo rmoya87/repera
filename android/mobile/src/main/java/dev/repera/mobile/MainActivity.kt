@@ -2017,6 +2017,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val previousWaitlist = centerSnapshot?.bookings
                         ?.filter { it.status == "waitlist" }?.map { it.id }?.toSet().orEmpty()
                     centerSnapshot = result.snapshot
+                    // Paridad iOS wireSubscriptionGates: Pro patrocinado B2B.
+                    subscriptions.setBusinessSponsoredAccess(result.snapshot.grantsFullAppAccess)
                     for (booking in result.snapshot.bookings) {
                         val kind = result.snapshot.occurrences
                             .firstOrNull { it.id == booking.occurrenceId }?.kind
@@ -2061,6 +2063,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 is BusinessCenterStore.LoadResult.Failed -> {
                     centerSnapshot=null
                     centerError = result.message
+                    subscriptions.setBusinessSponsoredAccess(false)
                 }
             }
             if(centerGate.accepts(session.userId,revision)) centerLoading = false
@@ -3085,6 +3088,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 profile = null
                 snapshot = null
                 snapshotCache.clear()
+                subscriptions.setBusinessSponsoredAccess(false)
                 activeWorkout = null
                 wodTimer = null
                 WodTimerService.sync(this@MainActivity, null, null, null)

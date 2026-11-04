@@ -28,6 +28,9 @@ final class SubscriptionManager {
     @ObservationIgnored private var provider: any EntitlementProviding
     @ObservationIgnored private var didStart = false
     @ObservationIgnored private var lastForegroundRefreshAt: Date?
+    /// Caché local del último Pro verificado (StoreKit). Permite fail-closed offline
+    /// y evita pintar Gratis en frío hasta que StoreKit responda.
+    private static let verifiedProCacheKey = "repera.commercial.verifiedPro.v1"
 
     var policy: FeatureAccessPolicy {
         FeatureAccessPolicy(
@@ -87,6 +90,10 @@ final class SubscriptionManager {
         didStart = true
         startTransactionUpdatesObservation()
         await freeUsage.load()
+        // Restaurar Pro verificado antes del refresh StoreKit para no flashar Gratis.
+        if let cached = loadPersistedVerifiedPro() {
+            applySnapshot(cached)
+        }
         // Solo entitlement en launch. Offerings se cargan al abrir el paywall.
         await refresh(reason: "launch")
     }
@@ -298,9 +305,66 @@ final class SubscriptionManager {
         } else if next.grantsProAccess {
             next.lastVerifiedProStatus = next.status
             next.lastVerifiedProAt = Date()
+        } else if next.status == .free,
+                  let cached = previous.lastVerifiedProStatus ?? loadPersistedVerifiedPro()?.lastVerifiedProStatus,
+                  cached.grantsProAccess,
+                  let expiration = next.expirationDate ?? previous.expirationDate ?? loadPersistedVerifiedPro()?.expirationDate,
+                  expiration > Date() {
+            // StoreKit a veces responde vacío un instante; si la caducidad
+            // verificada sigue en el futuro, no degradar a Gratis todavía.
+            next.status = .unknown
+            next.lastVerifiedProStatus = cached
+            next.lastVerifiedProAt = previous.lastVerifiedProAt ?? Date()
+            next.expirationDate = expiration
+            next.lastRefreshFailedOffline = true
         }
         applySnapshot(next)
+        persistVerifiedPro(snapshot)
         _ = reason
+    }
+
+    private struct PersistedVerifiedPro: Codable {
+        var statusRaw: String
+        var lastVerifiedProAt: Date
+        var expirationDate: Date?
+        var activeProductID: String?
+    }
+
+    private func loadPersistedVerifiedPro() -> CommercialSnapshot? {
+        guard let data = UserDefaults.standard.data(forKey: Self.verifiedProCacheKey),
+              let cached = try? JSONDecoder().decode(PersistedVerifiedPro.self, from: data),
+              let status = SubscriptionStatus(rawValue: cached.statusRaw),
+              status.grantsProAccess
+        else { return nil }
+        let snap = CommercialSnapshot(
+            status: .unknown,
+            lastVerifiedProStatus: status,
+            lastVerifiedProAt: cached.lastVerifiedProAt,
+            expirationDate: cached.expirationDate,
+            activeProductID: cached.activeProductID,
+            isConfigured: true,
+            lastRefreshFailedOffline: true
+        )
+        // Solo rehidratar si la política offline aún concede Pro.
+        guard snap.grantsProAccess else { return nil }
+        return snap
+    }
+
+    private func persistVerifiedPro(_ snap: CommercialSnapshot) {
+        if snap.grantsProAccess, let verified = snap.lastVerifiedProStatus ?? (snap.status.grantsProAccess ? snap.status : nil) {
+            let payload = PersistedVerifiedPro(
+                statusRaw: verified.rawValue,
+                lastVerifiedProAt: snap.lastVerifiedProAt ?? Date(),
+                expirationDate: snap.expirationDate,
+                activeProductID: snap.activeProductID
+            )
+            if let data = try? JSONEncoder().encode(payload) {
+                UserDefaults.standard.set(data, forKey: Self.verifiedProCacheKey)
+            }
+        } else if snap.status == .expired || snap.status == .revoked || snap.status == .free {
+            // Solo borrar caché con denegación confirmada (no unknown).
+            UserDefaults.standard.removeObject(forKey: Self.verifiedProCacheKey)
+        }
     }
 
     /// Solo valida transacciones firmadas por Apple y productos propios.
