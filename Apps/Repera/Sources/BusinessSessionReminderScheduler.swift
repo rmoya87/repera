@@ -35,9 +35,7 @@ enum BusinessSessionReminderScheduler {
         .prefix(40)
         .map { $0 }
 
-        let pending = await withCheckedContinuation { (resume: CheckedContinuation<[UNNotificationRequest], Never>) in
-            center.getPendingNotificationRequests { resume.resume(returning: $0) }
-        }
+        let pending = await center.pendingNotificationRequests()
         guard currentGeneration == generation else { return }
         let oldIDs = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
         let desired = Set(upcoming.map(\.id))
@@ -70,9 +68,7 @@ enum BusinessSessionReminderScheduler {
     static func cancelAll() async {
         generation &+= 1
         let center = UNUserNotificationCenter.current()
-        let pending = await withCheckedContinuation { (resume: CheckedContinuation<[UNNotificationRequest], Never>) in
-            center.getPendingNotificationRequests { resume.resume(returning: $0) }
-        }
+        let pending = await center.pendingNotificationRequests()
         center.removePendingNotificationRequests(
             withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
         )
