@@ -226,7 +226,9 @@ class DriveSnapshotService(
         val copies = files.map { it to downloadMedia(it.id) }
         val keep = copies.minBy { it.first.id }
         if (copies.any { !it.second.body.contentEquals(keep.second.body) }) {
-            copies.forEach { local.preserveRemoteBackup(it.second.body) }
+            copies.forEach { (file, media) ->
+                local.preserveRemoteDuplicate(file.id, media.body)
+            }
             throw DuplicateRemoteSnapshotsException()
         }
         copies.forEach { (file, media) ->

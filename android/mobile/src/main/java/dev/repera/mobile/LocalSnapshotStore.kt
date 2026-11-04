@@ -57,6 +57,30 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
         }
     }
 
+    /** Drive can create distinct same-name files concurrently. Preserve each
+     * remote copy in an immutable account-local, content-addressed backup. */
+    override fun preserveRemoteDuplicate(id: String, bytes: ByteArray) = synchronized(stateLock) {
+        validate(bytes)
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        val target = File(folder, "remote_conflict_" + sha256(id + ":" + digest) + ".json")
+        if (target.exists()) {
+            check(target.readBytes().contentEquals(bytes)) {
+                "Conflicting Drive backup content at a stable identity"
+            }
+        } else {
+            val atomic = AtomicFile(target)
+            val stream = atomic.startWrite()
+            try {
+                stream.write(bytes)
+                atomic.finishWrite(stream)
+            } catch (error: Exception) {
+                atomic.failWrite(stream)
+                throw error
+            }
+        }
+    }
+
     private val provenanceFile = AtomicFile(File(folder, "mirror_recovered.json"))
 
     /** Provenance must survive interruption; loss must never turn edited local history into pristine. */
