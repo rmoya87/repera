@@ -217,18 +217,16 @@ internal fun FinishedWorkoutEditorSection(
             }
         }
         // El sitio del entreno se puede revisar incluso con ruta grabada.
-        run {
-            ReperaSectionTitle("Lugar")
-            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                WorkoutPlacePickerRow(
-                    pin = pin,
-                    accountId = accountId,
-                    onPinChange = { pin = it; pinEdited = true },
-                    modifier = if (pin == null) {
-                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    } else Modifier
-                )
-            }
+        ReperaSectionTitle("Lugar")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            WorkoutPlacePickerRow(
+                pin = pin,
+                accountId = accountId,
+                onPinChange = { pin = it; pinEdited = true },
+                modifier = if (pin == null) {
+                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                } else Modifier
+            )
         }
         if (blocks != null) {
             // Misma estructura que Crear: título de sección por bloque (sin «Contenido»).
