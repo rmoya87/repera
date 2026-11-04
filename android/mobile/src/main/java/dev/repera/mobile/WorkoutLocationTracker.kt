@@ -93,7 +93,14 @@ class WorkoutLocationTracker(private val context: Context) {
 
     fun startRouteTracking(sessionID: String) {
         if (!isAuthorized) return
-        stopRouteTracking()
+        // iOS and Wear use one owner per sensor session. A repeated request
+        // for the same workout must not reset its track; a different workout
+        // must not preempt and erase the session already recording.
+        if (trackingSessionID == sessionID) return
+        if (trackingSessionID != null) {
+            lastErrorMessage = "Ya existe una sesión GPS activa"
+            return
+        }
         trackingSessionID = sessionID
         routeBuffer.clear()
         pointCounter = 0
