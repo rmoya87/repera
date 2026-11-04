@@ -444,6 +444,23 @@ fun PlaceSearchSheet(
         if (fix != null) userLatLon = fix
     }
 
+    // Preselección reversible: sólo un lugar elegido previamente y a <=50m
+    // del GPS actual. Jamás se aplica al grabador de una ruta real.
+    LaunchedEffect(userLatLon) {
+        val coordinate = userLatLon ?: return@LaunchedEffect
+        if (initialPin != null || pending != null || query.isNotEmpty()) return@LaunchedEffect
+        val suggested = dev.repera.domain.RecentPlaces.nearbyNamed(
+            recents, coordinate.first, coordinate.second
+        ) ?: return@LaunchedEffect
+        pending = PlaceSearchResult(
+            name = suggested.name ?: "Lugar habitual",
+            latitude = suggested.latitude,
+            longitude = suggested.longitude,
+            providerId = suggested.mapItemIdentifier ?: "",
+            featureName = suggested.name
+        )
+    }
+
     val isTyping = query.isNotBlank()
     // iOS: showsConfirmMap = pending != null && !isTyping && !isSearchPresented
     // (mutuamente excluyente con el panel de búsqueda).
