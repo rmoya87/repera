@@ -1,6 +1,6 @@
 # Catálogo Repera ↔ fuentes abiertas
 
-Última actualización: 2026-11-04 (Fase G +6 → seed/remoto **476**; C–G aplicadas en Supabase).
+Última actualización: 2026-11-04 (OTA arte+coaching E/F/G vía `mobile_art_keys`; seed/remoto **476**).
 
 ## Nombres CrossFit / halterofilia
 
@@ -61,7 +61,8 @@ Tras cruzar Free Exercise DB (876) + Open WOD movements (314) + OpenExerciseDB r
 - Fill remaining + sport tags Enrichment: `20261104240000_…`, `20261104241000_…` (0 fichas sin `sportTag`).
 - **RepDB / Kinetic:** licencia en `LICENSE_MATRIX.md`. Fase G aplicada; crédito visible en Ajustes (iOS/Android).
 - **Remoto (2026-11-04 noche):** migraciones C–G + backfills (`210000`…`250000`, `270000`) aplicadas una a una (`db query` + `migration repair`); `260000` ya estaba. Catálogo activo remoto = **476**, 0 sin descripción / `sportTag`. Historial local↔remoto sin pendientes de este lote.
-- **Backlog:** dump masivo FED/OEDB; arte dedicado restante; Human flag / Cuban / Y–T (opcionales no incluidos).
+- **OTA sin App Store (2026-11-04):** `290000` coaching+arte E/F/G (43); `213000`/`215000` textos ES/carrusel HL; `291000` Aducción→Piernas; `292000` **backfill `mobile_art_keys` de las 476** fichas activas (stems empaquetados; 0 sin arte remoto). Sync invisible en apps autenticadas.
+- **Backlog:** dump masivo FED/OEDB; arte dedicado restante (regen); Human flag / Cuban / Y–T (opcionales no incluidos).
 
 ## Metadatos (2026-11-04)
 
@@ -74,6 +75,6 @@ Tras Fase G:
 - Logging (kg/reps/cal/m): reglas nativas `Exercise.loggingStyle`.
 - **Carga sugerida (%1RM):** solo si `loggingStyle == loadAndReps` (no cardio/máquina/movilidad).
 - **Evolución:** tabs scrollables «Mejor m / Mejor cal / Suma m / Suma cal / Tiempo» (iOS chips; Android `ScrollableTabRow`) — nunca menú desplegable para máquina.
-- Arte: `nameMap` cubre las fichas; héroes dedicados prioritarios + reuso de stems (**regen dedicada = único backlog**).
+- Arte: remoto `mobile_art_keys` pisa; `nameMap` del binario = fallback. E/F/G huecos → stems cercanos vía OTA `290000` (**regen dedicada = backlog**).
 - Seed local (2026-11-04): altas D/E/F/G con descripción + instrucciones ES (tono entrenador), `sportTag`, aliases en `SportExerciseNames`/`BoardImportParser`, y `nameMap` de arte. Contador seed = **476** (`CatalogQualityTests`).
 - Movilidad: no se importó el dump de stretching FED/OEDB; `CatalogMovilidad` ya cubre los patrones útiles (gato-vaca, WGS, couch, 90/90, etc.). De FED sí se añadió **Aperturas con banda** (Band Pull Apart).

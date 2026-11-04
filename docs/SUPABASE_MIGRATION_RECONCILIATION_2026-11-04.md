@@ -175,7 +175,12 @@ Aplicadas una a una (`supabase db query --linked -f …` +
 | `20261104210000` … `20261104250000` | Fases C–F + backfills/alternatives/coaching rewrite/sport tags |
 | `20261104260000` | Ya estaba (campos canónicos / `mobile_art_keys`) |
 | `20261104270000` | Fase G (+6 RepDB/Kinetic) |
+| `20261104290000` | OTA: `mobile_art_keys` + coaching por fase (43 E/F/G sin imagen) |
+| `20261104213000` / `215500` | Textos ES + captions carrusel HL (repair historial) |
+| `20261104291000` | Aducción cadera → Piernas (renombrada; era colisión `280000`) |
+| `20261104292000` | Backfill `mobile_art_keys` **476/476** desde stems empaquetados |
 
 Verificación: `business_exercise_catalog` activo = **476**; Fase F meta = 23;
 Fase G meta = 6; 0 fichas activas sin descripción ni `mobile_sport_tag`.
 Pendientes de este lote en historial local↔remoto: **0**.
+`290000`–`292000` + `213000`/`215500` aplicadas + `migration repair` (2026-11-04 noche): **0 sin `art_keys`**.

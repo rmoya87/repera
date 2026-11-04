@@ -144,14 +144,27 @@ internal fun ExerciseDetailScreen(
             }
             ReperaPageHeader(title = entry.displayName)
         }
-        // Orden: título → imagen+descripción unidas → cómo (un cuadro) → músculos → carga → evolución
+        // Paridad iOS: captions de fase 1:1 con frames del carrusel; coaching aparte.
+        val phaseCount = if (frames.size > 1) frames.size else 0
+        val phaseCaptions = if (phaseCount > 0) {
+            entry.instructions.filter { it.isNotBlank() }.take(phaseCount)
+        } else {
+            emptyList()
+        }
+        val coachingSteps = if (phaseCount > 0) {
+            entry.instructions.filter { it.isNotBlank() }.drop(phaseCount)
+        } else {
+            entry.instructions.filter { it.isNotBlank() }
+        }
+        // Orden: título → imagen(+caption de fase) → descripción → coaching → músculos…
         item {
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 Column {
                     ExerciseArtHero(
                         frames = frames,
                         name = entry.name,
-                        clipTopOnly = entry.detailDescription != null
+                        phaseCaptions = phaseCaptions,
+                        clipTopOnly = entry.detailDescription != null || phaseCaptions.isNotEmpty()
                     )
                     entry.detailDescription?.let { description ->
                         Text(
@@ -171,7 +184,7 @@ internal fun ExerciseDetailScreen(
                 )
             }
         }
-        if (entry.instructions.isNotEmpty()) {
+        if (coachingSteps.isNotEmpty()) {
             item { ReperaSectionTitle("Cómo hacerlo") }
             item {
                 ReperaCard(modifier = Modifier.fillMaxWidth()) {
@@ -179,7 +192,7 @@ internal fun ExerciseDetailScreen(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        entry.instructions.forEachIndexed { index, step ->
+                        coachingSteps.forEachIndexed { index, step ->
                             if (index > 0) {
                                 HorizontalDivider(
                                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -262,11 +275,12 @@ private fun ArtImage(
     }
 }
 
-/** I-31 hero full-width con swipe e indicador «1/N». */
+/** I-31 hero full-width con swipe; caption de fase alineada al frame (paridad iOS). */
 @Composable
 private fun ExerciseArtHero(
     frames: List<String>,
     name: String,
+    phaseCaptions: List<String> = emptyList(),
     clipTopOnly: Boolean = false
 ) {
     val imageShape = if (clipTopOnly) {
@@ -293,37 +307,61 @@ private fun ExerciseArtHero(
         return
     }
     var page by rememberSaveable(frames) { mutableStateOf(0) }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(4f / 3f)
-            .clip(imageShape)
-            .pointerInput(frames, page) {
-                detectHorizontalDragGestures { _, dragAmount ->
-                    if (dragAmount < -40 && page < frames.lastIndex) page++
-                    else if (dragAmount > 40 && page > 0) page--
+    val safePage = page.coerceIn(0, frames.lastIndex)
+    Column {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .clip(imageShape)
+                .pointerInput(frames, safePage) {
+                    detectHorizontalDragGestures { _, dragAmount ->
+                        if (dragAmount < -40 && page < frames.lastIndex) page++
+                        else if (dragAmount > 40 && page > 0) page--
+                    }
                 }
+                .testTag("exercise_art_hero")
+        ) {
+            ArtImage(
+                frames[safePage],
+                name,
+                Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp)
+            )
+            Text(
+                "${safePage + 1}/${frames.size}",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag("exercise_art_page")
+            )
+        }
+        if (phaseCaptions.indices.contains(safePage)) {
+            Row(
+                Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "${safePage + 1}/${frames.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+                Text(
+                    phaseCaptions[safePage],
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            .testTag("exercise_art_hero")
-    ) {
-        ArtImage(
-            frames[page.coerceIn(0, frames.lastIndex)],
-            name,
-            Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(0.dp)
-        )
-        Text(
-            "${page + 1}/${frames.size}",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(12.dp)
-                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .testTag("exercise_art_page")
-        )
+        }
     }
 }
 

@@ -5,7 +5,7 @@
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 
 - Catálogo maestro **476** fichas (seed + sync Supabase). Fases A–G + backfill + fill remaining: desc/instrucciones/equipo/músculos/`skill_level`/aliases/`movement_pattern`/alternatives **476/476** en remoto (C–G aplicadas 2026-11-04); arte nameMap + héroes prioritarios (regen dedicada pendiente); logging nativo; crédito RepDB en Ajustes (Fase G).
-- **Autoridad viva (04/11/2026):** altas/ediciones/bajas en Supabase → caché local en background **sin App Store**. Payload canónico incluye nivel, patrón, alternativas y `art_keys` (arte remoto en Storage `exercise-art` cuando la migración esté aplicada). Seed solo bootstrap. Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
+- **Autoridad viva (04/11/2026):** altas/ediciones/bajas en Supabase → caché local en background **sin App Store**. Payload canónico incluye nivel, patrón, alternativas y `art_keys`. Seed solo bootstrap. **OTA 04/11 noche:** `mobile_art_keys` en **476/476** + coaching E/F/G y captions HL (`290000`–`292000`, `213000`/`215500`). Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 - CrossFit/halterofilia: título visible en **inglés**; español y jerga como aliases de búsqueda/OCR.
 - Miniaturas nuevas o regeneradas **deben** seguir el estilo ExerciseArt (`art_ab_wheel` / prompts canónicos). No se importan fotos ni GIF de terceros.
 - Detalle fuentes abiertas: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).

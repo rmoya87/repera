@@ -4,22 +4,6 @@
 -- textos en el catálogo remoto; el trigger de business_exercise_catalog
 -- publica el evento y la app lo aplica en caliente. Solo toca
 -- mobile_instructions. Idempotente.
--- Verificación posterior sugerida:
---   select catalog_key, array_length(mobile_instructions,1)
---   from public.business_exercise_catalog
---   where catalog_key in (
-    'catalog:Arrancada colgante completa',
-    'catalog:Arrancada con pausa',
-    'catalog:Arrancada de potencia',
-    'catalog:Arrancada desde bloques',
-    'catalog:Arrancada en split',
-    'catalog:Cargada colgante completa',
-    'catalog:Cargada con pausa',
-    'catalog:Cargada de potencia',
-    'catalog:Cargada muscular',
-    'catalog:Cargada y press',
-    'catalog:Hang power clean');
-
 
 update public.business_exercise_catalog
 set mobile_instructions = array[

@@ -1,6 +1,6 @@
 # Catálogo remoto incremental de ejercicios
 
-Última actualización: 2026-11-04. **Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap. Payload canónico ampliado (`skill_level`, `movement_pattern`, `alternatives`, `art_keys`) + bucket Storage `exercise-art`. Merge en `RemoteExerciseCatalogMerge`. Sync invisible (BGAppRefresh / WorkManager). **Migración `20261104260000_mobile_catalog_canonical_fields_and_art.sql` aplicada en remoto `uvzgujlrqohreoucirms` (2026-11-04).** Enriquecimiento: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).
+Última actualización: 2026-11-04. **Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap. Payload canónico ampliado (`skill_level`, `movement_pattern`, `alternatives`, `art_keys`) + bucket Storage `exercise-art`. Merge en `RemoteExerciseCatalogMerge`. Sync invisible (BGAppRefresh / WorkManager). **`mobile_art_keys` en las 476 fichas activas** (`292000` backfill + `290000` E/F/G); textos ES/HL (`213000`/`215500`); Aducción→Piernas (`291000`). Proyecto `uvzgujlrqohreoucirms`. Enriquecimiento: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).
 
 ## Contrato de autoridad
 
