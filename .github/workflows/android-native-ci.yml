@@ -52,7 +52,7 @@ jobs:
       - name: Domain parity tests + native builds
         run: gradle -p android :domain:testDebugUnitTest :wear:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
       - name: Verify Repera native system navigation
-        run: gradle -p android :mobile:testDebugUnitTest --tests "dev.repera.mobile.ReperaSystemNavigationTest" --no-daemon --stacktrace
+        run: gradle -p android :mobile:testDebugUnitTest --tests "dev.repera.mobile.ReperaSystemNavigationTest" --tests "dev.repera.mobile.ClassBookingRemindersTest" --no-daemon --stacktrace
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
