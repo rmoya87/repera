@@ -87,6 +87,11 @@ targets:
         buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
+      # The Firebase config is optional for local builds and bundled only when provided.
+      - path: Apps/Repera/Resources
+        includes:
+          - GoogleService-Info.plist
+        buildPhase: resources
     resources: []
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.app.repera
@@ -100,6 +105,7 @@ targets:
       CODE_SIGN_STYLE: Automatic
       DEVELOPMENT_TEAM: 9DTDGQ8UUQ
       SWIFT_EMIT_MODULE_INTERFACE: NO
+      OTHER_LDFLAGS: "$(inherited) -ObjC"
       CODE_SIGN_ENTITLEMENTS: Apps/Repera/Resources/Repera.entitlements
     entitlements:
       path: Apps/Repera/Resources/Repera.entitlements
