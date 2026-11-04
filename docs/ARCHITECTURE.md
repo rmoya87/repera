@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-04 (BoardImportPipeline híbrido score + LocalRepair + FM timeout).
+Última actualización: 2026-11-04 (Firebase SPM archive dSYMs + BoardImportPipeline híbrido).
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -113,6 +113,7 @@ repera/
 ├── project.yml                 # XcodeGen
 ├── Configs/Version.xcconfig    # Version y build compartidos (Xcode)
 ├── scripts/sync_versions.py    # Captura ediciones Xcode y validación
+├── scripts/embed_ios_archive_dsyms.sh  # dSYMs Firebase SPM en Archive
 ├── AGENTS.md
 └── README.md
 ```
@@ -216,6 +217,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Archivo | Rol |
 |---------|-----|
 | `Apps/Repera/Sources/Analytics/ReperaAnalytics.swift` | Fachada GA4 iOS (estilo Cafesito: activa si hay Firebase; sin UI consent; dedup `trackOnce`). Declarada **explícitamente** en `project.yml`. |
+| `scripts/embed_ios_archive_dsyms.sh` | Genera dSYMs UUID-matching para binarios SPM (`FirebaseAnalytics` / `GoogleAppMeasurement`) en Archive; evita «Upload Symbols Failed» en Organizer. Ver `docs/analytics/FIREBASE_SETUP.md`. |
 | `android/.../analytics/ReperaAnalytics.kt` | Misma taxonomía (`analytics/contract.json`); sin cambios de flujo deportivo. |
 | `ReperaStore` / `WorkoutRepository` | Emiten `workout_completed` (y discard/delete/edit) tras persistencia duradera. |
 | `MonetizationAnalytics` (iOS/Android) | Reenvía los 8 eventos comerciales al adaptador canónico. |

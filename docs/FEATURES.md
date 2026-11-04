@@ -5,7 +5,7 @@
 - Métricas de producto vía Firebase Analytics (iOS/Android), estilo cafesito-app: **sin toggle en Ajustes**, sin IDFA/`AD_ID`.
 - Sin `GoogleService-Info.plist` / `google-services.json` la app funciona igual y no envía nada; con configuración real se activan eventos.
 - Cobertura de contrato: entrenamiento (incl. planned `strength`/`crossfit`), live sport/mapas, timer, ejercicios, escáner, progreso, Center (reserva ≠ asistencia), IA, sync, export y embudo Pro.
-- Relojes sin Firebase: relay Watch + cola durable Wear (`/repera/analytics-event` + ACK). Business web: `product-analytics.js` (gtag opcional). Setup Firebase: `docs/analytics/FIREBASE_SETUP.md`.
+- Relojes sin Firebase: relay Watch + cola durable Wear (`/repera/analytics-event` + ACK). Business web: `product-analytics.js` (gtag opcional). Setup Firebase: `docs/analytics/FIREBASE_SETUP.md` (incluye dSYMs de Archive para binarios SPM).
 
 ## Superficies nativas del SO — fase 5 (04/11/2026)
 

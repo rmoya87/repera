@@ -40,6 +40,8 @@ settings:
   TARGETED_DEVICE_FAMILY: "1"
   DEVELOPMENT_TEAM: 9DTDGQ8UUQ
   CODE_SIGN_STYLE: Automatic
+  # App + framework dSYMs for Organizer / App Store Connect symbol upload.
+  DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
 
 targets:
   Repera:
@@ -151,6 +153,15 @@ targets:
       - sdk: EventKit.framework
       - sdk: MediaPlayer.framework
       - sdk: AuthenticationServices.framework
+    # Firebase Analytics / GoogleAppMeasurement SPM binaries ship without public dSYMs.
+    # Generate UUID-matching stubs into the archive so Organizer stops "Upload Symbols Failed".
+    postBuildScripts:
+      - path: scripts/embed_ios_archive_dsyms.sh
+        name: Embed framework dSYMs in archive
+        shell: /bin/bash
+        runOnlyWhenInstalling: true
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
     info:
       path: Apps/Repera/Resources/Info.plist
       properties:
@@ -452,3 +463,14 @@ schemes:
     test:
       targets:
         - ReperaUITests
+    archive:
+      config: Release
+      # Safety net: .xcarchive already exists; fill any Firebase/Google dSYMs the
+      # install-time build phase missed so App Store Connect stops warning.
+      postActions:
+        - name: Embed framework dSYMs in archive
+          settingsTarget: Repera
+          script: |
+            LOG="${TMPDIR:-/tmp}/repera_archive_dsyms.log"
+            "${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh" --archive "${ARCHIVE_PATH}" > "${LOG}" 2>&1 || true
+            echo "note: archive dSYM embed log → ${LOG}"

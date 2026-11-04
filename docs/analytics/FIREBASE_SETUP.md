@@ -6,6 +6,24 @@
 
 Métricas de producto (estilo cafesito-app): sin UI de consentimiento in-app, sin IDFA/`AD_ID`. Con ficheros reales, `ReperaAnalytics.configure()` activa la colección. Sin ellos, Analytics es no-op.
 
+## iOS: dSYMs de Firebase Analytics (Archive / App Store Connect)
+
+Firebase se integra por **SPM** (`firebase-ios-sdk` en `project.yml`, producto `FirebaseAnalyticsCore`). Los binarios `FirebaseAnalytics.framework` y `GoogleAppMeasurement.framework` llegan como XCFramework **sin** `.dSYM` públicos. Tras archivar, Xcode Organizer puede mostrar «Upload Symbols Failed» con UUIDs de esos frameworks.
+
+**Fix en el repo (no hace falta ignorar el aviso):**
+
+1. `DEBUG_INFORMATION_FORMAT = dwarf-with-dsym` a nivel de proyecto.
+2. Fase de build *Embed framework dSYMs in archive* (`scripts/embed_ios_archive_dsyms.sh`, solo al instalar/archivar) + post-action del scheme `Repera` Archive.
+3. El script usa `dsymutil` sobre los Mach-O embebidos en el `.app` y escribe dSYMs con el UUID que exige App Store Connect.
+
+Tras regenerar (`xcodegen generate`) y archivar de nuevo, el aviso de esos frameworks debería desaparecer. Si un archive antiguo ya está en Organizer, puedes repararlo a mano:
+
+```bash
+./scripts/embed_ios_archive_dsyms.sh --archive ~/Library/Developer/Xcode/Archives/.../Repera.xcarchive
+```
+
+No afecta a Analytics en runtime ni a los dSYM de código propio de Repera. Crashlytics no está enlazado hoy; cuando se añada, el upload de símbolos de la app sigue siendo independiente.
+
 ## Qué necesitas de ti (bloqueante para ver datos)
 
 1. Acceso a [Firebase Console](https://console.firebase.google.com/) del proyecto Repera (o crear uno).
