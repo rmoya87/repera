@@ -50,7 +50,7 @@ class SubscriptionPaywallGateTest {
     @Test fun businessAccessCannotOpenGenericPaywall() = runBlocking {
         val subscriptions = manager(FakeProvider(listOf(SubscriptionStatus.FREE)))
         subscriptions.start()
-        subscriptions.updateBusinessSponsoredAccess(true)
+        subscriptions.setBusinessSponsoredAccess(true)
         subscriptions.presentPaywall(PaywallContext.GENERIC)
         assertFalse(subscriptions.paywall.isPresented)
     }

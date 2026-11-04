@@ -65,7 +65,7 @@ class SubscriptionManager(
             businessSponsoredAccess = businessSponsoredAccess
         )
 
-    fun updateBusinessSponsoredAccess(enabled: Boolean) {
+    fun setBusinessSponsoredAccess(enabled: Boolean) {
         if (businessSponsoredAccess == enabled) {
             isPro = snapshot.grantsProAccess || businessSponsoredAccess
             return

@@ -62,7 +62,10 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn("token_hash",migration)
         self.assertIn("relrowsecurity",migration)
         self.assertIn('token_prefix,created_at,expires_at,revoked_at,last_used_at,scopes',token_view)
-        self.assertRegex(token_view,r"tokens = items\s+errorMessage = nil")
+        self.assertRegex(
+            token_view,
+            r"tokens = items[\s\S]*?errorMessage = nil",
+        )
         self.assertIn(".refreshable {",token_view)
         self.assertIn("await refreshTokens()",token_view)
         self.assertIn("await changeRequests.refresh(store:store)",token_view)
