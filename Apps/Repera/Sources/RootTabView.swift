@@ -138,6 +138,15 @@ struct RootTabView: View {
         }
         .task { restoreActiveSessionOnLaunch() }
         .onOpenURL(perform: handleOpenURL)
+        .onReceive(NotificationCenter.default.publisher(for: ReperaSystemRoute.notification)) { _ in
+            consumeSystemRoute()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            consumeSystemRoute()
+        }
+        .task(id: store.isHydrated) {
+            if store.isHydrated { consumeSystemRoute() }
+        }
         .sheet(isPresented: $showInvitationSheet) {
             InvitationDeepLinkSheet(
                 invitationId: pendingInvitationId,
@@ -331,6 +340,17 @@ struct RootTabView: View {
         guard let raw = UserDefaults.standard.string(forKey: WorkoutCompletionNotifier.pendingKey),
               let id = UUID(uuidString: raw) else { return }
         openNotifiedCompletedWorkout(id)
+    }
+
+    /// El App Intent puede ejecutarse antes de completar la hidratación.
+    /// Consumir una sola vez y reutilizar el mismo enrutador de deep links.
+    private func consumeSystemRoute() {
+        guard store.isHydrated,
+              let route = UserDefaults.standard.string(forKey: ReperaSystemRoute.pendingKey),
+              ["live", "workout"].contains(route),
+              let url = URL(string: "repera://\(route)") else { return }
+        UserDefaults.standard.removeObject(forKey: ReperaSystemRoute.pendingKey)
+        handleOpenURL(url)
     }
 
     private func handleOpenURL(_ url: URL) {
