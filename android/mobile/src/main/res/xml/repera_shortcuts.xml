@@ -8,7 +8,6 @@
             android:targetPackage="com.app.repera"
             android:targetClass="dev.repera.mobile.MainActivity"
             android:data="repera://today" />
-        <categories android:name="android.shortcut.conversation" />
     </shortcut>
     <shortcut android:shortcutId="repera_live" android:enabled="true"
         android:icon="@drawable/ic_timer"
