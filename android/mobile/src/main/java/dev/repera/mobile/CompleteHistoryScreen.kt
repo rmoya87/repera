@@ -411,7 +411,14 @@ internal fun WorkoutHistoryDetailScreen(
      persistedConditions = workout.activityConditions
     )
     OutlinedButton(
-     onClick = { runCatching { WorkoutRouteShare.shareGPX(context, workout.routePoints) } },
+     onClick = {
+      val shared = runCatching {
+       WorkoutRouteShare.shareGPX(context, workout.routePoints)
+      }.getOrDefault(false)
+      if (!shared) android.widget.Toast.makeText(
+       context, "No se pudo compartir el recorrido", android.widget.Toast.LENGTH_SHORT
+      ).show()
+     },
      modifier = Modifier.fillMaxWidth()
     ) {
      Text("Compartir recorrido GPX")
