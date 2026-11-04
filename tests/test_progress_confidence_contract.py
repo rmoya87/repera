@@ -53,12 +53,18 @@ class ProgressConfidenceContractTests(unittest.TestCase):
     def test_period_comparator_colors_are_semantic_for_free_and_pro(self):
         ios = read("Apps/Repera/Sources/StatsView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
-        # Both iOS paths (freeTilesGrid / tilesGrid) reuse the same tile() renderer.
-        self.assertIn("private var freeTilesGrid: some View", ios)
-        self.assertIn("private var tilesGrid: some View", ios)
-        self.assertIn(
-            "delta > 0 ? OG.accent : delta < 0 ? OG.red : OG.label3", ios
-        )
+        # Older StatsView has free/pro delta tiles; the redesigned main branch
+        # uses the same neutral four-glance grid for both tiers and does NOT
+        # show a fabricated period delta. CI tests the PR's merge with main.
+        if "private var freeTilesGrid: some View" in ios:
+            self.assertIn("private var tilesGrid: some View", ios)
+            self.assertIn(
+                "delta > 0 ? OG.accent : delta < 0 ? OG.red : OG.label3", ios
+            )
+        else:
+            self.assertIn("private var trainingGlanceMetricsGrid: some View", ios)
+            self.assertIn("ProgressMetricGlanceCard(", ios)
+            self.assertIn('title: "Entrenos"', ios)
         self.assertNotIn("delta < 0 ? OG.yellow", ios)
         # Android routes both tiers through ProgressMetricsTilesGrid.
         self.assertIn("ProgressMetricsTilesGrid(snapshot, pro)", android)
