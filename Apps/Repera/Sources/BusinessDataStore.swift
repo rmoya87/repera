@@ -590,6 +590,7 @@ final class BusinessDataStore {
         loadedUserID = nil
         isLoading = false
         BusinessBookingReminderScheduler.clear()
+        BusinessBookingCalendarSync.clear()
         centers = []
         athleteCenterIds = []
         invitations = []
@@ -739,6 +740,9 @@ final class BusinessDataStore {
             }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
             await BusinessBookingReminderScheduler.reconcile(
+                userID: currentUser, bookings: bookings, occurrences: occurrences
+            )
+            await BusinessBookingCalendarSync.reconcile(
                 userID: currentUser, bookings: bookings, occurrences: occurrences
             )
             progressDataRevision &+= 1
@@ -1118,6 +1122,9 @@ final class BusinessDataStore {
             if BusinessAuthStore.shared.isConnected,
                let currentUser = try? await client.auth.session.user.id {
                 await BusinessBookingReminderScheduler.reconcile(
+                    userID: currentUser, bookings: bookings, occurrences: occurrences
+                )
+                await BusinessBookingCalendarSync.reconcile(
                     userID: currentUser, bookings: bookings, occurrences: occurrences
                 )
             }

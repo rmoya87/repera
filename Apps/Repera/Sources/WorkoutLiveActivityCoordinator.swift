@@ -159,11 +159,14 @@ final class WorkoutLiveActivityCoordinator {
             return
         }
         do {
+            // `.token` enables remote updates / push-to-start once APNs is wired.
+            // Tokens are observed in LiveActivityPushTokenStore; never invent metrics here.
             _ = try Activity.request(
                 attributes: TrainingActivityAttributes(sessionID: id, isPlanned: isPlanned),
                 content: ActivityContent(state: state, staleDate: nil),
-                pushType: nil
+                pushType: .token
             )
+            LiveActivityPushTokenStore.startObservingIfNeeded()
         } catch {
             logger.error("Training Live Activity: \(String(describing: error), privacy: .public)")
         }

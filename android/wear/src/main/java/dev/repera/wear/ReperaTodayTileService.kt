@@ -39,7 +39,11 @@ class ReperaTodayTileService : TileService() {
         }.getOrNull()
     }
 
-    private fun layout(title: String, action: String): LayoutElementBuilders.Layout {
+    private fun layout(
+        title: String,
+        action: String,
+        secondaryAction: String? = null
+    ): LayoutElementBuilders.Layout {
         val click = ModifiersBuilders.Clickable.Builder()
             .setId("open")
             .setOnClick(
@@ -85,12 +89,24 @@ class ReperaTodayTileService : TileService() {
                     )
                     .build()
             )
-            .build()
+        if (!secondaryAction.isNullOrBlank()) {
+            column.addContent(
+                LayoutElementBuilders.Text.Builder()
+                    .setText(secondaryAction)
+                    .setMaxLines(1)
+                    .setFontStyle(
+                        LayoutElementBuilders.FontStyle.Builder()
+                            .setColor(argb(0xFFAEAEB2.toInt()))
+                            .build()
+                    )
+                    .build()
+            )
+        }
         return LayoutElementBuilders.Layout.Builder().setRoot(
             LayoutElementBuilders.Box.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.expand())
-                .addContent(column)
+                .addContent(column.build())
                 .build()
         ).build()
     }
@@ -103,9 +119,17 @@ class ReperaTodayTileService : TileService() {
         val timeline = TimelineBuilders.Timeline.Builder()
         var freshness = 0L
         val activeTitle = activeSessionTitle()
+        val restHint = prefs().getString("restHint", null)
         if (activeTitle != null) {
             timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
-                .setLayout(layout(activeTitle, getString(R.string.wear_tile_continue))).build())
+                .setLayout(
+                    layout(
+                        activeTitle,
+                        getString(R.string.wear_tile_continue),
+                        secondaryAction = restHint?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.wear_tile_rest_hint)
+                    )
+                ).build())
         } else {
             val day = prefs().getString("todayPlanDay", null)
             val savedAt = prefs().getLong("todayPlanAt", 0L)

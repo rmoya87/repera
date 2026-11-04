@@ -22,6 +22,9 @@
         <intent>
             <url-template android:value="repera://exercises" />
         </intent>
+        <intent>
+            <url-template android:value="repera://board" />
+        </intent>
     </capability>
 
     <shortcut android:shortcutId="repera_today" android:enabled="true"

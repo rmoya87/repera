@@ -1,5 +1,16 @@
 # Funcionalidades Repera
 
+## Superficies nativas del SO — fase 5 (04/11/2026)
+
+- **Compartir / Abrir con:** Share Extension iOS y intents Android `SEND`/`VIEW` para GPX y foto de pizarra; la app hidratada importa la ruta o abre el OCR (sin sensores en la extensión).
+- **Controles de descanso:** Now Playing / auriculares en iOS y MediaSession en Android (pausar / saltar descanso; nunca series ni Salud).
+- **Live Activity:** registro de push tokens (`pushType: .token`); actualizaciones remotas / push-to-start pendientes de APNs.
+- **Focus Filter:** opción de silenciar la pestaña Center durante un Focus.
+- **Calendario:** mirror opcional de reservas Center `booked` (EventKit / CalendarContract).
+- **Escanear pizarra:** Control Widget + Atajo / deep link `repera://board`.
+- **Wear / Watch:** tile con Continuar + hint de descanso; complicaciones listas para descanso/reserva.
+- Detalle técnico: `docs/NATIVE_OS_SURFACES_PHASE_5_2026_11_04.md`.
+
 ## Pestaña Centro condicionada y búsqueda sin recortes (03/11/2026)
 
 - **iOS y Android:** la pestaña central «+» (Clases/Centro) solo aparece cuando existe al menos una vinculación de cliente activa con un entrenador personal o gimnasio, verificada en el estado cargado de Supabase. Las invitaciones pendientes y los perfiles profesionales sin ficha de cliente no la muestran. Inicio, Comenzar, Progreso y Ejercicios siguen visibles sin huecos vacíos.

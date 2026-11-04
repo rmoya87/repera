@@ -15,6 +15,10 @@ struct ReperaComplicationSnapshot: Codable, Equatable {
     var heartRateBpm: Int?
     var energyKcal: Double?
     var paused: Bool
+    /// Descanso restante (s) para Smart Stack / rectangular; no inventa series.
+    var restRemainingSeconds: Int? = nil
+    /// Próxima reserva Center (−60 min window) si el hub la conoce.
+    var nextBookingLabel: String? = nil
 
     /// Métricas de sensor antiguas no se presentan como actuales.
     static let metricsFreshness: TimeInterval = 10 * 60

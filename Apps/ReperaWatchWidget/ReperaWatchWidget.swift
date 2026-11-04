@@ -92,8 +92,20 @@ private struct ReperaWatchComplication: View {
                                 if let kcal = live.energyKcal {
                                     Label("\(Int(kcal.rounded()))", systemImage: "flame.fill")
                                 }
+                                if let rest = live.restRemainingSeconds, rest > 0 {
+                                    Label("\(rest)s", systemImage: "timer").widgetAccentable()
+                                }
                             }.font(.caption2).lineLimit(1)
                         }
+                    }
+                } else if let booking = entry.session?.nextBookingLabel {
+                    HStack(spacing: 6) {
+                        ReperaLogo(diameter: 31)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Reserva").font(.headline)
+                            Text(booking).font(.caption2).lineLimit(2)
+                        }
+                        Spacer(minLength: 0)
                     }
                 } else {
                     HStack(spacing: 6) {

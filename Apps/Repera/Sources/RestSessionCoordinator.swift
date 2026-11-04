@@ -73,6 +73,7 @@ final class RestSessionCoordinator {
         }
         scheduleCompletion(at: end)
         scheduleFeedback()
+        publishRemoteCommands()
     }
 
     func pause() {
@@ -84,6 +85,7 @@ final class RestSessionCoordinator {
         RestLocalNotifier.cancel(token: notifyToken)
         let remaining = max(0, Int(ceil(pausedRemaining)))
         Task { await RestLiveActivityCoordinator.shared.pause(remainingSeconds: remaining) }
+        publishRemoteCommands()
     }
 
     func resume() {
@@ -104,6 +106,7 @@ final class RestSessionCoordinator {
                 totalSeconds: seconds, endDate: end, exerciseName: exerciseName
             )
         }
+        publishRemoteCommands()
     }
 
     func skip() {
@@ -134,9 +137,20 @@ final class RestSessionCoordinator {
         totalSeconds = 0
         RestLocalNotifier.cancel(token: notifyToken)
         Task { await RestLiveActivityCoordinator.shared.end() }
+        RestRemoteCommandCenter.clear()
         if shouldAnnounce {
             RestFeedback.restComplete(sound: soundEnabled, haptic: hapticEnabled)
         }
+    }
+
+    private func publishRemoteCommands() {
+        RestRemoteCommandCenter.publish(
+            active: isActive,
+            exerciseName: exerciseName,
+            remaining: remainingSeconds,
+            total: totalSeconds,
+            paused: isPaused
+        )
     }
 
     private func scheduleCompletion(at end: Date) {

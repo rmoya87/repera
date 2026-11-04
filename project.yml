@@ -70,6 +70,7 @@ targets:
       - path: Apps/Shared/TrainingActivityAttributes.swift
       - path: Apps/Shared/ReperaControlOpenIntent.swift
       - path: Apps/Shared/TrainingLiveActivityIntents.swift
+      - path: Apps/Shared/ReperaShareInbox.swift
       - path: Apps/Shared/AppleWeatherConditionsClient.swift
       - path: Apps/Shared/AppleWeatherAttributionView.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
@@ -114,6 +115,8 @@ targets:
           - CloudDocuments
         com.apple.developer.ubiquity-container-identifiers:
           - iCloud.com.app.repera
+        com.apple.security.application-groups:
+          - group.com.app.repera
     # Solo archives Release: rechaza el placeholder de RevenueCat (Debug/simulador OK).
     preBuildScripts:
       - name: Reject RevenueCat placeholder on Release archive
@@ -142,6 +145,8 @@ targets:
         embed: true
       - target: ReperaRestWidget
         embed: true
+      - target: ReperaShare
+        embed: true
       - sdk: HealthKit.framework
       - sdk: WorkoutKit.framework
       - sdk: WeatherKit.framework
@@ -149,6 +154,8 @@ targets:
       - sdk: ActivityKit.framework
       - sdk: CoreLocation.framework
       - sdk: MapKit.framework
+      - sdk: EventKit.framework
+      - sdk: MediaPlayer.framework
       - sdk: AuthenticationServices.framework
     info:
       path: Apps/Repera/Resources/Info.plist
@@ -165,6 +172,28 @@ targets:
           - CFBundleURLName: com.app.repera.google
             CFBundleURLSchemes:
               - "$(REPERA_GOOGLE_REVERSED_CLIENT_ID)"
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: GPX Route
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - com.topografixix.gpx
+              - public.xml
+          - CFBundleTypeName: Board Image
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.image
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.topografixix.gpx
+            UTTypeDescription: GPS Exchange Format
+            UTTypeConformsTo:
+              - public.xml
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - gpx
+              public.mime-type:
+                - application/gpx+xml
+                - application/xml
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.
@@ -185,9 +214,11 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
         ITSAppUsesNonExemptEncryption: false
+        NSCalendarsWriteOnlyAccessUsageDescription: Repera puede añadir tus reservas de Center confirmadas al Calendario del sistema, sin leer otros eventos.
         NSCameraUsageDescription: Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
         NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.
         NSHealthShareUsageDescription: Repera lee con tu permiso pasos, calorías activas, entrenamientos, pulsaciones, zonas cardíacas y, si los autorizas, sueño, variabilidad cardíaca, pulso en reposo, respiración, oxígeno y temperatura nocturna para mostrar actividad, objetivos y recuperación. Estos datos de Salud se analizan en tu iPhone y no se envían a Supabase.
@@ -238,6 +269,45 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  ReperaShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Apps/ReperaShare
+      - path: Apps/Shared/ReperaShareInbox.swift
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.app.repera.share
+      MARKETING_VERSION: "$(inherited)"
+      CURRENT_PROJECT_VERSION: "$(inherited)"
+      INFOPLIST_FILE: Apps/ReperaShare/Info.plist
+      GENERATE_INFOPLIST_FILE: false
+      TARGETED_DEVICE_FAMILY: "1"
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: 9DTDGQ8UUQ
+      CODE_SIGN_ENTITLEMENTS: Apps/ReperaShare/ReperaShare.entitlements
+      LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+    entitlements:
+      path: Apps/ReperaShare/ReperaShare.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.app.repera
+    dependencies:
+      - sdk: UniformTypeIdentifiers.framework
+    info:
+      path: Apps/ReperaShare/Info.plist
+      properties:
+        CFBundleDisplayName: Repera
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        ITSAppUsesNonExemptEncryption: false
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsFileWithMaxCount: 1
 
   ReperaWatch:
     type: application
@@ -379,6 +449,7 @@ schemes:
         Repera: all
         ReperaWatch: all
         ReperaRestWidget: all
+        ReperaShare: all
     run:
       config: Debug
       executable: Repera

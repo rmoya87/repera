@@ -2,6 +2,8 @@
 
 Última actualización: 2026-11-04.
 
+Fase 5 (Share Extension, MediaSession, Focus, EventKit, board Control Widget, Wear tile, Watch Smart Stack): ver `NATIVE_OS_SURFACES_PHASE_5_2026_11_04.md`.
+
 ## Alcance / estado de este PR
 
 Implementación incremental sobre la PR #221. Distinguir **implementado / compilado / CI / hardware**.
@@ -30,7 +32,7 @@ Implementación incremental sobre la PR #221. Distinguir **implementado / compil
 | Entrega remota garantizada de recordatorios | Credenciales + deploy |
 | Conciliación HealthKit/Health Connect en dispositivo real | Hardware |
 | Emuladores API 30/35/37.2 y Wear 5.1/6.0 | CI (ver checks de la PR) |
-| Share Extension / intent GPX a nivel sistema | Pendiente (import in-app ya existe) |
+| Share Extension / intent GPX a nivel sistema | Código en fase 5 (`NATIVE_OS_SURFACES_PHASE_5_2026_11_04.md`); validación hardware / App Group ASC pendiente |
 | AppSearch de rutinas **privadas** (además del catálogo público) | No implementado a propósito: solo público opt-in |
 | Banner «Usar este lugar» Android paridad total con `SportNearbyPlaceSuggester` iOS | Parcial (título/geocoder; falta POI ≤50 m + aceptar/descartar) |
 

@@ -39,3 +39,15 @@ struct ReperaTimerControl: ControlWidget {
         .description("Abrir las herramientas de entrenamiento.")
     }
 }
+
+struct ReperaBoardScanControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.app.repera.control.boardScan") {
+            ControlWidgetButton(action: ReperaControlOpenIntent(target: .boardScan)) {
+                Label("Escanear pizarra", systemImage: "text.viewfinder")
+            }
+        }
+        .displayName("Escanear pizarra")
+        .description("Abrir el escáner OCR de pizarra. No inicia sensores.")
+    }
+}

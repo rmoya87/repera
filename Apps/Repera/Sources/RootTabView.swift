@@ -10,6 +10,8 @@ enum ReperaDeepLink: Equatable {
     case today
     case tools
     case exercises
+    case boardScan
+    case shareImport
     case invitation(UUID)
 
     static let scheme = "repera"
@@ -25,6 +27,8 @@ enum ReperaDeepLink: Equatable {
         case ("today", 0): self = .today
         case ("tools", 0): self = .tools
         case ("exercises", 0): self = .exercises
+        case ("board", 0), ("boardscan", 0): self = .boardScan
+        case ("import", 0): self = .shareImport
         case ("invitation", 1):
             guard let id = UUID(uuidString: path[0]) else { return nil }
             self = .invitation(id)
@@ -58,6 +62,8 @@ struct RootTabView: View {
     @State private var pendingInvitationId: UUID?
     @State private var showInvitationSheet = false
     @State private var healthDeletionError: String?
+    @State private var showBoardScanFromSystem = false
+    @State private var pendingSharedBoardImage: Data?
 
     enum AppTab: Hashable {
         case home, start, plus, stats, exercises
@@ -66,6 +72,11 @@ struct RootTabView: View {
     /// La sección de clases/centro solo existe tras una vinculación real,
     /// nunca por una invitación pendiente o por una cuenta profesional sin cliente.
     private var hasLinkedCenter: Bool { !businessData.athleteCenterIds.isEmpty }
+
+    /// Focus Filter can silence Center chrome while a Focus mode is active.
+    private var showsCenterTab: Bool {
+        hasLinkedCenter && !ReperaFocusPreferences.silenceCenter
+    }
 
     var body: some View {
         ZStack {
@@ -168,11 +179,39 @@ struct RootTabView: View {
         )) { _ in
             LiveRoutesStore.shared.requestICloudSynchronization()
         }
-        .task { restoreActiveSessionOnLaunch(); openPendingSystemCommand() }
+        .task {
+            restoreActiveSessionOnLaunch()
+            openPendingSystemCommand()
+            LiveActivityPushTokenStore.startObservingIfNeeded()
+            drainShareInboxIfReady()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .reperaRestRemote)) { note in
+            guard let action = note.object as? RestRemoteAction else { return }
+            switch action {
+            case .pause: store.restCoordinator.pause()
+            case .resume: store.restCoordinator.resume()
+            case .skip: store.restCoordinator.skip()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ShareInboxConsumer.boardImageReady)) { _ in
+            openBoardScanFromShare()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ReperaFocusPreferences.didChange)) { _ in
+            if ReperaFocusPreferences.silenceCenter, tab == .plus {
+                tab = store.hasActiveSession ? .start : .home
+            }
+        }
+        .sheet(isPresented: $showBoardScanFromSystem) {
+            BoardScanIntoRoutineView { _ in
+                showBoardScanFromSystem = false
+                pendingSharedBoardImage = nil
+            }
+        }
         .task(id: store.isHydrated) {
             if store.isHydrated {
                 openPendingSystemCommand()
                 applyPendingLiveActivityCommand()
+                drainShareInboxIfReady()
             }
         }
         .task(id: store.catalogEpoch) {
@@ -238,8 +277,8 @@ struct RootTabView: View {
             }
 
             // No ocupar un hueco con «+» si no hay cliente vinculado.
-            // Ajustes → Buscar sigue accesible para encontrar un centro.
-            if hasLinkedCenter {
+            // Focus Filter puede silenciar Center sin romper Ajustes → Buscar.
+            if showsCenterTab {
                 SwiftUI.Tab(value: AppTab.plus) {
                     PlusHubView(onStartRoutine: openRoutinePreview)
                 } label: {
@@ -411,7 +450,45 @@ struct RootTabView: View {
         case .exercises:
             flowPath = []
             tab = .exercises
+        case .boardScan:
+            openBoardScanFromSystem()
         }
+    }
+
+    private func drainShareInboxIfReady() {
+        guard store.isHydrated else { return }
+        ShareInboxConsumer.drain()
+    }
+
+    /// “Abrir con Repera” / Files document handoff (GPX or board image).
+    private func ingestOpenedDocument(_ url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let name = url.lastPathComponent
+        let ext = url.pathExtension.lowercased()
+        let kind: ReperaShareInbox.Kind? =
+            if name.lowercased().hasSuffix(".gpx") || ext == "gpx" { .gpx }
+            else if ["jpg", "jpeg", "png", "heic", "webp"].contains(ext) { .boardImage }
+            else { ReperaShareInbox.kind(for: "public.data", fileName: name) }
+        guard let kind else { return }
+        _ = try? ReperaShareInbox.enqueue(data: data, kind: kind, fileName: name)
+        if store.isHydrated {
+            drainShareInboxIfReady()
+            if kind == .boardImage { openBoardScanFromShare() }
+            else { tab = .start }
+        }
+    }
+
+    private func openBoardScanFromSystem() {
+        flowPath = []
+        tab = .home
+        showBoardScanFromSystem = true
+    }
+
+    private func openBoardScanFromShare() {
+        pendingSharedBoardImage = ShareInboxConsumer.pendingBoardImageData()
+        openBoardScanFromSystem()
     }
 
     /// Applies Live Activity / Dynamic Island actions after identity hydration.
@@ -439,6 +516,10 @@ struct RootTabView: View {
     }
 
     private func handleOpenURL(_ url: URL) {
+        if url.isFileURL {
+            ingestOpenedDocument(url)
+            return
+        }
         guard let link = ReperaDeepLink(url: url) else { return }
         switch link {
         case .live:
@@ -462,6 +543,10 @@ struct RootTabView: View {
         case .exercises:
             flowPath = []
             tab = .exercises
+        case .boardScan:
+            openBoardScanFromSystem()
+        case .shareImport:
+            drainShareInboxIfReady()
         case .invitation(let id):
             pendingInvitationId = id
             showInvitationSheet = true
