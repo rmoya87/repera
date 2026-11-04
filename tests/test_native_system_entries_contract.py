@@ -77,6 +77,22 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         session = source("android/mobile/src/main/java/dev/repera/mobile/SessionStore.kt")
         self.assertIn("if (identityChanged) runCatching { ReperaWidgetRefresh.enqueue(appContext) }", session)
 
+    def test_watch_dictation_requires_manual_review_and_never_saves_on_speech(self):
+        parser = source("Apps/ReperaWatch/Sources/WatchSpokenSet.swift")
+        self.assertIn("struct WatchSpokenSet", parser)
+        self.assertIn("repeticion(?:es)?", parser)
+        watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn("dictatedSetSheet", watch)
+        self.assertIn('Button("Aplicar valores")', watch)
+        self.assertIn("showSpokenSet", watch)
+        self.assertNotIn("hub.confirmAndAdvance()\n                    showSpokenSet", watch)
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        self.assertIn("RecognizerIntent.ACTION_RECOGNIZE_SPEECH", wear)
+        self.assertIn("dictationSessionId != session.sessionId", wear)
+        self.assertIn("persistDraft()", wear)
+        self.assertIn("onApplySpokenSet", wear)
+        self.assertNotIn("queueSet(", wear.split("private fun applySpokenSetInput()", 1)[1].split("override fun onCreate(", 1)[0])
+
     def test_workoutkit_only_exports_goals_with_explicit_user_action(self):
         source_text = source("Apps/Repera/Sources/AppleWorkoutExportSheet.swift")
         self.assertIn("SingleGoalWorkout.supportsActivity", source_text)
