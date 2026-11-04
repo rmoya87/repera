@@ -101,6 +101,7 @@ enum ReperaAnalytics {
     }
 
     private static let consentKey = "repera.analytics.consent.v1"
+    static var hasConsent: Bool { UserDefaults.standard.bool(forKey: consentKey) }
     private(set) static var isConfigured = false
     private static let allowedKeys: Set<String> = [
         "feature_area", "screen_name", "section_name", "entry_point",
