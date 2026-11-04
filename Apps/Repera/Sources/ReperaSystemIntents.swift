@@ -40,8 +40,8 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ReperaOpenStartIntent(),
             phrases: [
-                "Abrir Comenzar en \\(.applicationName)",
-                "Quiero entrenar con \\(.applicationName)"
+                "Abrir Comenzar en \(.applicationName)",
+                "Quiero entrenar con \(.applicationName)"
             ],
             shortTitle: "Comenzar",
             systemImageName: "figure.run"
@@ -49,7 +49,7 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ReperaOpenWorkoutIntent(),
             phrases: [
-                "Ver mi entrenamiento en \\(.applicationName)"
+                "Ver mi entrenamiento en \(.applicationName)"
             ],
             shortTitle: "Mi entrenamiento",
             systemImageName: "dumbbell"
