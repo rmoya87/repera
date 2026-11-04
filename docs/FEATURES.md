@@ -91,6 +91,10 @@ En **Progreso → Recuperación** la primera fila de la cuadrícula de dos colum
 
 La gráfica de **Puntuación de entrenamiento** y el detalle de sesión presentan la nota en un **anillo** junto a parámetros verificables (días puntuados, tipo de comparación, confianza, cobertura e indicadores de rendimiento). Para puntuar hacen falta al menos **2 días anteriores comparables** (o **3** para WOD por estímulo calibrado) y cobertura de al menos 60% cuando corresponda; si faltan datos se muestra «Repera está aprendiendo de ti», no un cero. Las curvas de puntuación, preparación y constantes dejan un hueco entre fechas no medidas. Android no usa ejemplos sintéticos para llenar gráficas de usuarios Pro.
 
+## Hub Progreso por chips temáticos (04/11/2026)
+
+Progreso usa chips horizontales **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa, héroe numérico y mini viz). Métricas 2×2; «Esta semana» / «A largo plazo» con consistencia visual. Gratis: semana; Pro: mes + largo plazo.
+
 ## Redistribución de Progreso y confianza visual (03/11/2026)
 
 Las pestañas permanecen **Entreno / Actividad / Recuperación**, pero cada una agrupa un propósito: **Entreno** reúne KPIs de sesiones, puntuación **Entrenamiento**, equilibrio muscular, progresión, récords, movilidad, zonas de sesión en iOS y deportes; **Actividad** muestra Días activos, Frecuencia cardíaca diaria, Calorías y Peso; **Recuperación** contiene Recuperación, Evolución, Sueño y Constantes. Se evita duplicar la nota deportiva en Actividad y mover la frecuencia cardíaca del día a Entreno. En Duo y tablet, Entrenamiento/Equilibrio muscular y parejas de Recuperación se organizan a dos columnas adaptables, mientras los KPI principales conservan todo el ancho.

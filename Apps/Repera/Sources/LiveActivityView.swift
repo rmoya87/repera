@@ -1005,6 +1005,8 @@ private struct LiveSnapshot: Codable {
     var kilometerSplits: [LiveKmSplit]?
     var lastKilometerBoundarySeconds: TimeInterval?
     var gpsSessionID: UUID?
+    /// Primera ubicación indoor, sin routePoints ni distancia ficticia.
+    var locationPin: WorkoutLocationPin?
     /// Total distance extrapolated over unrecorded gaps, explicitly distinct.
     var estimatedRecoveryMeters: Double?
 }
@@ -1133,6 +1135,7 @@ final class LiveActivityRecorder: NSObject {
             estimatedRecoveryMeters = snapshot.estimatedRecoveryMeters ?? 0
             rebuildElevationFromRoute()
             gpsSessionID = snapshot.gpsSessionID ?? UUID()
+            reviewLocationPin = snapshot.locationPin
             // The independent GPS checkpoint may include later fixes than the
             // UI snapshot, especially after a sudden process termination.
             if let gps = WorkoutLocationTracker.shared.restoreForResume(sessionID: gpsSessionID),
@@ -1427,6 +1430,7 @@ final class LiveActivityRecorder: NSObject {
         pausedSeconds = 0
         recordedDistanceMeters = 0
         routePoints = []
+        reviewLocationPin = nil
         estimatedRecoveryMeters = 0
         needsInterruptedGPSRecovery = false
         elevationGainMeters = 0
@@ -1461,6 +1465,21 @@ final class LiveActivityRecorder: NSObject {
             )
         }
         refreshConditionsIfNeeded(force: true)
+        if !sport.usesGPS {
+            // Entreno indoor: un solo fix de inicio, sin GPS continuo.
+            Task { @MainActor in
+                let tracker = WorkoutLocationTracker.shared
+                guard await tracker.ensureWhenInUseAuthorized(),
+                      gpsSessionID == sessionID else { return }
+                if let pin = await tracker.capturePin(),
+                   gpsSessionID == sessionID,
+                   phase == .recording || phase == .paused,
+                   reviewLocationPin == nil {
+                    reviewLocationPin = pin
+                    persistSnapshot()
+                }
+            }
+        }
         if sport.usesGPS {
             startGPS()
             Task { await HealthKitStore.shared.ensureWorkoutRouteAccess() }
@@ -1683,6 +1702,7 @@ final class LiveActivityRecorder: NSObject {
 
     func applyReviewLocationPin(_ pin: WorkoutLocationPin?) {
         reviewLocationPin = pin
+        persistSnapshot()
     }
 
     func discard(saved: Bool = false) {
@@ -1749,7 +1769,7 @@ final class LiveActivityRecorder: NSObject {
             savedAt: Date(), selectedRouteID: chosenRoute?.id,
             kilometerSplits: kilometerSplits,
             lastKilometerBoundarySeconds: lastKilometerBoundarySeconds,
-            gpsSessionID: gpsSessionID,
+            gpsSessionID: gpsSessionID, locationPin: reviewLocationPin,
             estimatedRecoveryMeters: estimatedRecoveryMeters
         )
         if let data = try? JSONEncoder().encode(snap) {

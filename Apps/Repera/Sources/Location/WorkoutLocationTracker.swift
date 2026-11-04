@@ -157,7 +157,8 @@ final class WorkoutLocationTracker: NSObject {
         if let currentFix, Date().timeIntervalSince(currentFix.timestamp) < 10 {
             return WorkoutLocationPin(
                 latitude: currentFix.latitude, longitude: currentFix.longitude,
-                recordedAt: currentFix.timestamp
+                recordedAt: currentFix.timestamp,
+                horizontalAccuracyMeters: currentFix.accuracy, source: "iPhone"
             )
         }
         return await withCheckedContinuation { cont in
@@ -304,7 +305,8 @@ final class WorkoutLocationTracker: NSObject {
         currentFix = fix
         if let pin = pendingPinContinuation {
             pin(WorkoutLocationPin(
-                latitude: fix.latitude, longitude: fix.longitude, recordedAt: fix.timestamp
+                latitude: fix.latitude, longitude: fix.longitude, recordedAt: fix.timestamp,
+                horizontalAccuracyMeters: fix.accuracy, source: "iPhone"
             ))
         }
         guard let id = trackingSessionID,

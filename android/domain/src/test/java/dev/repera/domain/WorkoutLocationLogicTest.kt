@@ -7,6 +7,19 @@ import org.junit.Test
 
 class WorkoutLocationLogicTest {
 
+    @Test
+    fun `pin puntual del reloj conserva precisión origen y no es una ruta`() {
+        val pin = WorkoutLocationPin(
+            latitude = 40.429, longitude = -3.868,
+            recordedAtEpochMs = 1_700_000_000_000L,
+            horizontalAccuracyMeters = 12.5, source = "wearOS"
+        )
+        assertEquals(12.5, pin.horizontalAccuracyMeters!!, 0.01)
+        assertEquals("wearOS", pin.source)
+        assertFalse(pin.hasChosenPlace)
+        assertTrue(pin.copy(name = "Box").hasChosenPlace)
+    }
+
     private fun point(i: Int) = WorkoutRoutePoint(
         id = i, latitude = 40.0 + i * 0.0001, longitude = -3.7, recordedAtEpochMs = 1_000L * i)
 

@@ -1,4 +1,14 @@
-# Progreso y preparación: fuentes verificadas (03/11/2026)
+# Progreso y preparación: fuentes verificadas
+
+Última actualización: 2026-11-04.
+
+## Organización del hub (chips, 04/11/2026)
+
+- Navegación por **chips horizontales** (no segmentado Entreno/Actividad/Recuperación): **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes**.
+- Iconos propios Repera (bolt, mancuerna, caminar, ECG, hoja, bandera); **sin** anillos Activity ni set de Apple Salud.
+- Chip: icono + título en la misma fila; valor debajo. Seleccionado = verde sólido + texto/icono negros (sin borde). Fila de chips con fondo transparente; iOS = Liquid Glass en no seleccionados.
+- **Sin calendario** de periodo global: gratis = ventana fija «esta semana»; Pro = «este mes» embebido + bloque «A largo plazo» visual (mapa de días).
+- Fondos = tokens de app (`OG.bg` / `surface` / Material `background`), no tintados en verde. Chevron solo en destinos navegables.
 
 ## Qué se considera actividad terminada
 
@@ -12,13 +22,15 @@
 
 La información de clases se carga por usuario autenticado desde `BusinessDataStore`, respetando los permisos y los vínculos existentes en Supabase.
 
-## Organización de Progreso (iOS y Android, 03/11/2026)
+## Organización de Progreso (iOS y Android, 04/11/2026)
 
-- **Entreno:** tarjetas resumen Entrenos/Tiempo/Racha, **Entrenamiento** (anillo y evolución de puntuaciones verificadas), Equilibrio muscular, Movilidad, Progreso por ejercicio, Récords, Deportes e Historial. En pantallas Duo/tablet, puntuación y mapa muscular se muestran en dos columnas. La cuadrícula de KPI ocupa todo el ancho.
-- **Actividad:** Días activos (heatmap de tiempo/volumen), **Frecuencia cardíaca** diaria (mínima, media y máxima), Calorías y Peso; son datos de movimiento y Salud generales, no notas de rendimiento deportivo. En pantallas grandes, calendario ancho y gráficas en cuadrícula adaptativa.
-- **Recuperación:** **Recuperación** (estado actual), **Evolución** (tendencia), **Sueño** y **Constantes**, más Ciclo si existe información. Las dos primeras y las dos siguientes forman parejas en Duo.
-- **Cardio de entrenamiento:** iOS consulta zonas y carga cardiovascular **del entrenamiento asociado** en Apple Salud dentro de Entreno; Actividad no las duplica. Android muestra, si existe, FC media y energía de sesión **medidas**; no inventa límites ni tiempos en zonas cuando Health Connect no aporta un desglose verificable. La opción de pruebas con zonas sintéticas no aparece en sesiones reales.
-- **Gratis/Pro:** las vistas gratuitas conservan contenido real permitido y previsualizaciones explícitamente identificadas como «Ejemplo» para las funciones bloqueadas; no se mezclan muestras ficticias con registros reales.
+- **Entreno:** tiles Entrenos/Tiempo/Racha, puntuación verificada + confianza, equilibrio muscular, movilidad, consistencia a largo plazo (Pro) e Historial.
+- **Fuerza:** insight de carga/marcas, progreso por ejercicio y récords e1RM (Pro); teasers en gratis.
+- **Forma física:** heatmap de días activos, calorías y peso (antes «Actividad» sin FC diaria).
+- **Corazón:** insight de FC, zonas/esfuerzo del último entreno medido, gráfica FC diaria (Pro).
+- **Recuperación:** preparación, evolución, sueño, constantes y ciclo (sin cambios de motor).
+- **Deportes:** chip de primer nivel → catálogo/evolución (antes solo desde Historial).
+- **Gratis/Pro:** gratis = semana fija + teasers «Ejemplo»; Pro = mes embebido + largo plazo. Sin selector de periodo en el hub.
 
 ## Entrenamiento (puntuación personal)
 

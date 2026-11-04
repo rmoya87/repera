@@ -1604,6 +1604,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val finished = withContext(Dispatchers.IO) {
                         runCatching {
                             val repo=WorkoutRepository(this@MainActivity,signedIn.uniqueId)
+                            val startPin = runCatching {
+                                JSONObject(String(event.data, Charsets.UTF_8)).optJSONObject("locationPin")
+                            }.getOrNull()
+                            if (startPin != null) repo.attachWearStartPin(sessionId, startPin)
                             if(repo.active()?.id==sessionId) {
                                 StrengthRestService.cancel(this@MainActivity)
                                 val route=locationTracker.stopRouteTracking()

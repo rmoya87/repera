@@ -176,6 +176,8 @@ class WorkoutLocationTracker(private val context: Context) {
     private fun Location.toPin() = WorkoutLocationPin(
         latitude = latitude,
         longitude = longitude,
-        recordedAtEpochMs = time
+        recordedAtEpochMs = time,
+        horizontalAccuracyMeters = if (hasAccuracy()) accuracy.toDouble() else null,
+        source = "androidPhone"
     )
 }

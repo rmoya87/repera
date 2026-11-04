@@ -240,7 +240,10 @@ class WearLiveCommandListener : WearableListenerService() {
             val id = json.optString("sessionId")
             if (id.isBlank()) return
             val saved = runCatching {
-                authorized() && repo.finishWearSession(id)
+                if (!authorized()) false else {
+                    json.optJSONObject("locationPin")?.let { repo.attachWearStartPin(id, it) }
+                    repo.finishWearSession(id)
+                }
             }.getOrDefault(false)
             if (saved) {
                 WearWorkoutCompletionNotification.show(this, owner.uniqueId, id)
