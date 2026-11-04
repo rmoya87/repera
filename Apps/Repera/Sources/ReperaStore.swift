@@ -1230,17 +1230,25 @@ final class ReperaStore: NSObject {
             let savedReview = session.sessionReview
             let routeForPlace = routePoints
             let existingPin = session.locationPin
+            // En los entrenos programados no hay liveSportID: usar el tipo
+            // de ejercicio para sugerir gimnasios/boxes en lugar de .other.
+            let suggestedSport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+                ?? (session.routineBlocks?.contains(where: { $0.kind == .wod }) == true
+                    ? .crossfit : .strength)
             Task {
                 // Geolocalización + POI ≤50 m también en entrenos programados.
                 if existingPin?.hasChosenPlace != true {
                     let suggested = await SportNearbyPlaceSuggester.suggestForSession(
-                        sport: nil,
+                        sport: suggestedSport,
                         routePoints: routeForPlace,
                         existingPin: existingPin
                     )
                     if var updated = state.workouts.first(where: { $0.id == sessionId }),
                        let suggested {
-                        if suggested.hasChosenPlace || updated.locationPin == nil {
+                        // Evitar que una búsqueda de Mapas tardía pise el lugar
+                        // cambiado manualmente durante la edición de resultados.
+                        if updated.locationPin == existingPin &&
+                           (suggested.hasChosenPlace || updated.locationPin == nil) {
                             updated.locationPin = suggested
                             upsertWorkout(updated)
                             persistWorkouts()

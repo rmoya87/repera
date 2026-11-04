@@ -59,10 +59,25 @@ class CompletedWorkoutEditContractTests(unittest.TestCase):
         self.assertIn('title: "Rondas completas"', editor)
         self.assertIn('title: "Reps adicionales"', editor)
         self.assertIn('title: "Repeticiones máximas"', editor)
-        self.assertIn("Solo las repeticiones de la ronda incompleta", editor)
+        self.assertNotIn("Solo las repeticiones de la ronda incompleta", editor)
         self.assertIn('title: "Minutos"', editor)
         self.assertIn('title: "Segundos"', editor)
         self.assertIn("Tiempo real empleado (no el time cap).", editor)
+
+    def test_finished_location_is_visible_suggested_and_user_editable(self):
+        editor = source("Apps/Repera/Sources/PlanView.swift")
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        android = source("android/mobile/src/main/java/dev/repera/mobile/FinishedWorkoutEditor.kt")
+        self.assertIn("if isEditingCompletedWorkout {\n                Section {\n                    editorCompletedPlaceRow", editor)
+        self.assertIn("await hydrateCompletedWorkoutPlace()", editor)
+        self.assertIn("guard pin != nil || !stored.routePoints.isEmpty", editor)
+        self.assertIn("completedPlaceEdited = true", editor)
+        self.assertIn("sport: suggestedSport", store)
+        self.assertIn("updated.locationPin == existingPin", store)
+        self.assertIn("showPlaceSection = true", android)
+        self.assertIn("mutableStateOf(workout.locationPin)", android)
+        sheet = source("Apps/Repera/Sources/WODResultConfirmSheet.swift")
+        self.assertNotIn("Anota las vueltas terminadas y solo las repeticiones", sheet)
 
     def test_per_movement_result_is_not_confused_with_prescription(self):
         editor = source("Apps/Repera/Sources/PlanView.swift")

@@ -47,10 +47,6 @@ struct WODResultConfirmSheet: View {
                         numberInput("Rondas completas", text: $roundsText, column: 0, nextColumn: 1)
                         numberInput("Reps adicionales", text: $repsText, column: 1)
                     }
-                    Text("Anota las vueltas terminadas y solo las repeticiones de la vuelta incompleta.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                        .fixedSize(horizontal: false, vertical: true)
                 } else {
                     numberInput("Repeticiones máximas", text: $repsText, column: 0)
                 }

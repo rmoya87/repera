@@ -88,7 +88,7 @@ internal fun FinishedWorkoutEditorSection(
     var endIso by remember(accountId, workout.id) { mutableStateOf(workout.finishedAtIso) }
     var notes by remember(accountId, workout.id) { mutableStateOf(workout.notes.orEmpty()) }
     var pin by remember(accountId, workout.id) {
-        mutableStateOf(workout.locationPin?.takeIf { it.hasChosenPlace })
+        mutableStateOf(workout.locationPin)
     }
     var pinEdited by remember(accountId, workout.id) { mutableStateOf(false) }
     // Borrador del CONTENIDO: copia JSON con ids; solo se escribe al Guardar.
@@ -216,7 +216,8 @@ internal fun FinishedWorkoutEditorSection(
                 }
             }
         }
-        if (!hasRoute) {
+        // El sitio del entreno se puede revisar incluso con ruta grabada.
+        run {
             ReperaSectionTitle("Lugar")
             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                 WorkoutPlacePickerRow(
@@ -377,7 +378,7 @@ internal fun FinishedWorkoutEditorScreen(
             scheduledDayIso = draftRoutine.scheduledDate,
             initialPlannedDurationMinutes = durationMin,
             pageTitle = "Editar entreno",
-            showPlaceSection = workout.routePoints.size < 2,
+            showPlaceSection = true,
             importableRoutines = importableRoutines,
             onTitleSuggested = { suggestedTitle = it },
             onOneOffMeta = { day, time, fav, pin, notes, duration ->

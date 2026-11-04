@@ -121,6 +121,8 @@ struct DayEditorView: View {
     @State private var pendingReplacement: PendingWorkoutReplacement?
     @State private var openedSetID: UUID?
     @State private var completedDetails: WorkoutSession?
+    /// No sobrescribir la elección o eliminación manual con una sugerencia tardía.
+    @State private var completedPlaceEdited = false
     /// Duración estimada del one-off (UI; el fin real se calcula en sesiones terminadas).
     @State private var oneOffPlannedDurationMinutes: Int = 45
     @State private var scaledInputDrafts: [String: String] = [:]
@@ -210,9 +212,6 @@ struct DayEditorView: View {
                 case .session:
                     if onApplyCompleted != nil {
                         completedDateTimeDurationRow
-                        if completedWorkoutDraft?.routePoints.isEmpty == true {
-                            editorCompletedPlaceRow
-                        }
                         if completedWorkoutDraft?.liveSportID != nil
                             || completedWorkoutDraft?.awaitingResultEntry == true {
                             Toggle("Registrar nuevas series como realizadas", isOn: $recordNewSetsAsPerformed)
@@ -260,6 +259,16 @@ struct DayEditorView: View {
             if showsStandalonePlaceSection {
                 Section {
                     editorPlaceRow(pin: $routine.locationPin)
+                } header: {
+                    Text("Lugar")
+                }
+            }
+
+            // El lugar del entreno realizado es editable también si hubo ruta GPS.
+            // Se muestra antes de los resultados, sin duplicarlo en la cabecera.
+            if isEditingCompletedWorkout {
+                Section {
+                    editorCompletedPlaceRow
                 } header: {
                     Text("Lugar")
                 }
@@ -369,6 +378,9 @@ struct DayEditorView: View {
         .onAppear {
             ensureCompletedWorkoutDraft()
             ensureStrengthPlannedSets()
+        }
+        .task(id: completedSession?.id) {
+            await hydrateCompletedWorkoutPlace()
         }
         .navigationDestination(isPresented: $showsReorder) {
             reorderSheet
@@ -1073,6 +1085,7 @@ struct DayEditorView: View {
             pin: Binding(
                 get: { completedWorkoutDraft?.locationPin },
                 set: { newValue in
+                    completedPlaceEdited = true
                     ensureCompletedWorkoutDraft()
                     completedDetails?.locationPin = newValue
                 }
@@ -1085,6 +1098,41 @@ struct DayEditorView: View {
             : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
         )
         .listRowBackground(hasPlace ? Color.clear : OG.surface)
+    }
+
+    /// Usa la posición guardada durante el entrenamiento, nunca el GPS actual
+    /// al abrir un histórico: editar un entreno antiguo no debe reubicarlo.
+    private func hydrateCompletedWorkoutPlace() async {
+        guard isEditingCompletedWorkout, let session = completedSession else { return }
+        let stored = store.state.workouts.first(where: { $0.id == session.id }) ?? session
+        guard !completedPlaceEdited,
+              completedWorkoutDraft?.locationPin?.hasChosenPlace != true else { return }
+
+        // El guardado del fin de sesión puede completar el pin mientras se
+        // abre este editor; recuperar el más reciente sin tocar otros campos.
+        if let savedPin = stored.locationPin {
+            ensureCompletedWorkoutDraft()
+            if completedDetails?.locationPin?.hasChosenPlace != true {
+                completedDetails?.locationPin = savedPin
+            }
+        }
+        let pin = completedWorkoutDraft?.locationPin ?? stored.locationPin
+        // Sin coordenadas del entrenamiento NO usar la localización presente:
+        // podría tratarse de un entreno de hace meses.
+        guard pin != nil || !stored.routePoints.isEmpty else { return }
+        let sport = stored.liveSportID.flatMap(LiveSport.init(rawValue:))
+            ?? (stored.routineBlocks?.contains(where: { $0.kind == .wod }) == true
+                ? .crossfit : .strength)
+        let suggested = await SportNearbyPlaceSuggester.suggestForSession(
+            sport: sport,
+            routePoints: stored.routePoints,
+            existingPin: pin
+        )
+        guard !Task.isCancelled, !completedPlaceEdited,
+              completedWorkoutDraft?.locationPin?.hasChosenPlace != true,
+              let suggested else { return }
+        ensureCompletedWorkoutDraft()
+        completedDetails?.locationPin = suggested
     }
 
     private var navTitle: String {
@@ -1293,9 +1341,6 @@ struct DayEditorView: View {
                                     fieldID: OGSetFieldID(rowID: block.id, column: 11)
                                 )
                             }
-                            Text("Solo las repeticiones de la ronda incompleta, no las acumuladas.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
                         } else {
                             OGFormatNumberField(
                                 title: "Repeticiones máximas", value: completedScoreBinding(block: block, field: .reps),
