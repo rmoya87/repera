@@ -10,12 +10,24 @@ Conservar el SQL histórico y evitar que `supabase db push` vuelva a ejecutar ca
 - Al comparar `supabase_migrations.schema_migrations.statements[1]` con los archivos fuente originales, **44 pares son idénticos byte a byte salvo espacios finales**.
 - **2 pares son semánticamente equivalentes** y difieren solo en comentarios o formato, no en instrucciones SQL: publicación de `ai_training_plans` en Realtime y eliminación de la política `memberships_platform_delegated_read` con recarga de PostgREST.
 - Se restituyen los **46 timestamps realmente aplicados por Supabase**, conservando los nombres descriptivos de los archivos. No se modifica ninguna fila de datos ni el historial de producción.
-- Antes: 48 versiones compartidas, 80 solo en git y 46 solo en remoto. Después de estos renombrados: **94 versiones compartidas, 34 solo en git, 0 solo en remoto** (si no se desplegaran nuevas migraciones).
+- Antes: 48 versiones compartidas, 80 solo en git y 46 solo en remoto. Después de estos renombrados: **94 versiones compartidas, 34 solo en git, 0 solo en remoto** antes de desplegar los últimos cambios de catálogo.
 - No se presume que las 34 restantes estén todas pendientes: existen funciones/objetos de varias sin historial y faltan otras (p. ej. las 4 tablas de notificaciones).
+
+## Migraciones del catálogo aplicadas a producción
+
+El 04/11/2026 se aplicaron **atómicamente** las siguientes migraciones DML, registrando simultáneamente su versión y texto original en `supabase_migrations.schema_migrations`:
+
+- `20261103220000_native_catalog_ai_metadata_parity.sql`
+- `20261103221000_native_equipment_metadata_parity.sql`
+- `20261103233000_board_scan_ddb_stepup_rkbs.sql`
+
+Primero se ejecutó una prueba transaccional con `ROLLBACK` y se confirmó que no dejó registros. Posteriormente se confirmaron `Step-up al cajón con doble mancuerna`, el alias `DDB Step Up`, `RKBS` y los metadatos de `Burpee to target`; las tres versiones constan como aplicadas en producción.
+
+**Estado tras estas tres migraciones: 97 versiones compartidas, 31 solo en git y 0 solo en remoto.** Las 31 restantes requieren verificación del esquema existente y de la cadena de despliegue.
 
 ## Regla de seguridad
 
-No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 34 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
+No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 31 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
 
 ## Mapeo de renombrados verificados
 
