@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import dev.repera.mobile.monetization.LocalSubscriptions
+import dev.repera.mobile.analytics.ReperaAnalytics
 import android.net.Uri
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
@@ -414,6 +415,26 @@ fun ReperaMobileScreen(
         var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
+        // Category is a stable identifier, never a URL, user title or session UUID.
+        val analyticsScreen = when (currentRoute) {
+            "inicio" -> "home"
+            "en-vivo" -> "start"
+            "plus", "center" -> "center"
+            "progreso" -> "progress"
+            "ejercicios" -> "exercises"
+            "ajustes" -> "settings"
+            "temporizador" -> "timer"
+            "entreno-activo" -> "workout_live"
+            "crear" -> "workout_editor"
+            else -> when {
+                currentRoute.startsWith("historial") -> "history"
+                currentRoute.startsWith("ejercicio") -> "exercises"
+                else -> "other"
+            }
+        }
+        LaunchedEffect(analyticsScreen) {
+            ReperaAnalytics.track(ReperaAnalytics.Event.SCREEN_VIEW, mapOf("screen_name" to analyticsScreen))
+        }
         val hasLinkedCenter = centerSnapshot?.athleteCenterIds?.isNotEmpty() == true
         val darkTheme = isSystemInDarkTheme()
         SideEffect {
