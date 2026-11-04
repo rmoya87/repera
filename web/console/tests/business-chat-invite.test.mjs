@@ -6,7 +6,7 @@ import {invitationWebUrl,invitationDeepLink,renderInvitationShareCard,renderInvi
 
 const chatSql=readFileSync(new URL('../../../supabase/migrations/20261101140000_business_chat_and_decline.sql',import.meta.url),'utf8');
 const quotaSql=readFileSync(new URL('../../../supabase/migrations/20261101150000_business_quotas_entitlements.sql',import.meta.url),'utf8');
-const pushSql=readFileSync(new URL('../../../supabase/migrations/20261101160000_business_push_outbox.sql',import.meta.url),'utf8');
+const pushSql=readFileSync(new URL('../../../supabase/migrations/20261104073557_business_push_outbox_reconciled.sql',import.meta.url),'utf8');
 const pushEdge=readFileSync(new URL('../../../supabase/functions/repera-business-push/index.ts',import.meta.url),'utf8');
 
 test('migración chat expone hilo, envío, broadcast y decline',()=>{

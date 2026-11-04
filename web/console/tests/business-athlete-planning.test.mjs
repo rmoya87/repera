@@ -117,8 +117,8 @@ test('Las peticiones y publicaciones se hacen con JWT del usuario autenticado, s
 
 test('Las migraciones implementan inbox con RLS y publicación idempotente y auditada',()=>{
  const base=new URL('../../../supabase/migrations/',import.meta.url);
- const incoming=readFileSync(new URL('20261027181000_enrollments_and_operating_status.sql',base),'utf8');
- const training=readFileSync(new URL('20261027182000_athlete_activity_bulk_training.sql',base),'utf8');
+ const incoming=readFileSync(new URL('20261027141021_enrollments_and_operating_status.sql',base),'utf8');
+ const training=readFileSync(new URL('20261027141140_athlete_activity_bulk_training.sql',base),'utf8');
  const accept=readFileSync(new URL('20261101200000_enrollment_accept_returns_client.sql',base),'utf8');
  assert.match(incoming,/enable row level security/i);
  assert.match(incoming,/request_org_athlete_link/);

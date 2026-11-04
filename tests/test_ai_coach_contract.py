@@ -43,7 +43,7 @@ class AICoachContractTests(unittest.TestCase):
         self.assertIn('coaching_enabled',code)
 
     def test_schema_blocks_cross_user_and_does_not_export_health(self):
-        sql=source("supabase/migrations/20261021231500_ai_coach_profiles_calendar_catalog_programs.sql")
+        sql=source("supabase/migrations/20261021210911_ai_coach_profiles_calendar_catalog_programs.sql")
         for table in ("athlete_training_profiles","athlete_training_calendar_snapshots",
                       "athlete_training_programs","training_exercise_metadata"):
             self.assertIn(table,sql)
@@ -52,7 +52,7 @@ class AICoachContractTests(unittest.TestCase):
         self.assertNotIn("ADD TABLE public.athlete_training_profiles",sql)
 
     def test_programmed_workout_delivery_idempotent(self):
-        sql=source("supabase/migrations/20261021233000_ai_training_plan_idempotency.sql")
+        sql=source("supabase/migrations/20261021212050_ai_training_plan_idempotency.sql")
         code=source("supabase/functions/repera-mcp/index.ts")
         self.assertIn("UNIQUE INDEX ai_training_plans_owner_batch_date_uq",sql)
         self.assertIn("idempotencyKey",code)
