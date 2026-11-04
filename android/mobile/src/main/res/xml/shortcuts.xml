@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App Actions: abre el flujo de Comenzar, nunca inicia GPS, sensores
+         ni Health Connect sin pasar por la interacción de Repera. -->
+    <capability android:name="actions.intent.START_EXERCISE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://live" />
+    </capability>
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://workout" />
+    </capability>
+</shortcuts>
