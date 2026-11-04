@@ -21,9 +21,11 @@ class DriveSnapshotServiceMirrorTest {
         var failPatch: Boolean = false,
         var preconditionFailPatch: Boolean = false,
         /** ETag original del archivo leído (formato Drive con comillas). */
-        var etag: String = "\"etag-rev1\""
+        var etag: String = "\"etag-rev1\"",
+        var duplicateBytes: ByteArray? = null
     ) : Interceptor {
         var patches = 0
+        var metadataPatches = 0
         var lastIfMatch: String? = null
         var beforeDownload:(()->Unit)?=null
         override fun intercept(chain: Interceptor.Chain): Response {
@@ -38,12 +40,22 @@ class DriveSnapshotServiceMirrorTest {
             return when {
                 req.method == "GET" && url.contains("alt=media") -> {
                     beforeDownload?.invoke()
-                    ok(bytes!!, withEtag = true)
+                    ok(if (url.contains("/f2?")) duplicateBytes!! else bytes!!, withEtag = true)
                 }
                 // Listado sin `etag`: If-Match usa solo el ETag del GET media.
-                req.method == "GET" -> ok((if (bytes == null) """{"files":[]}""" else
-                    """{"files":[{"id":"f1","name":"app_state.json"}]}"""
-                    ).toByteArray())
+                req.method == "GET" -> ok((when {
+                    bytes == null -> """{"files":[]}"""
+                    duplicateBytes != null ->
+                        """{"files":[{"id":"f1","name":"app_state.json"},{"id":"f2","name":"app_state.json"}]}"""
+                    else -> """{"files":[{"id":"f1","name":"app_state.json"}]}"""
+                }).toByteArray())
+                req.method == "PATCH" && !url.contains("uploadType=media") -> {
+                    metadataPatches++
+                    lastIfMatch = req.header("If-Match")
+                    if (url.endsWith("/f2")) duplicateBytes = null
+                    else bytes = null
+                    ok(ByteArray(0))
+                }
                 req.method == "PATCH" -> {
                     patches++
                     lastIfMatch = req.header("If-Match")
@@ -196,6 +208,41 @@ class DriveSnapshotServiceMirrorTest {
         val service=DriveSnapshotService("t",local,OkHttpClient.Builder().addInterceptor(drive).build(),{false})
         assertTrue(runCatching {service.synchronize()}.isFailure)
         assertArrayEquals(start,local.bytes);assertEquals(0,drive.patches)
+    }
+
+    @Test fun identicalConcurrentFirstUploadsDeduplicateWithoutLosingHistory() {
+        val copy = doc(listOf(workout("kept")), 5)
+        val drive = FakeDrive(copy, duplicateBytes = copy.copyOf())
+        val local = FakeLocal(copy.copyOf(), emptyMap())
+        assertEquals(DriveSnapshotService.Outcome.Unchanged, svc(drive, local).synchronize())
+        assertEquals(1, drive.metadataPatches)
+        assertEquals(0, drive.patches)
+        assertNull(drive.duplicateBytes)
+        assertEquals(setOf("kept"), ids(drive.bytes))
+        assertArrayEquals(copy, local.bytes)
+    }
+
+    @Test fun divergentConcurrentFirstUploadsPreserveBothAndRaiseConflict() {
+        val first = doc(listOf(workout("a")), 5)
+        val second = doc(listOf(workout("b")), 5)
+        val drive = FakeDrive(first, duplicateBytes = second)
+        val local = FakeLocal(first.copyOf(), emptyMap())
+        assertEquals(DriveSnapshotService.Outcome.Conflict, svc(drive, local).synchronize())
+        assertEquals(2, local.backups)
+        assertEquals(0, drive.metadataPatches)
+        assertArrayEquals(first, drive.bytes)
+        assertArrayEquals(second, drive.duplicateBytes)
+    }
+
+    @Test fun accountDeletionTrashesAllConcurrentDriveCopies() {
+        val first = doc(listOf(workout("a")), 5)
+        val second = doc(listOf(workout("b")), 5)
+        val drive = FakeDrive(first, duplicateBytes = second)
+        assertTrue(svc(drive, FakeLocal(first, emptyMap())).trashAppDataSnapshot())
+        assertNull(drive.bytes)
+        assertNull(drive.duplicateBytes)
+        assertEquals(2, drive.metadataPatches)
+        assertEquals("\"etag-rev1\"", drive.lastIfMatch)
     }
 
     @Test fun concurrentRemoteChangeReturnsPreconditionFailedWithoutClobber() {

@@ -170,10 +170,13 @@ object BoardScanLiteParser {
             outBlocks = outBlocks.map { block ->
                 block.movements = block.movements.map { move ->
                     if (move.isRest) return@map move
+                    // Match the exact official exercise and its bilingual name BEFORE
+                    // applying fuzzy glossary aliases ("step up" must not erase "double dumbbell").
+                    val directCanonical = SportExerciseNames.canonicalName(move.name)
                     val canonical = SportExerciseNames.canonicalName(
                         CrossFitGlossary.canonicalName(move.name, searchAliases)
                     )
-                    val keys = listOf(norm(move.name), norm(canonical))
+                    val keys = listOf(norm(move.name), norm(directCanonical), norm(canonical))
                     val ex = move.exerciseId?.let {id ->catalog.firstOrNull {it.id==id}} ?: keys.firstNotNullOfOrNull { index[it] }
                     if (ex != null) {
                         move.copy(exerciseId = ex.id, name = ex.name)

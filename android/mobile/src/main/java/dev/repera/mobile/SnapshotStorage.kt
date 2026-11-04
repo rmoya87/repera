@@ -12,5 +12,9 @@ interface SnapshotStorage {
         return true
     }
     fun preserveRemoteBackup(bytes: ByteArray)
+    /** Each divergent Drive file must remain independently recoverable. */
+    fun preserveRemoteDuplicate(id: String, bytes: ByteArray) {
+        preserveRemoteBackup(bytes)
+    }
     fun readMirrorProvenance(): Map<String, String>
 }

@@ -84,6 +84,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         maxHeartRateBpm: Int = 190,
         quickLogHint: (id: UUID, name: String)? = nil,
         sessionRevision: Int = 0,
+        ownerScope: String? = nil,
         completedAck: UUID? = nil,
         completedAckHealthKitUUID: UUID? = nil,
         live: WatchLiveActivitySnapshot? = nil,
@@ -101,6 +102,11 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             ]
         } else {
             payload = ["session": Data(), "sessionRevision": sessionRevision]
+        }
+        // Bind the phone's current training account to all Watch snapshots.
+        // A separate user must never consume a delayed offline workout.
+        if let ownerScope, !ownerScope.isEmpty {
+            payload["ownerScope"] = ownerScope
         }
         if let today, let dayData = try? JSONEncoder().encode(today) {
             payload["todayWorkout"] = dayData
@@ -240,6 +246,16 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
 
     @discardableResult
     private func handleAction(_ action: String, message: [String: Any]) async -> [String: Any] {
+        // An authenticated paired Watch is not an authorization to mutate a
+        // different Repera account after a logout/login on the iPhone.
+        let expectedOwner = latestPayloadLock.withLock {
+            latestPayload?["ownerScope"] as? String
+        }
+        guard let expectedOwner, !expectedOwner.isEmpty,
+              message["ownerScope"] as? String == expectedOwner else {
+            logger.warning("Ignoring Watch action with missing/mismatched account scope")
+            return ["ok": false]
+        }
         switch action {
         case "liveHeartRate":
             guard let raw = message["sessionId"] as? String,
@@ -289,6 +305,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             // El contexto completo (recents, audio, live) se publica en sendWatchContextNow.
             return [
                 "ok": true,
+                // A late reply from the previous login must not be applied
+                // after the watch has switched to a different account.
+                "ownerScope": expectedOwner,
                 "todayWorkout": data,
                 "todayWorkouts": plansData,
                 "todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
@@ -334,6 +353,19 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     }
 
     private func decode(_ payload: [String: Any]) {
+        // A watch may deliver a completed workout from a previous login days
+        // later. Unscoped legacy messages remain unacknowledged, not reassigned.
+        if payload["session"] != nil || payload["discarded"] != nil
+            || payload["timerMirror"] != nil {
+            let expected = latestPayloadLock.withLock {
+                latestPayload?["ownerScope"] as? String
+            }
+            guard let expected, !expected.isEmpty,
+                  payload["ownerScope"] as? String == expected else {
+                logger.warning("Ignoring Watch workout with missing/mismatched account scope")
+                return
+            }
+        }
         if let data = payload["timerMirror"] as? Data,
            let mirror = try? JSONDecoder().decode(WatchTimerMirror.self, from: data) {
             delegate?.phoneConnectivityDidReceiveTimer(mirror)

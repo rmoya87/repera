@@ -7,7 +7,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -63,17 +62,23 @@ class HealthConnectInstrumentedTest {
         }
     }
 
-    @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun readTodayFailsWithDocumentedContractNotCrash() = runBlocking {
+    @Test fun readTodayWithoutHealthPermissionsDoesNotInventMetrics() = runBlocking {
         val reader = HealthConnectReader(context)
-        try {
-            reader.readToday()
-            fail("sin disponibilidad/permiso readToday debe rechazar con el contrato documentado")
-        } catch (e: IllegalStateException) {
-            assertTrue(e.message!!.contains("Health Connect"))
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message!!.contains("Salud"))
+        if (!reader.available()) {
+            try {
+                reader.readToday()
+                fail("Sin Health Connect disponible debe informar de la ausencia del SDK")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message?.contains("Health Connect") == true)
+            }
+        } else {
+            assertFalse("El emulador CI no debe tener permisos previos", reader.hasPermissions())
+            val today = reader.readToday()
+            // With an SDK but zero read grants the correct safe fallback is
+            // two unknown values, not an exception or synthetic zeros.
+            assertNull(today.steps)
+            assertNull(today.activeKcal)
         }
-        Unit
     }
     @org.junit.Test fun partialReadGrantsDoNotRequireUnrelatedWriteAccess() {
         val read=androidx.health.connect.client.permission.HealthPermission.getReadPermission(androidx.health.connect.client.records.HeartRateRecord::class)

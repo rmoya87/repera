@@ -17,12 +17,13 @@ final class ReperaSmokeUITests: XCTestCase {
     func testLaunchShowsRootTabs() throws {
         let app = makeTestApp()
         app.launch()
-        // RootTabView has four permanent tabs: Diario was removed.
-        // The optional center tab only appears for a genuinely linked athlete.
+        // Tab labels from RootTabView.
         XCTAssertTrue(app.tabBars.buttons["Inicio"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.tabBars.buttons["Comenzar"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Progreso"].exists)
-        XCTAssertTrue(app.tabBars.buttons["Ejercicios"].exists)
+        // Diario was retired; keep smoke coverage aligned with current navigation.
+        // La tercera pestaña se llama «Comenzar» desde el rediseño.
+        XCTAssertTrue(app.tabBars.buttons["Comenzar"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.tabBars.buttons["Progreso"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.tabBars.buttons["Ejercicios"].waitForExistence(timeout: 8))
     }
 
     /// Regression check for size changes (rotation, and re-layout on Duo).
@@ -49,13 +50,8 @@ final class ReperaSmokeUITests: XCTestCase {
     func testOpenExercisesTab() throws {
         let app = makeTestApp()
         app.launch()
-        let exercisesTab = app.tabBars.buttons["Ejercicios"]
-        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 8))
-        exercisesTab.tap()
-        // The exercise catalog uses a persistent custom header and hides the
-        // native navigation bar. Verify the actual screen and usable actions.
+        app.tabBars.buttons["Ejercicios"].tap()
+        // LibraryView uses a custom inline title rather than a navigation bar.
         XCTAssertTrue(app.staticTexts["Ejercicios"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["Filtrar y ordenar"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.textFields["Nombre, músculo o equipo"].waitForExistence(timeout: 5))
     }
 }

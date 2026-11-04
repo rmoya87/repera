@@ -145,6 +145,20 @@ class WatchHealthKitContractTests(unittest.TestCase):
         self.assertIn("hub.refreshToday()", app)
         self.assertIn("hub.refreshToday()", view)
 
+    def test_watch_workouts_and_manual_refresh_are_scoped_to_current_account(self):
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        phone = source("Apps/Repera/Sources/PhoneConnectivity.swift")
+        watch = source("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+        self.assertIn("AppleAuthStore.shared.isSignedIn", store)
+        self.assertIn("BusinessAuthStore.shared.isGoogleSignedIn", store)
+        self.assertIn("BusinessAuthStore.shared.boundUserForPendingDeletion", store)
+        self.assertIn("ownerScope: watchOwnerScope", store)
+        self.assertIn('"ownerScope": expectedOwner', phone)
+        self.assertIn('message["ownerScope"] as? String == expectedOwner', phone)
+        self.assertIn("incoming != currentOwnerScope", watch)
+        self.assertIn('owners[id.uuidString] == currentOwnerScope', watch)
+        self.assertIn('self?.applyContext(payload)', watch)
+
     def test_watch_prefills_exact_prescribed_series_and_requests_fresh_today(self):
         hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
         domain = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")

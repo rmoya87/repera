@@ -7,8 +7,11 @@ on:
           Rama beta: ejecutar deploy-internal-beta tras android-native aunque
           fallen los jobs de emulador (los tests siguen corriendo).
         type: boolean
-        default: true
+        default: false
   push:
+    branches:
+      - main
+      - beta
     paths:
       - 'android/**'
       - '.github/workflows/android-native-ci.yml'
@@ -24,7 +27,7 @@ concurrency:
 
 # Reversible: cambiar a "false" para volver a bloquear deploy hasta emuladores verdes.
 env:
-  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "true"
+  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "false"
 
 jobs:
   android-native:
@@ -133,13 +136,10 @@ jobs:
           # runs y el boot no llega a completar dentro de la ventana; forzar
           # renderizado por software y arranque limpio sin snapshots.
           emulator-options: ${{ matrix.emu_opts }}
-          # Phone y Wear deben ejecutarse en invocaciones Gradle separadas:
-          # el selector de clases del telefono es global al proceso Gradle y
-          # provoca initializationError en Wear para clases solo de mobile.
           # UNA sola línea: android-emulator-runner ejecuta cada línea del
           # script en un sh -c distinto, así que un TEST_EXIT en su propia
           # línea se pierde y el paso sale verde aunque fallen los tests.
-          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; adb shell dumpsys window | grep -E 'mDreamingLockscreen|mShowingLockscreen' || true; gradle -p android :mobile:installDebug :wear:installDebug --no-daemon --stacktrace; echo '=== ESPERA DESBLOQUEO (sonda CE run-as) ==='; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; adb shell run-as com.app.repera true && echo CE-OK || echo CE-NO-DISPONIBLE; adb shell getprop sys.boot_completed; adb shell df -h /data; adb shell ls -ld /data/user/0 || true; SELECTED_CLASSES=$(python3 android/ci_selected_android_tests.py) || exit 1; echo CI_ANDROID_SELECTED_TEST_CLASSES; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$SELECTED_CLASSES" --no-daemon --stacktrace; PHONE_EXIT=$?; gradle -p android :wear:connectedDebugAndroidTest --no-daemon --stacktrace; WEAR_EXIT=$?; TEST_EXIT=$((PHONE_EXIT != 0 || WEAR_EXIT != 0)); mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile wear; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$TEST_EXIT" -ne 0 ] || [ "$OK" = 0 ]; then adb logcat -d -b crash -b system -t 2500 || true; adb shell df -h /data || true; adb shell ls -la /data/user/0/com.app.repera/files/users/ || true; adb shell ls -la /data/user/0/com.app.repera/files/ || true; adb shell run-as com.app.repera sh -c 'mkdir -p files/users/probe && echo ok > files/users/probe/w.txt && cat files/users/probe/w.txt' || true; fi; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
+          script: adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; adb shell input keyevent 82 || true; sleep 3; adb shell wm dismiss-keyguard || true; adb shell dumpsys window | grep -E 'mDreamingLockscreen|mShowingLockscreen' || true; gradle -p android :mobile:installDebug --no-daemon --stacktrace || exit 1; echo '=== ESPERA DESBLOQUEO (sonda CE run-as) ==='; for i in $(seq 1 60); do if adb shell run-as com.app.repera true 2>/dev/null; then echo "usuario-desbloqueado-$i"; break; fi; adb shell input keyevent 224 || true; adb shell wm dismiss-keyguard || true; sleep 10; done; adb shell run-as com.app.repera true && echo CE-OK || echo CE-NO-DISPONIBLE; adb shell getprop sys.boot_completed; adb shell df -h /data; adb shell ls -ld /data/user/0 || true; SELECTED_CLASSES=$(python3 android/ci_selected_android_tests.py) || exit 1; echo CI_ANDROID_SELECTED_TEST_CLASSES; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$SELECTED_CLASSES" --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$TEST_EXIT" -ne 0 ] || [ "$OK" = 0 ]; then adb logcat -d -b crash -b system -t 2500 || true; adb shell df -h /data || true; adb shell ls -la /data/user/0/com.app.repera/files/users/ || true; adb shell ls -la /data/user/0/com.app.repera/files/ || true; adb shell run-as com.app.repera sh -c 'mkdir -p files/users/probe && echo ok > files/users/probe/w.txt && cat files/users/probe/w.txt' || true; fi; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Explain failing emulator tests
         if: failure()
         run: |
@@ -231,7 +231,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    continue-on-error: ${{ matrix.experimental || false }}
+    continue-on-error: false
     strategy:
       fail-fast: false
       matrix:
@@ -344,7 +344,7 @@ jobs:
   # en el workflow pero no bloquean deploy. REVERTIR: needs con instrumentados +
   # if estricto (ver android/docs/DEPLOY_PLAY.md).
   deploy-internal-beta:
-    needs: [android-native]
+    needs: [android-native, android-instrumented, android-instrumented-android17, wear-instrumented]
     if: |
       github.ref == 'refs/heads/beta' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -354,12 +354,8 @@ jobs:
     steps:
       - name: Modo de gate de deploy (beta)
         run: |
-          if [ "${{ env.REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE }}" = "true" ] || [ "${{ github.event.inputs.skip_instrumented_deploy_gate }}" = "true" ]; then
-            echo "## Deploy beta: gate relajado (solo android-native)" >> "$GITHUB_STEP_SUMMARY"
-            echo "Emuladores/instrumentados siguen ejecutándose pero no bloquean el AAB." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "## Deploy beta: gate estricto (todos los jobs verdes)" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "## Deploy beta: gate estricto" >> "$GITHUB_STEP_SUMMARY"
+          echo "Compilación, dominio y pruebas instrumentadas Android/Wear deben aprobar antes del AAB." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

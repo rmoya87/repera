@@ -132,10 +132,12 @@ actor AppStatePersistence {
         coalesceTask = Task {
             try? await Task.sleep(nanoseconds: delayNanoseconds)
             guard !Task.isCancelled, generation == lastWriteGeneration, let pending = pendingState else { return }
-            pendingState = nil
             do {
                 try writeLocal(pending)
+                // Retire the queued snapshot only after the atomic write succeeds.
+                pendingState = nil
             } catch {
+                // Keep pendingState for an explicit flush or a subsequent save.
                 logger.error("Coalesced local write failed: \(String(describing: error), privacy: .public)")
             }
         }
@@ -145,8 +147,13 @@ actor AppStatePersistence {
         coalesceTask?.cancel()
         coalesceTask = nil
         if let pending = pendingState {
-            pendingState = nil
-            try? writeLocal(pending)
+            do {
+                try writeLocal(pending)
+                pendingState = nil
+            } catch {
+                // An unsuccessful flush must not silently discard the last snapshot.
+                logger.error("Pending local flush failed: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
@@ -194,17 +201,22 @@ actor AppStatePersistence {
 
     /// Write snapshot then flush any coalesce — single barrier for background / session end.
     func persistAndFlush(_ state: AppState) async throws {
-        coalesceTask?.cancel()
-        coalesceTask = nil
-        pendingState = nil
-        try writeLocal(state)
+        try writeLocalNow(state)
     }
 
     func writeLocalNow(_ state: AppState) throws {
         coalesceTask?.cancel()
         coalesceTask = nil
-        pendingState = nil
-        try writeLocal(state)
+        // An immediate write supersedes the queue only if its revision is
+        // equally recent. A disk error must preserve the most recent snapshot.
+        let newest = pendingState.flatMap { $0.syncRevision > state.syncRevision ? $0 : nil } ?? state
+        do {
+            try writeLocal(newest)
+            pendingState = nil
+        } catch {
+            pendingState = newest
+            throw error
+        }
     }
 
     func iCloudStatus() -> ICloudStatus {

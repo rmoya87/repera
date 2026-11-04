@@ -15,6 +15,12 @@ on:
       - '.github/workflows/watch-wear-live-smoke.yml'
   workflow_dispatch:
 
+# Keep one native Watch validation per PR; old Xcode builds otherwise pile up
+# after every reliability fix and postpone the newest validated commit.
+concurrency:
+  group: watch-wear-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   watch-native-build:
     runs-on: xcode-27

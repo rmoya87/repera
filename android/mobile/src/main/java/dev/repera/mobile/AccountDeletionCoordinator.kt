@@ -56,7 +56,11 @@ object AccountDeletionCoordinator {
             context.filesDir,
             "users/" + sha256(uniqueGoogleId)
         )
-        if (folder.exists()) folder.deleteRecursively()
+        if (folder.exists()) {
+            check(folder.deleteRecursively() && !folder.exists()) {
+                "No se pudo confirmar el borrado de los archivos locales de la cuenta."
+            }
+        }
     }
 
     private fun sha256(value: String): String {
