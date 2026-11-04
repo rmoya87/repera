@@ -82,6 +82,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var sensorManager: SensorManager? = null
     private var todayPlanJson by mutableStateOf<JSONObject?>(null)
     private var watchStartedSession by mutableStateOf(false)
+    private val startLocationCapture by lazy { WearStartLocationCapture(this) }
+    private var pendingStartLocationSessionId: String? = null
     private var wodTickSeconds by mutableStateOf(0)
     private var wodTickJob: kotlinx.coroutines.Job? = null
     private var restJob: kotlinx.coroutines.Job? = null
@@ -127,6 +129,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }) {
             startHealthForCurrentSession()
         }
+        // GPS puntual independiente de la autorización de pulso/Health.
+        if (activeSensorId != null && watchStartedSession) captureWatchStartLocation(activeSensorId)
+    }
+    private val startLocationPermissions = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val id = pendingStartLocationSessionId
+        pendingStartLocationSessionId = null
+        if (id != null && watchStartedSession && visibleSession?.sessionId == id &&
+            grants.values.any { it }) captureWatchStartLocation(id)
     }
     private var transportRevision=0L
     private var confirmDiscardPending by mutableStateOf(false)
@@ -1192,6 +1204,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         todayPlanJson = null
         resetElapsedClock()
         ensureHealthRecording()
+        // No abrir dos diálogos de permisos simultáneamente: esperar el de sensores.
+        if (WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all { permission ->
+                androidx.core.content.ContextCompat.checkSelfPermission(this, permission) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+            }) captureWatchStartLocation(summary.sessionId)
         // Publica de inmediato para que Android cree la notificación de bloqueo
         // desde la sesión persistida (no esperar a la primera serie).
         val startPayload = JSONObject().put("session", plan)
@@ -1208,6 +1225,56 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sessionPaused = true
         restClock.pause(SystemClock.elapsedRealtime())
         persistRest()
+    }
+
+    /** Captura una coordenada al inicio de una sesión autónoma del reloj.
+     * No añade routePoints ni hace seguimiento continuo en entrenos de interior.
+     */
+    private fun captureWatchStartLocation(sessionId: String) {
+        if (!watchStartedSession || visibleSession?.sessionId != sessionId) return
+        val current = sessionCache.getString("snapshot", null)?.let {
+            runCatching { JSONObject(it) }.getOrNull()
+        } ?: return
+        if (current.optString("id") != sessionId || current.optJSONObject("locationPin") != null) return
+        val fine = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarse = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!fine && !coarse) {
+            pendingStartLocationSessionId = sessionId
+            startLocationPermissions.launch(arrayOf(
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ))
+            return
+        }
+        startLocationCapture.capture { fix ->
+            if (fix == null || !watchStartedSession || visibleSession?.sessionId != sessionId) return@capture
+            val snapshot = sessionCache.getString("snapshot", null)?.let {
+                runCatching { JSONObject(it) }.getOrNull()
+            } ?: return@capture
+            if (snapshot.optString("id") != sessionId || snapshot.optJSONObject("locationPin") != null) return@capture
+            val started = runCatching {
+                java.time.Instant.parse(snapshot.getString("startedAt")).toEpochMilli()
+            }.getOrNull() ?: return@capture
+            if (fix.time - started !in -15_000L..60_000L) return@capture
+            val pin = JSONObject().put("latitude", fix.latitude).put("longitude", fix.longitude)
+                .put("recordedAtEpochMs", fix.time)
+                .put("horizontalAccuracyMeters", fix.accuracy.toDouble()).put("source", "wearOS")
+            snapshot.put("locationPin", pin)
+            // Duradero antes de enviar. Los próximos log-set llevan este snapshot.
+            if (!sessionCache.edit().putString("snapshot", snapshot.toString()).commit()) return@capture
+            val payload = JSONObject().put("session", snapshot).toString().toByteArray(Charsets.UTF_8)
+            Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+                if (watchStartedSession && visibleSession?.sessionId == sessionId) {
+                    nodes.forEach { node ->
+                        messageClient.sendMessage(node.id, "/repera/session-start", payload)
+                    }
+                }
+            }
+        }
     }
 
     /** Descartar sin guardar (Ramón F-5): cierra en Wear y pide lo mismo al teléfono. */
@@ -1257,7 +1324,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         // Never race finish against unacknowledged sets for this session.
         if(runCatching {pendingStore.all().any {it.optString("sessionId")==sessionId}}.getOrDefault(true)) return
         val revision=transportRevision
-        val payload=JSONObject().put("sessionId",sessionId).toString().toByteArray(Charsets.UTF_8)
+        // Reenviar también el pin duradero si el teléfono estuvo desconectado.
+        val pin = sessionCache.getString("snapshot", null)?.let {
+            runCatching { JSONObject(it) }.getOrNull()?.takeIf { snap ->
+                snap.optString("id") == sessionId
+            }?.optJSONObject("locationPin")
+        }
+        val finishBody = JSONObject().put("sessionId", sessionId)
+        if (pin != null) finishBody.put("locationPin", pin)
+        val payload = finishBody.toString().toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener {nodes ->
             if(revision!=transportRevision || runCatching {pendingFinish.sessionId()!=sessionId}.getOrDefault(true)) return@addOnSuccessListener
             if(nodes.isEmpty()) {sendStatus="Fin pendiente de conexión; conservado en el reloj";return@addOnSuccessListener}
@@ -1914,6 +1989,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun clearSession(erasePending: Boolean) {
+        startLocationCapture.cancel()
+        pendingStartLocationSessionId = null
         sensorRevision++
         val sensorSessionId=visibleSession?.sessionId
         warmupInput=false;failureInput=false;rirInput=null
