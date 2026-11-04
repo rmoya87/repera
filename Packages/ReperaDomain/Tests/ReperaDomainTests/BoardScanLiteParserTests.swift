@@ -2,6 +2,11 @@ import Testing
 @testable import ReperaDomain
 
 struct BoardScanLiteParserTests {
+    @Test func officialExerciseNamesSurviveRepeatedOCRNormalization() {
+        #expect(CrossFitGlossary.canonicalName(for: "Step-up al cajón con doble mancuerna") == "Step-up al cajón con doble mancuerna")
+        #expect(CrossFitGlossary.canonicalName(for: "Swing kettlebell") == "Swing kettlebell")
+    }
+
     @Test func scannedDDBStepUpAndRKBSResolveOfficialExerciseIDs() {
         let catalog = Catalog.seed()
         let board = """

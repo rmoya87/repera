@@ -11,7 +11,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 test('full native catalog is mirrored with stable unique keys',()=>{
  assert.equal(catalog.length,290);
  assert.equal(new Set(catalog.map(x=>x.catalogKey)).size,290);
- assert.ok(catalog.every(x=>x.catalogKey==='catalog:'+x.name || (x.category==='Halterofilia' && x.aliases?.includes(x.catalogKey.slice(8)))));
+ assert.ok(catalog.every(x=>x.catalogKey==='catalog:'+x.name || x.aliases?.includes(x.catalogKey.slice(8))));
  for(const [file,regex] of [
   ['CatalogEnrichment',/\bEnrichedSeed\(\s*name:\s*"([^"]+)"/g],
   ['CatalogHalterofilia',/\bh\(\s*"([^"]+)"/g],

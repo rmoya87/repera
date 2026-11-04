@@ -22,6 +22,12 @@ import org.junit.Test
  * en el dominio Android.
  */
 class BoardScanLiteParserTest {
+    @Test fun officialExerciseNamesSurviveRepeatedOCRNormalization() {
+        assertEquals("Step-up al cajón con doble mancuerna",
+            CrossFitGlossary.canonicalName("Step-up al cajón con doble mancuerna"))
+        assertEquals("Swing kettlebell", CrossFitGlossary.canonicalName("Swing kettlebell"))
+    }
+
     @Test fun photographedDdbStepUpAndRkbsLinkToOfficialCatalog() {
         val entries = listOf(
             CatalogExercise("ddb-official", "Double Dumbbell Step Up", listOf("DDB STEP UP")),

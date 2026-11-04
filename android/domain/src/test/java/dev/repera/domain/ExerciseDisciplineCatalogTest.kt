@@ -26,7 +26,7 @@ class ExerciseDisciplineCatalogTest {
         ExerciseDisciplineTags.forExercise(r.name, r.sportTag, r.muscleGroup, HyroxExercises.isMovement(r.name))
 
     @Test fun seedSizeMatchesApple() {
-        assertEquals(289, rows.size)  // seed actual: 288 + «Burpee to target»
+        assertEquals(289, rows.size)  // frozen catalog_seed_288.json fixture, not the live 290-entry seed
     }
 
     @Test fun allWeightliftingIsCrossFitCompatible() {

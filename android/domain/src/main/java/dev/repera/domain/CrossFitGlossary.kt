@@ -433,11 +433,15 @@ object CrossFitGlossary {
     }
 
     /** Nombre canónico para matching de catálogo. */
+    // Prevent a second OCR pass from dropping equipment from canonical names.
+    private val canonicalAliasNames: Map<String, String> by lazy { aliases.values.associateBy { normalize(it) } }
+
     fun canonicalName(raw: String, searchAliases: Map<String, String> = emptyMap()): String {
         // Apple (live main, ff94e6ad): BTt/BTT y variantes OCR se resuelven
         // antes de consultar el glosario, incluso sin catálogo descargado.
         WODHistoryPresentation.officialName(raw)?.let { return it }
         val rawNorm = normalize(raw)
+        canonicalAliasNames[rawNorm]?.let { return it }
         aliases[rawNorm]?.let { return it }
         searchAliases[rawNorm]?.takeIf { it.isNotEmpty() }?.let { return it }
         val ordered = aliases.keys.sortedByDescending { it.length }

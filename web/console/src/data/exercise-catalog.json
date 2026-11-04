@@ -1031,6 +1031,17 @@
       "category": "CrossFit"
     },
     {
+      "catalogKey": "catalog:Step-up al cajón con doble mancuerna",
+      "name": "Double Dumbbell Step Up",
+      "category": "CrossFit",
+      "aliases": [
+        "Step-up al cajón con doble mancuerna",
+        "DDB Step Up",
+        "DDB Box Step Up",
+        "Double Dumbbell Box Step Up"
+      ]
+    },
+    {
       "catalogKey": "catalog:Box jump over",
       "name": "Box jump over",
       "category": "CrossFit"
@@ -1723,17 +1734,6 @@
         "sgpp",
         "snatch grip pp",
         "push press ancho"
-      ]
-    },
-    {
-      "catalogKey": "catalog:Step-up al cajón con doble mancuerna",
-      "name": "Step-up al cajón con doble mancuerna",
-      "category": "CrossFit",
-      "aliases": [
-        "Double Dumbbell Step Up",
-        "DDB Step Up",
-        "DDB Box Step Up",
-        "double dumbbell box step up"
       ]
     }
   ]

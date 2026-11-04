@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.time.Instant
 
 /**
- * Refresco no destructivo del catálogo nativo frente al seed actual (289 entradas,
+ * Refresco no destructivo del catálogo nativo frente al seed actual (290 entradas,
  * paridad con iOS). Para snapshots de instalaciones anteriores:
  * - actualiza los campos de catálogo de las entradas existentes casadas por `id`
  *   (incluidos los 43 renombrados canónicos, p.ej. "Arrancada" → "Snatch"),
