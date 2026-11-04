@@ -82,9 +82,21 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         self.assertIn("Repera + Salud", stats)
         self.assertIn("fitnessExternalMinutes", stats)
         self.assertIn("fitnessReperaMinutes", stats)
+        self.assertIn("let minutes = repera + external", stats)
+        domain = read(
+            ROOT / "Packages" / "ReperaDomain" / "Sources" / "ReperaDomain" / "StatsEngine.swift"
+        )
+        self.assertIn(
+            "guard workout.finishedAt != nil || workout.phase == .finished else { return false }",
+            domain,
+        )
         tab = read(ANDROID / "ProgressTab.kt")
         self.assertIn("Repera + Salud", tab)
         self.assertIn("Health Connect", tab)
+        android_domain = read(
+            ROOT / "android" / "domain" / "src" / "main" / "java" / "dev" / "repera" / "domain" / "StatsEngine.kt"
+        )
+        self.assertIn("it.finished && range.contains", android_domain)
 
     def test_business_sponsored_pro_rewires_after_entitlements(self):
         app = read(IOS / "ReperaApp.swift")

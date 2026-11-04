@@ -398,7 +398,10 @@ object StatsEngine {
                        weekStartsOnMonday: Boolean = true,
                        now: LocalDate = LocalDate.now(),
                        zone: ZoneId = ZoneId.systemDefault()): List<StatsWorkout> =
-        workouts.filter { range.contains(dayOf(it.epochMillis, zone), now, weekStartsOnMonday) }
+        // Solo terminados (paridad iOS): evita hinchar estímulo del hub con sesiones abiertas.
+        workouts.filter {
+            it.finished && range.contains(dayOf(it.epochMillis, zone), now, weekStartsOnMonday)
+        }
 
     fun filterWorkoutsInPreviousPeriod(
         workouts: List<StatsWorkout>, range: ProgressTimeRange,
@@ -406,7 +409,9 @@ object StatsEngine {
         now: LocalDate = LocalDate.now(),
         zone: ZoneId = ZoneId.systemDefault()
     ): List<StatsWorkout> = workouts.filter {
-        range.containsInPreviousPeriod(dayOf(it.epochMillis, zone), now, weekStartsOnMonday)
+        it.finished && range.containsInPreviousPeriod(
+            dayOf(it.epochMillis, zone), now, weekStartsOnMonday
+        )
     }
 
     fun filterExternal(samples: List<ExternalDaySample>, range: ProgressTimeRange,
@@ -523,6 +528,7 @@ object StatsEngine {
         var kcal = 0.0
         var volume = 0.0
         for (workout in filteredW) {
+            if (!workout.finished) continue
             if (workout.durationMinutes > 0) minutes.add(workout.durationMinutes)
             volume += maxOf(0.0, workout.totalVolumeKg)
             workout.activeEnergyKcal?.let { if (it > 0) kcal += it }
@@ -535,12 +541,13 @@ object StatsEngine {
             kcal += maxOf(0.0, sample.activeEnergyKcal)
             if (sample.cardioMinutes > 0) cardioMinutes.add(sample.cardioMinutes)
         }
+        val finishedCount = filteredW.count { it.finished }
         return ProgressHealthSummary(
             averageMinutes = if (minutes.isEmpty()) null else minutes.average(),
             totalKcal = kcal,
             averageCardioMinutes = if (cardioMinutes.isEmpty()) null else cardioMinutes.average(),
             volumeKg = volume,
-            sessionCount = filteredW.size + filteredE.size,
+            sessionCount = finishedCount + filteredE.size,
             totalMinutes = minutes.sum()
         )
     }

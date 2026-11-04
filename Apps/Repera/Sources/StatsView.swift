@@ -587,9 +587,10 @@ struct StatsView: View {
 
     @ViewBuilder
     private var fitnessCategoryContent: some View {
-        let minutes = Int(snap.summary.totalMinutes.rounded())
+        // Estímulo del hub = solo ventana de 7 días (filteredWorkouts/External), no el resumen de mes.
         let repera = fitnessReperaMinutes
         let external = fitnessExternalMinutes
+        let minutes = repera + external
         let hero = Self.activeDurationHero(minutes)
         OGCardSectionTitle(title: "Físico")
         ProgressInsightCard(

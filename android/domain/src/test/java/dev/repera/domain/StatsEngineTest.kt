@@ -78,6 +78,29 @@ class StatsEngineTest {
             ProgressTimeRange.MONTH, now = now, zone = zone).size)
     }
 
+    @Test fun filterWorkoutsAndSummaryIgnoreUnfinishedSessions() {
+        val open = StatsWorkout(
+            epochMillis = epoch(now),
+            durationMinutes = 2_000.0, // inflaría el hub si se contara
+            finished = false,
+            exercises = emptyList()
+        )
+        val done = benchWorkout(now, 100.0, 5, duration = 45.0)
+        val filtered = StatsEngine.filterWorkouts(
+            listOf(open, done), ProgressTimeRange.WEEK, now = now, zone = zone
+        )
+        assertEquals(1, filtered.size)
+        assertEquals(true, filtered.single().finished)
+        val summary = StatsEngine.progressHealthSummary(
+            listOf(open, done),
+            range = ProgressTimeRange.WEEK,
+            now = now,
+            zone = zone
+        )
+        assertEquals(45.0, summary.totalMinutes, 0.0001)
+        assertEquals(1, summary.sessionCount)
+    }
+
     @Test fun summaryAveragesAndTotalsMatchIos() {
         val gym = benchWorkout(now, 100.0, 5, duration = 60.0)
         val cardio = StatsWorkout(epoch(now), 30.0, activeEnergyKcal = 200.0,

@@ -31,7 +31,7 @@ La información de clases se carga por usuario autenticado desde `BusinessDataSt
 
 - **Entreno:** consistencia **«Últimos 7 días»** primero; después tiles **Media mes / Racha / Entrenos / Tiempo** (mes calendario). Puntuación verificada + confianza; **equilibrio muscular = estado actual** (fatiga retenida); movilidad; largo plazo (Pro) e Historial.
 - **Fuerza:** insight «Carga y marcas»: héroe = nº de PR **all-time**; caption = kg de volumen de los últimos 7 días; barras = **volumen semanal relativo**. **Progreso por ejercicio** y **récords** = mejores marcas de siempre. Teasers en gratis.
-- **Físico:** estímulo activo = **suma de minutos Repera + Salud/HC** en **últimos 7 días**. Duración en **h + min** si ≥ 60 min. Heatmap, calorías y peso aparte; cierre «Este mes».
+- **Físico:** estímulo activo = **suma de minutos de entrenos Repera terminados + Salud/HC** en **últimos 7 días** (nunca sesiones abiertas: en iOS `durationMinutes` con `finishedAt ?? now` inflaría el total). Duración en **h + min** si ≥ 60 min. Heatmap, calorías y peso aparte; cierre «Este mes».
 - **Corazón:** FC de **últimos 7 días** (Apple Salud / Health Connect) en barras y mín/máx; héroe = media reciente real. **Sin placeholders**. Android Gratis: gráfica detallada teaser; número del hub usa HC real.
 - **Recuperación:** subtítulo **Ahora**; preparación actual; **evolución y sueño en 7 días**; constantes y ciclo. Sueño: barras por noche + lista (sin inventar datos). Cierre «Este mes».
 - **Deportes:** tiles (salidas, plan, tiempo En vivo) = **últimos 7 días**. **Evolución y récords** y **progresión en ejercicios** = historial / mejores marcas. Cierre «Este mes». El tiempo del tile Deportes es solo salidas En vivo, no el total de Físico.

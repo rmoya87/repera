@@ -1085,6 +1085,9 @@ extension StatsEngine {
         calendar: Calendar = .current
     ) -> [WorkoutSession] {
         workouts.filter { workout in
+            // Solo terminados: si no, durationMinutes usa `finishedAt ?? Date()` y
+            // infla estímulo/volumen del hub (p. ej. «27 h» en 7 días).
+            guard workout.finishedAt != nil || workout.phase == .finished else { return false }
             guard let day = workout.liveSportID == nil ?
                 (workout.finishedAt ?? workout.startedAt) :
                 (workout.startedAt ?? workout.finishedAt) else { return false }
@@ -1100,6 +1103,7 @@ extension StatsEngine {
         calendar: Calendar = .current
     ) -> [WorkoutSession] {
         workouts.filter { workout in
+            guard workout.finishedAt != nil || workout.phase == .finished else { return false }
             guard let day = workout.liveSportID == nil ?
                 (workout.finishedAt ?? workout.startedAt) :
                 (workout.startedAt ?? workout.finishedAt) else { return false }
@@ -1234,6 +1238,7 @@ extension StatsEngine {
         var volume: Double = 0
 
         for workout in filteredW {
+            guard workout.finishedAt != nil || workout.phase == .finished else { continue }
             let m = workout.durationMinutes
             if m > 0 { minutes.append(m) }
             volume += max(0, confirmedVolumeKg(in: workout))
@@ -1258,12 +1263,15 @@ extension StatsEngine {
         let avgCardio: Double? = cardioMinutes.isEmpty
             ? nil
             : cardioMinutes.reduce(0, +) / Double(cardioMinutes.count)
+        let finishedCount = filteredW.filter {
+            $0.finishedAt != nil || $0.phase == .finished
+        }.count
         return ProgressHealthSummary(
             averageMinutes: avg,
             totalKcal: kcal,
             averageCardioMinutes: avgCardio,
             volumeKg: volume,
-            sessionCount: filteredW.count + filteredE.count,
+            sessionCount: finishedCount + filteredE.count,
             totalMinutes: minutes.reduce(0, +)
         )
     }
