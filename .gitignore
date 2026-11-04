@@ -70,3 +70,5 @@ repera-sa.json
 
 # Superpowers local runtime
 .superpowers/
+
+.local/

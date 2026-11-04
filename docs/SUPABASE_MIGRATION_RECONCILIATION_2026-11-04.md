@@ -67,6 +67,27 @@ Se creó mediante `20261104075611_repera_attendance_request_unique_index_recover
 
 **Estado tras esta recuperación: 101 versiones compartidas, 30 solo en GitHub, ninguna solo en Supabase.** Persisten verificaciones funcionales sobre las 30 versiones históricas (SQL de funciones, RLS, ACL y efectos acumulados); no registrar como aplicadas sin demostrar equivalencia.
 
+## Auditoría de fiabilidad — migraciones y Edge (04/11 tarde)
+
+Aplicadas en producción **una a una** (`supabase db query --linked -f …` +
+`migration repair --status applied`), sin `db push` masivo:
+
+| Versión | Contenido | Verificación |
+|---|---|---|
+| `20261104102807` | hardening outbox push (reintentos, lease, tokens) | columnas `attempt_count` / `next_attempt_at` / `last_error_code`; RPCs claim/finish |
+| `20261104103112` | rate limit MCP (`consume_ai_mcp_quota`) | funciones `private` + `public` solo `service_role` |
+| `20261104104041` | índice keyset espejo de entrenos | `athlete_workout_mirror_owner_id_keyset_idx` |
+
+Edge y operación:
+
+- Desplegada `repera-business-push` (`--no-verify-jwt`); redeploy `repera-mcp`.
+- `REPERA_PUSH_CRON_SECRET` en Edge Secrets y en `vault` (`repera_push_cron_secret`).
+- `pg_cron` + `pg_net`: job `repera-business-push` cada minuto con header desde vault.
+- Smoke: POST sin secreto → 403; con secreto → 200 (`fcm_configured`/`apns_configured` = false hasta secretos de proveedor).
+- Copia local del secreto solo en `.local/` (gitignored), no en el repo.
+
+Las ~30 versiones históricas solo en git **siguen** como deuda de metadatos: varios efectos (p. ej. `publish_class_training_bulk` / `clear_class_training`) ya existen en prod; no marcar el historial ni reejecutar sin equivalencia demostrada.
+
 ## Regla de seguridad
 
 No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 30 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
