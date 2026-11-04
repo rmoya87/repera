@@ -770,6 +770,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             )
         )
         super.onCreate(savedInstanceState)
+        dev.repera.mobile.analytics.ReperaAnalytics.configure(this)
         resolveExternalRoute(intent)
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
