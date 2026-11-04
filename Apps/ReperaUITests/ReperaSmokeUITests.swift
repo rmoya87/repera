@@ -17,10 +17,9 @@ final class ReperaSmokeUITests: XCTestCase {
     func testLaunchShowsRootTabs() throws {
         let app = makeTestApp()
         app.launch()
-        // Tab labels from RootTabView.
+        // RootTabView has four permanent tabs: Diario was removed.
+        // The optional center tab only appears for a genuinely linked athlete.
         XCTAssertTrue(app.tabBars.buttons["Inicio"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.tabBars.buttons["Diario"].exists)
-        // La tercera pestaña se llama «Comenzar» desde el rediseño.
         XCTAssertTrue(app.tabBars.buttons["Comenzar"].exists)
         XCTAssertTrue(app.tabBars.buttons["Progreso"].exists)
         XCTAssertTrue(app.tabBars.buttons["Ejercicios"].exists)
@@ -50,7 +49,13 @@ final class ReperaSmokeUITests: XCTestCase {
     func testOpenExercisesTab() throws {
         let app = makeTestApp()
         app.launch()
-        app.tabBars.buttons["Ejercicios"].tap()
-        XCTAssertTrue(app.navigationBars["Ejercicios"].waitForExistence(timeout: 5))
+        let exercisesTab = app.tabBars.buttons["Ejercicios"]
+        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 8))
+        exercisesTab.tap()
+        // The exercise catalog uses a persistent custom header and hides the
+        // native navigation bar. Verify the actual screen and usable actions.
+        XCTAssertTrue(app.staticTexts["Ejercicios"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Filtrar y ordenar"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Nombre, músculo o equipo"].waitForExistence(timeout: 5))
     }
 }
