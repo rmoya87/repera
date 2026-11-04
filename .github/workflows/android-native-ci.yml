@@ -51,6 +51,8 @@ jobs:
           gradle-version: '9.6.0'
       - name: Domain parity tests + native builds
         run: gradle -p android :domain:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
+      - name: Verify Repera native system navigation
+        run: gradle -p android :mobile:testDebugUnitTest --tests "dev.repera.mobile.ReperaSystemNavigationTest" --no-daemon --stacktrace
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,6 +60,7 @@ jobs:
           name: android-domain-test-results
           path: |
             android/domain/build/test-results/**
+            android/mobile/build/test-results/**
             android/domain/build/reports/tests/**
           if-no-files-found: ignore
 
