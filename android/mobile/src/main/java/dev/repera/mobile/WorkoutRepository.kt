@@ -157,7 +157,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         activeSeconds: Double,
         title: String,
         notes: String,
-        activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null
+        activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null
     ): String {
         require(snapshot.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW)
         require(activeSeconds.isFinite() && activeSeconds >= 0)
@@ -173,6 +174,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("exercises", JSONArray()).put("wodResults", JSONArray())
             .put("liveSportID", sport.id).put("activeDurationSeconds", activeSeconds)
         if (notes.trim().isNotEmpty()) session.put("notes", notes.trim())
+        // Indoor: guardar solo el pin medido al inicio, nunca una ruta inventada.
+        if (snapshot.points.size < 2 && locationPin != null) {
+            session.put("locationPin", JSONObject().put("latitude", locationPin.latitude)
+                .put("longitude", locationPin.longitude)
+                .put("recordedAtEpochMs", locationPin.recordedAtEpochMs)
+                .apply {
+                    locationPin.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                    locationPin.source?.let { put("source", it) }
+                })
+        }
         snapshot.selectedRouteID?.let { session.put("liveRouteID", it) }
         if (snapshot.selectedRouteID == null && sport.usesGPS && snapshot.points.size >= 2) {
             // ID estable por sesión: si falla guardar el archivo principal,
