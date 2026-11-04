@@ -99,6 +99,20 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("stopRouteTracking()", start)
         self.assertIn("trackingSessionID = sessionID", start)
 
+    def test_android_gpx_share_is_explicit_and_publicly_scoped(self):
+        codec = source("android/domain/src/main/java/dev/repera/domain/RouteGPXCodec.kt")
+        self.assertIn("it.isEstimated != true", codec)
+        self.assertIn("point.recordedAtEpochMs - previous > 30_000L", codec)
+        chooser = source("android/mobile/src/main/java/dev/repera/mobile/WorkoutRouteShare.kt")
+        self.assertIn("Intent.ACTION_SEND", chooser)
+        self.assertIn("Intent.FLAG_GRANT_READ_URI_PERMISSION", chooser)
+        self.assertIn("ClipData.newUri", chooser)
+        self.assertNotIn("startForegroundService", chooser)
+        screen = source("android/mobile/src/main/java/dev/repera/mobile/CompleteHistoryScreen.kt")
+        self.assertIn("Compartir recorrido GPX", screen)
+        provider = source("android/mobile/src/main/res/xml/board_scan_paths.xml")
+        self.assertIn('path="route_shares/"', provider)
+
     def test_export_is_explicit_and_uses_unmodified_gps(self):
         export = source("Apps/Repera/Sources/RouteGPXExporter.swift")
         self.assertIn("RouteGPXExporter", export)
