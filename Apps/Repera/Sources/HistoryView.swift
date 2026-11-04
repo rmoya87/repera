@@ -873,7 +873,6 @@ struct WorkoutDetailView: View {
 
     private var detailList: some View {
         List {
-            OGScrollablePageTitle(workoutNavTitle).ogScrollingTitleListRow()
             if let session = draft {
                 // Fecha fuera del bloque de tiles: la sección agrupada recortaba la «S».
                 if !subtitle.isEmpty {
@@ -1110,7 +1109,7 @@ struct WorkoutDetailView: View {
                 highlightExerciseInstanceId: route.exerciseInstanceId
             )
         }
-        .ogScrollingTitleNav()
+        .ogPinnedTransparentNav(workoutNavTitle)
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
             if isEditing {
