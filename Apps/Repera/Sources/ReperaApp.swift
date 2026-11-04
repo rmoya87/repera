@@ -1,4 +1,5 @@
 import BackgroundTasks
+import AppIntents
 import CoreSpotlight
 import GoogleSignIn
 import ReperaDomain
@@ -45,6 +46,7 @@ struct ReperaApp: App {
         WindowGroup {
             appWindowContent
         }
+        .handlesExternalEvents(matching: ["repera.control.open"])
         .backgroundTask(.appRefresh(CatalogBackgroundRefreshScheduler.identifier)) {
             await CatalogBackgroundRefreshScheduler.runHeadless()
         }
@@ -56,6 +58,11 @@ struct ReperaApp: App {
                 .environment(\.locale, Locale(identifier: "es_ES"))
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
+                }
+                .onAppIntentExecution(ReperaControlOpenIntent.self) { intent in
+                    if let destination = ReperaSystemCommand.Destination(rawValue: intent.target.rawValue) {
+                        ReperaSystemCommand.request(destination)
+                    }
                 }
                 .onContinueUserActivity(CSSearchableItemActionType) { activity in
                     if let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
