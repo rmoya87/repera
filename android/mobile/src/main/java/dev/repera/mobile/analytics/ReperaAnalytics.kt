@@ -111,6 +111,7 @@ object ReperaAnalytics {
     private val safeValue = Regex("^[a-zA-Z0-9_]{1,40}$")
     @Volatile private var firebase: FirebaseAnalytics? = null
     @Volatile private var consentGranted = false
+    @Volatile private var deviceClass = "phone"
 
     fun isConfigured(): Boolean = firebase != null
     fun hasConsent(context: Context): Boolean = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -118,6 +119,7 @@ object ReperaAnalytics {
 
     /** No Firebase resource? No-op. Never break the app or simulate configured analytics. */
     fun configure(context: Context) {
+        deviceClass = if (context.resources.configuration.smallestScreenWidthDp >= 600) "tablet" else "phone"
         consentGranted = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .getBoolean(CONSENT_KEY, false)
         val app = FirebaseApp.initializeApp(context) ?: return
@@ -140,7 +142,7 @@ object ReperaAnalytics {
         val data = Bundle().apply {
             putLong("schema_version", 1)
             putString("origin_platform", "android")
-            putString("device_class", "phone")
+            putString("device_class", deviceClass)
             parameters.forEach { (key, value) ->
                 if (key in allowedKeys && safeValue.matches(value)) putString(key, value)
             }
