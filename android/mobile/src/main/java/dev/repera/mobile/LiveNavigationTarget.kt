@@ -19,6 +19,8 @@ internal object LiveNavigationTarget {
         "today" -> "inicio"
         "timer" -> "temporizador"
         "exercises" -> "ejercicios"
+        "board", "boardscan" -> "escaner"
+        "import" -> "importar"
         else -> null
     }
 

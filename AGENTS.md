@@ -175,6 +175,11 @@ await WorkoutScheduler.shared.schedule(plan, at: when)
 - Assistant: deep links `repera://…`; capabilities en el mismo XML de shortcuts.
 - AppSearch: opt-in, solo catálogo público; borrar al logout; `setSchemaAsync` / `putAsync`.
 - GPS: un owner de sesión; no preemptar; no interpolar al exportar GPX.
+- Share/SEND: solo copiar a cache y navegar; OCR/GPX en UI autenticada (`SystemShareImport` / `ReperaShareInbox`).
+- MediaSession / Now Playing: solo control de descanso/timer; nunca series ni Health.
+- Live Activity `pushType: .token` + store local; push remoto solo con backend APNs autenticado.
+- EventKit / CalendarContract: mirror write-only de `booked`; clear al logout.
+- App Functions / Gemini: hasta estabilizar API, catálogo + shortcuts; navegación only.
 
 | Plataforma | Preferir |
 |---|---|

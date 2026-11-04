@@ -10,6 +10,8 @@ class ReperaSystemNavigationTest {
         assertEquals("inicio", LiveNavigationTarget.route("today"))
         assertEquals("temporizador", LiveNavigationTarget.route("timer"))
         assertEquals("ejercicios", LiveNavigationTarget.route("exercises"))
+        assertEquals("escaner", LiveNavigationTarget.route("board"))
+        assertEquals("importar", LiveNavigationTarget.route("import"))
         assertNull(LiveNavigationTarget.route("delete-workouts"))
         assertEquals("inicio", LiveNavigationTarget.resolvedRoute("entreno-activo", false))
     }

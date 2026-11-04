@@ -27,8 +27,9 @@ final class RestLiveActivityCoordinator {
             _ = try Activity.request(
                 attributes: attributes,
                 content: .init(state: state, staleDate: nil),
-                pushType: nil
+                pushType: .token
             )
+            LiveActivityPushTokenStore.startObservingIfNeeded()
             guard gen == generation else {
                 await endAllActivities()
                 return
@@ -156,8 +157,9 @@ final class TimerLiveActivityCoordinator {
                             exerciseName: title, sourceKey: source.rawValue
                         ),
                         content: .init(state: state, staleDate: nil, relevanceScore: 100),
-                        pushType: nil
+                        pushType: .token
                     )
+                    LiveActivityPushTokenStore.startObservingIfNeeded()
                 } catch {
                     logger.error("Paused timer Live Activity failed: \(String(describing: error), privacy: .public)")
                 }
@@ -203,8 +205,9 @@ final class TimerLiveActivityCoordinator {
                         exerciseName: title, sourceKey: source.rawValue
                     ),
                     content: .init(state: state, staleDate: nil, relevanceScore: 100),
-                    pushType: nil
+                    pushType: .token
                 )
+                LiveActivityPushTokenStore.startObservingIfNeeded()
             } catch {
                 logger.error("Timer Live Activity failed: \(String(describing: error), privacy: .public)")
             }

@@ -709,6 +709,22 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
     private fun routeFromIntent(intent: android.content.Intent?): String? {
+        when (val share = SystemShareImport.consume(this, intent)) {
+            is SystemShareImport.Result.Gpx -> {
+                getSharedPreferences("repera.system_import", MODE_PRIVATE).edit()
+                    .putString("pendingGpxPath", share.cacheFile.absolutePath)
+                    .putString("pendingGpxName", share.displayName)
+                    .apply()
+                return "en-vivo"
+            }
+            is SystemShareImport.Result.BoardImage -> {
+                getSharedPreferences("repera.system_import", MODE_PRIVATE).edit()
+                    .putString("pendingBoardPath", share.cacheFile.absolutePath)
+                    .apply()
+                return "escaner"
+            }
+            SystemShareImport.Result.Ignored -> Unit
+        }
         val uri = intent?.data ?: return null
         if (uri.scheme != "repera") return null
         if (uri.host == "complete-workout") {

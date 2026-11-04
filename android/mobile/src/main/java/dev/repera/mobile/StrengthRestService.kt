@@ -19,17 +19,20 @@ import androidx.core.content.ContextCompat
 /**
  * Cuenta atrás del descanso entre series como notificación persistente:
  * equivalente Android a la Rest Live Activity de iOS (RestLiveActivityWidget).
- * Usa chronometer nativo (como PlannedWorkoutNotification) + acción «Saltar».
+ * Usa chronometer nativo (como PlannedWorkoutNotification) + acción «Saltar»
+ * y MediaSession para auriculares / pantalla de bloqueo (solo timer UI).
  */
 internal class StrengthRestService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var remaining = 0
+    private var totalSeconds = 0
     private var endsAtElapsedRealtime = 0L
     private var exerciseName = ""
     private var running = false
     private var soundEnabled = true
     private var hapticEnabled = true
+    private var media: RestMediaSessionController? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -38,6 +41,8 @@ internal class StrengthRestService : Service() {
                 .toInt().coerceAtLeast(0)
             if (remaining <= 0) {
                 postFinished()
+                media?.release()
+                media = null
                 stopSelf()
                 return
             }
@@ -55,6 +60,8 @@ internal class StrengthRestService : Service() {
                 handler.removeCallbacks(tick)
                 cancelNotification()
                 RestNotifier.cancel(this)
+                media?.release()
+                media = null
                 stopSelf()
             }
             ACTION_START -> {
@@ -68,8 +75,20 @@ internal class StrengthRestService : Service() {
                 hapticEnabled = intent.getBooleanExtra("haptic", true)
                 exerciseName = name
                 remaining = seconds
+                totalSeconds = seconds
                 endsAtElapsedRealtime = SystemClock.elapsedRealtime() + seconds * 1000L
                 running = true
+                if (media == null) {
+                    media = RestMediaSessionController(
+                        this,
+                        onSkip = {
+                            startService(
+                                Intent(this, StrengthRestService::class.java).setAction(ACTION_SKIP)
+                            )
+                        },
+                        onPauseToggle = { }
+                    )
+                }
                 handler.removeCallbacks(tick)
                 postCountdown()
                 handler.postDelayed(tick, 1000L)
@@ -82,6 +101,8 @@ internal class StrengthRestService : Service() {
     override fun onDestroy() {
         running = false
         handler.removeCallbacks(tick)
+        media?.release()
+        media = null
         super.onDestroy()
     }
 
@@ -124,8 +145,6 @@ internal class StrengthRestService : Service() {
         if (!canPost()) return
         val text = if (exerciseName.isBlank()) "Restantes"
         else "$exerciseName · restantes"
-        // Chronometer cuenta hacia arriba desde (now - remaining); usamos
-        // setChronometerCountDown cuando está disponible (API 24+).
         val whenMillis = System.currentTimeMillis() + remaining * 1000L
         val builder = baseBuilder()
             .setContentText(text)
@@ -135,6 +154,7 @@ internal class StrengthRestService : Service() {
         if (Build.VERSION.SDK_INT >= 24) {
             builder.setChronometerCountDown(true)
         }
+        media?.update(exerciseName, remaining, totalSeconds, isPaused = false)
         runCatching { manager().notify(NOTIFICATION_ID, builder.build()) }
     }
 
@@ -170,7 +190,6 @@ internal class StrengthRestService : Service() {
             sound: Boolean = true,
             haptic: Boolean = true
         ) {
-            // Soft haptic al iniciar descanso (paridad RestFeedback iOS).
             if (haptic) {
                 runCatching {
                     val vibrator = if (android.os.Build.VERSION.SDK_INT >= 31) {

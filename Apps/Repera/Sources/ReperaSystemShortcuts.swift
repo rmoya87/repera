@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 enum ReperaSystemCommand {
     enum Destination: String {
-        case today, live, tools, exercises
+        case today, live, tools, exercises, boardScan
     }
 
     static let notification = Notification.Name("repera.systemCommand")
@@ -88,6 +88,20 @@ struct ReperaExerciseLibraryIntent: AppIntent {
     }
 }
 
+struct ReperaBoardScanIntent: AppIntent {
+    static let title: LocalizedStringResource = "Escanear pizarra en Repera"
+    static let description = IntentDescription(
+        "Abre el escáner OCR de pizarra. No inicia sensores ni HealthKit."
+    )
+    static let openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        ReperaSystemCommand.request(.boardScan)
+        return .result()
+    }
+}
+
 struct ReperaAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -123,6 +137,15 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Ejercicios",
             systemImageName: "magnifyingglass"
+        )
+        AppShortcut(
+            intent: ReperaBoardScanIntent(),
+            phrases: [
+                "Escanear pizarra en \(.applicationName)",
+                "Leer pizarra con \(.applicationName)"
+            ],
+            shortTitle: "Escanear pizarra",
+            systemImageName: "text.viewfinder"
         )
     }
 }

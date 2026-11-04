@@ -7,13 +7,15 @@ enum ReperaControlTarget: String, AppEnum {
     case live
     case tools
     case exercises
+    case boardScan
 
     static let typeDisplayRepresentation = TypeDisplayRepresentation("Pantallas de Repera")
     static let caseDisplayRepresentations: [ReperaControlTarget: DisplayRepresentation] = [
         .today: DisplayRepresentation("Entrenamiento de hoy"),
         .live: DisplayRepresentation("Comenzar"),
         .tools: DisplayRepresentation("Temporizador"),
-        .exercises: DisplayRepresentation("Ejercicios")
+        .exercises: DisplayRepresentation("Ejercicios"),
+        .boardScan: DisplayRepresentation("Escanear pizarra")
     ]
 }
 

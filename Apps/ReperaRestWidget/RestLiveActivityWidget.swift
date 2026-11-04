@@ -98,5 +98,6 @@ struct ReperaRestWidgetBundle: WidgetBundle {
         ReperaBeginControl()
         ReperaTodayControl()
         ReperaTimerControl()
+        ReperaBoardScanControl()
     }
 }
