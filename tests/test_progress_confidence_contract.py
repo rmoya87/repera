@@ -66,8 +66,12 @@ class ProgressConfidenceContractTests(unittest.TestCase):
             self.assertIn("ProgressMetricGlanceCard(", ios)
             self.assertIn('title: "Entrenos"', ios)
         self.assertNotIn("delta < 0 ? OG.yellow", ios)
-        # Android routes both tiers through ProgressMetricsTilesGrid.
-        self.assertIn("ProgressMetricsTilesGrid(snapshot, pro)", android)
+        # Android redesigned main uses a neutral glimpse grid for both tiers;
+        # legacy progress still uses a common metrics renderer.
+        if "ProgressMetricsTilesGrid(snapshot, pro)" in android:
+            self.assertIn("ProgressMetricsTilesGrid(snapshot, pro)", android)
+        else:
+            self.assertIn("ProgressTrainingGlanceGrid(snapshot, pro, averageText = avg)", android)
         self.assertIn("null -> MaterialTheme.colorScheme.onSurfaceVariant", android)
         self.assertIn("0 -> MaterialTheme.colorScheme.onSurfaceVariant", android)
         self.assertIn("else -> if (delta > 0) brandGreen else MaterialTheme.colorScheme.error", android)
