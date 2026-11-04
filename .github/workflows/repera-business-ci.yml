@@ -39,6 +39,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Check canonical Supabase migration history and security contracts
+        run: python3 -m unittest discover -s tests -p test_supabase_reconciliation_contract.py -v
       - name: Validate migration and smoke-test inventory
         run: |
           python3 - <<'PY'
