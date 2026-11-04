@@ -410,6 +410,12 @@ internal fun WorkoutHistoryDetailScreen(
      liveSportId = workout.liveSportID,
      persistedConditions = workout.activityConditions
     )
+    OutlinedButton(
+     onClick = { runCatching { WorkoutRouteShare.shareGPX(context, workout.routePoints) } },
+     modifier = Modifier.fillMaxWidth()
+    ) {
+     Text("Compartir recorrido GPX")
+    }
    }
   }
   // Bloques / ejercicios con thumb (paridad iOS exerciseCard).
