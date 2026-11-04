@@ -147,6 +147,20 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 
+#### Apple — XcodeGen y carpetas nuevas (GA4 / ReperaAnalytics)
+
+```yaml
+# ❌ BAD — solo existe en disco; un .xcodeproj antiguo omite Analytics/
+# Apps/Repera/Sources/Analytics/ReperaAnalytics.swift
+# → Cannot find 'ReperaAnalytics' in scope + type-check timeouts cascada
+
+# ✅ GOOD — referencia explícita + exclude del scan + check script
+# project.yml: - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift
+# scripts/check_xcode_sources.py REQUIRED + tests/test_xcode_sources.py
+```
+
+- Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
+
 #### Apple — WorkoutKit (PR #221)
 
 ```swift
@@ -157,6 +171,7 @@ try await plan.openInWorkoutApp()
 .workoutPreview(plan, isPresented: $showPreview)
 await WorkoutScheduler.shared.schedule(plan, at: when)
 ```
+
 
 - Auth del scheduler **no Sendable**: puente `nonisolated` → `rawValue` / outcome Sendable.
 - Intervalos: `CustomWorkout` / `IntervalBlock` solo con `supportsActivity` / `supportsGoal` / `supportsAlert`; nunca inventar GPS.

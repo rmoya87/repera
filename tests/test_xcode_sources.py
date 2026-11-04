@@ -30,6 +30,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "WorkoutLiveActivityCoordinator.swift").write_text("// ActivityKit", encoding="utf-8")
         (directory / "LiveSportHistoryView.swift").write_text("// Sport progress", encoding="utf-8")
         (directory / "OGDuoContextRail.swift").write_text("// Duo layout detection", encoding="utf-8")
+        (directory / "Analytics").mkdir()
+        (directory / "Analytics/ReperaAnalytics.swift").write_text("// GA4 adapter", encoding="utf-8")
         watch = self.root / "Apps/ReperaWatch/Sources"
         watch.mkdir(parents=True)
         for name in (
@@ -53,6 +55,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift\n"
             "      - path: Apps/Repera/Sources/LiveSportHistoryView.swift\n"
             "      - path: Apps/Repera/Sources/OGDuoContextRail.swift\n"
+            "      - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift\n"
             "      - path: Apps/Shared/TrainingActivityAttributes.swift\n"
             "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n"
             "      - path: Apps/Shared/AppleWeatherAttributionView.swift\n"
@@ -77,6 +80,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "WorkoutLiveActivityCoordinator.swift",
             "LiveSportHistoryView.swift",
             "OGDuoContextRail.swift",
+            "ReperaAnalytics.swift",
             "AppleWeatherConditionsClient.swift", "AppleWeatherAttributionView.swift",
         )
         app_pbx = (
@@ -388,6 +392,33 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ValueError, "BusinessWorkoutSyncStore.swift"):
+            validate(self.root)
+
+    def test_missing_analytics_adapter_requires_checkout_update(self):
+        path = self.root / "Apps/Repera/Sources/Analytics/ReperaAnalytics.swift"
+        path.unlink()
+        with self.assertRaisesRegex(ValueError, "ReperaAnalytics.swift"):
+            validate(self.root)
+
+    def test_stale_analytics_adapter_in_generated_target_is_rejected(self):
+        pbx = self.pbx.read_text(encoding="utf-8")
+        self.pbx.write_text(
+            pbx.replace("ReperaAnalytics.swift in Sources", ""),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "ReperaAnalytics.swift"):
+            validate(self.root)
+
+    def test_project_yml_must_list_analytics_adapter_explicitly(self):
+        spec = (self.root / "project.yml").read_text(encoding="utf-8")
+        (self.root / "project.yml").write_text(
+            spec.replace(
+                "      - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift\n",
+                "",
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "Analytics/ReperaAnalytics.swift"):
             validate(self.root)
 
 

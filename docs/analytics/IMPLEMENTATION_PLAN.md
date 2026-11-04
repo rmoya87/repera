@@ -23,7 +23,7 @@ El evento lógico y sus parámetros son comunes entre plataformas. `origin_platf
 
 ## Arquitectura de integración
 
-- Cliente iOS / Android: fachada `ReperaAnalytics` con allowlist de eventos y parámetros, consentimiento persistido y un adaptador Firebase; sin recursos de configuración del proyecto la salida permanece desactivada.
+- Cliente iOS / Android: fachada `ReperaAnalytics` con allowlist de eventos y parámetros, consentimiento persistido y un adaptador Firebase; sin recursos de configuración del proyecto la salida permanece desactivada. En iOS el archivo `Apps/Repera/Sources/Analytics/ReperaAnalytics.swift` va **explícito** en `project.yml` (XcodeGen 2.46 puede omitir la carpeta `Analytics/` del target); `scripts/check_xcode_sources.py` y `tests/test_xcode_sources.py` fallan si desaparece de Compile Sources.
 - Relojes: **NO** integrar Firebase directo en watchOS; no usar SDK ni conexión de red propia para telemetría en Wear sin necesidad. Crear mensajes tipados a móvil y una cola local de límite bajo, con ACK de recepción duradera y reintento con backoff. El teléfono revalida consentimiento y cuenta.
 - Diferenciar `source_of_truth` deportivo y telemetría: que la acción suceda, que se confirme en el repositorio/servidor, y que se emita el evento son procesos separados.
 - Un UUID de sesión se usa para deduplicación local y un `event_id` opaco para correlación técnica; ninguno se registra como dimensión personalizada de alta cardinalidad. En BigQuery se deduplica adicionalmente con la clave lógica de negocio.

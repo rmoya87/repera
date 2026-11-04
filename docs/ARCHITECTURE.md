@@ -209,6 +209,15 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | `PaywallView` / `ProTeaserCard` | Página comercial minimalista y banners Pro; iOS la muestra como overlay raíz (no sheet), Android como pantalla Compose completa |
 | Detalle | [MONETIZATION.md](MONETIZATION.md) |
 
+### Analytics (app, 2026-11-04)
+
+| Archivo | Rol |
+|---------|-----|
+| `Apps/Repera/Sources/Analytics/ReperaAnalytics.swift` | Fachada GA4 iOS (consentimiento off por defecto; Firebase opcional). Declarada **explícitamente** en `project.yml` para que XcodeGen no la omita. |
+| `android/.../analytics/ReperaAnalytics.kt` | Misma taxonomía (`analytics/contract.json`); sin cambios de flujo deportivo. |
+| `MonetizationAnalytics` (iOS/Android) | Reenvía los 8 eventos comerciales al adaptador canónico. |
+| Detalle | [analytics/IMPLEMENTATION_PLAN.md](analytics/IMPLEMENTATION_PLAN.md) |
+
 ## Swipe bidireccional de Inicio (27/10/2026)
 - `RegisterSwipeRevealCard` y su coordinador UIKit admiten `onEdit` opcional (revelado positivo, botón azul) y mantienen `onDelete` (negativo, rojo). `SwipeRevealMath` aplica umbrales simétricos y limita el desplazamiento positivo cuando la tarjeta no dispone de editor. El host preserva el bloqueo temporal del carrusel de chips y las animaciones de desplazamiento.
 - `HomeView` separa entrenos planificados propios (`state.routines`) y resultados propios (`state.workouts`) de las prescripciones de `BusinessDataStore`. Solo los dos primeros abren edición de `DayEditorView`, reutilizando `CompletedWorkoutEditing` para resultados. Las fichas de entrenador/gimnasio y de Apple Salud carecen de `onEdit`. Clase con plan en Inicio: chip «Clase», sin lápiz; swipe rojo → cancelar reserva (`homeBookingPendingCancellation` / Android `pendingClassCancellation`), no `removeScheduledRoutine`.
