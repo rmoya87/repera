@@ -104,7 +104,8 @@ internal fun finishAndSavePendingLiveActivity(
                 runtime.state.finishedMillis ?: now,
                 runtime.state.durationSeconds(now),
                 title,
-                ""
+                "",
+                locationPin = runtime.startLocationPin
             )
         }
         runtime.discard()
