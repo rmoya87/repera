@@ -33,533 +33,33 @@ struct SettingsView: View {
     @State private var googleLinkFeedback: String?
     @State private var openLinkedCenter: BusinessOrganization?
     var body: some View {
-        @Bindable var store = store
         Form {
             OGScrollablePageTitle("Ajustes").ogScrollingTitleListRow()
-            Section {
-                HStack(spacing: 12) {
-                    Button {
-                        isPhotoPickerPresented = true
-                    } label: {
-                        ZStack(alignment: .bottomTrailing) {
-                            iCloudAvatarBadge
-                                .frame(width: 52, height: 52)
-                            Group {
-                                if businessAuth.isGoogleSignedIn {
-                                    Image("GoogleSignInLogo")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .padding(4)
-                                        .background(.white, in: Circle())
-                                } else {
-                                    Image(systemName: "apple.logo")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                        .background(.black, in: Circle())
-                                }
-                            }
-                            .frame(width: 20, height: 20)
-                                .overlay(Circle().stroke(OG.bg, lineWidth: 2))
-                                .offset(x: 2, y: 2)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .photosPicker(
-                        isPresented: $isPhotoPickerPresented,
-                        selection: $photoItem,
-                        matching: .images,
-                        photoLibrary: .shared()
-                    )
-                    .accessibilityLabel("Cambiar foto de perfil")
-                    VStack(alignment: .leading, spacing: 4) {
-                        TextField(
-                            "Tu nombre",
-                            text: Binding(
-                                get: { store.state.settings.profileDisplayName ?? appleAuth.displayName ?? "" },
-                                set: {
-                                    var settings = store.state.settings
-                                    let trimmed = $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    settings.profileDisplayName = trimmed.isEmpty ? nil : trimmed
-                                    store.updateSettings(settings)
-                                }
-                            )
-                        )
-                        .font(.headline)
-                        .onSubmit {
-                            Task {
-                                await businessAuth.syncPublicProfile(
-                                    displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
-                                    avatarJPEG: store.state.settings.profileAvatarJPEG
-                                )
-                            }
-                        }
-                        if let email = businessAuth.accountEmail ?? appleAuth.email, !email.isEmpty {
-                            Text(email)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                        Button("Cerrar sesión", role: .destructive) {
-                            confirmSignOut = true
-                        }
-                        .font(.subheadline.weight(.medium))
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 6)
-                .onChange(of: photoItem) { _, item in
-                    guard let item else { return }
-                    Task { @MainActor in
-                        if let data = try? await item.loadTransferable(type: Data.self),
-                           let image = UIImage(data: data),
-                           let jpeg = ProfileAvatar.jpegData(from: image) {
-                            var settings = store.state.settings
-                            settings.profileAvatarJPEG = jpeg
-                            store.updateSettings(settings)
-                            await businessAuth.syncPublicProfile(
-                                displayName: settings.profileDisplayName ?? appleAuth.displayName,
-                                avatarJPEG: jpeg
-                            )
-                        }
-                        photoItem = nil
-                    }
-                }
-
-                if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
-                    Button {
-                        Task {
-                            let linked = await businessAuth.linkGoogleToCurrentAccount()
-                            googleLinkFeedback = linked
-                                ? "Google vinculado a esta cuenta."
-                                : businessAuth.lastErrorMessage
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image("GoogleSignInLogo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 22, height: 22)
-                            Text("Vincular con Google")
-                                .font(.system(size: 15, weight: .semibold))
-                            Spacer(minLength: 0)
-                            if businessAuth.isConnecting { ProgressView().controlSize(.small) }
-                        }
-                        .foregroundStyle(colorScheme == .dark
-                            ? Color(red: 227 / 255, green: 227 / 255, blue: 227 / 255)
-                            : Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255))
-                        .padding(.horizontal, 16)
-                        .frame(minHeight: 50)
-                        .background(colorScheme == .dark
-                            ? Color(red: 19 / 255, green: 19 / 255, blue: 20 / 255)
-                            : .white, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(colorScheme == .dark
-                                    ? Color(red: 142 / 255, green: 145 / 255, blue: 143 / 255)
-                                    : Color(red: 116 / 255, green: 119 / 255, blue: 117 / 255),
-                                    lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(businessAuth.isConnecting)
-                }
-                if let googleLinkFeedback {
-                    Text(googleLinkFeedback)
-                        .font(.caption)
-                        .foregroundStyle(OG.label2)
-                }
-            } header: {
-                Text("Cuenta")
-            }
-
-            Section {
-                if !businessData.invitations.isEmpty {
-                    ForEach(businessData.invitations) { invite in
-                        let preview = businessData.invitationPreview(for: invite.id)
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(preview?.organizationName ?? "Invitación pendiente")
-                                .font(.headline)
-                            Text(preview.map { "\($0.kindLabel) · aceptar para ver clases y bonos" }
-                                   ?? "Acepta para vincular tu cuenta con el centro")
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                            HStack(spacing: 10) {
-                                Button("Aceptar") {
-                                    Task { await businessData.accept(invite) }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(OG.accent)
-                                .disabled(businessData.isSubmitting)
-                                Button("Rechazar", role: .destructive) {
-                                    Task { await businessData.decline(invite) }
-                                }
-                                .disabled(businessData.isSubmitting)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .task {
-                            _ = await businessData.loadInvitationPreview(id: invite.id)
-                        }
-                    }
-                }
-
-                let linked = businessData.linkedCenters()
-                ForEach(linked) { center in
-                    NavigationLink {
-                        LinkedCenterDetailView(center: center)
-                    } label: {
-                        CenterRow(center: center, linked: true)
-                    }
-                }
-
-                NavigationLink {
-                    FindCenterTrainerView()
-                } label: {
-                    Label("Buscar", systemImage: "magnifyingglass")
-                        .foregroundStyle(OG.label)
-                }
-
-                // La identidad Apple y la sesión Supabase se obtienen en el login.
-                // Ajustes nunca solicita otra autorización Apple para Business.
-            } header: {
-                Text("Centro y entrenador")
-            }
-
-
-            Section {
-                if subscriptions.businessSponsoredAccess {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Acceso completo")
-                                .font(.headline)
-                            Text(
-                                businessData.entitlements?.primarySponsorName.map { "Incluido por \($0)" }
-                                    ?? "Incluido con tu centro o entrenador"
-                            )
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            if let until = businessData.entitlements?.sponsors.first?.validUntil,
-                               let end = BusinessDataStore.date(until) {
-                                Text("Válido hasta \(end.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if businessData.entitlements?.storeGatePending == true {
-                                Text("Cumplimiento App Store / Play pendiente de gate de producto.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(OG.label)
-                    }
-                } else if subscriptions.snapshot.grantsProAccess {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Repera Pro activo")
-                                .font(.headline)
-                            Text(subscriptions.status.displayName)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            if let exp = subscriptions.snapshot.expirationDate {
-                                Text("Renueva o finaliza: \(exp.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: "checkmark.seal.fill")
-                            .foregroundStyle(OG.label)
-                    }
-                    Button("Gestionar suscripción") {
-                        openURL(CommercialConfig.manageSubscriptionsURL)
-                    }
-                    .foregroundStyle(OG.label)
-                } else {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Repera Pro")
-                                .font(.headline)
-                            Text("O vincula un centro para acceso completo")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(OG.label)
-                    }
-                    Button("Descubrir Pro") {
-                        subscriptions.presentPaywall(.settings, feature: .advancedProgress)
-                    }
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OG.label)
-                }
-                if !subscriptions.businessSponsoredAccess {
-                    Button {
-                        guard !isVerifyingSubscription else { return }
-                        isVerifyingSubscription = true
-                        Task {
-                            await subscriptions.refreshEntitlementsForFeatureAction()
-                            isVerifyingSubscription = false
-                            accessFeedbackTitle = "Comprobar acceso Pro"
-                            if subscriptions.snapshot.grantsProAccess,
-                               subscriptions.snapshot.status == .unknown {
-                                restoreMessage = "Acceso Pro conservado desde la última verificación. No se ha podido comprobar de nuevo la compra ahora mismo. Prueba «Restaurar compras» cuando tengas conexión."
-                            } else if subscriptions.snapshot.grantsProAccess {
-                                restoreMessage = "Acceso \(subscriptions.status.displayName) verificado en este dispositivo. Las compras de prueba de TestFlight no tienen por qué aparecer en la lista de suscripciones reales de Apple."
-                            } else {
-                                restoreMessage = "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
-                            }
-                        }
-                    } label: {
-                        Label(
-                            isVerifyingSubscription ? "Comprobando acceso…" : "Comprobar acceso Pro",
-                            systemImage: "checkmark.shield"
-                        )
-                    }
-                    .disabled(isVerifyingSubscription || subscriptions.purchaseInFlight)
-                    .foregroundStyle(OG.label)
-                    Button("Restaurar compras") {
-                        Task {
-                            let ok = await subscriptions.restorePurchases()
-                            accessFeedbackTitle = "Restaurar compras"
-                            restoreMessage = ok
-                                ? "Suscripción restaurada."
-                                : (subscriptions.lastErrorMessage ?? "No se encontró ninguna suscripción.")
-                        }
-                    }
-                    .disabled(subscriptions.purchaseInFlight)
-                    .foregroundStyle(OG.label)
-                }
-                NavigationLink {
-                    AIAccessView()
-                } label: {
-                    Label("Conecta tu IA", systemImage: "brain.head.profile")
-                        .foregroundStyle(OG.label)
-                }
-            } header: {
-                Text("Acceso")
-            }
-
+            SettingsAccountSection(
+                photoItem: $photoItem,
+                isPhotoPickerPresented: $isPhotoPickerPresented,
+                confirmSignOut: $confirmSignOut,
+                googleLinkFeedback: $googleLinkFeedback
+            )
+            SettingsCentersSection()
+            SettingsAccessSection(
+                restoreMessage: $restoreMessage,
+                accessFeedbackTitle: $accessFeedbackTitle,
+                isVerifyingSubscription: $isVerifyingSubscription
+            )
             #if DEBUG
-            Section {
-                Toggle("Simular suscripción", isOn: Binding(
-                    get: { DebugEntitlementController.shared.overrideEnabled },
-                    set: {
-                        DebugEntitlementController.shared.overrideEnabled = $0
-                        subscriptions.applyDebugProvider()
-                    }
-                ))
-                Picker("Estado", selection: Binding(
-                    get: { DebugEntitlementController.shared.forcedStatus },
-                    set: {
-                        DebugEntitlementController.shared.forcedStatus = $0
-                        DebugEntitlementController.shared.overrideEnabled = true
-                        subscriptions.applyDebugProvider()
-                    }
-                )) {
-                    ForEach([
-                        SubscriptionStatus.free,
-                        .trial,
-                        .proMonthly,
-                        .proAnnual,
-                        .gracePeriod,
-                        .expired,
-                        .revoked,
-                        .unknown,
-                    ], id: \.self) { status in
-                        Text(status.displayName).tag(status)
-                    }
-                }
-                Toggle("Simular offline", isOn: Binding(
-                    get: { DebugEntitlementController.shared.simulateOffline },
-                    set: {
-                        DebugEntitlementController.shared.simulateOffline = $0
-                        subscriptions.applyDebugProvider()
-                    }
-                ))
-                Button("Reset cuota escáner") {
-                    subscriptions.freeUsage.resetForDebug()
-                }
-            } header: {
-                Text("Debug Pro (solo Debug)")
-            }
+            SettingsDebugProSection()
             #endif
-
-            Section {
-                permissionStatusRow(
-                    title: "Notificaciones",
-                    detail: notificationsStatusLabel,
-                    symbol: "bell"
-                ) {
-                    Task {
-                        _ = try? await UNUserNotificationCenter.current()
-                            .requestAuthorization(options: [.alert, .sound, .badge])
-                        await refreshNotificationsStatus()
-                    }
-                }
-                if health.hasDecidedHealthSharing {
-                    // Ya autorizado o denegado: gestionar en Ajustes del iPhone → Repera / Salud.
-                    Button {
-                        health.refreshAuthorizationStatus()
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            openURL(url)
-                        }
-                    } label: {
-                        HStack(spacing: 10) {
-                            Label("Apple Salud", systemImage: "heart")
-                                .foregroundStyle(OG.label)
-                            Spacer(minLength: 8)
-                            Text(health.isAuthorized ? "Conectada" : "Revisar en Ajustes")
-                                .font(.subheadline)
-                                .foregroundStyle(OG.label2)
-                        }
-                    }
-                } else {
-                    NavigationLink {
-                        ConnectedHealthSettingsView()
-                    } label: {
-                        Label("Conectar con Salud", systemImage: "heart")
-                            .foregroundStyle(OG.label)
-                    }
-                }
-
-                permissionStatusRow(
-                    title: "Ubicación",
-                    detail: location.isAuthorized ? "Permitida" : "No permitida",
-                    symbol: "location"
-                ) {
-                    Task {
-                        let ok = await location.ensureWhenInUseAuthorized()
-                        location.refreshStatus()
-                        if !ok,
-                           location.authorizationStatus == .denied
-                            || location.authorizationStatus == .restricted,
-                           let url = URL(string: UIApplication.openSettingsURLString) {
-                            openURL(url)
-                        }
-                    }
-                }
-
-                NavigationLink {
-                    HealthGoalsView()
-                } label: {
-                    Label("Objetivos", systemImage: "target")
-                        .foregroundStyle(OG.label)
-                }
-
-                NavigationLink {
-                    BodyWeightListView()
-                } label: {
-                    HStack {
-                        Label("Peso", systemImage: "scalemass")
-                            .foregroundStyle(OG.label)
-                        Spacer()
-                        if let latest = store.state.bodyWeights.first {
-                            Text("\(ReperaNumberFormat.decimal(latest.weightKg)) kg")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        } else if let kg = health.latestWeightKg {
-                            Text("\(ReperaNumberFormat.decimal(kg)) kg")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-                }
-            } header: {
-                Text("Salud")
-            }
-            .task {
-                await refreshNotificationsStatus()
-                location.refreshStatus()
-            }
-
-            Section("Entrenamiento") {
-                // Programas IA: se aplican en Inicio el día asignado; no hay pantalla aquí.
-                Stepper(value: Binding(
-                    get: { store.state.settings.heartRateMaxBpm ?? 190 },
-                    set: { next in
-                        var settings = store.state.settings
-                        settings.heartRateMaxBpm = min(230, max(120, next))
-                        store.updateSettings(settings)
-                    }
-                ), in: 120...230, step: 1) {
-                    HStack(spacing: 10) {
-                        Label("FC máxima", systemImage: "heart")
-                        Spacer(minLength: 8)
-                        Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                }
-                NavigationLink {
-                    HistoryView()
-                } label: {
-                    Label("Historial", systemImage: "clock")
-                        .foregroundStyle(OG.label)
-                }
-                Picker("Unidad", selection: Binding(
-                    get: { store.state.settings.weightUnit },
-                    set: {
-                        var s = store.state.settings
-                        s.weightUnit = $0
-                        store.updateSettings(s)
-                    }
-                )) {
-                    Text("kg").tag(WeightUnit.kg)
-                    Text("lb").tag(WeightUnit.lb)
-                }
-                Picker("Semana empieza", selection: Binding(
-                    get: { store.state.settings.weekStartsOn },
-                    set: {
-                        var s = store.state.settings
-                        s.weekStartsOn = $0
-                        store.updateSettings(s)
-                    }
-                )) {
-                    Text("Lunes").tag(WeekStart.monday)
-                    Text("Domingo").tag(WeekStart.sunday)
-                }
-                Picker("Esfuerzo (registro)", selection: Binding(
-                    get: { store.state.settings.effortUnit },
-                    set: {
-                        var s = store.state.settings
-                        s.effortUnit = $0
-                        store.updateSettings(s)
-                    }
-                )) {
-                    ForEach(EffortUnit.allCases, id: \.self) { unit in
-                        Text(unit.displayName).tag(unit)
-                    }
-                }
-
-            }
-
-            Section("Datos") {
-                Button("Exportar JSON") { exportBackup() }
-                Button("Importar JSON") { showingImporter = true }
-                Button("Importar CSV Strong/Hevy") { showingCSVImporter = true }
-                if let summary = store.lastImportSummary {
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let importFeedback {
-                    Text(importFeedback)
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                }
-                Button("Eliminar mi cuenta", role: .destructive) {
-                    confirmDeleteAccount = true
-                }
-                .disabled(isDeletingAccount)
-            } footer: {
-                Text("Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.")
-                    .font(.caption2)
-            }
+            SettingsHealthSection(notificationsStatus: $notificationsStatus)
+            SettingsTrainingSection()
+            SettingsDataSection(
+                showingImporter: $showingImporter,
+                showingCSVImporter: $showingCSVImporter,
+                confirmDeleteAccount: $confirmDeleteAccount,
+                isDeletingAccount: isDeletingAccount,
+                importFeedback: importFeedback,
+                onExportBackup: exportBackup
+            )
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
@@ -686,56 +186,9 @@ struct SettingsView: View {
         }
     }
 
-    private var notificationsStatusLabel: String {
-        switch notificationsStatus {
-        case .authorized, .provisional, .ephemeral: return "Permitidas"
-        case .denied: return "Denegadas"
-        default: return "Sin configurar"
-        }
-    }
-
     private func refreshNotificationsStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         notificationsStatus = settings.authorizationStatus
-    }
-
-    private func permissionStatusRow(
-        title: String,
-        detail: String,
-        symbol: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack {
-                Label(title, systemImage: symbol)
-                    .foregroundStyle(OG.label)
-                Spacer()
-                Text(detail)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var iCloudAvatarBadge: some View {
-        let synced = store.iCloudStatus == .available
-        ZStack {
-            Circle()
-                .fill(synced ? OG.label.opacity(0.12) : OG.surface2)
-                .frame(width: 44, height: 44)
-            if let img = ProfileAvatar.uiImage(from: store.state.settings.profileAvatarJPEG) {
-                Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-            } else {
-                Image(systemName: synced ? "person.crop.circle.fill" : "icloud.slash")
-                    .font(.system(size: synced ? 26 : 18, weight: .regular))
-                    .foregroundStyle(synced ? OG.label : OG.label2)
-            }
-        }
     }
 
     /// Backup del usuario (no sustituye credenciales ni autoriza acciones remotas).
@@ -930,6 +383,770 @@ struct SettingsView: View {
         } catch {
             importFeedback = "No se pudo exportar JSON: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - Secciones extraídas (type-check)
+
+private struct SettingsAccountSection: View {
+    @Environment(ReperaStore.self) private var store
+    @Environment(AppleAuthStore.self) private var appleAuth
+    @Environment(BusinessAuthStore.self) private var businessAuth
+    @Environment(\.colorScheme) private var colorScheme
+
+    @Binding var photoItem: PhotosPickerItem?
+    @Binding var isPhotoPickerPresented: Bool
+    @Binding var confirmSignOut: Bool
+    @Binding var googleLinkFeedback: String?
+
+    var body: some View {
+        Section {
+            profileRow
+            googleLinkButton
+            if let googleLinkFeedback {
+                Text(googleLinkFeedback)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+        } header: {
+            Text("Cuenta")
+        }
+    }
+
+    private var profileRow: some View {
+        HStack(spacing: 12) {
+            avatarButton
+            profileFields
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            Task { @MainActor in
+                await applyPickedPhoto(item)
+                photoItem = nil
+            }
+        }
+    }
+
+    private var avatarButton: some View {
+        Button {
+            isPhotoPickerPresented = true
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                iCloudAvatarBadge
+                    .frame(width: 52, height: 52)
+                providerBadge
+                    .frame(width: 20, height: 20)
+                    .overlay(Circle().stroke(OG.bg, lineWidth: 2))
+                    .offset(x: 2, y: 2)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .photosPicker(
+            isPresented: $isPhotoPickerPresented,
+            selection: $photoItem,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .accessibilityLabel("Cambiar foto de perfil")
+    }
+
+    @ViewBuilder
+    private var providerBadge: some View {
+        if businessAuth.isGoogleSignedIn {
+            Image("GoogleSignInLogo")
+                .resizable()
+                .scaledToFit()
+                .padding(4)
+                .background(.white, in: Circle())
+        } else {
+            Image(systemName: "apple.logo")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white)
+                .background(.black, in: Circle())
+        }
+    }
+
+    private var profileFields: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            TextField("Tu nombre", text: displayNameBinding)
+                .font(.headline)
+                .onSubmit {
+                    Task {
+                        await businessAuth.syncPublicProfile(
+                            displayName: store.state.settings.profileDisplayName ?? appleAuth.displayName,
+                            avatarJPEG: store.state.settings.profileAvatarJPEG
+                        )
+                    }
+                }
+            if let email = businessAuth.accountEmail ?? appleAuth.email, !email.isEmpty {
+                Text(email)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Button("Cerrar sesión", role: .destructive) {
+                confirmSignOut = true
+            }
+            .font(.subheadline.weight(.medium))
+        }
+    }
+
+    private var displayNameBinding: Binding<String> {
+        Binding(
+            get: { store.state.settings.profileDisplayName ?? appleAuth.displayName ?? "" },
+            set: { next in
+                var settings = store.state.settings
+                let trimmed = next.trimmingCharacters(in: .whitespacesAndNewlines)
+                settings.profileDisplayName = trimmed.isEmpty ? nil : trimmed
+                store.updateSettings(settings)
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var googleLinkButton: some View {
+        if businessAuth.isConnected, !businessAuth.isGoogleSignedIn {
+            Button {
+                Task {
+                    let linked = await businessAuth.linkGoogleToCurrentAccount()
+                    googleLinkFeedback = linked
+                        ? "Google vinculado a esta cuenta."
+                        : businessAuth.lastErrorMessage
+                }
+            } label: {
+                googleLinkLabel
+            }
+            .buttonStyle(.plain)
+            .disabled(businessAuth.isConnecting)
+        }
+    }
+
+    private var googleLinkLabel: some View {
+        HStack(spacing: 12) {
+            Image("GoogleSignInLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 22, height: 22)
+            Text("Vincular con Google")
+                .font(.system(size: 15, weight: .semibold))
+            Spacer(minLength: 0)
+            if businessAuth.isConnecting { ProgressView().controlSize(.small) }
+        }
+        .foregroundStyle(googleLinkForeground)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+        .background(googleLinkBackground, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(googleLinkBorder, lineWidth: 1)
+        }
+    }
+
+    private var googleLinkForeground: Color {
+        colorScheme == .dark
+            ? Color(red: 227 / 255, green: 227 / 255, blue: 227 / 255)
+            : Color(red: 31 / 255, green: 31 / 255, blue: 31 / 255)
+    }
+
+    private var googleLinkBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 19 / 255, green: 19 / 255, blue: 20 / 255)
+            : .white
+    }
+
+    private var googleLinkBorder: Color {
+        colorScheme == .dark
+            ? Color(red: 142 / 255, green: 145 / 255, blue: 143 / 255)
+            : Color(red: 116 / 255, green: 119 / 255, blue: 117 / 255)
+    }
+
+    @ViewBuilder
+    private var iCloudAvatarBadge: some View {
+        let synced = store.iCloudStatus == .available
+        ZStack {
+            Circle()
+                .fill(synced ? OG.label.opacity(0.12) : OG.surface2)
+                .frame(width: 44, height: 44)
+            if let img = ProfileAvatar.uiImage(from: store.state.settings.profileAvatarJPEG) {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: synced ? "person.crop.circle.fill" : "icloud.slash")
+                    .font(.system(size: synced ? 26 : 18, weight: .regular))
+                    .foregroundStyle(synced ? OG.label : OG.label2)
+            }
+        }
+    }
+
+    @MainActor
+    private func applyPickedPhoto(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data),
+              let jpeg = ProfileAvatar.jpegData(from: image)
+        else { return }
+        var settings = store.state.settings
+        settings.profileAvatarJPEG = jpeg
+        store.updateSettings(settings)
+        await businessAuth.syncPublicProfile(
+            displayName: settings.profileDisplayName ?? appleAuth.displayName,
+            avatarJPEG: jpeg
+        )
+    }
+}
+
+private struct SettingsCentersSection: View {
+    @Environment(BusinessDataStore.self) private var businessData
+
+    var body: some View {
+        Section {
+            if !businessData.invitations.isEmpty {
+                ForEach(businessData.invitations) { invite in
+                    SettingsInvitationRow(invite: invite)
+                }
+            }
+
+            let linked = businessData.linkedCenters()
+            ForEach(linked) { center in
+                NavigationLink {
+                    LinkedCenterDetailView(center: center)
+                } label: {
+                    CenterRow(center: center, linked: true)
+                }
+            }
+
+            NavigationLink {
+                FindCenterTrainerView()
+            } label: {
+                Label("Buscar", systemImage: "magnifyingglass")
+                    .foregroundStyle(OG.label)
+            }
+        } header: {
+            Text("Centro y entrenador")
+        }
+    }
+}
+
+private struct SettingsInvitationRow: View {
+    let invite: BusinessInvitation
+    @Environment(BusinessDataStore.self) private var businessData
+
+    private var preview: BusinessInvitationPreview? {
+        businessData.invitationPreview(for: invite.id)
+    }
+
+    private var title: String {
+        preview?.organizationName ?? "Invitación pendiente"
+    }
+
+    private var subtitle: String {
+        if let preview {
+            return "\(preview.kindLabel) · aceptar para ver clases y bonos"
+        }
+        return "Acepta para vincular tu cuenta con el centro"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+            HStack(spacing: 10) {
+                Button("Aceptar") {
+                    Task { await businessData.accept(invite) }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .disabled(businessData.isSubmitting)
+                Button("Rechazar", role: .destructive) {
+                    Task { await businessData.decline(invite) }
+                }
+                .disabled(businessData.isSubmitting)
+            }
+        }
+        .padding(.vertical, 4)
+        .task {
+            _ = await businessData.loadInvitationPreview(id: invite.id)
+        }
+    }
+}
+
+private struct SettingsAccessSection: View {
+    @Environment(SubscriptionManager.self) private var subscriptions
+    @Binding var restoreMessage: String?
+    @Binding var accessFeedbackTitle: String
+    @Binding var isVerifyingSubscription: Bool
+
+    var body: some View {
+        Section {
+            SettingsMembershipRows()
+            if !subscriptions.businessSponsoredAccess {
+                verifyAccessButton
+                restorePurchasesButton
+            }
+            NavigationLink {
+                AIAccessView()
+            } label: {
+                Label("Conecta tu IA", systemImage: "brain.head.profile")
+                    .foregroundStyle(OG.label)
+            }
+        } header: {
+            Text("Acceso")
+        }
+    }
+
+    private var verifyAccessButton: some View {
+        Button {
+            guard !isVerifyingSubscription else { return }
+            isVerifyingSubscription = true
+            Task {
+                await subscriptions.refreshEntitlementsForFeatureAction()
+                isVerifyingSubscription = false
+                accessFeedbackTitle = "Comprobar acceso Pro"
+                restoreMessage = verifyAccessMessage
+            }
+        } label: {
+            Label(
+                isVerifyingSubscription ? "Comprobando acceso…" : "Comprobar acceso Pro",
+                systemImage: "checkmark.shield"
+            )
+        }
+        .disabled(isVerifyingSubscription || subscriptions.purchaseInFlight)
+        .foregroundStyle(OG.label)
+    }
+
+    private var verifyAccessMessage: String {
+        if subscriptions.snapshot.grantsProAccess,
+           subscriptions.snapshot.status == .unknown {
+            return "Acceso Pro conservado desde la última verificación. No se ha podido comprobar de nuevo la compra ahora mismo. Prueba «Restaurar compras» cuando tengas conexión."
+        }
+        if subscriptions.snapshot.grantsProAccess {
+            return "Acceso \(subscriptions.status.displayName) verificado en este dispositivo. Las compras de prueba de TestFlight no tienen por qué aparecer en la lista de suscripciones reales de Apple."
+        }
+        return "No se ha encontrado un acceso Pro activo para esta cuenta de compras. Si ya activaste una suscripción de prueba, utiliza «Restaurar compras»."
+    }
+
+    private var restorePurchasesButton: some View {
+        Button("Restaurar compras") {
+            Task {
+                let ok = await subscriptions.restorePurchases()
+                accessFeedbackTitle = "Restaurar compras"
+                restoreMessage = ok
+                    ? "Suscripción restaurada."
+                    : (subscriptions.lastErrorMessage ?? "No se encontró ninguna suscripción.")
+            }
+        }
+        .disabled(subscriptions.purchaseInFlight)
+        .foregroundStyle(OG.label)
+    }
+}
+
+#if DEBUG
+private struct SettingsDebugProSection: View {
+    @Environment(SubscriptionManager.self) private var subscriptions
+
+    var body: some View {
+        Section {
+            Toggle("Simular suscripción", isOn: Binding(
+                get: { DebugEntitlementController.shared.overrideEnabled },
+                set: {
+                    DebugEntitlementController.shared.overrideEnabled = $0
+                    subscriptions.applyDebugProvider()
+                }
+            ))
+            Picker("Estado", selection: Binding(
+                get: { DebugEntitlementController.shared.forcedStatus },
+                set: {
+                    DebugEntitlementController.shared.forcedStatus = $0
+                    DebugEntitlementController.shared.overrideEnabled = true
+                    subscriptions.applyDebugProvider()
+                }
+            )) {
+                ForEach([
+                    SubscriptionStatus.free,
+                    .trial,
+                    .proMonthly,
+                    .proAnnual,
+                    .gracePeriod,
+                    .expired,
+                    .revoked,
+                    .unknown,
+                ], id: \.self) { status in
+                    Text(status.displayName).tag(status)
+                }
+            }
+            Toggle("Simular offline", isOn: Binding(
+                get: { DebugEntitlementController.shared.simulateOffline },
+                set: {
+                    DebugEntitlementController.shared.simulateOffline = $0
+                    subscriptions.applyDebugProvider()
+                }
+            ))
+            Button("Reset cuota escáner") {
+                subscriptions.freeUsage.resetForDebug()
+            }
+        } header: {
+            Text("Debug Pro (solo Debug)")
+        }
+    }
+}
+#endif
+
+private struct SettingsHealthSection: View {
+    @Environment(ReperaStore.self) private var store
+    @Environment(HealthKitStore.self) private var health
+    @Environment(WorkoutLocationTracker.self) private var location
+    @Environment(\.openURL) private var openURL
+    @Binding var notificationsStatus: UNAuthorizationStatus
+
+    var body: some View {
+        Section {
+            permissionStatusRow(
+                title: "Notificaciones",
+                detail: notificationsStatusLabel,
+                symbol: "bell"
+            ) {
+                Task {
+                    _ = try? await UNUserNotificationCenter.current()
+                        .requestAuthorization(options: [.alert, .sound, .badge])
+                    await refreshNotificationsStatus()
+                }
+            }
+            healthConnectionRow
+            permissionStatusRow(
+                title: "Ubicación",
+                detail: location.isAuthorized ? "Permitida" : "No permitida",
+                symbol: "location"
+            ) {
+                Task { await requestLocationPermission() }
+            }
+            NavigationLink {
+                HealthGoalsView()
+            } label: {
+                Label("Objetivos", systemImage: "target")
+                    .foregroundStyle(OG.label)
+            }
+            NavigationLink {
+                BodyWeightListView()
+            } label: {
+                weightRowLabel
+            }
+        } header: {
+            Text("Salud")
+        }
+        .task {
+            await refreshNotificationsStatus()
+            location.refreshStatus()
+        }
+    }
+
+    @ViewBuilder
+    private var healthConnectionRow: some View {
+        if health.hasDecidedHealthSharing {
+            Button {
+                health.refreshAuthorizationStatus()
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Label("Apple Salud", systemImage: "heart")
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
+                    Text(health.isAuthorized ? "Conectada" : "Revisar en Ajustes")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                }
+            }
+        } else {
+            NavigationLink {
+                ConnectedHealthSettingsView()
+            } label: {
+                Label("Conectar con Salud", systemImage: "heart")
+                    .foregroundStyle(OG.label)
+            }
+        }
+    }
+
+    private var weightRowLabel: some View {
+        HStack {
+            Label("Peso", systemImage: "scalemass")
+                .foregroundStyle(OG.label)
+            Spacer()
+            if let latest = store.state.bodyWeights.first {
+                Text("\(ReperaNumberFormat.decimal(latest.weightKg)) kg")
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            } else if let kg = health.latestWeightKg {
+                Text("\(ReperaNumberFormat.decimal(kg)) kg")
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var notificationsStatusLabel: String {
+        switch notificationsStatus {
+        case .authorized, .provisional, .ephemeral: return "Permitidas"
+        case .denied: return "Denegadas"
+        default: return "Sin configurar"
+        }
+    }
+
+    private func refreshNotificationsStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        notificationsStatus = settings.authorizationStatus
+    }
+
+    private func requestLocationPermission() async {
+        let ok = await location.ensureWhenInUseAuthorized()
+        location.refreshStatus()
+        if !ok,
+           location.authorizationStatus == .denied
+            || location.authorizationStatus == .restricted,
+           let url = URL(string: UIApplication.openSettingsURLString) {
+            openURL(url)
+        }
+    }
+
+    private func permissionStatusRow(
+        title: String,
+        detail: String,
+        symbol: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack {
+                Label(title, systemImage: symbol)
+                    .foregroundStyle(OG.label)
+                Spacer()
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct SettingsTrainingSection: View {
+    @Environment(ReperaStore.self) private var store
+
+    var body: some View {
+        Section("Entrenamiento") {
+            Stepper(value: heartRateBinding, in: 120...230, step: 1) {
+                HStack(spacing: 10) {
+                    Label("FC máxima", systemImage: "heart")
+                    Spacer(minLength: 8)
+                    Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            NavigationLink {
+                HistoryView()
+            } label: {
+                Label("Historial", systemImage: "clock")
+                    .foregroundStyle(OG.label)
+            }
+            Picker("Unidad", selection: weightUnitBinding) {
+                Text("kg").tag(WeightUnit.kg)
+                Text("lb").tag(WeightUnit.lb)
+            }
+            Picker("Semana empieza", selection: weekStartBinding) {
+                Text("Lunes").tag(WeekStart.monday)
+                Text("Domingo").tag(WeekStart.sunday)
+            }
+            Picker("Esfuerzo (registro)", selection: effortUnitBinding) {
+                ForEach(EffortUnit.allCases, id: \.self) { unit in
+                    Text(unit.displayName).tag(unit)
+                }
+            }
+        }
+    }
+
+    private var heartRateBinding: Binding<Int> {
+        Binding(
+            get: { store.state.settings.heartRateMaxBpm ?? 190 },
+            set: { next in
+                var settings = store.state.settings
+                settings.heartRateMaxBpm = min(230, max(120, next))
+                store.updateSettings(settings)
+            }
+        )
+    }
+
+    private var weightUnitBinding: Binding<WeightUnit> {
+        Binding(
+            get: { store.state.settings.weightUnit },
+            set: {
+                var s = store.state.settings
+                s.weightUnit = $0
+                store.updateSettings(s)
+            }
+        )
+    }
+
+    private var weekStartBinding: Binding<WeekStart> {
+        Binding(
+            get: { store.state.settings.weekStartsOn },
+            set: {
+                var s = store.state.settings
+                s.weekStartsOn = $0
+                store.updateSettings(s)
+            }
+        )
+    }
+
+    private var effortUnitBinding: Binding<EffortUnit> {
+        Binding(
+            get: { store.state.settings.effortUnit },
+            set: {
+                var s = store.state.settings
+                s.effortUnit = $0
+                store.updateSettings(s)
+            }
+        )
+    }
+}
+
+private struct SettingsDataSection: View {
+    @Environment(ReperaStore.self) private var store
+    @Binding var showingImporter: Bool
+    @Binding var showingCSVImporter: Bool
+    @Binding var confirmDeleteAccount: Bool
+    let isDeletingAccount: Bool
+    let importFeedback: String?
+    let onExportBackup: () -> Void
+
+    var body: some View {
+        Section {
+            Button("Exportar JSON", action: onExportBackup)
+            Button("Importar JSON") { showingImporter = true }
+            Button("Importar CSV Strong/Hevy") { showingCSVImporter = true }
+            if let summary = store.lastImportSummary {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let importFeedback {
+                Text(importFeedback)
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+            }
+            Button("Eliminar mi cuenta", role: .destructive) {
+                confirmDeleteAccount = true
+            }
+            .disabled(isDeletingAccount)
+        } header: {
+            Text("Datos")
+        } footer: {
+            Text("Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.")
+                .font(.caption2)
+        }
+    }
+}
+
+private struct SettingsMembershipRows: View {
+    @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(BusinessDataStore.self) private var businessData
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        if subscriptions.businessSponsoredAccess {
+            sponsoredAccessRow
+        } else if subscriptions.snapshot.grantsProAccess {
+            activeProRow
+        } else {
+            lockedProRow
+        }
+    }
+
+    @ViewBuilder
+    private var sponsoredAccessRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Acceso completo")
+                    .font(.headline)
+                Text(sponsorCaption)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let until = businessData.entitlements?.sponsors.first?.validUntil,
+                   let end = BusinessDataStore.date(until) {
+                    Text("Válido hasta \(end.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if businessData.entitlements?.storeGatePending == true {
+                    Text("Cumplimiento App Store / Play pendiente de gate de producto.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(OG.label)
+        }
+    }
+
+    private var sponsorCaption: String {
+        if let name = businessData.entitlements?.primarySponsorName {
+            return "Incluido por \(name)"
+        }
+        return "Incluido con tu centro o entrenador"
+    }
+
+    @ViewBuilder
+    private var activeProRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Repera Pro activo")
+                    .font(.headline)
+                Text(subscriptions.status.displayName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let exp = subscriptions.snapshot.expirationDate {
+                    Text("Renueva o finaliza: \(exp.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(OG.label)
+        }
+        Button("Gestionar suscripción") {
+            openURL(CommercialConfig.manageSubscriptionsURL)
+        }
+        .foregroundStyle(OG.label)
+    }
+
+    @ViewBuilder
+    private var lockedProRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Repera Pro")
+                    .font(.headline)
+                Text("O vincula un centro para acceso completo")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "lock.fill")
+                .foregroundStyle(OG.label)
+        }
+        Button("Descubrir Pro") {
+            subscriptions.presentPaywall(.settings, feature: .advancedProgress)
+        }
+        .fontWeight(.semibold)
+        .foregroundStyle(OG.label)
     }
 }
 

@@ -2,6 +2,25 @@ import ReperaDomain
 import SwiftUI
 import UIKit
 
+/// Rutas locales del arte remoto (mismo directorio que `RemoteExerciseArtCache`).
+/// Vivir en este archivo evita errores SourceKit «Cannot find in scope» si el índice va atrasado.
+fileprivate enum ExerciseArtRemoteDisk {
+    nonisolated static func fileURL(for stem: String) -> URL {
+        let safe = stem
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "..", with: "_")
+        return FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        )[0]
+        .appendingPathComponent("Repera/ExerciseArtRemote", isDirectory: true)
+        .appendingPathComponent("\(safe).jpg")
+    }
+
+    nonisolated static func hasFile(for stem: String) -> Bool {
+        FileManager.default.fileExists(atPath: fileURL(for: stem).path)
+    }
+}
+
 /// Ilustraciones originales Repera (hero + pasos `_1`, `_2`… para carrusel).
 enum ExerciseArt {
     /// Nombre del hero para listas (sin sondear pasos `_1`…`_8`).
@@ -169,7 +188,7 @@ enum ExerciseArt {
     ) -> UIImage? {
         if subdirectory == "ExerciseArt", let img = UIImage(named: name) { return img }
         if subdirectory == "ExerciseArt" || subdirectory == "ExerciseArt/thumbs" {
-            let remote = RemoteExerciseArtCache.localFileURL(for: name)
+            let remote = ExerciseArtRemoteDisk.fileURL(for: name)
             if FileManager.default.fileExists(atPath: remote.path),
                let img = UIImage(contentsOfFile: remote.path) {
                 return img
@@ -197,7 +216,7 @@ enum ExerciseArt {
         let cacheKey = exercise.name
         if !exercise.artKeys.isEmpty {
             let available = exercise.artKeys.filter {
-                uiImage(named: $0) != nil || RemoteExerciseArtCache.hasCachedFile(for: $0)
+                uiImage(named: $0) != nil || ExerciseArtRemoteDisk.hasFile(for: $0)
             }
             if available.count >= 1 {
                 lookup.setNames(available, for: cacheKey)
@@ -294,7 +313,7 @@ enum ExerciseArt {
         }
         let base: String?
         if let remoteHero = exercise.artKeys.first, acceptedHero(remoteHero) != nil,
-           uiImage(named: remoteHero) != nil || RemoteExerciseArtCache.hasCachedFile(for: remoteHero) {
+           uiImage(named: remoteHero) != nil || ExerciseArtRemoteDisk.hasFile(for: remoteHero) {
             base = remoteHero
         } else if exercise.isMobility {
             // Nunca coger arte de fuerza por parecido para un ejercicio de movilidad.
@@ -650,7 +669,7 @@ enum ExerciseArt {
             lookup.storeFull(img, named: name)
             return img
         }
-        let remote = RemoteExerciseArtCache.localFileURL(for: name)
+        let remote = ExerciseArtRemoteDisk.fileURL(for: name)
         if FileManager.default.fileExists(atPath: remote.path),
            let img = UIImage(contentsOfFile: remote.path) {
             lookup.storeFull(img, named: name)
