@@ -94,6 +94,12 @@ internal fun ProgressTab(
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
         ?: ProgressCategory.TRAINING
+    LaunchedEffect(selectedCategory) {
+        dev.repera.mobile.analytics.ReperaAnalytics.track(
+            dev.repera.mobile.analytics.ReperaAnalytics.Event.PROGRESS_SECTION_VIEWED,
+            mapOf("feature_area" to "progress", "section_name" to selectedCategory.name.lowercase())
+        )
+    }
     val pro = subscriptions?.isPro ?: false
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     LaunchedEffect(pro) {
