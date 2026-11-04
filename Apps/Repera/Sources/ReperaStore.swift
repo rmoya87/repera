@@ -1230,17 +1230,25 @@ final class ReperaStore: NSObject {
             let savedReview = session.sessionReview
             let routeForPlace = routePoints
             let existingPin = session.locationPin
+            // En los entrenos programados no hay liveSportID: usar el tipo
+            // de ejercicio para sugerir gimnasios/boxes en lugar de .other.
+            let suggestedSport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+                ?? (session.routineBlocks?.contains(where: { $0.kind == .wod }) == true
+                    ? .crossfit : .strength)
             Task {
                 // Geolocalización + POI ≤50 m también en entrenos programados.
                 if existingPin?.hasChosenPlace != true {
                     let suggested = await SportNearbyPlaceSuggester.suggestForSession(
-                        sport: nil,
+                        sport: suggestedSport,
                         routePoints: routeForPlace,
                         existingPin: existingPin
                     )
                     if var updated = state.workouts.first(where: { $0.id == sessionId }),
                        let suggested {
-                        if suggested.hasChosenPlace || updated.locationPin == nil {
+                        // Evitar que una búsqueda de Mapas tardía pise el lugar
+                        // cambiado manualmente durante la edición de resultados.
+                        if updated.locationPin == existingPin &&
+                           (suggested.hasChosenPlace || updated.locationPin == nil) {
                             updated.locationPin = suggested
                             upsertWorkout(updated)
                             persistWorkouts()
@@ -1943,6 +1951,43 @@ final class ReperaStore: NSObject {
         pushActiveToWatch(immediate: true)
     }
 
+    /// La sesión del Watch puede llegar sin GPS si fue indoor. Solo utilizar
+    /// la posición del iPhone al recibir un fin RECIENTE, con permiso ya dado;
+    /// un histórico sincronizado tarde no debe tomar el lugar actual.
+    private func suggestPlaceForRecentWatchWorkout(_ session: WorkoutSession) {
+        guard let ended = session.finishedAt,
+              (-60...300).contains(Date().timeIntervalSince(ended)),
+              session.locationPin?.hasChosenPlace != true else { return }
+        let sessionID = session.id
+        let sourcePin = session.locationPin
+        let points = session.routePoints
+        let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+            ?? (session.routineBlocks?.contains(where: { $0.kind == .wod }) == true
+                ? .crossfit : .strength)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let pin: WorkoutLocationPin?
+            if sourcePin != nil || !points.isEmpty {
+                pin = sourcePin
+            } else {
+                let tracker = WorkoutLocationTracker.shared
+                tracker.refreshStatus()
+                guard tracker.isAuthorized else { return } // Nunca pedir permisos en segundo plano.
+                pin = await tracker.capturePin()
+                guard pin != nil else { return }
+            }
+            let suggestion = await SportNearbyPlaceSuggester.suggestForSession(
+                sport: sport, routePoints: points, existingPin: pin
+            )
+            guard !Task.isCancelled, let suggestion,
+                  var current = self.state.workouts.first(where: { $0.id == sessionID }),
+                  current.locationPin == sourcePin else { return }
+            current.locationPin = suggestion
+            self.upsertWorkout(current)
+            self.persistWorkouts()
+        }
+    }
+
     func applyWatchSession(_ session: WorkoutSession) {
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
@@ -1988,6 +2033,7 @@ final class ReperaStore: NSObject {
                     guard LocalStore.shared.lastPersistenceError == nil else { return }
                     if firstArrival {
                         WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                        self.suggestPlaceForRecentWatchWorkout(session)
                     }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
@@ -2091,6 +2137,7 @@ final class ReperaStore: NSObject {
                 else { return }
                 if firstArrival && session.timerDetails == nil {
                     WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                    self.suggestPlaceForRecentWatchWorkout(session)
                 }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
