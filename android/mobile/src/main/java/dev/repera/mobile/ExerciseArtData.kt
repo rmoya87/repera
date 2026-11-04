@@ -38,7 +38,7 @@ internal object ExerciseArtData {
         "Prensa" to "art_prensa",
         "Extensión de cuádriceps" to "art_extension_cuad",
         "Zancadas" to "art_zancadas",
-        "Zancadas inversas con barra" to "art_zancadas",
+        "Zancadas inversas con barra" to "art_zancada_barra",
         "Sentadilla búlgara" to "art_bulgara",
         "Paso lateral con banda" to "art_paso_banda",
         "Elevación de gemelos" to "art_gemelos",
@@ -87,12 +87,12 @@ internal object ExerciseArtData {
         "BBJO" to "art_cf_burpee_box",
         "Salto al cajón" to "art_cf_box_jump",
         "Step-up al cajón" to "art_cf_step_up",
-        "Step-up al cajón con doble mancuerna" to "art_cf_step_up",
+        "Step-up al cajón con doble mancuerna" to "art_cf_step_up_db",
         "Muscle-up barra" to "art_cf_mu_bar",
         "Muscle-up anillas" to "art_cf_mu_rings",
         "Toes to bar" to "art_cf_ttb",
-        // Aprovechar la ilustración verificada hasta disponer de un BTT propio.
-        "Burpee to target" to "art_cf_burpee",
+        // BTT con arte propio (auditoría de arte 2026-11-04).
+        "Burpee to target" to "art_cf_btt",
         "BTT" to "art_cf_burpee",
         "T2B" to "art_cf_ttb",
         "TTB" to "art_cf_ttb",
@@ -102,7 +102,7 @@ internal object ExerciseArtData {
         "Handstand walk" to "art_cf_hsw",
         "Wall walk" to "art_cf_wall_walk",
         "Fondos en anillas" to "art_cf_ring_dip",
-        "Fondos en anillas kipping" to "art_cf_ring_dip",
+        "Fondos en anillas kipping" to "art_gy_ring_dip_kip",
         "Pistol squat" to "art_cf_pistol",
         "Rope climb" to "art_cf_rope",
         "Hollow rock" to "art_cf_hollow",
@@ -302,6 +302,13 @@ internal object ExerciseArtData {
         "Burpees con salto de longitud" to "art_hx_bbj",
         "Zancadas con saco" to "art_hx_sb_lunge",
         "Zancadas caminando con saco" to "art_hx_sb_lunge",
+        "Step-up al cajón con kettlebell goblet" to "art_cf_step_up_kb",
+        "Dominadas lastradas" to "art_dominadas_lastrada",
+        "Remo pliométrico en anillas pies elevados" to "art_gy_ring_row_plyo",
+        "Tirón alto de cargada" to "art_hl_clean_high_pull",
+        "Dip y drive de envión" to "art_hl_jerk_dip",
+        "Tirón alto de arrancada" to "art_hl_snatch_high_pull",
+        "Envión en sentadilla" to "art_hl_squat_jerk",
     )
 
     val movementFrames: Map<String, List<String>> = mapOf(

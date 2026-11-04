@@ -637,8 +637,8 @@ enum ExerciseArt {
         "Prensa": "art_prensa",
         "Extensión de cuádriceps": "art_extension_cuad",
         "Zancadas": "art_zancadas",
-        // Fallback provisional del patrón de zancada hasta tener arte específico con barra.
-        "Zancadas inversas con barra": "art_zancadas",
+        // Arte específico con barra trasera (auditoría de arte 2026-11-04).
+        "Zancadas inversas con barra": "art_zancada_barra",
         "Sentadilla búlgara": "art_bulgara",
         "Paso lateral con banda": "art_paso_banda",
         "Elevación de gemelos": "art_gemelos",
@@ -681,8 +681,8 @@ enum ExerciseArt {
         "Cluster": "art_cf_cluster",
         "Sumo high pull": "art_cf_sumo_hp",
         "Burpee": "art_cf_burpee",
-        // Aprovechar la ilustración verificada hasta disponer de un BTT propio.
-        "Burpee to target": "art_cf_burpee",
+        // BTT con arte propio (auditoría de arte 2026-11-04).
+        "Burpee to target": "art_cf_btt",
         "BTT": "art_cf_burpee",
         "Burpee al cajón": "art_cf_burpee_box",
         "Burpee box jump over": "art_cf_burpee_box",
@@ -702,7 +702,7 @@ enum ExerciseArt {
         "Handstand walk": "art_cf_hsw",
         "Wall walk": "art_cf_wall_walk",
         "Fondos en anillas": "art_cf_ring_dip",
-        "Fondos en anillas kipping": "art_cf_ring_dip",
+        "Fondos en anillas kipping": "art_gy_ring_dip_kip",
         "Pistol squat": "art_cf_pistol",
         "Rope climb": "art_cf_rope",
         "Hollow rock": "art_cf_hollow",
@@ -906,6 +906,14 @@ enum ExerciseArt {
         "Burpees con salto de longitud": "art_hx_bbj",
         "Zancadas con saco": "art_hx_sb_lunge",
         "Zancadas caminando con saco": "art_hx_sb_lunge",
+        "Step-up al cajón con doble mancuerna": "art_cf_step_up_db",
+        "Step-up al cajón con kettlebell goblet": "art_cf_step_up_kb",
+        "Dominadas lastradas": "art_dominadas_lastrada",
+        "Remo pliométrico en anillas pies elevados": "art_gy_ring_row_plyo",
+        "Tirón alto de cargada": "art_hl_clean_high_pull",
+        "Dip y drive de envión": "art_hl_jerk_dip",
+        "Tirón alto de arrancada": "art_hl_snatch_high_pull",
+        "Envión en sentadilla": "art_hl_squat_jerk",
 
     ]
 
