@@ -29,6 +29,7 @@ final class AppleAuthStore: NSObject {
     /// Espejo durable: `getCredentialState(.revoked)` en sim/device a veces borraba Keychain
     /// y dejaba Supabase vivo → Bienvenido eterno. UserDefaults sobrevive ese wipe.
     private let defaultsUserIDKey = "repera.apple.userID.v1"
+    private let revokedMarkerKey = "repera.apple.credentialInvalid.v1"
     private let defaultsNameKey = "repera.apple.displayName.v1"
     private let defaultsEmailKey = "repera.apple.email.v1"
 
@@ -58,11 +59,14 @@ final class AppleAuthStore: NSObject {
             switch remote {
             case .authorized, .transferred:
                 credentialState = remote
+                UserDefaults.standard.removeObject(forKey: revokedMarkerKey)
+                lastErrorMessage = nil
             case .revoked, .notFound:
                 // A confirmed negative response is not a transient network error.
                 // Keep the local identity for deliberate reauthentication/recovery,
                 // but never promote a revoked credential to an authorized session.
                 credentialState = remote
+                UserDefaults.standard.set(true, forKey: revokedMarkerKey)
                 lastErrorMessage = "La autorización de Apple debe verificarse de nuevo."
                 AuthSessionTrace.event("credentialState invalid; reauthentication required")
             @unknown default:
@@ -70,11 +74,8 @@ final class AppleAuthStore: NSObject {
                 lastErrorMessage = "Estado de autorización Apple no reconocido."
             }
         } catch {
-            // Error de red / temporal: no borrar la sesión local.
+            // A temporary network error must not clear a previously confirmed revocation.
             lastErrorMessage = error.localizedDescription
-            if credentialState != .authorized && credentialState != .transferred {
-                credentialState = .authorized
-            }
         }
     }
 
@@ -86,12 +87,6 @@ final class AppleAuthStore: NSObject {
         AuthSessionTrace.event(
             "ensureValidSession after load userID=\(userID != nil) state=\(String(describing: credentialState))"
         )
-        // Optimista: con userID local ya somos "signed in" mientras Apple responde.
-        if userID != nil,
-           credentialState != .authorized,
-           credentialState != .transferred {
-            credentialState = .authorized
-        }
         await refreshCredentialState()
         AuthSessionTrace.event(
             "ensureValidSession result signedIn=\(isSignedIn) state=\(String(describing: credentialState))"
@@ -156,6 +151,7 @@ final class AppleAuthStore: NSObject {
 
     func signOut() {
         clearSession(keepKeychain: false)
+        UserDefaults.standard.removeObject(forKey: revokedMarkerKey)
         credentialState = .notFound
     }
 
@@ -172,6 +168,7 @@ final class AppleAuthStore: NSObject {
             email = mail
         }
         credentialState = .authorized
+        UserDefaults.standard.removeObject(forKey: revokedMarkerKey)
         persistIdentity()
     }
 
@@ -202,8 +199,10 @@ final class AppleAuthStore: NSObject {
             AuthSessionTrace.event("loadFromKeychain restored userID from UserDefaults backup")
         }
         // Restaurar UI/gates al arrancar sin esperar a getCredentialState.
-        if userID != nil {
+        if userID != nil && !defaults.bool(forKey: revokedMarkerKey) {
             credentialState = .authorized
+        } else {
+            credentialState = .notFound
         }
     }
 

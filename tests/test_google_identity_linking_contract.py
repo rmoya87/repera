@@ -99,6 +99,16 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertNotIn("== UserDefaults.standard.string(forKey: appleIdentityBindingKey)\n                  ))", profile)
         self.assertIn("} == true", profile)
 
+    def test_confirmed_apple_revocation_cannot_be_promoted_by_network_errors(self):
+        apple = source("Onboarding/AppleAuthStore.swift")
+        health = source("HealthDiskCache.swift")
+        self.assertIn('private let revokedMarkerKey = "repera.apple.credentialInvalid.v1"', apple)
+        self.assertIn("UserDefaults.standard.set(true, forKey: revokedMarkerKey)", apple)
+        self.assertIn("!defaults.bool(forKey: revokedMarkerKey)", apple)
+        self.assertNotIn("credentialState != .authorized && credentialState != .transferred", apple)
+        self.assertIn("repera.apple.credentialInvalid.v1", health)
+        self.assertIn("repera.business.localOwnerSupabaseUserID.v1", health)
+
     def test_logout_does_not_reset_paid_onboarding(self):
         wizard = source("Onboarding/OnboardingStore.swift")
         snippet = wizard.split("func resetToSignIn() {", 1)[1].split("    }", 1)[0]
