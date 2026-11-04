@@ -1237,7 +1237,7 @@ final class ReperaStore: NSObject {
                     ? .crossfit : .strength)
             Task {
                 // Geolocalización + POI ≤50 m también en entrenos programados.
-                if existingPin?.hasChosenPlace != true {
+                if routeForPlace.count < 2, existingPin?.hasChosenPlace != true {
                     let suggested = await SportNearbyPlaceSuggester.suggestForSession(
                         sport: suggestedSport,
                         routePoints: routeForPlace,
@@ -1957,6 +1957,7 @@ final class ReperaStore: NSObject {
     private func suggestPlaceForRecentWatchWorkout(_ session: WorkoutSession) {
         guard let ended = session.finishedAt,
               (-60...300).contains(Date().timeIntervalSince(ended)),
+              session.routePoints.count < 2,
               session.locationPin?.hasChosenPlace != true else { return }
         let sessionID = session.id
         let sourcePin = session.locationPin
@@ -1964,6 +1965,9 @@ final class ReperaStore: NSObject {
         let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
             ?? (session.routineBlocks?.contains(where: { $0.kind == .wod }) == true
                 ? .crossfit : .strength)
+        // Si el deporte es de ruta, Salud puede añadir los puntos más tarde;
+        // no sugerir un sitio de inicio como si fuera el lugar de un gimnasio.
+        guard !sport.usesGPS else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
             let pin: WorkoutLocationPin?

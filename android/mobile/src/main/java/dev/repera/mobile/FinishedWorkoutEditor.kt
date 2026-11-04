@@ -132,7 +132,7 @@ internal fun FinishedWorkoutEditorSection(
         onSave(
             WorkoutRepository.FinishedWorkoutEdit(
                 title = title, startedAtIso = startIso, finishedAtIso = endIso,
-                notes = notes, pinEdited = pinEdited, pin = pin,
+                notes = notes, pinEdited = pinEdited && !hasRoute, pin = pin,
                 blocksJson = if (contentDirty) blocks?.toString() else null,
                 saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
                 recordNewSetsAsPerformed = recordNewSetsAsPerformed
@@ -216,17 +216,19 @@ internal fun FinishedWorkoutEditorSection(
                 }
             }
         }
-        // El sitio del entreno se puede revisar incluso con ruta grabada.
-        ReperaSectionTitle("Lugar")
-        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            WorkoutPlacePickerRow(
-                pin = pin,
-                accountId = accountId,
-                onPinChange = { pin = it; pinEdited = true },
-                modifier = if (pin == null) {
-                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                } else Modifier
-            )
+        // La ruta GPS del reloj es inmutable; el lugar solo se edita en indoor.
+        if (!hasRoute) {
+            ReperaSectionTitle("Lugar")
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                WorkoutPlacePickerRow(
+                    pin = pin,
+                    accountId = accountId,
+                    onPinChange = { pin = it; pinEdited = true },
+                    modifier = if (pin == null) {
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    } else Modifier
+                )
+            }
         }
         if (blocks != null) {
             // Misma estructura que Crear: título de sección por bloque (sin «Contenido»).
@@ -376,7 +378,7 @@ internal fun FinishedWorkoutEditorScreen(
             scheduledDayIso = draftRoutine.scheduledDate,
             initialPlannedDurationMinutes = durationMin,
             pageTitle = "Editar entreno",
-            showPlaceSection = true,
+            showPlaceSection = workout.routePoints.size < 2,
             importableRoutines = importableRoutines,
             onTitleSuggested = { suggestedTitle = it },
             onOneOffMeta = { day, time, fav, pin, notes, duration ->
@@ -406,7 +408,7 @@ internal fun FinishedWorkoutEditorScreen(
                         startedAtIso = newStart.toInstant().toString(),
                         finishedAtIso = newEnd.toInstant().toString(),
                         notes = notes,
-                        pinEdited = true,
+                        pinEdited = workout.routePoints.size < 2,
                         pin = pin,
                         blocksJson = null,
                         saveAsFavorite = fav,

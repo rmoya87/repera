@@ -463,7 +463,8 @@ struct WorkoutDetailView: View {
             await store.refineSessionReviewWithHealth(sessionId: sessionId)
             guard !Task.isCancelled else { return }
             draft = store.state.workouts.first(where: { $0.id == sessionId })
-            if let current = draft, current.locationPin?.hasChosenPlace != true {
+            if let current = draft, !hasRecordedRoute(current),
+               current.locationPin?.hasChosenPlace != true {
                 let sport = current.liveSportID.flatMap(LiveSport.init(rawValue:))
                 let suggested = await SportNearbyPlaceSuggester.suggestForSession(
                     sport: sport,
@@ -613,6 +614,11 @@ struct WorkoutDetailView: View {
         case pin
     }
 
+    /// Incluye rutas de Salud que llegaron después del snapshot de Repera.
+    private func hasRecordedRoute(_ session: WorkoutSession) -> Bool {
+        session.routePoints.count >= 2 || (healthExtras?.routePoints.count ?? 0) >= 2
+    }
+
     private func sessionMapContent(_ session: WorkoutSession) -> SessionMapKind {
         let local = session.routePoints
         let healthRoute = healthExtras?.routePoints ?? []
@@ -700,6 +706,7 @@ struct WorkoutDetailView: View {
     }
 
     private func acceptPlaceSuggestion(_ suggestion: WorkoutLocationPin, for session: WorkoutSession) {
+        guard !hasRecordedRoute(session) else { return }
         var updated = session
         updated.locationPin = suggestion
         store.saveWorkout(updated)
@@ -740,6 +747,7 @@ struct WorkoutDetailView: View {
                 }
                 .ogCardListRow()
                 if let suggestion = placeSuggestion,
+                   !hasRecordedRoute(session),
                    session.locationPin?.hasChosenPlace != true {
                     placeSuggestionBanner(suggestion, session: session)
                         .ogCardListRow()
@@ -948,8 +956,8 @@ struct WorkoutDetailView: View {
                         Text("Editar")
                     }
 
-                    // Ruta de Salud: no se pinta pin manual encima.
-                    if healthExtras?.showRouteMap != true {
+                    // Ni ruta propia ni ruta de Salud admiten cambiar el lugar.
+                    if !hasRecordedRoute(session) {
                         Section {
                             let hasPlace = draft?.locationPin != nil
                             WorkoutPlacePickerRow(
@@ -1056,6 +1064,7 @@ struct WorkoutDetailView: View {
                         }
                     },
                     completedSession: session,
+                    completedHasHealthRoute: (healthExtras?.routePoints.count ?? 0) >= 2,
                     embedsNavigationStack: false,
                     usesPageCloseHeader: true
                 )
@@ -1081,7 +1090,11 @@ struct WorkoutDetailView: View {
                         accessibilityLabel: "Guardar",
                         tint: OG.accent
                     ) {
-                        if let draft {
+                        if var draft {
+                            if hasRecordedRoute(draft),
+                               let original = store.state.workouts.first(where: { $0.id == sessionId }) {
+                                draft.locationPin = original.locationPin
+                            }
                             store.saveWorkout(draft)
                             isEditing = false
                             // Fecha y hora pueden cambiar la ventana de Salud;
