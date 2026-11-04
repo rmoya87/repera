@@ -89,6 +89,16 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("if recorder.phase == .idle, !recorder.isStartCountingDown", screen)
         self.assertIn("AppleWorkoutExportSheet(sport: recorder.sport)", screen)
 
+    def test_android_gps_cannot_preempt_another_workout(self):
+        gps = source("android/mobile/src/main/java/dev/repera/mobile/WorkoutLocationTracker.kt")
+        self.assertIn("if (trackingSessionID == sessionID) return", gps)
+        self.assertIn("if (trackingSessionID != null)", gps)
+        start = gps.split("fun startRouteTracking(sessionID: String)", 1)[1].split(
+            "fun stopRouteTracking()", 1
+        )[0]
+        self.assertNotIn("stopRouteTracking()", start)
+        self.assertIn("trackingSessionID = sessionID", start)
+
     def test_export_is_explicit_and_uses_unmodified_gps(self):
         export = source("Apps/Repera/Sources/RouteGPXExporter.swift")
         self.assertIn("RouteGPXExporter", export)
