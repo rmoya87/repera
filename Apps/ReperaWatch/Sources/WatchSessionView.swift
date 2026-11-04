@@ -233,10 +233,10 @@ struct WatchSessionView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                TimelineView(.periodic(from: .now, by: 1)) { context in
+                TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
                     let elapsed = Int(live.displayElapsed(at: context.date))
                     Text(timeLabel(elapsed))
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .font(.system(size: isLuminanceReduced ? 40 : 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .minimumScaleFactor(0.55)
                         .lineLimit(1)
@@ -542,44 +542,52 @@ struct WatchSessionView: View {
         WatchSwipeControlSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { _ in
                     Text(timeLabel(hub.sessionElapsed))
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(.system(size: isLuminanceReduced ? 38 : 42, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if let bpm = hub.heartRateBpm {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("FC").font(.caption2).foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: bpm, prominent: true)
+                    if isLuminanceReduced {
+                        WatchLiveMetricRow(label: "FC", value: "\(Int(bpm.rounded()))", prominent: true)
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("FC").font(.caption2).foregroundStyle(.secondary)
+                            WatchHeartRateZoneBar(bpm: bpm, prominent: true)
+                        }
                     }
                 }
-                WatchLiveMetricRow(
-                    label: "kcal",
-                    value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
-                    prominent: true
-                )
-                if hub.isPaused {
-                    Text("En pausa").foregroundStyle(.orange).font(.caption)
+                if !isLuminanceReduced {
+                    WatchLiveMetricRow(
+                        label: "kcal",
+                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                        prominent: true
+                    )
+                }
+                if hub.isPaused && !isLuminanceReduced {
+                    Text("En pausa").foregroundStyle(WatchTheme.warning).font(.caption)
                 }
             }
             .padding(.horizontal, 6)
         }
         } controls: {
-            WatchControlActionButton(
-                title: hub.isPaused ? "Reanudar" : "Pausar",
-                systemName: hub.isPaused ? "play.fill" : "pause.fill",
-                tint: accent
-            ) {
-                if hub.isPaused { hub.play() } else { hub.pause() }
+            if !isLuminanceReduced {
+                WatchControlActionButton(
+                    title: hub.isPaused ? "Reanudar" : "Pausar",
+                    systemName: hub.isPaused ? "play.fill" : "pause.fill",
+                    tint: accent
+                ) {
+                    if hub.isPaused { hub.play() } else { hub.pause() }
+                }
+                WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                    trainingPrompt = .finish
+                }
+                Button("Descartar entrenamiento", role: .destructive) {
+                    trainingPrompt = .discard
+                }
+                .font(.caption)
             }
-            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                trainingPrompt = .finish
-            }
-            Button("Descartar entrenamiento", role: .destructive) {
-                trainingPrompt = .discard
-            }
-            .font(.caption)
         }
     }
 
@@ -1578,7 +1586,7 @@ private struct WatchActivityCancelOverlay: View {
     let onConfirm: () -> Void
     let onDiscard: () -> Void
 
-    private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
+    private var accent: Color { WatchTheme.accent }
 
     var body: some View {
         ZStack {
