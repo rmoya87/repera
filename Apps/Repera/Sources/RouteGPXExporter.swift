@@ -5,6 +5,7 @@ import Foundation
 enum RouteGPXExporter {
     static func export(points: [HealthKitStore.RoutePoint]) throws -> URL? {
         let valid = points.filter {
+            $0.isEstimated == false &&
             $0.latitude.isFinite && $0.longitude.isFinite &&
             (-90...90).contains($0.latitude) && (-180...180).contains($0.longitude)
         }.sorted { $0.date < $1.date }
