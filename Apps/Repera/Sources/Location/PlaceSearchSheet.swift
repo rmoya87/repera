@@ -555,6 +555,25 @@ enum RecentPlacesStore {
         return (try? JSONDecoder().decode([WorkoutLocationPin].self, from: data)) ?? []
     }
 
+    /// Preferir un lugar elegido anteriormente cerca del GPS real, sin geofencing
+    /// permanente ni suponer que estar cerca implica estar dentro del centro.
+    static func nearbyNamedPin(
+        latitude: Double,
+        longitude: Double,
+        maxDistanceMeters: CLLocationDistance = 50
+    ) -> WorkoutLocationPin? {
+        let here = CLLocation(latitude: latitude, longitude: longitude)
+        return load()
+            .filter { $0.hasChosenPlace && $0.name?.isEmpty == false }
+            .compactMap { pin -> (WorkoutLocationPin, CLLocationDistance)? in
+                let meters = here.distance(from: CLLocation(
+                    latitude: pin.latitude, longitude: pin.longitude
+                ))
+                return meters <= maxDistanceMeters ? (pin, meters) : nil
+            }
+            .min(by: { $0.1 < $1.1 })?.0
+    }
+
     static func remember(_ pin: WorkoutLocationPin) {
         var next = load().filter { !$0.isSamePlace(as: pin) }
         next.insert(pin, at: 0)
@@ -859,6 +878,14 @@ enum SportNearbyPlaceSuggester {
             capturedPin = pin
         } else {
             return existingPin
+        }
+        // Si la posición coincide con el gimnasio habitual, no resolver un POI
+        // distinto cada vez; conservar el nombre seleccionado por el usuario.
+        if let remembered = RecentPlacesStore.nearbyNamedPin(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+        ) {
+            return remembered
         }
         if let suggested = await suggest(
             sport: sport,
