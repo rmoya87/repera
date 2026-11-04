@@ -187,6 +187,7 @@ targets:
       - path: Apps/ReperaRestWidget
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
+      - path: Apps/Shared/ReperaOpenControlIntent.swift
       # El logotipo corporativo se empaqueta también en la extensión WidgetKit;
       # los assets de la app no son visibles automáticamente desde otra bundle.
       - path: Apps/Repera/Resources/Assets.xcassets
