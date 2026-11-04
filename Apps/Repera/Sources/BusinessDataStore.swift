@@ -595,6 +595,7 @@ final class BusinessDataStore {
         passes = []
         passOffers = []
         bookings = []
+        Task { await BusinessSessionReminderScheduler.cancelAll() }
         progressDataRevision &+= 1
         availability = [:]
         trainingSessions = []
@@ -715,6 +716,11 @@ final class BusinessDataStore {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
             }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            // Reservas del atleta, nunca todas las de un centro o profesional.
+            await BusinessSessionReminderScheduler.synchronize(
+                bookings: bookings, occurrences: occurrences
+            )
+            guard revision == refreshRevision else { return }
             progressDataRevision &+= 1
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             historicalProfessionalSessions = fetchedTrainingSessions.filter {
