@@ -4,14 +4,14 @@ import AppIntents
 enum ReperaControlScreen: String, AppEnum {
     case home
 
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Repera"
-    static var caseDisplayRepresentations: [ReperaControlScreen: DisplayRepresentation] = [
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Repera"
+    static let caseDisplayRepresentations: [ReperaControlScreen: DisplayRepresentation] = [
         .home: "Inicio"
     ]
 }
 
 struct ReperaOpenControlIntent: OpenIntent {
-    static var title: LocalizedStringResource = "Abrir Repera"
+    static let title: LocalizedStringResource = "Abrir Repera"
 
     @Parameter(title: "Pantalla")
     var target: ReperaControlScreen
