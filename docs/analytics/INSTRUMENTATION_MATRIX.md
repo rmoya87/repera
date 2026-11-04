@@ -2,21 +2,24 @@
 
 **Última actualización:** 2026-11-04
 
-Leyenda de estado: **hecho** = llamada real tras fuente de verdad · **parcial** · **pendiente**.
+Leyenda: **hecho** = llamada real tras fuente de verdad · **parcial** · **pendiente**.
 
-| Evento | Momento | iOS | Android | Web Business | Prueba |
-| --- | --- | --- | --- | --- | --- |
-| screen_view | Cambio de tab real | hecho | hecho | pendiente | contrato + UI |
-| activity_selected | Elegir deporte catálogo | hecho | hecho | — | contrato |
-| progress_section_viewed | Chip progreso | hecho | hecho | — | contrato |
-| workout_completed | Tras persistencia finished | hecho | hecho | — | contrato hooks |
-| workout_discarded | Descarte confirmado | hecho | hecho | — | contrato hooks |
-| workout_deleted | Borrado local confirmado | hecho | hecho | — | contrato hooks |
-| workout_edited | Edición finished persistida | hecho | hecho | — | contrato hooks |
-| data_import_completed | Import CSV (no completed/sesión) | hecho | pendiente | — | contrato |
-| Embudo suscripción (8+) | StoreKit / Play verificados | hecho | hecho | — | contrato |
-| Reloj cola/ACK | — | pendiente | pendiente | — | — |
-| Center / clases | — | pendiente | pendiente | pendiente | — |
-| Timer / escáner / IA | — | pendiente | pendiente | — | — |
+## Cubierto (~35 eventos)
 
-Parámetros habituales de entrenamiento: `feature_area`, `workout_type`, `activity_type`, `activity_family`, `wod_format` (si un solo formato), `session_origin_platform`, `completion_platform`, `result`.
+| Área | Eventos | Notas de identificación |
+| --- | --- | --- |
+| Navegación | `screen_view` | Tabs: home/start/center/progress/exercises |
+| Live sport | `activity_selected`, `workout_started/paused/resumed`, `sport_favorite_added` | `activity_type` + `activity_family` |
+| Entrenamiento | `workout_started/set_recorded/block_completed/completed/discarded/deleted/edited`, `favorite_*`, `data_import_completed`, `scan_saved` | Planned sin liveSport → `strength`/`crossfit`; WOD por bloque |
+| Timer | `timer_started/completed/discarded` | `timer_type=standalone` |
+| Progreso | `progress_section_viewed` | 6 secciones |
+| Centro | `class_booking_confirmed/cancelled`, `center_link_completed`, `center_unlinked` | Sin nombres de centro |
+| Suscripción | embudo Pro (8+) | StoreKit/Play |
+| Cuenta | `login`, `onboarding_started/completed` | Sin PII |
+| Reloj | `watch_command_used` + completed con origen watch | Cola ACK completa pendiente |
+
+## Pendiente relevante
+
+Timer pause/resume, escáner completo, ejercicios search/detail, mapas route_*, Center list/view/waitlist/attended, IA, checkout_*, sync_*, cola Watch/Wear durable, Business web, Firebase files reales / DebugView.
+
+Parámetros de entrenamiento: `feature_area`, `workout_type`, `activity_type`, `activity_family`, `wod_format`, plataformas, `result`.

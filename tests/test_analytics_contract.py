@@ -104,6 +104,12 @@ class AnalyticsContractTests(unittest.TestCase):
         self.assertIn("WORKOUT_DELETED", ANDROID_REPO)
         self.assertIn("workoutEdited", IOS_STORE)
         self.assertIn("WORKOUT_EDITED", ANDROID_REPO)
+        self.assertIn("emitWorkoutStartedAnalytics", IOS_STORE)
+        self.assertIn("emitWorkoutStarted(", ANDROID_REPO)
+        self.assertIn("workoutBlockCompleted", IOS_STORE)
+        self.assertIn("WORKOUT_BLOCK_COMPLETED", ANDROID_REPO)
+        self.assertIn("resolveActivity", IOS)
+        self.assertIn("resolveActivity", ANDROID)
         emitted_types = ("planned", "free", "live_sport", "timer", "quick_log")
         for value in emitted_types:
             self.assertIn(value, CONTRACT["enum_values"]["workout_type"])
@@ -112,6 +118,10 @@ class AnalyticsContractTests(unittest.TestCase):
         for value in CONTRACT["enum_values"]["activity_family"]:
             self.assertIn(f'return "{value}"', IOS)
             self.assertIn(f'"{value}"', ANDROID)
+        self.assertIn('"crossfit"', IOS)
+        self.assertIn('"strength"', IOS)
+        self.assertIn('"crossfit"', ANDROID)
+        self.assertIn('"strength"', ANDROID)
 
 
 if __name__ == "__main__":

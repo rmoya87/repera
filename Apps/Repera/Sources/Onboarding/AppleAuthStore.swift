@@ -148,6 +148,11 @@ final class AppleAuthStore: NSObject {
             lastErrorMessage = reason
             throw AppleAuthError.businessConnectionFailed(reason)
         }
+        ReperaAnalytics.track(.login, parameters: [
+            "feature_area": "account",
+            "entry_point": "apple",
+            "result": "success"
+        ])
     }
 
     /// Aplica el credential ya obtenido por `SignInWithAppleButton`.
@@ -160,6 +165,11 @@ final class AppleAuthStore: NSObject {
         }
         apply(credential: credential)
         guard userID != nil else { throw AppleAuthError.invalidCredential }
+        ReperaAnalytics.track(.login, parameters: [
+            "feature_area": "account",
+            "entry_point": "apple_button",
+            "result": "success"
+        ])
     }
 
     func signOut() {

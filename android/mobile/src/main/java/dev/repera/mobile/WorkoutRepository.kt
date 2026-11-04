@@ -1055,6 +1055,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val session = assembleSession(state, routine, allowAdvancedProgression, applyDefaultPolicy = true)
         state.put("activeSession", session)
         save(state)
+        emitWorkoutStarted(session, sessionOrigin = "android")
         return summarize(session)
     }
 
@@ -1737,10 +1738,28 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         if (nextIndex == exercises.length()) {
             finishInPlace(state, session)
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.WORKOUT_BLOCK_COMPLETED,
+                mapOf(
+                    "feature_area" to "training",
+                    "workout_type" to analyticsWorkoutType(session),
+                    "wod_format" to format.wireName,
+                    "result" to "success"
+                )
+            )
             return null
         }
         session.put("currentIndex", nextIndex).put("phase", "ready")
         save(state)
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.WORKOUT_BLOCK_COMPLETED,
+            mapOf(
+                "feature_area" to "training",
+                "workout_type" to analyticsWorkoutType(session),
+                "wod_format" to format.wireName,
+                "result" to "success"
+            )
+        )
         return summarize(session)
     }
 
@@ -2565,10 +2584,18 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = loadOrNull() ?: return false
         val count = WorkoutFavoriteSupport.favoriteCount(state)
         val allowNew = canSaveFavorite(count)
+        val before = WorkoutFavoriteSupport.isWorkoutFavorite(state, id)
         if (!WorkoutFavoriteSupport.toggleWorkoutFavorite(state, id, allowNewFavorite = allowNew)) {
             return false
         }
         save(state)
+        val after = WorkoutFavoriteSupport.isWorkoutFavorite(state, id)
+        if (before != after) {
+            ReperaAnalytics.track(
+                if (after) ReperaAnalytics.Event.FAVORITE_ADDED else ReperaAnalytics.Event.FAVORITE_REMOVED,
+                mapOf("feature_area" to "training", "result" to "success")
+            )
+        }
         return true
     }
 
@@ -3428,8 +3455,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         sessionOrigin: String,
         completionPlatform: String
     ) {
-        val sportId = session.optString("liveSportID").takeIf { it.isNotBlank() }
-        val sport = sportId?.let { LiveSport.byId(it) }
+        val resolved = resolvedActivity(session)
         val blocks = session.optJSONArray("routineBlocks") ?: JSONArray()
         val formats = (0 until blocks.length()).mapNotNull { i ->
             val block = blocks.optJSONObject(i) ?: return@mapNotNull null
@@ -3439,13 +3465,41 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         ReperaAnalytics.trackWorkoutCompleted(
             sessionId = session.optString("id"),
             workoutType = analyticsWorkoutType(session),
-            activityType = sportId,
-            activityFamily = sport?.let { ReperaAnalytics.activityFamily(it.group) },
+            activityType = resolved.first,
+            activityFamily = resolved.second,
             wodFormat = formats.singleOrNull(),
             featureArea = analyticsFeatureArea(session),
             sessionOrigin = sessionOrigin,
             completionPlatform = completionPlatform
         )
+    }
+
+    private fun emitWorkoutStarted(session: JSONObject, sessionOrigin: String) {
+        val resolved = resolvedActivity(session)
+        val parameters = mutableMapOf(
+            "feature_area" to analyticsFeatureArea(session),
+            "workout_type" to analyticsWorkoutType(session),
+            "session_origin_platform" to sessionOrigin,
+            "result" to "success"
+        )
+        resolved.first?.let { parameters["activity_type"] = it }
+        resolved.second?.let { parameters["activity_family"] = it }
+        ReperaAnalytics.track(ReperaAnalytics.Event.WORKOUT_STARTED, parameters)
+    }
+
+    private fun resolvedActivity(session: JSONObject): Pair<String?, String?> {
+        val sportId = session.optString("liveSportID").takeIf { it.isNotBlank() }
+        val sport = sportId?.let { LiveSport.byId(it) }
+        if (sport != null) {
+            return sport.id to ReperaAnalytics.activityFamily(sport.group)
+        }
+        val blocks = session.optJSONArray("routineBlocks") ?: JSONArray()
+        val hasWod = (0 until blocks.length()).any { i ->
+            val block = blocks.optJSONObject(i) ?: return@any false
+            block.optString("kind") == "wod" && block.optString("wodFormat").isNotBlank()
+        } || ((session.optJSONArray("wodResults")?.length() ?: 0) > 0)
+        val hasExercises = (session.optJSONArray("exercises")?.length() ?: 0) > 0
+        return ReperaAnalytics.resolveActivity(null, hasWod, hasExercises)
     }
 
     private fun analyticsWorkoutType(session: JSONObject?): String {

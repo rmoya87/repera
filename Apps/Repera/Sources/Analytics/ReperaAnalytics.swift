@@ -129,6 +129,22 @@ enum ReperaAnalytics {
         }
     }
 
+    /// Resolves catalog activity for completed sessions. Planned gym work without
+    /// `liveSportID` maps to `strength` / `crossfit` — never free-text titles.
+    static func resolveActivity(
+        liveSportID: String?,
+        hasWodBlocks: Bool,
+        hasExercises: Bool
+    ) -> (activityType: String?, activityFamily: String?) {
+        if let liveSportID, !liveSportID.isEmpty {
+            // Family resolved by caller when LiveSport is available; keep type here.
+            return (liveSportID, nil)
+        }
+        if hasWodBlocks { return ("crossfit", "strength_fitness") }
+        if hasExercises { return ("strength", "strength_fitness") }
+        return (nil, nil)
+    }
+
     /// The plist is supplied by the real Firebase project, not embedded as a placeholder.
     /// Missing configuration leaves Analytics disabled and does not affect app startup.
     static func configure() {

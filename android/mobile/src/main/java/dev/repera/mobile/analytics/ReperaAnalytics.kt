@@ -129,6 +129,18 @@ object ReperaAnalytics {
         else -> "other"
     }
 
+    /** Planned gym work without liveSportID maps to strength/crossfit catalog IDs. */
+    fun resolveActivity(
+        liveSportId: String?,
+        hasWodBlocks: Boolean,
+        hasExercises: Boolean
+    ): Pair<String?, String?> {
+        if (!liveSportId.isNullOrBlank()) return liveSportId to null
+        if (hasWodBlocks) return "crossfit" to "strength_fitness"
+        if (hasExercises) return "strength" to "strength_fitness"
+        return null to null
+    }
+
     /** No Firebase resource? No-op. Never break the app or simulate configured analytics. */
     fun configure(context: Context) {
         val appContext = context.applicationContext
