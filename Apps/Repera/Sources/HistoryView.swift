@@ -64,8 +64,41 @@ struct HistoryView: View {
         }
     }
 
+    private struct DaySectionsKey: Equatable {
+        var workoutsEpoch: UInt64
+        var healthRevision: Int
+        var workoutCount: Int
+        var healthCount: Int
+        /// Section titles («Hoy», «Ayer») depend on the current day.
+        var today: Date
+    }
+
+    /// Reference box: filling it during `body` is not a SwiftUI state change.
+    private final class DaySectionsCache {
+        var key: DaySectionsKey?
+        var sections: [DaySection] = []
+    }
+
+    @State private var daySectionsCache = DaySectionsCache()
+
+    /// Filter + Health merge + grouping only when workouts or Health change.
+    private var cachedDaySections: [DaySection] {
+        let key = DaySectionsKey(
+            workoutsEpoch: store.workoutsEpoch,
+            healthRevision: health.healthDataRevision,
+            workoutCount: store.state.workouts.count,
+            healthCount: health.recentExternalActivities.count,
+            today: Calendar.current.startOfDay(for: Date())
+        )
+        if daySectionsCache.key != key {
+            daySectionsCache.sections = daySections
+            daySectionsCache.key = key
+        }
+        return daySectionsCache.sections
+    }
+
     var body: some View {
-        let sections = daySections
+        let sections = cachedDaySections
         return Group {
             if sections.isEmpty {
                 ScrollView {
@@ -2180,6 +2213,7 @@ struct WorkoutMapTapTarget<MapPreview: View>: View {
 struct WorkoutMapZoomDestination: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var exportedRoute: URL?
+    @State private var routeExportFailed = false
     var points: [HealthKitStore.RoutePoint]
     private var routeExportIdentity: String {
         guard let first = points.first, let last = points.last else { return "empty" }
@@ -2240,7 +2274,17 @@ struct WorkoutMapZoomDestination: View {
         .toolbar(.hidden, for: .navigationBar)
         .background(OG.bg)
         .task(id: routeExportIdentity) {
-            exportedRoute = try? RouteGPXExporter.export(points: points)
+            do {
+                exportedRoute = try RouteGPXExporter.export(points: points)
+            } catch {
+                exportedRoute = nil
+                routeExportFailed = true
+            }
+        }
+        .alert("No se pudo preparar el GPX", isPresented: $routeExportFailed) {
+            Button("Aceptar", role: .cancel) {}
+        } message: {
+            Text("El recorrido sigue guardado en Repera. Comprueba el espacio disponible e inténtalo de nuevo.")
         }
     }
 }

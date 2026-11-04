@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
@@ -92,7 +94,7 @@ internal fun ProgressTab(
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
         ?: ProgressCategory.TRAINING
-    val pro = subscriptions?.isPro ?: true
+    val pro = subscriptions?.isPro ?: false
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
     LaunchedEffect(pro) {
         selectedRange = if (pro) ProgressTimeRange.MONTH.wire else ProgressTimeRange.WEEK.wire
@@ -158,11 +160,11 @@ internal fun ProgressTab(
         contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { ReperaPageHeader(title = "Progreso", subtitle = hubSubtitle) }
+        item { ReperaPageHeader(title = stringResource(R.string.tab_progress), subtitle = hubSubtitle) }
         if (demoBanner) {
             item {
                 Text(
-                    "Datos de ejemplo en gráficas vacías (revisión visual)",
+                    stringResource(R.string.progress_tab_datos_de_ejemplo_en_graficas_vacias),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -261,7 +263,7 @@ internal fun ProgressTab(
                     } else {
                         item {
                             dev.repera.mobile.monetization.ProTeaserCard(
-                                title = "Tendencias a largo plazo",
+                                title = stringResource(R.string.progress_tab_tendencias_a_largo_plazo),
                                 bodyText = "Con Pro ves consistencia de semanas y evolución de puntuación sin límites.",
                                 cta = "Descubrir Repera Pro",
                                 appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,
@@ -299,7 +301,7 @@ internal fun ProgressTab(
                         Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Outlined.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Historial", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.progress_tab_historial), style = MaterialTheme.typography.titleMedium)
                             }
                             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -311,7 +313,7 @@ internal fun ProgressTab(
                     item { ReperaSectionTitle("Fuerza") }
                     item {
                         ProgressSaludInsightCard(
-                            title = "Carga y marcas",
+                            title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
                             tint = ProgressCategory.STRENGTH.accent,
                             narrative = if (snapshot.records.isEmpty()) {
@@ -327,13 +329,13 @@ internal fun ProgressTab(
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ProgressMetricGlanceCard(
-                                title = "Sesiones",
+                                title = stringResource(R.string.progress_tab_sesiones),
                                 value = "${snapshot.summary.sessionCount}",
                                 modifier = Modifier.weight(1f),
                                 tint = ProgressCategory.STRENGTH.accent
                             )
                             ProgressMetricGlanceCard(
-                                title = "Ejercicios",
+                                title = stringResource(R.string.tab_exercises),
                                 value = if (snapshot.chartExercises.isEmpty()) "—" else "${snapshot.chartExercises.size}",
                                 modifier = Modifier.weight(1f),
                                 tint = ProgressCategory.STRENGTH.accent
@@ -351,7 +353,7 @@ internal fun ProgressTab(
                         item { ProgressExerciseTrendPreview(today) }
                         item {
                             dev.repera.mobile.monetization.ProTeaserCard(
-                                title = "Evolución de fuerza",
+                                title = stringResource(R.string.progress_tab_evolucion_de_fuerza),
                                 bodyText = "Sigue e1RM y progreso por ejercicio con Repera Pro.",
                                 cta = "Descubrir Repera Pro",
                                 appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,
@@ -371,7 +373,7 @@ internal fun ProgressTab(
                 item {
                     val minutes = snapshot?.summary?.totalMinutes?.toInt() ?: 0
                     ProgressSaludInsightCard(
-                        title = "Estímulo activo",
+                        title = stringResource(R.string.progress_tab_estimulo_activo),
                         icon = Icons.Outlined.DirectionsWalk,
                         tint = ProgressCategory.FITNESS.accent,
                         narrative = if (minutes > 0) {
@@ -401,7 +403,7 @@ internal fun ProgressTab(
                 if (!pro) {
                     item {
                         dev.repera.mobile.monetization.ProTeaserCard(
-                            title = "Forma física completa",
+                            title = stringResource(R.string.progress_tab_forma_fisica_completa),
                             bodyText = "Calorías, peso y tendencias largas con Repera Pro.",
                             cta = "Descubrir Repera Pro",
                             appearance = dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,
@@ -419,7 +421,7 @@ internal fun ProgressTab(
                 item { ReperaSectionTitle("Corazón") }
                 item {
                     ProgressSaludInsightCard(
-                        title = "Frecuencia cardíaca",
+                        title = stringResource(R.string.progress_tab_frecuencia_cardiaca),
                         icon = Icons.Outlined.MonitorHeart,
                         tint = ProgressCategory.HEART.accent,
                         narrative = "Consulta tu pulso diario y el esfuerzo medido de tus entrenos.",
@@ -444,12 +446,12 @@ internal fun ProgressTab(
                         ReperaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 if (healthPrompt == ProgressHealthPromptKind.NOT_AUTHORIZED) {
-                                    Text("Salud sin permiso de lectura", style = MaterialTheme.typography.titleMedium)
-                                    Text("Autoriza Health Connect para ver FC y kcal.")
-                                    TextButton(onClick = onHealthConnect) { Text("Autorizar Salud") }
+                                    Text(stringResource(R.string.progress_tab_salud_sin_permiso_de_lectura), style = MaterialTheme.typography.titleMedium)
+                                    Text(stringResource(R.string.progress_tab_autoriza_health_connect_para_ver_fc))
+                                    TextButton(onClick = onHealthConnect) { Text(stringResource(R.string.progress_tab_autorizar_salud)) }
                                 } else {
-                                    Text("Health Connect no disponible", style = MaterialTheme.typography.titleMedium)
-                                    Text("Este dispositivo no tiene Health Connect disponible, así que no hay FC ni kcal que mostrar.")
+                                    Text(stringResource(R.string.progress_tab_health_connect_no_disponible), style = MaterialTheme.typography.titleMedium)
+                                    Text(stringResource(R.string.progress_tab_este_dispositivo_no_tiene_health_connect))
                                 }
                             }
                         }
@@ -458,7 +460,7 @@ internal fun ProgressTab(
                 if (!pro) {
                     item {
                         dev.repera.mobile.monetization.ProTeaserCard(
-                            title = "Corazón en detalle",
+                            title = stringResource(R.string.progress_tab_corazon_en_detalle),
                             bodyText = "Consulta FC diaria y tendencias con Repera Pro.",
                             cta = "Descubrir Repera Pro",
                             appearance = dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,
@@ -481,7 +483,7 @@ internal fun ProgressTab(
                 if (!pro) {
                     item {
                         dev.repera.mobile.monetization.ProTeaserCard(
-                            title = "Recuperación completa",
+                            title = stringResource(R.string.progress_tab_recuperacion_completa),
                             bodyText = "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
                             cta = "Descubrir Repera Pro",
                             appearance = dev.repera.mobile.monetization.ProTeaserAppearance.RECOVERY,
@@ -503,12 +505,12 @@ internal fun ProgressTab(
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Outlined.Flag, null, tint = ProgressCategory.SPORTS.accent)
-                                    Text("Evolución y récords", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.SPORTS.accent)
+                                    Text(stringResource(R.string.progress_tab_evolucion_y_records), style = MaterialTheme.typography.titleSmall, color = ProgressCategory.SPORTS.accent)
                                 }
                                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                "Consulta distancias, ritmos y marcas por deporte desde tus salidas Comenzar y Salud.",
+                                stringResource(R.string.progress_tab_consulta_distancias_ritmos_y_marcas_por),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -544,15 +546,15 @@ private fun ProgressTrainingGlanceGrid(
                 value = averageText,
                 modifier = Modifier.weight(1f)
             )
-            ProgressMetricGlanceCard(title = "Racha", value = streak, modifier = Modifier.weight(1f))
+            ProgressMetricGlanceCard(title = stringResource(R.string.progress_tab_racha), value = streak, modifier = Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ProgressMetricGlanceCard(
-                title = "Entrenos",
+                title = stringResource(R.string.progress_tab_entrenos),
                 value = "${snapshot.summary.sessionCount}",
                 modifier = Modifier.weight(1f)
             )
-            ProgressMetricGlanceCard(title = "Tiempo", value = timeText, modifier = Modifier.weight(1f))
+            ProgressMetricGlanceCard(title = stringResource(R.string.home_day_cards_tiempo), value = timeText, modifier = Modifier.weight(1f))
         }
     }
 }
@@ -635,7 +637,7 @@ private fun ProgressWeekConsistencyCard(
         ReperaSectionTitle("Esta semana")
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = brandGreen)
+                Text(stringResource(R.string.progress_tab_consistencia), style = MaterialTheme.typography.titleSmall, color = brandGreen)
                 Text(
                     if (count == 0) "Aún no hay entrenos registrados esta semana."
                     else "Has entrenado $count de 7 días. Mantén el ritmo.",
@@ -679,7 +681,7 @@ private fun ProgressLongTermConsistencyCard(
     }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = brandGreen)
+            Text(stringResource(R.string.progress_tab_consistencia), style = MaterialTheme.typography.titleSmall, color = brandGreen)
             Text(
                 "En las últimas 4 semanas has entrenado ${trained.size} días distintos · $sessionCount sesiones · $totalMinutes min.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -725,18 +727,18 @@ private fun TrainingMeasuredEffortCard(workout: WorkoutHistoryEntry) {
                 Text(workout.title, style = MaterialTheme.typography.titleSmall)
                 workout.appleAverageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }?.let { pulse ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Frecuencia cardíaca media", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.progress_tab_frecuencia_cardiaca_media), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${kotlin.math.round(pulse).toInt()} lpm", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                 }
                 workout.appleActiveEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let { kcal ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Energía medida", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.progress_tab_energia_medida), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${kotlin.math.round(kcal).toInt()} kcal", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                 }
                 Text(
-                    "Las zonas cardíacas no se calculan sin un desglose verificado de Health Connect.",
+                    stringResource(R.string.progress_tab_las_zonas_cardiacas_no_se_calculan),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -763,8 +765,8 @@ private fun ProgressMetricsTilesGrid(snapshot: ProgressSnapshotData, pro: Boolea
     )
     val iconColors = listOf(
         brandGreen,
-        Color(0xFF0A84FF),
-        Color(0xFFFF9F0A)
+        ReperaAccents.minutes,
+        ReperaAccents.energy
     )
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val minItem = (96 * LocalDensity.current.fontScale).dp
@@ -850,11 +852,11 @@ private fun ProgressRangePickerSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ReperaPageHeader(
-                title = "Periodo",
+                title = stringResource(R.string.progress_tab_periodo),
                 trailing = {
                     ReperaToolbarGlassIconButton(
                         icon = Icons.Outlined.Close,
-                        contentDescription = "Cerrar",
+                        contentDescription = stringResource(R.string.action_close),
                         onClick = onDismiss
                     )
                 }
@@ -906,7 +908,7 @@ private fun ProgressRangePickerSheet(
                         )
                         if (dev.repera.domain.monetization.ReperaFeature.requiresPro(range) && !isPro) {
                             Text(
-                                "Pro",
+                                stringResource(R.string.progress_tab_pro),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = brandGreenReadable
                             )
@@ -1032,11 +1034,11 @@ internal fun WeightPreviewCard(
 internal fun HeartZonesDemoCard() {
     data class Zone(val label: String, val pct: Float, val color: Color)
     val zones = listOf(
-        Zone("Z1", 0.18f, Color(0xFF64D2FF)),
-        Zone("Z2", 0.28f, Color(0xFF30D158)),
-        Zone("Z3", 0.24f, Color(0xFFFFD60A)),
-        Zone("Z4", 0.18f, Color(0xFFFF9F0A)),
-        Zone("Z5", 0.12f, Color(0xFFFF453A))
+        Zone("Z1", 0.18f, ReperaAccents.heartZones[0]),
+        Zone("Z2", 0.28f, ReperaAccents.heartZones[1]),
+        Zone("Z3", 0.24f, ReperaAccents.heartZones[2]),
+        Zone("Z4", 0.18f, ReperaAccents.heartZones[3]),
+        Zone("Z5", 0.12f, ReperaAccents.heartZones[4])
     )
     ReperaCard(Modifier.fillMaxWidth().testTag("heart_zones_card")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1126,7 +1128,7 @@ private fun WeightLogRow(accountId: String, busy: Boolean, onLogBodyWeight: (Dou
         ReperaNumericField(
             value = weightInput,
             onValueChange = { weightInput = it },
-            label = "Peso (kg)",
+            label = stringResource(R.string.progress_tab_peso_kg),
             modifier = Modifier.fillMaxWidth(0.25f)
         )
         Button(
@@ -1146,6 +1148,6 @@ private fun WeightLogRow(accountId: String, busy: Boolean, onLogBodyWeight: (Dou
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.height(fieldHeight),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
-        ) { Text("Registrar") }
+        ) { Text(stringResource(R.string.progress_tab_registrar)) }
     }
 }

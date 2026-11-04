@@ -45,6 +45,18 @@ final class BusinessWorkoutSyncStore {
         }
     }
 
+    private struct MirrorIndexRow: Decodable {
+        let id: UUID
+        let deletedAt: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case deletedAt = "deleted_at"
+        }
+    }
+
+    private static let indexPageSize = 1_000
+
     private struct SharingRow: Decodable {
         let orgId: UUID
         let enabled: Bool
@@ -181,30 +193,26 @@ final class BusinessWorkoutSyncStore {
                     UserDefaults.standard.set(remaining, forKey: key(user, suffix: "deleted"))
                 }
             }
-            // Workouts are paginated so a long-lived athlete account is not
-            // silently truncated at Supabase/PostgREST's default 1,000 rows.
-            var remote: [MirrorRow] = []
-            var offset = 0
-            var fetchedEntireMirror = false
-            repeat {
-                // Use the SDK's Supabase-aware JSON date decoder (handles
-                // fractional timestamps that Foundation .iso8601 can reject).
-                let page: [MirrorRow] = try await client.from("athlete_workout_mirror")
-                    .select("id,payload,deleted_at")
+            // Remote existence comes from a payload-free listing paged by the
+            // immutable primary key: no row cap, and a row edited mid-scan can
+            // never slip behind the cursor and be mistaken for a deletion.
+            var existing: [UUID: MirrorIndexRow] = [:]
+            var after: UUID?
+            while true {
+                guard run == generation else { return false }
+                var query = client.from("athlete_workout_mirror")
+                    .select("id,deleted_at")
                     .eq("owner_id", value: user.uuidString)
-                    .order("finished_at", ascending: false)
-                    .range(from: offset, to: offset + 199)
+                if let after { query = query.gt("id", value: after.uuidString) }
+                let page: [MirrorIndexRow] = try await query
+                    .order("id", ascending: true)
+                    .limit(Self.indexPageSize)
                     .execute().value
-                remote.append(contentsOf: page)
-                offset += page.count
-                if page.count < 200 {
-                    fetchedEntireMirror = true
-                    break
-                }
-            } while offset < 20_000
-            guard fetchedEntireMirror else {
-                lastError = "El historial remoto supera el límite de sincronización segura."
-                return false
+                for row in page { existing[row.id] = row }
+                // Stop only on an empty page: a server max-rows below the page
+                // size must not truncate the listing into false deletions.
+                guard let last = page.last?.id else { break }
+                after = last
             }
 
             guard run == generation, BusinessAuthStore.shared.isConnected,
@@ -213,7 +221,41 @@ final class BusinessWorkoutSyncStore {
 
             var seen = fingerprints(user)
             for id in queued { seen.removeValue(forKey: id) }
-            let existing = Dictionary(uniqueKeysWithValues: remote.map { ($0.id, $0) })
+            let localById = Dictionary(store.state.workouts.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let localDigests = localById.mapValues { digest($0) }
+            let queuedDeletes = Set(pendingDeletes(user))
+            // Payloads are only downloaded where a decision needs them: unseen
+            // remote workouts to recover, and local ones whose remote copy is
+            // not known to match (first sync on this device or local edits).
+            let payloadIDs = existing.values.compactMap { row -> UUID? in
+                guard row.deletedAt == nil, !queuedDeletes.contains(row.id.uuidString) else { return nil }
+                if let localDigest = localDigests[row.id] {
+                    return seen[row.id.uuidString] == localDigest ? nil : row.id
+                }
+                return seen[row.id.uuidString] == nil ? row.id : nil
+            }
+            var payloads: [UUID: MirrorRow] = [:]
+            for chunk in payloadIDs.chunked(into: 50) {
+                guard run == generation else { return false }
+                // Use the SDK's Supabase-aware JSON date decoder (handles
+                // fractional timestamps that Foundation .iso8601 can reject).
+                let rows: [MirrorRow] = try await client.from("athlete_workout_mirror")
+                    .select("id,payload,deleted_at")
+                    .eq("owner_id", value: user.uuidString)
+                    .in("id", values: chunk.map(\.uuidString))
+                    .execute().value
+                for row in rows { payloads[row.id] = row }
+            }
+            // Remote WOD structure: downloaded payload, or the local copy when its
+            // fingerprint proves it is identical to the mirrored row.
+            let remoteWorkouts: [UUID: WorkoutSession] = existing.values.reduce(into: [:]) { result, row in
+                guard row.deletedAt == nil else { return }
+                if let payload = payloads[row.id]?.payload {
+                    result[row.id] = payload
+                } else if let local = localById[row.id], seen[row.id.uuidString] == localDigests[row.id] {
+                    result[row.id] = local
+                }
+            }
             // Fingerprints only describe workouts that this device successfully
             // mirrored before. If one is absent remotely, the real row was
             // deleted on another device: discard local copy, never re-upload.
@@ -227,21 +269,20 @@ final class BusinessWorkoutSyncStore {
             }
             // Legacy WODs without an original block snapshot cannot support
             // fully calibrated stimulus comparisons. Never invent missing Rx.
-            let unstructuredRemoteWODs = Set(remote.compactMap { row -> UUID? in
-                guard row.deletedAt == nil, let workout = row.payload,
-                      !workout.wodResults.isEmpty,
+            let unstructuredRemoteWODs = Set(remoteWorkouts.compactMap { id, workout -> UUID? in
+                guard !workout.wodResults.isEmpty,
                       workout.routineBlocks?.isEmpty != false
                 else { return nil }
-                return row.id
+                return id
             })
             var restoredBlockIDs = Set<UUID>()
-            let deletionIDs = Set(pendingDeletes(user))
+            let deletionIDs = queuedDeletes
             var recovered: [WorkoutSession] = []
-            let localIds = Set(store.state.workouts.map(\.id))
+            let localIds = Set(localById.keys)
 
             // A second iPhone may have workouts that are not yet in the current
             // iCloud document. Only recover previously unseen, non-deleted IDs.
-            for row in remote where row.deletedAt == nil && !localIds.contains(row.id) {
+            for row in payloads.values where row.deletedAt == nil && !localIds.contains(row.id) {
                 guard !deletionIDs.contains(row.id.uuidString),
                       seen[row.id.uuidString] == nil,
                       let workout = row.payload,
@@ -263,14 +304,14 @@ final class BusinessWorkoutSyncStore {
                       existing[original.id]?.deletedAt == nil
                 else { return nil }
                 let clean = Self.privateMirrorPayload(original)
-                let checksum = digest(clean)
+                let checksum = localDigests[original.id] ?? digest(clean)
                 let id = original.id.uuidString
-                if let remoteRow = existing[original.id], seen[id] == nil {
+                if existing[original.id] != nil, seen[id] == nil {
                     // First sync on another device must not overwrite an edited
                     // remote workout. The sole safe exception is restoring a
                     // missing original block snapshot when EVERY other mirrored
                     // field agrees with the remote version.
-                    guard let remoteWorkout = remoteRow.payload,
+                    guard let remoteWorkout = payloads[original.id]?.payload,
                           Self.isSafeBlockSnapshotBackfill(local: clean, remote: remoteWorkout)
                     else {
                         seen[id] = checksum

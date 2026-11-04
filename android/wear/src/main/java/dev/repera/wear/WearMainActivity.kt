@@ -9,7 +9,13 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
 import android.os.SystemClock
+import androidx.compose.runtime.snapshotFlow
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.wear.ambient.AmbientLifecycleObserver
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -64,7 +70,44 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         const val TODAY_PLAN_TTL_MS = 18L * 60L * 60L * 1000L
         /** Complicación / tile de esfera: abrir hub centrado en el plan de hoy. */
         const val EXTRA_OPEN_TODAY = "dev.repera.wear.OPEN_TODAY"
+        /** Sin respuesta del teléfono a live-start / finish: mensaje claro y reintento manual. */
+        private const val PHONE_REPLY_TIMEOUT_MS = 10_000L
     }
+
+    private var ambientMode by mutableStateOf<WearAmbientMode?>(null)
+    private var ambientTick by mutableStateOf(0)
+    /** Frozen per ambient update so live HR samples do not redraw the Always-On face. */
+    private var ambientFrame by mutableStateOf<WearAmbientSnapshot?>(null)
+    private val ambientObserver = AmbientLifecycleObserver(this,
+        object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+            override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                ambientMode = WearAmbientMode(ambientDetails.burnInProtectionRequired,
+                    ambientDetails.deviceHasLowBitAmbient)
+                stopSecondTickers()
+                refreshAmbientValues()
+            }
+            override fun onUpdateAmbient() {
+                ambientTick++
+                refreshAmbientValues()
+            }
+            override fun onExitAmbient() {
+                ambientMode = null
+                restartSecondTickers()
+            }
+        })
+    private var motionRegistered = false
+    private val timerRetry = WearRetrySchedule()
+    private var hubNotice by mutableStateOf<String?>(null)
+    private var liveNotice by mutableStateOf<String?>(null)
+    private var pendingLiveStartId: String? = null
+    private var pendingLiveStartSport: String? = null
+    private var retryLiveStartSport: String? = null
+    private var liveStartTimeout: kotlinx.coroutines.Job? = null
+    private var pendingCompanionFinishId by mutableStateOf<String?>(null)
+    private var companionFinishTimeout: kotlinx.coroutines.Job? = null
+    private var midnightJob: kotlinx.coroutines.Job? = null
+
+    private fun haptic(kind: WearHaptic) = window.decorView.performWearHaptic(kind)
 
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private val messageClient by lazy { Wearable.getMessageClient(this) }
@@ -143,10 +186,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sendStatus="La sesión cambió; vuelve a solicitar sensores desde el reloj"
             return@registerForActivityResult
         }
+        val heartPermission = WearHealthPermissions.heartRate(android.os.Build.VERSION.SDK_INT)
         if (activeSensorId!=null && WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all {permission ->
             grants[permission]==true || androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED
         }) {
             startHealthForCurrentSession()
+        } else if (activeSensorId != null && grants[heartPermission] != true) {
+            // The workout continues without HR; never re-prompt in a loop for this session.
+            val denied = getString(R.string.wear_sensors_permission_denied)
+            sendStatus = denied
+            if (liveActivityJson != null) liveNotice = denied
+            haptic(WearHaptic.REJECT)
         }
         // GPS puntual independiente de la autorización de pulso/Health.
         if (activeSensorId != null && watchStartedSession) captureWatchStartLocation(activeSensorId)
@@ -196,6 +246,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var reviewingBlock by mutableStateOf(false)
     private var elapsedSeconds by mutableStateOf(0)
     private var elapsedJob: kotlinx.coroutines.Job? = null
+    /** The session clock is running even while its ticker is suspended in ambient. */
+    private var elapsedClockRunning = false
     private var sessionStartedAtElapsed: Long? = null
     private var pausedAccumulatedMs = 0L
     private var lastElapsedCheckpointMs = 0L
@@ -265,21 +317,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 sessionCache.edit().remove("snapshot").remove("inputDraft").remove("restState").apply()
             }
         }
-        val cachedPlanAt = sessionCache.getLong("todayPlanAt", 0L)
-        val cachedDay = sessionCache.getString("todayPlanDay", null)
-        val canRestore = when {
-            cachedDay != null -> cachedDay == java.time.LocalDate.now().toString()
-            else -> cachedPlanAt > 0L &&
-                System.currentTimeMillis() - cachedPlanAt in 0L..TODAY_PLAN_TTL_MS
-        }
-        if (!canRestore) {
-            sessionCache.edit().remove("todayPlan").remove("todayPlanAt")
-                .remove("todayPlanDay").apply()
-        } else {
-            sessionCache.getString("todayPlan", null)?.let { cached ->
-                todayPlanJson = runCatching { JSONObject(cached) }.getOrNull()
-            }
-        }
+        restoreCachedTodayPlan()
         watchStartedSession = sessionCache.getBoolean("watchStarted", false)
         val restoredSessionId = visibleSession?.sessionId
         if (restoredSessionId != null &&
@@ -305,11 +343,25 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         consumeOpenTodayIntent(intent)
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+        lifecycle.addObserver(ambientObserver)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                snapshotFlow {
+                    WearMotionPolicy.shouldCount(visibleSession, sessionPaused, restRemaining, started = true)
+                }.distinctUntilChanged().collect { setMotionRegistered(it) }
+            }
+        }
         setContent {
             MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
                 primary = Color(0xFF30D158), onPrimary = Color.Black,
                 background = Color.Black
             )) {
+                val ambient = ambientMode
+                val frame = ambientFrame
+                if (ambient != null && frame != null && hubOverlay == WearHubOverlay.HOME) {
+                    WearAmbientScreen(ambient, ambientTick, frame)
+                    return@MaterialTheme
+                }
                 AppScaffold {
                     ScreenScaffold { insets ->
                         when (hubOverlay) {
@@ -395,7 +447,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 reviewRounds = reviewRounds,
                                 reviewExtraReps = reviewExtraReps,
                                 reviewElapsedSeconds = reviewElapsedSeconds,
-                                setReviewIndex = setReviewIndex
+                                setReviewIndex = setReviewIndex,
+                                hubNotice = hubNotice,
+                                liveNotice = liveNotice,
+                                companionFinishPending = pendingCompanionFinishId != null
                             ),
                             callbacks = WearHomeCallbacks(
                                 onLiveCommand = { command -> requestLiveCommand(command) },
@@ -410,6 +465,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onDismissLiveToHome = {
                                     suppressCompanionLive = true
                                     liveActivityJson = null
+                                    liveNotice = null
                                     restoreLastHubItem()
                                 },
                                 onStartTodayPlan = { startTodayPlan() },
@@ -553,6 +609,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         .apply()
                                 },
                                 onOpenTimer = { hubOverlay = WearHubOverlay.TIMER_CONFIG },
+                                onHubNoticeTap = {
+                                    val retry = retryLiveStartSport
+                                    hubNotice = null
+                                    if (retry != null) requestLiveStart(retry)
+                                },
                                 onToggleHubAudioMuted = {
                                     hubAudioMuted = !hubAudioMuted
                                     sessionCache.edit()
@@ -593,53 +654,19 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     override fun onStart() {
         super.onStart()
-        if (visibleSession?.phase == "counting" && elapsedJob == null) resumeElapsedClock()
+        if (visibleSession?.phase == "counting" && !elapsedClockRunning) resumeElapsedClock()
         healthBound=bindService(android.content.Intent(this,WearHealthService::class.java),healthServiceConnection,android.content.Context.BIND_AUTO_CREATE)
-        motionSensor?.let { sensor ->
-            sensorManager?.registerListener(this, sensor, 40_000)
-        }
         dataClient.addListener(this)
         messageClient.addListener(this)
         resendPending()
+        // Reconnection/foreground: every pending timer is due once, then backs off per item.
+        timerRetry.reset()
         resendPendingTimers()
-        timerRetryJob?.cancel()
-        timerRetryJob = lifecycleScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(15_000)
-                resendPendingTimers()
-            }
-        }
+        if (todayPlanJson != null) restoreCachedTodayPlan()
+        scheduleMidnightPlanExpiry()
         dataClient.dataItems.addOnSuccessListener { items ->
             try {
-                for (item in items) {
-                    if (item.uri.path == "/repera/session-terminal") {
-                        val data = DataMapItem.fromDataItem(item).dataMap
-                        runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
-                    }
-                    if (item.uri.path == "/repera/active-session") {
-                        val data = DataMapItem.fromDataItem(item).dataMap
-                        val bytes = data.getByteArray("session")
-                        val finished = data.getByteArray("finished")
-                        val signedOut = data.getBoolean("signedOut")
-                        val effort = data.getString("effortUnit")
-                        val weight = data.getString("weightUnit")
-                        val discardedId = data.getString("discardedSessionId")
-                        runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
-                    }
-                    if (item.uri.path == "/repera/wod-timer") {
-                        val bytes = DataMapItem.fromDataItem(item).dataMap
-                            .getByteArray("timer")
-                        runOnUiThread { showWodTimer(bytes) }
-                    }
-                    if (item.uri.path == "/repera/live-activity") {
-                        val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("live")
-                        runOnUiThread { showLiveActivity(bytes) }
-                    }
-                    if (item.uri.path == "/repera/today-plan") {
-                        val map = DataMapItem.fromDataItem(item).dataMap
-                        runOnUiThread { showTodayPlanFromMap(map) }
-                    }
-                }
+                for (item in items) dispatchDataItem(item)
             } finally {
                 items.release()
             }
@@ -649,55 +676,68 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     override fun onStop() {
         timerRetryJob?.cancel()
         timerRetryJob = null
+        midnightJob?.cancel()
+        midnightJob = null
         persistElapsedClock()
         elapsedJob?.cancel()
         elapsedJob = null
+        elapsedClockRunning = false
         persistDraft()
         persistRest()
         healthConnection?.observe(null);healthConnection=null
         if(healthBound) {unbindService(healthServiceConnection);healthBound=false}
-        sensorManager?.unregisterListener(this)
+        setMotionRegistered(false)
         messageClient.removeListener(this)
         dataClient.removeListener(this)
         super.onStop()
     }
 
     override fun onDataChanged(events: DataEventBuffer) {
-        for (event in events) {
-            if (event.dataItem.uri.path == "/repera/session-terminal") {
-                val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+        for (event in events) dispatchDataItem(event.dataItem)
+    }
+
+    /** Oversize items are ignored before decoding: the last valid state stays on screen. */
+    private fun dispatchDataItem(item: com.google.android.gms.wearable.DataItem) {
+        when (item.uri.path) {
+            "/repera/session-terminal" -> {
+                val data = DataMapItem.fromDataItem(item).dataMap
                 runOnUiThread { receivePhoneTerminal(data.getString("sessionId"), data.getBoolean("saved")) }
             }
-            if (event.dataItem.uri.path == "/repera/active-session") {
-                val data = DataMapItem.fromDataItem(event.dataItem).dataMap
+            "/repera/active-session" -> {
+                val data = DataMapItem.fromDataItem(item).dataMap
                 val bytes = data.getByteArray("session")
                 val finished = data.getByteArray("finished")
+                if (!WearPayload.withinLimit(bytes) || !WearPayload.withinLimit(finished)) {
+                    runOnUiThread { syncProblem = true }
+                    return
+                }
                 val signedOut = data.getBoolean("signedOut")
                 val effort = data.getString("effortUnit")
                 val weight = data.getString("weightUnit")
                 val discardedId = data.getString("discardedSessionId")
                 runOnUiThread { showSession(bytes, signedOut, finished, effort, weight, discardedId) }
             }
-            if (event.dataItem.uri.path == "/repera/wod-timer") {
-                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap
-                    .getByteArray("timer")
-                runOnUiThread { showWodTimer(bytes) }
+            "/repera/wod-timer" -> {
+                val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("timer")
+                if (WearPayload.withinLimit(bytes)) runOnUiThread { showWodTimer(bytes) }
             }
-            if (event.dataItem.uri.path == "/repera/live-activity") {
-                val bytes = DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("live")
-                runOnUiThread { showLiveActivity(bytes) }
+            "/repera/live-activity" -> {
+                val bytes = DataMapItem.fromDataItem(item).dataMap.getByteArray("live")
+                if (WearPayload.withinLimit(bytes)) runOnUiThread { showLiveActivity(bytes) }
             }
-            if (event.dataItem.uri.path == "/repera/today-plan") {
-                val map = DataMapItem.fromDataItem(event.dataItem).dataMap
-                runOnUiThread { showTodayPlanFromMap(map) }
+            "/repera/today-plan" -> {
+                val map = DataMapItem.fromDataItem(item).dataMap
+                if (WearPayload.withinLimit(map.getByteArray("plan"))) {
+                    runOnUiThread { showTodayPlanFromMap(map) }
+                }
             }
         }
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (!WearPayload.withinLimit(event.data)) return
         if (event.path == "/repera/timer-command") {
-            val cmd = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
-                .getOrNull() ?: return
+            val cmd = WearPayload.json(event.data) ?: return
             if (cmd.optString("id") == timerRunId &&
                 hubOverlay == WearHubOverlay.TIMER_RUN &&
                 cmd.optString("command") in setOf("pause", "resume", "finish")) {
@@ -709,17 +749,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         if (event.path == "/repera/timer-save-ack") {
-            val ack = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
-                .getOrNull() ?: return
+            val ack = WearPayload.json(event.data) ?: return
             if (ack.optBoolean("saved")) {
                 removePendingTimer(ack.optString("id"))
             }
             return
         }
         if (event.path == "/repera/session-start-ack") {
-            val reply = runCatching {
-                JSONObject(String(event.data, Charsets.UTF_8))
-            }.getOrNull() ?: return
+            val reply = WearPayload.json(event.data) ?: return
             runOnUiThread {
                 if (reply.optString("sessionId") == visibleSession?.sessionId &&
                     !reply.optBoolean("ok")) {
@@ -729,28 +766,20 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         if (event.path == "/repera/live-start-ack") {
-            val reply = runCatching {
-                JSONObject(String(event.data, Charsets.UTF_8))
-            }.getOrNull() ?: return
-            runOnUiThread {
-                sendStatus = if (reply.optBoolean("ok")) null
-                    else reply.optString("reason").ifBlank {
-                        "El móvil no pudo iniciar la actividad; abre Repera"
-                    }
-            }
+            val reply = WearPayload.json(event.data) ?: return
+            runOnUiThread { receiveLiveStartAck(reply) }
             return
         }
         if(event.path=="/repera/session-finish-ack") {
-            val ack=runCatching {JSONObject(String(event.data,Charsets.UTF_8))}.getOrNull() ?: return
+            val ack=WearPayload.json(event.data) ?: return
             if(ack.optString("status")=="saved") runOnUiThread {
-                runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sendStatus="Fin confirmado por el teléfono"}}.onSuccess {}
+                runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sendStatus="Fin confirmado por el teléfono";haptic(WearHaptic.CONFIRM)}}.onSuccess {}
                     .onFailure {sendStatus="No se pudo guardar la confirmación; se reintentará sin duplicar"}
             }
             return
         }
         if (event.path != "/repera/log-set-ack") return
-        val ack = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }.getOrNull()
-            ?: return
+        val ack = WearPayload.json(event.data) ?: return
         runOnUiThread {
             val id = ack.optString("id")
             when (ack.optString("status")) {
@@ -763,11 +792,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     sendStatus = when {
                         !cleared -> "No se pudo confirmar la serie; permanece en el reloj"
                         pendingCount == 0 -> "Series sincronizadas"
-                        else -> "$pendingCount series pendientes"
+                        else -> resources.getQuantityString(R.plurals.wear_pending_sets, pendingCount, pendingCount)
                     }
                 }
-                "rejected" -> sendStatus =
-                    "La sesión del teléfono cambió; revisa las series pendientes"
+                "rejected" -> {
+                    sendStatus = "La sesión del teléfono cambió; revisa las series pendientes"
+                    haptic(WearHaptic.REJECT)
+                }
                 else -> sendStatus = "Sin conexión confirmada; las series siguen guardadas"
             }
         }
@@ -782,8 +813,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      */
     override fun onSensorChanged(event: SensorEvent) {
         val session = visibleSession ?: return
-        if (!session.canLogOnWatch || !dev.repera.domain.WatchQuantityPolicy.usesMotion(session.inputMode) ||
-            session.wodFormatLabel != null || sessionPaused || restRemaining > 0) return
+        if (!WearMotionPolicy.shouldCount(session, sessionPaused, restRemaining, started = true)) return
         val x = event.values[0]; val y = event.values[1]; val z = event.values[2]
         val magnitudeG = kotlin.math.sqrt(
             (x * x + y * y + z * z).toDouble()) / 9.80665 + 1.0
@@ -795,6 +825,49 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    /** 40 ms accelerometer only while counting reps; rest, pause, WOD and leaving release it. */
+    private fun setMotionRegistered(register: Boolean) {
+        if (register == motionRegistered) return
+        val sensor = motionSensor ?: return
+        motionRegistered = if (register) {
+            sensorManager?.registerListener(this, sensor, 40_000) == true
+        } else {
+            sensorManager?.unregisterListener(this, sensor)
+            false
+        }
+    }
+
+    private fun stopSecondTickers() {
+        elapsedJob?.cancel(); elapsedJob = null
+        restJob?.cancel(); restJob = null
+        wodTickJob?.cancel(); wodTickJob = null
+    }
+
+    private fun restartSecondTickers() {
+        if (elapsedClockRunning) launchElapsedTicker()
+        tickRest()
+        refreshWodTickFromEffective()
+    }
+
+    /** One ambient update: recompute clocks once, then freeze the frame until the next update. */
+    private fun refreshAmbientValues() {
+        tickElapsed()
+        val now = SystemClock.elapsedRealtime()
+        restRemaining = restClock.remainingSeconds(now)
+        refreshWodTickFromEffective()
+        val restMillis = restClock.remainingMillis(now)
+        ambientFrame = WearAmbientSnapshot(
+            nowMillis = System.currentTimeMillis(),
+            session = visibleSession,
+            live = liveActivityJson,
+            heartRate = health?.first,
+            elapsedSeconds = elapsedSeconds,
+            paused = sessionPaused,
+            restEndsAtMillis = if (restMillis > 0 && !sessionPaused)
+                System.currentTimeMillis() + restMillis else null
+        )
+    }
 
     private fun adjustQuantity(delta: Int) {
         val session = visibleSession ?: return
@@ -907,11 +980,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         if (timer.optBoolean("running") &&
             timer.has("zeroAtWallMs") && !timer.isNull("zeroAtWallMs")) {
+            wodTickSeconds = WearLocalWodClock.tickElapsed(timer)
+            if (ambientMode != null) return
             wodTickJob = lifecycleScope.launch {
-                while (true) {
+                while (isActive) {
                     val live = effectiveWodTimer(visibleSession) ?: break
                     wodTickSeconds = WearLocalWodClock.tickElapsed(live)
-                    kotlinx.coroutines.delay(250)
+                    val zero = live.optLong("zeroAtWallMs", System.currentTimeMillis())
+                    kotlinx.coroutines.delay(wearMsUntilNextSecond(System.currentTimeMillis() - zero))
                 }
             }
         } else {
@@ -920,15 +996,20 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun showLiveActivity(bytes: ByteArray?) {
+        val empty = bytes == null || bytes.isEmpty()
+        val incoming = WearPayload.json(bytes)
+        if (empty || incoming != null) resolvePendingLiveRequests(incoming)
+        showLiveActivityBody(empty, incoming)
+        refreshAmbientIfNeeded()
+    }
+
+    private fun showLiveActivityBody(empty: Boolean, parsed: JSONObject?) {
         if (suppressCompanionLive) {
-            if (bytes == null || bytes.isEmpty()) {
+            if (empty) {
                 suppressCompanionLive = false
                 liveActivityJson = null
                 return
             }
-            val parsed = runCatching {
-                JSONObject(String(bytes, Charsets.UTF_8))
-            }.getOrNull()
             // Nueva grabación del teléfono: dejar de suprimir.
             if (parsed?.optString("phase") == "recording") {
                 suppressCompanionLive = false
@@ -939,10 +1020,31 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
             return
         }
-        liveActivityJson = bytes?.takeIf { it.isNotEmpty() }?.let {
-            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
-        }
+        liveActivityJson = parsed
+        if (parsed == null) liveNotice = null
         syncCompanionSensors()
+    }
+
+    /** The phone's snapshot is the confirmation for start and finish requests sent from the watch. */
+    private fun resolvePendingLiveRequests(incoming: JSONObject?) {
+        val phase = incoming?.optString("phase")
+        if (pendingLiveStartId != null && phase in setOf("recording", "paused")) {
+            clearPendingLiveStart()
+            hubNotice = null
+            sendStatus = null
+        }
+        val finishing = pendingCompanionFinishId ?: return
+        val sameSession = incoming?.optString("sessionId") == finishing
+        if (sameSession && phase in setOf("recording", "paused")) return
+        val previous = liveActivityJson?.takeIf { it.optString("sessionId") == finishing }
+        clearPendingCompanionFinish()
+        liveNotice = null
+        haptic(WearHaptic.CONFIRM)
+        presentCompanionFinished(if (sameSession && incoming != null) incoming else previous ?: return)
+    }
+
+    private fun refreshAmbientIfNeeded() {
+        if (ambientMode != null) refreshAmbientValues()
     }
 
     /** Sin segundo GPS: Health Services pertenece al reloj; el móvil registra la ruta. */
@@ -988,19 +1090,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         syncCompanionSensors()
     }
 
+    /**
+     * Pause/resume/finish are requests: the summary appears only after the phone's
+     * snapshot leaves recording/paused for this session (review or idle).
+     */
     private fun requestLiveCommand(command: String) {
         if (command !in setOf("pause", "resume", "finish")) return
         val live = liveActivityJson ?: return
         val id = live.optString("sessionId").orEmpty()
-        if (id.isBlank()) return
-        val payload = JSONObject().put("sessionId", id).put("command", command)
-            .toString().toByteArray(Charsets.UTF_8)
+        if (id.isBlank() || pendingCompanionFinishId == id) return
+        val body = JSONObject().put("sessionId", id).put("command", command)
+        live.optString("commandToken").takeIf { it.isNotBlank() }?.let { body.put("token", it) }
+        val payload = body.toString().toByteArray(Charsets.UTF_8)
+        if (command == "finish") beginCompanionFinish(id)
+        val disconnected = {
+            failCompanionFinish(id, getString(R.string.wear_live_phone_disconnected))
+            liveNotice = getString(R.string.wear_live_phone_disconnected)
+            sendStatus = liveNotice
+            haptic(WearHaptic.REJECT)
+        }
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            if (liveActivityJson?.optString("sessionId") != id && command != "finish") {
-                return@addOnSuccessListener
-            }
+            if (liveActivityJson?.optString("sessionId") != id) return@addOnSuccessListener
             if (nodes.isEmpty()) {
-                sendStatus = "Móvil desconectado; actividad conservada"
+                disconnected()
                 return@addOnSuccessListener
             }
             nodes.forEach { node ->
@@ -1008,12 +1120,37 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     node.id, "/repera/live-command", payload
                 )
             }
-            if (command == "finish") {
-                presentCompanionFinished(live)
+            if (command != "finish") {
+                liveNotice = null
+                haptic(if (command == "pause") WearHaptic.TOGGLE_OFF else WearHaptic.TOGGLE_ON)
             }
             // Sin toast «Control enviado…»: el snapshot del móvil actualiza la UI.
             sendStatus = null
+        }.addOnFailureListener { disconnected() }
+    }
+
+    private fun beginCompanionFinish(sessionId: String) {
+        pendingCompanionFinishId = sessionId
+        liveNotice = getString(R.string.wear_live_finish_pending)
+        companionFinishTimeout?.cancel()
+        companionFinishTimeout = lifecycleScope.launch {
+            kotlinx.coroutines.delay(PHONE_REPLY_TIMEOUT_MS)
+            failCompanionFinish(sessionId, getString(R.string.wear_live_finish_timeout))
         }
+    }
+
+    /** Keeps the live controls: the activity is still owned and running on the phone. */
+    private fun failCompanionFinish(sessionId: String, message: String) {
+        if (pendingCompanionFinishId != sessionId) return
+        clearPendingCompanionFinish()
+        liveNotice = message
+        haptic(WearHaptic.REJECT)
+    }
+
+    private fun clearPendingCompanionFinish() {
+        pendingCompanionFinishId = null
+        companionFinishTimeout?.cancel()
+        companionFinishTimeout = null
     }
 
     private fun showTodayPlanFromMap(map: com.google.android.gms.wearable.DataMap) {
@@ -1040,17 +1177,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun showTodayPlan(bytes: ByteArray?, updatedAtMillis: Long = System.currentTimeMillis(),
                               sourceDay: String? = null) {
-        val parsed = bytes?.takeIf { it.isNotEmpty() }?.let {
-            runCatching { JSONObject(String(it, Charsets.UTF_8)) }.getOrNull()
-        }
+        val parsed = WearPayload.json(bytes)
         // La fecha de planificación manda: una sesión recibida por la mañana
         // sigue disponible sin conexión hasta terminar ese día local.
         // Los emisores antiguos sin fecha conservan el TTL de compatibilidad.
-        val fresh = parsed != null && when {
-            sourceDay != null -> sourceDay == java.time.LocalDate.now().toString()
-            else -> updatedAtMillis > 0L &&
-                System.currentTimeMillis() - updatedAtMillis in 0L..TODAY_PLAN_TTL_MS
-        }
+        val fresh = parsed != null && WearTodayPlanCache.isFresh(sourceDay, updatedAtMillis,
+            java.time.LocalDate.now(), System.currentTimeMillis())
         val hadPlan = todayPlanJson != null
         todayPlanJson = parsed.takeIf { fresh }
         if (todayPlanJson != null) {
@@ -1068,6 +1200,42 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sessionCache.edit().remove("todayPlan").remove("todayPlanAt")
                 .remove("todayPlanDay").apply()
         }
+        refreshWearSurfaces()
+        scheduleMidnightPlanExpiry()
+    }
+
+    /** Cached plan → hub; an expired one is removed so the hub, tile and complication agree. */
+    private fun restoreCachedTodayPlan() {
+        val plan = WearTodayPlanCache.freshPlan(
+            sessionCache.getString("todayPlan", null),
+            sessionCache.getString("todayPlanDay", null),
+            sessionCache.getLong("todayPlanAt", 0L)
+        )
+        if (plan == null && sessionCache.contains("todayPlan")) {
+            sessionCache.edit().remove("todayPlan").remove("todayPlanAt")
+                .remove("todayPlanDay").apply()
+            refreshWearSurfaces()
+        }
+        todayPlanJson = plan
+    }
+
+    /** While visible, the hub drops yesterday's plan at local midnight. */
+    private fun scheduleMidnightPlanExpiry() {
+        midnightJob?.cancel()
+        midnightJob = null
+        if (todayPlanJson == null || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val until = WearTodayPlanCache.validUntilMillis(
+            sessionCache.getString("todayPlanDay", null), sessionCache.getLong("todayPlanAt", 0L)
+        ) ?: return
+        midnightJob = lifecycleScope.launch {
+            kotlinx.coroutines.delay((until - System.currentTimeMillis()).coerceAtLeast(0L) + 1_000L)
+            restoreCachedTodayPlan()
+        }
+    }
+
+    private fun refreshWearSurfaces() {
+        ReperaTodayTileService.requestUpdate(this)
+        ReperaComplicationService.requestUpdate(this)
     }
 
     private fun onHubPlay(item: WearHubCarouselItem) {
@@ -1116,33 +1284,84 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
     }
 
+    /**
+     * The phone answers /repera/live-start-ack (foreground or background) or publishes
+     * a recording snapshot. Without either, the hub shows a timeout with a retry tap.
+     * [requestId] lets the phone answer a retry idempotently.
+     */
     private fun requestLiveStart(sportId: String) {
         if (sportId.isBlank()) return
+        if (pendingLiveStartSport == sportId) return
         suppressCompanionLive = false
         val phase = liveActivityJson?.optString("phase")
         if (liveActivityJson != null && phase != "review") {
-            sendStatus = "Actividad en curso en el teléfono"
+            hubNotice = getString(R.string.wear_live_running_on_phone)
             return
         }
         if (phase == "review") {
             liveActivityJson = null
         }
         if (visibleSession != null) {
-            sendStatus = "Hay un entreno activo; termínalo antes de Comenzar"
+            hubNotice = "Hay un entreno activo; termínalo antes de Comenzar"
             return
         }
-        val payload = JSONObject().put("sportId", sportId)
+        val requestId = java.util.UUID.randomUUID().toString()
+        val payload = JSONObject().put("sportId", sportId).put("requestId", requestId)
             .toString().toByteArray(Charsets.UTF_8)
+        val title = LiveSport.byId(sportId)?.title ?: getString(R.string.wear_live_start_generic_activity)
+        retryLiveStartSport = null
+        pendingLiveStartId = requestId
+        pendingLiveStartSport = sportId
+        hubNotice = getString(R.string.wear_live_start_pending, title)
+        liveStartTimeout?.cancel()
+        liveStartTimeout = lifecycleScope.launch {
+            kotlinx.coroutines.delay(PHONE_REPLY_TIMEOUT_MS)
+            if (pendingLiveStartId == requestId) failLiveStart(getString(R.string.wear_live_start_timeout), retry = true)
+        }
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            if (pendingLiveStartId != requestId) return@addOnSuccessListener
             if (nodes.isEmpty()) {
-                sendStatus = "Móvil desconectado; abre Repera en el teléfono"
+                failLiveStart(getString(R.string.wear_live_start_disconnected), retry = true)
                 return@addOnSuccessListener
             }
             nodes.forEach { node ->
                 messageClient.sendMessage(node.id, "/repera/live-start", payload)
             }
-            sendStatus = "Iniciando ${LiveSport.byId(sportId)?.title ?: "actividad"}…"
+        }.addOnFailureListener {
+            if (pendingLiveStartId == requestId) {
+                failLiveStart(getString(R.string.wear_live_start_disconnected), retry = true)
+            }
         }
+    }
+
+    private fun receiveLiveStartAck(reply: JSONObject) {
+        val pending = pendingLiveStartId ?: return
+        // Phones without requestId echo still answer the single outstanding request.
+        val echoed = reply.optString("requestId")
+        if (echoed.isNotBlank() && echoed != pending) return
+        if (reply.optBoolean("ok")) {
+            clearPendingLiveStart()
+            hubNotice = null
+            sendStatus = null
+            haptic(WearHaptic.CONFIRM)
+        } else {
+            failLiveStart(reply.optString("reason").ifBlank { getString(R.string.wear_live_start_failed) },
+                retry = true)
+        }
+    }
+
+    private fun failLiveStart(message: String, retry: Boolean) {
+        retryLiveStartSport = pendingLiveStartSport.takeIf { retry }
+        clearPendingLiveStart()
+        hubNotice = message
+        haptic(WearHaptic.REJECT)
+    }
+
+    private fun clearPendingLiveStart() {
+        pendingLiveStartId = null
+        pendingLiveStartSport = null
+        liveStartTimeout?.cancel()
+        liveStartTimeout = null
     }
 
     private fun sendTimerStateToPhone(
@@ -1194,24 +1413,45 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         resendPendingTimers()
     }
 
+    /** Sends only the outbox items that are due (per-item backoff until their ACK). */
     private fun resendPendingTimers() {
+        timerRetryJob?.cancel()
+        timerRetryJob = null
         val pending = runCatching {
             JSONArray(timerOutbox.getString("pending", "[]") ?: "[]")
         }.getOrNull() ?: return
-        if (pending.length() == 0) return
+        val byId = (0 until pending.length()).mapNotNull { pending.optJSONObject(it) }
+            .associateBy { it.optString("id") }.filterKeys { it.isNotBlank() }
+        val due = timerRetry.due(byId.keys, SystemClock.elapsedRealtime())
+        if (byId.isEmpty()) return
+        if (due.isEmpty()) { scheduleTimerRetry(); return }
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            val now = SystemClock.elapsedRealtime()
             if (nodes.isEmpty()) {
+                due.forEach { timerRetry.markSent(it, now) }
                 sendStatus = "Temporizador pendiente; se enviará al reconectar"
+                scheduleTimerRetry()
                 return@addOnSuccessListener
             }
-            for (i in 0 until pending.length()) {
-                val payload = pending.optJSONObject(i)?.toString()
-                    ?.toByteArray(Charsets.UTF_8) ?: continue
+            for (id in due) {
+                val payload = byId[id]?.toString()?.toByteArray(Charsets.UTF_8) ?: continue
                 nodes.forEach { node ->
                     messageClient.sendMessage(node.id, "/repera/timer-save", payload)
                 }
+                timerRetry.markSent(id, now)
             }
             sendStatus = "Sincronizando temporizador con el móvil"
+            scheduleTimerRetry()
+        }
+    }
+
+    private fun scheduleTimerRetry() {
+        val next = timerRetry.nextDueAt() ?: return
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        timerRetryJob?.cancel()
+        timerRetryJob = lifecycleScope.launch {
+            kotlinx.coroutines.delay((next - SystemClock.elapsedRealtime()).coerceAtLeast(1_000L))
+            resendPendingTimers()
         }
     }
 
@@ -1226,6 +1466,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if (item.optString("id") != id) remainder.put(item)
         }
         if (timerOutbox.edit().putString("pending", remainder.toString()).commit()) {
+            timerRetry.remove(id)
             runOnUiThread { sendStatus = null }
         }
     }
@@ -1264,6 +1505,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         watchStartedSession = true
         repCounter.reset()
         todayPlanJson = null
+        refreshWearSurfaces()
         resetElapsedClock()
         ensureHealthRecording()
         // No abrir dos diálogos de permisos simultáneamente: esperar el de sensores.
@@ -1375,7 +1617,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         rememberDiscarded(session.sessionId)
         runCatching {pendingFinish.queue(session.sessionId)}.onFailure {
-            sendStatus="No se pudo guardar la petición de terminar: ${it.localizedMessage}";return
+            sendStatus="No se pudo guardar la petición de terminar: ${it.localizedMessage}"
+            haptic(WearHaptic.REJECT);return
         }
         sendStatus="Fin guardado en el reloj; esperando confirmar series y teléfono"
         resendPending()
@@ -1473,9 +1716,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (queued.isFailure) {
             sendStatus = "No se pudo guardar la serie en el reloj: " +
                 (queued.exceptionOrNull()?.localizedMessage ?: "revisa el almacenamiento")
+            haptic(WearHaptic.REJECT)
             return
         }
         sendStatus = "Serie guardada en el reloj; esperando confirmación"
+        haptic(WearHaptic.CONFIRM)
         repCounter.reset()
         if (session.prescribedReps == null) repsInput = 0
         setKindInput = "straight"; dropsInput = emptyList(); clustersInput = emptyList()
@@ -1535,10 +1780,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun tickRest() {
         restJob?.cancel()
         restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
-        if(sessionPaused) return
+        if(sessionPaused || ambientMode!=null) return
         restJob=lifecycleScope.launch {
             while(restRemaining>0) {
-                kotlinx.coroutines.delay(250)
+                kotlinx.coroutines.delay(wearMsUntilCountdownChange(restClock.remainingMillis(SystemClock.elapsedRealtime())))
                 restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
             }
         }
@@ -1682,6 +1927,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun resetElapsedClock() {
         elapsedJob?.cancel()
         elapsedJob = null
+        elapsedClockRunning = false
         sessionCache.edit().remove("clockSessionId").remove("clockElapsedSeconds")
             .remove("clockSavedAtMillis").remove("clockPaused").apply()
         elapsedSeconds = 0
@@ -1693,12 +1939,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private fun startElapsedClock() {
         resetElapsedClock()
         sessionStartedAtElapsed = SystemClock.elapsedRealtime()
-        elapsedJob = lifecycleScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(500)
-                tickElapsed()
-            }
-        }
+        elapsedClockRunning = true
+        launchElapsedTicker()
     }
 
     private fun resumeElapsedClock() {
@@ -1706,12 +1948,17 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sessionStartedAtElapsed = now - elapsedSeconds * 1000L
         pausedAccumulatedMs = 0L
         pauseStartedAtElapsed = if (sessionPaused) now else null
+        elapsedClockRunning = true
+        launchElapsedTicker()
+    }
+
+    /** Ticks on the clock's own second boundary; suspended in ambient (onUpdateAmbient ticks instead). */
+    private fun launchElapsedTicker() {
         elapsedJob?.cancel()
+        elapsedJob = null
+        if (ambientMode != null) return
         elapsedJob = lifecycleScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(500)
-                tickElapsed()
-            }
+            while (isActive) kotlinx.coroutines.delay(tickElapsed())
         }
     }
 
@@ -1726,8 +1973,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             .apply()
     }
 
-    private fun tickElapsed() {
-        val start = sessionStartedAtElapsed ?: return
+    /** Returns the delay until the visible second changes. */
+    private fun tickElapsed(): Long {
+        val start = sessionStartedAtElapsed ?: return 1_000L
         val now = SystemClock.elapsedRealtime()
         val pausedExtra = if (sessionPaused) {
             val pauseAt = pauseStartedAtElapsed ?: now.also { pauseStartedAtElapsed = it }
@@ -1739,12 +1987,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
             pausedAccumulatedMs
         }
-        elapsedSeconds = ((now - start - pausedExtra) / 1000L).toInt().coerceAtLeast(0)
+        val elapsedMs = (now - start - pausedExtra).coerceAtLeast(0L)
+        elapsedSeconds = (elapsedMs / 1000L).toInt()
             .coerceAtMost(dev.repera.domain.WearSessionDuration.MAX_SECONDS)
         if (now - lastElapsedCheckpointMs >= 5_000L) {
             lastElapsedCheckpointMs = now
             persistElapsedClock()
         }
+        return if (sessionPaused) 1_000L else wearMsUntilNextSecond(elapsedMs)
     }
 
         /** Apple selectBlock: ignored while a finish is pending (awaitingHealthSave equivalent: pendingFinish). A watch-started
@@ -1845,6 +2095,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val sessionId=session.sessionId
         val nowPaused = !sessionPaused
         sessionPaused = nowPaused
+        haptic(if (nowPaused) WearHaptic.TOGGLE_OFF else WearHaptic.TOGGLE_ON)
         if(!nowPaused) pauseSensorsIntent=null
         if (nowPaused) {
             restClock.pause(SystemClock.elapsedRealtime());restJob?.cancel()
@@ -1918,6 +2169,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sessionCache.edit().putString("weightUnit", weightUnitWire).apply()
         }
         showSessionBody(bytes, signedOut, finished, explicitlyDiscardedId)
+        refreshAmbientIfNeeded()
     }
 
     private fun showSessionBody(bytes: ByteArray?, signedOut: Boolean = false,
@@ -1991,6 +2243,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val previousSessionId=visibleSession?.sessionId
             val changedSession=wearSessionChanged(previousSessionId,summary.sessionId)
             if(changedSession) {
+                refreshWearSurfaces()
                 sensorRevision++
                 // Paused/rest state belongs to the old workout, never the new identity.
                 sessionPaused=false
@@ -2079,16 +2332,20 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         skipRest()
         healthConnection?.stop(sensorSessionId)
         health = null
+        refreshWearSurfaces()
     }
 
     private fun startHealthForCurrentSession() {
         val id = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")?.takeIf { it.isNotBlank() } ?: return
         if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            sendStatus = "Abre Repera en el teléfono"
+            // Foreground-service starts require visible UI on the watch, not the phone.
+            sendStatus = getString(R.string.wear_sensors_reopen_watch)
             return
         }
+        // Each snapshot calls this: an owned, running service needs no new promotion.
+        if (healthConnection?.owns(id) == true) return
         runCatching { WearHealthService.startFromVisibleUI(this, id, liveActivityJson?.optString("sportId")) }
-            .onFailure { sendStatus = it.localizedMessage ?: "No se pudo iniciar la actividad" }
+            .onFailure { sendStatus = it.localizedMessage ?: getString(R.string.wear_sensors_start_failed) }
     }
 
     private fun ensureHealthRecording() {

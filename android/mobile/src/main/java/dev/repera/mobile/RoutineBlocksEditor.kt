@@ -136,7 +136,7 @@ fun RoutineBlocksEditorScreen(
     var scheduledClock by rememberSaveable(accountId, routine.id, stateSaver = nullableTextSaver) {
         mutableStateOf(
             routine.timeMinutes?.let { m ->
-                "%02d:%02d".format(m / 60, m % 60)
+                "%02d:%02d".format(java.util.Locale.ROOT, m / 60, m % 60)
             } ?: if (oneOffEditor || routine.scheduledDate != null || scheduledDayIso != null) "18:00" else null
         )
     }
@@ -527,12 +527,12 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
             plannedSets[index]=updated
         }
     }
-    fun restText():String = rawMovementInputs["restSeconds"] ?: sourceJson?.let {JSONObject(it).optInt("restSeconds",60).toString()} ?: "60"
+    fun restText():String = rawMovementInputs["restSeconds"] ?: sourceJson?.let {runCatching {JSONObject(it).optInt("restSeconds",60).toString()}.getOrNull()} ?: "60"
     fun setRestText(text:String) {
         rawMovementInputs["restSeconds"]=text
         val seconds=text.toIntOrNull()?.takeIf {it in 15..300}
         invalidMovementInputs["restSeconds"]=seconds==null
-        if(seconds!=null) sourceJson=JSONObject(sourceJson!!).put("restSeconds",seconds).toString()
+        if(seconds!=null) sourceJson?.let {runCatching {JSONObject(it)}.getOrNull()}?.let {sourceJson=it.put("restSeconds",seconds).toString()}
     }
     fun setMovementText(key:String,text:String,numeric:Boolean) {
         rawMovementInputs[key]=text

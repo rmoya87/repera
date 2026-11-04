@@ -34,7 +34,7 @@ internal object RestNotifier {
                 NotificationChannel(channel, "Cronómetros", NotificationManager.IMPORTANCE_HIGH).apply { enableVibration(false);if(!sound) setSound(null,null) }
             )
         }
-        val text = "%d:%02d restantes".format(remainingSeconds / 60, remainingSeconds % 60)
+        val text = "%d:%02d restantes".format(java.util.Locale.ROOT, remainingSeconds / 60, remainingSeconds % 60)
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(label)

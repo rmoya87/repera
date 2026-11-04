@@ -13,8 +13,8 @@ internal fun wearSessionChanged(previous:String?,next:String):Boolean=previous!=
  *  series por movimiento (resultado global): ahi el reloj no registra. */
 internal fun wearWodIntervalIndex(timer:JSONObject?,sessionId:String,
     oneBasedExerciseIndex:Int,elapsedSeconds:Int):Int? {
-    if(!wearTimerMatches(timer,sessionId,oneBasedExerciseIndex)) return null
-    val format=dev.repera.domain.WodFormat.fromWire(timer!!.optString("format")) ?: return null
+    if(timer==null || !wearTimerMatches(timer,sessionId,oneBasedExerciseIndex)) return null
+    val format=dev.repera.domain.WodFormat.fromWire(timer.optString("format")) ?: return null
     if(format.capture!=dev.repera.domain.ResultCapture.PER_MOVEMENT_SETS) return null
     val spec=dev.repera.domain.WodClockSpec(format,
         blockTimeCapMinutes=timer.optInt("timeCapMinutes").takeIf{timer.has("timeCapMinutes")&&!timer.isNull("timeCapMinutes")},
@@ -34,8 +34,8 @@ internal fun wearWodIntervalIndex(timer:JSONObject?,sessionId:String,
  *  no corresponde al bloque: el llamador decide (nunca inventar un descanso). */
 internal fun wearWodRestAfterConfirmedSet(timer:JSONObject?,sessionId:String,
     oneBasedExerciseIndex:Int,elapsedSeconds:Int):Int? {
-    if(!wearTimerMatches(timer,sessionId,oneBasedExerciseIndex)) return null
-    val format=dev.repera.domain.WodFormat.fromWire(timer!!.optString("format")) ?: return null
+    if(timer==null || !wearTimerMatches(timer,sessionId,oneBasedExerciseIndex)) return null
+    val format=dev.repera.domain.WodFormat.fromWire(timer.optString("format")) ?: return null
     if(format==dev.repera.domain.WodFormat.TABATA)
         return (if(timer.has("restSeconds")&&!timer.isNull("restSeconds"))
             timer.optInt("restSeconds") else 10).coerceAtLeast(0)

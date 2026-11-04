@@ -81,7 +81,7 @@ enum LibrarySearchLog {
     }
 
     static func debounceApply(_ query: String, waitMs: Double) {
-        info(String(format: "debounce apply \"%@\" after %.0fms", query, waitMs))
+        info(String(format: "debounce apply len=%d after %.0fms", query.count, waitMs))
     }
 
     static func thumbMiss(name: String, ms: Double) {

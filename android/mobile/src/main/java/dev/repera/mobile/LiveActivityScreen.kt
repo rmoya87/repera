@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -73,6 +74,7 @@ import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
 import dev.repera.domain.AdaptiveRoutePace
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -97,10 +99,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     if (show3DAccessVerificationError) {
         AlertDialog(
             onDismissRequest = { show3DAccessVerificationError = false },
-            title = { Text("No se pudo comprobar Pro") },
-            text = { Text("No se ha podido verificar tu suscripción. Comprueba el acceso en Ajustes o restaura tus compras.") },
+            title = { Text(stringResource(R.string.live_activity_screen_no_se_pudo_comprobar_pro)) },
+            text = { Text(stringResource(R.string.live_activity_screen_no_se_ha_podido_verificar_tu)) },
             confirmButton = {
-                TextButton(onClick = { show3DAccessVerificationError = false }) { Text("Aceptar") }
+                TextButton(onClick = { show3DAccessVerificationError = false }) { Text(stringResource(R.string.live_activity_screen_aceptar)) }
             }
         )
     }
@@ -158,13 +160,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     } }
     val centerPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { capturePosition() }
 
-    if(accountId.isBlank()) { Text("Inicia sesión para guardar actividades.");return }
+    if(accountId.isBlank()) { Text(stringResource(R.string.live_activity_screen_inicia_sesion_para_guardar_actividades));return }
     // Altura real del chrome (menú + Continuar). Sin sumar navigationBars otra vez:
     // tabChromeInset ya incluye nav bars medidos en el host.
     val tabChromeInset = LocalReperaTabBarInset.current
     val bottomChromePad = tabChromeInset.takeIf { it > 0.dp } ?: 96.dp
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
-    val revision by runtime.updates.collectAsState()
+    val revision by runtime.updates.collectAsStateWithLifecycle()
     // Leer antes de cualquier retorno (también canvas GPS): los campos de
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
@@ -210,7 +212,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
     LaunchedEffect(routesStore) {
         if (routesStore != null) {
-            try {
+            try { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 val overview = StateOverview.fromBytes(LocalSnapshotStore(context, accountId).read())
                 val candidates = overview?.liveSportSessions.orEmpty().mapNotNull { session ->
                     val routeID = session.liveRouteID ?: return@mapNotNull null
@@ -219,17 +221,23 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     LiveSavedRoute(id = routeID, title = detail.title, points = detail.routePoints,
                         sportID = session.sportID, createdAtMillis = session.startedEpochMillis ?: Long.MIN_VALUE)
                 }
-                routesStore.recoverFromSessions(candidates);routesVersion++
+                routesStore.recoverFromSessions(candidates) };routesVersion++
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
             } catch (_: Exception) { /* Keep prior routes; no destructive recovery. */ }
         }
     }
-    val routes = remember(routesStore, routesVersion) { routesStore?.recentRoutes(runCatching {
-        val bytes = LocalSnapshotStore(context, accountId).read()
-        bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it))) }.orEmpty()
-    }.getOrDefault(emptyList())).orEmpty() }
-    var title by remember(accountId) { mutableStateOf("") }
-    var notes by remember(accountId) { mutableStateOf("") }
+    val routes by produceState<List<LiveSavedRoute>>(emptyList(), routesStore, routesVersion) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            routesStore?.recentRoutes(runCatching {
+                val bytes = LocalSnapshotStore(context, accountId).read()
+                bytes?.let { LiveSportSnapshot.sessions(org.json.JSONObject(String(it, Charsets.UTF_8))) }.orEmpty()
+            }.getOrDefault(emptyList())).orEmpty()
+        }
+    }
+    var title by androidx.compose.runtime.saveable.rememberSaveable(accountId) { mutableStateOf("") }
+    var notes by androidx.compose.runtime.saveable.rememberSaveable(accountId) { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var savingActivity by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
     var sportQuery by remember {mutableStateOf("")}
@@ -337,17 +345,17 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     if (confirmRecordingWithoutGPS) {
         AlertDialog(
             onDismissRequest = { confirmRecordingWithoutGPS = false },
-            title = { Text("Ubicación no autorizada") },
-            text = { Text("Puedes registrar el tiempo sin recorrido GPS o volver para activar la ubicación.") },
+            title = { Text(stringResource(R.string.live_activity_screen_ubicacion_no_autorizada)) },
+            text = { Text(stringResource(R.string.live_activity_screen_puedes_registrar_el_tiempo_sin_recorrido)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRecordingWithoutGPS = false
                     beginStartCountdown()
-                }) { Text("Continuar sin GPS") }
+                }) { Text(stringResource(R.string.live_activity_screen_continuar_sin_gps)) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmRecordingWithoutGPS = false }) {
-                    Text("Cancelar")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -396,13 +404,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Elegir actividad",
+                        stringResource(R.string.live_activity_screen_elegir_actividad),
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.weight(1f)
                     )
                     ReperaToolbarGlassIconButton(
                         icon = Icons.Outlined.Close,
-                        contentDescription = "Cerrar",
+                        contentDescription = stringResource(R.string.action_close),
                         onClick = { showSportPicker = false },
                         modifier = Modifier.testTag("sport_picker_close")
                     )
@@ -473,7 +481,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     caption = "Buscar actividad",
                     value = sportQuery,
                     onValueChange = { sportQuery = it },
-                    placeholder = "Buscar actividad",
+                    placeholder = stringResource(R.string.live_activity_screen_buscar_actividad),
                     modifier = Modifier
                         .padding(top = 8.dp)
                         .testTag("sport_picker_search")
@@ -496,8 +504,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 RouteLibraryHeader { showRoutes = false }
                 if (routes.isEmpty()) {
                     ReperaEmptyState(
-                        title = "Todavía no hay rutas",
-                        subtitle = "Graba un recorrido o importa un GPX para empezar."
+                        title = stringResource(R.string.live_activity_screen_todavia_no_hay_rutas),
+                        subtitle = stringResource(R.string.live_activity_screen_graba_un_recorrido_o_importa_un)
                     )
                 }
                 TextButton(onClick = {
@@ -505,11 +513,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         "application/gpx+xml", "application/xml", "text/xml",
                         "application/octet-stream"
                     ))
-                }) { Text("Importar archivo GPX") }
+                }) { Text(stringResource(R.string.live_activity_screen_importar_archivo_gpx)) }
                 val recentRoutes = routesStore?.latestRoutes?.take(5).orEmpty()
                 val favoriteRoutes = routesStore?.favoriteRoutes.orEmpty()
                 if (recentRoutes.isNotEmpty()) {
-                    Text("Últimas rutas", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.live_activity_screen_ultimas_rutas), style = MaterialTheme.typography.titleSmall)
                     recentRoutes.forEach { route ->
                         ReperaCard(
                             onClick = { runtime.selectRoute(route.id); showRoutes = false },
@@ -530,7 +538,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                 }
                 if (favoriteRoutes.isNotEmpty()) {
-                    Text("Favoritos", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.live_activity_screen_favoritos), style = MaterialTheme.typography.titleSmall)
                     favoriteRoutes.forEach { route ->
                         ReperaCard(
                             onClick = { runtime.selectRoute(route.id); showRoutes = false },
@@ -555,21 +563,21 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     pendingDeleteRoute?.let { route ->
         AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
-            title = { Text("¿Eliminar ruta?") }, text = { Text("Se borrará la ruta guardada. Tus actividades realizadas se conservan.") },
+            title = { Text(stringResource(R.string.live_activity_screen_eliminar_ruta)) }, text = { Text(stringResource(R.string.live_activity_screen_se_borrara_la_ruta_guardada_tus)) },
             confirmButton = { TextButton(onClick = {
                 try {
                     routesStore?.remove(route.id)
                     if (state.selectedRouteID == route.id) runtime.selectRoute(null)
                     routesVersion++;pendingDeleteRoute = null
                 } catch (_: Exception) { error = "No se pudo eliminar la ruta." }
-            }) { Text("Eliminar") } },
-            dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text("Cancelar") } })
+            }) { Text(stringResource(R.string.action_delete)) } },
+            dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
     if (confirmDiscard) {
         ReperaConfirmSheet(
-            title = "¿Descartar actividad?",
-            message = "Perderás el recorrido y los datos que no hayas guardado.",
-            confirmTitle = "Descartar sin guardar",
+            title = stringResource(R.string.live_activity_screen_descartar_actividad_2),
+            message = stringResource(R.string.live_activity_screen_perderas_el_recorrido_y_los_datos),
+            confirmTitle = stringResource(R.string.live_activity_screen_descartar_sin_guardar),
             onConfirm = {
                 if (runtime.discard()) {
                     LiveActivityService.stop(context)
@@ -651,7 +659,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 if (state.phase == LiveActivityState.Phase.RECORDING) {
                     LiveMapSessionFab(
                         Icons.Filled.Pause, "Pausar grabación",
-                        background = Color(0xFFFFD60A), foreground = Color.Black
+                        background = ReperaAccents.pauseFab, foreground = Color.Black
                     ) { runtime.pause() }
                 } else if (state.phase == LiveActivityState.Phase.PAUSED) {
                     LiveMapSessionFab(
@@ -743,7 +751,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     Modifier.align(Alignment.TopStart).statusBarsPadding()
                         .padding(top = 12.dp, start = 14.dp, end = 80.dp)
                         .fillMaxWidth()
-                        .background(Color(0xFF30D158), RoundedCornerShape(18.dp))
+                        .background(brandGreen, RoundedCornerShape(18.dp))
                         .padding(horizontal = 12.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -778,7 +786,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         )
                         if (cue?.offRoute == true) {
                             Text(
-                                "Revisa el mapa",
+                                stringResource(R.string.live_activity_screen_revisa_el_mapa),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.Black
                             )
@@ -800,7 +808,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 TextButton(
                     onClick = { confirmDiscard = true },
                     modifier = Modifier.align(Alignment.Center)
-                ) { Text("Descartar recuperación dañada") }
+                ) { Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada)) }
             }
             // Hueco = altura medida del chrome (menú ± Continuar); sin sumar navBars otra vez.
             Surface(
@@ -904,7 +912,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
             else -> {
                 val secs = (3600.0 / average).toInt()
-                if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+                if (secs >= 3600) "—:—" else "%d:%02d".format(java.util.Locale.ROOT, secs / 60, secs % 60)
             }
         }
         val paceLabel = if (state.sport.displaysSpeed)
@@ -956,7 +964,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     if (state.phase == LiveActivityState.Phase.RECORDING) {
                         LiveMapSessionFab(
                             Icons.Filled.Pause, "Pausar grabación",
-                            background = Color(0xFFFFD60A), foreground = Color.Black,
+                            background = ReperaAccents.pauseFab, foreground = Color.Black,
                             onClick = { runtime.pause() }
                         )
                     } else if (state.phase == LiveActivityState.Phase.PAUSED) {
@@ -988,7 +996,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 maxLines = 1
             )
             Text(
-                "Duración",
+                stringResource(R.string.live_activity_screen_duracion),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1035,7 +1043,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 maxLines = 1
             )
             Text(
-                "Distancia (km)",
+                stringResource(R.string.live_activity_screen_distancia_km),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1057,12 +1065,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        "+%.0f m".format(state.elevationGainMeters),
+                        "+%.0f m".format(dev.repera.domain.ReperaNumberFormat.displayLocale, state.elevationGainMeters),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "−%.0f m".format(state.elevationLossMeters),
+                        "−%.0f m".format(dev.repera.domain.ReperaNumberFormat.displayLocale, state.elevationLossMeters),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1164,19 +1172,32 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             error = error ?: runtime.lastError,
             onMapRendered = onMapRendered,
             activityConditions = runtime.liveConditions,
-            onSave = {
-                try {
-                    val now = System.currentTimeMillis()
+            onSave = save@{
+                if (savingActivity) return@save
+                val now = System.currentTimeMillis()
+                val snapshot = state.snapshot(now)
+                if (snapshot == null) {
+                    error = "No se pudo preparar la actividad para guardarla. Sigue disponible: vuelve a intentarlo o descártala."
+                    return@save
+                }
+                savingActivity = true
+                // Saving is idempotent by gpsSessionID; leaving the screen mid-save must still clear the checkpoint.
+                scope.launch(kotlinx.coroutines.NonCancellable) { try {
                     val savedDay = state.startedMillis ?: now
-                    val sessionId = WorkoutRepository(context, accountId).saveLiveActivity(
-                        state.snapshot(now)!!,
-                        state.finishedMillis ?: now,
-                        state.durationSeconds(now),
-                        title,
-                        notes,
-                        activityConditions = runtime.liveConditions,
-                        locationPin = runtime.startLocationPin
-                    )
+                    val finishedMillis = state.finishedMillis ?: now
+                    val duration = state.durationSeconds(now)
+                    val conditions = runtime.liveConditions
+                    val sessionId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        WorkoutRepository(context, accountId).saveLiveActivity(
+                            snapshot,
+                            finishedMillis,
+                            duration,
+                            title,
+                            notes,
+                            activityConditions = conditions,
+                            locationPin = runtime.startLocationPin
+                        )
+                    }
                     if (runtime.discard()) {
                         LiveActivityService.stop(context)
                         title = ""
@@ -1187,9 +1208,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     } else {
                         error = "La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                     }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
                 } catch (_: Exception) {
                     error = "No se pudo guardar. La actividad sigue disponible para reintentar."
-                }
+                } finally {
+                    savingActivity = false
+                } }
             },
             onDiscard = { confirmDiscard = true },
             recoveryBlocked = runtime.recoveryBlocked
@@ -1207,10 +1232,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             .testTag("live_activity_screen"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ReperaPageHeader(title = "Comenzar")
+        ReperaPageHeader(title = stringResource(R.string.tab_start))
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
         if(state.sport.usesGPS)
-            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text("Ver mapa")}
+            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text(stringResource(R.string.live_activity_screen_ver_mapa))}
         if(state.phase==LiveActivityState.Phase.IDLE) {
             OutlinedButton(onClick = { showSportPicker = true }, modifier = Modifier.testTag("live_sport_picker")) {
                 Text("Elegir actividad: ${state.sport.title}")
@@ -1224,10 +1249,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
             }
             if (state.sport.usesGPS) {
-                TextButton(onClick = { showRoutes = true }) { Text("Mis rutas") }
+                TextButton(onClick = { showRoutes = true }) { Text(stringResource(R.string.live_activity_screen_mis_rutas)) }
                 state.selectedRouteID?.let { selected ->
                     Text("Ruta: ${routes.firstOrNull { it.id == selected }?.title ?: "No disponible"}")
-                    TextButton(onClick = { runtime.selectRoute(null) }) { Text("Sin ruta planificada") }
+                    TextButton(onClick = { runtime.selectRoute(null) }) { Text(stringResource(R.string.live_activity_screen_sin_ruta_planificada)) }
                 }
             }
             Button(onClick={
@@ -1260,10 +1285,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 } else {
                     val speed = state.currentSpeedMps
                     if (speed != null && speed > 0.5) Text("${LiveSportHistory.formatDuration(1000 / speed)} min/km")
-                    else Text("Ritmo sin datos")
+                    else Text(stringResource(R.string.live_activity_screen_ritmo_sin_datos))
                 }
                 if (state.sport.tracksElevation && state.hasElevationSamples)
-                    Text("+%.0f m / -%.0f m".format(state.elevationGainMeters, state.elevationLossMeters))
+                    Text("+%.0f m / -%.0f m".format(dev.repera.domain.ReperaNumberFormat.displayLocale, state.elevationGainMeters, state.elevationLossMeters))
                 if (state.activeKilometerMeters >= 40) {
                     val split = state.currentSplitSeconds(now)
                     val current = if (state.sport.displaysSpeed && split > 0)
@@ -1282,22 +1307,22 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             runtime.latestKilometerReport?.let { Text(it) }
             when(state.phase) {
-                LiveActivityState.Phase.RECORDING -> Button(onClick={runtime.pause()},modifier=Modifier.testTag("live_pause")) {Text("Pausar")}
+                LiveActivityState.Phase.RECORDING -> Button(onClick={runtime.pause()},modifier=Modifier.testTag("live_pause")) {Text(stringResource(R.string.live_activity_screen_pausar))}
                 LiveActivityState.Phase.PAUSED -> {
-                    Text("En pausa")
-                    Button(onClick={runtime.resume();startService()},modifier=Modifier.testTag("live_resume")) {Text("Reanudar")}
+                    Text(stringResource(R.string.live_activity_screen_en_pausa))
+                    Button(onClick={runtime.resume();startService()},modifier=Modifier.testTag("live_resume")) {Text(stringResource(R.string.live_activity_screen_reanudar))}
                 }
                 else -> {}
             }
             Button(
                 onClick = { runtime.finish(); LiveActivityService.stop(context) },
                 modifier = Modifier.testTag("live_finish")
-            ) { Text("Finalizar") }
-            TextButton(onClick = { confirmDiscard = true }) { Text("Descartar") }
+            ) { Text(stringResource(R.string.home_tab_finalizar)) }
+            TextButton(onClick = { confirmDiscard = true }) { Text(stringResource(R.string.home_day_cards_descartar)) }
             LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-        if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text("Descartar recuperación dañada")}
+        if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada))}
     }
 }
 
@@ -1334,7 +1359,7 @@ private fun LiveReviewMapUnavailableCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    "Recorrido no disponible",
+                    stringResource(R.string.live_activity_screen_recorrido_no_disponible),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -1380,7 +1405,7 @@ private fun LiveActivityReviewContent(
         state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
         else -> {
             val secs = (3600.0 / average).toInt()
-            if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+            if (secs >= 3600) "—:—" else "%d:%02d".format(java.util.Locale.ROOT, secs / 60, secs % 60)
         }
     }
     Column(
@@ -1393,7 +1418,7 @@ private fun LiveActivityReviewContent(
             .testTag("live_activity_screen"),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        ReperaPageHeader(title = "Guardar entreno")
+        ReperaPageHeader(title = stringResource(R.string.live_activity_screen_guardar_entreno))
         if (state.sport.usesGPS && previewPoints.isNotEmpty()) {
             Column(
                 Modifier
@@ -1403,7 +1428,7 @@ private fun LiveActivityReviewContent(
                     .testTag("live_review_map_card")
             ) {
                 RouteMapTapTarget(
-                    label = "Abrir recorrido a pantalla completa",
+                    label = stringResource(R.string.live_activity_screen_abrir_recorrido_a_pantalla_completa),
                     modifier = Modifier.fillMaxWidth().height(280.dp)
                 ) { interactive, mapModifier ->
                     RouteMapView(
@@ -1490,7 +1515,7 @@ private fun LiveActivityReviewContent(
                 ) {
                     if (state.sport.tracksElevation && state.hasElevationSamples) {
                         Text(
-                            "+%.0f m de ascenso · −%.0f m de descenso".format(
+                            "+%.0f m de ascenso · −%.0f m de descenso".format(dev.repera.domain.ReperaNumberFormat.displayLocale,
                                 state.elevationGainMeters,
                                 state.elevationLossMeters
                             ),
@@ -1544,7 +1569,7 @@ private fun LiveActivityReviewContent(
             onClick = onSave,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 52.dp)
                 .testTag("live_save"),
             colors = ButtonDefaults.buttonColors(
                 containerColor = brandGreen,
@@ -1552,17 +1577,17 @@ private fun LiveActivityReviewContent(
             ),
             shape = RoundedCornerShape(999.dp)
         ) {
-            Text("Guardar", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.live_activity_screen_guardar), fontWeight = FontWeight.Bold)
         }
         TextButton(
             onClick = onDiscard,
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         ) {
-            Text("Descartar actividad", color = Color(0xFFFF453A))
+            Text(stringResource(R.string.live_activity_screen_descartar_actividad), color = MaterialTheme.colorScheme.error)
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (recoveryBlocked) {
-            TextButton(onClick = onDiscard) { Text("Descartar recuperación dañada") }
+            TextButton(onClick = onDiscard) { Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada)) }
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -1684,7 +1709,7 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
         state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
         else -> {
             val secs = (3600.0 / average).toInt()
-            if (secs >= 3600) "—:—" else "%d:%02d".format(secs / 60, secs % 60)
+            if (secs >= 3600) "—:—" else "%d:%02d".format(java.util.Locale.ROOT, secs / 60, secs % 60)
         }
     }
     val paceLabel = if (state.sport.displaysSpeed) "Veloc. media" else "Ritmo medio"
@@ -1885,9 +1910,9 @@ internal object LiveActivityClock {
     fun format(seconds: Int): String {
         val total = maxOf(0, seconds)
         return if (total >= 3600) {
-            "%d:%02d:%02d".format(total / 3600, (total / 60) % 60, total % 60)
+            "%d:%02d:%02d".format(java.util.Locale.ROOT, total / 3600, (total / 60) % 60, total % 60)
         } else {
-            "%02d:%02d".format((total / 60) % 60, total % 60)
+            "%02d:%02d".format(java.util.Locale.ROOT, (total / 60) % 60, total % 60)
         }
     }
 }

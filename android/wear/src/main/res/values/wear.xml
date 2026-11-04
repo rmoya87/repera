@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@array/android_wear_capabilities">
+    <!-- El teléfono solo acepta comandos de nodos que anuncian esta capacidad. -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>repera_wear_app</item>
+    </string-array>
+</resources>

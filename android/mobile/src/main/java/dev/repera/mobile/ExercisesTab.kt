@@ -54,6 +54,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import dev.repera.domain.ExerciseEquipmentGroup
@@ -106,8 +107,8 @@ internal fun ExercisesTab(
         List<RoutineBlockDraft>?
     ) -> Unit = { _, _, _ -> },
     heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
-    exerciseSummary:(String)->dev.repera.domain.ExerciseHistorySummary? = { null },
-    exerciseSeries:(String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
+    exerciseSummary:suspend (String)->dev.repera.domain.ExerciseHistorySummary? = { null },
+    exerciseSeries:suspend (String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
     wodFavorites:Set<String> = emptySet(),
     onToggleWodFavorite:(String)->Unit = {},
@@ -123,10 +124,14 @@ internal fun ExercisesTab(
     val quickLog=quickLogId?.let {id ->overview?.exerciseEntries?.firstOrNull {it.id==id}}
     quickLog?.let {entry ->
         val quickContext=LocalContext.current
-        val last=remember(entry.id,overview?.workouts,accountId) {runCatching {
-            val root=org.json.JSONObject(String(LocalSnapshotStore(quickContext,accountId).read()!!))
-            ExerciseLoadGuide.lastWorkingSession(entry.id,root.getJSONArray("workouts").let {a ->(0 until a.length()).map {a.getJSONObject(it)}},root.getJSONArray("exercises"))?.sets?.lastOrNull()
-        }.getOrNull()}
+        val last by produceState<LoadGuideSet?>(null,entry.id,overview?.workouts,accountId) {
+            value=kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {runCatching {
+                val bytes=LocalSnapshotStore(quickContext,accountId).read() ?: return@runCatching null
+                val root=org.json.JSONObject(String(bytes,Charsets.UTF_8))
+                val workouts=root.optJSONArray("workouts") ?: return@runCatching null
+                ExerciseLoadGuide.lastWorkingSession(entry.id,(0 until workouts.length()).mapNotNull {workouts.optJSONObject(it)},root.optJSONArray("exercises"))?.sets?.lastOrNull()
+            }.getOrNull()}
+        }
         QuickLogSheet(entry,accountId,busy,last,{quickLogId=null}) {rows,notes,requestId ->onSaveQuickSets(entry.id,rows,notes,requestId) {quickLogId=null}}
     }
     var selectedLiveSessionID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
@@ -216,6 +221,15 @@ internal fun ExercisesTab(
     }
     if (libraryMode == "Deportes") {
         val selected = selectedSportID?.let { dev.repera.domain.LiveSport.byId(it) }
+        androidx.activity.compose.BackHandler(
+            enabled = selectedSportID != null || selectedLiveSessionID != null || evolutionRouteID != null
+        ) {
+            when {
+                selectedLiveSessionID != null -> selectedLiveSessionID = null
+                evolutionRouteID != null -> evolutionRouteID = null
+                else -> selectedSportID = null
+            }
+        }
         Column(modifier.fillMaxSize()) {
             val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
             if (detail != null && editingLiveSession) {
@@ -243,8 +257,8 @@ internal fun ExercisesTab(
                         overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
                             Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
                             session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text(dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)+" km") }
-                            session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(it)) }
-                            session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(it)) }
+                            session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it)) }
+                            session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it)) }
                         }
                     }
                     item { SessionMovementSection(detail.id) }
@@ -303,11 +317,14 @@ internal fun ExercisesTab(
                     onSaveRoute = { id ->
                         try {
                             val store = routeStore ?: error("Almacén no disponible")
-                            val session = overview!!.liveSportSessions.first { it.id == id }
+                            val current = overview ?: error("Historial no disponible")
+                            val session = current.liveSportSessions.firstOrNull { it.id == id }
+                                ?: error("Sesión no encontrada")
                             val existing = savedRoutes.firstOrNull { it.id == session.liveRouteID }
                             if (existing != null) store.setFavorite(existing.id, true)
                             else {
-                                val detail = overview.completeHistory.first { it.id == id }
+                                val detail = current.completeHistory.firstOrNull { it.id == id }
+                                    ?: error("Sesión no encontrada")
                                 val route = store.addRecordedRoute(detail.title, detail.routePoints, selected.id,
                                     true, session.startedEpochMillis ?: System.currentTimeMillis())
                                 WorkoutRepository(context, accountId).setLiveRouteID(id, route.id)

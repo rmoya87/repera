@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -14,11 +16,20 @@ android {
         versionCode = providers.gradleProperty("REPERA_VERSION_CODE").map { it.toInt() }.orElse(1).get()
         versionName = providers.gradleProperty("REPERA_VERSION_NAME").orElse("0.1.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val webClientId = providers.gradleProperty("REPERA_GOOGLE_WEB_CLIENT_ID").orElse("1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com").get()
+        // Public app settings with working defaults; override with -P or an env var of the same name.
+        fun publicSetting(name: String, default: String): String = providers.gradleProperty(name)
+            .orElse(providers.environmentVariable(name)).orElse(default).get().trim()
+        val webClientId = publicSetting("REPERA_GOOGLE_WEB_CLIENT_ID", "1026054616574-qmugi1nalpar1vv0tdftv97cn6aljoji.apps.googleusercontent.com")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$webClientId\"")
         // OAuth ID and publishable key are public app settings; never use service_role here.
-        val publicKey = providers.gradleProperty("REPERA_SUPABASE_PUBLISHABLE_KEY").orElse("sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA").get()
-        buildConfigField("String", "SUPABASE_URL", "\"https://uvzgujlrqohreoucirms.supabase.co\"")
+        val publicKey = publicSetting("REPERA_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA")
+        val supabaseUrl = publicSetting("REPERA_SUPABASE_URL", "https://uvzgujlrqohreoucirms.supabase.co")
+        // Reject secrets. Prefer sb_publishable_* keys; never paste service_role / sb_secret_*.
+        require(!publicKey.startsWith("sb_secret_") && !publicKey.contains("service_role")) {
+            "REPERA_SUPABASE_PUBLISHABLE_KEY must be the publishable/anon key, never a secret or service_role key"
+        }
+        require(supabaseUrl.startsWith("https://")) { "REPERA_SUPABASE_URL must use https" }
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$publicKey\"")
         // Android Premium: clave restringida a paquete + firmas; nunca secretos de servidor.
         val mapsKey = providers.gradleProperty("REPERA_GOOGLE_MAPS_API_KEY")
@@ -49,12 +60,23 @@ android {
             if (providers.environmentVariable("REPERA_UPLOAD_KEYSTORE_FILE").isPresent) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // R8 + resource shrinking; keeps and log stripping live in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+// AGP 9 / Kotlin 2: kotlinOptions inside android {} is gone. Opt-in at module level so
+// Material3 experimental sheets keep compiling under parallel agent edits.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
     }
 }
 dependencies {
@@ -71,6 +93,9 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:22.0.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    // Instala src/main/baseline-prof.txt al instalar desde Play/adb (arranque, Inicio, En vivo).
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("androidx.navigation:navigation-compose:2.10.2")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
     implementation("androidx.glance:glance-appwidget:1.2.0")

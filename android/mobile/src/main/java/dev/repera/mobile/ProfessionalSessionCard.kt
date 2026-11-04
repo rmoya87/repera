@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -71,7 +73,7 @@ import org.json.JSONArray
             }
             if (blocks.length() == 0 && session.instructions.isEmpty()) {
                 Text(
-                    "Sin bloques estructurados: el entrenador todavía no ha añadido movimientos.",
+                    stringResource(R.string.professional_session_card_sin_bloques_estructurados_el_entrenador_todavia),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -87,10 +89,10 @@ import org.json.JSONArray
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Comenzar")
+                    Text(stringResource(R.string.tab_start))
                 }
                 Text(
-                    "Registra series y resultados durante o después de la sesión.",
+                    stringResource(R.string.professional_session_card_registra_series_y_resultados_durante_o),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

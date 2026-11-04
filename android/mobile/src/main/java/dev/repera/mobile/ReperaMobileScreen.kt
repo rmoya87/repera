@@ -65,7 +65,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -240,10 +240,10 @@ fun ReperaMobileScreen(
     onDeleteSet: (String) -> Unit,
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
-    exerciseSummary: (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
-    exerciseSeries: (String, ExerciseProgressMetric, ExerciseProgressRange) ->
+    exerciseSummary: suspend (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
+    exerciseSeries: suspend (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
-    sessionAppearances: (exerciseId: String, highlightSessionId: String,
+    sessionAppearances: suspend (exerciseId: String, highlightSessionId: String,
         instanceId: String?) ->
         Pair<SessionAppearance?, SessionAppearance?> = { _, _, _ -> null to null },
     loadGuideProvider: (exerciseId: String, targetReps: Int, targetRir: Double?) ->
@@ -282,6 +282,8 @@ fun ReperaMobileScreen(
     onSendCenterMessage:(String,String,String)->Unit = {_,_,_->},
     onSendCenterChat:(String,String)->Unit = {_,_->},
     onCenterDecline:(BusinessCenterStore.Invitation)->Unit = {},
+    onLoadCenterInvitationPreview: suspend (String) -> BusinessCenterStore.InvitationPreviewResult =
+        { BusinessCenterStore.InvitationPreviewResult.Unavailable },
     centerChatThread:List<BusinessCenterStore.ChatMessage> = emptyList(),
     onLoadCenterThread:(String)->Unit = {},
     onUpdateHealthGoals:(HealthGoals)->Unit = {},
@@ -355,6 +357,12 @@ fun ReperaMobileScreen(
                     Text("Continuar con Google",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold)
+                }
+                if (LiveNavigationTarget.invitationIdFromRoute(initialExternalRoute) != null) {
+                    Text(androidx.compose.ui.res.stringResource(R.string.login_invitation_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 }
                 if (status != null) Text(status,
                     color = MaterialTheme.colorScheme.error,
@@ -439,6 +447,7 @@ fun ReperaMobileScreen(
         LaunchedEffect(hasLinkedCenter, currentRoute) {
             if (!hasLinkedCenter && currentRoute == "plus") navigateTab("inicio")
         }
+        var centerInvitationId by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
         LaunchedEffect(initialExternalRoute, overview?.completeHistory) {
             val route = initialExternalRoute ?: return@LaunchedEffect
             if (route.startsWith("historial-editar/")) {
@@ -452,6 +461,10 @@ fun ReperaMobileScreen(
             } else if (route == "en-vivo" || route == "inicio" || route == "entreno-activo" ||
                 route == "temporizador" || route == "ejercicios") {
                 navigateTab(LiveNavigationTarget.resolvedRoute(route, activeWorkout != null))
+                onExternalRouteHandled()
+            } else if (route == "center" || LiveNavigationTarget.invitationIdFromRoute(route) != null) {
+                centerInvitationId = LiveNavigationTarget.invitationIdFromRoute(route)
+                navController.navigate("center") { launchSingleTop = true }
                 onExternalRouteHandled()
             }
         }
@@ -482,9 +495,9 @@ fun ReperaMobileScreen(
                     onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter)
             }
         }
-        var showSettingsPanel by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf(false)}
+        var showSettingsPanel by rememberSaveable(accountId) {mutableStateOf(false)}
         // Expanded Inicio edits a routine in the same trailing column instead of navigating away.
-        var routinePanelId by androidx.compose.runtime.saveable.rememberSaveable(accountId) {mutableStateOf<String?>(null)}
+        var routinePanelId by rememberSaveable(accountId) {mutableStateOf<String?>(null)}
         val settingsContent: @Composable (onBack: (() -> Unit)?)->Unit = { onBack ->
                     val subs=dev.repera.mobile.monetization.LocalSubscriptions.current
                     SettingsTab(
@@ -562,9 +575,11 @@ fun ReperaMobileScreen(
                 val liveTick by when (val runtime = liveRuntime) {
                     null -> remember { kotlinx.coroutines.flow.MutableStateFlow(0L) }
                     else -> runtime.updates
-                }.collectAsState(0L)
-                val livePending = showTabBar && accountId.isNotBlank() &&
-                    LiveActivityRuntime.hasPendingActivity(activityContext, accountId)
+                }.collectAsStateWithLifecycle(0L)
+                // In-memory phase of the account runtime; liveTick invalidates it without disk reads per frame.
+                val livePending = showTabBar && liveRuntime != null && remember(liveRuntime, liveTick) {
+                    liveRuntime.recoveryBlocked || liveRuntime.state.phase != dev.repera.domain.LiveActivityState.Phase.IDLE
+                }
                 // Tick periódico para refrescar duración de Comenzar en Continuar.
                 var liveClock by remember { mutableStateOf(0L) }
                 LaunchedEffect(livePending, liveTick) {
@@ -603,7 +618,7 @@ fun ReperaMobileScreen(
                                     "${dev.repera.domain.ReperaNumberFormat.decimal(average)} km/h"
                                 else -> {
                                     val p = (3600.0 / average).toInt()
-                                    if (p >= 3600) "—:—" else "%d:%02d /km".format(p / 60, p % 60)
+                                    if (p >= 3600) "—:—" else "%d:%02d /km".format(java.util.Locale.ROOT, p / 60, p % 60)
                                 }
                             }
                             val km = "${dev.repera.domain.ReperaNumberFormat.decimal(st.distanceMeters / 1000.0)} km"
@@ -808,7 +823,7 @@ fun ReperaMobileScreen(
                     }
                     var favorite by remember { mutableStateOf(false) }
                     var sessionTitle by remember(accountId, requestId) { mutableStateOf("Mi entreno") }
-                    var sessionNotes by remember(accountId, requestId) { mutableStateOf("") }
+                    var sessionNotes by rememberSaveable(accountId, requestId) { mutableStateOf("") }
                     var sessionPin by remember(accountId, requestId) {
                         mutableStateOf<dev.repera.domain.WorkoutLocationPin?>(null)
                     }
@@ -1189,7 +1204,10 @@ fun ReperaMobileScreen(
                         onCancel = onCenterCancel,
                         directory=centerDirectory,directorySearching=centerDirectorySearching,onSearchDirectory=onSearchCenterDirectory,
                         onRequestLink=onRequestCenterLink,onLeave=onLeaveCenter,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        focusInvitationId = centerInvitationId,
+                        onInvitationHandled = { centerInvitationId = null },
+                        onLoadInvitationPreview = onLoadCenterInvitationPreview
                     )
                 }
                 composable("progreso") {

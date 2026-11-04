@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -27,30 +29,30 @@ internal fun CenterDirectoryDialog(connected:Boolean,rows:List<BusinessCenterSto
  var note by rememberSaveable(accountId,stateSaver=textSaver("note")) {mutableStateOf("")}
  LaunchedEffect(linked) {if(selectedId in linked) {clearSelection();note=""}}
  LaunchedEffect(query,connected) {if(connected) {delay(350);onSearch(query)}}
- AlertDialog(onDismissRequest=onClose,title={Text("Buscar centro o entrenador")},
+ AlertDialog(onDismissRequest=onClose,title={Text(stringResource(R.string.center_directory_dialogs_buscar_centro_o_entrenador))},
   text={Column(Modifier.verticalScroll(rememberScrollState())) {
    ReperaMetaTextField(caption="Nombre del centro o entrenador",value=query,onValueChange={query=it},testTag="center_directory_query")
-   if(!connected) Text("La búsqueda estará disponible al recuperar la conexión.")
+   if(!connected) Text(stringResource(R.string.center_directory_dialogs_la_busqueda_estara_disponible_al_recuperar))
    else if(searching) CircularProgressIndicator()
    else if(rows.isEmpty()) ReperaEmptyState(
-     title = "No hay resultados",
-     subtitle = "Prueba otro nombre o pide invitación a tu centro"
+     title = stringResource(R.string.center_directory_dialogs_no_hay_resultados),
+     subtitle = stringResource(R.string.center_directory_dialogs_prueba_otro_nombre_o_pide_invitacion)
    )
    else rows.forEach {org ->TextButton(enabled=org.id !in linked && !submitting,onClick={selectedObj=org;selectedId=org.id;note=""}) {
     Column {Text(org.name);Text(if(org.id in linked) "Vinculado" else org.tagline ?: org.kind)}
    }}
-  }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})
+  }},confirmButton={TextButton(onClick=onClose) {Text(stringResource(R.string.action_close))}})
  selected?.let {org -> AlertDialog(onDismissRequest={clearSelection()},title={Text(org.name)},
   text={Column {
-   Text("Qué quieres contratar")
+   Text(stringResource(R.string.center_directory_dialogs_que_quieres_contratar))
    listOf("class" to "Clases / bono de sesiones","appointment" to "Entrenador personal","unlimited" to "Acceso ilimitado").forEach {(kind,label) ->
     Row {RadioButton(passKind==kind,{passKind=kind});TextButton(onClick={passKind=kind}) {Text(label)}}
    }
    ReperaMetaTextField(caption="Nota para el centro (opcional)",value=note,onValueChange={note=it})
-   Text("El centro confirmará el bono solicitado.")
+   Text(stringResource(R.string.center_directory_dialogs_el_centro_confirmara_el_bono_solicitado))
    error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text("Enviar solicitud")}},
-  dismissButton={TextButton(onClick={clearSelection()}) {Text("Cancelar")}})}
+  }},confirmButton={TextButton(enabled=!submitting,onClick={onRequest(org,passKind,note.takeIf {it.isNotBlank()})}) {Text(stringResource(R.string.center_directory_dialogs_enviar_solicitud))}},
+  dismissButton={TextButton(onClick={clearSelection()}) {Text(stringResource(R.string.action_cancel))}})}
 }
 @Composable
 internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:BusinessCenterStore.Snapshot?,submitting:Boolean,
@@ -60,9 +62,9 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
  LaunchedEffect(snapshot?.athleteCenterIds) {if(requestedLeave && snapshot!=null && org.id !in snapshot.athleteCenterIds) onClose()}
  AlertDialog(onDismissRequest=onClose,title={Text(org.name)},text={Column(Modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
   Text(org.tagline ?: org.kind, style=MaterialTheme.typography.bodySmall)
-  Text("Historial de pagos", style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
+  Text(stringResource(R.string.center_directory_dialogs_historial_de_pagos), style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
   val passes=snapshot?.passes.orEmpty().filter {it.orgId==org.id}
-  if(passes.isEmpty()) Text("Todavía no hay pagos registrados con este centro.", style=MaterialTheme.typography.bodySmall)
+  if(passes.isEmpty()) Text(stringResource(R.string.plus_hub_tab_todavia_no_hay_pagos_registrados_con), style=MaterialTheme.typography.bodySmall)
   passes.forEach {pass ->
    val offer=snapshot?.offerName(pass)
    Text(offer ?: if(pass.kind=="appointment") "Plan de citas" else "Plan de clases", fontWeight=FontWeight.SemiBold)
@@ -73,16 +75,16 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
     pass.paymentMethod=="card" -> "Tarjeta"
     else -> "Plan"
    }
-   val amount=pass.paidAmountCents?.let { String.format("%.2f €", it / 100.0) }
+   val amount=pass.paidAmountCents?.let { String.format(dev.repera.domain.ReperaNumberFormat.displayLocale, "%.2f €", it / 100.0) }
    Text(listOfNotNull(method, amount).joinToString(" · "), style=MaterialTheme.typography.bodySmall)
    (pass.paidAt ?: pass.validFrom)?.let {date ->
     val formatted=runCatching {java.time.Instant.parse(date).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(reperaDayFormatter)}.getOrDefault(date)
     Text(formatted, style=MaterialTheme.typography.labelSmall)
    }
   }
-  Text("Historial de clases", style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
+  Text(stringResource(R.string.plus_hub_tab_historial_de_clases), style=MaterialTheme.typography.titleSmall, fontWeight=FontWeight.SemiBold)
   val past=snapshot?.bookings.orEmpty().filter {it.orgId==org.id}.take(20)
-  if(past.isEmpty()) Text("Aún no has asistido ni reservado clases con este centro.", style=MaterialTheme.typography.bodySmall)
+  if(past.isEmpty()) Text(stringResource(R.string.plus_hub_tab_aun_no_has_asistido_ni_reservado), style=MaterialTheme.typography.bodySmall)
   past.forEach {booking ->
    val occ=snapshot?.occurrences?.firstOrNull {it.id==booking.occurrenceId}
    val title=occ?.title ?: "Clase"
@@ -93,10 +95,10 @@ internal fun LinkedCenterDialog(org:BusinessCenterStore.Organization,snapshot:Bu
    Text("$title · $status", style=MaterialTheme.typography.bodySmall)
   }
   error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
-  TextButton(enabled=!submitting,onClick={confirm=true}) {Text("Desvincularme como cliente")}
- }},confirmButton={TextButton(onClick=onClose) {Text("Cerrar")}})
+  TextButton(enabled=!submitting,onClick={confirm=true}) {Text(stringResource(R.string.center_directory_dialogs_desvincularme_como_cliente))}
+ }},confirmButton={TextButton(onClick=onClose) {Text(stringResource(R.string.action_close))}})
  if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("¿Dejar de ser cliente de ${org.name}?")},
-  text={Text("Se cancelarán tus reservas futuras y bonos activos, pero se conservará tu historial personal. Si administras el centro, no perderás tus permisos de gestión.")},
-  confirmButton={TextButton(enabled=!submitting,onClick={confirm=false;requestedLeave=true;onLeave(org)}) {Text("Desvincularme")}},
-  dismissButton={TextButton(onClick={confirm=false}) {Text("Cancelar")}})
+  text={Text(stringResource(R.string.center_directory_dialogs_se_cancelaran_tus_reservas_futuras_y))},
+  confirmButton={TextButton(enabled=!submitting,onClick={confirm=false;requestedLeave=true;onLeave(org)}) {Text(stringResource(R.string.center_directory_dialogs_desvincularme))}},
+  dismissButton={TextButton(onClick={confirm=false}) {Text(stringResource(R.string.action_cancel))}})
 }

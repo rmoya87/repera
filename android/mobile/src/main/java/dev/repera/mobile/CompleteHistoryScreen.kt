@@ -27,8 +27,8 @@ import java.util.Locale
 
 internal object CompleteHistoryOrder {
  data class Row(val local:WorkoutHistoryEntry?=null,val external:ExternalHealthHistoryEntry?=null) {
-  val id:String get()=local?.let {"local-${it.id}"} ?: "health-${external!!.id}"
-  val millis:Long get()=external?.startMillis ?: runCatching {Instant.parse(local!!.finishedAtIso ?: local.startedAtIso).toEpochMilli()}.getOrDefault(0L)
+  val id:String get()=local?.let {"local-${it.id}"} ?: "health-${external?.id.orEmpty()}"
+  val millis:Long get()=external?.startMillis ?: local?.let {l -> runCatching {Instant.parse(l.finishedAtIso ?: l.startedAtIso).toEpochMilli()}.getOrNull()} ?: 0L
  }
  fun rows(local:List<WorkoutHistoryEntry>,external:List<ExternalHealthHistoryEntry>):List<Row> =
   (local.filter {it.finishedAtIso!=null}.map {Row(local=it)}+external.map {Row(external=it)}).sortedByDescending {it.millis}
@@ -121,7 +121,8 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
     )
    }
   }
-  items(rows.size) { i ->
+  val rowKeys = LazyListKeys.unique(rows.map { it.id })
+  items(rows.size, key = { rowKeys[it] }) { i ->
    val row = rows[i]
    val workout = row.local
    val ext = row.external
@@ -304,7 +305,7 @@ internal fun WorkoutHistoryDetailScreen(
     workout.timerDetails != null -> {
      val s = workout.timerDetails.configuredSeconds.coerceAtLeast(0)
      val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
-     if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+     if (h > 0) "%d:%02d:%02d".format(java.util.Locale.ROOT, h, m, sec) else "%d:%02d".format(java.util.Locale.ROOT, m, sec)
     }
     mins != null && mins > 0 -> "$mins′"
     else -> "—"

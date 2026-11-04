@@ -387,6 +387,13 @@ enum WorkoutRegisterChips {
 }
 
 enum WorkoutListCaption {
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "es_ES")
+        f.setLocalizedDateFormatFromTemplate("EEEE")
+        return f
+    }()
+
     /// Misma etiqueta que Inicio: «ENTRENO · 18:30» (hoy) o «LUNES · 18:30».
     static func dayTimeLine(for day: Date, time: String?) -> String {
         let cal = Calendar.current
@@ -394,10 +401,7 @@ enum WorkoutListCaption {
         if cal.isDateInToday(day) {
             dayLabel = "ENTRENO"
         } else {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "es_ES")
-            f.setLocalizedDateFormatFromTemplate("EEEE")
-            dayLabel = f.string(from: day).uppercased()
+            dayLabel = weekdayFormatter.string(from: day).uppercased()
         }
         guard let time, !time.isEmpty else { return dayLabel }
         return "\(dayLabel) · \(time)"

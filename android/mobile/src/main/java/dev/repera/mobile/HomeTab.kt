@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
@@ -230,7 +231,7 @@ internal fun HomeTab(
                     trailing = {
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             if (professionalSessions.isNotEmpty()) {
-                                TextButton(onClick = onOpenMessages) { Text("Mensajes") }
+                                TextButton(onClick = onOpenMessages) { Text(stringResource(R.string.home_tab_mensajes)) }
                             }
                             HomeProfileButton(
                                 overview?.profileSettings ?: ProfileSettings(),
@@ -322,7 +323,7 @@ internal fun HomeTab(
                     } else if (livePending) {
                         HomeInProgressCard(
                             title = liveTitle,
-                            subtitle = "Comenzar",
+                            subtitle = stringResource(R.string.tab_start),
                             onClick = onOpenLiveActivity
                         )
                     }
@@ -397,7 +398,7 @@ internal fun HomeTab(
                     dayProfessional.forEach { session ->
                         val center = centerName(session.orgId)
                         val time = session.scheduledTimeMinutes?.let {
-                            "%d:%02d".format(it / 60, it % 60)
+                            "%d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60)
                         }
                         val caption = buildString {
                             append(homeDayTimeCaption(day, time))
@@ -587,7 +588,7 @@ internal fun HomeTab(
                         ReperaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp)) {
                                 Text(
-                                    "Tu estado de hoy",
+                                    stringResource(R.string.home_tab_tu_estado_de_hoy),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 model.sleepHours?.let {
@@ -598,7 +599,7 @@ internal fun HomeTab(
                                 model.sleepIndexOutOf10?.let { Text("Índice de sueño: $it/10") }
                                 model.cycleLabel?.let { Text(it) }
                                 TextButton(onClick = onOpenRecoverySettings) {
-                                    Text("Ver Salud y recuperación")
+                                    Text(stringResource(R.string.home_tab_ver_salud_y_recuperacion))
                                 }
                             }
                         }
@@ -636,9 +637,9 @@ internal fun HomeTab(
     }
     pendingClassCancellation?.let { booking ->
         ReperaConfirmSheet(
-            title = "¿Cancelar la reserva?",
-            message = "Se te desapunta y, si tenías plaza confirmada, se te devuelve la sesión al plan.",
-            confirmTitle = "Confirmar cancelación",
+            title = stringResource(R.string.center_cancel_title),
+            message = stringResource(R.string.plus_hub_tab_se_te_desapunta_y_si_tenias),
+            confirmTitle = stringResource(R.string.center_cancel_confirm),
             onConfirm = {
                 pendingClassCancellation = null
                 onCancelClassBooking(booking)
@@ -686,7 +687,7 @@ private fun WearLiveTimerHomeCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Temporizador · Wear OS", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.home_tab_temporizador_wear_os), style = MaterialTheme.typography.titleSmall)
                 Text(if (running) "En curso" else "En pausa",
                     style = MaterialTheme.typography.labelSmall)
             }
@@ -698,19 +699,19 @@ private fun WearLiveTimerHomeCard(
                 Column {
                     Text(mode, style = MaterialTheme.typography.labelMedium)
                     Text(
-                        "%d:%02d".format(shown / 60, shown % 60),
+                        "%d:%02d".format(java.util.Locale.ROOT, shown / 60, shown % 60),
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Color(0xFFFF382E)
+                        color = MaterialTheme.reperaColors.timerRed
                     )
                 }
                 if (mode == "Intervalos") {
                     Text("Ronda " + mirror.optInt("round", 1),
-                        color = Color(0xFF38FF59),
+                        color = MaterialTheme.reperaColors.timerGreen,
                         style = MaterialTheme.typography.labelLarge)
                 }
             }
             if (!fresh) {
-                Text("Sin conexión reciente con el reloj",
+                Text(stringResource(R.string.home_tab_sin_conexion_reciente_con_el_reloj),
                     style = MaterialTheme.typography.labelSmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -719,7 +720,7 @@ private fun WearLiveTimerHomeCard(
                     enabled = fresh
                 ) { Text(if (running) "Pausar" else "Reanudar") }
                 OutlinedButton(onClick = { onCommand("finish") }, enabled = fresh) {
-                    Text("Finalizar")
+                    Text(stringResource(R.string.home_tab_finalizar))
                 }
             }
         }

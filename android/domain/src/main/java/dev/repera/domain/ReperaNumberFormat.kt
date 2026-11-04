@@ -10,6 +10,9 @@ import java.text.DecimalFormatSymbols
  */
 object ReperaNumberFormat {
 
+    /** Locale for visible `String.format` with decimals (product copy is Spanish). */
+    val displayLocale: java.util.Locale = java.util.Locale.forLanguageTag("es-ES")
+
     /** Solo los decimales necesarios (máximo dos) y agrupación desde 1.000. */
     fun decimal(value: Double, maximumFractionDigits: Int = 2, minimumFractionDigits: Int = 0): String {
         if (!value.isFinite()) return "—"

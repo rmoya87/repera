@@ -260,8 +260,8 @@ internal fun ActivityHeatmapCard(
                             // spacing=gap y cada etiqueta de altura cell — si
                             // no, 7×(cell+gap) deriva respecto a 7×cell+6×gap.
                             // Etiquetas por weekday REAL de la fila.
-                            val gutter = heatmapGutterLabels(
-                                columns.first().cells[0].first!!)
+                            val gutter = columns.firstOrNull()?.cells?.firstOrNull()?.first
+                                ?.let(::heatmapGutterLabels).orEmpty()
                             Column(verticalArrangement = Arrangement.spacedBy(gap)) {
                                 gutter.forEach { g ->
                                     Box(modifier = Modifier.width(labelWidth).height(cell),

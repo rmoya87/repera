@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,10 +53,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import dev.repera.domain.ReperaNumberFormat
 
-private val keypadBg = Color(0xFFECEDF2)
-private val keyUtility = Color(0xFFDBDEE3)
-private val keyErase = Color(0xFFEBEDF2)
-private val keyInk = Color(0xFF080F1F)
+private val keypadBg: Color @Composable get() = MaterialTheme.reperaColors.keypadBackground
+private val keyUtility: Color @Composable get() = MaterialTheme.reperaColors.keypadUtility
+private val keyInk: Color @Composable get() = MaterialTheme.reperaColors.keypadInk
 
 /**
  * Teclado 4×4 Repera (port de OGReperaNumericKeypad iOS, altura ~328):
@@ -87,7 +87,7 @@ fun ReperaNumericKeypad(
             DigitKey("1") { onDigit('1') }
             DigitKey("2") { onDigit('2') }
             DigitKey("3") { onDigit('3') }
-            UtilityKey(Icons.Outlined.KeyboardHide, "Ocultar teclado", onDismiss)
+            UtilityKey(Icons.Outlined.KeyboardHide, stringResource(R.string.keypad_hide), onDismiss)
         }
         KeypadRow {
             DigitKey("4") { onDigit('4') }
@@ -272,7 +272,7 @@ private fun RowScope.DigitKey(
     onClick: () -> Unit
 ) {
     KeySurface(
-        background = Color.White,
+        background = MaterialTheme.reperaColors.keypadKey,
         enabled = enabled,
         onClick = onClick,
         contentDescription = label
@@ -299,7 +299,7 @@ private fun RowScope.UtilityKey(
 
 @Composable
 private fun RowScope.EraseKey(onClick: () -> Unit) {
-    KeySurface(background = keyErase, onClick = onClick, contentDescription = "Borrar") {
+    KeySurface(background = keyUtility, onClick = onClick, contentDescription = stringResource(R.string.keypad_erase)) {
         Icon(
             Icons.AutoMirrored.Outlined.Backspace,
             contentDescription = null,
@@ -311,8 +311,8 @@ private fun RowScope.EraseKey(onClick: () -> Unit) {
 
 @Composable
 private fun RowScope.SubmitKey(onClick: () -> Unit) {
-    KeySurface(background = brandGreen, onClick = onClick, contentDescription = "Confirmar") {
-        Icon(Icons.Outlined.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+    KeySurface(background = brandGreen, onClick = onClick, contentDescription = stringResource(R.string.keypad_confirm)) {
+        Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
     }
 }
 

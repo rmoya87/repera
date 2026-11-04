@@ -1,4 +1,5 @@
 import AuthenticationServices
+import CryptoKit
 import Foundation
 import Observation
 import ReperaDomain
@@ -22,16 +23,28 @@ final class AppleAuthStore: NSObject {
         userID != nil && (credentialState == .authorized || credentialState == .transferred)
     }
 
+    /// Non-reversible per-account scope for local keys and caches. The raw
+    /// Apple user ID, name and email live only in Keychain.
+    var ownerScope: String? { userID.map(Self.ownerScope(forUserID:)) }
+
+    nonisolated static func ownerScope(forUserID userID: String) -> String {
+        SHA256.hash(data: Data(userID.utf8)).prefix(16)
+            .map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Readable without a main-actor hop (e.g. Health disk cache warm start).
+    nonisolated static let ownerScopeDefaultsKey = "repera.apple.ownerScope.v1"
+
     private let keychainService = "com.app.repera.appleauth"
     private let userIDKey = "userID"
     private let nameKey = "displayName"
     private let emailKey = "email"
-    /// Espejo durable: `getCredentialState(.revoked)` en sim/device a veces borraba Keychain
-    /// y dejaba Supabase vivo → Bienvenido eterno. UserDefaults sobrevive ese wipe.
-    private let defaultsUserIDKey = "repera.apple.userID.v1"
+    /// Legacy plaintext mirrors (pre-2026-11). Only read once to migrate into
+    /// Keychain, then deleted. Never written again.
+    private let legacyDefaultsUserIDKey = "repera.apple.userID.v1"
+    private let legacyDefaultsNameKey = "repera.apple.displayName.v1"
+    private let legacyDefaultsEmailKey = "repera.apple.email.v1"
     private let revokedMarkerKey = "repera.apple.credentialInvalid.v1"
-    private let defaultsNameKey = "repera.apple.displayName.v1"
-    private let defaultsEmailKey = "repera.apple.email.v1"
 
     private var continuityContinuation: CheckedContinuation<ASAuthorization, Error>?
 
@@ -179,9 +192,10 @@ final class AppleAuthStore: NSObject {
         if !keepKeychain {
             deleteKeychain()
             let defaults = UserDefaults.standard
-            defaults.removeObject(forKey: defaultsUserIDKey)
-            defaults.removeObject(forKey: defaultsNameKey)
-            defaults.removeObject(forKey: defaultsEmailKey)
+            defaults.removeObject(forKey: legacyDefaultsUserIDKey)
+            defaults.removeObject(forKey: legacyDefaultsNameKey)
+            defaults.removeObject(forKey: legacyDefaultsEmailKey)
+            defaults.removeObject(forKey: Self.ownerScopeDefaultsKey)
         }
     }
 
@@ -189,14 +203,10 @@ final class AppleAuthStore: NSObject {
         userID = readKeychain(account: userIDKey)
         displayName = readKeychain(account: nameKey)
         email = readKeychain(account: emailKey)
-        // Fallback si Keychain se vació (revoked wipe histórico / flaky sim).
+        migrateLegacyDefaultsIdentity()
         let defaults = UserDefaults.standard
-        if userID == nil, let backup = defaults.string(forKey: defaultsUserIDKey), !backup.isEmpty {
-            userID = backup
-            displayName = displayName ?? defaults.string(forKey: defaultsNameKey)
-            email = email ?? defaults.string(forKey: defaultsEmailKey)
-            persistToKeychainOnly()
-            AuthSessionTrace.event("loadFromKeychain restored userID from UserDefaults backup")
+        if let userID {
+            defaults.set(Self.ownerScope(forUserID: userID), forKey: Self.ownerScopeDefaultsKey)
         }
         // Restaurar UI/gates al arrancar sin esperar a getCredentialState.
         if userID != nil && !defaults.bool(forKey: revokedMarkerKey) {
@@ -206,21 +216,50 @@ final class AppleAuthStore: NSObject {
         }
     }
 
-    private func persistIdentity() {
-        persistToKeychainOnly()
+    /// Older builds mirrored the identity in plaintext UserDefaults. Fill any
+    /// Keychain gaps from it, and delete each mirror only once Keychain holds it
+    /// (a locked device keeps the mirror for the next launch).
+    private func migrateLegacyDefaultsIdentity() {
         let defaults = UserDefaults.standard
-        if let userID { defaults.set(userID, forKey: defaultsUserIDKey) }
-        if let displayName { defaults.set(displayName, forKey: defaultsNameKey) }
-        if let email { defaults.set(email, forKey: defaultsEmailKey) }
+        let legacyUserID = defaults.string(forKey: legacyDefaultsUserIDKey)
+        let legacy: [(key: String, account: String)] = [
+            (legacyDefaultsUserIDKey, userIDKey),
+            (legacyDefaultsNameKey, nameKey),
+            (legacyDefaultsEmailKey, emailKey),
+        ]
+        for item in legacy {
+            guard let value = defaults.string(forKey: item.key) else { continue }
+            if value.isEmpty {
+                defaults.removeObject(forKey: item.key)
+                continue
+            }
+            // Never attach a mirrored name/email to a different Keychain identity.
+            let belongsToOtherIdentity = item.account != userIDKey && userID != nil
+                && legacyUserID.map { $0 != userID } == true
+            if !belongsToOtherIdentity, readKeychain(account: item.account) == nil {
+                guard writeKeychain(account: item.account, value: value) else { continue }
+            }
+            defaults.removeObject(forKey: item.key)
+        }
+        if userID == nil, let restored = readKeychain(account: userIDKey) {
+            userID = restored
+            displayName = displayName ?? readKeychain(account: nameKey)
+            email = email ?? readKeychain(account: emailKey)
+            AuthSessionTrace.event("loadFromKeychain migrated identity from legacy defaults")
+        }
     }
 
-    private func persistToKeychainOnly() {
+    private func persistIdentity() {
         if let userID { writeKeychain(account: userIDKey, value: userID) }
         if let displayName { writeKeychain(account: nameKey, value: displayName) }
         if let email { writeKeychain(account: emailKey, value: email) }
+        if let userID {
+            UserDefaults.standard.set(Self.ownerScope(forUserID: userID), forKey: Self.ownerScopeDefaultsKey)
+        }
     }
 
-    private func writeKeychain(account: String, value: String) {
+    @discardableResult
+    private func writeKeychain(account: String, value: String) -> Bool {
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -235,7 +274,9 @@ final class AppleAuthStore: NSObject {
         let status = SecItemAdd(attrs as CFDictionary, nil)
         if status != errSecSuccess {
             lastErrorMessage = "No se pudo guardar la sesión Apple (\(status))."
+            return false
         }
+        return true
     }
 
     private func readKeychain(account: String) -> String? {

@@ -40,7 +40,10 @@ fun ReperaTheme(
             pressedAlpha = 0.08f
         )
     )
-    CompositionLocalProvider(LocalRippleConfiguration provides ripple) {
+    CompositionLocalProvider(
+        LocalRippleConfiguration provides ripple,
+        LocalReperaColors provides reperaExtendedColors(darkTheme)
+    ) {
         MaterialTheme(
             colorScheme = reperaColorScheme(darkTheme),
             shapes = reperaShapes,

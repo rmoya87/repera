@@ -95,7 +95,7 @@ class GeocoderPlaceSearchProvider(private val context: Context) : PlaceSearchPro
                 latitude = a.latitude,
                 longitude = a.longitude,
                 providerId = "geocoder:${name.lowercase()}@" +
-                    "%.5f,%.5f".format(a.latitude, a.longitude),
+                    "%.5f,%.5f".format(java.util.Locale.US, a.latitude, a.longitude),
                 featureName = a.featureName,
                 addressLine = a.getAddressLine(0)
             )

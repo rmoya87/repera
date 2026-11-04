@@ -38,21 +38,54 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private(set) var permissionIssue: String?
     private(set) var isRecording = false
 
-    func recoverIfNeeded(id: UUID, completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+    enum RecoveryOutcome: Sendable {
+        /// Sesión recuperada y enlazada al UUID esperado.
+        case recovered
+        /// No hay workout activo que recuperar.
+        case none
+        /// Hay un workout activo que no pertenece a la ejecución esperada:
+        /// queda adoptado sin enlazar para que el usuario lo guarde o descarte.
+        case mismatch
+    }
+
+    /// Workout recuperado sin coincidencia de UUID: la UI debe resolverlo.
+    private(set) var hasUnlinkedRecovery = false
+
+    /// - Parameters:
+    ///   - id: ejecución de Repera esperada; `nil` cuando no hay estado local
+    ///     (cualquier workout recuperado es huérfano).
+    ///   - expectedStart: inicio persistido; solo se usa si el workout aún no
+    ///     tenía `HKMetadataKeyExternalUUID` (crash antes de `addMetadata`).
+    func recoverIfNeeded(
+        id: UUID?, expectedStart: Date? = nil,
+        completion: (@MainActor @Sendable (RecoveryOutcome) -> Void)? = nil
+    ) {
         guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
-            completion?(workout != nil)
+            let linked = workout != nil && workoutID != nil && workoutID == id
+            completion?(workout == nil ? .none : (linked ? .recovered : .mismatch))
             return
         }
         store.recoverActiveWorkoutSession { [weak self] recovered, error in
             Task { @MainActor in
                 guard let self, let recovered else {
                     if let error { self?.permissionIssue = error.localizedDescription }
-                    completion?(false)
+                    completion?(.none)
                     return
                 }
-                self.workoutID = id
-                self.workout = recovered
                 let live = recovered.associatedWorkoutBuilder()
+                let external = live.metadata[HKMetadataKeyExternalUUID] as? String
+                let matches: Bool
+                switch (id, external, expectedStart) {
+                case let (id?, external?, _):
+                    matches = external == id.uuidString
+                case let (.some, nil, start?):
+                    matches = abs(recovered.startDate?.timeIntervalSince(start) ?? .infinity) <= 300
+                default:
+                    matches = false
+                }
+                self.workoutID = matches ? id : nil
+                self.hasUnlinkedRecovery = !matches
+                self.workout = recovered
                 live.dataSource = HKLiveWorkoutDataSource(
                     healthStore: self.store,
                     workoutConfiguration: recovered.workoutConfiguration
@@ -62,7 +95,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 self.builder = live
                 self.pendingStateTransition = nil
                 self.isRecording = true
-                completion?(true)
+                completion?(matches ? .recovered : .mismatch)
             }
         }
     }
@@ -241,6 +274,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pendingBlock = nil
         pendingStateTransition = nil
         isRecording = false
+        hasUnlinkedRecovery = false
         pulseBpm = nil
         kcal = nil
         averageBpm = nil
@@ -387,6 +421,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pendingBlock = nil
         pendingStateTransition = nil
         isRecording = false
+        hasUnlinkedRecovery = false
         finishing = false
         let callback = finishHandler
         finishHandler = nil

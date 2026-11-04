@@ -441,7 +441,7 @@ fun AIAccessScreen(
                             Text("La eliminación de un entrenamiento no se " +
                                 "puede deshacer.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFB26A00))
+                                color = MaterialTheme.reperaColors.warning)
                         }
                         Row {
                             OutlinedButton(
@@ -465,7 +465,7 @@ fun AIAccessScreen(
         }
         changeError?.let {
             Text(it, style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFB26A00))
+                color = MaterialTheme.reperaColors.warning)
         }
 
         if (inboxPending > 0 || inboxConflicts.isNotEmpty()) {
@@ -479,7 +479,7 @@ fun AIAccessScreen(
             }
             inboxConflicts.forEach { issue ->
                 Text(issue, style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFB26A00))
+                    color = MaterialTheme.reperaColors.warning)
             }
         }
 

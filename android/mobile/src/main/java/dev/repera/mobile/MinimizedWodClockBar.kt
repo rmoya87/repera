@@ -68,7 +68,7 @@ internal fun MinimizedWodClockBar(
     }
     val mm = face.primarySeconds / 60
     val ss = face.primarySeconds % 60
-    val timeLabel = "%d:%02d".format(mm, ss)
+    val timeLabel = "%d:%02d".format(java.util.Locale.ROOT, mm, ss)
     val roundLabel = roundNumber?.let { "Ronda $it" } ?: (face.label ?: wod.title)
     Row(
         modifier

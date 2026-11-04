@@ -81,11 +81,6 @@ internal class CompiledBodyPaths(val front: CompiledBodyView, val back: Compiled
                     )
                 }.onFailure {
                     android.util.Log.e("BodyMap", "BodyPaths.json NO cargó: ${it.javaClass.simpleName}: ${it.message}", it)
-                }.onSuccess {
-                    android.util.Log.i("BodyMap", "cargado: frente ${it.front.musclePaths.size} músculos " +
-                        "(${it.front.musclePaths.values.sumOf { l -> l.size }} rutas), espalda " +
-                        "${it.back.musclePaths.size} músculos (${it.back.musclePaths.values.sumOf { l -> l.size }} rutas), " +
-                        "cabeza=${it.front.inertPaths.containsKey("head")}, vb=${it.front.viewBox}")
                 }.getOrNull()
             }
             cached = compiled
@@ -200,9 +195,6 @@ private fun BodySilhouetteView(
         val dx = (size.width - vb.width() * scale) / 2 - vb.left * scale
         val dy = (size.height - vb.height() * scale) / 2 - vb.top * scale
 
-        android.util.Log.i("BodyMap", "draw size=$size vb=$vb scale=$scale " +
-            "músculos=${view.musclePaths.size} rutas=${view.musclePaths.values.sumOf { it.size }} " +
-            "inertes=${view.inertPaths.mapValues { it.value.size }}")
         // Orden 1:1 con iOS: inertes (sin cabeza) detrás, músculos encima y la
         // cabeza neutra la última. Transformación con la API idiomática de
         // DrawScope (withTransform), no con save/restore del canvas crudo.

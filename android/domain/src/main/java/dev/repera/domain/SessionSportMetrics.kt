@@ -22,7 +22,7 @@ object SessionSportMetrics {
     fun averagePace(activeSeconds: Double?, meters: Double?): String? {
         if (activeSeconds == null || activeSeconds <= 0 || meters == null || meters <= 0) return null
         val perKm = Math.round(activeSeconds / (meters / 1000)).toInt()
-        return "%d:%02d".format(perKm / 60, perKm % 60)
+        return "%d:%02d".format(java.util.Locale.ROOT, perKm / 60, perKm % 60)
     }
 
     /** Apple hasGPSMetrics: movimiento exterior (deporte con GPS, o ruta >= 2 puntos si no hay deporte) con distancia, ruta o parciales. */
@@ -53,7 +53,7 @@ object SessionSportMetrics {
 
     data class SplitRow(val kilometer: Int, val time: String, val rateOrSpeed: String, val bpm: String)
 
-    private fun clock(seconds: Double): String { val t = Math.round(seconds).toInt(); return "%d:%02d".format(t / 60, t % 60) }
+    private fun clock(seconds: Double): String { val t = Math.round(seconds).toInt(); return "%d:%02d".format(java.util.Locale.ROOT, t / 60, t % 60) }
 
     /** Apple displayedSplits: se descartan parciales no finitos o <= 0; columnas KM, Tiempo, Ritmo (o km/h) y FC ("—" si falta). */
     fun splitRows(seconds: List<Double>, speed: Boolean, bpmByKm: Map<Int, Double>): List<SplitRow> =

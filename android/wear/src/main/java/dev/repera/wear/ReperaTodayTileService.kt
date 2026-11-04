@@ -1,5 +1,6 @@
 package dev.repera.wear
 
+import android.content.Context
 import android.content.SharedPreferences
 import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.ModifiersBuilders
@@ -16,37 +17,29 @@ import org.json.JSONObject
 
 /**
  * Tile opcional (W-10): entreno de hoy + atajo a Iniciar, espejo de la
- * complicación rectangular / inline del Apple Watch.
+ * complicación rectangular / inline del Apple Watch. El plan de hoy caduca
+ * a medianoche mediante la validez de la línea temporal.
  */
 class ReperaTodayTileService : TileService() {
 
-    private fun prefs(): SharedPreferences =
-        getSharedPreferences("repera.wear.session", MODE_PRIVATE)
-
-    private fun planTitle(): String {
-        val raw = prefs().getString("todayPlan", null) ?: return "Sin plan descargado"
-        val at = prefs().getLong("todayPlanAt", 0L)
-        if (at > 0L && System.currentTimeMillis() - at > WearMainActivity.TODAY_PLAN_TTL_MS) {
-            return "Sin plan descargado"
+    companion object {
+        fun requestUpdate(context: Context) {
+            runCatching { getUpdater(context).requestUpdate(ReperaTodayTileService::class.java) }
         }
-        return runCatching {
-            JSONObject(raw).optString("title").ifBlank { "Entreno de hoy" }
-        }.getOrDefault("Entreno de hoy")
     }
+
+    private fun prefs(): SharedPreferences =
+        getSharedPreferences(WearTodayPlanCache.PREFS, MODE_PRIVATE)
 
     private fun activeSessionTitle(): String? {
         val raw = prefs().getString("snapshot", null) ?: return null
         return runCatching {
             val session = WatchSessionSummary.fromJson(JSONObject(raw))
-            session.title.takeIf { it.isNotBlank() } ?: "Entrenamiento activo"
+            session.title.takeIf { it.isNotBlank() } ?: getString(R.string.wear_active_session)
         }.getOrNull()
     }
 
-    override fun onTileRequest(
-        requestParams: RequestBuilders.TileRequest
-    ): ListenableFuture<TileBuilders.Tile> {
-        val activeTitle = activeSessionTitle()
-        val title = activeTitle ?: planTitle()
+    private fun layout(title: String, action: String): LayoutElementBuilders.Layout {
         val click = ModifiersBuilders.Clickable.Builder()
             .setId("open")
             .setOnClick(
@@ -68,7 +61,7 @@ class ReperaTodayTileService : TileService() {
             .setModifiers(ModifiersBuilders.Modifiers.Builder().setClickable(click).build())
             .addContent(
                 LayoutElementBuilders.Text.Builder()
-                    .setText("Repera")
+                    .setText(getString(R.string.wear_app_name))
                     .setFontStyle(
                         LayoutElementBuilders.FontStyle.Builder()
                             .setColor(argb(0xFF30D158.toInt()))
@@ -84,7 +77,7 @@ class ReperaTodayTileService : TileService() {
             )
             .addContent(
                 LayoutElementBuilders.Text.Builder()
-                    .setText(if (activeTitle != null) "Continuar" else "Abrir")
+                    .setText(action)
                     .setFontStyle(
                         LayoutElementBuilders.FontStyle.Builder()
                             .setColor(argb(0xFF30D158.toInt()))
@@ -93,21 +86,53 @@ class ReperaTodayTileService : TileService() {
                     .build()
             )
             .build()
-        val layout = LayoutElementBuilders.Layout.Builder().setRoot(
+        return LayoutElementBuilders.Layout.Builder().setRoot(
             LayoutElementBuilders.Box.Builder()
                 .setWidth(DimensionBuilders.expand())
                 .setHeight(DimensionBuilders.expand())
                 .addContent(column)
                 .build()
         ).build()
-        val entry = TimelineBuilders.TimelineEntry.Builder()
-            .setLayout(layout)
-            .build()
-        val timeline = TimelineBuilders.Timeline.Builder().addTimelineEntry(entry).build()
+    }
+
+    override fun onTileRequest(
+        requestParams: RequestBuilders.TileRequest
+    ): ListenableFuture<TileBuilders.Tile> {
+        val open = getString(R.string.wear_tile_open)
+        val noPlan = getString(R.string.wear_no_plan_today)
+        val timeline = TimelineBuilders.Timeline.Builder()
+        var freshness = 0L
+        val activeTitle = activeSessionTitle()
+        if (activeTitle != null) {
+            timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
+                .setLayout(layout(activeTitle, getString(R.string.wear_tile_continue))).build())
+        } else {
+            val day = prefs().getString("todayPlanDay", null)
+            val savedAt = prefs().getLong("todayPlanAt", 0L)
+            val plan = WearTodayPlanCache.freshPlan(prefs().getString("todayPlan", null), day, savedAt)
+            val until = WearTodayPlanCache.validUntilMillis(day, savedAt)
+            val now = System.currentTimeMillis()
+            if (plan != null && until != null && until > now) {
+                val title = plan.optString("title").ifBlank { getString(R.string.wear_today_plan_untitled) }
+                timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
+                    .setValidity(TimelineBuilders.TimeInterval.Builder()
+                        .setStartMillis(now).setEndMillis(until).build())
+                    .setLayout(layout(title, open)).build())
+                timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
+                    .setValidity(TimelineBuilders.TimeInterval.Builder()
+                        .setStartMillis(until).build())
+                    .setLayout(layout(noPlan, open)).build())
+                freshness = until - now
+            } else {
+                timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
+                    .setLayout(layout(noPlan, open)).build())
+            }
+        }
         return Futures.immediateFuture(
             TileBuilders.Tile.Builder()
                 .setResourcesVersion("1")
-                .setTileTimeline(timeline)
+                .setTileTimeline(timeline.build())
+                .apply { if (freshness > 0L) setFreshnessIntervalMillis(freshness) }
                 .build()
         )
     }

@@ -48,15 +48,15 @@ fun NewExerciseScreen(
         instructions: String?
     ) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var muscleGroup by remember { mutableStateOf(newExerciseMuscleGroups.first()) }
     var muscleMenu by remember { mutableStateOf(false) }
-    var equipment by remember { mutableStateOf("") }
-    var targetMuscle by remember { mutableStateOf("") }
-    var bodyPart by remember { mutableStateOf("") }
-    var secondary by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var instructions by remember { mutableStateOf("") }
+    var equipment by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var targetMuscle by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var bodyPart by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var secondary by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var description by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var instructions by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val canAdd = name.trim().isNotEmpty() && !busy
 
     fun commit() {

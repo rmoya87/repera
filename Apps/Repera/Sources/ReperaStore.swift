@@ -1714,7 +1714,14 @@ final class ReperaStore: NSObject {
         for workout in removed {
             connectivity.sendTerminalEvent(sessionID: workout.id, saved: false)
             if let healthID = workout.healthKitWorkoutUUID {
-                Task { _ = await HealthKitStore.shared.deleteExternalWorkout(id: healthID) }
+                Task {
+                    guard !(await HealthKitStore.shared.deleteExternalWorkout(id: healthID)) else { return }
+                    NotificationCenter.default.post(
+                        name: Notification.Name("repera.healthDeletionFailed"),
+                        object: HealthKitStore.shared.lastError
+                            ?? "El registro de Apple Salud no pudo eliminarse."
+                    )
+                }
             }
         }
     }
@@ -1827,14 +1834,17 @@ final class ReperaStore: NSObject {
             draft.finishedAt = start.addingTimeInterval(60)
         }
         if draft.phase == .finished {
+            // Watch-recorded measurements stay while its HKWorkout syncs to iPhone.
+            let watchRecorded = draft.appleHealthProvenance == "watchHealthKit"
+                || draft.appleHealthProvenance == "watchHealthKitPending"
             // La edición nunca fabrica kcal por tiempo, carga o repeticiones.
             // Un entreno sin vínculo con Salud no tiene calorías verificadas.
-            if draft.healthKitWorkoutUUID == nil {
+            if draft.healthKitWorkoutUUID == nil, !watchRecorded {
                 draft.appleActiveEnergyKcal = nil
             }
             if let start = draft.startedAt, let end = draft.finishedAt,
                draft.liveSportID == nil, draft.timerDetails == nil,
-               draft.healthKitWorkoutUUID == nil {
+               draft.healthKitWorkoutUUID == nil, !watchRecorded {
                 // Sin vínculo HK, la duración se deriva del horario corregido.
                 // Con vínculo, preservar la medición de Salud/Watch original.
                 draft.appleDurationSeconds = max(60, end.timeIntervalSince(start))
@@ -1867,6 +1877,24 @@ final class ReperaStore: NSObject {
               let start = session.startedAt,
               let end = session.finishedAt,
               end >= start else { return false }
+        if session.appleHealthProvenance == "watchHealthKit"
+            || session.appleHealthProvenance == "watchHealthKitPending" {
+            // Apple Watch owns this HKWorkout. Until it reaches the iPhone's
+            // HealthKit store, only link it later; never write a second one.
+            guard let actual = await HealthKitStore.shared.verifiedWatchWorkout(forReperaSession: sessionId),
+                  let uuid = actual.workoutUUID,
+                  var current = state.workouts.first(where: { $0.id == sessionId }),
+                  current.healthKitWorkoutUUID == nil
+            else { return false }
+            current.healthKitWorkoutUUID = uuid
+            current.appleDurationSeconds = actual.durationSeconds
+            current.appleHealthProvenance = "watchHealthKit"
+            if actual.kcal > 0 { current.appleActiveEnergyKcal = actual.kcal }
+            upsertWorkout(current)
+            persistWorkouts()
+            await refineSessionReviewWithHealth(sessionId: sessionId)
+            return true
+        }
         let liveSport = session.liveSportID.flatMap { LiveSport(rawValue: $0) }
         let apple = await HealthKitStore.shared.finishWorkout(
             sessionId: session.id,
@@ -2485,12 +2513,7 @@ final class ReperaStore: NSObject {
     }
 
     private func parseBusinessDayKey(_ key: String) -> Date? {
-        let fmt = DateFormatter()
-        fmt.calendar = Calendar(identifier: .gregorian)
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = .current
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.date(from: key)
+        BusinessDataStore.parseDayKey(key)
     }
 
     /// Rebuild from the current store on each explicit Watch request.

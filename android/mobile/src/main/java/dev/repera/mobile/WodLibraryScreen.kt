@@ -62,7 +62,8 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             val visible=WodLibraryHistory.visible(scores,allowed)
             if(scores.isNotEmpty()) {
                 item { ReperaSectionTitle("Tu progresión") }
-                items(visible) {result ->Text(result.summary,modifier=Modifier.testTag("wod_result_${result.id}"))}
+                val resultKeys=LazyListKeys.unique(visible.map {"result-${it.id}"})
+                items(visible.size,key={resultKeys[it]}) {i ->val result=visible[i];Text(result.summary,modifier=Modifier.testTag("wod_result_${result.id}"))}
                 if(!allowed && scores.size>visible.size) item {TextButton(onClick={subscriptions?.presentPaywall(
                     dev.repera.domain.monetization.PaywallContext.WOD_HISTORY,
                     feature=dev.repera.domain.monetization.ReperaFeature.HISTORICAL_WOD_RESULTS)}) {Text("Supera tus marcas · ver historial completo")}}

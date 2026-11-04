@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.clickable
@@ -24,8 +26,8 @@ internal fun ProgressExercisesCard(exercises: List<ProgressExerciseRow>, onExerc
             if (exercises.isEmpty()) {
                 Box(Modifier.padding(vertical = 12.dp)) {
                     ReperaEmptyState(
-                        title = "Sin ejercicios aún",
-                        subtitle = "Cuando registres series, verás el progreso aquí"
+                        title = stringResource(R.string.progress_exercises_card_sin_ejercicios_aun),
+                        subtitle = stringResource(R.string.progress_exercises_card_cuando_registres_series_veras_el_progreso)
                     )
                 }
             } else {
@@ -47,7 +49,7 @@ internal fun ProgressExercisesCard(exercises: List<ProgressExerciseRow>, onExerc
                             .fillMaxWidth()
                             .semantics { contentDescription = "Ver todos los ejercicios" }
                     ) {
-                        Text("Ver más", color = brandGreenReadable)
+                        Text(stringResource(R.string.plus_hub_tab_ver_mas), color = brandGreenReadable)
                         Spacer(Modifier.weight(1f))
                         Icon(
                             Icons.AutoMirrored.Outlined.KeyboardArrowRight,
@@ -62,7 +64,7 @@ internal fun ProgressExercisesCard(exercises: List<ProgressExerciseRow>, onExerc
     if (all) {
         AlertDialog(
             onDismissRequest = { all = false },
-            title = { Text("Todos los ejercicios del periodo") },
+            title = { Text(stringResource(R.string.progress_exercises_card_todos_los_ejercicios_del_periodo)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     exercises.forEachIndexed { index, e ->
@@ -80,7 +82,7 @@ internal fun ProgressExercisesCard(exercises: List<ProgressExerciseRow>, onExerc
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { all = false }) { Text("Cerrar") } }
+            confirmButton = { TextButton(onClick = { all = false }) { Text(stringResource(R.string.action_close)) } }
         )
     }
 }
@@ -136,13 +138,13 @@ internal fun ProgressMobilityCard(
     ReperaCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             ProgressListRow(
-                title = "Tiempo registrado",
+                title = stringResource(R.string.progress_exercises_card_tiempo_registrado),
                 trailing = ProgressTilesModel.mobilityDuration(seconds),
                 showChevron = false
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             ProgressListRow(
-                title = "Sesiones con movilidad",
+                title = stringResource(R.string.progress_exercises_card_sesiones_con_movilidad),
                 trailing = "$sessions",
                 showChevron = false
             )
@@ -165,10 +167,10 @@ internal fun ProgressExerciseTrendPreview(today: java.time.LocalDate) {
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Evolución por ejercicio", style = MaterialTheme.typography.titleMedium)
-                Text("Ejemplo", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.progress_exercises_card_evolucion_por_ejercicio), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.progress_exercises_card_ejemplo), style = MaterialTheme.typography.labelMedium)
             }
-            Text("Evolución de carga · datos ficticios", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.progress_exercises_card_evolucion_de_carga_datos_ficticios), style = MaterialTheme.typography.bodySmall)
             ExerciseTrendPreviewChart(weights)
         }
     }

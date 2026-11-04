@@ -37,9 +37,9 @@ object LiveSportHistory {
     fun formatDuration(seconds: Double): String {
         val s = maxOf(0, seconds.toInt())
         return if (s >= 3600)
-            "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60)
+            "%d:%02d:%02d".format(java.util.Locale.ROOT, s / 3600, (s / 60) % 60, s % 60)
         else
-            "%02d:%02d".format(s / 60, s % 60)
+            "%02d:%02d".format(java.util.Locale.ROOT, s / 60, s % 60)
     }
 
     /** Apple LiveSportHistoryView "Mejores marcas": solo valores guardados de este deporte (no récords de fuerza). */

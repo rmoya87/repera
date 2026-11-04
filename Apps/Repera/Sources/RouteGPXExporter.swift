@@ -36,7 +36,7 @@ enum RouteGPXExporter {
         xml += "  </trkseg></trk>\n</gpx>\n"
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent("repera-route-\(UUID().uuidString).gpx")
-        try xml.write(to: file, atomically: true, encoding: .utf8)
+        try Data(xml.utf8).write(to: file, options: [.atomic, .completeFileProtection])
         return file
     }
 }

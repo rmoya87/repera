@@ -58,4 +58,12 @@ web/Archivo.zip
 *.keystore
 *.jks
 *.pem
+*.p8
 repera-sa.json
+
+# Configuración MCP local (puede contener tokens personales)
+.mcp.json
+.cursor/mcp.json
+
+# Python
+**/__pycache__/

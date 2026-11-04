@@ -172,6 +172,9 @@ Deno.serve(async (req: Request) => {
     const { error: consentError } = await admin.from("athlete_business_history_consents")
       .delete().eq("athlete_user_id", user.id);
     if (consentError) throw consentError;
+    // Access tokens outlive auth.users deletion; revoke every refresh session first.
+    const { error: signOutError } = await admin.auth.admin.signOut(bearer[1], "global");
+    if (signOutError) throw signOutError;
     // Deleting auth.users cascades personal mirror, AI tokens and profiles.
     const { error: deleteError } = await admin.auth.admin.deleteUser(user.id, false);
     if (deleteError) throw deleteError;

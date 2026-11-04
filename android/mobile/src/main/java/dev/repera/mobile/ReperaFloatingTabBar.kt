@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +46,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Altura del chrome inferior (tab bar + Continuar + nav bars) cuando está visible.
@@ -70,23 +80,25 @@ internal data class ReperaTabSpec(
     val route: String,
     val label: String,
     val icon: ImageVector,
-    val selectedIcon: ImageVector = icon
+    val selectedIcon: ImageVector = icon,
+    @StringRes val labelRes: Int = 0
 ) {
     fun iconFor(selected: Boolean): ImageVector = if (selected) selectedIcon else icon
 
     // La pestaña central muestra solo su círculo «+»; las demás conservan el texto.
     val visibleLabel: String? get() = label.takeUnless { route == "plus" }
     val accessibilityLabel: String get() = if (route == "plus") "Clases y centro" else label
+    @get:StringRes val accessibilityLabelRes: Int get() = if (route == "plus") R.string.tab_plus_a11y else labelRes
 }
 
 /** Cinco pestañas principales (paridad iOS: Inicio · Comenzar · + · Progreso · Ejercicios). */
 internal val reperaMainTabs = listOf(
-    ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home, Icons.Filled.Home),
-    ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle),
-    ReperaTabSpec("plus", "+", Icons.Outlined.AddCircle, Icons.Filled.AddCircle),
-    ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart),
+    ReperaTabSpec("inicio", "Inicio", Icons.Outlined.Home, Icons.Filled.Home, R.string.tab_home),
+    ReperaTabSpec("en-vivo", "Comenzar", Icons.Outlined.PlayCircle, Icons.Filled.PlayCircle, R.string.tab_start),
+    ReperaTabSpec("plus", "+", Icons.Outlined.AddCircle, Icons.Filled.AddCircle, R.string.tab_plus_a11y),
+    ReperaTabSpec("progreso", "Progreso", Icons.Outlined.BarChart, Icons.Filled.BarChart, R.string.tab_progress),
     // SF `dumbbell` horizontal (no FitnessCenter diagonal / «⤡»).
-    ReperaTabSpec("ejercicios", "Ejercicios", ReperaIcons.Dumbbell, ReperaIcons.Dumbbell)
+    ReperaTabSpec("ejercicios", "Ejercicios", ReperaIcons.Dumbbell, ReperaIcons.Dumbbell, R.string.tab_exercises)
 )
 
 /** La navegación de clases/centro aparece únicamente con vínculo de cliente activo. */
@@ -165,13 +177,15 @@ internal fun ReperaFloatingTabBar(
     modifier: Modifier = Modifier
 ) {
     val pillShape = RoundedCornerShape(999.dp)
-    // Fondo blanco opaco; pestaña activa en verde (icono + texto).
+    // Fondo opaco (blanco en claro, gris elevado en oscuro); pestaña activa en verde.
     Surface(
         modifier = modifier
+            .widthIn(max = REPERA_TAB_BAR_MAX_WIDTH)
             .fillMaxWidth()
+            .selectableGroup()
             .testTag("floating_tab_bar"),
         shape = pillShape,
-        color = Color.White,
+        color = MaterialTheme.reperaColors.chromeSurface,
         shadowElevation = 4.dp,
         tonalElevation = 0.dp,
         border = BorderStroke(
@@ -209,17 +223,22 @@ private fun ReperaFloatingTabItem(
     val iconTint = if (selected) brandGreen else scheme.onSurfaceVariant
     val labelColor = if (selected) brandGreen else scheme.onSurfaceVariant
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val a11yLabel = stringResource(tab.accessibilityLabelRes)
     Column(
         modifier = modifier
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(
+            .selectable(
+                selected = selected,
                 interactionSource = interaction,
                 indication = androidx.compose.material3.ripple(
                     bounded = true,
                     color = scheme.onSurface.copy(alpha = 0.10f)
                 ),
+                role = Role.Tab,
                 onClick = onClick
             )
+            .semantics(mergeDescendants = true) { contentDescription = a11yLabel }
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -231,25 +250,26 @@ private fun ReperaFloatingTabItem(
                 .then(
                     if (selected) Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0x1430D158)) // cápsula fill verde suave
+                        .background(MaterialTheme.reperaColors.tabSelectedFill)
                     else Modifier
                 )
         ) {
             Icon(
                 imageVector = tab.iconFor(selected),
-                contentDescription = tab.accessibilityLabel,
+                contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = iconTint
             )
         }
-        tab.visibleLabel?.let { title ->
+        if (tab.visibleLabel != null) {
             Text(
-                text = title,
+                text = a11yLabel,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                 color = labelColor,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clearAndSetSemantics {}
             )
         }
     }
@@ -271,14 +291,18 @@ internal fun ReperaContinueAccessory(
     val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     val thumbSize = 44.dp
     val accent = if (isLiveActivity) brandAmber else brandGreen
+    val chrome = MaterialTheme.reperaColors
+    val continueLabel = stringResource(R.string.continue_a11y, title)
     Surface(
-        color = Color.White,
+        color = chrome.chromeSurface,
         shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
         shadowElevation = 6.dp,
         tonalElevation = 0.dp,
         modifier = modifier
+            .widthIn(max = REPERA_TAB_BAR_MAX_WIDTH)
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClickLabel = continueLabel, role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
             .testTag("continuar_accessory")
     ) {
         Row(
@@ -294,7 +318,7 @@ internal fun ReperaContinueAccessory(
                     .size(thumbSize)
                     .clip(if (isLiveActivity) CircleShape else RoundedCornerShape(10.dp))
                     .background(
-                        if (isLiveActivity) accent else Color(0xFFF2F2F7)
+                        if (isLiveActivity) accent else chrome.chromeThumb
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -318,11 +342,11 @@ internal fun ReperaContinueAccessory(
             Column(
                 Modifier
                     .weight(1f)
-                    .height(thumbSize),
+                    .heightIn(min = thumbSize),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    "Continuar",
+                    stringResource(R.string.action_continue),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -330,7 +354,7 @@ internal fun ReperaContinueAccessory(
                     title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black,
+                    color = chrome.onChromeSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -360,6 +384,9 @@ internal fun ReperaContinueAccessory(
         }
     }
 }
+
+/** iPad / tablet: la píldora no se estira a todo el ancho (iPadOS mantiene la barra compacta). */
+internal val REPERA_TAB_BAR_MAX_WIDTH = 560.dp
 
 /** Columna inferior: Continuar sale por detrás de la píldora + menú. */
 @Composable

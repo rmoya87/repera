@@ -28,9 +28,14 @@ internal class WearHealthService:Service() {
     private var lastHeartSentAt = 0L
     private var lastHeartSentSession: String? = null
     private var lastHeartSentBpm: Int? = null
+    private var notifiedText:String?=null
+    private var notifiedAt=0L
+    private var notifyJob:Job?=null
     data class Snapshot(val sessionId:String?,val heart:Int?,val energy:Double?,val recording:Boolean,val paused:Boolean,val problem:String?)
     inner class Connection:Binder() {
         fun observe(callback:((Snapshot)->Unit)?) {observer=callback;if(callback!=null) callback(snapshot())}
+        /** A running owner needs no new startForegroundService (and no new promotion). */
+        fun owns(id:String):Boolean=owner==id && !ending && (starting || sensors.recording)
         fun pause(id:String,paused:Boolean) {
             if(id!=owner || !isCurrent(id)) return
             val token=revision
@@ -45,7 +50,12 @@ internal class WearHealthService:Service() {
     private val changes=SharedPreferences.OnSharedPreferenceChangeListener {_,key ->
         if(key=="snapshot" || key=="companionLiveSessionId") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
     }
-    override fun onCreate() {super.onCreate();cache.registerOnSharedPreferenceChangeListener(changes)}
+    override fun onCreate() {
+        super.onCreate()
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL,getString(R.string.wear_notification_channel),NotificationManager.IMPORTANCE_LOW))
+        cache.registerOnSharedPreferenceChangeListener(changes)
+    }
     override fun onBind(intent:Intent?):IBinder=binder
     private fun cachedId():String?=cache.getString("snapshot",null)?.let {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
@@ -55,11 +65,7 @@ internal class WearHealthService:Service() {
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()
-        if(foreground) runCatching {
-            // Update the existing foreground notification through the service API.
-            // POST_NOTIFICATIONS is optional for FGS and must not gate sensor continuity.
-            startForeground(NOTIFICATION,notification(),if(Build.VERSION.SDK_INT>=34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0)
-        }.onFailure {status="No se pudo actualizar el aviso del registro; revisa Repera en el reloj."}
+        refreshNotification()
         if(sensors.ended) {
             owner?.let {id ->
                 if(!cache.edit().putString("sensorEndedSessionId",id).commit()) {
@@ -68,8 +74,29 @@ internal class WearHealthService:Service() {
             }
         }
         if(dev.repera.domain.WatchSensorLifetime.mayRetire(starting,sensors.ended)) {
-            ending=false;owner=null;stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;stopSelfResult(lastStartId)
+            ending=false;owner=null;notifyJob?.cancel();stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;stopSelfResult(lastStartId)
         }
+    }
+    private fun statusText():String=status ?: sensors.problem ?: getString(when {
+        ending -> R.string.wear_notification_ending
+        sensors.paused -> R.string.wear_notification_paused
+        sensors.measuring && sensors.recording -> R.string.wear_notification_measuring
+        sensors.recording -> R.string.wear_notification_recording
+        else -> R.string.wear_notification_connecting
+    })
+    /** ExerciseUpdates arrive about once per second: repost only a changed text, at most every few seconds. */
+    private fun refreshNotification() {
+        if(!foreground) return
+        val text=statusText()
+        if(text==notifiedText) return
+        val wait=NOTIFICATION_MIN_INTERVAL_MS-(SystemClock.elapsedRealtime()-notifiedAt)
+        if(wait>0) {
+            if(notifyJob?.isActive!=true) notifyJob=scope.launch {delay(wait);notifyJob=null;refreshNotification()}
+            return
+        }
+        notifiedText=text;notifiedAt=SystemClock.elapsedRealtime()
+        // POST_NOTIFICATIONS is optional for FGS and must not gate sensor continuity.
+        runCatching {getSystemService(NotificationManager::class.java).notify(NOTIFICATION,notification(text))}
     }
     /**
      * Send actual Health Services samples to the phone-owned Comenzar session.
@@ -106,8 +133,9 @@ internal class WearHealthService:Service() {
         // Even a stale/terminal startForegroundService intent must promote before retiring.
         // Returning first would leave Android's foreground-promotion deadline unsatisfied.
         try {
-            startForeground(NOTIFICATION,notification(),if(Build.VERSION.SDK_INT>=34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0)
-            foreground=true
+            val text=statusText()
+            startForeground(NOTIFICATION,notification(text),if(Build.VERSION.SDK_INT>=34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0)
+            foreground=true;notifiedText=text;notifiedAt=SystemClock.elapsedRealtime()
         } catch(e:RuntimeException) {
             status=e.localizedMessage ?: "No se pudo mantener el registro en primer plano"
             observer?.invoke(snapshot());stopSelf(startId);return START_NOT_STICKY
@@ -126,19 +154,22 @@ internal class WearHealthService:Service() {
         if(ending) {status="Espera a que termine el registro anterior";publish();return START_NOT_STICKY}
         if(starting) return START_NOT_STICKY
         owner=id;status=null;starting=true
+        // The promotion above had no owner yet: repost once so the Ongoing Activity is attached.
+        notifiedText=null;notifiedAt=0L;refreshNotification()
         val token=revision
+        // Phone-owned activity (Comenzar): live HR only; the phone owns the workout record.
         val companion = cache.getString("companionLiveSessionId",null)==id
-        val sportId = intent?.getStringExtra("sportId")
-        val sportType = if (companion && sportId == "walking") ExerciseType.WALKING
-            else ExerciseType.STRENGTH_TRAINING
         scope.launch {
-            val result=runCatching {sensors.start(id,sportType) {token==revision && isCurrent(id)}}
+            val result=runCatching {
+                if(companion) sensors.startMeasure(id) {token==revision && isCurrent(id)}
+                else sensors.start(id,ExerciseType.STRENGTH_TRAINING) {token==revision && isCurrent(id)}
+            }
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.
             // Retain the foreground owner on unknown/owned status so visible UI can retry/stop.
-            val releasable=if(!sensors.recording && !sensors.ended) runCatching {
-                sensors.canReleaseAfterStartFailure()
-            }.getOrDefault(false) else false
+            val releasable=if(!sensors.recording && !sensors.ended) {
+                companion || runCatching {sensors.canReleaseAfterStartFailure()}.getOrDefault(false)
+            } else false
             starting=false
             publish()
             if(releasable && owner==id && !ending) {owner=null;stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;stopSelfResult(lastStartId)}
@@ -155,14 +186,15 @@ internal class WearHealthService:Service() {
             publish()
         }
     }
-    private fun notification():Notification {
-        getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL,"Entrenamiento",NotificationManager.IMPORTANCE_LOW))
+    private fun notification(text:String):Notification {
         val open=PendingIntent.getActivity(this,801,Intent(this,WearMainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val title=getString(R.string.wear_notification_title)
         val builder = NotificationCompat.Builder(this,CHANNEL)
             .setSmallIcon(R.drawable.ic_repera_complication)
-            .setContentTitle("Repera · Entrenamiento")
-            .setContentText(status ?: sensors.problem ?: if(ending) "Terminando sensores" else if(sensors.paused) "Sensores en pausa" else if(sensors.recording) "Registro de sensores activo" else "Conectando con sensores")
+            .setContentTitle(title)
+            .setContentText(text)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
             .setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open)
         // La notificación foreground por sí sola NO evita Return to Watch Face.
         // Ongoing Activity mantiene la UI visible durante el entrenamiento, en pausa
@@ -172,15 +204,15 @@ internal class WearHealthService:Service() {
             OngoingActivity.Builder(applicationContext, NOTIFICATION, builder)
                 .setStaticIcon(R.drawable.ic_repera_complication)
                 .setTouchIntent(open)
-                .setTitle("Repera · Entrenamiento")
-                .setContentDescription("Volver al entrenamiento en curso de Repera")
+                .setTitle(title)
+                .setContentDescription(getString(R.string.wear_ongoing_description))
                 .build()
                 .apply(applicationContext)
         }
         return builder.build()
     }
     override fun onDestroy() {
-        revision++;observer=null;cache.unregisterOnSharedPreferenceChangeListener(changes)
+        revision++;observer=null;notifyJob?.cancel();cache.unregisterOnSharedPreferenceChangeListener(changes)
         // Detach callback, not endExercise: a surviving exercise is reattached from visible UI.
         scope.launch {runCatching {sensors.detach()};scope.cancel()}
         stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;super.onDestroy()
@@ -188,6 +220,7 @@ internal class WearHealthService:Service() {
     companion object {
         private const val CHANNEL="repera.wear.exercise"
         private const val NOTIFICATION=8101
+        private const val NOTIFICATION_MIN_INTERVAL_MS=10_000L
         fun startFromVisibleUI(context:Context,id:String,sportId:String?=null) {
             androidx.core.content.ContextCompat.startForegroundService(context,
                 Intent(context,WearHealthService::class.java)

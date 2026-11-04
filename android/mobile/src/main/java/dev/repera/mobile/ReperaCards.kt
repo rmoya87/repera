@@ -1,5 +1,6 @@
 package dev.repera.mobile
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
@@ -223,11 +224,11 @@ internal fun ActiveWorkoutCard(
                             editingDeficit = set.deficitCm?.toString() ?: ""
                             editingUnit = set.unit
                             editingDuration = set.durationSeconds?.toString() ?: ""
-                        }, enabled = !busy) { Text("Editar") }
+                        }, enabled = !busy) { Text(stringResource(R.string.home_day_cards_editar)) }
                         TextButton(onClick = {
                             if (editingId == set.id) editingId = null
                             onDeleteSet(set.id)
-                        }, enabled = !busy) { Text("Eliminar") }
+                        }, enabled = !busy) { Text(stringResource(R.string.action_delete)) }
                     }
                 }
             }
@@ -245,19 +246,19 @@ internal fun ActiveWorkoutCard(
                     Row {
                         TextButton(onClick = { editingPendingId = if (editingPendingId == pending.id) null else pending.id
                             pendingReps = pending.reps.toString()
-                            pendingWeight = WeightDisplay.fieldText(pending.weightKg, weightUnit) }, enabled = !busy) { Text("Editar") }
-                        TextButton(onClick = { removePending(pending.id) }, enabled = !busy) { Text("Quitar serie") }
+                            pendingWeight = WeightDisplay.fieldText(pending.weightKg, weightUnit) }, enabled = !busy) { Text(stringResource(R.string.home_day_cards_editar)) }
+                        TextButton(onClick = { removePending(pending.id) }, enabled = !busy) { Text(stringResource(R.string.repera_cards_quitar_serie)) }
                     }
                 }
                 if (editingPendingId == pending.id) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ReperaNumericField(value = pendingReps, onValueChange = { pendingReps = it.filter(Char::isDigit) }, label = "Reps", allowsDecimal = false, modifier = Modifier.weight(1f))
+                        ReperaNumericField(value = pendingReps, onValueChange = { pendingReps = it.filter(Char::isDigit) }, label = stringResource(R.string.repera_cards_reps), allowsDecimal = false, modifier = Modifier.weight(1f))
                         if (active.allowsWeight) ReperaNumericField(value = pendingWeight, onValueChange = { pendingWeight = it }, label = weightLabel, modifier = Modifier.weight(1f))
                     }
                     val kg = WeightDisplay.parseToKg(pendingWeight, weightUnit)
                     val okKg = pendingWeight.isBlank() || kg != null
                     TextButton(enabled = !busy && okKg && pendingReps.toIntOrNull() != null, onClick = {
-                        editPendingSet(pending.id, pendingReps.toInt(), kg); editingPendingId = null }) { Text("Guardar serie pendiente") }
+                        editPendingSet(pending.id, pendingReps.toInt(), kg); editingPendingId = null }) { Text(stringResource(R.string.repera_cards_guardar_serie_pendiente)) }
                 }
             }
             if (editingId != null) {
@@ -280,7 +281,7 @@ internal fun ActiveWorkoutCard(
                     ReperaNumericField(
                         value = editingDeficit,
                         onValueChange = { editingDeficit = it.filter(Char::isDigit) },
-                        label = "Corregir déficit HSPU (cm)",
+                        label = stringResource(R.string.repera_cards_corregir_deficit_hspu_cm),
                         allowsDecimal = false)
                 }
                 if (active.cardioToggle || active.repsMetersToggle) {
@@ -305,7 +306,7 @@ internal fun ActiveWorkoutCard(
                     ReperaNumericField(
                         value = editingDuration,
                         onValueChange = { editingDuration = it.filter(Char::isDigit) },
-                        label = "Duración en segundos (opcional)",
+                        label = stringResource(R.string.repera_cards_duracion_en_segundos_opcional),
                         allowsDecimal = false)
                 }
                 val parsedEdit = editingQuantity.toIntOrNull()
@@ -319,7 +320,7 @@ internal fun ActiveWorkoutCard(
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween) {
                     TextButton(onClick = { editingId = null }, enabled = !busy) {
-                        Text("Cancelar")
+                        Text(stringResource(R.string.action_cancel))
                     }
                     Button(onClick = {
                         val id = editingId
@@ -329,7 +330,7 @@ internal fun ActiveWorkoutCard(
                                 if (active.allowsDeficit) editingDeficit.toIntOrNull() else null)
                             editingId = null
                         }
-                    }, enabled = !busy && editValid) { Text("Guardar corrección") }
+                    }, enabled = !busy && editValid) { Text(stringResource(R.string.repera_cards_guardar_correccion)) }
                 }
             }
             var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
@@ -407,25 +408,25 @@ internal fun ActiveWorkoutCard(
                 ReperaNumericField(
                     value = deficit,
                     onValueChange = { deficit = it.filter(Char::isDigit) },
-                    label = "Déficit HSPU (cm, opcional)",
+                    label = stringResource(R.string.repera_cards_deficit_hspu_cm_opcional),
                     allowsDecimal = false)
             }
             if (active.durationInput) {
                 if (active.mobilityHold) {
-                    Text("Tiempo mantenido · obligatorio",
+                    Text(stringResource(R.string.repera_cards_tiempo_mantenido_obligatorio),
                         style = MaterialTheme.typography.labelMedium)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ReperaNumericField(
                         value = durationMin,
                         onValueChange = { durationMin = it.filter(Char::isDigit) },
-                        label = "Minutos",
+                        label = stringResource(R.string.repera_cards_minutos),
                         allowsDecimal = false,
                         modifier = Modifier.weight(1f))
                     ReperaNumericField(
                         value = durationSec,
                         onValueChange = { durationSec = it.filter(Char::isDigit) },
-                        label = "Segundos",
+                        label = stringResource(R.string.repera_cards_segundos),
                         allowsDecimal = false,
                         modifier = Modifier.weight(1f))
                 }
@@ -464,7 +465,7 @@ internal fun ActiveWorkoutCard(
                         enabled = !busy,
                         modifier = Modifier.testTag("set_to_failure")
                     )
-                    Text("Al fallo")
+                    Text(stringResource(R.string.repera_cards_al_fallo))
                 }
                 if (technique == "dropset") {
                     ReperaMetaTextField(
@@ -526,11 +527,11 @@ internal fun ActiveWorkoutCard(
                 },
                 enabled = !busy && valid && validTechnique,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Registrar serie") }
+            ) { Text(stringResource(R.string.repera_cards_registrar_serie)) }
             }
             if (active.index + 1 < active.total) {
                 OutlinedButton(onClick = onNext, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Text("Siguiente ejercicio")
+                    Text(stringResource(R.string.repera_cards_siguiente_ejercicio))
                 }
             }
             // Finalizar / cancelar solo con el ✓ de la toolbar (resumen → Guardar / Descartar).
@@ -586,10 +587,10 @@ internal fun WodScoreCard(
             }
         }
     }
-    var rounds by remember(active.id, active.index) { mutableStateOf("") }
-    var extraReps by remember(active.id, active.index) { mutableStateOf("") }
-    var minutes by remember(active.id, active.index) { mutableStateOf("") }
-    var seconds by remember(active.id, active.index) { mutableStateOf("") }
+    var rounds by rememberSaveable(active.id, active.index) { mutableStateOf("") }
+    var extraReps by rememberSaveable(active.id, active.index) { mutableStateOf("") }
+    var minutes by rememberSaveable(active.id, active.index) { mutableStateOf("") }
+    var seconds by rememberSaveable(active.id, active.index) { mutableStateOf("") }
     val m = minutes.toIntOrNull()
     val sec = seconds.toIntOrNull()
     val elapsed = if (m != null && sec != null && sec in 0..59) {
@@ -659,7 +660,7 @@ internal fun WodScoreCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = brandGreen
             )
-            Text("%d:%02d".format(face.primarySeconds / 60, face.primarySeconds % 60),
+            Text("%d:%02d".format(java.util.Locale.ROOT, face.primarySeconds / 60, face.primarySeconds % 60),
                 style = MaterialTheme.typography.displayMedium)
             face.label?.let { label ->
                 Text(label, style = MaterialTheme.typography.titleMedium)
@@ -671,7 +672,7 @@ internal fun WodScoreCard(
                     Text(if (timer?.running == true) "Pausar" else if (elapsedClock > 0) "Continuar" else "Iniciar")
                 }
                 OutlinedButton(onClick = { onTimerAction("reset") }, enabled = !busy) {
-                    Text("Reiniciar")
+                    Text(stringResource(R.string.repera_cards_reiniciar))
                 }
                 TextButton(onClick = {
                     // Formatos con cap / intervalo: arrancar antes de abrir (iOS).
@@ -687,11 +688,11 @@ internal fun WodScoreCard(
                     }
                     onOpenClock()
                 }) {
-                    Text("Pantalla completa")
+                    Text(stringResource(R.string.repera_cards_pantalla_completa))
                 }
             }
             // Paridad inlineWODScoreEditor iOS.
-            Text("Resultado del bloque", style = MaterialTheme.typography.titleMedium,
+            Text(stringResource(R.string.repera_cards_resultado_del_bloque), style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold)
             Text(wod.title + " · " +
                 (WodFormat.fromWire(wod.format)?.displayName
@@ -716,7 +717,7 @@ internal fun WodScoreCard(
             }
             if (perMovement) {
                 val candidates = wod.movements.filter { !it.isRest }
-                Text("Registrar movimientos realizados", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.repera_cards_registrar_movimientos_realizados), style = MaterialTheme.typography.titleMedium)
                 candidates.forEachIndexed { i, movement ->
                     OutlinedButton(onClick = {
                         selectedMovement = i
@@ -728,7 +729,7 @@ internal fun WodScoreCard(
                 ReperaNumericField(
                     value = intervalInput,
                     onValueChange = { intervalEdited = true; intervalInput = it.filter(Char::isDigit) },
-                    label = "Intervalo o ronda (desde 1)",
+                    label = stringResource(R.string.repera_cards_intervalo_o_ronda_desde_1),
                     allowsDecimal = false)
                 ReperaNumericField(
                     value = quantityInput,
@@ -742,7 +743,7 @@ internal fun WodScoreCard(
                 ReperaNumericField(
                     value = weightInput,
                     onValueChange = { weightInput = it.filter { char -> char.isDigit() || char == '.' } },
-                    label = "Peso en kg (opcional)")
+                    label = stringResource(R.string.repera_cards_peso_en_kg_opcional))
                 val validMovement = candidates.isNotEmpty() &&
                     intervalInput.toIntOrNull()?.let { it in 1..100000 } == true &&
                     quantityInput.toIntOrNull()?.let { it >= 0 } == true &&
@@ -755,7 +756,7 @@ internal fun WodScoreCard(
                             quantityInput.toInt(), weightInput.toDoubleOrNull())
                     }, enabled = !busy && validMovement,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Confirmar movimiento") }
+                ) { Text(stringResource(R.string.repera_cards_confirmar_movimiento)) }
                 wod.recorded.forEach { record ->
                     var editQuantity by remember(record.id) { mutableStateOf(record.quantity.toString()) }
                     var editWeight by remember(record.id) {
@@ -766,45 +767,45 @@ internal fun WodScoreCard(
                     ReperaNumericField(
                         value = editQuantity,
                         onValueChange = { editQuantity = it.filter(Char::isDigit) },
-                        label = "Cantidad registrada",
+                        label = stringResource(R.string.repera_cards_cantidad_registrada),
                         allowsDecimal = false)
                     ReperaNumericField(
                         value = editWeight,
                         onValueChange = { editWeight = it.filter { ch -> ch.isDigit() || ch == '.' } },
-                        label = "Peso registrado (opcional)")
+                        label = stringResource(R.string.repera_cards_peso_registrado_opcional))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
                             onReviseMovement(record.id, editQuantity.toInt(), editWeight.toDoubleOrNull())
                         }, enabled = !busy && editQuantity.toIntOrNull() != null &&
                             (editWeight.isBlank() || editWeight.toDoubleOrNull()?.let {
                                 it.isFinite() && it >= 0
-                            } == true)) { Text("Corregir") }
+                            } == true)) { Text(stringResource(R.string.repera_cards_corregir)) }
                         TextButton(onClick = { onDeleteMovement(record.id) }, enabled = !busy) {
-                            Text("Eliminar")
+                            Text(stringResource(R.string.action_delete))
                         }
                     }
                 }
                 Button(onClick = onCompleteBlock, enabled = !busy && wod.recorded.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()) { Text("Terminar bloque") }
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.repera_cards_terminar_bloque)) }
             } else if (scoreIsTime) {
-                Text("Tiempo total realizado", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.repera_cards_tiempo_total_realizado), style = MaterialTheme.typography.titleSmall)
                 if (elapsedClock > 0) {
                     TextButton(onClick = {
                         minutes = (elapsedClock / 60).toString()
                         seconds = (elapsedClock % 60).toString().padStart(2, '0')
                         onTimerAction("pause")
-                    }, enabled = !busy) { Text("Usar tiempo del cronómetro") }
+                    }, enabled = !busy) { Text(stringResource(R.string.repera_cards_usar_tiempo_del_cronometro)) }
                 }
                 ReperaNumericField(
                     value = minutes,
                     onValueChange = { minutes = it.filter(Char::isDigit) },
-                    label = "Minutos",
+                    label = stringResource(R.string.repera_cards_minutos),
                     allowsDecimal = false
                 )
                 ReperaNumericField(
                     value = seconds,
                     onValueChange = { seconds = it.filter(Char::isDigit) },
-                    label = "Segundos (0–59)",
+                    label = stringResource(R.string.repera_cards_segundos_059),
                     allowsDecimal = false
                 )
             } else {
@@ -812,7 +813,7 @@ internal fun WodScoreCard(
                     ReperaNumericField(
                         value = rounds,
                         onValueChange = { rounds = it.filter(Char::isDigit) },
-                        label = "Rondas completadas",
+                        label = stringResource(R.string.repera_cards_rondas_completadas),
                         allowsDecimal = false
                     )
                 }
@@ -830,7 +831,7 @@ internal fun WodScoreCard(
                     if (scoreIsTime) onSave(null, null, elapsed)
                     else onSave(rounds.toIntOrNull(), extraReps.toIntOrNull(), null)
                 }
-            ) { Text("Guardar resultado y continuar") }
+            ) { Text(stringResource(R.string.repera_cards_guardar_resultado_y_continuar)) }
             // Finalizar / cancelar solo con el ✓ de la toolbar (resumen → Guardar / Descartar).
         }
     }
@@ -867,7 +868,7 @@ internal fun ScheduledRoutineCard(
     }
     var editWeekday by remember(routine.id) { mutableStateOf(routine.weekday ?: 1) }
     var editClock by remember(routine.id) {
-        mutableStateOf(routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) } ?: "")
+        mutableStateOf(routine.timeMinutes?.let { "%02d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) } ?: "")
     }
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
@@ -895,12 +896,12 @@ internal fun ScheduledRoutineCard(
                     listOf("Lunes", "Martes", "Miércoles", "Jueves", "Viernes",
                         "Sábado", "Domingo").getOrNull(day - 1)
                 } ?: "Sin fecha"
-            val hour = routine.timeMinutes?.let { "%02d:%02d".format(it / 60, it % 60) }
+            val hour = routine.timeMinutes?.let { "%02d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) }
             Text(label + (hour?.let { " · $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()) {
-                Text("Progresión:", style = MaterialTheme.typography.bodySmall,
+                Text(stringResource(R.string.repera_cards_progresion), style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.align(androidx.compose.ui.Alignment.CenterVertically))
                 androidx.compose.foundation.layout.Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -924,23 +925,23 @@ internal fun ScheduledRoutineCard(
                     enabled = !busy && canStart && routine.supported
                 ) { Text(if (routine.supported) "Empezar" else "Formato pendiente") }
                 TextButton(onClick = { onEditContent(routine.id) },
-                    enabled = !busy) { Text("Contenido") }
+                    enabled = !busy) { Text(stringResource(R.string.repera_cards_contenido)) }
                 TextButton(onClick = {
                     editing = !editing
                     confirmingDelete = false
                 }, enabled = !busy) { Text(if (editing) "Cerrar" else "Editar") }
                 TextButton(onClick = { confirmingDelete = !confirmingDelete },
-                    enabled = !busy) { Text("Borrar") }
+                    enabled = !busy) { Text(stringResource(R.string.repera_cards_borrar)) }
             }
             if (confirmingDelete) {
-                Text("¿Borrar la rutina? Los entrenos ya registrados se conservan.",
+                Text(stringResource(R.string.repera_cards_borrar_la_rutina_los_entrenos_ya),
                     style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = {
                         confirmingDelete = false
                         onDelete(routine.id)
-                    }, enabled = !busy) { Text("Confirmar borrado") }
-                    TextButton(onClick = { confirmingDelete = false }) { Text("Cancelar") }
+                    }, enabled = !busy) { Text(stringResource(R.string.repera_cards_confirmar_borrado)) }
+                    TextButton(onClick = { confirmingDelete = false }) { Text(stringResource(R.string.action_cancel)) }
                 }
             }
             if (editing) {
@@ -982,11 +983,11 @@ internal fun ScheduledRoutineCard(
                         androidx.compose.material3.Switch(checked = editClock.isNotBlank(),
                             modifier = Modifier.testTag("routine_edit_time_switch"),
                             onCheckedChange = { on -> editClock = if (on) "18:00" else "" })
-                        Text("  Hora programada")
+                        Text(stringResource(R.string.repera_cards_hora_programada))
                         if (editClock.isNotBlank()) {
                             val t = runCatching { LocalTime.parse(editClock) }.getOrDefault(LocalTime.of(18, 0))
                             TextButton(modifier = Modifier.testTag("routine_edit_time"), onClick = {
-                                android.app.TimePickerDialog(ctx2, { _, h, mi -> editClock = "%02d:%02d".format(h, mi) },
+                                android.app.TimePickerDialog(ctx2, { _, h, mi -> editClock = "%02d:%02d".format(java.util.Locale.ROOT, h, mi) },
                                     t.hour, t.minute, true).show()
                             }) { Text(editClock) }
                         }
@@ -1008,7 +1009,7 @@ internal fun ScheduledRoutineCard(
                                 parsedClock?.let { it.hour * 60 + it.minute }
                         ))
                         editing = false
-                    }) { Text("Guardar cambios") }
+                    }) { Text(stringResource(R.string.repera_cards_guardar_cambios)) }
             }
         }
     }
@@ -1070,7 +1071,7 @@ internal fun RoutineCreatorCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Nueva rutina", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.repera_cards_nueva_rutina), style = MaterialTheme.typography.titleLarge)
             ReperaMetaTextField(
                 caption = "Nombre de la rutina",
                 value = title,
@@ -1101,7 +1102,7 @@ internal fun RoutineCreatorCard(
                     ReperaNumericField(
                         value = cap,
                         onValueChange = { cap = it.filter(Char::isDigit) },
-                        label = "Límite (minutos)",
+                        label = stringResource(R.string.repera_cards_limite_minutos),
                         allowsDecimal = false
                     )
                 }
@@ -1136,7 +1137,7 @@ internal fun RoutineCreatorCard(
                     ReperaNumericField(
                         value = workSeconds,
                         onValueChange = { workSeconds = it.filter(Char::isDigit) },
-                        label = "Trabajo (segundos)",
+                        label = stringResource(R.string.repera_cards_trabajo_segundos),
                         allowsDecimal = false)
                 }
                 if (kind in setOf("tabata", "circuit")) {
@@ -1151,29 +1152,29 @@ internal fun RoutineCreatorCard(
             ReperaNumericField(
                 value = reps,
                 onValueChange = { reps = it.filter(Char::isDigit) },
-                label = "Repeticiones por ejercicio",
+                label = stringResource(R.string.repera_cards_repeticiones_por_ejercicio),
                 allowsDecimal = false
             )
             if (kind == "strength") {
                 ReperaNumericField(
                     value = sets,
                     onValueChange = { sets = it.filter(Char::isDigit) },
-                    label = "Series por ejercicio",
+                    label = stringResource(R.string.repera_cards_series_por_ejercicio),
                     allowsDecimal = false
                 )
                 ReperaNumericField(
                     value = entryRest,
                     onValueChange = { entryRest = it.filter(Char::isDigit) },
-                    label = "Descanso opcional (segundos)",
+                    label = stringResource(R.string.repera_cards_descanso_opcional_segundos),
                     allowsDecimal = false
                 )
                 ReperaNumericField(
                     value = weight,
                     onValueChange = { weight = it },
-                    label = "Peso prescrito opcional (kg)"
+                    label = stringResource(R.string.repera_cards_peso_prescrito_opcional_kg)
                 )
             }
-            Text("Programación", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.repera_cards_programacion), style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("library" to "Sin fecha", "date" to "Día concreto", "weekly" to "Semanal")
                     .forEach { option ->
@@ -1206,7 +1207,7 @@ internal fun RoutineCreatorCard(
                     onValueChange = { clockTime = it.take(5) }
                 )
             }
-            Text("Ejercicios de la rutina", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.repera_cards_ejercicios_de_la_rutina), style = MaterialTheme.typography.titleMedium)
             chosen.forEach { draft ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1217,7 +1218,7 @@ internal fun RoutineCreatorCard(
                         "${draft.quantity} reps" +
                         (draft.restSeconds?.let { " · ${it}s descanso" } ?: ""))
                     TextButton(onClick = { chosen.remove(draft) }, enabled = !busy) {
-                        Text("Quitar")
+                        Text(stringResource(R.string.repera_cards_quitar))
                     }
                 }
             }
@@ -1294,7 +1295,7 @@ internal fun RoutineCreatorCard(
                         interval.toIntOrNull() ?: 60, workSeconds.toIntOrNull() ?: 20,
                         restSeconds.toIntOrNull() ?: 10, ladderScheme)
                 }
-            ) { Text("Guardar rutina") }
+            ) { Text(stringResource(R.string.repera_cards_guardar_rutina)) }
         }
     }
 }
@@ -1516,9 +1517,9 @@ internal fun WorkoutHistoryCard(
     var pendingDelete by remember(workout.id) { mutableStateOf(false) }
     if (pendingDelete) {
         ReperaConfirmSheet(
-            title = "¿Eliminar entreno?",
+            title = stringResource(R.string.repera_cards_eliminar_entreno),
             message = "Se eliminará «" + workout.title + "» de este día.",
-            confirmTitle = "Eliminar",
+            confirmTitle = stringResource(R.string.action_delete),
             onConfirm = {
                 pendingDelete = false
                 onDeleteWorkout(workout.id)
@@ -1541,11 +1542,11 @@ internal fun WorkoutHistoryCard(
                 enabled = !busy,
                 modifier = Modifier.align(Alignment.CenterEnd).width(96.dp)
                     .fillMaxHeight()
-                    .background(Color(0xFFFF3B30))
+                    .background(ReperaAccents.swipeDelete)
             ) {
                 Icon(
                     Icons.Outlined.Delete,
-                    contentDescription = "Eliminar",
+                    contentDescription = stringResource(R.string.action_delete),
                     tint = Color.White
                 )
             }
@@ -1591,21 +1592,21 @@ internal fun WorkoutHistoryCard(
                         enabled = !busy,
                         modifier = Modifier.testTag("history_more")
                     ) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = "Más opciones")
+                        Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.repera_cards_mas_opciones))
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text("Editar") },
+                            text = { Text(stringResource(R.string.home_day_cards_editar)) },
                             onClick = { menuOpen = false; expanded = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Eliminar") },
+                            text = { Text(stringResource(R.string.action_delete)) },
                             onClick = { menuOpen = false; pendingDelete = true }
                         )
                     }
                 }
                 IconButton(onClick = { pendingDelete = true }, enabled = !busy) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Eliminar registro")
+                    Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.repera_cards_eliminar_registro))
                 }
             }
             // Misma matriz que detalle Historial / Guardar (SessionSummaryTilesBuilder).
@@ -1619,7 +1620,7 @@ internal fun WorkoutHistoryCard(
                     workout.timerDetails != null -> {
                         val s = workout.timerDetails.configuredSeconds.coerceAtLeast(0)
                         val h = s / 3600; val m = (s % 3600) / 60; val sec = s % 60
-                        if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+                        if (h > 0) "%d:%02d:%02d".format(java.util.Locale.ROOT, h, m, sec) else "%d:%02d".format(java.util.Locale.ROOT, m, sec)
                     }
                     mins != null && mins > 0 -> "$mins′"
                     else -> "—"
@@ -1689,7 +1690,7 @@ internal fun WorkoutHistoryCard(
                 val index = selectedMovement!!
                 val exercise = workout.movements.getOrNull(index)
                 TextButton(onClick = { selectedMovement = null }) {
-                    Text("← Volver al resumen")
+                    Text(stringResource(R.string.repera_cards_volver_al_resumen))
                 }
                 if (exercise != null) {
                     // Abrir la ficha con contexto de sesión (tarjeta «Esta
@@ -1713,23 +1714,23 @@ internal fun WorkoutHistoryCard(
                         }
                     }
                     if (exercise.editableSets.isNotEmpty()) {
-                        Text("Corregir series registradas",
+                        Text(stringResource(R.string.repera_cards_corregir_series_registradas),
                             style = MaterialTheme.typography.titleSmall)
                         exercise.editableSets.forEachIndexed { n, set ->
                             if (editingSetId == set.setId) {
                                 ReperaNumericField(
                                     value = editQuantity,
                                     onValueChange = { editQuantity = it.filter(Char::isDigit) },
-                                    label = "Cantidad (reps / cal / m)",
+                                    label = stringResource(R.string.repera_cards_cantidad_reps_cal_m),
                                     allowsDecimal = false)
                                 ReperaNumericField(
                                     value = editWeight,
                                     onValueChange = { editWeight = it.take(8) },
-                                    label = "Peso kg (vacío = sin peso)")
+                                    label = stringResource(R.string.repera_cards_peso_kg_vacio_sin_peso))
                                 ReperaNumericField(
                                     value = editDuration,
                                     onValueChange = { editDuration = it.filter(Char::isDigit) },
-                                    label = "Duración s (opcional)",
+                                    label = stringResource(R.string.repera_cards_duracion_s_opcional),
                                     allowsDecimal = false)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     val quantityValue = editQuantity.toIntOrNull()
@@ -1746,9 +1747,9 @@ internal fun WorkoutHistoryCard(
                                                     ?.let { dev.repera.domain.ReperaNumberFormat.parse(it) },
                                                 editDuration.toIntOrNull())
                                             editingSetId = null
-                                        }) { Text("Guardar") }
+                                        }) { Text(stringResource(R.string.live_activity_screen_guardar)) }
                                     TextButton(onClick = { editingSetId = null }) {
-                                        Text("Cancelar")
+                                        Text(stringResource(R.string.action_cancel))
                                     }
                                 }
                             } else {
@@ -1764,11 +1765,11 @@ internal fun WorkoutHistoryCard(
                                             editQuantity = ""
                                             editWeight = ""
                                             editDuration = ""
-                                        }) { Text("Editar") }
+                                        }) { Text(stringResource(R.string.home_day_cards_editar)) }
                                         TextButton(enabled = !busy, onClick = {
                                             onDeleteFinishedSet(
                                                 workout.id, exercise.entryId, set.setId)
-                                        }) { Text("Borrar") }
+                                        }) { Text(stringResource(R.string.repera_cards_borrar)) }
                                     }
                                 }
                             }
@@ -1824,7 +1825,7 @@ internal fun WorkoutHistoryCard(
                     }
                 }
                 TextButton(onClick = { expanded = false }) {
-                    Text("Ocultar detalle")
+                    Text(stringResource(R.string.repera_cards_ocultar_detalle))
                 }
             }
         }
@@ -1838,7 +1839,7 @@ internal fun CountCard(title: String, count: Int?, hasOverview: Boolean) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             Text(count?.toString() ?: "—", style = MaterialTheme.typography.headlineLarge)
-            if (!hasOverview) Text("No hay datos locales cargados")
+            if (!hasOverview) Text(stringResource(R.string.repera_cards_no_hay_datos_locales_cargados))
         }
     }
 }
@@ -1855,12 +1856,12 @@ internal fun OverviewEmptyActions(
             onClick = onInitializeLocal,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Empezar con catálogo Repera") }
+        ) { Text(stringResource(R.string.repera_cards_empezar_con_catalogo_repera)) }
         OutlinedButton(
             onClick = onImportJson,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Importar historial JSON") }
+        ) { Text(stringResource(R.string.repera_cards_importar_historial_json)) }
     }
 }
 
@@ -1874,7 +1875,7 @@ internal fun AccountSyncCard(
     onExportJson: () -> Unit,
     onSignOut: () -> Unit
 ) {
-    Text("Cuenta", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.repera_cards_cuenta), style = MaterialTheme.typography.titleMedium)
     // Entrada a Repera Pro desde ajustes (paridad SettingsView iOS,
     // contexto settings). Pro activo muestra enlace de gestión.
     val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
@@ -1883,23 +1884,23 @@ internal fun AccountSyncCard(
             val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
             TextButton(onClick = {
                 uriHandler.openUri(dev.repera.mobile.monetization.CommercialConfig.MANAGE_SUBSCRIPTIONS_URL)
-            }) { Text("Repera Pro activo · Gestionar") }
+            }) { Text(stringResource(R.string.repera_cards_repera_pro_activo_gestionar)) }
         } else {
             TextButton(onClick = {
                 subscriptions.presentPaywall(
                     dev.repera.domain.monetization.PaywallContext.SETTINGS,
                     feature = null
                 )
-            }) { Text("Conocer Repera Pro") }
+            }) { Text(stringResource(R.string.repera_cards_conocer_repera_pro)) }
         }
     }
     if (overview != null) {
         OutlinedButton(onClick = onExportJson, enabled = !busy,
             modifier = Modifier.fillMaxWidth()) {
-            Text("Exportar copia JSON")
+            Text(stringResource(R.string.repera_cards_exportar_copia_json))
         }
     }
-    TextButton(onClick = onSignOut, enabled = !busy) { Text("Cerrar sesión") }
+    TextButton(onClick = onSignOut, enabled = !busy) { Text(stringResource(R.string.repera_cards_cerrar_sesion)) }
 }
 
 /** Benchmark WOD catalog picker, twin of the iPhone WODCatalogPickerView. */
@@ -1914,8 +1915,8 @@ internal fun BenchmarkWodPicker(
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("WODs benchmark", style = MaterialTheme.typography.titleLarge)
-            Text("Girls, Heroes y Opens del catálogo Repera, con bandas de puntuación de referencia.",
+            Text(stringResource(R.string.repera_cards_wods_benchmark), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.repera_cards_girls_heroes_y_opens_del_catalogo),
                 style = MaterialTheme.typography.bodySmall)
             ReperaMetaTextField(
                 caption = "Buscar benchmark",
@@ -1935,17 +1936,17 @@ internal fun BenchmarkWodPicker(
                         (amount + " " + move.name).trim()
                     }, style = MaterialTheme.typography.bodySmall)
                     template.scoreBands?.let { bands ->
-                        val elite = bands.eliteMaxSeconds?.let { "élite < %d:%02d".format(it / 60, it % 60) }
+                        val elite = bands.eliteMaxSeconds?.let { "élite < %d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) }
                             ?: bands.eliteMinRounds?.let { "élite ≥ ${it.toInt()} rondas" }
                         if (elite != null) Text(elite, style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(onClick = { onAdd(template.id) },
                         enabled = !busy && enabled) {
-                        Text("Añadir a mis entrenamientos")
+                        Text(stringResource(R.string.repera_cards_anadir_a_mis_entrenamientos))
                     }
                 }
             }
-            if (results.isEmpty()) Text("Sin benchmarks coincidentes",
+            if (results.isEmpty()) Text(stringResource(R.string.repera_cards_sin_benchmarks_coincidentes),
                 style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -1985,7 +1986,7 @@ internal fun RouteMapTapTarget(label: String, modifier: Modifier = Modifier,
                     Surface(shape=androidx.compose.foundation.shape.CircleShape,
                         color=MaterialTheme.colorScheme.surface,
                         contentColor=MaterialTheme.colorScheme.onSurface) {
-                        Icon(Icons.Outlined.Close, contentDescription = "Cerrar mapa",
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.repera_cards_cerrar_mapa),
                             modifier=Modifier.padding(8.dp))
                     }
                 }
@@ -2015,10 +2016,10 @@ internal fun CardioRouteSection(
     }
     val start = points.firstOrNull()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Ruta", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.repera_cards_ruta), style = MaterialTheme.typography.titleMedium)
         // Apple fafe016a: preview sin gestos + superficie tactil independiente
         // que abre el recorrido a pantalla completa.
-        RouteMapTapTarget(label = "Ampliar recorrido",
+        RouteMapTapTarget(label = stringResource(R.string.repera_cards_ampliar_recorrido),
             modifier = Modifier.fillMaxWidth().height(180.dp)
                 .clip(RoundedCornerShape(10.dp))) { interactive, mapModifier ->
             RouteMapView(points = points, isInteractive = interactive, waterSport = waterSport,
@@ -2039,7 +2040,7 @@ internal fun CardioRouteSection(
         RouteSpeedLegend(water = waterSport)
         if (points.any { it.isEstimated == true }) {
             // Apple 303453ff: la reconstruccion se rotula, no se presenta como GPS.
-            Text("El tramo discontinuo se ha estimado en línea recta tras un cierre inesperado; no es una medición GPS.",
+            Text(stringResource(R.string.repera_cards_el_tramo_discontinuo_se_ha_estimado),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -2047,7 +2048,7 @@ internal fun CardioRouteSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Distancia", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.repera_cards_distancia), style = MaterialTheme.typography.bodyMedium)
             Text(dev.repera.domain.ReperaNumberFormat.decimal(analysis.distanceMeters / 1000) + " km",
                 style = MaterialTheme.typography.bodyMedium)
         }
@@ -2056,8 +2057,8 @@ internal fun CardioRouteSection(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Desnivel", style = MaterialTheme.typography.bodyMedium)
-                Text("+%.0f m / −%.0f m".format(analysis.ascentMeters,
+                Text(stringResource(R.string.repera_cards_desnivel), style = MaterialTheme.typography.bodyMedium)
+                Text("+%.0f m / −%.0f m".format(dev.repera.domain.ReperaNumberFormat.displayLocale, analysis.ascentMeters,
                     analysis.descentMeters), style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -2075,7 +2076,7 @@ internal fun CardioRouteSection(
             }
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Perfil del recorrido",
+                Text(stringResource(R.string.repera_cards_perfil_del_recorrido),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
@@ -2145,7 +2146,7 @@ internal fun CardioRouteSection(
                     Text("Km ${split.kilometer}", style = MaterialTheme.typography.bodyMedium)
                     val m = (split.paceSecondsPerKm / 60).toInt()
                     val sec = (split.paceSecondsPerKm % 60).toInt()
-                    Text("%d:%02d min/km".format(m, sec),
+                    Text("%d:%02d min/km".format(java.util.Locale.ROOT, m, sec),
                         style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -2167,7 +2168,7 @@ internal fun LoadGuideSection(
             Text("↻", style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary)
             Column {
-                Text("Sin historial aún", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.repera_cards_sin_historial_aun), style = MaterialTheme.typography.titleSmall)
                 Text("Tras la primera vez verás aquí pesos y una sugerencia para tu " +
                         dev.repera.domain.Effort.displayName(effortUnit) + ".",
                     style = MaterialTheme.typography.bodySmall,
@@ -2181,7 +2182,7 @@ internal fun LoadGuideSection(
         if (last != null) {
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("ÚLTIMA VEZ", style = MaterialTheme.typography.labelSmall,
+                Text(stringResource(R.string.repera_cards_ultima_vez), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(loadGuideShortDate(last.dateEpochMillis),
                     style = MaterialTheme.typography.labelSmall,
@@ -2210,7 +2211,7 @@ internal fun LoadGuideSection(
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f))
                     if (isTop) {
-                        Text("TOP", style = MaterialTheme.typography.labelSmall,
+                        Text(stringResource(R.string.repera_cards_top), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .background(MaterialTheme.colorScheme.primary
@@ -2222,7 +2223,7 @@ internal fun LoadGuideSection(
         }
         if (guide.suggestedKg != null) {
             if (last != null) HorizontalDivider()
-            Text("CARGA SUGERIDA", style = MaterialTheme.typography.labelSmall,
+            Text(stringResource(R.string.repera_cards_carga_sugerida), style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2236,7 +2237,7 @@ internal fun LoadGuideSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Button(onClick = { onApply(guide.suggestedKg) }) {
-                    Text("Aplicar")
+                    Text(stringResource(R.string.repera_cards_aplicar))
                 }
             }
         }
@@ -2299,7 +2300,7 @@ internal fun HeartRateCurveSection(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Ritmo cardíaco", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.repera_cards_ritmo_cardiaco), style = MaterialTheme.typography.titleMedium)
             Text(
                 if (picked != null) "${picked.second} lpm"
                 else "Media ${series.map { it.second }.average().toInt()} lpm",

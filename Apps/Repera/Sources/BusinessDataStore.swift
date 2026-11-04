@@ -514,6 +514,8 @@ struct BusinessClientLink: Decodable, Identifiable {
     }
 }
 
+private enum BusinessScheduleBundleError: Error { case malformed }
+
 @MainActor
 @Observable
 final class BusinessDataStore {
@@ -568,6 +570,9 @@ final class BusinessDataStore {
     private(set) var isLoading = false
     private(set) var isSearchingDirectory = false
     @ObservationIgnored private var refreshRevision = 0
+    /// Owner of the data currently in memory; a failed refresh only keeps it
+    /// for this same user.
+    @ObservationIgnored private var loadedUserID: UUID?
     private(set) var errorMessage: String?
     private(set) var isSubmitting = false
 
@@ -582,6 +587,7 @@ final class BusinessDataStore {
     func clear() {
         // Invalidate every in-flight response before clearing PII from a previous user.
         refreshRevision &+= 1
+        loadedUserID = nil
         isLoading = false
         BusinessBookingReminderScheduler.clear()
         centers = []
@@ -621,9 +627,11 @@ final class BusinessDataStore {
         defer {
             if refreshRevision == revision { isLoading = false }
         }
+        var sessionUserID: UUID?
         do {
             let user = try await client.auth.session.user
             let currentUser = user.id
+            sessionUserID = currentUser
             let fetchedCenters: [BusinessOrganization] = try await client
                 .from("organizations")
                 .select("id,name,kind,slug,avatar_url,tagline,public_email,phone,class_booking_open_hours")
@@ -644,11 +652,18 @@ final class BusinessDataStore {
                 .execute().value
             var settingsMap: [UUID: BusinessOperationSettings] = [:]
             var roomsAcc: [BusinessFacilityRoom] = []
+            // One center's schedule failing must not hide the others; keep its
+            // last known settings/rooms (same user only) and report it.
+            var scheduleFailures = 0
+            let keepsPrevious = loadedUserID == currentUser
             for center in fetchedCenters {
-                if let response = try? await client
-                    .rpc("get_org_schedule_bundle", params: ["p_org": center.id.uuidString])
-                    .execute(),
-                   let root = try? JSONSerialization.jsonObject(with: response.data) as? [String: Any] {
+                do {
+                    let response = try await client
+                        .rpc("get_org_schedule_bundle", params: ["p_org": center.id.uuidString])
+                        .execute()
+                    guard let root = try JSONSerialization.jsonObject(with: response.data) as? [String: Any] else {
+                        throw BusinessScheduleBundleError.malformed
+                    }
                     if let settingsObj = root["settings"],
                        let settingsData = try? JSONSerialization.data(withJSONObject: settingsObj),
                        let settings = try? JSONDecoder().decode(BusinessOperationSettings.self, from: settingsData) {
@@ -658,6 +673,13 @@ final class BusinessDataStore {
                        let roomsData = try? JSONSerialization.data(withJSONObject: roomsObj),
                        let rooms = try? JSONDecoder().decode([BusinessFacilityRoom].self, from: roomsData) {
                         roomsAcc.append(contentsOf: rooms)
+                    }
+                } catch {
+                    if Self.isAuthorizationFailure(error) { throw error }
+                    scheduleFailures += 1
+                    if keepsPrevious {
+                        settingsMap[center.id] = operationSettingsByOrg[center.id]
+                        roomsAcc.append(contentsOf: facilityRooms.filter { $0.orgId == center.id })
                     }
                 }
             }
@@ -728,13 +750,43 @@ final class BusinessDataStore {
                 $0.status == "scheduled"
             }.sorted { $0.scheduledDate < $1.scheduledDate }
             NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
-            errorMessage = nil
+            loadedUserID = currentUser
+            errorMessage = scheduleFailures == 0 ? nil
+                : "No se han podido cargar los horarios de algún centro. Mostramos los últimos datos disponibles."
+            Task { await self.retryPendingPushTokenIfNeeded() }
         } catch {
             // A failed request belonging to a prior session cannot reset the new session.
             guard revision == refreshRevision else { return }
-            clear()
+            // Only a rejected session/permission or a different user wipes the
+            // data; a network error keeps the last good snapshot visible.
+            if Self.isAuthorizationFailure(error)
+                || loadedUserID == nil
+                || sessionUserID.map({ $0 != loadedUserID }) == true {
+                clear()
+            }
             errorMessage = Self.friendlyCentersLoadError(error)
         }
+    }
+
+    /// 401/403-equivalent failures: missing/invalid session or RLS denial.
+    static func isAuthorizationFailure(_ error: Error) -> Bool {
+        if let auth = error as? AuthError {
+            switch auth {
+            case .sessionMissing, .jwtVerificationFailed:
+                return true
+            case .api(_, _, _, let response):
+                return response.statusCode == 401 || response.statusCode == 403
+            default:
+                return false
+            }
+        }
+        if let postgrest = error as? PostgrestError, let code = postgrest.code {
+            return ["PGRST301", "PGRST302", "PGRST303", "42501"].contains(code)
+        }
+        if let http = error as? HTTPError {
+            return http.response.statusCode == 401 || http.response.statusCode == 403
+        }
+        return false
     }
 
     /// Sesión materializada de una clase (fan-out) para el cliente apuntado, si existe.
@@ -783,28 +835,43 @@ final class BusinessDataStore {
         return "No se han podido cargar tus centros y reservas."
     }
 
+    private static let preciseISOFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+    private static let isoFormatter = ISO8601DateFormatter()
+
     static func date(_ value: String) -> Date? {
-        let precise = ISO8601DateFormatter()
-        precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return precise.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        preciseISOFormatter.date(from: value) ?? isoFormatter.date(from: value)
+    }
+
+    /// Gregorian calendar in the CURRENT time zone on every call (a cached
+    /// DateFormatter would freeze the zone at first use).
+    private static var dayKeyCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
     }
 
     static func localDayKey(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.calendar = Calendar(identifier: .gregorian)
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = .current
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.string(from: date)
+        let parts = dayKeyCalendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
     static func parseDayKey(_ key: String) -> Date? {
-        let fmt = DateFormatter()
-        fmt.calendar = Calendar(identifier: .gregorian)
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = .current
-        fmt.dateFormat = "yyyy-MM-dd"
-        return fmt.date(from: key)
+        let fields = key.split(separator: "-", omittingEmptySubsequences: false)
+        guard fields.count == 3, fields[0].count == 4, fields[1].count == 2, fields[2].count == 2,
+              let year = Int(fields[0]), let month = Int(fields[1]), let day = Int(fields[2])
+        else { return nil }
+        let calendar = dayKeyCalendar
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
+            return nil
+        }
+        // Reject overflowing keys such as 2026-02-31 instead of rolling over.
+        let check = calendar.dateComponents([.year, .month, .day], from: date)
+        guard check.year == year, check.month == month, check.day == day else { return nil }
+        return date
     }
 
     func centerName(_ id: UUID) -> String {
@@ -1002,16 +1069,50 @@ final class BusinessDataStore {
         invitationPreviews = next
     }
 
+    /// Same intent reuses its RPC request id until the server confirms, so a retry after a timeout
+    /// cannot create a second booking or cancellation (the RPCs are idempotent per `p_request`).
+    private enum PendingRequestID {
+        private static let defaultsKey = "business.pendingRequestIDs.v1"
+        private static let ttl: TimeInterval = 24 * 60 * 60
+
+        static func reuse(for intent: String) -> String {
+            var all = load()
+            if let entry = all[intent], let id = entry["id"] { return id }
+            let id = UUID().uuidString
+            all[intent] = ["id": id, "at": String(Date().timeIntervalSince1970)]
+            save(all)
+            return id
+        }
+
+        static func confirm(_ intent: String) {
+            var all = load()
+            all[intent] = nil
+            save(all)
+        }
+
+        private static func load() -> [String: [String: String]] {
+            let now = Date().timeIntervalSince1970
+            let stored = UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: [String: String]] ?? [:]
+            return stored.filter { now - (Double($0.value["at"] ?? "") ?? 0) < ttl }
+        }
+
+        private static func save(_ value: [String: [String: String]]) {
+            UserDefaults.standard.set(value, forKey: defaultsKey)
+        }
+    }
+
     func book(_ occurrence: BusinessOccurrence, using pass: BusinessPass) async {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
         isSubmitting = true
         defer { isSubmitting = false }
-        let request = UUID().uuidString
+        let intent = "book:\(occurrence.id.uuidString):\(pass.id.uuidString)"
+        let request = PendingRequestID.reuse(for: intent)
         do {
             try await client.rpc("book_service_occurrence",
                                  params: ["p_occurrence": occurrence.id.uuidString,
                                           "p_pass": pass.id.uuidString,
                                           "p_request": request]).execute()
+            PendingRequestID.confirm(intent)
             await refresh()
             await requestPushPermissionAfterBookingIfNeeded()
             if BusinessAuthStore.shared.isConnected,
@@ -1022,6 +1123,9 @@ final class BusinessDataStore {
             }
         } catch {
             let raw = error.localizedDescription
+            if raw.localizedCaseInsensitiveContains("REQUEST_ID_REUSED") {
+                PendingRequestID.confirm(intent)
+            }
             if raw.localizedCaseInsensitiveContains("BOOKING_NOT_OPEN_YET") {
                 errorMessage = "Todavía no está abierta la inscripción a esta clase. Vuelve más cerca de la fecha."
             } else if raw.localizedCaseInsensitiveContains("PASS_OUTSIDE_SLOT") {
@@ -1045,12 +1149,17 @@ final class BusinessDataStore {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
         isSubmitting = true
         defer { isSubmitting = false }
+        let intent = "cancel:\(booking.id.uuidString)"
         do {
             try await client.rpc("cancel_service_booking",
                                  params: ["p_booking": booking.id.uuidString,
-                                          "p_request": UUID().uuidString]).execute()
+                                          "p_request": PendingRequestID.reuse(for: intent)]).execute()
+            PendingRequestID.confirm(intent)
             await refresh()
         } catch {
+            if error.localizedDescription.localizedCaseInsensitiveContains("REQUEST_ID_REUSED") {
+                PendingRequestID.confirm(intent)
+            }
             errorMessage = "No se ha podido cancelar la reserva: \(error.localizedDescription)"
         }
     }
@@ -1241,18 +1350,53 @@ final class BusinessDataStore {
     }
 
     /// Registra token FCM/APNs vía RPC; sin secretos de envío la cola sigue siendo válida.
-    func registerPushToken(_ token: String, platform: String = "ios", environment: String = "production") async {
+    private struct PendingPushToken: Codable, Equatable {
+        var token: String
+        var platform: String
+        var environment: String
+    }
+
+    private static let pendingPushTokenKey = "repera.business.pendingPushToken.v1"
+
+    /// Persists the token until the server confirms it, retrying with backoff;
+    /// a later refresh retries again if every attempt failed.
+    @discardableResult
+    func registerPushToken(_ token: String, platform: String = "ios", environment: String = "production") async -> Bool {
+        guard token.count >= 10 else { return false }
+        let pending = PendingPushToken(token: token, platform: platform, environment: environment)
+        if let data = try? JSONEncoder().encode(pending) {
+            UserDefaults.standard.set(data, forKey: Self.pendingPushTokenKey)
+        }
         guard let client = BusinessAuthStore.shared.apiClient,
-              token.count >= 10 else { return }
+              BusinessAuthStore.shared.isConnected else { return false }
         struct Params: Encodable {
             let p_platform: String
             let p_token: String
             let p_environment: String
         }
-        _ = try? await client.rpc(
-            "register_push_device",
-            params: Params(p_platform: platform, p_token: token, p_environment: environment)
-        ).execute()
+        for attempt in 0..<3 {
+            do {
+                _ = try await client.rpc(
+                    "register_push_device",
+                    params: Params(p_platform: platform, p_token: token, p_environment: environment)
+                ).execute()
+                if let data = UserDefaults.standard.data(forKey: Self.pendingPushTokenKey),
+                   (try? JSONDecoder().decode(PendingPushToken.self, from: data)) == pending {
+                    UserDefaults.standard.removeObject(forKey: Self.pendingPushTokenKey)
+                }
+                return true
+            } catch {
+                if Self.isAuthorizationFailure(error) || Task.isCancelled || attempt == 2 { break }
+                try? await Task.sleep(for: .seconds(2 << attempt))
+            }
+        }
+        return false
+    }
+
+    func retryPendingPushTokenIfNeeded() async {
+        guard let data = UserDefaults.standard.data(forKey: Self.pendingPushTokenKey),
+              let pending = try? JSONDecoder().decode(PendingPushToken.self, from: data) else { return }
+        await registerPushToken(pending.token, platform: pending.platform, environment: pending.environment)
     }
 
     private func requestPushPermissionAfterBookingIfNeeded() async {

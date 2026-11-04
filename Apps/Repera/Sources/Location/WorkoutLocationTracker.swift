@@ -29,6 +29,76 @@ struct WorkoutGPSFix: Sendable {
     }
 }
 
+/// Route geometry checkpoint for crash recovery. Same JSON keys as the
+/// legacy `repera.gps.shared.v1` UserDefaults blob.
+struct RouteCheckpoint: Codable, Sendable {
+    var id: UUID
+    var points: [WorkoutRoutePoint]
+    var meters: Double
+}
+
+/// Route checkpoints live in Application Support, never in UserDefaults
+/// (the whole plist is rewritten on every set). Files stay readable after the
+/// first unlock so background GPS can keep writing with the device locked.
+/// One serial queue orders writes/deletes; reads wait for pending writes.
+enum RouteCheckpointStore {
+    private static let queue = DispatchQueue(label: "app.repera.route-checkpoints", qos: .utility)
+
+    static func save<T: Encodable & Sendable>(_ value: T, name: String) {
+        queue.async {
+            guard let data = try? JSONEncoder().encode(value) else { return }
+            write(data, name: name)
+        }
+    }
+
+    static func saveRaw(_ data: Data, name: String) {
+        queue.async { write(data, name: name) }
+    }
+
+    static func remove(name: String) {
+        queue.async {
+            guard let url = fileURL(name) else { return }
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    static func load<T: Decodable>(_ type: T.Type, name: String) -> T? {
+        queue.sync { read(type, name: name) }
+    }
+
+    static func loadAsync<T: Decodable & Sendable>(_ type: T.Type, name: String) async -> T? {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: read(T.self, name: name)) }
+        }
+    }
+
+    private static func fileURL(_ name: String) -> URL? {
+        let fm = FileManager.default
+        guard let base = try? fm.url(
+            for: .applicationSupportDirectory, in: .userDomainMask,
+            appropriateFor: nil, create: true
+        ) else { return nil }
+        let directory = base.appendingPathComponent("RouteCheckpoints", isDirectory: true)
+        if !fm.fileExists(atPath: directory.path) {
+            try? fm.createDirectory(
+                at: directory, withIntermediateDirectories: true,
+                attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+            )
+        }
+        return directory.appendingPathComponent("\(name).json")
+    }
+
+    private static func write(_ data: Data, name: String) {
+        guard let url = fileURL(name) else { return }
+        try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    private static func read<T: Decodable>(_ type: T.Type, name: String) -> T? {
+        guard let url = fileURL(name), let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+}
+
 struct WorkoutGPSUpdate: Sendable {
     var fix: WorkoutGPSFix
     var point: WorkoutRoutePoint
@@ -49,7 +119,7 @@ final class WorkoutLocationTracker: NSObject {
     private(set) var authorizationStatus: CLAuthorizationStatus
     private(set) var lastErrorMessage: String?
     private(set) var recordedDistanceMeters: Double = 0
-    private(set) var routeBuffer: [WorkoutRoutePoint] = []
+    @ObservationIgnored private(set) var routeBuffer: [WorkoutRoutePoint] = []
     private(set) var trackingSessionID: UUID?
     private(set) var currentFix: WorkoutGPSFix?
     /// Brújula para el mapa previo al inicio. No registra coordenadas.
@@ -67,12 +137,33 @@ final class WorkoutLocationTracker: NSObject {
     @ObservationIgnored private var authContinuations: [CheckedContinuation<Bool, Never>] = []
     @ObservationIgnored private var pendingPinContinuation: ((WorkoutLocationPin?) -> Void)?
     @ObservationIgnored private var lastSavedAt = Date.distantPast
-    private let snapshotKey = "repera.gps.shared.v1"
+    /// HealthKit receives fixes in small batches instead of one call per fix.
+    @ObservationIgnored private var pendingHealthLocations: [CLLocation] = []
+    @ObservationIgnored private var lastHealthFlushAt = Date.distantPast
+    private static let legacySnapshotKey = "repera.gps.shared.v1"
+    private static let checkpointFile = "gps-shared"
 
-    private struct GPSSnapshot: Codable {
-        var id: UUID
-        var points: [WorkoutRoutePoint]
-        var meters: Double
+    /// One-time move of the pre-2026-11 UserDefaults checkpoint into its file.
+    /// The JSON shape is identical, so the raw bytes are written unchanged.
+    static func migrateLegacyCheckpointIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let data = defaults.data(forKey: legacySnapshotKey) else { return }
+        RouteCheckpointStore.saveRaw(data, name: checkpointFile)
+        defaults.removeObject(forKey: legacySnapshotKey)
+    }
+
+    static func storedCheckpoint(for sessionID: UUID) -> RouteCheckpoint? {
+        migrateLegacyCheckpointIfNeeded()
+        guard let snapshot = RouteCheckpointStore.load(RouteCheckpoint.self, name: checkpointFile),
+              snapshot.id == sessionID else { return nil }
+        return snapshot
+    }
+
+    static func storedCheckpointAsync(for sessionID: UUID) async -> RouteCheckpoint? {
+        migrateLegacyCheckpointIfNeeded()
+        guard let snapshot = await RouteCheckpointStore.loadAsync(RouteCheckpoint.self, name: checkpointFile),
+              snapshot.id == sessionID else { return nil }
+        return snapshot
     }
 
     private override init() {
@@ -85,6 +176,7 @@ final class WorkoutLocationTracker: NSObject {
         manager.distanceFilter = 3
         manager.pausesLocationUpdatesAutomatically = false
         manager.activityType = .fitness
+        Self.migrateLegacyCheckpointIfNeeded()
     }
 
     var isAuthorized: Bool {
@@ -248,6 +340,7 @@ final class WorkoutLocationTracker: NSObject {
     @discardableResult
     func stopRouteTracking(sessionID: UUID? = nil, clear: Bool = true) -> [WorkoutRoutePoint] {
         if let sessionID, trackingSessionID != sessionID { return [] }
+        flushHealthLocations()
         manager.stopUpdatingLocation()
         if manager.allowsBackgroundLocationUpdates {
             manager.allowsBackgroundLocationUpdates = false
@@ -263,7 +356,7 @@ final class WorkoutLocationTracker: NSObject {
             trackingSessionID = nil
             routeBuffer = []
             recordedDistanceMeters = 0
-            UserDefaults.standard.removeObject(forKey: snapshotKey)
+            RouteCheckpointStore.remove(name: Self.checkpointFile)
         } else {
             saveSnapshot()
         }
@@ -274,6 +367,7 @@ final class WorkoutLocationTracker: NSObject {
     /// Never terminate the location sensor just because the user opens a map.
     func checkpoint() {
         guard trackingSessionID != nil else { return }
+        flushHealthLocations()
         saveSnapshot()
     }
 
@@ -282,21 +376,25 @@ final class WorkoutLocationTracker: NSObject {
         return (snapshot.points, snapshot.meters)
     }
 
-    private func readSnapshot(for sessionID: UUID) -> GPSSnapshot? {
-        guard let data = UserDefaults.standard.data(forKey: snapshotKey),
-              let snapshot = try? JSONDecoder().decode(GPSSnapshot.self, from: data),
-              snapshot.id == sessionID else { return nil }
-        return snapshot
+    private func readSnapshot(for sessionID: UUID) -> RouteCheckpoint? {
+        Self.storedCheckpoint(for: sessionID)
     }
 
+    /// Encoding and the file write happen on the checkpoint queue, not here.
     private func saveSnapshot() {
         guard let id = trackingSessionID else { return }
-        if let data = try? JSONEncoder().encode(GPSSnapshot(
-            id: id, points: routeBuffer, meters: recordedDistanceMeters
-        )) {
-            UserDefaults.standard.set(data, forKey: snapshotKey)
-            lastSavedAt = Date()
-        }
+        RouteCheckpointStore.save(
+            RouteCheckpoint(id: id, points: routeBuffer, meters: recordedDistanceMeters),
+            name: Self.checkpointFile
+        )
+        lastSavedAt = Date()
+    }
+
+    private func flushHealthLocations() {
+        guard let id = trackingSessionID, !pendingHealthLocations.isEmpty else { return }
+        HealthKitStore.shared.appendRecordedRouteLocations(sessionID: id, locations: pendingHealthLocations)
+        pendingHealthLocations.removeAll(keepingCapacity: true)
+        lastHealthFlushAt = Date()
     }
 
     private func accept(_ fix: WorkoutGPSFix) {
@@ -309,7 +407,7 @@ final class WorkoutLocationTracker: NSObject {
                 horizontalAccuracyMeters: fix.accuracy, source: "iPhone"
             ))
         }
-        guard let id = trackingSessionID,
+        guard trackingSessionID != nil,
               let segmentBeganAt, fix.timestamp >= segmentBeganAt.addingTimeInterval(-3)
         else { return }
         let position = fix.location
@@ -364,7 +462,10 @@ final class WorkoutLocationTracker: NSObject {
             bridgedPoints: bridged, bridgedDistanceMeters: bridgedMeters
         ))
         // Store the original accuracy in HealthKit, never substitute 15 m.
-        HealthKitStore.shared.appendRecordedRouteLocation(sessionID: id, location: position)
+        pendingHealthLocations.append(position)
+        if pendingHealthLocations.count >= 12 || Date().timeIntervalSince(lastHealthFlushAt) >= 10 {
+            flushHealthLocations()
+        }
         if Date().timeIntervalSince(lastSavedAt) > 10 { saveSnapshot() }
     }
 }

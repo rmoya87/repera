@@ -120,7 +120,15 @@ struct LibraryView: View {
         usesSplitExerciseLayout || usesCompactExerciseHeader
     }
 
-    /// Compartida entre la cabecera compacta y la primera columna DUO.
+    /// Root compacto (iPhone): la misma barra fija que Inicio y Progreso.
+    private var exerciseTopBar: some View {
+        OGFixedTopBar(title: "Ejercicios", drawsBackground: false) {
+            exerciseHeaderActions
+        }
+    }
+
+    /// Primera columna DUO/iPad: misma fila título + acciones, con márgenes
+    /// verticales condensados cuando el raíl lateral está desplegado.
     private var exerciseActionHeader: some View {
         HStack(alignment: .center, spacing: 16) {
             Text("Ejercicios")
@@ -130,25 +138,30 @@ struct LibraryView: View {
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
-            // Acciones en el título: el raíl Duo es solo del sistema (tabs).
-            OGToolbarGlassButton(
-                systemName: "line.3.horizontal.decrease",
-                accessibilityLabel: "Filtrar y ordenar",
-                appliesGlass: true
-            ) {
-                showFilter = true
-            }
-            OGToolbarGlassButton(
-                systemName: "plus",
-                accessibilityLabel: "Nuevo ejercicio",
-                appliesGlass: true
-            ) {
-                createExerciseIfAllowed()
-            }
+            exerciseHeaderActions
         }
         .padding(.horizontal, OG.topBarHorizontalInset)
         .padding(.top, duoRail.isExpanded ? 4 : OG.topBarTopInset)
         .padding(.bottom, duoRail.isExpanded ? 4 : OG.topBarBottomInset)
+    }
+
+    // Acciones en el título: el raíl Duo es solo del sistema (tabs).
+    @ViewBuilder
+    private var exerciseHeaderActions: some View {
+        OGToolbarGlassButton(
+            systemName: "line.3.horizontal.decrease",
+            accessibilityLabel: "Filtrar y ordenar",
+            appliesGlass: true
+        ) {
+            showFilter = true
+        }
+        OGToolbarGlassButton(
+            systemName: "plus",
+            accessibilityLabel: "Nuevo ejercicio",
+            appliesGlass: true
+        ) {
+            createExerciseIfAllowed()
+        }
     }
 
     private var exerciseSearchField: some View {
@@ -305,7 +318,7 @@ struct LibraryView: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if usesCompactExerciseHeader {
                     VStack(spacing: 0) {
-                        exerciseActionHeader
+                        exerciseTopBar
                         exerciseSearchField
                     }
                     // Ambas filas siguen visibles al desplazar la lista,
@@ -391,20 +404,21 @@ struct LibraryView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
                                 Text(template.name)
-                                    .font(.system(size: 17, weight: .semibold))
+                                    .font(.headline)
                                     .foregroundStyle(OG.label)
                                 if store.isWODTemplateFavorite(template.id) {
                                     Image(systemName: "star.fill")
-                                        .font(.system(size: 11, weight: .semibold))
+                                        .font(.caption2.weight(.semibold))
                                         .foregroundStyle(OG.favoriteAmber)
+                                        .accessibilityLabel("Favorito")
                                 }
                             }
                             Text(template.formatLabel)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.footnote.weight(.medium))
                                 .foregroundStyle(OG.accent)
                             if !template.muscles.isEmpty {
                                 Text(template.musclesLabel)
-                                    .font(.system(size: 12))
+                                    .font(.caption)
                                     .foregroundStyle(OG.label3)
                                     .lineLimit(1)
                             }
@@ -413,13 +427,13 @@ struct LibraryView: View {
                         VStack(alignment: .trailing, spacing: 4) {
                             if let typical = template.typicalLabel {
                                 Text(typical)
-                                    .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                                    .font(.footnote.weight(.semibold).monospacedDigit())
                                     .foregroundStyle(OG.label2)
                             }
                             let hist = wodHistory(for: template.id)
                             if let best = hist.first {
                                 Text(best.summaryLabel)
-                                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                                    .font(.caption.weight(.medium).monospacedDigit())
                                     .foregroundStyle(OG.accent)
                             }
                         }

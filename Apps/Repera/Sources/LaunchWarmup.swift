@@ -66,7 +66,7 @@ enum LaunchWarmup {
 
     /// Sync decode of `app_state.json` (Application Support), parallel to HealthDiskCache.
     static func loadAppStateSync() -> AppState? {
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let url = URL.applicationSupportDirectory
             .appendingPathComponent("Repera", isDirectory: true)
             .appendingPathComponent("app_state.json")
         guard FileManager.default.fileExists(atPath: url.path),

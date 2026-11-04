@@ -112,7 +112,7 @@ internal class SessionStore(context: Context) {
         val editor = preferences.edit()
         if (url.isNullOrBlank()) editor.remove(KEY_GOOGLE_PHOTO_URL)
         else editor.putString(KEY_GOOGLE_PHOTO_URL, url)
-        check(editor.commit()) { "No se pudo guardar la foto de Google" }
+        editor.apply()
     }
 
     private fun encrypt(data: ByteArray): ByteArray {

@@ -12,6 +12,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import kotlinx.coroutines.guava.await
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import java.time.Instant
@@ -30,7 +31,7 @@ internal object ClassBookingReminders {
 
     fun clear(context: Context) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().clear().commit()
+            .edit().clear().apply()
         WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(TAG)
     }
 
@@ -55,7 +56,7 @@ internal object ClassBookingReminders {
 
     }
 
-    fun reconcile(
+    suspend fun reconcile(
         context: Context,
         owner: String,
         userId: String,
@@ -74,8 +75,10 @@ internal object ClassBookingReminders {
         // Runs from the existing IO dispatcher after a signed-in refresh.
         // Await cancellation to avoid a refresh cancelling its own new work.
         val wm = WorkManager.getInstance(app)
-        runCatching { wm.cancelAllWorkByTag(TAG).result.get() }
-        // Check again after blocking cancellation: the user may have signed out.
+        try { wm.cancelAllWorkByTag(TAG).result.await() }
+        catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) {}
+        // Check again after awaiting cancellation: the user may have signed out.
         val session = SessionStore(app).load()
         if (session?.uniqueId != owner || session.userId != userId ||
             prefs.getString("owner", null) != owner) return

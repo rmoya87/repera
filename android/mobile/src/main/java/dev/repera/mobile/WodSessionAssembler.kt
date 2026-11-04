@@ -22,7 +22,7 @@ object WodSessionAssembler {
     fun append(block: JSONObject, catalog: JSONArray, result: JSONArray,
                packaged: JSONArray = JSONArray()) {
         require(supports(block)) { "Bloque WOD no válido" }
-        val format = WodFormat.fromWire(block.getString("wodFormat"))!!
+        val format = WodFormat.fromWire(block.getString("wodFormat")) ?: error("Bloque WOD no válido")
         val movements = block.getJSONArray("movements")
         val catalogEntries = (0 until catalog.length()).map { catalog.getJSONObject(it) }
         val packagedEntries = (0 until packaged.length()).map { packaged.getJSONObject(it) }

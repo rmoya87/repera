@@ -13,6 +13,8 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
     func watchConnectivityDidBecomeReachable()
+    func watchConnectivityDidChangeReachability(_ reachable: Bool)
+    func watchConnectivityDidChangeOwnerScope(hasOwner: Bool)
 }
 
 extension WatchConnectivityClientDelegate {
@@ -20,18 +22,27 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
     func watchConnectivityDidBecomeReachable() {}
+    func watchConnectivityDidChangeReachability(_ reachable: Bool) {}
+    func watchConnectivityDidChangeOwnerScope(hasOwner: Bool) {}
 }
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     weak var delegate: WatchConnectivityClientDelegate?
     private let logger = Logger(subsystem: "com.app.repera.watch", category: "WatchConnectivity")
+    /// Clave antigua de UserDefaults; la cola vive ahora en un fichero protegido.
     private let pendingKey = "repera.watch.completedOutbox.v1"
+    private let pendingFile = "completedOutbox.v1.json"
     private let pendingLiveCancelKey = "repera.watch.pendingLiveCancels.v1"
     private let pendingOwnersKey = "repera.watch.completedOutboxOwners.v1"
     private let pendingCancelOwnersKey = "repera.watch.pendingCancelOwners.v1"
     private let ownerKey = "repera.watch.ownerScope.v1"
     private var currentOwnerScope: String? {
         UserDefaults.standard.string(forKey: ownerKey)
+    }
+    var hasOwnerScope: Bool { currentOwnerScope?.isEmpty == false }
+    var isReachable: Bool {
+        WCSession.isSupported() && WCSession.default.activationState == .activated
+            && WCSession.default.isReachable
     }
     private var lastInboundLive: Data?
     private var lastInboundSession: Data?
@@ -41,6 +52,14 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private var lastInboundTodayDay: TimeInterval?
     private var lastInboundTodayPlans: Data?
     private var lastInboundTodayPlansDay: TimeInterval?
+    private var lastMirrorMessageAt = Date.distantPast
+    private var lastMirrorPhase: String?
+    private var lastMirrorID: UUID?
+    /// Los delegados de WCSession llegan en una cola propia; la cola y los ACK
+    /// pendientes de fichero se modifican también desde el hub (MainActor).
+    private let outboxLock = NSLock()
+    /// ACK del iPhone recibido mientras la ruta aún viaja como fichero.
+    private var acknowledgedAwaitingFile: Set<UUID> = []
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -114,6 +133,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     /// aunque el iPhone no esté accesible cuando se pulse Confirmar.
     /// La misma orden se envía por sendMessage para respuesta inmediata.
     /// Las dos copias son seguras: el iPhone comprueba sessionId.
+    /// La orden queda retenida hasta que el iPhone responde o publica un
+    /// estado posterior sin esa sesión (`confirmLiveCancellations`).
     @discardableResult
     func enqueueLiveCancellation(sessionId: UUID) -> Bool {
         guard WCSession.isSupported(), let owner = currentOwnerScope else { return false }
@@ -123,7 +144,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         var ids = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
         if !ids.contains(sessionId.uuidString) {
             ids.append(sessionId.uuidString)
-            UserDefaults.standard.set(ids, forKey: pendingLiveCancelKey)
+            UserDefaults.standard.set(Array(ids.suffix(20)), forKey: pendingLiveCancelKey)
         }
         let wc = WCSession.default
         if wc.activationState == .activated {
@@ -140,14 +161,14 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         let wc = WCSession.default
         let pending = UserDefaults.standard.stringArray(forKey: pendingLiveCancelKey) ?? []
         let owners = UserDefaults.standard.dictionary(forKey: pendingCancelOwnersKey) as? [String: String] ?? [:]
-        guard let owner = currentOwnerScope else { return }
-        var retained: [String] = []
+        guard let owner = currentOwnerScope, !pending.isEmpty else { return }
+        // watchOS conserva la cola duradera: no apilar copias en cada activación.
+        let inFlight = Set(wc.outstandingUserInfoTransfers.compactMap { transfer -> String? in
+            guard transfer.userInfo["command"] as? String == "cancel" else { return nil }
+            return transfer.userInfo["sessionId"] as? String
+        })
         for rawID in pending {
-            guard let sessionID = UUID(uuidString: rawID),
-                  owners[rawID] == owner else {
-                retained.append(rawID)
-                continue
-            }
+            guard let sessionID = UUID(uuidString: rawID), owners[rawID] == owner else { continue }
             let message: [String: Any] = [
                 "ownerScope": owner,
                 "action": "liveCommand",
@@ -156,19 +177,35 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 "actionId": UUID().uuidString
             ]
             // La transferencia queda retenida por watchOS incluso al cerrar Repera.
-            wc.transferUserInfo(message)
+            if !inFlight.contains(rawID) {
+                wc.transferUserInfo(message)
+            }
             if wc.isReachable {
-                wc.sendMessage(message, replyHandler: nil) { [weak self] error in
+                wc.sendMessage(message, replyHandler: { [weak self] _ in
+                    // Cualquier respuesta es definitiva: aplicada o la sesión ya no está activa.
+                    self?.confirmLiveCancellations(except: nil, only: sessionID)
+                }) { [weak self] error in
                     self?.logger.debug("Live cancel deferred: \(error.localizedDescription, privacy: .public)")
                 }
             }
         }
-        UserDefaults.standard.set(retained, forKey: pendingLiveCancelKey)
-        var remainingOwners = owners
-        for rawID in pending where !retained.contains(rawID) {
-            remainingOwners.removeValue(forKey: rawID)
+    }
+
+    /// Retira cancelaciones confirmadas. `except` = sesión que el iPhone sigue
+    /// mostrando como activa; `only` limita la confirmación a un UUID.
+    private func confirmLiveCancellations(except activeID: UUID?, only: UUID? = nil) {
+        let defaults = UserDefaults.standard
+        let pending = defaults.stringArray(forKey: pendingLiveCancelKey) ?? []
+        guard !pending.isEmpty else { return }
+        let retained = pending.filter { raw in
+            if let only { return raw != only.uuidString }
+            return raw == activeID?.uuidString
         }
-        UserDefaults.standard.set(remainingOwners, forKey: pendingCancelOwnersKey)
+        guard retained.count != pending.count else { return }
+        defaults.set(retained, forKey: pendingLiveCancelKey)
+        var owners = defaults.dictionary(forKey: pendingCancelOwnersKey) as? [String: String] ?? [:]
+        for raw in pending where !retained.contains(raw) { owners.removeValue(forKey: raw) }
+        defaults.set(owners, forKey: pendingCancelOwnersKey)
     }
 
     /// Pide al iPhone iniciar Comenzar con el deporte elegido en el hub.
@@ -195,7 +232,9 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         return true
     }
 
-    /// Latest state survives a disconnect; reachable updates make Inicio responsive.
+    /// El estado viaja por applicationContext (último valor, sobrevive a desconexiones).
+    /// sendMessage solo para eventos discretos (inicio, pausa, fin, descarte) o,
+    /// como mucho, cada 15 s mientras corre.
     func sendTimerMirror(_ mirror: WatchTimerMirror) {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated,
@@ -207,9 +246,14 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         } catch {
             logger.debug("Watch timer context deferred: \(error.localizedDescription, privacy: .public)")
         }
-        if WCSession.default.isReachable {
-            WCSession.default.sendMessage(payload, replyHandler: nil) { _ in }
-        }
+        let now = Date()
+        let discrete = mirror.id != lastMirrorID || mirror.phase != lastMirrorPhase
+        lastMirrorID = mirror.id
+        lastMirrorPhase = mirror.phase
+        guard WCSession.default.isReachable,
+              discrete || now.timeIntervalSince(lastMirrorMessageAt) >= 15 else { return }
+        lastMirrorMessageAt = now
+        WCSession.default.sendMessage(payload, replyHandler: nil) { _ in }
     }
 
     func sendFinishedTimer(_ session: WorkoutSession) {
@@ -259,18 +303,41 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
     }
 
+    // MARK: - Cola durable de entrenos terminados
+
+    private func loadOutbox() -> [Data] {
+        if let legacy = UserDefaults.standard.array(forKey: pendingKey) as? [Data] {
+            if let encoded = try? JSONEncoder().encode(legacy),
+               WatchProtectedFileStore.write(encoded, to: pendingFile) {
+                UserDefaults.standard.removeObject(forKey: pendingKey)
+            }
+            return legacy
+        }
+        guard let data = WatchProtectedFileStore.read(pendingFile) else { return [] }
+        return (try? JSONDecoder().decode([Data].self, from: data)) ?? []
+    }
+
+    private func saveOutbox(_ queued: [Data]) {
+        WatchProtectedFileStore.write(
+            queued.isEmpty ? nil : try? JSONEncoder().encode(queued), to: pendingFile
+        )
+    }
+
     /// Completion must not be lost when the iPhone is unavailable.
     /// Data is kept on disk until watchOS accepts the background transfer.
     func sendFinished(_ session: WorkoutSession) {
         guard let data = try? JSONEncoder().encode(session) else { return }
-        var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
-        // HealthKit can finish AFTER the workout snapshot was first queued.
-        // Replace unsent content and enqueue the richer revision with the same ID.
-        queued.removeAll {
-            (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == session.id
+        outboxLock.withLock {
+            var queued = loadOutbox()
+            // HealthKit can finish AFTER the workout snapshot was first queued.
+            // Replace unsent content and enqueue the richer revision with the same ID.
+            queued.removeAll {
+                (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == session.id
+            }
+            queued.append(data)
+            saveOutbox(queued)
+            acknowledgedAwaitingFile.remove(session.id)
         }
-        queued.append(data)
-        UserDefaults.standard.set(queued, forKey: pendingKey)
         // Never silently relabel an offline completion after a login switch.
         if let owner = currentOwnerScope {
             var owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
@@ -283,30 +350,97 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     private func flushPending() {
         guard WCSession.isSupported(),
               WCSession.default.activationState == .activated else { return }
-        let queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
+        let queued = outboxLock.withLock { loadOutbox() }
         guard !queued.isEmpty, let currentOwnerScope else { return }
         let owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
         // watchOS has a durable transfer queue. Do not enqueue identical
         // payloads on every activation, especially after a long offline period.
         // A richer HealthKit revision (different encoded Data) is still sent.
-        let inFlight = Set(WCSession.default.outstandingUserInfoTransfers.compactMap {
+        let wc = WCSession.default
+        let inFlight = Set(wc.outstandingUserInfoTransfers.compactMap {
             $0.userInfo["session"] as? Data
         })
-        for data in queued where !inFlight.contains(data) {
-            guard let id = (try? JSONDecoder().decode(WorkoutSession.self, from: data))?.id,
-                  owners[id.uuidString] == currentOwnerScope else { continue }
-            WCSession.default.transferUserInfo(["session": data, "ownerScope": currentOwnerScope])
+        let filesInFlight = Set(wc.outstandingFileTransfers.compactMap {
+            $0.file.metadata?["transferKey"] as? String
+        })
+        for data in queued {
+            guard let session = try? JSONDecoder().decode(WorkoutSession.self, from: data),
+                  owners[session.id.uuidString] == currentOwnerScope else { continue }
+            var userInfo: [String: Any] = ["ownerScope": currentOwnerScope]
+            if data.count > WatchTransportLimits.inlineFinishedSessionBytes,
+               !session.routePoints.isEmpty,
+               WatchTransportLimits.acceptsFile(byteCount: data.count) {
+                // Ruta grande: fichero completo + la misma sesión sin ruta en userInfo
+                // (un iPhone antiguo guarda el entreno aunque no lea el fichero).
+                var light = session
+                light.routePoints = []
+                guard let lightData = try? JSONEncoder().encode(light) else { continue }
+                userInfo["session"] = lightData
+                userInfo["routeViaFile"] = true
+                let transferKey = "\(session.id.uuidString)-\(data.count)"
+                if !filesInFlight.contains(transferKey) {
+                    transferSessionFile(data, sessionID: session.id, owner: currentOwnerScope, key: transferKey)
+                }
+            } else {
+                userInfo["session"] = data
+            }
+            if let payload = userInfo["session"] as? Data, !inFlight.contains(payload) {
+                wc.transferUserInfo(userInfo)
+            }
         }
         // Keep a durable outbox until the iPhone acknowledges persistence.
         // watchOS may deliver twice; the iPhone reconciles using workout.id.
     }
 
-    func acknowledge(_ id: UUID) {
-        var queued = UserDefaults.standard.array(forKey: pendingKey) as? [Data] ?? []
-        queued.removeAll {
-            (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == id
+    private func transferSessionFile(_ data: Data, sessionID: UUID, owner: String, key: String) {
+        guard let url = WatchProtectedFileStore.directory("Outbox")?
+            .appendingPathComponent("\(key).json") else { return }
+        do {
+            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } catch {
+            logger.error("Watch route file could not be staged")
+            return
         }
-        UserDefaults.standard.set(queued, forKey: pendingKey)
+        WCSession.default.transferFile(url, metadata: [
+            "kind": "finishedSession",
+            "sessionId": sessionID.uuidString,
+            "ownerScope": owner,
+            "byteCount": data.count,
+            "transferKey": key
+        ])
+    }
+
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: (any Error)?) {
+        let url = fileTransfer.file.fileURL
+        let sessionID = (fileTransfer.file.metadata?["sessionId"] as? String).flatMap(UUID.init(uuidString:))
+        if error != nil {
+            logger.warning("Watch route file transfer failed; it will be retried")
+        }
+        try? FileManager.default.removeItem(at: url)
+        guard error == nil, let sessionID else { return }
+        let wasAcknowledged = outboxLock.withLock { acknowledgedAwaitingFile.remove(sessionID) != nil }
+        if wasAcknowledged { removeFromOutbox(sessionID) }
+    }
+
+    func acknowledge(_ id: UUID) {
+        let fileInFlight = WCSession.isSupported() && WCSession.default.outstandingFileTransfers.contains {
+            $0.file.metadata?["sessionId"] as? String == id.uuidString
+        }
+        if fileInFlight {
+            _ = outboxLock.withLock { acknowledgedAwaitingFile.insert(id) }
+            return
+        }
+        removeFromOutbox(id)
+    }
+
+    private func removeFromOutbox(_ id: UUID) {
+        outboxLock.withLock {
+            var queued = loadOutbox()
+            queued.removeAll {
+                (try? JSONDecoder().decode(WorkoutSession.self, from: $0))?.id == id
+            }
+            saveOutbox(queued)
+        }
         var owners = UserDefaults.standard.dictionary(forKey: pendingOwnersKey) as? [String: String] ?? [:]
         owners.removeValue(forKey: id.uuidString)
         UserDefaults.standard.set(owners, forKey: pendingOwnersKey)
@@ -364,18 +498,23 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                  activationDidCompleteWith activationState: WCSessionActivationState,
                  error: (any Error)?) {
         if let error { logger.error("Activation failed: \(error.localizedDescription, privacy: .public)") }
-        applyContext(session.receivedApplicationContext, acceptsOwnerTransition: true)
+        // The replayed context may predate a cancel: it never confirms cancellations.
+        applyContext(session.receivedApplicationContext, acceptsOwnerTransition: true,
+                     confirmsCancellations: false)
         flushPending()
         flushPendingLiveCancellations()
         let manual = pendingManualRefresh
         pendingManualRefresh = false
         requestToday(deferIfOffline: manual)
+        delegate?.watchConnectivityDidChangeReachability(session.isReachable)
         if session.isReachable { delegate?.watchConnectivityDidBecomeReachable() }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
+        delegate?.watchConnectivityDidChangeReachability(session.isReachable)
         if session.isReachable {
             requestToday()
+            flushPendingLiveCancellations()
             delegate?.watchConnectivityDidBecomeReachable()
         }
     }
@@ -393,7 +532,21 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         applyContext(userInfo)
     }
 
-    private func applyContext(_ payload: [String: Any], acceptsOwnerTransition: Bool = false) {
+    /// Rechaza datos sobredimensionados antes de `JSONDecoder`; no registra el contenido.
+    private func boundedData(_ payload: [String: Any], _ key: String) -> Data? {
+        guard let data = payload[key] as? Data else { return nil }
+        guard WatchTransportLimits.accepts(data) else {
+            logger.error("Ignoring oversized WatchConnectivity field")
+            return nil
+        }
+        return data
+    }
+
+    private func applyContext(
+        _ payload: [String: Any],
+        acceptsOwnerTransition: Bool = false,
+        confirmsCancellations: Bool = true
+    ) {
         // Only the iPhone's latest application context may replace account scope.
         // Buffered user-info transfers from an older identity must not do it.
         if acceptsOwnerTransition,
@@ -405,14 +558,22 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             lastInboundToday = nil
             lastInboundTodayPlans = nil
             lastInboundLive = nil
+            delegate?.watchConnectivityDidChangeOwnerScope(hasOwner: true)
         }
         if let incoming = payload["ownerScope"] as? String,
            incoming != currentOwnerScope { return }
-        if payload["action"] as? String == "timerCommand",
-           let rawID = payload["timerId"] as? String,
-           let id = UUID(uuidString: rawID),
-           let command = payload["command"] as? String,
-           ["pause", "resume", "finish"].contains(command) {
+        if payload["action"] as? String == "timerCommand" {
+            // Órdenes que alteran estado: exigir el ámbito de cuenta. Las builds de
+            // iPhone anteriores no lo enviaban; se rechazan (función no crítica).
+            guard let scope = payload["ownerScope"] as? String, !scope.isEmpty,
+                  scope == currentOwnerScope,
+                  let rawID = payload["timerId"] as? String,
+                  let id = UUID(uuidString: rawID),
+                  let command = payload["command"] as? String,
+                  ["pause", "resume", "finish"].contains(command) else {
+                logger.warning("Ignoring unscoped or invalid timer command")
+                return
+            }
             delegate?.watchConnectivityDidReceiveTimerCommand(id: id, command: command)
             return
         }
@@ -421,12 +582,16 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         if !recent.isEmpty || muted != nil {
             delegate?.watchConnectivityDidReceiveHubMeta(recentSportIDs: recent, audioMuted: muted)
         }
-        if let data = payload["liveActivity"] as? Data,
-           data != lastInboundLive {
-            lastInboundLive = data
+        if let data = boundedData(payload, "liveActivity") {
             let live = data.isEmpty ? nil :
                 try? JSONDecoder().decode(WatchLiveActivitySnapshot.self, from: data)
-            delegate?.watchConnectivityDidReceiveLive(live)
+            if confirmsCancellations, data.isEmpty || live != nil {
+                confirmLiveCancellations(except: live?.id)
+            }
+            if data != lastInboundLive {
+                lastInboundLive = data
+                delegate?.watchConnectivityDidReceiveLive(live)
+            }
         }
         if let terminal = payload["sessionTerminalId"] as? String,
            terminal != lastTerminalEvent,
@@ -447,7 +612,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
            (120...230).contains(maxBpm) {
             UserDefaults.standard.set(maxBpm, forKey: "repera.watch.heartRate.maxBpm")
         }
-        if let data = payload["todayWorkout"] as? Data {
+        if let data = boundedData(payload, "todayWorkout") {
             let dayStamp = payload["todayDayStart"] as? TimeInterval
             if data != lastInboundToday || dayStamp != lastInboundTodayDay {
                 // Same workout bytes may refer to a new calendar day after midnight.
@@ -459,7 +624,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 )
             }
         }
-        if let data = payload["todayWorkouts"] as? Data {
+        if let data = boundedData(payload, "todayWorkouts") {
             let dayStamp = payload["todayDayStart"] as? TimeInterval
             if data != lastInboundTodayPlans ||
                dayStamp != lastInboundTodayPlansDay {
@@ -471,7 +636,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 )
             }
         }
-        if let data = payload["session"] as? Data {
+        if let data = boundedData(payload, "session") {
             let revision = payload["sessionRevision"] as? Int ?? -1
             guard revision >= lastInboundSessionRevision else { return }
             if data == lastInboundSession && revision == lastInboundSessionRevision { return }

@@ -9,6 +9,9 @@ import { workout, wodFormat, wodFormatContract } from "./schema.ts";
 import { scheduledInstant } from "./time.ts";
 import { resolveOAuthToken, resourceMetadata, challenge } from "../_shared/ai-oauth.ts";
 import { registerAthleteChangeTools } from "./athlete-changes.ts";
+import { MAX_TOOL_CALLS_PER_REQUEST, quotaRules, toolCalls } from "./rate-limit.ts";
+import { registerProfessionalScheduleTools } from "./schedule.ts";
+import { deterministicUuid } from "./idempotency.ts";
 
 // OAuth 2.1 plus legacy personal access tokens. OAuth identity is verified
 // against project JWKS, MCP audience, active consent and the Auth session.
@@ -41,10 +44,11 @@ type WorkoutRow = {
 function reply(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] };
 }
-function fail(status: number, message: string) {
+function fail(status: number, message: string, retryAfterSeconds?: number) {
   return new Response(JSON.stringify({ error: message }), {
     status, headers: { "content-type": "application/json", "cache-control": "no-store",
-      ...(status === 401 ? { "www-authenticate": challenge() } : {}) },
+      ...(status === 401 ? { "www-authenticate": challenge() } : {}),
+      ...(retryAfterSeconds ? { "retry-after": String(retryAfterSeconds) } : {}) },
   });
 }
 async function sha256(value: string): Promise<string> {
@@ -166,6 +170,19 @@ Deno.serve(async (request) => {
   // Only owner-scoped reads and inserts. Service role cannot leak other athletes.
   await db.from("ai_access_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", token.id).eq("owner_id", ownerId);
   if (Number(request.headers.get("content-length") || 0) > 150_000) return fail(413, "Petición demasiado grande");
+  if (request.method === "POST") {
+    const raw = await request.clone().text();
+    if (raw.length > 150_000) return fail(413, "Petición demasiado grande");
+    const tools = toolCalls(raw);
+    if (tools.length > MAX_TOOL_CALLS_PER_REQUEST) return fail(413, "Demasiadas herramientas en una sola petición");
+    const rules = quotaRules(ownerId, token.id, tools);
+    const { data: retryAfter, error: quotaError } = await db.rpc("consume_ai_mcp_quota", {
+      p_keys: rules.map(r => r.key), p_limits: rules.map(r => r.limit),
+      p_windows: rules.map(r => r.windowSeconds), p_costs: rules.map(r => r.cost),
+    });
+    if (quotaError || typeof retryAfter !== "number") return fail(503, "Límite de uso no disponible", 30);
+    if (retryAfter > 0) return fail(429, "Demasiadas peticiones. Espera antes de volver a intentarlo", retryAfter);
+  }
 
   async function workouts(days: number, limit: number): Promise<WorkoutRow[]> {
     const after = new Date(Date.now() - days * 86_400_000).toISOString();
@@ -209,12 +226,7 @@ Deno.serve(async (request) => {
     // dated proposals. Existing records are never silently overwritten.
     let batchId: string = crypto.randomUUID();
     if (idempotencyKey) {
-      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256",
-        new TextEncoder().encode(ownerId+":"+idempotencyKey)));
-      digest[6] = (digest[6] & 0x0f) | 0x50;
-      digest[8] = (digest[8] & 0x3f) | 0x80;
-      const hex = Array.from(digest.slice(0,16),b=>b.toString(16).padStart(2,"0")).join("");
-      batchId = [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20,32)].join("-");
+      batchId = await deterministicUuid(ownerId, idempotencyKey);
       const {data:existing,error:readError} = await db.from("ai_training_plans")
         .select("id,title,scheduled_date,status")
         .eq("owner_id",ownerId).eq("batch_id",batchId).limit(14);
@@ -251,9 +263,10 @@ Deno.serve(async (request) => {
   }
 
   const handler = createMcpHandler(() => {
-    const server = new McpServer({ name: "repera-training", version: "0.5.0" });
+    const server = new McpServer({ name: "repera-training", version: "0.6.0" });
     registerCoachTools(server, db, ownerId, token.id, canWrite);
     registerDisciplinePlanningTools(server, db, ownerId);
+    registerProfessionalScheduleTools(server, db, ownerId);
     registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
     if (canWrite) registerMutationTools(server, db, ownerId);
     server.registerTool("get_mcp_access_info", {

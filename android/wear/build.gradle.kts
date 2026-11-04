@@ -34,6 +34,8 @@ dependencies {
     implementation("androidx.health:health-services-client:1.1.0")
     // Google: Ongoing Activity mantiene visible el entrenamiento al pasar a ambiente.
     implementation("androidx.wear:wear-ongoing:1.1.0")
+    // AmbientLifecycleObserver: Always-On con métricas mínimas durante el entreno.
+    implementation("androidx.wear:wear:1.4.0")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     implementation("androidx.wear.tiles:tiles:1.4.1")
     implementation("androidx.wear.protolayout:protolayout:1.2.1")

@@ -152,25 +152,25 @@ final class RestSessionCoordinator {
         }
     }
 
+    /// Wakes only at the countdown thresholds (3, 2, 1 s left); completion is
+    /// owned by `scheduleCompletion`. Pause/resume/start reschedule this task.
     private func scheduleFeedback() {
         feedbackTask?.cancel()
+        guard let end = endDate else { return }
         feedbackTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            for threshold in [3, 2, 1] {
+                // Slightly after the boundary so ceil(remaining) == threshold.
+                let wake = end.addingTimeInterval(-Double(threshold) + 0.05)
+                let delay = wake.timeIntervalSinceNow
+                if delay < -0.5 { continue }
+                if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard let self, self.isActive, !self.isPaused else { return }
-                    let remaining = self.remainingSeconds
-                    if remaining <= 0 {
-                        self.finish(announce: true)
-                        return
-                    }
-                    RestFeedback.tick(
-                        remaining: remaining,
-                        sound: self.soundEnabled,
-                        haptic: self.hapticEnabled
-                    )
-                }
+                guard let self, self.endDate == end, !self.isPaused else { return }
+                RestFeedback.tick(
+                    remaining: self.remainingSeconds,
+                    sound: self.soundEnabled,
+                    haptic: self.hapticEnabled
+                )
             }
         }
     }

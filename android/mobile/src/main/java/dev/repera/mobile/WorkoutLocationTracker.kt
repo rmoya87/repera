@@ -117,7 +117,7 @@ class WorkoutLocationTracker(private val context: Context) {
                 ?: error("No hay proveedores GPS activos")
             mgr.requestLocationUpdates(
                 provider,
-                /* minTimeMs = */ 1_000L,
+                WorkoutLocationLogic.ROUTE_MIN_TIME_MS,
                 WorkoutLocationLogic.MIN_DISTANCE_METERS,
                 listener,
                 Looper.getMainLooper()

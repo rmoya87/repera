@@ -151,7 +151,7 @@ internal class StandaloneTimerService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_timer)
             .setContentTitle(if (finished) "Temporizador finalizado" else title)
-            .setContentText("$label · %d:%02d".format(seconds / 60, seconds % 60))
+            .setContentText("$label · %d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60))
             .setOngoing(!finished)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)

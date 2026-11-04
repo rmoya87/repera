@@ -4,8 +4,13 @@ import android.content.Context
 import androidx.health.services.client.ExerciseClient
 import androidx.health.services.client.ExerciseUpdateCallback
 import androidx.health.services.client.HealthServices
+import androidx.health.services.client.MeasureCallback
+import androidx.health.services.client.MeasureClient
 import androidx.health.services.client.data.Availability
+import androidx.health.services.client.data.DataPointContainer
 import androidx.health.services.client.data.DataType
+import androidx.health.services.client.data.DeltaDataType
+import androidx.health.services.client.unregisterMeasureCallback
 import androidx.health.services.client.data.ExerciseConfig
 import androidx.health.services.client.data.ExerciseState
 import androidx.health.services.client.data.ExerciseType
@@ -26,6 +31,10 @@ import androidx.health.services.client.startExercise
  * sesión está activa. La sesión grabada por Repera queda excluida de la
  * actividad "externa" en el teléfono (mismo package), igual que iOS
  * excluye los HKWorkout propios.
+ *
+ * Companion (actividad propiedad del teléfono): solo [startMeasure] con
+ * MeasureClient; nunca un ExerciseClient, para no crear un segundo
+ * entrenamiento en la plataforma de salud del reloj.
  */
 class WearHealthSession(private val context: Context) {
 
@@ -58,6 +67,12 @@ class WearHealthSession(private val context: Context) {
     private val client: ExerciseClient by lazy {
         HealthServices.getClient(context).exerciseClient
     }
+    private val measureClient: MeasureClient by lazy {
+        HealthServices.getClient(context).measureClient
+    }
+    private var measureCallback: MeasureCallback? = null
+    private var measureSessionId: String? = null
+    val measuring: Boolean get() = measureSessionId != null
 
     private var callback:ExerciseUpdateCallback?=null
     @Volatile private var callbackRevision=0L
@@ -169,6 +184,66 @@ class WearHealthSession(private val context: Context) {
         onUpdate?.invoke()
     }
 
+    /** Live heart rate for a phone-owned activity: no exercise, no Health write on the watch. */
+    suspend fun startMeasure(sessionId: String, stillAuthorized: () -> Boolean = { true }) =
+        operations.withLock {
+            check(stillAuthorized()) {"La sesión cambió antes de iniciar el pulso"}
+            require(sessionId.isNotBlank())
+            if (measureSessionId == sessionId) return@withLock
+            check(measureSessionId == null && !recording) {"Los sensores pertenecen a otra sesión de Repera"}
+            val capabilities = measureClient.getCapabilities()
+            check(stillAuthorized()) {"La sesión cambió durante la consulta de capacidades"}
+            terminalObserved = false
+            heartRateBpm = null
+            lastHeartSampleAtElapsed = 0L
+            energyKcal = null
+            paused = false
+            if (DataType.HEART_RATE_BPM !in capabilities.supportedDataTypesMeasure) {
+                problem = "Este reloj no ofrece pulso en directo"
+                onUpdate?.invoke()
+                return@withLock
+            }
+            problem = null
+            measureSessionId = sessionId
+            registerMeasure()
+            recording = true
+            onUpdate?.invoke()
+        }
+
+    private fun registerMeasure() {
+        callbackRevision++
+        val token = callbackRevision
+        val next = object : MeasureCallback {
+            override fun onAvailabilityChanged(
+                dataType: DeltaDataType<*, *>, availability: Availability
+            ) = Unit
+
+            override fun onDataReceived(data: DataPointContainer) {
+                if (token != callbackRevision) return
+                data.getData(DataType.HEART_RATE_BPM).lastOrNull()?.value
+                    ?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
+                        heartRateBpm = it.toInt()
+                        lastHeartSampleAtElapsed = android.os.SystemClock.elapsedRealtime()
+                    }
+                onUpdate?.invoke()
+            }
+
+            override fun onRegistrationFailed(throwable: Throwable) {
+                if (token != callbackRevision) return
+                problem = "No se pudo conectar con el pulso del reloj"
+                onUpdate?.invoke()
+            }
+        }
+        measureCallback = next
+        measureClient.registerMeasureCallback(DataType.HEART_RATE_BPM, next)
+    }
+
+    private suspend fun unregisterMeasure() {
+        callbackRevision++
+        measureCallback?.let { runCatching { measureClient.unregisterMeasureCallback(DataType.HEART_RATE_BPM, it) } }
+        measureCallback = null
+    }
+
     /** A failed await is not proof that the provider has no surviving exercise. */
     suspend fun canReleaseAfterStartFailure():Boolean = operations.withLock {
         val info=client.getCurrentExerciseInfo()
@@ -178,6 +253,16 @@ class WearHealthSession(private val context: Context) {
     /** Pausa el registro (play/pausa del reloj, igual que watchOS). */
     suspend fun pause(sessionId:String,stillAuthorized:()->Boolean={true}) = operations.withLock {
         check(stillAuthorized()) {"La sesión cambió antes de pausar sensores"}
+        if (measureSessionId != null) {
+            check(measureSessionId == sessionId) {"El pulso no corresponde a esta sesión"}
+            if (paused) return@withLock
+            // MeasureClient has no pause: stop sampling to save battery while paused.
+            unregisterMeasure()
+            paused = true
+            heartRateBpm = null
+            onUpdate?.invoke()
+            return@withLock
+        }
         check(binding.getString("sessionId",null)==sessionId) {"El registro de sensores no corresponde a esta sesión"}
         if (!recording || paused) return@withLock
         client.pauseExercise()
@@ -187,6 +272,14 @@ class WearHealthSession(private val context: Context) {
     /** Reanuda el registro tras una pausa. */
     suspend fun resume(sessionId:String,stillAuthorized:()->Boolean={true}) = operations.withLock {
         check(stillAuthorized()) {"La sesión cambió antes de reanudar sensores"}
+        if (measureSessionId != null) {
+            check(measureSessionId == sessionId) {"El pulso no corresponde a esta sesión"}
+            if (!paused) return@withLock
+            registerMeasure()
+            paused = false
+            onUpdate?.invoke()
+            return@withLock
+        }
         check(binding.getString("sessionId",null)==sessionId) {"El registro de sensores no corresponde a esta sesión"}
         if (!paused) return@withLock
         client.resumeExercise()
@@ -194,6 +287,11 @@ class WearHealthSession(private val context: Context) {
 
     suspend fun detach() = operations.withLock {
         onUpdate=null
+        if (measureSessionId != null) {
+            unregisterMeasure()
+            measureSessionId = null
+            recording = false
+        }
         callbackRevision++
         callback?.let {client.clearUpdateCallback(it)}
         callback=null
@@ -201,6 +299,14 @@ class WearHealthSession(private val context: Context) {
 
     /** Termina el registro conservando las últimas lecturas en pantalla. */
     suspend fun stop(sessionId:String?) = operations.withLock {
+        if (sessionId != null && measureSessionId == sessionId) {
+            unregisterMeasure()
+            measureSessionId = null
+            recording = false; paused = false; terminalObserved = true
+            heartRateBpm = null; lastHeartSampleAtElapsed = 0L
+            onUpdate?.invoke()
+            return@withLock
+        }
         if (sessionId==null || binding.getString("sessionId",null)!=sessionId) return@withLock
         val info=client.getCurrentExerciseInfo()
         check(binding.getString("sessionId",null)==sessionId) {"La identidad de sensores cambió antes de terminar"}

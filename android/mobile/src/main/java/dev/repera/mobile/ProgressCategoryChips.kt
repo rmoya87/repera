@@ -30,22 +30,26 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 
 /** Categorías del hub Progreso — iconos propios, sin anillos Activity ni set Salud. */
 internal enum class ProgressCategory(
     val title: String,
     val icon: ImageVector,
-    val accent: Color
+    val accent: Color,
+    @StringRes val titleRes: Int
 ) {
-    TRAINING("Entreno", Icons.Outlined.Bolt, Color(0xFF30D158)),
-    STRENGTH("Fuerza", Icons.Outlined.FitnessCenter, Color(0xFFFF9500)),
-    FITNESS("Forma física", Icons.Outlined.DirectionsWalk, Color(0xFF5AC8FA)),
-    HEART("Corazón", Icons.Outlined.MonitorHeart, Color(0xFFFF453A)),
-    RECOVERY("Recuperación", Icons.Outlined.Eco, Color(0xFF33C6B8)),
-    SPORTS("Deportes", Icons.Outlined.Flag, Color(0xFF8C73F2));
+    TRAINING("Entreno", Icons.Outlined.Bolt, ReperaAccents.training, R.string.progress_category_training),
+    STRENGTH("Fuerza", Icons.Outlined.FitnessCenter, ReperaAccents.strength, R.string.progress_category_strength),
+    FITNESS("Forma física", Icons.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
+    HEART("Corazón", Icons.Outlined.MonitorHeart, ReperaAccents.heart, R.string.progress_category_heart),
+    RECOVERY("Recuperación", Icons.Outlined.Eco, ReperaAccents.recovery, R.string.progress_category_recovery),
+    SPORTS("Deportes", Icons.Outlined.Flag, ReperaAccents.sports, R.string.progress_category_sports);
 }
-
-private val progressChipGreen = Color(0xFF30D158)
 
 @Composable
 internal fun ProgressCategoryChipBar(
@@ -82,7 +86,7 @@ private fun ProgressCategoryChip(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(16.dp)
-    val bg = if (selected) progressChipGreen else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+    val bg = if (selected) brandGreen else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
     val fg = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
     val secondary = if (selected) Color.Black.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant
     val iconTint = if (selected) Color.Black else category.accent
@@ -91,7 +95,8 @@ private fun ProgressCategoryChip(
             .widthIn(min = 88.dp)
             .clip(shape)
             .background(bg, shape)
-            .clickable(onClick = onClick)
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .testTag("progress_chip_${category.name}"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -107,7 +112,7 @@ private fun ProgressCategoryChip(
                 modifier = Modifier.padding(0.dp)
             )
             Text(
-                category.title,
+                stringResource(category.titleRes),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = secondary,

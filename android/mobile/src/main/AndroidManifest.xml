@@ -49,6 +49,7 @@
         android:dataExtractionRules="@xml/private_data_extraction_rules"
         android:theme="@style/Theme.Repera"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="false">
         <meta-data android:name="com.google.android.geo.API_KEY"
             android:value="${reperaGoogleMapsApiKey}" />

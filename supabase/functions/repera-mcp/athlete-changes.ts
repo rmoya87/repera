@@ -1,6 +1,7 @@
 import { z } from "npm:zod@4.3.6";
 import type { McpServer } from "npm:@modelcontextprotocol/server@2.0.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.58.0";
+import { samePayload } from "./idempotency.ts";
 
 const uuid=z.string().uuid(), revision=z.string().datetime({offset:true});
 const result=(value:unknown)=>({content:[{type:"text" as const,text:JSON.stringify(value)}],
@@ -65,6 +66,19 @@ export function registerAthleteChangeTools(
   });
   if(!canWrite)return;
   async function stage(op:Change,targetId:string|null,payload:Record<string,unknown>,expectedUpdatedAt?:string) {
+    // A retried tool call must not queue the same approval twice on the athlete's device.
+    let pending=db.from("ai_athlete_change_requests")
+      .select("id,operation,target_id,status,created_at,payload")
+      .eq("owner_id",ownerId).eq("operation",op).eq("status","pending").limit(50);
+    pending=targetId?pending.eq("target_id",targetId):pending.is("target_id",null);
+    const {data:open,error:openError}=await pending;
+    if(openError)return fail("STORAGE_ERROR","operation","No se pudo comprobar solicitudes pendientes");
+    const replay=(open??[]).find(r=>samePayload(r.payload,payload));
+    if(replay){
+      const {payload:_,...request}=replay;
+      return result({request,delivery:"pending_athlete_approval",idempotent_replay:true,
+        warning:"Ya existía la misma solicitud pendiente; no se ha duplicado."});
+    }
     const {data,error}=await db.from("ai_athlete_change_requests").insert({
       owner_id:ownerId,token_id:tokenId,operation:op,target_id:targetId,
       payload,expected_updated_at:expectedUpdatedAt??null,status:"pending",

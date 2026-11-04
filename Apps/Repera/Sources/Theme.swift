@@ -98,6 +98,37 @@ enum OG {
     static let pad: CGFloat = 16
 }
 
+/// Tamaño de diseño que escala con Dynamic Type siguiendo `relativeTo`.
+/// Solo para tamaños sin estilo semántico equivalente (11 → `.caption2`,
+/// 12 → `.caption`, 13 → `.footnote`, 15 → `.subheadline`, 16 → `.callout`,
+/// 17 → `.body`/`.headline`, 20 → `.title3`, 22 → `.title2`, 28 → `.title`).
+private struct OGScaledFontModifier: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design, relativeTo style: Font.TextStyle) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: style)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    func ogFont(
+        _ size: CGFloat,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default,
+        relativeTo style: Font.TextStyle = .body
+    ) -> some View {
+        modifier(OGScaledFontModifier(size: size, weight: weight, design: design, relativeTo: style))
+    }
+}
+
 /// Retícula para métricas que reacciona al espacio *disponible*, no al modelo
 /// de iPhone. Al plegar/desplegar el Duo, rotar o usar Split View, los hijos
 /// mantienen su identidad y sus estados: solo cambian las columnas.
@@ -1692,7 +1723,7 @@ extension View {
 
 enum SpanishDate {
     /// Locale de presentación de la app (fechas, ejes, FormatStyle).
-    static let appLocale = Locale(identifier: "es_ES")
+    static let appLocale = ReperaLocale.app
 
     /// `date.formatted` con locale de app (evita inglés forzado del locale del dispositivo).
     static func format(
@@ -1705,11 +1736,40 @@ enum SpanishDate {
         )
     }
 
-    static func long(_ date: Date = Date()) -> String {
+    /// Formatters are configured once and never mutated afterwards
+    /// (DateFormatter is thread-safe for formatting).
+    private static let longFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = appLocale
         f.dateFormat = "EEEE d MMMM"
-        let raw = f.string(from: date)
+        return f
+    }()
+
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = appLocale
+        f.dateFormat = "LLLL"
+        return f
+    }()
+
+    private static let shortFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = appLocale
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = appLocale
+        f.dateStyle = .none
+        f.timeStyle = .short
+        return f
+    }()
+
+    static func long(_ date: Date = Date()) -> String {
+        let raw = longFormatter.string(from: date)
             .replacingOccurrences(of: " de ", with: " ")
         guard let first = raw.first else { return raw }
         return String(first).uppercased() + raw.dropFirst()
@@ -1717,9 +1777,7 @@ enum SpanishDate {
 
     /// Cabecera de semana en calendario: «Octubre», «Octubre – noviembre», o con año si no es el actual.
     static func monthHeadline(from start: Date, to end: Date, calendar: Calendar = .current) -> String {
-        let f = DateFormatter()
-        f.locale = appLocale
-        f.dateFormat = "LLLL"
+        let f = monthFormatter
 
         let startMonth = calendar.component(.month, from: start)
         let endMonth = calendar.component(.month, from: end)
@@ -1745,11 +1803,7 @@ enum SpanishDate {
     }
 
     static func short(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = appLocale
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f.string(from: date)
+        shortFormatter.string(from: date)
     }
 
     /// Subtítulo de detalle: «Viernes 16 octubre · 7:03–8:00».
@@ -1764,11 +1818,7 @@ enum SpanishDate {
     }
 
     static func time(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.locale = appLocale
-        f.dateStyle = .none
-        f.timeStyle = .short
-        return f.string(from: date)
+        timeFormatter.string(from: date)
     }
 
     /// Minutos desde medianoche → "18:30".

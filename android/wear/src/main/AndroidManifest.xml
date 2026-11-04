@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- AmbientLifecycleObserver mantiene la sesión visible en Always-On. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="com.google.android.wearable.permission.RECEIVE_COMPLICATION_DATA" />
@@ -31,6 +33,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".WearHealthPrivacyActivity"
+            android:exported="false"
+            android:label="@string/wear_health_privacy_title" />
+        <!-- Wear OS 6 / API 36: justificación de android.permission.health.* desde Ajustes. -->
+        <activity-alias
+            android:name=".WearHealthPermissionUsage"
+            android:targetActivity=".WearHealthPrivacyActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
         <service android:name=".WearHealthService" android:exported="false" android:foregroundServiceType="health" />
         <service
             android:name=".ReperaComplicationService"

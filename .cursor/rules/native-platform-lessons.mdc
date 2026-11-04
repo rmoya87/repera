@@ -1,0 +1,46 @@
+---
+description: Lecciones concretas de fallos nativos Repera (WorkoutKit, Swift 6, Live Activities, Android)
+alwaysApply: true
+---
+
+# Lecciones nativas (no repetir)
+
+## Apple — WorkoutKit (PR #221)
+
+```swift
+// ❌ BAD — openInWorkoutApp es solo watchOS; rompe CI iOS
+try await plan.openInWorkoutApp()
+
+// ✅ GOOD — iPhone: preview de sistema + scheduler nativo
+.workoutPreview(plan, isPresented: $showPreview)
+await WorkoutScheduler.shared.schedule(plan, at: when)
+```
+
+- Tipos de auth del scheduler **no Sendable**: puente `nonisolated` → `rawValue`/`Sendable` outcome; no pasar el enum al MainActor a ciegas.
+- Intervalos: `CustomWorkout` / `IntervalBlock` solo si `supportsActivity` / `supportsGoal` / `supportsAlert`; nunca inventar GPS.
+
+## Apple — Live Activities / intents
+
+- Botones con `LiveActivityIntent` que **solo encolan** comando (`UserDefaults` + notificacion); la app aplica pausa/reanudacion tras hidratar identidad.
+- «Confirmar serie» desde isla/bloqueo = **abrir** la sesion; nunca `confirmAndAdvance` / escritura de sets en la extension.
+
+## Apple — Swift 6 / App Intents
+
+- Titulos, flags y `AppEnum` de intents: preferir `let` / estaticos inmutables; evitar `var` mutables compartidos entre procesos.
+
+## Android / Wear
+
+- Assistant / shortcuts: solo deep links `repera://…` (navegacion); capabilities en el mismo `shortcuts` XML del launcher.
+- AppSearch: opt-in, **solo catalogo publico**; borrar al logout; API async (`setSchemaAsync` / `putAsync`), no metodos sync inventados.
+- GPS: un solo owner de sesion; no preemptar; no interpolar puntos al exportar GPX.
+
+## Criterio permanente
+
+| Plataforma | Preferir |
+|---|---|
+| iOS | SwiftUI, ActivityKit, App Intents, WorkoutKit preview/scheduler, UNUserNotificationCenter |
+| watchOS | SwiftUI watch, Digital Crown, handGestureShortcut, HealthKit watch-owned solo donde ya exista |
+| Android | Compose M3, Glance, WorkManager, AppSearch, App Actions XML |
+| Wear OS | Compose for Wear, Tiles, Health Services |
+
+Si una API no existe en esa plataforma: alternativa **oficial** documentada, o documentar bloqueo externo — no fingir disponibilidad.

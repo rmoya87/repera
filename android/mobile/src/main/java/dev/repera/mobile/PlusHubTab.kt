@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -122,12 +124,12 @@ internal fun PlusHubTab(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Conecta tu cuenta", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.plus_hub_tab_conecta_tu_cuenta), style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Inicia sesión para ver clases del gimnasio y tu centro.",
+                            stringResource(R.string.plus_hub_tab_inicia_sesion_para_ver_clases_del),
                             style = MaterialTheme.typography.bodySmall
                         )
-                        TextButton(onClick = onRefresh) { Text("Reintentar") }
+                        TextButton(onClick = onRefresh) { Text(stringResource(R.string.action_retry)) }
                     }
                 }
             }
@@ -189,9 +191,9 @@ internal fun PlusHubTab(
 
     pendingCancellation?.let { booking ->
         ReperaConfirmSheet(
-            title = "¿Cancelar la reserva?",
-            message = "Se te desapunta y, si tenías plaza confirmada, se te devuelve la sesión al plan.",
-            confirmTitle = "Confirmar cancelación",
+            title = stringResource(R.string.center_cancel_title),
+            message = stringResource(R.string.plus_hub_tab_se_te_desapunta_y_si_tenias),
+            confirmTitle = stringResource(R.string.center_cancel_confirm),
             onConfirm = {
                 pendingCancellation = null
                 onCancel(booking)
@@ -262,9 +264,9 @@ private fun ClassesPane(
             item {
                 ReperaCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Sin clases este día", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.plus_hub_tab_sin_clases_este_dia), style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Cuando tu gimnasio publique horarios, aparecerán aquí.",
+                            stringResource(R.string.plus_hub_tab_cuando_tu_gimnasio_publique_horarios_apareceran),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -410,7 +412,7 @@ private fun ClassDayCard(
                             enabled = !submitting,
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Text("Cancelar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.action_cancel), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 } else {
@@ -508,22 +510,24 @@ internal fun ClassDetailPage(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) { Text("Cerrar") }
+                TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
                 Spacer(Modifier.weight(1f))
                 if (hasPlan) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .padding(end = 8.dp)
-                            .size(44.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
-                            .clickable { onStartClassPlan(associatedSession!!) }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) {
+                                onStartClassPlan(associatedSession!!)
+                            }
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = "Comenzar entreno",
-                            tint = Color.White,
+                            contentDescription = stringResource(R.string.plus_start_class_plan),
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -547,9 +551,7 @@ internal fun ClassDetailPage(
                         Text(
                             subtitle,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -612,7 +614,7 @@ internal fun ClassDetailPage(
                 if (!loadingRoster && roster?.coach != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            "Entrenador",
+                            stringResource(R.string.org_kind_trainer),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -622,7 +624,7 @@ internal fun ClassDetailPage(
                                 PersonRow(
                                     name = roster!!.coach!!.displayName,
                                     avatarUrl = roster!!.coach!!.avatarUrl,
-                                    subtitle = "Impartirá la clase"
+                                    subtitle = stringResource(R.string.plus_hub_tab_impartira_la_clase)
                                 )
                             }
                         }
@@ -645,7 +647,7 @@ internal fun ClassDetailPage(
                             when {
                                 loadingRoster -> CircularProgressIndicator(Modifier.size(24.dp))
                                 roster?.attendees.isNullOrEmpty() -> Text(
-                                    "Todavía no hay nadie apuntado. Sé el primero.",
+                                    stringResource(R.string.plus_hub_tab_todavia_no_hay_nadie_apuntado_se),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -677,12 +679,13 @@ internal fun ClassDetailPage(
                         }
                     },
                     enabled = !submitting && (booking != null || canTap),
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (booking != null) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.primary,
-                        contentColor = if (booking != null) Color.White else Color.Black,
+                        contentColor = if (booking != null) MaterialTheme.colorScheme.onError
+                            else MaterialTheme.colorScheme.onPrimary,
                         disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
@@ -862,7 +865,7 @@ private fun CenterPane(
             item {
                 ReperaCard(Modifier.fillMaxWidth()) {
                     Text(
-                        "Todavía no perteneces a ningún centro. Cuando te inviten, verás aquí su ficha y tu plan.",
+                        stringResource(R.string.plus_hub_tab_todavia_no_perteneces_a_ningun_centro),
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -876,7 +879,7 @@ private fun CenterPane(
             }
             item(key = "plan-title-${center.id}") {
                 Text(
-                    "Plan",
+                    stringResource(R.string.plus_hub_tab_plan),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -888,9 +891,9 @@ private fun CenterPane(
                 item(key = "empty-${center.id}") {
                     ReperaCard(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Sin plan activo", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.plus_hub_tab_sin_plan_activo), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             Text(
-                                "Pide a tu centro que te asigne un bono o acceso.",
+                                stringResource(R.string.plus_hub_tab_pide_a_tu_centro_que_te),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -910,7 +913,7 @@ private fun CenterPane(
             if (upcoming.isNotEmpty()) {
                 item(key = "upcoming-title-${center.id}") {
                     Text(
-                        "Próximas reservas",
+                        stringResource(R.string.plus_hub_tab_proximas_reservas),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -981,7 +984,7 @@ private fun PaymentsCard(
     val payments = all.take(3)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Últimos pagos",
+            stringResource(R.string.plus_hub_tab_ultimos_pagos),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -991,7 +994,7 @@ private fun PaymentsCard(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (payments.isEmpty()) {
                     Text(
-                        "Todavía no hay pagos registrados con este centro.",
+                        stringResource(R.string.plus_hub_tab_todavia_no_hay_pagos_registrados_con),
                         style = MaterialTheme.typography.bodySmall
                     )
                 } else {
@@ -1000,7 +1003,7 @@ private fun PaymentsCard(
                     }
                     if (all.size > 3) {
                         Text(
-                            "Ver más",
+                            stringResource(R.string.plus_hub_tab_ver_mas),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
@@ -1025,7 +1028,7 @@ private fun ClassHistoryCard(
     val occById = snapshot?.occurrences.orEmpty().associateBy { it.id }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Historial de clases",
+            stringResource(R.string.plus_hub_tab_historial_de_clases),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1035,7 +1038,7 @@ private fun ClassHistoryCard(
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (history.isEmpty()) {
                     Text(
-                        "Aún no has asistido ni reservado clases con este centro.",
+                        stringResource(R.string.plus_hub_tab_aun_no_has_asistido_ni_reservado),
                         style = MaterialTheme.typography.bodySmall
                     )
                 } else {
@@ -1048,7 +1051,7 @@ private fun ClassHistoryCard(
                     }
                     if (all.size > 3) {
                         Text(
-                            "Ver más",
+                            stringResource(R.string.plus_hub_tab_ver_mas),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
@@ -1184,9 +1187,9 @@ private fun CenterPaymentsFullPage(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) { Text("Cerrar") }
+                TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
                 Text(
-                    "Pagos",
+                    stringResource(R.string.plus_hub_tab_pagos),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 8.dp)
@@ -1200,7 +1203,7 @@ private fun CenterPaymentsFullPage(
                 if (payments.isEmpty()) {
                     item {
                         Text(
-                            "Todavía no hay pagos registrados con este centro.",
+                            stringResource(R.string.plus_hub_tab_todavia_no_hay_pagos_registrados_con),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -1240,9 +1243,9 @@ private fun CenterClassHistoryFullPage(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onClose) { Text("Cerrar") }
+                TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
                 Text(
-                    "Historial de clases",
+                    stringResource(R.string.plus_hub_tab_historial_de_clases),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 8.dp)
@@ -1256,7 +1259,7 @@ private fun CenterClassHistoryFullPage(
                 if (history.isEmpty()) {
                     item {
                         Text(
-                            "Aún no has asistido ni reservado clases con este centro.",
+                            stringResource(R.string.plus_hub_tab_aun_no_has_asistido_ni_reservado),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -1317,7 +1320,7 @@ private fun PlanCard(
             }
             if (unlimited) {
                 Text(
-                    "Acceso ilimitado",
+                    stringResource(R.string.plus_hub_tab_acceso_ilimitado),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

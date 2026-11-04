@@ -25,18 +25,32 @@ struct MessagesInboxView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !businessAuth.isConnected || linked.isEmpty {
-                ContentUnavailableView(
-                    linked.isEmpty
-                        ? "Sin centros vinculados"
-                        : "Conecta tu cuenta",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text(
-                        linked.isEmpty
-                            ? "Vincúlate a un centro o entrenador para chatear."
-                            : "Conecta tu cuenta Business para ver mensajes."
-                    )
-                )
+            if !businessAuth.isConnected {
+                ContentUnavailableView {
+                    Label("Conecta tu cuenta", systemImage: "person.crop.circle.badge.exclamationmark")
+                } description: {
+                    Text("Inicia sesión en Repera para ver los mensajes de tu centro o entrenador.")
+                } actions: {
+                    Button("Reintentar") {
+                        Task { await reconnect() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .foregroundStyle(.black)
+                }
+            } else if linked.isEmpty {
+                ContentUnavailableView {
+                    Label("Sin centros vinculados", systemImage: "bubble.left.and.bubble.right")
+                } description: {
+                    Text("Vincúlate a un centro o entrenador para chatear.")
+                } actions: {
+                    NavigationLink("Buscar centro o entrenador") {
+                        FindCenterTrainerView()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+                    .foregroundStyle(.black)
+                }
             } else {
                 if linked.count > 1 {
                     Picker("Centro", selection: Binding(
@@ -55,12 +69,25 @@ struct MessagesInboxView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 10) {
-                            if thread.isEmpty {
-                                Text("Todavía no hay mensajes. Escribe el primero.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(OG.label2)
+                            if thread.isEmpty && businessData.isLoading {
+                                ProgressView("Cargando mensajes…")
+                                    .tint(OG.accent)
                                     .frame(maxWidth: .infinity)
                                     .padding(.top, 40)
+                            } else if thread.isEmpty {
+                                ContentUnavailableView {
+                                    Label("Sin mensajes", systemImage: "bubble.left.and.text.bubble.right")
+                                } description: {
+                                    Text("Escribe a \(activeCenterName) y verás aquí su respuesta.")
+                                } actions: {
+                                    Button("Escribir mensaje") {
+                                        composerFocused = true
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(OG.accent)
+                                    .foregroundStyle(.black)
+                                }
+                                .padding(.top, 24)
                             }
                             ForEach(thread) { message in
                                 chatBubble(message)
@@ -128,6 +155,8 @@ struct MessagesInboxView: View {
                     .foregroundStyle(
                         canSend ? OG.accent : OG.label2.opacity(0.35)
                     )
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
             }
             .disabled(!canSend || businessData.isSubmitting)
             .accessibilityLabel("Enviar")
@@ -170,6 +199,21 @@ struct MessagesInboxView: View {
             }
             if !mine { Spacer(minLength: 48) }
         }
+    }
+
+    private var activeCenterName: String {
+        let name = activeOrgId.map { businessData.centerName($0) } ?? ""
+        return name.isEmpty ? "tu centro" : name
+    }
+
+    private func reconnect() async {
+        await businessAuth.restoreSession()
+        if !businessAuth.isConnected {
+            _ = businessAuth.connectFromCachedSessionIfPossible()
+        }
+        guard businessAuth.isConnected else { return }
+        await businessData.refresh()
+        await loadSelected()
     }
 
     private func loadSelected() async {

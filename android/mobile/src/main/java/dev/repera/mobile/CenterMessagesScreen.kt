@@ -1,4 +1,6 @@
 package dev.repera.mobile
+
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +25,7 @@ internal fun CenterMessagesScreen(
     onRefresh: () -> Unit,
     onSendChat: (String, String) -> Unit,
 ) {
-    var draft by remember { mutableStateOf("") }
+    var draft by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val linked = snapshot?.centers.orEmpty().filter { it.id in snapshot?.athleteCenterIds.orEmpty() }
     val orgId = selectedOrgId ?: linked.firstOrNull()?.id
     val clientId = orgId?.let { snapshot?.clientIdFor(it) }
@@ -34,7 +36,7 @@ internal fun CenterMessagesScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            item { ReperaPageHeader(title = "Mensajes") }
+            item { ReperaPageHeader(title = stringResource(R.string.home_tab_mensajes)) }
             if (!connected || linked.isEmpty()) {
                 item {
                     Text(
@@ -59,11 +61,11 @@ internal fun CenterMessagesScreen(
                     }
                 }
                 item {
-                    OutlinedButton(onClick = onRefresh, enabled = !loading) { Text("Actualizar") }
+                    OutlinedButton(onClick = onRefresh, enabled = !loading) { Text(stringResource(R.string.action_refresh)) }
                 }
                 error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
                 if (thread.isEmpty()) {
-                    item { Text("Todavía no hay mensajes. Escribe el primero.") }
+                    item { Text(stringResource(R.string.center_messages_screen_todavia_no_hay_mensajes_escribe_el)) }
                 }
                 items(thread, key = { it.id }) { message ->
                     val mine = message.senderRole != "staff"
@@ -113,7 +115,7 @@ internal fun CenterMessagesScreen(
                     value = draft,
                     onValueChange = { draft = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Mensaje") },
+                    placeholder = { Text(stringResource(R.string.center_messages_screen_mensaje)) },
                     enabled = !submitting,
                     maxLines = 4
                 )

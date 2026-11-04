@@ -307,7 +307,14 @@ enum ExerciseArt {
     /// WOD libre sin ID de catálogo: resolver la miniatura usando el nombre
     /// real, sin fabricar otro ejercicio ni cambiar los datos del entreno.
     static func imageName(forFreeMovement name: String) -> String? {
-        imageName(forExerciseName: name, muscleGroup: "")
+        // Rows call this from `body`; normalization runs once per name.
+        let key = "free|\(name)"
+        if let cached = lookup.heroName(for: key) {
+            return cached.isEmpty ? nil : cached
+        }
+        let base = imageName(forExerciseName: name, muscleGroup: "")
+        lookup.setHeroName(base ?? "", for: key)
+        return base
     }
 
     nonisolated private static func downscale(_ image: UIImage, maxPixel: Int) -> UIImage {

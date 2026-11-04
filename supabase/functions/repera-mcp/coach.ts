@@ -1,6 +1,7 @@
 import { z } from "npm:zod@4.3.6";
 import type { McpServer } from "npm:@modelcontextprotocol/server@2.0.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.58.0";
+import { deterministicUuid } from "./idempotency.ts";
 
 const result = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
@@ -375,9 +376,9 @@ export function registerCoachTools(
     inputSchema:z.strictObject({title:z.string().trim().min(2).max(120),
       primaryGoal:z.string().trim().min(2).max(500),startDate:day,
       startTimeZone:z.string().trim().min(3).max(80),durationWeeks:weeks,
-      phases:z.array(phase).min(1).max(12)}),
+      phases:z.array(phase).min(1).max(12),idempotencyKey:z.string().uuid().optional()}),
     annotations:{readOnlyHint:false,destructiveHint:false},
-  },async({title,primaryGoal,startDate,startTimeZone,durationWeeks,phases})=>{
+  },async({title,primaryGoal,startDate,startTimeZone,durationWeeks,phases,idempotencyKey})=>{
     try { new Intl.DateTimeFormat("en-US",{timeZone:startTimeZone}); }
     catch { throw Error("INVALID_TIME_ZONE: startTimeZone debe ser una zona IANA válida"); }
     const date=new Date(startDate+"T12:00:00Z");
@@ -386,11 +387,24 @@ export function registerCoachTools(
       throw Error("Fecha de inicio fuera del horizonte disponible");
     if(phases.reduce((total,p)=>total+p.weeks,0)!==durationWeeks)
       throw Error("La suma de semanas de fases debe coincidir con la duración del programa");
+    const programId=idempotencyKey?await deterministicUuid(ownerId,idempotencyKey,"program"):undefined;
+    if(programId){
+      const {data:existing,error:readError}=await db.from("athlete_training_programs")
+        .select("id,title,status,revision,phases").eq("id",programId).eq("owner_id",ownerId).maybeSingle();
+      if(readError) throw new Error("No se pudo comprobar idempotencia");
+      if(existing) return result({program:existing,idempotent_replay:true});
+    }
     const {data,error}=await db.from("athlete_training_programs").insert({
+      ...(programId?{id:programId}:{}),
       owner_id:ownerId,created_by_token_id:tokenId,title,primary_goal:primaryGoal,
       start_date:startDate,start_time_zone:startTimeZone,
       duration_weeks:durationWeeks,phases,status:"proposed",
     }).select("id,title,status,revision,phases").single();
+    if(error?.code==="23505"&&programId){
+      const {data:already}=await db.from("athlete_training_programs")
+        .select("id,title,status,revision,phases").eq("id",programId).eq("owner_id",ownerId).maybeSingle();
+      if(already) return result({program:already,idempotent_replay:true});
+    }
     if(error) throw new Error("No se pudo guardar el programa");
     return result({program:data,delivery:"Macroprograma guardado. Para recibir sesiones concretas en Repera, envía un máximo de 14 cada vez con create_training_plan y programId."});
   });

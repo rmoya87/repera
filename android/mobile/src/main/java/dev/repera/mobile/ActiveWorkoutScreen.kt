@@ -691,7 +691,7 @@ private fun ActiveWorkoutReviewScreen(
                     value = "${workout.navigationEntries.count { it.completed }}",
                     icon = Icons.Outlined.Check,
                     modifier = Modifier.weight(1f),
-                    iconTint = Color(0xFF0A84FF)
+                    iconTint = MaterialTheme.reperaColors.blue
                 )
             }
         }
