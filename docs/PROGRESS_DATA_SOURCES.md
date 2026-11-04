@@ -6,8 +6,9 @@
 
 - Navegación por **chips horizontales** (no segmentado Entreno/Actividad/Recuperación): **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes**.
 - Iconos propios Repera (bolt, mancuerna, caminar, ECG, hoja, bandera); **sin** anillos Activity ni set de Apple Salud.
-- **Sin calendario** de periodo global: gratis = ventana fija «esta semana»; Pro = «este mes» embebido + bloque «A largo plazo».
-- Fondos = tokens de app (`OG.bg` / `surface` / Material `background`), no tintados en verde.
+- Chip: icono + título en la misma fila; valor debajo. Seleccionado = verde sólido + texto/icono negros (sin borde). Fila de chips con fondo transparente; iOS = Liquid Glass en no seleccionados.
+- **Sin calendario** de periodo global: gratis = ventana fija «esta semana»; Pro = «este mes» embebido + bloque «A largo plazo» visual (mapa de días).
+- Fondos = tokens de app (`OG.bg` / `surface` / Material `background`), no tintados en verde. Chevron solo en destinos navegables.
 
 ## Qué se considera actividad terminada
 

@@ -53,7 +53,7 @@ struct StatsView: View {
                         ProgressCategoryChipBar(selection: $category) { chipGlanceValue(for: $0) }
                             .padding(.top, 4)
                             .padding(.bottom, 10)
-                            .background(OG.bg)
+                            // Transparente: sin franja opaca ni línea gris al anclar.
                     }
                 }
             }
@@ -181,15 +181,13 @@ struct StatsView: View {
 
     @ViewBuilder
     private var trainingCategoryContent: some View {
+        trainingScoreAndMuscleSections
+        trainingGlanceMetricsGrid
+        thisWeekConsistencyCard
+        mobilityProgressCard
         if isPro {
-            tilesGrid
-            trainingScoreAndMuscleSections
-            mobilityProgressCard
             longTermTrainingTeaser
         } else {
-            freeTilesGrid
-            trainingScoreAndMuscleSections
-            mobilityProgressCard
             ProTeaserCard(
                 title: "Tendencias a largo plazo",
                 bodyText: "Con Pro ves consistencia de 4 semanas y evolución de puntuación sin límites.",
@@ -202,38 +200,136 @@ struct StatsView: View {
         NavigationLink {
             HistoryView()
         } label: {
-            OGCard {
-                HStack {
-                    Label("Historial", systemImage: "clock")
-                        .foregroundStyle(OG.label)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(OG.label3)
-                }
-            }
+            ProgressInsightCard(
+                title: "Historial",
+                systemImage: "clock",
+                narrative: "Revisa sesiones terminadas, edita resultados y consulta el detalle de cada entreno.",
+                tint: OG.label2,
+                showsChevron: true
+            )
         }
         .buttonStyle(.plain)
     }
 
+    /// Media / Racha / Entrenos / Tiempo — cards 2×2 estilo Salud (sin chevron falso).
+    private var trainingGlanceMetricsGrid: some View {
+        let summary = snap.summary
+        let avg = trainingAverageScoreText
+        let minutes = Int(summary.totalMinutes.rounded())
+        let timeText: String = {
+            if minutes >= 60 {
+                let h = minutes / 60
+                let m = minutes % 60
+                return m == 0 ? "\(h) h" : "\(h) h \(m)"
+            }
+            return "\(minutes)′"
+        }()
+        return LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+            spacing: 8
+        ) {
+            ProgressMetricGlanceCard(title: "Media \(isPro ? "mes" : "7 días")", value: avg)
+            ProgressMetricGlanceCard(title: "Racha", value: snap.streak > 0 ? "\(snap.streak) sem" : "—")
+            ProgressMetricGlanceCard(title: "Entrenos", value: "\(summary.sessionCount)")
+            ProgressMetricGlanceCard(title: "Tiempo", value: timeText)
+        }
+    }
+
+    private var trainingAverageScoreText: String {
+        let scores = snap.filteredWorkouts.compactMap { session -> Int? in
+            guard let review = session.sessionReview, review.scoreBasis == .personalHistory else { return nil }
+            return review.overallScore
+        }
+        guard !scores.isEmpty else { return "—" }
+        let avg = Double(scores.reduce(0, +)) / Double(scores.count)
+        return String(format: "%.1f", avg).replacingOccurrences(of: ".", with: ",")
+    }
+
+    private var thisWeekConsistencyCard: some View {
+        let days = consistencyDays(count: 7)
+        let trained = days.filter(\.trained).count
+        return VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Esta semana")
+            ProgressInsightCard(
+                title: "Consistencia",
+                systemImage: "calendar",
+                narrative: trained == 0
+                    ? "Aún no hay entrenos registrados esta semana."
+                    : "Has entrenado \(trained) de \(days.count) días. Mantén el ritmo.",
+                tint: OG.accent
+            ) {
+                ProgressConsistencyDots(days: days)
+            }
+        }
+    }
+
+    private func consistencyDays(count: Int) -> [ProgressConsistencyDots.DayMark] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let trainedDays: Set<Date> = Set(snap.filteredWorkouts.compactMap { session in
+            guard let finished = session.finishedAt else { return nil }
+            return cal.startOfDay(for: finished)
+        })
+        let symbols = cal.veryShortWeekdaySymbols
+        return (0..<count).compactMap { offset -> ProgressConsistencyDots.DayMark? in
+            let back = count - 1 - offset
+            guard let day = cal.date(byAdding: .day, value: -back, to: today) else { return nil }
+            let weekday = cal.component(.weekday, from: day) // 1=Sunday
+            let label = symbols[(weekday - 1 + symbols.count) % symbols.count]
+            return .init(
+                id: day,
+                label: label,
+                trained: trainedDays.contains(day),
+                isToday: day == today
+            )
+        }
+    }
+
     @ViewBuilder
     private var strengthCategoryContent: some View {
+        let prCount = snap.records.count
         OGCardSectionTitle(title: "Fuerza")
-        OGCard {
-            VStack(alignment: .leading, spacing: 8) {
-                ProgressInsightHeader(
-                    title: "Carga y marcas",
-                    systemImage: ProgressCategory.strength.systemImage,
-                    tint: ProgressCategory.strength.accent
-                )
-                Text(strengthInsightCopy)
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
+        ProgressInsightCard(
+            title: "Carga y marcas",
+            systemImage: ProgressCategory.strength.systemImage,
+            narrative: strengthInsightCopy,
+            tint: ProgressCategory.strength.accent
+        ) {
+            ProgressHeroMetricRow(
+                value: prCount > 0 ? "\(prCount)" : "—",
+                unit: prCount > 0 ? "PR" : nil,
+                caption: prCount > 0 ? "en el periodo" : "sin marcas aún"
+            ) {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(ProgressCategory.strength.accent.opacity(0.85))
+                    .accessibilityHidden(true)
             }
+            if !snap.records.isEmpty {
+                ProgressMiniRangeBars(
+                    samples: strengthSparkSamples,
+                    tint: ProgressCategory.strength.accent,
+                    height: 56
+                )
+            }
+        }
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+            spacing: 8
+        ) {
+            ProgressMetricGlanceCard(
+                title: "Sesiones fuerza",
+                value: "\(snap.summary.sessionCount)",
+                tint: ProgressCategory.strength.accent
+            )
+            ProgressMetricGlanceCard(
+                title: "Ejercicios",
+                value: snap.chartExercises.isEmpty ? "—" : "\(snap.chartExercises.count)",
+                tint: ProgressCategory.strength.accent
+            )
         }
         if isPro {
             proAdvancedSections
-            longTermStrengthNote
         } else {
             freeExerciseTrendPreview
             ProTeaserCard(
@@ -247,16 +343,43 @@ struct StatsView: View {
         }
     }
 
+    private var strengthSparkSamples: [ClosedRange<Double>] {
+        let values = snap.records.prefix(12).map { max(0.15, min(1.0, $0.estimatedOneRM / 200)) }
+        if values.isEmpty { return [] }
+        return values.map { v in (v * 0.55)...v }
+    }
+
     private var strengthInsightCopy: String {
         let prCount = snap.records.count
         if prCount == 0 {
             return "Cuando registres series de fuerza, verás récords y volumen aquí."
         }
-        return "Has logrado \(prCount) marca\(prCount == 1 ? "" : "s") en el periodo. El volumen y el e1RM viven en las tarjetas de abajo."
+        return "Has logrado \(prCount) marca\(prCount == 1 ? "" : "s") en el periodo. Abajo tienes el detalle por ejercicio y e1RM."
     }
 
     @ViewBuilder
     private var fitnessCategoryContent: some View {
+        let minutes = Int(snap.summary.totalMinutes.rounded())
+        OGCardSectionTitle(title: "Forma física")
+        ProgressInsightCard(
+            title: "Estímulo activo",
+            systemImage: ProgressCategory.fitness.systemImage,
+            narrative: minutes > 0
+                ? "Has acumulado \(minutes) minutos de actividad en el periodo. El mapa muestra tus días activos."
+                : "Cuando camines o entrenes, verás aquí tu estímulo y el mapa de días activos.",
+            tint: ProgressCategory.fitness.accent
+        ) {
+            ProgressHeroMetricRow(
+                value: minutes > 0 ? "\(minutes)" : "—",
+                unit: minutes > 0 ? "min" : nil,
+                caption: isPro ? "este mes" : "esta semana"
+            ) {
+                Image(systemName: "figure.walk")
+                    .font(.system(size: 36, weight: .semibold))
+                    .foregroundStyle(ProgressCategory.fitness.accent.opacity(0.9))
+                    .accessibilityHidden(true)
+            }
+        }
         if isPro {
             activityCard
             healthChartsLayout {
@@ -280,19 +403,42 @@ struct StatsView: View {
 
     @ViewBuilder
     private var heartCategoryContent: some View {
+        let bpm = health.recentDailyHeartRate.last?.avgBpm
+        let bpmText = bpm.map { "\(Int($0.rounded()))" } ?? "—"
         OGCardSectionTitle(title: "Corazón")
-        OGCard {
-            VStack(alignment: .leading, spacing: 8) {
-                ProgressInsightHeader(
-                    title: "Frecuencia cardíaca",
-                    systemImage: ProgressCategory.heart.systemImage,
-                    tint: ProgressCategory.heart.accent
+        ProgressInsightCard(
+            title: "Frecuencia cardíaca",
+            systemImage: ProgressCategory.heart.systemImage,
+            narrative: heartInsightCopy,
+            tint: ProgressCategory.heart.accent
+        ) {
+            ProgressHeroMetricRow(
+                value: bpmText,
+                unit: bpm == nil ? nil : "LPM",
+                caption: bpm == nil ? nil : "media reciente"
+            ) {
+                ProgressMiniRangeBars(
+                    samples: heartSparkSamples,
+                    tint: ProgressCategory.heart.accent,
+                    height: 64
                 )
-                Text(heartInsightCopy)
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 120)
             }
+        }
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+            spacing: 8
+        ) {
+            ProgressMetricGlanceCard(
+                title: "Mín. reciente",
+                value: heartExtremeText(\.minBpm),
+                tint: ProgressCategory.heart.accent
+            )
+            ProgressMetricGlanceCard(
+                title: "Máx. reciente",
+                value: heartExtremeText(\.maxBpm),
+                tint: ProgressCategory.heart.accent
+            )
         }
         trainingHeartZonesSection
         if isPro {
@@ -320,23 +466,53 @@ struct StatsView: View {
         return "Conecta Salud o entrena con pulsómetro para ver tu ritmo cardíaco aquí."
     }
 
+    private var heartSparkSamples: [ClosedRange<Double>] {
+        let points = health.recentDailyHeartRate.suffix(14)
+        guard !points.isEmpty else {
+            return (0..<10).map { _ in 0.25...0.55 }
+        }
+        let maxB = points.map(\.maxBpm).max() ?? 160
+        let minB = points.map(\.minBpm).min() ?? 50
+        let span = max(maxB - minB, 1)
+        return points.map { p in
+            let lo = (p.minBpm - minB) / span
+            let hi = (p.maxBpm - minB) / span
+            return lo...max(hi, lo + 0.08)
+        }
+    }
+
+    private func heartExtremeText(_ keyPath: KeyPath<HealthKitStore.DailyHeartRatePoint, Double>) -> String {
+        guard let last = health.recentDailyHeartRate.last else { return "—" }
+        let v = last[keyPath: keyPath]
+        guard v > 0 else { return "—" }
+        return "\(Int(v.rounded()))"
+    }
+
     @ViewBuilder
     private var sportsCategoryContent: some View {
         OGCardSectionTitle(title: "Deportes")
         NavigationLink {
             LiveSportsCatalogView()
         } label: {
-            OGCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    ProgressInsightHeader(
-                        title: "Evolución y récords",
-                        systemImage: ProgressCategory.sports.systemImage,
-                        tint: ProgressCategory.sports.accent
-                    )
-                    Text("Consulta distancias, ritmos y marcas por deporte desde tus salidas Comenzar y Salud.")
-                        .font(.subheadline)
-                        .foregroundStyle(OG.label2)
-                        .fixedSize(horizontal: false, vertical: true)
+            ProgressInsightCard(
+                title: "Evolución y récords",
+                systemImage: ProgressCategory.sports.systemImage,
+                narrative: "Consulta distancias, ritmos y marcas por deporte desde tus salidas Comenzar y Salud.",
+                tint: ProgressCategory.sports.accent,
+                showsChevron: true
+            ) {
+                let sportSessions = store.state.workouts.filter {
+                    $0.phase == .finished && $0.finishedAt != nil && $0.liveSportID != nil
+                }
+                ProgressHeroMetricRow(
+                    value: sportSessions.isEmpty ? "—" : "\(sportSessions.count)",
+                    unit: sportSessions.isEmpty ? nil : "salidas",
+                    caption: sportSessions.isEmpty ? "sin actividades aún" : "registradas"
+                ) {
+                    Image(systemName: "flag.checkered")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(ProgressCategory.sports.accent.opacity(0.9))
+                        .accessibilityHidden(true)
                 }
             }
         }
@@ -345,29 +521,31 @@ struct StatsView: View {
 
     @ViewBuilder
     private var longTermTrainingTeaser: some View {
+        let days = consistencyDays(count: 28)
+        let trained = days.filter(\.trained).count
         OGCardSectionTitle(title: "A largo plazo")
-        OGCard {
-            VStack(alignment: .leading, spacing: 8) {
-                ProgressInsightHeader(
-                    title: "Consistencia",
-                    systemImage: "calendar",
-                    tint: OG.accent
-                )
-                Text("En este mes llevas \(snap.summary.sessionCount) entrenos y \(ReperaNumberFormat.integer(Int(snap.summary.totalMinutes.rounded()))) minutos registrados.")
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
+        ProgressInsightCard(
+            title: "Consistencia",
+            systemImage: "calendar",
+            narrative: "En las últimas 4 semanas has entrenado \(trained) días distintos · \(snap.summary.sessionCount) sesiones · \(ReperaNumberFormat.integer(Int(snap.summary.totalMinutes.rounded()))) min.",
+            tint: OG.accent
+        ) {
+            let rows = stride(from: 0, to: days.count, by: 7).map { start in
+                Array(days[start..<min(start + 7, days.count)])
             }
-        }
-    }
-
-    @ViewBuilder
-    private var longTermStrengthNote: some View {
-        OGCardSectionTitle(title: "A largo plazo")
-        OGCard {
-            Text("Las listas de ejercicios y récords usan el periodo del hub (\(model.range.title)).")
-                .font(.subheadline)
-                .foregroundStyle(OG.label2)
+            VStack(spacing: 6) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: 6) {
+                        ForEach(row) { day in
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(day.trained ? OG.accent : OG.surface3.opacity(0.45))
+                                .frame(height: 16)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+            .accessibilityLabel("Mapa de consistencia: \(trained) días con entreno en 4 semanas")
         }
     }
 
@@ -421,40 +599,35 @@ struct StatsView: View {
     @ViewBuilder
     private var mobilityProgressCard: some View {
         if snap.mobilitySessions > 0 {
+            let timeLabel = snap.mobilitySeconds < 60
+                ? "\(snap.mobilitySeconds) s"
+                : "\(snap.mobilitySeconds / 60) min"
             VStack(alignment: .leading, spacing: 8) {
                 OGCardSectionTitle(title: "Movilidad")
-                OGCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label("Tiempo registrado", systemImage: "figure.flexibility")
-                                .foregroundStyle(OG.label2)
-                            Spacer()
-                            Text(snap.mobilitySeconds < 60
-                                ? "\(snap.mobilitySeconds) s"
-                                : "\(snap.mobilitySeconds / 60) min \(snap.mobilitySeconds % 60) s")
-                                .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                                .foregroundStyle(OG.label)
-                        }
-                        HStack {
-                            Label("Sesiones con movilidad", systemImage: "calendar")
-                                .foregroundStyle(OG.label2)
-                            Spacer()
-                            Text("\(snap.mobilitySessions)")
-                                .font(.system(size: 18, weight: .semibold).monospacedDigit())
-                                .foregroundStyle(OG.label)
-                        }
-                        if isPro {
-                            ForEach(snap.chartExercises.filter(\.isMobility).prefix(3)) { exercise in
-                                NavigationLink {
-                                    ExerciseProgressView(exerciseId: exercise.id)
-                                } label: {
-                                    HStack {
-                                        Text(SportExerciseNames.localizedDisplayName(exercise.name))
-                                            .foregroundStyle(OG.label)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundStyle(OG.label3)
-                                    }
+                ProgressInsightCard(
+                    title: "Trabajo de movilidad",
+                    systemImage: "figure.flexibility",
+                    narrative: "Has registrado movilidad en \(snap.mobilitySessions) sesión\(snap.mobilitySessions == 1 ? "" : "es") del periodo.",
+                    tint: Color(red: 0.55, green: 0.45, blue: 0.95)
+                ) {
+                    ProgressHeroMetricRow(
+                        value: timeLabel,
+                        unit: nil,
+                        caption: "tiempo confirmado"
+                    ) {
+                        EmptyView()
+                    }
+                    if isPro {
+                        ForEach(snap.chartExercises.filter(\.isMobility).prefix(3)) { exercise in
+                            NavigationLink {
+                                ExerciseProgressView(exerciseId: exercise.id)
+                            } label: {
+                                HStack {
+                                    Text(SportExerciseNames.localizedDisplayName(exercise.name))
+                                        .foregroundStyle(OG.label)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(OG.label3)
                                 }
                             }
                         }
@@ -643,43 +816,10 @@ struct StatsView: View {
         )
     }
 
-    private var freeTilesGrid: some View {
-        let summary = snap.summary
-        let previous = snap.previousSummary
-        let streak = snap.streak
-        let totalMinutes = Int(summary.totalMinutes.rounded())
-        // Sin FC: 3 tiles en una sola fila.
-        return OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 8) {
-            tile(
-                icon: "dumbbell.fill",
-                label: "Entrenos",
-                value: "\(summary.sessionCount)",
-                iconColor: OG.accent,
-                delta: previous.map { summary.sessionCount - $0.sessionCount }
-            )
-            tile(
-                icon: "clock.fill",
-                label: "Tiempo",
-                value: "\(ReperaNumberFormat.integer(totalMinutes))′",
-                iconColor: OG.blue,
-                delta: previous.map { totalMinutes - Int($0.totalMinutes.rounded()) },
-                deltaUnit: "′"
-            )
-            tile(
-                icon: "flame.fill",
-                label: "Racha",
-                value: "\(streak)",
-                iconColor: OG.orange,
-                delta: streak - snap.previousStreak
-            )
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
     @ViewBuilder
     private var freeActivityCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Actividad")
+            OGCardSectionTitle(title: "Días activos")
             OGCard {
                 ActivityHeatmapView(
                     workouts: snap.filteredWorkouts,
@@ -809,95 +949,11 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Tiles (data from snapshot only)
-
-    private var tilesGrid: some View {
-        let summary = snap.summary
-        let previous = snap.previousSummary
-        let streak = snap.streak
-        // FC media ya está en Actividad: tres indicadores estables en una fila.
-        return OGAdaptiveMetricLayout(minimumItemWidth: 96, spacing: 8) {
-            tile(
-                icon: "dumbbell.fill",
-                label: "Entrenos",
-                value: "\(summary.sessionCount)",
-                iconColor: OG.accent,
-                delta: previous.map { summary.sessionCount - $0.sessionCount }
-            )
-            tile(
-                icon: "clock.fill",
-                label: "Tiempo",
-                value: "\(ReperaNumberFormat.integer(Int(summary.totalMinutes.rounded())))′",
-                iconColor: OG.blue,
-                delta: previous.map {
-                    Int(summary.totalMinutes.rounded()) - Int($0.totalMinutes.rounded())
-                },
-                deltaUnit: "′"
-            )
-            tile(
-                icon: "flame.fill",
-                label: "Racha",
-                value: "\(streak)",
-                iconColor: OG.orange,
-                delta: streak - snap.previousStreak
-            )
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func tile(
-        icon: String,
-        label: String,
-        value: String,
-        iconColor: Color,
-        valueColor: Color = OG.label,
-        delta: Int? = nil,
-        deltaUnit: String = ""
-    ) -> some View {
-        VStack(alignment: .center, spacing: 4) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                Text(label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(OG.label2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            Text(value)
-                .font(.system(size: 28, weight: .bold).monospacedDigit())
-                .foregroundStyle(valueColor)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .center)
-            // Mostrar también +0: la comparación está disponible aunque no varíe.
-            Group {
-                if let delta {
-                    Text("\(delta > 0 ? "+" : "")\(ReperaNumberFormat.integer(delta))\(deltaUnit)")
-                        .foregroundStyle(delta > 0 ? OG.accent : delta < 0 ? OG.red : OG.label3)
-                } else {
-                    Text("—")
-                        .foregroundStyle(OG.label3)
-                }
-            }
-            .font(.system(size: 11, weight: .semibold).monospacedDigit())
-            .frame(maxWidth: .infinity, alignment: .center)
-            .frame(height: 14)
-        }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, minHeight: 86, alignment: .center)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-    }
-
     // MARK: - Activity
 
     private var activityCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Actividad")
+            OGCardSectionTitle(title: "Días activos")
             OGCard {
                 ActivityHeatmapView(
                     workouts: snap.filteredWorkouts,
@@ -1238,7 +1294,7 @@ private struct ProgressSessionScoreChartCard: View {
         let values = points
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                OGCardSectionTitle(title: "Entrenamiento")
+                OGCardSectionTitle(title: "Último entreno")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
                     Text("Ejemplo")

@@ -1,6 +1,6 @@
 package dev.repera.mobile
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,10 +20,11 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -44,6 +45,8 @@ internal enum class ProgressCategory(
     SPORTS("Deportes", Icons.Outlined.Flag, Color(0xFF8C73F2));
 }
 
+private val brandGreen = Color(0xFF30D158)
+
 @Composable
 internal fun ProgressCategoryChipBar(
     selected: ProgressCategory,
@@ -56,7 +59,7 @@ internal fun ProgressCategoryChipBar(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(scroll)
-            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
             .testTag("progress_category_chips"),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -78,43 +81,45 @@ private fun ProgressCategoryChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(14.dp)
-    val borderColor = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.outlineVariant
-    }
-    Surface(
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface,
+    val shape = RoundedCornerShape(16.dp)
+    val bg = if (selected) brandGreen else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+    val fg = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
+    val secondary = if (selected) Color.Black.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val iconTint = if (selected) Color.Black else category.accent
+    Column(
         modifier = Modifier
-            .width(96.dp)
-            .border(if (selected) 2.dp else 1.dp, borderColor, shape)
+            .widthIn(min = 88.dp)
+            .clip(shape)
+            .background(bg, shape)
             .clickable(onClick = onClick)
-            .testTag("progress_chip_${category.name}")
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .testTag("progress_chip_${category.name}"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Column(
-            Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = category.icon,
                 contentDescription = null,
-                tint = category.accent,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-            Text(
-                value,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
+                tint = iconTint,
+                modifier = Modifier.padding(0.dp)
             )
             Text(
                 category.title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = secondary,
                 maxLines = 1
             )
         }
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = fg,
+            maxLines = 1
+        )
     }
 }

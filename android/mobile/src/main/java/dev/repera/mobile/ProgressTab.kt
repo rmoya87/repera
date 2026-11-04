@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MonitorHeart
@@ -168,7 +169,8 @@ internal fun ProgressTab(
             }
         }
         stickyHeader {
-            Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+            // Fondo transparente: sin franja opaca ni línea gris al anclar.
+            Box(Modifier.fillMaxWidth()) {
                 ProgressCategoryChipBar(
                     selected = selectedCategory,
                     glanceValue = { cat ->
@@ -196,7 +198,6 @@ internal fun ProgressTab(
         when (selectedCategory) {
             ProgressCategory.TRAINING -> {
                 if (snapshot != null) {
-                    item { ProgressMetricsTilesGrid(snapshot, pro) }
                     item {
                         AdaptiveCardPair(
                             first = {
@@ -224,6 +225,16 @@ internal fun ProgressTab(
                             }
                         )
                     }
+                    item {
+                        val avg = overview?.sessionScoresByRange?.get(selectedRange)
+                            ?.map { it.value }
+                            ?.takeIf { it.isNotEmpty() }
+                            ?.let { values ->
+                                String.format(java.util.Locale("es", "ES"), "%.1f", values.average())
+                            } ?: "—"
+                        ProgressTrainingGlanceGrid(snapshot, pro, averageText = avg)
+                    }
+                    item { ProgressWeekConsistencyCard(today = today, overview = overview) }
                     if (snapshot.mobilitySessions > 0) {
                         item { ReperaSectionTitle("Movilidad") }
                         item {
@@ -240,16 +251,12 @@ internal fun ProgressTab(
                     if (pro) {
                         item { ReperaSectionTitle("A largo plazo") }
                         item {
-                            ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                                    Text(
-                                        "En este periodo llevas ${snapshot.summary.sessionCount} entrenos y ${snapshot.summary.totalMinutes.toInt()} minutos registrados.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                            ProgressLongTermConsistencyCard(
+                                sessionCount = snapshot.summary.sessionCount,
+                                totalMinutes = snapshot.summary.totalMinutes.toInt(),
+                                today = today,
+                                overview = overview
+                            )
                         }
                     } else {
                         item {
@@ -303,19 +310,34 @@ internal fun ProgressTab(
                 if (snapshot != null) {
                     item { ReperaSectionTitle("Fuerza") }
                     item {
-                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Outlined.FitnessCenter, null, tint = ProgressCategory.STRENGTH.accent)
-                                    Text("Carga y marcas", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.STRENGTH.accent)
-                                }
-                                Text(
-                                    if (snapshot.records.isEmpty()) "Cuando registres series de fuerza, verás récords y volumen aquí."
-                                    else "Has logrado ${snapshot.records.size} marcas en el periodo.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        ProgressSaludInsightCard(
+                            title = "Carga y marcas",
+                            icon = Icons.Outlined.FitnessCenter,
+                            tint = ProgressCategory.STRENGTH.accent,
+                            narrative = if (snapshot.records.isEmpty()) {
+                                "Cuando registres series de fuerza, verás récords y volumen aquí."
+                            } else {
+                                "Has logrado ${snapshot.records.size} marcas en el periodo. Abajo tienes el detalle por ejercicio y e1RM."
+                            },
+                            heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
+                            heroUnit = if (snapshot.records.isEmpty()) null else "PR",
+                            heroCaption = if (snapshot.records.isEmpty()) "sin marcas aún" else "en el periodo"
+                        )
+                    }
+                    item {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ProgressMetricGlanceCard(
+                                title = "Sesiones",
+                                value = "${snapshot.summary.sessionCount}",
+                                modifier = Modifier.weight(1f),
+                                tint = ProgressCategory.STRENGTH.accent
+                            )
+                            ProgressMetricGlanceCard(
+                                title = "Ejercicios",
+                                value = if (snapshot.chartExercises.isEmpty()) "—" else "${snapshot.chartExercises.size}",
+                                modifier = Modifier.weight(1f),
+                                tint = ProgressCategory.STRENGTH.accent
+                            )
                         }
                     }
                     if (subscriptions == null || subscriptions.isPro) {
@@ -345,6 +367,23 @@ internal fun ProgressTab(
                 }
             }
             ProgressCategory.FITNESS -> {
+                item { ReperaSectionTitle("Forma física") }
+                item {
+                    val minutes = snapshot?.summary?.totalMinutes?.toInt() ?: 0
+                    ProgressSaludInsightCard(
+                        title = "Estímulo activo",
+                        icon = Icons.Outlined.DirectionsWalk,
+                        tint = ProgressCategory.FITNESS.accent,
+                        narrative = if (minutes > 0) {
+                            "Has acumulado $minutes minutos de actividad en el periodo. El mapa muestra tus días activos."
+                        } else {
+                            "Cuando camines o entrenes, verás aquí tu estímulo y el mapa de días activos."
+                        },
+                        heroValue = if (minutes > 0) "$minutes" else "—",
+                        heroUnit = if (minutes > 0) "min" else null,
+                        heroCaption = if (pro) "este mes" else "esta semana"
+                    )
+                }
                 if (snapshot != null && snapshot.heatmapTime.isNotEmpty()) {
                     item { ReperaSectionTitle("Días activos") }
                     item { ActivityHeatmapCard(snapshot.heatmapTime, snapshot.heatmapVolume, rangeEnum) }
@@ -379,19 +418,15 @@ internal fun ProgressTab(
             ProgressCategory.HEART -> {
                 item { ReperaSectionTitle("Corazón") }
                 item {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.MonitorHeart, null, tint = ProgressCategory.HEART.accent)
-                                Text("Frecuencia cardíaca", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.HEART.accent)
-                            }
-                            Text(
-                                "Consulta tu pulso diario y el esfuerzo medido de tus entrenos.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    ProgressSaludInsightCard(
+                        title = "Frecuencia cardíaca",
+                        icon = Icons.Outlined.MonitorHeart,
+                        tint = ProgressCategory.HEART.accent,
+                        narrative = "Consulta tu pulso diario y el esfuerzo medido de tus entrenos.",
+                        heroValue = "—",
+                        heroUnit = "LPM",
+                        heroCaption = "media reciente"
+                    )
                 }
                 if (latestMeasuredWorkout != null) item { TrainingMeasuredEffortCard(latestMeasuredWorkout) }
                 item {
@@ -486,6 +521,199 @@ internal fun ProgressTab(
     }
 }
 
+
+@Composable
+private fun ProgressTrainingGlanceGrid(
+    snapshot: ProgressSnapshotData,
+    pro: Boolean,
+    averageText: String
+) {
+    val minutes = snapshot.summary.totalMinutes.toInt()
+    val timeText = if (minutes >= 60) {
+        val h = minutes / 60
+        val m = minutes % 60
+        if (m == 0) "${h} h" else "${h} h $m"
+    } else {
+        "${minutes}′"
+    }
+    val streak = if (snapshot.streak > 0) "${snapshot.streak} sem" else "—"
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ProgressMetricGlanceCard(
+                title = if (pro) "Media mes" else "Media 7 días",
+                value = averageText,
+                modifier = Modifier.weight(1f)
+            )
+            ProgressMetricGlanceCard(title = "Racha", value = streak, modifier = Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ProgressMetricGlanceCard(
+                title = "Entrenos",
+                value = "${snapshot.summary.sessionCount}",
+                modifier = Modifier.weight(1f)
+            )
+            ProgressMetricGlanceCard(title = "Tiempo", value = timeText, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun ProgressMetricGlanceCard(
+    title: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    tint: Color = brandGreen
+) {
+    ReperaCard(modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = tint, maxLines = 1)
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressSaludInsightCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    narrative: String,
+    heroValue: String,
+    heroUnit: String?,
+    heroCaption: String?
+) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = tint)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = tint, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
+            Text(narrative, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            heroValue,
+                            style = MaterialTheme.typography.displaySmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        if (heroUnit != null) {
+                            Text(
+                                " $heroUnit",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+                    }
+                    if (heroCaption != null) {
+                        Text(heroCaption, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressWeekConsistencyCard(
+    today: LocalDate,
+    overview: StateOverview?
+) {
+    val trained = trainedDays(overview, today.minusDays(6), today)
+    val days = (0..6).map { offset ->
+        val day = today.minusDays((6 - offset).toLong())
+        day to trained.contains(day)
+    }
+    val count = days.count { it.second }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReperaSectionTitle("Esta semana")
+        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = brandGreen)
+                Text(
+                    if (count == 0) "Aún no hay entrenos registrados esta semana."
+                    else "Has entrenado $count de 7 días. Mantén el ritmo.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    days.forEach { (day, did) ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (did) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            Text(
+                                day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale("es", "ES")),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (day == today) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressLongTermConsistencyCard(
+    sessionCount: Int,
+    totalMinutes: Int,
+    today: LocalDate,
+    overview: StateOverview?
+) {
+    val start = today.minusDays(27)
+    val trained = trainedDays(overview, start, today)
+    val cells = (0..27).map { offset ->
+        val day = start.plusDays(offset.toLong())
+        trained.contains(day)
+    }
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = brandGreen)
+            Text(
+                "En las últimas 4 semanas has entrenado ${trained.size} días distintos · $sessionCount sesiones · $totalMinutes min.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                cells.chunked(7).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { on ->
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .height(14.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(if (on) brandGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun trainedDays(overview: StateOverview?, from: LocalDate, to: LocalDate): Set<LocalDate> {
+    val history = overview?.completeHistory.orEmpty().ifEmpty { overview?.history.orEmpty() }
+    return history.mapNotNull { workout ->
+        workout.finishedAtIso?.let { iso ->
+            runCatching {
+                java.time.Instant.parse(iso).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            }.getOrNull()
+        }
+    }.filter { it in from..to }.toSet()
+}
 
 @Composable
 private fun TrainingMeasuredEffortCard(workout: WorkoutHistoryEntry) {
