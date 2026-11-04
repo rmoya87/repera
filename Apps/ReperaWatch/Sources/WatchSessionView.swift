@@ -5,6 +5,7 @@ import WatchKit
 /// The first screen is always the day's workout, or the currently running session.
 struct WatchSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     @State private var showOutline = false
     @State private var showSetDetails = false
     @State private var showSpokenSet = false
@@ -18,9 +19,7 @@ struct WatchSessionView: View {
     @State private var showCancelConfirmation = false
     @State private var cancelConfirmationError: String?
 
-    // Exact Repera iOS theme accent (OG.accent, #30D158).
-    // Filled accent buttons use OG.onAccent: black.
-    private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
+    private var accent: Color { WatchTheme.accent }
 
     var body: some View {
         NavigationStack {

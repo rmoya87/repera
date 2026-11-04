@@ -7,108 +7,123 @@ import WatchKit
 /// El título lo muestra el root junto a la hora; métricas en columna.
 struct WatchLiveSessionView: View {
     @Environment(WatchSessionHub.self) private var hub
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     let sport: WatchLiveSport
     var onCancelRequest: () -> Void
     @State private var conditions: ActivityConditionsSnapshot?
     @State private var conditionsLoading = false
     @State private var lastConditionsFetch = Date.distantPast
 
-    private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
+    private var accent: Color { WatchTheme.accent }
 
     var body: some View {
         WatchSwipeControlSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                if hub.watchLivePaused {
+                if hub.watchLivePaused && !isLuminanceReduced {
                     Text("En pausa")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(WatchTheme.warning)
                 }
 
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { _ in
                     Text(timeLabel(hub.watchLiveElapsedSeconds))
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .font(.system(size: isLuminanceReduced ? 40 : 44, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .minimumScaleFactor(0.55)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(.primary)
                 }
 
                 VStack(alignment: .leading, spacing: 7) {
                     if sport.usesGPS {
                         WatchLiveMetricRow(label: "km", value: distanceValue)
-                        if sport.displaysSpeed {
-                            WatchLiveMetricRow(label: "km/h", value: speedValue)
-                        } else {
-                            WatchLiveMetricRow(label: "Ritmo", value: paceValue)
-                        }
-                        if sport.tracksElevation {
-                            WatchLiveMetricRow(label: "Desnivel", value: elevationValue)
+                        if !isLuminanceReduced {
+                            if sport.displaysSpeed {
+                                WatchLiveMetricRow(label: "km/h", value: speedValue)
+                            } else {
+                                WatchLiveMetricRow(label: "Ritmo", value: paceValue)
+                            }
+                            if sport.tracksElevation {
+                                WatchLiveMetricRow(label: "Desnivel", value: elevationValue)
+                            }
                         }
                     }
                     if let bpm = hub.heartRateBpm {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("FC")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            WatchHeartRateZoneBar(bpm: bpm, prominent: !sport.usesGPS)
+                        if isLuminanceReduced {
+                            WatchLiveMetricRow(label: "FC", value: "\(Int(bpm.rounded()))")
+                        } else {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("FC")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                WatchHeartRateZoneBar(bpm: bpm, prominent: !sport.usesGPS)
+                            }
                         }
                     }
-                    WatchLiveMetricRow(
-                        label: "kcal",
-                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
-                        prominent: !sport.usesGPS
-                    )
+                    if !isLuminanceReduced {
+                        WatchLiveMetricRow(
+                            label: "kcal",
+                            value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                            prominent: !sport.usesGPS
+                        )
+                    }
                 }
 
-                if let warning = hub.healthWarning {
+                if !isLuminanceReduced, let warning = hub.healthWarning {
                     Text(warning)
                         .font(.caption2)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(WatchTheme.warning)
                 }
 
-                // Contenido de actividad y clima en vertical; acciones mediante swipe lateral.
-                WatchActivityConditionsBlock(
-                    conditions: conditions,
-                    loading: conditionsLoading
-                )
+                if !isLuminanceReduced {
+                    WatchActivityConditionsBlock(
+                        conditions: conditions,
+                        loading: conditionsLoading
+                    )
+                }
             }
             .padding(.horizontal, 6)
         }
         } controls: {
-            WatchControlActionButton(
-                title: hub.watchLivePaused ? "Reanudar" : "Pausar",
-                systemName: hub.watchLivePaused ? "play.fill" : "pause.fill",
-                tint: accent
-            ) {
-                hub.toggleWatchLivePause()
+            if !isLuminanceReduced {
+                WatchControlActionButton(
+                    title: hub.watchLivePaused ? "Reanudar" : "Pausar",
+                    systemName: hub.watchLivePaused ? "play.fill" : "pause.fill",
+                    tint: accent
+                ) {
+                    hub.toggleWatchLivePause()
+                }
+                WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
+                    hub.finishWatchLive()
+                }
+                Button("Cancelar actividad", role: .destructive) {
+                    onCancelRequest()
+                }
+                .font(.caption)
             }
-            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                hub.finishWatchLive()
-            }
-            Button("Cancelar actividad", role: .destructive) {
-                onCancelRequest()
-            }
-            .font(.caption)
         }
         .toolbar {
-            // Mute: círculo accent del tint del NavigationStack; icono negro.
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    hub.toggleAudioMuted()
-                } label: {
-                    Image(systemName: hub.audioMuted
-                          ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.black)
-                        .frame(width: 30, height: 30)
-                        .background(accent, in: Circle())
+            if !isLuminanceReduced {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        hub.toggleAudioMuted()
+                    } label: {
+                        Image(systemName: hub.audioMuted
+                              ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(WatchTheme.onAccent)
+                            .frame(width: 30, height: 30)
+                            .background(accent, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(hub.audioMuted ? "Activar audio" : "Silenciar audio")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(hub.audioMuted ? "Activar audio" : "Silenciar audio")
             }
         }
         .task(id: hub.watchLiveDistanceMeters) {
+            guard !isLuminanceReduced else { return }
             await refreshConditionsIfNeeded()
         }
     }
