@@ -1,44 +1,34 @@
 # Integraciones nativas iOS / Android / Watch / Wear — 4 nov 2026
 
+Última actualización: 2026-11-04.
+
 ## Alcance / estado de este PR
 
-Implementación incremental, NO cierre de las cuatro fases. El repositorio ya cuenta con GPS, HealthKit/Health Connect, Health Services, mirroring de sesiones, ActivityKit, notificaciones, complicaciones watchOS y un Tile de Wear OS. No se duplican esas capas.
+Implementación incremental sobre la PR #221. Distinguir **implementado / compilado / CI / hardware**.
 
 ### Implementado aquí
 
-- **Fase 1, entrada segura:** accesos externos de navegación, comprobación de hidratación e identidad; guardas de propiedad GPS idempotentes en Android para no perder muestras al reabrir la sesión. Actualización del widget de Android mediante WorkManager tras escritura atómica, aislando los fallos del widget del guardado y de la autenticación.
-- **Fase 2, iOS:** App Intents/App Shortcuts para Entreno de hoy, Comenzar, herramientas y Ejercicios; WidgetKit de inicio con accesos para iPhone, sin exponer datos sanitarios a extensiones. Tres Control Widgets nativos para Centro de Control / pantalla bloqueada / Botón Acción compatibles, enviados a la escena de Repera a través de OpenIntent; no registran series en segundo plano.
-- **Fase 2, Android:** accesos directos del launcher, dos Quick Settings Tiles y un Glance AppWidget con comprobación de sesión y acceso a Comenzar / Inicio / Ejercicios / Temporizador. Todas las acciones abren la actividad autenticada; nunca se ejecutan sensores ni guardados desde un receiver.
-- **Fase 2, Apple Watch:** el botón principal de avance de sesión activa admite doble toque en modelos compatibles, deshabilitado al finalizar o cuando no se puede confirmar. Probar en reloj real y verificar que no interfiere con scroll.
-- **Fase 3, relojes y búsqueda:** el Tile de Wear OS muestra primero la sesión activa; la complicación de watchOS aporta relevancia a Smart Stack. Core Spotlight indexa exclusivamente ejercicios públicos del catálogo, sin datos de salud/rutinas privadas; al abrir exige identidad e ID existente. La aparición efectiva de cada superficie depende del sistema.
-- **Fase 4, iOS:** compartir una ruta GPS real como GPX desde el mapa histórico ampliado, con lat/lon validadas, tiempo original y separación de huecos >30 s. WorkoutKit: preparar objetivos de tiempo/distancia solo para deportes cardio admitidos y entregar el plan a Entreno de Apple Watch explícitamente, antes de iniciar la grabación Repera. No se inventan coordenadas ni se graban sesiones en paralelo.
-- **Fase 4, Android:** compartir GPX desde el histórico de una sesión con recorrido GPS: un codec de dominio valida rango, elimina puntos inferidos y separa cortes, mientras FileProvider concede acceso de lectura temporal únicamente mediante el chooser del sistema. Incluye pruebas unitarias del codec.
+- **Fase 1, entrada segura:** accesos externos de navegación, comprobación de hidratación e identidad; guardas de propiedad GPS idempotentes en Android; widget Glance tras escritura atómica sin romper login/guardado.
+- **Fase 2, iOS:** App Intents/Siri Shortcuts; WidgetKit; Control Widgets (Centro de Control / Action Button iPhone); Live Activity / Dynamic Island con botones `LiveActivityIntent` de pausa/reanudación/abrir sesión que **solo encolan** comandos al proceso de la app (nunca confirman series ni escriben HealthKit desde la extensión).
+- **Fase 2, Android:** launcher shortcuts, Quick Settings Tiles, Glance widget; **Google Assistant App Actions** (`OPEN_APP_FEATURE` / `GET_THING`) enlazadas a deep links `repera://…` sin sensores.
+- **Fase 2, Apple Watch:** doble toque condicionado en el avance de sesión (`handGestureShortcut`); Action Button del Ultra en iPhone vía Control Widgets (validación en hardware pendiente).
+- **Fase 3:** Spotlight solo catálogo público; **AppSearch Android opt-in** (consentimiento en Salud conectada, solo ejercicios públicos, borrado al cerrar sesión); dictado Watch/Wear con confirmación previa; recordatorios locales −60 min de reservas `booked`; sugerencias de lugar editables al revisar (sin inventar GPS).
+- **Fase 4:** GPX iOS/Android solo puntos reales; WorkoutKit con `workoutPreview` + `WorkoutScheduler` en iPhone (API `openInWorkoutApp` no disponible en iOS); objetivos tiempo/distancia e **intervalos estructurados** `CustomWorkout` con aviso de zona FC cuando el SDK lo admite; sin grabación paralela Repera+Entreno.
 
-### Entregas adicionales de esta revisión
+### Backend de recordatorios (remoto)
 
-- **Dictado Apple Watch y Wear OS**: entrada vocal nativa en campos de texto/servicio de voz del sistema, extracción de unidades explícitas (repeticiones y kg) y confirmación visual. Solo edita el borrador de la sesión correcta; no confirma series ni atribuye repeticiones automáticamente. Wear OS muestra alternativa manual si no hay reconocimiento.
-- **Avisos una hora antes (iOS/Android)**: reconciliación local de reservas confirmadas con caducidad y verificación de propietario. Se actualizan al refrescar las reservas y se eliminan al cerrar sesión. Android usa WorkManager (puede aplazarse con restricciones de batería) e iOS UNUserNotificationCenter; sin permiso no se muestra notificación.
-- **Backend de recordatorios — bloqueo externo verificado**: la base de datos tiene notification_outbox y claim_due_reminders; sin embargo, el proyecto Supabase no muestra la Edge Function repera-business-push desplegada ni una tabla activa cron.job. El envío remoto por FCM/APNs requiere despliegue, cron seguro, credenciales de proveedor y prueba real. No se considera operativo ni se afirma entrega garantizada.
+- Esquema: `notification_outbox`, RPC `claim_due_reminders` (service_role).
+- Código Edge: `supabase/functions/repera-business-push`.
+- **Pendiente externo:** desplegar la Edge Function, cron/scheduler seguro, secretos FCM/APNs y prueba end-to-end. Los avisos locales son el fallback operativo sujeto a permisos del SO.
 
-### Pendiente para completar las cuatro fases
+### Pendiente / no cerrado solo con código
 
-**Fase 1:** auditoría integral de durabilidad de comandos entre dispositivos, conflictos multiusuario y reinicios; optimización energética validada por dispositivos y versión. El tracker GPS de Android ahora evita preempción y realiza fallback a GPS/red si FUSED no está disponible.
+| Ítem | Estado |
+|------|--------|
+| Pruebas físicas Watch Ultra Action Button / doble toque / corona | Hardware |
+| Validación Assistant en Play Console / dispositivo | Distribución |
+| Entrega remota garantizada de recordatorios | Credenciales + deploy |
+| Conciliación HealthKit/Health Connect en dispositivo real | Hardware |
+| Emuladores API 30/35/37.2 y Wear 5.1/6.0 | CI (ver checks de la PR) |
 
-**Fase 2:** controles de pausa/reanudación/serie interactivos en Dynamic Island y Live Activities con persistencia y seguridad; Apple Watch Ultra Action Button especializado (los Control Widgets de iPhone ya están codificados, pendientes de validar en iPhone); Google Assistant App Actions con configuración/validación de Play, y acciones de terceros dependientes del fabricante.
-
-**Fase 3:** búsqueda profunda de rutinas privadas opt-in/Android AppSearch, dictado de series con confirmación, recordatorios fiables de clases vía backend, sugerencias de lugar contextuales editables y relevancia temporal adicional de Smart Stack/Tiles. Indexación de catálogo público en Spotlight ya codificada, falta la prueba de instalación real.
-
-**Fase 4:** objetivos deportivos activos durante sesiones Repera, WorkoutKit avanzado para intervalos completos (la transferencia cardio básica ya está codificada), share extensions/importación externa con validación, mejorar escrituras y conciliación Health Connect/HealthKit con pruebas en hardware.
-
-No se debe marcar como finalizada la ejecución de las cuatro fases solo por integrar esta PR.
-
-## Validaciones necesarias
-
-1. CI iOS, Swift watchOS, Android/Wear OS; pruebas unitarias y de UI.
-2. iPhone: widgets de 2 tamaños y Siri, app fría/caliente, onboarding, cuenta cerrada, sesión activa; no empezar sesión sin permiso.
-3. Android 15–17: Glance widget, Quick Tiles, atajos y enlaces con móvil bloqueado, Chrome/default launcher, background restrictions y sesión vencida.
-4. Apple Watch Series 9+/Ultra 2+: doble toque real y desplazamiento con corona, sin confirmar series al hacer scroll ni finalizar.
-5. Wear OS: Tile en entrenamiento activo, plan descargado y sin plan; reloj desconectado. Idempotencia del GPS Android frente a llamadas concurrentes o reentrantes.
-6. GPX iOS/Android y WorkoutKit: distintas longitudes, cortes, coordenadas inválidas, puntos inferidos, orden temporal y compartir a Archivos/otra app. Con Watch enlazado: comprobar deporte/objetivo admitido y que no se inicia otra sesión Repera. Ningún archivo se transmite sin una acción explícita del usuario.
-
-Criterios de UX de las skills instaladas de Emil Kowalski: claridad sobre animación, controles accesibles, estados vacíos, transiciones nativas y test en hardware. Mantener verde Repera y no duplicar lógica de sensores.
+No marcar las cuatro fases como «terminadas» sin CI verde e integración en `main`.

@@ -138,7 +138,10 @@ struct RootTabView: View {
         }
         .task { restoreActiveSessionOnLaunch(); openPendingSystemCommand() }
         .task(id: store.isHydrated) {
-            if store.isHydrated { openPendingSystemCommand() }
+            if store.isHydrated {
+                openPendingSystemCommand()
+                applyPendingLiveActivityCommand()
+            }
         }
         .task(id: store.catalogEpoch) {
             guard store.isHydrated, !store.state.exercises.isEmpty else { return }
@@ -149,6 +152,9 @@ struct RootTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: ReperaSystemCommand.notification)) { _ in
             openPendingSystemCommand()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TrainingLiveActivityCommand.notification)) { _ in
+            applyPendingLiveActivityCommand()
         }
         .onOpenURL(perform: handleOpenURL)
         .sheet(isPresented: $showInvitationSheet) {
@@ -373,6 +379,30 @@ struct RootTabView: View {
         case .exercises:
             flowPath = []
             tab = .exercises
+        }
+    }
+
+    /// Applies Live Activity / Dynamic Island actions after identity hydration.
+    /// Pause/resume never invent GPS samples; openSession never auto-confirms sets.
+    private func applyPendingLiveActivityCommand() {
+        guard store.isHydrated else { return }
+        guard let action = TrainingLiveActivityCommand.takePending() else { return }
+        switch action {
+        case .pause:
+            LiveActivityRecorder.shared.pause()
+            flowPath = []
+            tab = .start
+        case .resume:
+            LiveActivityRecorder.shared.resume()
+            flowPath = []
+            tab = .start
+        case .openSession:
+            flowPath = []
+            if store.hasActiveSession {
+                openWorkout()
+            } else {
+                tab = .start
+            }
         }
     }
 

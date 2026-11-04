@@ -35,6 +35,23 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         widget_bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
         self.assertIn("ReperaBeginControl()", widget_bundle)
 
+    def test_live_activity_intents_never_confirm_sets_or_write_health(self):
+        intents = source("Apps/Shared/TrainingLiveActivityIntents.swift")
+        self.assertIn("LiveActivityIntent", intents)
+        self.assertIn("TrainingPauseLiveActivityIntent", intents)
+        self.assertIn("TrainingResumeLiveActivityIntent", intents)
+        self.assertIn("TrainingOpenSessionLiveActivityIntent", intents)
+        self.assertNotIn("HKWorkoutSession", intents)
+        self.assertNotIn("confirmAndAdvance", intents)
+        self.assertNotIn("loggedSets", intents)
+        widget = source("Apps/ReperaRestWidget/TrainingLiveActivityWidget.swift")
+        self.assertIn("TrainingPauseLiveActivityIntent()", widget)
+        self.assertIn("TrainingOpenSessionLiveActivityIntent()", widget)
+        root = source("Apps/Repera/Sources/RootTabView.swift")
+        self.assertIn("applyPendingLiveActivityCommand", root)
+        self.assertIn("LiveActivityRecorder.shared.pause()", root)
+        self.assertIn("LiveActivityRecorder.shared.resume()", root)
+
     def test_apple_widgets_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
         self.assertIn("ReperaHomeWidget()", bundle)
@@ -45,6 +62,21 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn(".handGestureShortcut(.primaryAction", watch)
         self.assertIn("!hub.nextActionIsFinish", watch)
+
+    def test_android_assistant_and_appsearch_are_opt_in_public_only(self):
+        shortcuts = source("android/mobile/src/main/res/xml/repera_shortcuts.xml")
+        self.assertIn("actions.intent.OPEN_APP_FEATURE", shortcuts)
+        self.assertIn("actions.intent.GET_THING", shortcuts)
+        self.assertIn("repera://live", shortcuts)
+        self.assertNotIn("HealthConnect", shortcuts)
+        search = source("android/mobile/src/main/java/dev/repera/mobile/PublicExerciseAppSearch.kt")
+        self.assertIn("isConsentGranted", search)
+        self.assertIn('optBoolean("isCustom")', search)
+        self.assertIn("clearConsent", search)
+        health = source("android/mobile/src/main/java/dev/repera/mobile/ConnectedHealthScreen.kt")
+        self.assertIn("AppSearchConsentRow", health)
+        main = source("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt")
+        self.assertIn("PublicExerciseAppSearch.clearAll", main)
 
     def test_android_external_actions_are_navigation_only(self):
         route = source("android/mobile/src/main/java/dev/repera/mobile/LiveNavigationTarget.kt")
@@ -97,7 +129,11 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         source_text = source("Apps/Repera/Sources/AppleWorkoutExportSheet.swift")
         self.assertIn("SingleGoalWorkout.supportsActivity", source_text)
         self.assertIn("SingleGoalWorkout.supportsGoal", source_text)
-        self.assertIn("try await plan.openInWorkoutApp()", source_text)
+        # iOS: openInWorkoutApp is unavailable; use system preview + scheduler.
+        self.assertNotIn("openInWorkoutApp()", source_text)
+        self.assertIn(".workoutPreview(", source_text)
+        self.assertIn("WorkoutScheduler.shared", source_text)
+        self.assertIn("scheduler.schedule(plan, at: when)", source_text)
         self.assertIn("case .running, .walking, .hiking", source_text)
         self.assertIn("utiliza Entreno de Apple o Repera", source_text)
         self.assertNotIn("HKWorkoutSession(", source_text)

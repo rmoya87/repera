@@ -2856,10 +2856,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
+                val signedOutAccount = sessionStore.load()?.userId
                 sessionStore.clear()
                 ClassBookingReminders.clear(this@MainActivity)
                 PlannedWorkoutNotification.cancel(this@MainActivity)
                 RemoteExerciseCatalogWorker.cancel(this@MainActivity)
+                PublicExerciseAppSearch.clearConsent(this@MainActivity, signedOutAccount)
+                PublicExerciseAppSearch.clearAll(this@MainActivity)
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {

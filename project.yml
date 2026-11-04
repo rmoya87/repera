@@ -69,6 +69,7 @@ targets:
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
       - path: Apps/Shared/ReperaControlOpenIntent.swift
+      - path: Apps/Shared/TrainingLiveActivityIntents.swift
       - path: Apps/Shared/AppleWeatherConditionsClient.swift
       - path: Apps/Shared/AppleWeatherAttributionView.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
@@ -192,6 +193,7 @@ targets:
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
       - path: Apps/Shared/ReperaControlOpenIntent.swift
+      - path: Apps/Shared/TrainingLiveActivityIntents.swift
       # El logotipo corporativo se empaqueta también en la extensión WidgetKit;
       # los assets de la app no son visibles automáticamente desde otra bundle.
       - path: Apps/Repera/Resources/Assets.xcassets

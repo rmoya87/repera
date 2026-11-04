@@ -15,15 +15,25 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Paridad iOS `ConnectedHealthSettingsView` («Salud conectada»):
@@ -111,6 +121,8 @@ internal fun ConnectedHealthScreen(
                     enabled = false,
                     onClick = null
                 )
+                SettingsCardDivider()
+                AppSearchConsentRow()
             }
         }
         Text(
@@ -118,6 +130,63 @@ internal fun ConnectedHealthScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+        )
+    }
+}
+
+/** Opt-in system search for the public exercise catalog; never indexes private routines. */
+@Composable
+private fun AppSearchConsentRow() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val accountId = remember { SessionStore(context).load()?.userId }
+    var granted by remember(accountId) {
+        mutableStateOf(PublicExerciseAppSearch.isConsentGranted(context, accountId))
+    }
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.TravelExplore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                "Indexar catálogo público en el sistema",
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                "Solo ejercicios públicos. Sin rutinas privadas ni salud.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = granted,
+            enabled = !accountId.isNullOrBlank(),
+            onCheckedChange = { enabled ->
+                PublicExerciseAppSearch.setConsent(context, accountId, enabled)
+                granted = enabled
+                scope.launch {
+                    if (!enabled) {
+                        PublicExerciseAppSearch.clearAll(context)
+                    } else {
+                        val exercises = runCatching {
+                            accountId?.let { LocalSnapshotStore(context, it).read() }
+                                ?.let { JSONObject(String(it)).optJSONArray("exercises") }
+                        }.getOrNull()
+                        if (exercises != null) {
+                            PublicExerciseAppSearch.reconcile(context, accountId, exercises)
+                        }
+                    }
+                }
+            },
         )
     }
 }

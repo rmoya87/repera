@@ -62,17 +62,25 @@ struct TrainingLiveActivityWidget: Widget {
                     .padding(.top, 2)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.phase != .completed,
-                       context.state.navigation == nil, !context.state.subtitle.isEmpty {
-                        if !context.attributes.isPlanned {
-                            splitStrip(context.state.subtitle, compact: true)
-                        } else {
-                            Text(context.state.subtitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .multilineTextAlignment(.center)
+                    VStack(spacing: 8) {
+                        if context.state.phase != .completed,
+                           context.state.navigation == nil, !context.state.subtitle.isEmpty {
+                            if !context.attributes.isPlanned {
+                                splitStrip(context.state.subtitle, compact: true)
+                            } else {
+                                Text(context.state.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        if context.state.phase != .completed {
+                            liveActivityControls(
+                                phase: context.state.phase,
+                                isPlanned: context.attributes.isPlanned
+                            )
                         }
                     }
                 }
@@ -189,9 +197,19 @@ struct TrainingLiveActivityWidget: Widget {
             // Ahorramos espacio ENTRE la tarjeta de navegación y los datos
             // para que la reserva bajo las etiquetas sea realmente visible.
             .padding(.top, hasNavigation ? 10 : 14)
-            .padding(.bottom, hasNavigation ? 21 : 18)
+            .padding(.bottom, hasNavigation ? 12 : 10)
             .foregroundStyle(.white)
             .background(.black)
+
+            if context.state.phase != .completed {
+                liveActivityControls(
+                    phase: context.state.phase,
+                    isPlanned: context.attributes.isPlanned
+                )
+                .padding(.horizontal, 14)
+                .padding(.bottom, hasNavigation ? 14 : 12)
+                .background(.black)
+            }
 
             if !hasNavigation, context.state.phase != .completed,
                !context.state.subtitle.isEmpty {
@@ -347,5 +365,43 @@ struct TrainingLiveActivityWidget: Widget {
 
     private func destination(for attributes: TrainingActivityAttributes) -> URL? {
         URL(string: attributes.isPlanned ? "repera://workout" : "repera://live")
+    }
+
+    /// Interactive controls enqueue pause/resume/open in the app process.
+    /// They never confirm sets or write HealthKit from the widget extension.
+    @ViewBuilder
+    private func liveActivityControls(
+        phase: TrainingActivityAttributes.ContentState.Phase,
+        isPlanned: Bool
+    ) -> some View {
+        HStack(spacing: 10) {
+            if !isPlanned {
+                if phase == .paused {
+                    Button(intent: TrainingResumeLiveActivityIntent()) {
+                        Label("Reanudar", systemImage: "play.fill")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .tint(green)
+                    .buttonStyle(.borderedProminent)
+                } else if phase == .running {
+                    Button(intent: TrainingPauseLiveActivityIntent()) {
+                        Label("Pausar", systemImage: "pause.fill")
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .tint(pauseYellow)
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            Button(intent: TrainingOpenSessionLiveActivityIntent()) {
+                Label(isPlanned ? "Confirmar serie" : "Abrir", systemImage: "arrow.up.forward.app")
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .tint(.white)
+            .buttonStyle(.bordered)
+        }
+        .foregroundStyle(.white)
     }
 }
