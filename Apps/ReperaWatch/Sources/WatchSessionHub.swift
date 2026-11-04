@@ -602,6 +602,13 @@ final class WatchSessionHub: NSObject {
     /// distancia, como mucho cada 60 s: WidgetKit limita las recargas.
     func publishComplicationSnapshot(force: Bool = false) {
         let now = Date()
+        let restHint = restRemaining > 0 ? restRemaining : nil
+        let todayLabel: String? = {
+            guard let plan = todaysWorkout else { return nil }
+            let title = plan.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else { return "Entreno de hoy" }
+            return "Hoy · \(title)"
+        }()
         let live: ReperaComplicationSnapshot?
         if let sport = watchLiveSport, let id = watchLiveSessionID {
             live = ReperaComplicationSnapshot(
@@ -610,7 +617,9 @@ final class WatchSessionHub: NSObject {
                 timerAnchor: watchLiveTimerAnchor,
                 distanceMeters: sport.usesGPS ? watchLiveDistanceMeters : nil,
                 heartRateBpm: heartRateBpm, energyKcal: health.kcal,
-                paused: watchLivePaused
+                paused: watchLivePaused,
+                restRemainingSeconds: restHint,
+                nextBookingLabel: todayLabel
             )
         } else if let companion = liveActivity, companion.phase != .review {
             let elapsed = companion.displayElapsed(at: now)
@@ -620,7 +629,9 @@ final class WatchSessionHub: NSObject {
                 timerAnchor: companion.phase == .recording ? now.addingTimeInterval(-elapsed) : nil,
                 distanceMeters: companion.distanceMeters,
                 heartRateBpm: heartRateBpm, energyKcal: health.kcal,
-                paused: companion.phase == .paused
+                paused: companion.phase == .paused,
+                restRemainingSeconds: restHint,
+                nextBookingLabel: todayLabel
             )
         } else if let workout = active, workout.phase == .counting {
             live = ReperaComplicationSnapshot(
@@ -628,7 +639,24 @@ final class WatchSessionHub: NSObject {
                 capturedAt: now, elapsedSeconds: sessionElapsed,
                 timerAnchor: sessionClockAnchor, distanceMeters: nil,
                 heartRateBpm: heartRateBpm, energyKcal: health.kcal,
-                paused: isPaused
+                paused: isPaused,
+                restRemainingSeconds: restHint,
+                nextBookingLabel: todayLabel
+            )
+        } else if let todayLabel {
+            // Idle Smart Stack: surface today's plan (no invented bookings).
+            live = ReperaComplicationSnapshot(
+                sessionID: "today-plan",
+                title: todayLabel,
+                capturedAt: now,
+                elapsedSeconds: 0,
+                timerAnchor: nil,
+                distanceMeters: nil,
+                heartRateBpm: nil,
+                energyKcal: nil,
+                paused: false,
+                restRemainingSeconds: nil,
+                nextBookingLabel: todayLabel
             )
         } else {
             live = nil
@@ -642,6 +670,8 @@ final class WatchSessionHub: NSObject {
             || previous?.sessionID != live?.sessionID
             || previous?.paused != live?.paused
             || previous?.title != live?.title
+            || previous?.restRemainingSeconds != live?.restRemainingSeconds
+            || previous?.nextBookingLabel != live?.nextBookingLabel
         let metricsDue = live != nil && now.timeIntervalSince(lastComplicationMetricsWrite) >= 60
         guard structural || metricsDue else { return }
         guard ReperaComplicationSharedStore.write(live) else { return }

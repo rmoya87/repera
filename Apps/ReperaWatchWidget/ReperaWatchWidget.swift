@@ -72,7 +72,7 @@ private struct ReperaWatchComplication: View {
         Group {
             switch family {
             case .accessoryRectangular:
-                if let live = entry.session {
+                if let live = entry.session, live.sessionID != "today-plan" {
                     HStack(alignment: .center, spacing: 6) {
                         ReperaLogo(diameter: 29)
                         VStack(alignment: .leading, spacing: 2) {
@@ -102,7 +102,7 @@ private struct ReperaWatchComplication: View {
                     HStack(spacing: 6) {
                         ReperaLogo(diameter: 31)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Reserva").font(.headline)
+                            Text("Hoy").font(.headline)
                             Text(booking).font(.caption2).lineLimit(2)
                         }
                         Spacer(minLength: 0)

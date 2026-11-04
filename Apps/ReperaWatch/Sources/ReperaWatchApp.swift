@@ -44,6 +44,8 @@ struct ReperaWatchApp: App {
                 .onChange(of: hub.measuredEnergyKcal) { _, _ in hub.publishComplicationSnapshot() }
                 .onChange(of: hub.sessionElapsed) { _, _ in hub.publishComplicationSnapshot() }
                 .onChange(of: hub.watchLiveElapsedSeconds) { _, _ in hub.publishComplicationSnapshot() }
+                .onChange(of: hub.restRemaining) { _, _ in hub.publishComplicationSnapshot(force: true) }
+                .onChange(of: hub.todayPlan?.id) { _, _ in hub.publishComplicationSnapshot(force: true) }
                 .onChange(of: scenePhase) { _, next in
                     if next == .active {
                         hub.refreshToday()

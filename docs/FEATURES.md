@@ -9,6 +9,7 @@
 - **Calendario:** mirror opcional de reservas Center `booked` (EventKit / CalendarContract).
 - **Escanear pizarra:** Control Widget + Atajo / deep link `repera://board`.
 - **Wear / Watch:** tile con Continuar + hint de descanso; complicaciones listas para descanso/reserva.
+- Android consume GPX/foto pendientes del share sheet al abrir En vivo / Escáner; Watch/Wear publican descanso y plan de hoy en tile/complicación.
 - Detalle técnico: `docs/NATIVE_OS_SURFACES_PHASE_5_2026_11_04.md`.
 
 ## Pestaña Centro condicionada y búsqueda sin recortes (03/11/2026)

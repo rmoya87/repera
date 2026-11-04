@@ -230,6 +230,25 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             } catch (_: Exception) { /* Keep prior routes; no destructive recovery. */ }
         }
     }
+    // System share / “Open with…” GPX: prefs written by MainActivity → import once.
+    LaunchedEffect(routesStore, accountId) {
+        val store = routesStore ?: return@LaunchedEffect
+        val pending = withContext(Dispatchers.IO) { SystemImportPending.takeGpx(context) } ?: return@LaunchedEffect
+        try {
+            val bytes = withContext(Dispatchers.IO) {
+                require(pending.file.length() <= 16L * 1024L * 1024L)
+                pending.file.readBytes()
+            }
+            store.addGPX(bytes, pending.displayName.substringBeforeLast('.', pending.displayName))
+            withContext(Dispatchers.IO) { pending.file.delete() }
+            routesVersion++
+            error = null
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            error = "No se pudo importar el GPX compartido (máximo 16 MB)."
+        }
+    }
     val routes by produceState<List<LiveSavedRoute>>(emptyList(), routesStore, routesVersion) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             routesStore?.recentRoutes(runCatching {

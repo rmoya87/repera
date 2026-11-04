@@ -34,6 +34,7 @@
     <string name="wear_active_session">Entrenamiento activo</string>
     <string name="wear_tile_continue">Continuar</string>
     <string name="wear_tile_rest_hint">Descanso · toca para abrir</string>
+    <string name="wear_tile_rest_countdown">Descanso · %1$ds</string>
     <string name="wear_tile_open">Abrir</string>
     <string name="wear_complication_open">Abrir Repera</string>
 

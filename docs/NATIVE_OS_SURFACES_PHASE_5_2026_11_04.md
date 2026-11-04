@@ -26,8 +26,8 @@ Complementa `NATIVE_SYSTEM_INTEGRATION_2026_11_04.md` (fases 1–4). Distinguir 
 - Validar Share Extension y MediaSession en dispositivo real.
 - App Group `group.com.app.repera` en Apple Developer + provisioning.
 - App Functions (`androidx.appfunctions`) cuando el target lo fije el proyecto.
-- Consumir `pendingGpxPath` / `pendingBoardPath` en pantallas Android En vivo / Escáner (prefs ya escritas).
-- Rellenar `restHint` / `nextBookingLabel` desde hubs Watch/Wear.
+- ~~Consumir `pendingGpxPath` / `pendingBoardPath`~~ → `SystemImportPending` + LaunchedEffect en En vivo / Escáner.
+- ~~Rellenar `restHint` / `nextBookingLabel`~~ → Wear `publishRestHint()`; Watch `publishComplicationSnapshot` con descanso + plan de hoy (no reservas Center remotas en Watch aún).
 
 ## Seguridad
 

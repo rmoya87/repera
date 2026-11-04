@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -135,6 +136,13 @@ internal fun BoardScanScreen(
                 reading = false
             }
         }
+    }
+
+    // System share / “Open with…” board photo written by MainActivity.
+    LaunchedEffect(Unit) {
+        val pending = withContext(Dispatchers.IO) { SystemImportPending.takeBoard(context) } ?: return@LaunchedEffect
+        process(Uri.fromFile(pending.file))
+        withContext(Dispatchers.IO) { pending.file.delete() }
     }
 
     val pickImage = rememberLauncherForActivityResult(

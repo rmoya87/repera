@@ -1775,23 +1775,39 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if(sessionPaused) restClock.pause(SystemClock.elapsedRealtime())
         tickRest()
         persistRest()
+        publishRestHint()
     }
 
     private fun tickRest() {
         restJob?.cancel()
         restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
+        publishRestHint()
         if(sessionPaused || ambientMode!=null) return
         restJob=lifecycleScope.launch {
             while(restRemaining>0) {
                 kotlinx.coroutines.delay(wearMsUntilCountdownChange(restClock.remainingMillis(SystemClock.elapsedRealtime())))
                 restRemaining=restClock.remainingSeconds(SystemClock.elapsedRealtime())
+                publishRestHint()
             }
+            publishRestHint()
         }
     }
 
     private fun skipRest() {
         restJob?.cancel();restClock.clear();restRemaining=0
         persistRest()
+        publishRestHint()
+    }
+
+    /** Tile/Smart Stack hint: real rest countdown only — never invents seconds. */
+    private fun publishRestHint() {
+        val prefs = getSharedPreferences(WearTodayPlanCache.PREFS, MODE_PRIVATE)
+        val hint = if (restRemaining > 0) getString(R.string.wear_tile_rest_countdown, restRemaining) else null
+        val previous = prefs.getString("restHint", null)
+        if (previous == hint) return
+        if (hint == null) prefs.edit().remove("restHint").apply()
+        else prefs.edit().putString("restHint", hint).apply()
+        ReperaTodayTileService.requestUpdate(this)
     }
 
     private fun playReady() {

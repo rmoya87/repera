@@ -119,15 +119,14 @@ class ReperaTodayTileService : TileService() {
         val timeline = TimelineBuilders.Timeline.Builder()
         var freshness = 0L
         val activeTitle = activeSessionTitle()
-        val restHint = prefs().getString("restHint", null)
+        val restHint = prefs().getString("restHint", null)?.takeIf { it.isNotBlank() }
         if (activeTitle != null) {
             timeline.addTimelineEntry(TimelineBuilders.TimelineEntry.Builder()
                 .setLayout(
                     layout(
                         activeTitle,
                         getString(R.string.wear_tile_continue),
-                        secondaryAction = restHint?.takeIf { it.isNotBlank() }
-                            ?: getString(R.string.wear_tile_rest_hint)
+                        secondaryAction = restHint
                     )
                 ).build())
         } else {
