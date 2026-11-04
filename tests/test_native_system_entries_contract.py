@@ -115,6 +115,22 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("stopRouteTracking()", start)
         self.assertIn("trackingSessionID = sessionID", start)
 
+    def test_local_booking_reminders_are_account_scoped_and_confirmed_only(self):
+        scheduler = source("Apps/Repera/Sources/BusinessBookingReminderScheduler.swift")
+        self.assertIn('booking.status == "booked"', scheduler)
+        self.assertIn("start.addingTimeInterval(-3600)", scheduler)
+        self.assertIn("BusinessDataStore.date(occurrence.startsAt)", scheduler)
+        self.assertIn("generation == current", scheduler)
+        center = source("Apps/Repera/Sources/BusinessDataStore.swift")
+        self.assertIn("BusinessBookingReminderScheduler.clear()", center)
+        self.assertIn("BusinessBookingReminderScheduler.reconcile(", center)
+        android = source("android/mobile/src/main/java/dev/repera/mobile/ClassBookingReminders.kt")
+        self.assertIn('it.status == "booked"', android)
+        self.assertIn("fireAt = start.toEpochMilli() - 3_600_000L", android)
+        self.assertIn("prefs.getString(\"owner\", null) != owner", android)
+        self.assertIn("SessionStore(app).load()", android)
+        self.assertNotIn("startForegroundService", android)
+
     def test_android_gpx_share_is_explicit_and_publicly_scoped(self):
         codec = source("android/domain/src/main/java/dev/repera/domain/RouteGPXCodec.kt")
         self.assertIn("it.isEstimated != true", codec)
