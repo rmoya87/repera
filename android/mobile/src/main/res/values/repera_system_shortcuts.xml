@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_repera_today">Entreno de hoy</string>
+    <string name="shortcut_repera_today_long">Abrir el entrenamiento de hoy</string>
+    <string name="shortcut_repera_live">Comenzar</string>
+    <string name="shortcut_repera_live_long">Abrir el registro de actividad</string>
+    <string name="shortcut_repera_timer">Temporizador</string>
+    <string name="shortcut_repera_timer_long">Abrir el temporizador</string>
+</resources>
