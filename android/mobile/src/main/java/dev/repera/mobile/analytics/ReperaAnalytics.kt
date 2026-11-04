@@ -112,6 +112,10 @@ object ReperaAnalytics {
     @Volatile private var firebase: FirebaseAnalytics? = null
     @Volatile private var consentGranted = false
 
+    fun isConfigured(): Boolean = firebase != null
+    fun hasConsent(context: Context): Boolean = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        .getBoolean(CONSENT_KEY, false)
+
     /** No Firebase resource? No-op. Never break the app or simulate configured analytics. */
     fun configure(context: Context) {
         consentGranted = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
