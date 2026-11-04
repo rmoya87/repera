@@ -36,23 +36,30 @@ class DriveSnapshotService(
     class PreconditionFailedException(message: String = "Google Drive HTTP 412") :
         IllegalStateException(message)
 
-    fun synchronize(): Outcome = CloudSyncGate.driveSync { synchronizeInternal() }
+    /** Never silently pick one of two divergent first-upload copies. */
+    class DuplicateRemoteSnapshotsException :
+        IllegalStateException("Hay varias copias distintas en Drive; se conservaron ambas para revisar")
+
+    fun synchronize(): Outcome = CloudSyncGate.driveSync {
+        try {
+            synchronizeInternal()
+        } catch (_: DuplicateRemoteSnapshotsException) {
+            Outcome.Conflict
+        }
+    }
 
     /**
-     * Borra `app_state.json` del appDataFolder (best-effort, borrado de cuenta).
-     * No lanza si el archivo no existe.
+     * Elimina todas las copias de la cuenta, incluidas creaciones concurrentes.
+     * Solo informa éxito cuando el listado queda vacío tras el borrado.
      */
     fun trashAppDataSnapshot(): Boolean {
         checkAuthority()
-        val remote = findSingleFile() ?: return true
         return runCatching {
-            request(
-                "PATCH",
-                "https://www.googleapis.com/drive/v3/files/" + encode(remote.id),
-                "application/json",
-                """{"trashed":true}""".toByteArray(Charsets.UTF_8)
-            )
-            true
+            for (file in listRemoteFiles()) {
+                val etag = downloadMedia(file.id).etag
+                trashRemoteFile(file.id, etag)
+            }
+            listRemoteFiles().isEmpty()
         }.getOrDefault(false)
     }
 
@@ -176,19 +183,60 @@ class DriveSnapshotService(
     private data class RemoteFile(val id: String)
     private data class MediaDownload(val body: ByteArray, val etag: String?)
 
+    private fun listRemoteFiles(): List<RemoteFile> {
+        val files = mutableListOf<RemoteFile>()
+        var pageToken: String?
+        var next: String? = null
+        do {
+            val url = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder" +
+                "&fields=nextPageToken%2Cfiles(id%2Cname)&pageSize=100" +
+                "&q=" + encode("name = 'app_state.json' and trashed = false") +
+                (next?.let { "&pageToken=" + encode(it) } ?: "")
+            val result = JSONObject(String(request("GET", url), Charsets.UTF_8))
+            val entries = result.optJSONArray("files") ?: JSONArray()
+            for (index in 0 until entries.length()) {
+                files.add(RemoteFile(entries.getJSONObject(index).getString("id")))
+            }
+            check(files.size <= 1000) { "Exceso de copias remotas; revisión necesaria" }
+            pageToken = result.optString("nextPageToken").takeIf { it.isNotBlank() }
+            next = pageToken
+        } while (pageToken != null)
+        return files.distinctBy { it.id }
+    }
+
+    private fun trashRemoteFile(id: String, etag: String?) {
+        // Don't delete another device's newly edited copy between GET and PATCH.
+        check(!etag.isNullOrBlank()) { "No hay ETag para eliminar con seguridad una copia" }
+        request(
+            "PATCH",
+            "https://www.googleapis.com/drive/v3/files/" + encode(id),
+            "application/json",
+            """{"trashed":true}""".toByteArray(Charsets.UTF_8),
+            mapOf("If-Match" to etag)
+        )
+    }
+
     private fun findSingleFile(): RemoteFile? {
-        // No pedir `etag` en fields: Drive Files:list no lo sirve de forma
-        // fiable para If-Match; el ETag viene de la cabecera del GET media.
-        val url = "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder" +
-            "&fields=nextPageToken%2Cfiles(id%2Cname)&pageSize=100" +
-            "&q=" + encode("name = 'app_state.json' and trashed = false")
-        val result = JSONObject(String(request("GET", url), Charsets.UTF_8))
-        val files = result.optJSONArray("files") ?: JSONArray()
-        require(files.length() <= 1 && !result.has("nextPageToken")) {
-            "Varias copias remotas: resolver antes de sincronizar"
+        val files = listRemoteFiles()
+        if (files.size <= 1) return files.firstOrNull()
+
+        // Concurrent first upload can create two files with the same name.
+        // Identical snapshots may be consolidated; divergent ones must not
+        // be overwritten or silently selected.
+        val copies = files.map { it to downloadMedia(it.id) }
+        val keep = copies.minBy { it.first.id }
+        if (copies.any { !it.second.body.contentEquals(keep.second.body) }) {
+            copies.forEach { local.preserveRemoteBackup(it.second.body) }
+            throw DuplicateRemoteSnapshotsException()
         }
-        if (files.length() != 1) return null
-        return RemoteFile(id = files.getJSONObject(0).getString("id"))
+        copies.forEach { (file, media) ->
+            if (file.id != keep.first.id) trashRemoteFile(file.id, media.etag)
+        }
+        val after = listRemoteFiles()
+        check(after.size == 1 && after[0].id == keep.first.id) {
+            "Drive cambió durante la consolidación de copias; reintentar"
+        }
+        return keep.first
     }
 
     /** Descarga el contenido y conserva el ETag original de la respuesta HTTP. */
