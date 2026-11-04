@@ -125,6 +125,7 @@ targets:
       - target: ReperaRestWidget
         embed: true
       - sdk: HealthKit.framework
+      - sdk: WorkoutKit.framework
       - sdk: WeatherKit.framework
       - sdk: FoundationModels.framework
       - sdk: ActivityKit.framework
