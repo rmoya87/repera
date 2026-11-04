@@ -139,6 +139,8 @@ struct HomeView: View {
     @State private var cachedStreakWeekDone = 0
     @State private var cachedStreakPlanned = 0
     @State private var cachedStreakTotal = 0
+    /// IDs de entrenos guardados cuya fila Descartar|Revisar se ocultó (Descartar no borra).
+    @State private var dismissedHomeReviewActions: Set<UUID> = HomeReviewActionDismissals.load()
 
     private var calendar: Calendar { Calendar.current }
 
@@ -1255,7 +1257,12 @@ struct HomeView: View {
                 .tint(OG.accent)
             }
             ForEach(workouts) { session in
-                dayWorkoutCard(session)
+                VStack(spacing: 8) {
+                    dayWorkoutCard(session)
+                    if showsHomeReviewActions(for: session) {
+                        homeSavedWorkoutActionRow(for: session)
+                    }
+                }
             }
             ForEach(planned) { routine in
                 plannedDayCard(routine)
@@ -1669,6 +1676,33 @@ struct HomeView: View {
             scheduledDate: day,
             scheduledTimeMinutes: minutes ?? session?.scheduledTimeMinutes
         )
+    }
+
+    /// Fila bajo la card guardada: Descartar (oculta acciones, no borra) | Revisar (editar terminado).
+    private func showsHomeReviewActions(for session: WorkoutSession) -> Bool {
+        session.timerDetails == nil && !dismissedHomeReviewActions.contains(session.id)
+    }
+
+    private func homeSavedWorkoutActionRow(for session: WorkoutSession) -> some View {
+        HStack(spacing: 8) {
+            Button("Descartar") {
+                dismissedHomeReviewActions.insert(session.id)
+                HomeReviewActionDismissals.save(dismissedHomeReviewActions)
+            }
+            .buttonStyle(.bordered)
+            .tint(OG.label)
+            .frame(maxWidth: .infinity)
+
+            Button("Revisar") {
+                editOwnCompletedWorkout(session)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(OG.accent)
+            .foregroundStyle(.black)
+            .frame(maxWidth: .infinity)
+        }
+        .controlSize(.regular)
+        .accessibilityElement(children: .contain)
     }
 
     private func dayWorkoutCard(_ session: WorkoutSession) -> some View {
@@ -2365,6 +2399,20 @@ struct HomeView: View {
     private func dayKey(_ date: Date) -> String {
         let c = calendar.dateComponents([.year, .month, .day], from: date)
         return "\(c.year!)-\(c.month!)-\(c.day!)"
+    }
+}
+
+/// Persistencia local de «Descartar» en Inicio: no elimina el entreno, solo la fila de acciones.
+private enum HomeReviewActionDismissals {
+    static let key = "repera.home.dismissedReviewActions"
+
+    static func load() -> Set<UUID> {
+        let raw = UserDefaults.standard.stringArray(forKey: key) ?? []
+        return Set(raw.compactMap(UUID.init(uuidString:)))
+    }
+
+    static func save(_ ids: Set<UUID>) {
+        UserDefaults.standard.set(ids.map(\.uuidString).sorted(), forKey: key)
     }
 }
 

@@ -35,9 +35,12 @@ import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -356,6 +360,62 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/** Persistencia de «Descartar» en Inicio: no borra el entreno, solo oculta la fila de acciones. */
+internal object HomeReviewActionDismissals {
+    private const val PREFS = "repera.home.dismissedReviewActions"
+    private const val KEY = "ids"
+
+    fun load(context: Context): Set<String> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet(KEY, emptySet())
+            ?.toSet()
+            ?: emptySet()
+
+    fun save(context: Context, ids: Set<String>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY, ids)
+            .apply()
+    }
+}
+
+/** Descartar (izq., no borra) | Revisar (der., editar terminado). Misma línea bajo la card. */
+@Composable
+internal fun HomeSavedWorkoutActionRow(
+    onDiscard: () -> Unit,
+    onReview: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedButton(
+            onClick = onDiscard,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("home_saved_discard"),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Text("Descartar")
+        }
+        Button(
+            onClick = onReview,
+            modifier = Modifier
+                .weight(1f)
+                .testTag("home_saved_review"),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = brandGreen,
+                contentColor = Color.Black
+            )
+        ) {
+            Text("Revisar")
         }
     }
 }

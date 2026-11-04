@@ -1,0 +1,17 @@
+---
+description: Filosofía de diseño Repera (chips estilo Salud, insights, Liquid Glass, métricas propias). Aplicar al diseñar o pulir UI de Progreso, métricas y dashboards.
+globs: Apps/Repera/Sources/**/*Progress*.swift,Apps/Repera/Sources/StatsView.swift,android/**/Progress*.kt,docs/PROGRESS*.md,.agents/skills/repera-design/**
+alwaysApply: false
+---
+
+# Diseño Repera
+
+Al proponer o implementar UI de datos/Progreso, leer y seguir `.agents/skills/repera-design/SKILL.md`.
+
+Resumen obligatorio:
+
+- Lenguaje **Apple Salud** (chips, insights, ventanas fijas) + **métricas propias Repera**; sin anillos Activity ni iconos Salud Apple.
+- Chips: icono+nombre en fila, valor debajo; seleccionado verde+negro; glass en no seleccionados (iOS); barra transparente.
+- Plantilla: héroe → grid → insights periodo → largo plazo Pro.
+- Sin calendario global en el hub; chevron solo si navega; fondos `OG`/surface, no tinte verde de pantalla.
+- Paridad iOS/Android nativa; evidencia real o «—» / aprendiendo.
