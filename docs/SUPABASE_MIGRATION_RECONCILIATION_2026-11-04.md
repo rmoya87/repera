@@ -57,7 +57,15 @@ Se ejecutó previamente una prueba en transacción revertida y luego se despleg�
 
 Tras el despliegue, el asesor de seguridad Supabase ya **no informa** `security_definer_view`, `anon_security_definer_function_executable` ni `function_search_path_mutable`. Continúan advertencias a revisar aparte (funciones `SECURITY DEFINER` invocables por usuarios autenticados, controles internos RLS sin política y protección de contraseñas filtradas).
 
-**Estado del historial remoto/ramal de integración: 100 versiones compartidas, 30 solo en git, 0 solo en remoto.**
+**Estado del historial remoto/ramal de integración tras seguridad: 100 versiones compartidas, 30 solo en git, 0 solo en remoto.**
+
+## Índice único recuperado tras revisión de los 30 SQL pendientes
+
+Se auditó el catálogo actual contra los `CREATE INDEX`, `CREATE TRIGGER` y columnas `ALTER TABLE ... ADD COLUMN` de los 30 archivos históricos sin registrar. Se detectó una única ausencia estructural entre los índices declarados: `service_bookings_attendance_request_uidx`, el mecanismo de idempotencia de asistencia. No había IDs duplicados (`0` identificadores de asistencia sobre `5` reservas existentes).
+
+Se creó mediante `20261104075611_repera_attendance_request_unique_index_recovery.sql`, probado con reversión previa y verificado posteriormente como índice parcial `UNIQUE`. No se ejecutó la migración antigua completa.
+
+**Estado tras esta recuperación: 101 versiones compartidas, 30 solo en GitHub, ninguna solo en Supabase.** Persisten verificaciones funcionales sobre las 30 versiones históricas (SQL de funciones, RLS, ACL y efectos acumulados); no registrar como aplicadas sin demostrar equivalencia.
 
 ## Regla de seguridad
 
