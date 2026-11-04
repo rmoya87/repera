@@ -8,8 +8,8 @@ enum ReperaControlTarget: String, AppEnum {
     case tools
     case exercises
 
-    static var typeDisplayRepresentation = TypeDisplayRepresentation("Pantallas de Repera")
-    static var caseDisplayRepresentations: [ReperaControlTarget: DisplayRepresentation] = [
+    static let typeDisplayRepresentation = TypeDisplayRepresentation("Pantallas de Repera")
+    static let caseDisplayRepresentations: [ReperaControlTarget: DisplayRepresentation] = [
         .today: DisplayRepresentation("Entrenamiento de hoy"),
         .live: DisplayRepresentation("Comenzar"),
         .tools: DisplayRepresentation("Temporizador"),
@@ -18,7 +18,7 @@ enum ReperaControlTarget: String, AppEnum {
 }
 
 struct ReperaControlOpenIntent: OpenIntent, TargetContentProvidingIntent {
-    static var title: LocalizedStringResource = "Abrir Repera"
+    static let title: LocalizedStringResource = "Abrir Repera"
 
     @Parameter(title: "Destino")
     var target: ReperaControlTarget
