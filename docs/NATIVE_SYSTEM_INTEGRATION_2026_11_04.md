@@ -14,6 +14,12 @@ Implementación incremental, NO cierre de las cuatro fases. El repositorio ya cu
 - **Fase 4, iOS:** compartir una ruta GPS real como GPX desde el mapa histórico ampliado, con lat/lon validadas, tiempo original y separación de huecos >30 s. WorkoutKit: preparar objetivos de tiempo/distancia solo para deportes cardio admitidos y entregar el plan a Entreno de Apple Watch explícitamente, antes de iniciar la grabación Repera. No se inventan coordenadas ni se graban sesiones en paralelo.
 - **Fase 4, Android:** compartir GPX desde el histórico de una sesión con recorrido GPS: un codec de dominio valida rango, elimina puntos inferidos y separa cortes, mientras FileProvider concede acceso de lectura temporal únicamente mediante el chooser del sistema. Incluye pruebas unitarias del codec.
 
+### Entregas adicionales de esta revisión
+
+- **Dictado Apple Watch y Wear OS**: entrada vocal nativa en campos de texto/servicio de voz del sistema, extracción de unidades explícitas (repeticiones y kg) y confirmación visual. Solo edita el borrador de la sesión correcta; no confirma series ni atribuye repeticiones automáticamente. Wear OS muestra alternativa manual si no hay reconocimiento.
+- **Avisos una hora antes (iOS/Android)**: reconciliación local de reservas confirmadas con caducidad y verificación de propietario. Se actualizan al refrescar las reservas y se eliminan al cerrar sesión. Android usa WorkManager (puede aplazarse con restricciones de batería) e iOS UNUserNotificationCenter; sin permiso no se muestra notificación.
+- **Backend de recordatorios — bloqueo externo verificado**: la base de datos tiene notification_outbox y claim_due_reminders; sin embargo, el proyecto Supabase no muestra la Edge Function repera-business-push desplegada ni una tabla activa cron.job. El envío remoto por FCM/APNs requiere despliegue, cron seguro, credenciales de proveedor y prueba real. No se considera operativo ni se afirma entrega garantizada.
+
 ### Pendiente para completar las cuatro fases
 
 **Fase 1:** auditoría integral de durabilidad de comandos entre dispositivos, conflictos multiusuario y reinicios; optimización energética validada por dispositivos y versión. El tracker GPS de Android ahora evita preempción y realiza fallback a GPS/red si FUSED no está disponible.
