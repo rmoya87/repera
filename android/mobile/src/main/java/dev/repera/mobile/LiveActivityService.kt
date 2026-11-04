@@ -20,6 +20,8 @@ internal class LiveActivityService : Service() {
     private var runtime: LiveActivityRuntime?=null
     private var ticking=false
     private var binding:LiveServiceBinding?=null
+    private var lastNotificationAt=0L
+    private var lastNotifiedPhase:LiveActivityState.Phase?=null
     private val tick=object:Runnable {
         override fun run() {
             val r=runtime ?: return
@@ -33,7 +35,16 @@ internal class LiveActivityService : Service() {
                 stopSelf();return
             }
             r.checkpoint();r.publish()
-            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(r))
+            val now=SystemClock.elapsedRealtime()
+            // El tiempo/Health Services siguen su propio ritmo. Reducir sólo
+            // repintados de notificación IPC, especialmente con ahorro activo.
+            val powerSave=getSystemService(PowerManager::class.java)?.isPowerSaveMode==true
+            val interval=if(powerSave) 15_000L else 5_000L
+            if(lastNotifiedPhase!=r.state.phase || now-lastNotificationAt>=interval) {
+                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(r))
+                lastNotificationAt=now
+                lastNotifiedPhase=r.state.phase
+            }
             handler.postDelayed(this,1000)
         }
     }
