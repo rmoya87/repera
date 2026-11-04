@@ -100,6 +100,7 @@ internal data class WearHomeState(
     val clusters: List<Pair<Int, Int>> = emptyList(),
     val showOutline: Boolean = false,
     val showSetDetails: Boolean = false,
+    val spokenDraft: String? = null,
     val reviewingBlock: Boolean = false,
     val elapsedSeconds: Int = 0,
     val reviewRounds: Int = 0,
@@ -207,6 +208,9 @@ internal class WearHomeCallbacks(
     val onDiscardPending: () -> Unit = {},
     val onShowOutline: (Boolean) -> Unit = {},
     val onShowSetDetails: (Boolean) -> Unit = {},
+    val onDictateSet: () -> Unit = {},
+    val onApplySpokenSet: () -> Unit = {},
+    val onCancelSpokenSet: () -> Unit = {},
     val onReviewBlock: () -> Unit = {},
     val onConfirmBlock: () -> Unit = {},
     val onAdjustReviewRounds: (Int) -> Unit = {},
@@ -228,6 +232,34 @@ internal fun WearHomeContent(
     callbacks: WearHomeCallbacks,
     modifier: Modifier = Modifier
 ) {
+    if (state.spokenDraft != null) {
+        val parsed = remember(state.spokenDraft) { WearSpokenSet.parse(state.spokenDraft) }
+        Column(
+            modifier = modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Revisar dictado", style = MaterialTheme.typography.titleMedium)
+            Text(state.spokenDraft, style = MaterialTheme.typography.bodySmall)
+            if (parsed?.reps != null) Text("Reps: ${parsed.reps}")
+            if (parsed?.weightKg != null) Text("Peso: ${parsed.weightKg} kg")
+            if (parsed == null) {
+                Text("Indica cantidades con unidades: 12 repeticiones, 45 kilos.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Button(
+                onClick = callbacks.onApplySpokenSet,
+                enabled = parsed != null && !state.sessionPaused,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                WearButtonLabel("Aplicar valores")
+            }
+            TextButton(onClick = callbacks.onCancelSpokenSet) { Text("Cancelar") }
+        }
+        return
+    }
     // Hub a pantalla completa: fuera del LazyColumn para que swipe/mute/timer
     // no los robe el scroll de la lista (causa de “no cambian actividades”).
     val onHub = state.session == null &&
@@ -1028,6 +1060,13 @@ private fun TransformingLazyColumnScope.runningItems(
         wodRunningBody(session, state, callbacks)
     } else {
         strengthRunningBody(session, state, callbacks)
+    }
+    if (session.canLogOnWatch && !state.sessionPaused) {
+        item {
+            TextButton(onClick = callbacks.onDictateSet) {
+                Text("🎙 Dictar valores", color = WearOg.accent)
+            }
+        }
     }
     item {
         Row(
