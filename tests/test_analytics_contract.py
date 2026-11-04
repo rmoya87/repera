@@ -68,5 +68,20 @@ class AnalyticsContractTests(unittest.TestCase):
             self.assertIn("ReperaAnalytics.track", (ROOT / path).read_text())
 
 
+    def test_first_sports_and_progress_interactions_are_instrumented_consistently(self):
+        swift_sports = (ROOT / "Apps/Repera/Sources/LiveActivityView.swift").read_text()
+        android_sports = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt").read_text()
+        swift_progress = (ROOT / "Apps/Repera/Sources/StatsView.swift").read_text()
+        android_progress = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt").read_text()
+        self.assertIn("ReperaAnalytics.track(.activitySelected", swift_sports)
+        self.assertIn("ReperaAnalytics.Event.ACTIVITY_SELECTED", android_sports)
+        self.assertIn("ReperaAnalytics.track(.progressSectionViewed", swift_progress)
+        self.assertIn("ReperaAnalytics.Event.PROGRESS_SECTION_VIEWED", android_progress)
+        ios_settings = (ROOT / "Apps/Repera/Sources/SettingsView.swift").read_text()
+        android_settings = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt").read_text()
+        self.assertIn("ReperaAnalytics.setConsent", ios_settings)
+        self.assertIn("ReperaAnalytics.setConsent", android_settings)
+
+
 if __name__ == "__main__":
     unittest.main()
