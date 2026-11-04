@@ -79,5 +79,6 @@ struct ReperaRestWidgetBundle: WidgetBundle {
     var body: some Widget {
         RestLiveActivityWidget()
         TrainingLiveActivityWidget()
+        ReperaQuickOpenControl()
     }
 }
