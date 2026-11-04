@@ -40,14 +40,14 @@ test('La ficha del centro muestra catálogo auténtico y no permite bonos falsam
  assert.match(read('../src/ui/trainer-pass-panel.js'),/const action=editing\?'update-pass-offer':'create-pass-offer'/);
  assert.match(web,/toggle-pass-offer/);
  assert.match(read('../src/ui/trainer-pass-panel.js'),/cobro externo/i);
- const db=read('../../../supabase/migrations/20261027193500_business_pass_offers_catalog.sql');
+ const db=read('../../../supabase/migrations/20261027165922_business_pass_offers_catalog.sql');
  assert.match(db,/enable row level security/);
  assert.match(db,/private\.has_org_role/);
  assert.doesNotMatch(db,/insert into public\.service_passes/);
 });
 
 test('Desvincularse revoca la relación del propio atleta, no borra historial ni permite suplantar',()=>{
- const migration=read('../../../supabase/migrations/20261027193000_athlete_unlink_and_professional_time.sql');
+ const migration=read('../../../supabase/migrations/20261027165916_athlete_unlink_and_professional_time.sql');
  assert.match(migration,/create or replace function private\.leave_org_as_athlete/);
  assert.match(migration,/m\.user_id = v_actor/);
  assert.match(migration,/m\.role = 'athlete' and m\.status = 'active'/);
