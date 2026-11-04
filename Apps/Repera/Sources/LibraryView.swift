@@ -715,6 +715,12 @@ struct LibraryView: View {
             queryEmpty: q.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             ms: (CFAbsoluteTimeGetCurrent() - t0) * 1000
         )
+        if reason == "query", !q.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            ReperaAnalytics.track(.exerciseSearchUsed, parameters: [
+                "feature_area": "exercises",
+                "result": "success"
+            ])
+        }
     }
 
     nonisolated private static func makeSections(

@@ -132,6 +132,7 @@ final class AppleAuthStore: NSObject {
         }
         // An existing local Apple identity must not be silently replaced by
         // another Apple account while private workouts remain on the device.
+        let isFirstAccount = userID == nil
         if let existingID = userID, existingID != credential.user {
             throw AppleAuthError.accountMismatch
         }
@@ -148,7 +149,7 @@ final class AppleAuthStore: NSObject {
             lastErrorMessage = reason
             throw AppleAuthError.businessConnectionFailed(reason)
         }
-        ReperaAnalytics.track(.login, parameters: [
+        ReperaAnalytics.track(isFirstAccount ? .signUp : .login, parameters: [
             "feature_area": "account",
             "entry_point": "apple",
             "result": "success"

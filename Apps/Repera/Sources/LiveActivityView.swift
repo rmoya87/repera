@@ -1364,6 +1364,16 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .idle, !isStartCountingDown else { return }
         chosenRoute = route
         prepareRouteNavigation()
+        if route != nil {
+            ReperaAnalytics.track(.routeLoaded, parameters: [
+                "feature_area": "live_sport",
+                "result": "success"
+            ])
+            ReperaAnalytics.track(.navigationStarted, parameters: [
+                "feature_area": "live_sport",
+                "result": "success"
+            ])
+        }
     }
 
     private func prepareRouteNavigation() {
@@ -2894,6 +2904,10 @@ struct LiveActivityView: View {
                             cancelPendingMapRecenter()
                             mapIsCentered = true
                             center3DMap(on: user)
+                            ReperaAnalytics.track(.mapRecenterRequested, parameters: [
+                                "feature_area": "live_sport",
+                                "result": "success"
+                            ])
                         }
                     }
                 }
@@ -2953,6 +2967,11 @@ struct LiveActivityView: View {
         navigationMapEnabled = activate3D ?? !navigationMapEnabled
         hasAppliedStored3DCamera = true
         mapIsCentered = true
+        ReperaAnalytics.track(.navigationModeChanged, parameters: [
+            "feature_area": "live_sport",
+            "action_name": navigationMapEnabled ? "nav_3d" : "nav_2d",
+            "result": "success"
+        ])
         if let user = recorder.currentCoordinate {
             center3DMap(on: user)
         } else if let camera = lastVisibleMapCamera {
@@ -3916,6 +3935,10 @@ struct LiveActivityView: View {
                 && recorder.sport.usesGPS {
                 do {
                     session.liveRouteID = try routes.addRecordedRoute(from: session)
+                    ReperaAnalytics.track(.routeSaved, parameters: [
+                        "feature_area": "live_sport",
+                        "result": "success"
+                    ])
                 } catch {
                     // Guardar siempre el entreno aunque falle archivar el GPX.
                     routeError = "No se pudo archivar la ruta. La actividad sí se guardará."

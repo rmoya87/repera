@@ -33,6 +33,7 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.WodFormat
+import dev.repera.mobile.analytics.ReperaAnalytics
 import dev.repera.mobile.monetization.FreeUsageStore
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.monetization.PaywallMode
@@ -656,6 +657,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     } ?: error("No se pudo abrir el documento")
                 }
                 status = "Copia de Repera exportada correctamente"
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.DATA_EXPORT_COMPLETED,
+                    mapOf("feature_area" to "settings", "result" to "success")
+                )
             } catch (error: Exception) {
                 status = "No se pudo exportar: " + (error.localizedMessage ?: "error de archivo")
             } finally {

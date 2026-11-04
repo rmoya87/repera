@@ -123,6 +123,35 @@ class AnalyticsContractTests(unittest.TestCase):
         self.assertIn('"crossfit"', ANDROID)
         self.assertIn('"strength"', ANDROID)
 
+    def test_remaining_product_hooks_present_on_ios(self):
+        sources = "\n".join(
+            path.read_text()
+            for path in (ROOT / "Apps/Repera/Sources").rglob("*.swift")
+        )
+        for needle in (
+            ".timerPaused",
+            ".timerResumed",
+            ".exerciseSearchUsed",
+            ".exerciseDetailViewed",
+            ".mapRecenterRequested",
+            ".routeSaved",
+            ".classListViewed",
+            ".classViewed",
+            ".classWaitlistJoined",
+            ".classAttended",
+            ".aiConnectionStarted",
+            ".aiConnectionVerified",
+            ".syncCompleted",
+            ".watchSyncConfirmed",
+            ".dataExportCompleted",
+            ".progressPeriodSelected",
+            'watch_app_opened',
+        ):
+            self.assertIn(needle, sources)
+        watch = (ROOT / "Apps/ReperaWatch/Sources/WatchConnectivityClient.swift").read_text()
+        self.assertIn("enqueueAnalyticsEvent", watch)
+        self.assertIn("analyticsEvent", (ROOT / "Apps/Repera/Sources/PhoneConnectivity.swift").read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

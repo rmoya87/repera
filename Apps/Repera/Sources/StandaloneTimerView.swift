@@ -886,7 +886,13 @@ struct StandaloneTimerView: View {
             TimerLiveActivityCoordinator.shared.pause(
                 .standalone, value: displaySeconds, title: "Temporizador"
             )
+            ReperaAnalytics.track(.timerPaused, parameters: [
+                "feature_area": "timer",
+                "timer_type": "standalone",
+                "result": "success"
+            ])
         } else {
+            let wasPaused = pausedDisplaySeconds != nil || timerStartedAt != nil
             isRunning = true
             pausedDisplaySeconds = nil
             if preCountdown == 0 && timerStartedAt == nil {
@@ -900,6 +906,13 @@ struct StandaloneTimerView: View {
                 RestFeedback.tick(remaining: preCountdown, sound: true, haptic: true)
             }
             startTicking()
+            if wasPaused {
+                ReperaAnalytics.track(.timerResumed, parameters: [
+                    "feature_area": "timer",
+                    "timer_type": "standalone",
+                    "result": "success"
+                ])
+            }
         }
     }
 

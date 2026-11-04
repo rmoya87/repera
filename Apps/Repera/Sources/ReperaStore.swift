@@ -1881,6 +1881,13 @@ final class ReperaStore: NSObject {
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
         let alreadyArchived = state.workouts.contains(where: { $0.id == session.id && $0.phase == .finished })
+        if session.phase == .finished, !alreadyArchived {
+            ReperaAnalytics.track(.workoutSaveRequested, parameters: [
+                "feature_area": analyticsFeatureArea(session),
+                "workout_type": analyticsWorkoutType(session),
+                "result": "pending"
+            ])
+        }
         var draft = session
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
@@ -2890,6 +2897,20 @@ final class ReperaStore: NSObject {
         pushActiveToWatch()
         // Guardar una planificación también puede contener alias escaneados.
         requestExerciseCatalogRefresh()
+        if isNew {
+            ReperaAnalytics.track(.workoutCreated, parameters: [
+                "feature_area": "training",
+                "workout_type": draft.scheduledDate != nil ? "planned" : "free",
+                "result": "success"
+            ])
+            if draft.scheduledDate != nil {
+                ReperaAnalytics.track(.workoutScheduled, parameters: [
+                    "feature_area": "training",
+                    "workout_type": "planned",
+                    "result": "success"
+                ])
+            }
+        }
         return true
     }
 
@@ -3522,6 +3543,10 @@ final class ReperaStore: NSObject {
         state.exercises.append(exercise)
         catalogEpoch &+= 1
         persist()
+        ReperaAnalytics.track(.customExerciseCreated, parameters: [
+            "feature_area": "exercises",
+            "result": "success"
+        ])
         return true
     }
 
@@ -3828,6 +3853,10 @@ final class ReperaStore: NSObject {
     func updateSettings(_ settings: AppSettings) {
         state.settings = settings
         persist()
+        ReperaAnalytics.track(.settingsChanged, parameters: [
+            "feature_area": "settings",
+            "result": "success"
+        ])
     }
 }
 

@@ -738,7 +738,16 @@ final class BusinessDataStore {
             passOffers = fetchedOffers.filter {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
             }
+            let previousAttended = Set(bookings.filter { $0.status == "attended" }.map(\.id))
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            for booking in bookings where booking.status == "attended" && !previousAttended.contains(booking.id) {
+                let kind = occurrences.first(where: { $0.id == booking.occurrenceId })?.kind
+                ReperaAnalytics.track(.classAttended, parameters: [
+                    "feature_area": "center",
+                    "service_kind": kind == "appointment" ? "appointment" : "class",
+                    "result": "success"
+                ])
+            }
             await BusinessBookingReminderScheduler.reconcile(
                 userID: currentUser, bookings: bookings, occurrences: occurrences
             )
@@ -1031,11 +1040,19 @@ final class BusinessDataStore {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
         isSubmitting = true
         defer { isSubmitting = false }
+        ReperaAnalytics.track(.centerInviteOpened, parameters: [
+            "feature_area": "center",
+            "result": "pending"
+        ])
         do {
             try await client.rpc("accept_org_invitation",
                                  params: ["p_invitation_id": invitation.id.uuidString]).execute()
             pendingOpenLinkedCenterId = invitation.organizationId
             await refresh()
+            ReperaAnalytics.track(.centerLinkCompleted, parameters: [
+                "feature_area": "center",
+                "result": "success"
+            ])
             NotificationCenter.default.post(
                 name: Notification.Name("repera.openSettingsLinkedCenter"),
                 object: invitation.organizationId
@@ -1109,6 +1126,11 @@ final class BusinessDataStore {
         guard let client = BusinessAuthStore.shared.apiClient, !isSubmitting else { return }
         isSubmitting = true
         defer { isSubmitting = false }
+        ReperaAnalytics.track(.classBookingRequested, parameters: [
+            "feature_area": "center",
+            "service_kind": "class",
+            "result": "pending"
+        ])
         let intent = "book:\(occurrence.id.uuidString):\(pass.id.uuidString)"
         let request = PendingRequestID.reuse(for: intent)
         do {
@@ -1128,13 +1150,34 @@ final class BusinessDataStore {
                     userID: currentUser, bookings: bookings, occurrences: occurrences
                 )
             }
-            ReperaAnalytics.track(.classBookingConfirmed, parameters: [
-                "feature_area": "center",
-                "service_kind": "class",
-                "result": "success"
-            ])
+            let serviceKind = occurrence.kind == "appointment" ? "appointment" : "class"
+            let status = booking(for: occurrence.id)?.status
+            if status == "waitlist" {
+                ReperaAnalytics.track(.classWaitlistJoined, parameters: [
+                    "feature_area": "center",
+                    "service_kind": serviceKind,
+                    "result": "success"
+                ])
+            } else if occurrence.kind == "appointment" {
+                ReperaAnalytics.track(.appointmentConfirmed, parameters: [
+                    "feature_area": "center",
+                    "service_kind": "appointment",
+                    "result": "success"
+                ])
+            } else {
+                ReperaAnalytics.track(.classBookingConfirmed, parameters: [
+                    "feature_area": "center",
+                    "service_kind": "class",
+                    "result": "success"
+                ])
+            }
         } catch {
             let raw = error.localizedDescription
+            ReperaAnalytics.track(.operationFailed, parameters: [
+                "feature_area": "center",
+                "error_code": "booking_failed",
+                "result": "failure"
+            ])
             if raw.localizedCaseInsensitiveContains("REQUEST_ID_REUSED") {
                 PendingRequestID.confirm(intent)
             }
