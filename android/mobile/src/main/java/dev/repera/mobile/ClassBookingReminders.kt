@@ -34,18 +34,13 @@ internal object ClassBookingReminders {
         WorkManager.getInstance(context.applicationContext).cancelAllWorkByTag(TAG)
     }
 
-    fun reconcile(
-        context: Context,
-        owner: String,
-        userId: String,
-        snapshot: BusinessCenterStore.Snapshot
-    ) {
-        val app = context.applicationContext
-        val current = SessionStore(app).load()
-        if (current?.uniqueId != owner || current.userId != userId) return
-        val now = System.currentTimeMillis()
+    /** Pure eligibility rule; never reminds for waitlist, cancelled or stale bookings. */
+    internal fun eligible(
+        snapshot: BusinessCenterStore.Snapshot,
+        now: Long
+    ): List<Pair<String, Long>> {
         val byID = snapshot.occurrences.associateBy { it.id }
-        val upcoming = snapshot.bookings.asSequence().filter { it.status == "booked" }
+        return snapshot.bookings.asSequence().filter { it.status == "booked" }
             .mapNotNull { booking ->
                 val occurrence = byID[booking.occurrenceId] ?: return@mapNotNull null
                 if (occurrence.status != "active") return@mapNotNull null
@@ -57,6 +52,19 @@ internal object ClassBookingReminders {
                     return@mapNotNull null
                 booking.id to fireAt
             }.sortedBy { it.second }.take(30).toList()
+
+    }
+
+    fun reconcile(
+        context: Context,
+        owner: String,
+        userId: String,
+        snapshot: BusinessCenterStore.Snapshot
+    ) {
+        val app = context.applicationContext
+        val current = SessionStore(app).load()
+        if (current?.uniqueId != owner || current.userId != userId) return
+        val upcoming = eligible(snapshot, System.currentTimeMillis())
 
         val ids = upcoming.map { it.first }.toSet()
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
