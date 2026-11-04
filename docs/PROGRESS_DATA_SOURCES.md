@@ -1,14 +1,17 @@
 # Progreso y preparación: fuentes verificadas
 
-Última actualización: 2026-11-04 (hub métricas + Pro patrocinado).
+Última actualización: 2026-11-04 (Últimos 7 días + resumen Este mes).
 
 ## Organización del hub (chips, 04/11/2026)
 
 - Navegación por **chips horizontales** (no segmentado Entreno/Actividad/Recuperación): **Entreno · Fuerza · Forma física · Corazón · Recuperación · Deportes**.
-- Iconos propios Repera (bolt, mancuerna, caminar, ECG, hoja, bandera); **sin** anillos Activity ni set de Apple Salud.
+- Iconos propios Repera (bolt, mancuerna, caminar, ECG, **luna**, bandera); **sin** anillos Activity ni set de Apple Salud.
 - Chip: icono + título en la misma fila; valor debajo. Seleccionado = verde sólido + texto/icono negros (sin borde). Fila de chips con fondo transparente; iOS = Liquid Glass en no seleccionados.
-- Valores glance: Entreno (nota/sesiones), Fuerza (PR), Forma (`45′` / `1 h 20`), Corazón (LPM real), Recuperación (nota de preparación 0–10, nunca «·»), Deportes (nº de salidas En vivo).
-- **Sin calendario** de periodo global: gratis = ventana fija «esta semana»; Pro = «este mes» embebido + bloque «A largo plazo» visual (mapa de días).
+- Valores glance: Entreno (nota/sesiones), Fuerza (PR), Forma (`45′` / `1 h 20`), Corazón (LPM real), Recuperación (nota de preparación 0–10, nunca «·»), Deportes (nº de salidas En vivo **del periodo del hub**).
+- **Sin calendario** de periodo global: gratis = ventana móvil **Últimos 7 días** (hoy + 6 anteriores, no lun–dom); Pro = **Este mes** embebido + bloque «A largo plazo» visual (mapa de días).
+- Subtítulos: Entreno/Fuerza/Forma/Deportes alineados al periodo; Corazón = **Ahora**; Recuperación = **Preparación**.
+- Cierre estilo Apple Salud: bloque **«Este mes»** al final de Forma / Corazón / Recuperación / Deportes (mes calendario aunque el hub sea de 7 días).
+- Acentos: Recuperación = azul oscuro violáceo (noche); Deportes = teal (no morado).
 - Fondos = tokens de app (`OG.bg` / `surface` / Material `background`), no tintados en verde. Chevron solo en destinos navegables.
 - **Pro en Progreso:** StoreKit/Play **o** `business_sponsored_pro` vía `get_my_effective_entitlements`. iOS re-cablea gates al cambiar entitlements; Android aplica `setBusinessSponsoredAccess` tras el refresh de Center. Caché local del último Pro StoreKit verificado (offline / arranque).
 
@@ -28,11 +31,11 @@ La información de clases se carga por usuario autenticado desde `BusinessDataSt
 
 - **Entreno:** tiles Entrenos/Tiempo/Racha, puntuación verificada + confianza, equilibrio muscular, movilidad, consistencia a largo plazo (Pro) e Historial.
 - **Fuerza:** insight «Carga y marcas»: héroe = nº de PR; caption = kg de volumen del periodo; barras = **volumen semanal relativo** (no e1RM decorativo). Detalle e1RM/ejercicios en Pro; teasers en gratis.
-- **Forma física:** estímulo activo con duración en **h + min** si ≥ 60 min; heatmap de días activos, calorías y peso.
-- **Corazón:** FC media/min/máx desde Apple Salud / Health Connect (datos reales). Barras = rango mín–máx diario; **sin placeholders** si no hay muestras.
+- **Forma física:** estímulo activo = **suma de minutos de entrenos Repera + actividades externas de Salud/HC** en el periodo del hub (**Gratis = últimos 7 días**, **Pro = mes calendario**). Duración en **h + min** si ≥ 60 min; caption aclara periodo y fuentes. Heatmap, calorías y peso aparte.
+- **Corazón:** FC media/min/máx desde Apple Salud / Health Connect (datos reales) en chip, héroe e insight (iOS y Android). Barras = rango mín–máx diario; **sin placeholders** si no hay muestras. En Android Gratis la gráfica detallada sigue siendo teaser «ejemplo»; el número del hub usa HC real.
 - **Recuperación:** preparación, evolución, sueño, constantes y ciclo. Chip muestra la nota de preparación cuando existe.
-- **Deportes:** hub con salidas En vivo, ejercicios al alza / activos, entrenos del plan y tiempo del periodo; enlace a catálogo/evolución (solo sesiones con `liveSportID`).
-- **Gratis/Pro:** gratis = semana fija + teasers «Ejemplo»; Pro = mes embebido + largo plazo. Sin selector de periodo en el hub.
+- **Deportes:** hub del **mismo periodo** (semana/mes). «Evolución y récords» pinta minutos En vivo por día (barras) + enlace al catálogo. «Progresión en ejercicios» pinta mejoras e1RM **del periodo del hub** (no 3 meses fijos) con barras y top nombres. El tiempo del tile Deportes es solo salidas En vivo, no el total de Forma física.
+- **Gratis/Pro:** gratis = Últimos 7 días + teas «Este mes» + teasers «Ejemplo»; Pro = mes embebido + largo plazo. Sin selector de periodo en el hub.
 
 ## Entrenamiento (puntuación personal)
 

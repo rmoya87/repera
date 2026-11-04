@@ -29,7 +29,7 @@ enum ProgressCategory: String, CaseIterable, Identifiable, Hashable {
         case .strength: return "dumbbell.fill"
         case .fitness: return "figure.walk"
         case .heart: return "waveform.path.ecg"
-        case .recovery: return "leaf.fill"
+        case .recovery: return "moon.fill"
         case .sports: return "flag.checkered"
         }
     }
@@ -40,8 +40,10 @@ enum ProgressCategory: String, CaseIterable, Identifiable, Hashable {
         case .strength: return Color(red: 1.0, green: 0.58, blue: 0.0)
         case .fitness: return Color(red: 0.35, green: 0.78, blue: 0.98)
         case .heart: return OG.red
-        case .recovery: return Color(red: 0.20, green: 0.78, blue: 0.72)
-        case .sports: return Color(red: 0.55, green: 0.45, blue: 0.95)
+        /// Noche / descanso: azul oscuro violáceo (no verde hoja).
+        case .recovery: return Color(red: 0.29, green: 0.22, blue: 0.55)
+        /// Deportes: teal (no morado; el morado queda para Recuperación).
+        case .sports: return Color(red: 0.10, green: 0.61, blue: 0.56)
         }
     }
 }

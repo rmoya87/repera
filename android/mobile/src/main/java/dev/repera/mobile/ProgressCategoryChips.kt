@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.Eco
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.MonitorHeart
@@ -47,7 +47,7 @@ internal enum class ProgressCategory(
     STRENGTH("Fuerza", Icons.Outlined.FitnessCenter, ReperaAccents.strength, R.string.progress_category_strength),
     FITNESS("Forma física", Icons.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
     HEART("Corazón", Icons.Outlined.MonitorHeart, ReperaAccents.heart, R.string.progress_category_heart),
-    RECOVERY("Recuperación", Icons.Outlined.Eco, ReperaAccents.recovery, R.string.progress_category_recovery),
+    RECOVERY("Recuperación", Icons.Outlined.DarkMode, ReperaAccents.recovery, R.string.progress_category_recovery),
     SPORTS("Deportes", Icons.Outlined.Flag, ReperaAccents.sports, R.string.progress_category_sports);
 }
 

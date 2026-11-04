@@ -145,7 +145,8 @@ struct StatsView: View {
     private var categoryHubSubtitle: String {
         switch category {
         case .training, .strength, .fitness, .sports:
-            return isPro ? "Este mes" : "Esta semana"
+            // Misma etiqueta que ProgressTimeRange.week.title / mes del hub.
+            return isPro ? "Este mes" : "Últimos 7 días"
         case .heart:
             return "Ahora"
         case .recovery:
@@ -181,34 +182,107 @@ struct StatsView: View {
         }
     }
 
-    private var sportsActivityCount: Int {
+    private var hubPeriodCaption: String { isPro ? "este mes" : "últimos 7 días" }
+
+    /// Resumen de mes calendario (estilo Apple Salud), aunque el hub esté en 7 días.
+    private var calendarMonthSummary: ProgressHealthSummary {
+        StatsEngine.progressHealthSummary(
+            workouts: store.state.workouts,
+            external: HealthMuscleMapper.daySamples(from: health.recentExternalActivities),
+            range: .month,
+            weekStartsOnMonday: mondayFirst
+        )
+    }
+
+    private var calendarMonthHeartAvgBpm: Int? {
+        let now = Date()
+        let monthPoints = health.recentDailyHeartRate.filter {
+            ProgressTimeRange.month.contains($0.date, now: now, weekStartsOnMonday: mondayFirst)
+        }
+        guard !monthPoints.isEmpty else { return nil }
+        let avg = monthPoints.map(\.avgBpm).reduce(0, +) / Double(monthPoints.count)
+        return avg > 0 ? Int(avg.rounded()) : nil
+    }
+
+    private var calendarMonthSportSessions: [WorkoutSession] {
         store.state.workouts.filter {
             $0.phase == .finished && $0.finishedAt != nil && $0.liveSportID != nil
-        }.count
+                && ProgressTimeRange.month.contains(
+                    $0.startedAt ?? $0.finishedAt ?? .distantPast,
+                    weekStartsOnMonday: mondayFirst
+                )
+        }
+    }
+
+    /// Salidas En vivo dentro del periodo del hub (semana o mes).
+    private var sportsInHub: [WorkoutSession] {
+        snap.filteredWorkouts.filter { $0.liveSportID != nil }
+    }
+
+    private var sportsActivityCount: Int { sportsInHub.count }
+
+    private var sportsHubMinutes: Int {
+        Int(sportsInHub.reduce(0.0) { $0 + max(0, $1.durationMinutes) }.rounded())
     }
 
     private var plannedWorkoutCount: Int {
         snap.filteredWorkouts.filter { $0.routineId != nil }.count
     }
 
-    /// Ejercicios con e1RM reciente por encima del valor más antiguo comparable.
-    private var improvedExerciseCount: Int {
-        var improved = 0
+    private var fitnessReperaMinutes: Int {
+        Int(snap.filteredWorkouts.reduce(0.0) { $0 + max(0, $1.durationMinutes) }.rounded())
+    }
+
+    private var fitnessExternalMinutes: Int {
+        Int(snap.filteredExternal.reduce(0.0) { $0 + max(0, $1.minutes) }.rounded())
+    }
+
+    /// Progresiones e1RM solo con sesiones del periodo del hub (no 3 meses fijos).
+    private var exerciseProgressDeltas: [(id: UUID, name: String, ratio: Double)] {
+        var rows: [(UUID, String, Double)] = []
         let workouts = snap.filteredWorkouts
         for exercise in snap.chartExercises.prefix(40) {
             let points = StatsEngine.exerciseProgressSeries(
                 exerciseId: exercise.id,
                 metric: .estimatedOneRM,
-                range: .threeMonths,
+                range: .all,
                 workouts: workouts,
                 catalog: snap.chartExercises
             )
             guard let first = points.first?.value, let last = points.last?.value,
                   points.count >= 2, first > 0, last > first * 1.01
             else { continue }
-            improved += 1
+            rows.append((id: exercise.id, name: exercise.name, ratio: last / first))
         }
-        return improved
+        return rows.sorted { $0.ratio > $1.ratio }
+    }
+
+    private var improvedExerciseCount: Int { exerciseProgressDeltas.count }
+
+    /// Minutos de salidas En vivo por día con actividad (máx. 14 barras reales).
+    private var sportsDailySparkSamples: [ClosedRange<Double>] {
+        let cal = Calendar.current
+        var byDay: [Date: Double] = [:]
+        for session in sportsInHub {
+            let day = cal.startOfDay(for: session.startedAt ?? session.finishedAt ?? Date())
+            byDay[day, default: 0] += max(0, session.durationMinutes)
+        }
+        let ordered = byDay.filter { $0.value > 0 }.sorted { $0.key < $1.key }.suffix(14)
+        guard let peak = ordered.map(\.value).max(), peak > 0 else { return [] }
+        return ordered.map { entry in
+            let hi = max(0.12, min(1.0, entry.value / peak))
+            return 0...hi
+        }
+    }
+
+    /// Barras relativas de mejora e1RM (periodo del hub).
+    private var exerciseProgressSparkSamples: [ClosedRange<Double>] {
+        let ratios = exerciseProgressDeltas.prefix(8).map(\.ratio)
+        guard let peak = ratios.max(), peak > 1 else { return [] }
+        return ratios.map { ratio in
+            let hi = max(0.12, min(1.0, (ratio - 1) / max(peak - 1, 0.01)))
+            return 0...hi
+        }
     }
 
     private func refreshRecoveryGlance() {
@@ -258,17 +332,21 @@ struct StatsView: View {
         return ("\(h) h \(m)", "min")
     }
 
-    private static func activeDurationNarrative(_ minutes: Int) -> String {
-        guard minutes > 0 else {
+    private func activeDurationNarrative(total: Int, repera: Int, external: Int) -> String {
+        guard total > 0 else {
             return "Cuando camines o entrenes, verás aquí tu estímulo y el mapa de días activos."
         }
-        if minutes < 60 {
-            return "Has acumulado \(minutes) minutos de actividad en el periodo. El mapa muestra tus días activos."
+        let period = hubPeriodCaption
+        let totalLabel = Self.compactActiveDuration(total)
+        // No es solo «una semana»: Pro = mes calendario; Gratis = últimos 7 días.
+        // Suma entrenos Repera + actividades externas de Apple Salud (p. ej. caminatas).
+        if external > 0 && repera > 0 {
+            return "\(totalLabel) en \(period): \(Self.compactActiveDuration(repera)) de entrenos Repera y \(Self.compactActiveDuration(external)) de Apple Salud."
         }
-        let h = minutes / 60
-        let m = minutes % 60
-        let label = m == 0 ? "\(h) h" : "\(h) h \(m) min"
-        return "Has acumulado \(label) de actividad en el periodo. El mapa muestra tus días activos."
+        if external > 0 {
+            return "\(totalLabel) en \(period) desde Apple Salud (paseos y actividades externas)."
+        }
+        return "\(totalLabel) de entrenos Repera en \(period)."
     }
 
     @ViewBuilder
@@ -283,11 +361,14 @@ struct StatsView: View {
         case .heart:
             heartCategoryContent
         case .recovery:
-            HealthRecoveryProgressView(
-                range: model.range,
-                weekStartsOnMonday: mondayFirst,
-                usesExpandedLayout: isExpandedLayout
-            )
+            VStack(alignment: .leading, spacing: 12) {
+                HealthRecoveryProgressView(
+                    range: model.range,
+                    weekStartsOnMonday: mondayFirst,
+                    usesExpandedLayout: isExpandedLayout
+                )
+                recoveryMonthSummaryCard
+            }
         case .sports:
             sportsCategoryContent
         }
@@ -342,7 +423,7 @@ struct StatsView: View {
             columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
             spacing: 8
         ) {
-            ProgressMetricGlanceCard(title: "Media \(isPro ? "mes" : "7 días")", value: avg)
+            ProgressMetricGlanceCard(title: "Media \(isPro ? "mes" : "7 d")", value: avg)
             ProgressMetricGlanceCard(title: "Racha", value: snap.streak > 0 ? "\(snap.streak) sem" : "—")
             ProgressMetricGlanceCard(title: "Entrenos", value: "\(summary.sessionCount)")
             ProgressMetricGlanceCard(title: "Tiempo", value: timeText)
@@ -363,12 +444,12 @@ struct StatsView: View {
         let days = consistencyDays(count: 7)
         let trained = days.filter(\.trained).count
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Esta semana")
+            OGCardSectionTitle(title: "Últimos 7 días")
             ProgressInsightCard(
                 title: "Consistencia",
                 systemImage: "calendar",
                 narrative: trained == 0
-                    ? "Aún no hay entrenos registrados esta semana."
+                    ? "Aún no hay entrenos registrados en los últimos 7 días."
                     : "Has entrenado \(trained) de \(days.count) días. Mantén el ritmo.",
                 tint: OG.accent
             ) {
@@ -498,18 +579,20 @@ struct StatsView: View {
     @ViewBuilder
     private var fitnessCategoryContent: some View {
         let minutes = Int(snap.summary.totalMinutes.rounded())
+        let repera = fitnessReperaMinutes
+        let external = fitnessExternalMinutes
         let hero = Self.activeDurationHero(minutes)
         OGCardSectionTitle(title: "Forma física")
         ProgressInsightCard(
             title: "Estímulo activo",
             systemImage: ProgressCategory.fitness.systemImage,
-            narrative: Self.activeDurationNarrative(minutes),
+            narrative: activeDurationNarrative(total: minutes, repera: repera, external: external),
             tint: ProgressCategory.fitness.accent
         ) {
             ProgressHeroMetricRow(
                 value: hero.value,
                 unit: hero.unit,
-                caption: isPro ? "este mes" : "esta semana"
+                caption: "\(hubPeriodCaption) · Repera + Salud"
             ) {
                 Image(systemName: "figure.walk")
                     .font(.system(size: 36, weight: .semibold))
@@ -536,6 +619,7 @@ struct StatsView: View {
                 subscriptions.presentPaywall(.progress, feature: .advancedProgress)
             }
         }
+        fitnessMonthSummaryCard
     }
 
     @ViewBuilder
@@ -602,6 +686,7 @@ struct StatsView: View {
             }
         }
         healthPermissionCard
+        heartMonthSummaryCard
     }
 
     private var heartInsightCopy: String {
@@ -634,29 +719,29 @@ struct StatsView: View {
 
     @ViewBuilder
     private var sportsCategoryContent: some View {
-        let sportSessions = store.state.workouts.filter {
-            $0.phase == .finished && $0.finishedAt != nil && $0.liveSportID != nil
-        }
-        let sportSeconds = sportSessions.reduce(0.0) { $0 + max(0, $1.activeDurationSeconds ?? 0) }
+        let sportCount = sportsActivityCount
+        let sportMins = sportsHubMinutes
         let improved = improvedExerciseCount
         let planned = plannedWorkoutCount
+        let sportBars = sportsDailySparkSamples
+        let progressBars = exerciseProgressSparkSamples
         OGCardSectionTitle(title: "Deportes")
         ProgressInsightCard(
             title: "Actividad deportiva",
             systemImage: ProgressCategory.sports.systemImage,
             narrative: sportsHubNarrative(
-                sportCount: sportSessions.count,
+                sportCount: sportCount,
                 improved: improved,
                 planned: planned
             ),
             tint: ProgressCategory.sports.accent
         ) {
             ProgressHeroMetricRow(
-                value: sportSessions.isEmpty ? "—" : "\(sportSessions.count)",
-                unit: sportSessions.isEmpty ? nil : "salidas",
-                caption: sportSessions.isEmpty
-                    ? "sin salidas En vivo aún"
-                    : Self.compactActiveDuration(Int((sportSeconds / 60).rounded()))
+                value: sportCount > 0 ? "\(sportCount)" : "—",
+                unit: sportCount > 0 ? "salidas" : nil,
+                caption: sportCount > 0
+                    ? "\(Self.compactActiveDuration(sportMins)) · \(hubPeriodCaption)"
+                    : "sin salidas En vivo en \(hubPeriodCaption)"
             ) {
                 Image(systemName: "flag.checkered")
                     .font(.system(size: 34, weight: .semibold))
@@ -679,13 +764,13 @@ struct StatsView: View {
                 tint: ProgressCategory.sports.accent
             )
             ProgressMetricGlanceCard(
-                title: "Entrenos periodo",
-                value: "\(snap.summary.sessionCount)",
+                title: "Tiempo En vivo",
+                value: Self.compactActiveDuration(sportMins),
                 tint: ProgressCategory.sports.accent
             )
             ProgressMetricGlanceCard(
-                title: "Tiempo periodo",
-                value: Self.compactActiveDuration(Int(snap.summary.totalMinutes.rounded())),
+                title: "Periodo",
+                value: isPro ? "Mes" : "7 d",
                 tint: ProgressCategory.sports.accent
             )
         }
@@ -695,39 +780,197 @@ struct StatsView: View {
             ProgressInsightCard(
                 title: "Evolución y récords",
                 systemImage: "chart.line.uptrend.xyaxis",
-                narrative: sportSessions.isEmpty
-                    ? "Las salidas guardadas desde En vivo (carrera, bici, etc.) aparecerán aquí con distancias, ritmos y marcas."
-                    : "Abre el historial por deporte: distancias, ritmos, mejores marcas y rutas favoritas.",
+                narrative: sportCount == 0
+                    ? "Aún no hay salidas En vivo en \(hubPeriodCaption). Cuando las registres verás aquí minutos por día y el detalle por deporte."
+                    : "Minutos de salidas En vivo por día en \(hubPeriodCaption). Toca para distancias, ritmos y marcas.",
                 tint: ProgressCategory.sports.accent,
                 showsChevron: true
-            )
+            ) {
+                if sportBars.isEmpty {
+                    ProgressHeroMetricRow(
+                        value: "—",
+                        unit: nil,
+                        caption: "sin actividad diaria"
+                    ) {
+                        EmptyView()
+                    }
+                } else {
+                    ProgressHeroMetricRow(
+                        value: Self.compactActiveDuration(sportMins),
+                        unit: nil,
+                        caption: isPro ? "últimos 14 días del mes" : "últimos 7 días"
+                    ) {
+                        ProgressMiniRangeBars(
+                            samples: sportBars,
+                            tint: ProgressCategory.sports.accent,
+                            height: 56
+                        )
+                        .frame(width: 132)
+                        .accessibilityLabel("Minutos de deporte por día")
+                    }
+                }
+            }
         }
         .buttonStyle(.plain)
         if improved > 0 {
             ProgressInsightCard(
                 title: "Progresión en ejercicios",
                 systemImage: "arrow.up.right",
-                narrative: "\(improved) ejercicio\(improved == 1 ? "" : "s") con e1RM al alza en los últimos 3 meses dentro del periodo visible.",
+                narrative: "\(improved) ejercicio\(improved == 1 ? "" : "s") con e1RM al alza en \(hubPeriodCaption). Las barras muestran cuánto sube cada uno respecto a su primera marca del periodo.",
                 tint: ProgressCategory.strength.accent
-            )
+            ) {
+                ProgressHeroMetricRow(
+                    value: "\(improved)",
+                    unit: "al alza",
+                    caption: hubPeriodCaption
+                ) {
+                    ProgressMiniRangeBars(
+                        samples: progressBars,
+                        tint: ProgressCategory.strength.accent,
+                        height: 56
+                    )
+                    .frame(width: 132)
+                    .accessibilityLabel("Mejora relativa de e1RM por ejercicio")
+                }
+                if !exerciseProgressDeltas.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(exerciseProgressDeltas.prefix(3).enumerated()), id: \.element.id) { _, row in
+                            let pct = Int(((row.ratio - 1) * 100).rounded())
+                            Text("\(row.name) · +\(pct)%")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
         }
+        sportsMonthSummaryCard
     }
 
     private func sportsHubNarrative(sportCount: Int, improved: Int, planned: Int) -> String {
         if sportCount == 0 && improved == 0 && planned == 0 {
-            return "Aquí verás salidas En vivo, entrenos del plan y ejercicios que mejoran. Empieza una actividad o completa un entreno programado."
+            return "Aquí verás salidas En vivo, entrenos del plan y ejercicios que mejoran en \(hubPeriodCaption)."
         }
         var parts: [String] = []
         if sportCount > 0 {
             parts.append("\(sportCount) salida\(sportCount == 1 ? "" : "s") En vivo")
         }
         if planned > 0 {
-            parts.append("\(planned) del plan en el periodo")
+            parts.append("\(planned) del plan")
         }
         if improved > 0 {
             parts.append("\(improved) ejercicio\(improved == 1 ? "" : "s") al alza")
         }
-        return parts.joined(separator: " · ") + "."
+        return parts.joined(separator: " · ") + " · \(hubPeriodCaption)."
+    }
+
+    /// Bloque «Este mes» estilo Apple Salud: cierre narrativo aunque el hub mire 7 días.
+    @ViewBuilder
+    private var fitnessMonthSummaryCard: some View {
+        let month = calendarMonthSummary
+        let minutes = Int(month.totalMinutes.rounded())
+        let hero = Self.activeDurationHero(minutes)
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Este mes")
+            ProgressInsightCard(
+                title: "Actividad del mes",
+                systemImage: ProgressCategory.fitness.systemImage,
+                narrative: minutes > 0
+                    ? "En lo que va de mes has acumulado \(Self.compactActiveDuration(minutes)) de estímulo (Repera + Salud) en \(month.sessionCount) sesión\(month.sessionCount == 1 ? "" : "es")."
+                    : "Cuando registres actividad este mes, verás aquí el resumen.",
+                tint: ProgressCategory.fitness.accent
+            ) {
+                ProgressHeroMetricRow(
+                    value: hero.value,
+                    unit: hero.unit,
+                    caption: "\(month.sessionCount) sesiones"
+                ) {
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var heartMonthSummaryCard: some View {
+        let avg = calendarMonthHeartAvgBpm
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Este mes")
+            ProgressInsightCard(
+                title: "FC media del mes",
+                systemImage: ProgressCategory.heart.systemImage,
+                narrative: avg.map {
+                    "Tu frecuencia cardíaca media este mes ha sido de \($0) LPM según Apple Salud."
+                } ?? "Con más lecturas de pulso este mes verás aquí la media.",
+                tint: ProgressCategory.heart.accent
+            ) {
+                ProgressHeroMetricRow(
+                    value: avg.map(String.init) ?? "—",
+                    unit: avg == nil ? nil : "LPM",
+                    caption: "media del mes"
+                ) {
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var recoveryMonthSummaryCard: some View {
+        let cal = Calendar.current
+        let now = Date()
+        let nights = HealthRecoveryStore.shared.nights.filter {
+            ProgressTimeRange.month.contains($0.date, now: now, calendar: cal, weekStartsOnMonday: mondayFirst)
+        }
+        let avgHours: Double? = {
+            guard !nights.isEmpty else { return nil }
+            return nights.map(\.hours).reduce(0, +) / Double(nights.count)
+        }()
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Este mes")
+            ProgressInsightCard(
+                title: "Descanso del mes",
+                systemImage: ProgressCategory.recovery.systemImage,
+                narrative: avgHours.map {
+                    "Has registrado \(nights.count) noche\(nights.count == 1 ? "" : "s") de sueño este mes · media \(ReperaNumberFormat.decimal($0)) h."
+                } ?? "Cuando Salud registre sueño este mes, verás aquí el resumen de descanso.",
+                tint: ProgressCategory.recovery.accent
+            ) {
+                ProgressHeroMetricRow(
+                    value: avgHours.map { ReperaNumberFormat.decimal($0) } ?? "—",
+                    unit: avgHours == nil ? nil : "h",
+                    caption: nights.isEmpty ? "sin noches aún" : "\(nights.count) noches"
+                ) {
+                    EmptyView()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sportsMonthSummaryCard: some View {
+        let sessions = calendarMonthSportSessions
+        let minutes = Int(sessions.reduce(0.0) { $0 + max(0, $1.durationMinutes) }.rounded())
+        VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Este mes")
+            ProgressInsightCard(
+                title: "Salidas del mes",
+                systemImage: ProgressCategory.sports.systemImage,
+                narrative: sessions.isEmpty
+                    ? "Las salidas En vivo de este mes aparecerán aquí."
+                    : "\(sessions.count) salida\(sessions.count == 1 ? "" : "s") En vivo este mes · \(Self.compactActiveDuration(minutes)).",
+                tint: ProgressCategory.sports.accent
+            ) {
+                ProgressHeroMetricRow(
+                    value: sessions.isEmpty ? "—" : "\(sessions.count)",
+                    unit: sessions.isEmpty ? nil : "salidas",
+                    caption: Self.compactActiveDuration(minutes)
+                ) {
+                    EmptyView()
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -819,7 +1062,7 @@ struct StatsView: View {
                     title: "Trabajo de movilidad",
                     systemImage: "figure.flexibility",
                     narrative: "Has registrado movilidad en \(snap.mobilitySessions) sesión\(snap.mobilitySessions == 1 ? "" : "es") del periodo.",
-                    tint: Color(red: 0.55, green: 0.45, blue: 0.95)
+                    tint: ProgressCategory.fitness.accent
                 ) {
                     ProgressHeroMetricRow(
                         value: timeLabel,

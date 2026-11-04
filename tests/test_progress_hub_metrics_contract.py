@@ -42,6 +42,17 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         self.assertNotIn("0.25...0.55", heart)
         self.assertIn("guard !points.isEmpty else { return [] }", heart)
 
+        tab = read(ANDROID / "ProgressTab.kt")
+        self.assertNotIn('ProgressCategory.HEART -> "—"', tab)
+        self.assertIn("recentHeartBpm", tab)
+        self.assertIn("heartDailyBarFractions", tab)
+        self.assertIn("chartsByRange", tab)
+        heart_fn = tab.split("private fun heartDailyBarFractions", 1)[1].split(
+            "private fun sportsDailyBarFractions", 1
+        )[0]
+        self.assertNotIn("0.25f", heart_fn)
+        self.assertIn("if (sample.isEmpty()) return emptyList()", heart_fn)
+
     def test_strength_bars_use_weekly_volume_not_fake_e1rm(self):
         stats = read(IOS / "StatsView.swift")
         spark = stats.split("private var strengthSparkSamples", 1)[1].split(
@@ -56,12 +67,24 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             "private var longTermTrainingTeaser", 1
         )[0]
         self.assertIn("Actividad deportiva", sports)
-        self.assertIn("improvedExerciseCount", sports)
-        self.assertIn("plannedWorkoutCount", sports)
+        self.assertIn("sportsDailySparkSamples", sports)
+        self.assertIn("exerciseProgressSparkSamples", sports)
         self.assertIn("Ejercicios al alza", sports)
+        self.assertIn("Tiempo En vivo", sports)
+        self.assertNotIn("últimos 3 meses", sports)
         tab = read(ANDROID / "ProgressTab.kt")
         self.assertIn("Actividad deportiva", tab)
-        self.assertIn("sportsHubNarrative", tab)
+        self.assertIn("ProgressMiniBarRow", tab)
+        self.assertIn("sportsDailyBarFractions", tab)
+
+    def test_fitness_stimulus_explains_period_and_sources(self):
+        stats = read(IOS / "StatsView.swift")
+        self.assertIn("Repera + Salud", stats)
+        self.assertIn("fitnessExternalMinutes", stats)
+        self.assertIn("fitnessReperaMinutes", stats)
+        tab = read(ANDROID / "ProgressTab.kt")
+        self.assertIn("Repera + Salud", tab)
+        self.assertIn("Health Connect", tab)
 
     def test_business_sponsored_pro_rewires_after_entitlements(self):
         app = read(IOS / "ReperaApp.swift")
@@ -81,6 +104,38 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             "setBusinessSponsoredAccess(result.snapshot.grantsFullAppAccess)",
             main,
         )
+
+    def test_hub_uses_last_7_days_not_esta_semana(self):
+        stats = read(IOS / "StatsView.swift")
+        chips = read(IOS / "ProgressCategoryChips.swift")
+        tab = read(ANDROID / "ProgressTab.kt")
+        self.assertIn("Últimos 7 días", stats)
+        self.assertNotIn("Esta semana", stats)
+        self.assertIn("Últimos 7 días", tab)
+        self.assertNotIn("Esta semana", tab)
+        self.assertIn('case .recovery: return "moon.fill"', chips)
+        self.assertIn("0.29, green: 0.22, blue: 0.55", chips)
+        self.assertIn("0.10, green: 0.61, blue: 0.56", chips)
+
+    def test_month_summaries_at_end_of_health_tabs(self):
+        stats = read(IOS / "StatsView.swift")
+        tab = read(ANDROID / "ProgressTab.kt")
+        for name in (
+            "fitnessMonthSummaryCard",
+            "heartMonthSummaryCard",
+            "recoveryMonthSummaryCard",
+            "sportsMonthSummaryCard",
+        ):
+            self.assertIn(name, stats)
+        self.assertIn("ProgressMonthSummaryCard", tab)
+        self.assertIn("Actividad del mes", tab)
+        self.assertIn("FC media del mes", tab)
+        self.assertIn("Descanso del mes", tab)
+        self.assertIn("Salidas del mes", tab)
+        accents = read(ANDROID / "ReperaColorScheme.kt")
+        self.assertIn("0xFF4A388C", accents)
+        self.assertIn("0xFF1A9B8E", accents)
+        self.assertIn("DarkMode", read(ANDROID / "ProgressCategoryChips.kt"))
 
 
 if __name__ == "__main__":

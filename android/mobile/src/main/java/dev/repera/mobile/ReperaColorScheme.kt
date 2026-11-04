@@ -131,8 +131,10 @@ internal object ReperaAccents {
     val strength = Color(0xFFFF9500)
     val fitness = Color(0xFF5AC8FA)
     val heart = Color(0xFFFF453A)
-    val recovery = Color(0xFF33C6B8)
-    val sports = Color(0xFF8C73F2)
+    /** Noche / descanso: azul oscuro violáceo. */
+    val recovery = Color(0xFF4A388C)
+    /** Deportes: teal (no morado). */
+    val sports = Color(0xFF1A9B8E)
     val energy = Color(0xFFFF9F0A)
     val minutes = Color(0xFF0A84FF)
     val swipeEdit = Color(0xFF0A84FF)

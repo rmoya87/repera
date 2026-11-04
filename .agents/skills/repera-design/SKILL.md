@@ -29,9 +29,14 @@ tarjeta insight con frase + número + mini viz.
 - Preferir **chips horizontales temáticos** frente a segmentados genéricos
   (Entreno / Actividad / Recuperación).
 - **Sin calendario de periodo global** en hubs de datos. Ventanas fijas por
-  bloque (hoy / última noche / esta semana / este mes).
-- **Gratis:** momento + semana (y teasers «Ejemplo»). **Pro:** mes embebido +
-  «A largo plazo» real. Selectores D/S/M solo en detalle, no en el hub.
+  bloque (hoy / última noche / **Últimos 7 días** / este mes). No etiquetar
+  la ventana móvil de 7 días como «Esta semana» (no es lun–dom).
+- **Gratis:** momento + Últimos 7 días (y teasers «Ejemplo») + resumen
+  **Este mes** al final de Forma/Corazón/Recuperación/Deportes.
+  **Pro:** mes embebido + «A largo plazo» real. Selectores D/S/M solo en
+  detalle, no en el hub.
+- Recuperación: icono **luna** + acento azul oscuro violáceo (noche).
+  Deportes: acento **teal** (no reutilizar el morado de Recuperación).
 - Chevron / affordance de navegación **solo** si hay destino real. Nunca
   chevron muerto.
 
@@ -52,7 +57,7 @@ Plantilla por categoría (adaptar, no forzar vacío):
 1. **Héroe** — número/estado + frase narrativa corta.
 2. **Cuadrícula glance** — 2×2 (o similar) de métricas con contexto
    (media / típico / —).
-3. **Insights de periodo** («Esta semana» / mes) — cards estilo Salud.
+3. **Insights de periodo** («Últimos 7 días» / mes) — cards estilo Salud.
 4. **A largo plazo** — solo Pro (tendencias, consistencia, mapas de días).
 
 Card insight (`ProgressInsightCard` y equivalentes):
