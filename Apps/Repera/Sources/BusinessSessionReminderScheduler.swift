@@ -10,7 +10,8 @@ enum BusinessSessionReminderScheduler {
 
     static func synchronize(
         bookings: [BusinessBooking],
-        occurrences: [BusinessOccurrence]
+        occurrences: [BusinessOccurrence],
+        trainingSessions: [BusinessProfessionalTrainingSession]
     ) async {
         generation &+= 1
         let currentGeneration = generation
@@ -18,7 +19,10 @@ enum BusinessSessionReminderScheduler {
         let active = Dictionary(uniqueKeysWithValues: occurrences.map { ($0.id, $0) })
         let now = Date()
         // Acotar iOS notification slots (máximo 64 pendientes del sistema).
-        let upcoming: [(id: String, title: String, date: Date)] = bookings.compactMap { booking in
+        let bookedOccurrenceIDs = Set(
+            bookings.filter { $0.status == "booked" }.map(\.occurrenceId)
+        )
+        let reserved: [(id: String, title: String, date: Date)] = bookings.compactMap { booking in
             guard booking.status == "booked",
                   let occurrence = active[booking.occurrenceId],
                   ["class", "appointment"].contains(occurrence.kind),
@@ -31,9 +35,26 @@ enum BusinessSessionReminderScheduler {
                 date: start.addingTimeInterval(-3_600)
             )
         }
-        .sorted { $0.date < $1.date }
-        .prefix(40)
-        .map { $0 }
+        // Sesiones directamente asignadas por entrenador, sin reserva propia.
+        // Si proceden de una clase ya reservada, no emitir un segundo aviso.
+        let direct: [(id: String, title: String, date: Date)] = trainingSessions.compactMap { session in
+            guard session.status == "scheduled",
+                  let minutes = session.scheduledTimeMinutes,
+                  (0..<1_440).contains(minutes),
+                  session.sourceOccurrenceId.map({ !bookedOccurrenceIDs.contains($0) }) ?? true,
+                  let start = localStart(dayKey: session.scheduledDate, minutes: minutes),
+                  start.timeIntervalSince(now) > 3_660,
+                  start.timeIntervalSince(now) < 60 * 86_400 else { return nil }
+            return (
+                id: prefix + "training." + session.id.uuidString,
+                title: session.title,
+                date: start.addingTimeInterval(-3_600)
+            )
+        }
+        let upcoming = (reserved + direct)
+            .sorted { $0.date < $1.date }
+            .prefix(40)
+            .map { $0 }
 
         let pending = await center.pendingNotificationRequests()
         guard currentGeneration == generation else { return }
@@ -62,6 +83,20 @@ enum BusinessSessionReminderScheduler {
             )
             try? await center.add(request)
         }
+    }
+
+    private static func localStart(dayKey: String, minutes: Int) -> Date? {
+        let parts = dayKey.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        var components = DateComponents()
+        components.year = parts[0]
+        components.month = parts[1]
+        components.day = parts[2]
+        components.hour = minutes / 60
+        components.minute = minutes % 60
+        components.second = 0
+        // La fecha de sesión es local, nunca reinterpretar el día como UTC.
+        return Calendar.current.date(from: components)
     }
 
     /// Se llama tras desvincular/cambiar de cuenta; no cancela otros temporizadores.
