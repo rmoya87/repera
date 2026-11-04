@@ -1,4 +1,5 @@
 import BackgroundTasks
+import CoreSpotlight
 import GoogleSignIn
 import ReperaDomain
 import SwiftUI
@@ -55,6 +56,11 @@ struct ReperaApp: App {
                 .environment(\.locale, Locale(identifier: "es_ES"))
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
+                }
+                .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                    if let identifier = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+                        ReperaSystemCommand.requestExercise(identifier: identifier)
+                    }
                 }
                 .environment(store)
                 .environment(subscriptions)
