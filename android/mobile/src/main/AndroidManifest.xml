@@ -69,8 +69,32 @@
                 <data android:scheme="repera" android:host="live" />
                 <data android:scheme="repera" android:host="workout" />
                 <data android:scheme="repera" android:host="invitation" />
+                <data android:scheme="repera" android:host="today" />
+                <data android:scheme="repera" android:host="timer" />
+                <data android:scheme="repera" android:host="exercises" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/repera_shortcuts" />
         </activity>
+        <receiver android:name=".ReperaHomeWidgetReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/repera_home_widget_info" />
+        </receiver>
+        <service android:name=".ReperaWorkoutTileService"
+            android:label="@string/shortcut_repera_live"
+            android:icon="@drawable/ic_timer"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service android:name=".ReperaTimerTileService"
+            android:label="@string/shortcut_repera_timer"
+            android:icon="@drawable/ic_timer"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />
         <service
             android:name=".WearLiveCommandListener"
