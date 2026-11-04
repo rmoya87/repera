@@ -2209,21 +2209,6 @@ struct WorkoutMapZoomDestination: View {
             }
             .ignoresSafeArea()
 
-            if let exportedRoute {
-                ShareLink(item: exportedRoute) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
-                        .glassEffect(.regular, in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Exportar recorrido GPX")
-                .padding(.leading, 16)
-                .padding(.top, 10)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            }
-
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
@@ -2236,6 +2221,21 @@ struct WorkoutMapZoomDestination: View {
             .accessibilityLabel("Cerrar mapa")
             .padding(.trailing, 16)
             .padding(.top, 10)
+        }
+        .overlay(alignment: .topLeading) {
+            if let exportedRoute {
+                ShareLink(item: exportedRoute) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                        .glassEffect(.regular, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Exportar recorrido GPX")
+                .padding(.leading, 16)
+                .padding(.top, 10)
+            }
         }
         .toolbar(.hidden, for: .navigationBar)
         .background(OG.bg)
