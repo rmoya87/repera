@@ -305,6 +305,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             // El contexto completo (recents, audio, live) se publica en sendWatchContextNow.
             return [
                 "ok": true,
+                // A late reply from the previous login must not be applied
+                // after the watch has switched to a different account.
+                "ownerScope": expectedOwner,
                 "todayWorkout": data,
                 "todayWorkouts": plansData,
                 "todayDayStart": Calendar.current.startOfDay(for: Date()).timeIntervalSince1970

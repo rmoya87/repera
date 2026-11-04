@@ -2531,6 +2531,15 @@ final class ReperaStore: NSObject {
 
     private func sendWatchContextNow() {
         let plans = effectiveWatchPlansForCarousel()
+        // Apple is the local identity; Google-only athletes use the verified
+        // owner binding so WatchConnectivity never becomes silently disabled.
+        let watchOwnerScope: String? = {
+            if AppleAuthStore.shared.isSignedIn { return AppleAuthStore.shared.userID }
+            if BusinessAuthStore.shared.isGoogleSignedIn {
+                return BusinessAuthStore.shared.boundUserForPendingDeletion?.uuidString.lowercased()
+            }
+            return nil
+        }()
         connectivity.send(
             session: state.activeSession,
             today: plans.first,
@@ -2538,7 +2547,7 @@ final class ReperaStore: NSObject {
             maxHeartRateBpm: state.settings.heartRateMaxBpm ?? 190,
             quickLogHint: quickLogHintPayload(),
             sessionRevision: state.syncRevision,
-            ownerScope: AppleAuthStore.shared.userID,
+            ownerScope: watchOwnerScope,
             completedAck: lastWatchAcknowledgedSession,
             completedAckHealthKitUUID: lastWatchAcknowledgedSession.flatMap { ackID in
                 state.workouts.first(where: { $0.id == ackID })?.healthKitWorkoutUUID
