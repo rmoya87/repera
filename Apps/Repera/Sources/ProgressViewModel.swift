@@ -20,6 +20,11 @@ final class ProgressViewModel {
         guard newRange != range else { return }
         range = newRange
         isPreparing = true
+        ReperaAnalytics.track(.progressPeriodSelected, parameters: [
+            "feature_area": "progress",
+            "section_name": newRange.rawValue,
+            "result": "success"
+        ])
     }
 
     /// Apply cached snapshot for the current range if revisions match.

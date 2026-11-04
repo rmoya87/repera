@@ -254,6 +254,17 @@ final class AITrainingInboxStore {
                         .execute()
                     imported += 1
                     lastImportedTitle = row.title
+                    await MainActor.run {
+                        ReperaAnalytics.track(.aiProgramReceived, parameters: [
+                            "feature_area": "ai",
+                            "result": "success"
+                        ])
+                        ReperaAnalytics.track(.aiProgramActivated, parameters: [
+                            "feature_area": "ai",
+                            "workout_type": "planned",
+                            "result": "success"
+                        ])
+                    }
                 } catch {
                     reasons.append("\(row.scheduledDate): \(error.localizedDescription)")
                 }

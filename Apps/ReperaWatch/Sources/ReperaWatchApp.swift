@@ -49,6 +49,7 @@ struct ReperaWatchApp: App {
                 .onChange(of: scenePhase) { _, next in
                     if next == .active {
                         hub.refreshToday()
+                        hub.reportWatchAppOpened()
                     } else {
                         hub.applicationWillResignActive()
                     }

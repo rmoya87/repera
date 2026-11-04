@@ -105,7 +105,17 @@ internal fun ProgressTab(
     LaunchedEffect(pro) {
         selectedRange = if (pro) ProgressTimeRange.MONTH.wire else ProgressTimeRange.WEEK.wire
     }
-    LaunchedEffect(selectedRange) { onProgressRangeChange(selectedRange) }
+    LaunchedEffect(selectedRange) {
+        onProgressRangeChange(selectedRange)
+        dev.repera.mobile.analytics.ReperaAnalytics.track(
+            dev.repera.mobile.analytics.ReperaAnalytics.Event.PROGRESS_PERIOD_SELECTED,
+            mapOf(
+                "feature_area" to "progress",
+                "section_name" to selectedRange,
+                "result" to "success"
+            )
+        )
+    }
     val hubSubtitle = when (selectedCategory) {
         ProgressCategory.HEART -> "Ahora"
         ProgressCategory.RECOVERY -> "Preparación"

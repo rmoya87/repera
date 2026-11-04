@@ -920,6 +920,10 @@ struct SettingsView: View {
             try data.write(to: url, options: .atomic)
             exportURL = url
             importFeedback = nil
+            ReperaAnalytics.track(.dataExportCompleted, parameters: [
+                "feature_area": "settings",
+                "result": "success"
+            ])
         } catch {
             importFeedback = "No se pudo exportar JSON: \(error.localizedDescription)"
         }

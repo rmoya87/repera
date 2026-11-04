@@ -209,6 +209,11 @@ struct PlusHubView: View {
             if classCalendarScrollID == nil {
                 classCalendarScrollID = BusinessDataStore.localDayKey(selectedDay)
             }
+            ReperaAnalytics.track(.classListViewed, parameters: [
+                "feature_area": "center",
+                "service_kind": "class",
+                "result": "success"
+            ])
         }
     }
 
@@ -1054,6 +1059,13 @@ struct ClassOccurrenceDetailPage: View {
         } message: {
             Text(startFailureMessage ?? "")
         }
+        .onAppear {
+            ReperaAnalytics.track(.classViewed, parameters: [
+                "feature_area": "center",
+                "service_kind": occurrence.kind == "appointment" ? "appointment" : "class",
+                "result": "success"
+            ])
+        }
         .task {
             loadingRoster = true
             roster = await business.loadClassRoster(for: occurrence.id)
@@ -1063,6 +1075,11 @@ struct ClassOccurrenceDetailPage: View {
 
     private func beginClassPlan() {
         guard let plan = planRoutine else { return }
+        ReperaAnalytics.track(.classPlanOpened, parameters: [
+            "feature_area": "center",
+            "service_kind": occurrence.kind == "appointment" ? "appointment" : "class",
+            "result": "success"
+        ])
         let saved = store.ensureProfessionalRoutineInLibrary(plan)
         onStartRoutine(saved)
     }

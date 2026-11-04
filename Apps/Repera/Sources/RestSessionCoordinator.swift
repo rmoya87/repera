@@ -110,6 +110,11 @@ final class RestSessionCoordinator {
     }
 
     func skip() {
+        ReperaAnalytics.track(.restTimerSkipped, parameters: [
+            "feature_area": "timer",
+            "timer_type": "rest",
+            "result": "success"
+        ])
         finish(announce: false)
     }
 

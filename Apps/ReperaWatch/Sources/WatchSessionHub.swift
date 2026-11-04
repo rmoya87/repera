@@ -685,6 +685,15 @@ final class WatchSessionHub: NSObject {
         connectivity.refreshToday()
     }
 
+    /// Phone hosts Firebase; Watch only relays a closed event name.
+    func reportWatchAppOpened() {
+        connectivity.enqueueAnalyticsEvent(
+            "watch_app_opened",
+            featureArea: "reliability",
+            result: "success"
+        )
+    }
+
     /// Cancela una actividad cuyo dueño es el iPhone. La instrucción se entrega
     /// de forma durable por WatchConnectivity, incluso si el iPhone está offline.
     /// El cierre de la vista es inmediato una vez aceptada por la cola local.

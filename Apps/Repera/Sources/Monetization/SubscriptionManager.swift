@@ -191,8 +191,14 @@ final class SubscriptionManager {
         purchaseInFlight = true
         lastErrorMessage = nil
         defer { purchaseInFlight = false }
+        ReperaAnalytics.track(.checkoutStarted, parameters: [
+            "feature_area": "subscription",
+            "paywall_context": paywall.context.rawValue,
+            "result": "pending"
+        ])
         do {
             let previous = snapshot
+            let previousPro = previous.grantsProAccess
             var next = try await provider.purchase(productID: productID)
             next = await verifiedAppleAccessIfNeeded(next)
             next = mergedVerifiedCache(next, from: previous)
@@ -203,11 +209,23 @@ final class SubscriptionManager {
                 } else {
                     MonetizationAnalytics.track(.subscriptionStarted, context: paywall.context, productID: productID)
                 }
+                if previousPro != snapshot.grantsProAccess {
+                    ReperaAnalytics.track(.entitlementChanged, parameters: [
+                        "feature_area": "subscription",
+                        "access_tier": "pro",
+                        "result": "success"
+                    ])
+                }
                 paywall.dismiss()
                 return true
             }
             return false
         } catch EntitlementError.userCancelled {
+            ReperaAnalytics.track(.checkoutCancelled, parameters: [
+                "feature_area": "subscription",
+                "paywall_context": paywall.context.rawValue,
+                "result": "cancelled"
+            ])
             return false
         } catch {
             lastErrorMessage = error.localizedDescription

@@ -151,6 +151,10 @@ struct FindCenterTrainerView: View {
         .background(OG.bg.ignoresSafeArea())
         .onSubmit(of: .search) {
             guard businessAuth.isConnected else { return }
+            ReperaAnalytics.track(.centerSearchUsed, parameters: [
+                "feature_area": "center",
+                "result": "success"
+            ])
             Task { await businessData.searchDirectory(query: query) }
         }
         .onChange(of: query) { _, value in
@@ -158,6 +162,10 @@ struct FindCenterTrainerView: View {
                 try? await Task.sleep(for: .milliseconds(350))
                 guard query == value, businessAuth.isConnected else { return }
                 guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                ReperaAnalytics.track(.centerSearchUsed, parameters: [
+                    "feature_area": "center",
+                    "result": "success"
+                ])
                 await businessData.searchDirectory(query: value)
             }
         }

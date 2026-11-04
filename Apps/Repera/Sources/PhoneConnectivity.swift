@@ -389,11 +389,39 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             // An unsuccessful durable write is NOT an acknowledged action. Retrying
             // with the same UUID must still be allowed after a transient error.
             if revision > 0 { remember(actionId) }
+            await MainActor.run {
+                ReperaAnalytics.track(
+                    revision > 0 ? .watchSyncConfirmed : .watchSyncFailed,
+                    parameters: [
+                        "feature_area": "reliability",
+                        "action_name": "log_set",
+                        "result": revision > 0 ? "success" : "failure",
+                        "session_origin_platform": "watchos"
+                    ]
+                )
+            }
             return [
                 "ok": revision > 0,
                 "actionId": actionId.uuidString,
                 "sessionRevision": revision,
             ]
+        case "analyticsEvent":
+            // Watch has no Firebase: phone re-emits allowlisted product events.
+            guard let name = message["event"] as? String else {
+                return ["ok": false]
+            }
+            var parameters: [String: String] = [
+                "session_origin_platform": "watchos"
+            ]
+            if let feature = message["feature_area"] as? String { parameters["feature_area"] = feature }
+            if let result = message["result"] as? String { parameters["result"] = result }
+            if let action = message["action_name"] as? String { parameters["action_name"] = action }
+            let accepted = await MainActor.run { () -> Bool in
+                guard let event = ReperaAnalytics.Event(rawValue: name) else { return false }
+                ReperaAnalytics.track(event, parameters: parameters)
+                return true
+            }
+            return ["ok": accepted]
         default:
             logger.warning("Unknown Watch action \(action, privacy: .public)")
             return ["ok": false]

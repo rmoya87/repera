@@ -451,6 +451,11 @@ struct AIAccessView: View {
     }
 
     private func launch(_ provider: AIConnectionProvider) {
+        ReperaAnalytics.track(.aiConnectionStarted, parameters: [
+            "feature_area": "ai",
+            "entry_point": provider.id,
+            "result": "pending"
+        ])
         UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
         guard let url = AIProviderLaunch.url(for: provider.id) else {
             launchMessage = "Las instrucciones están copiadas, pero no hay una dirección válida para este asistente."
@@ -571,7 +576,14 @@ struct AIAccessView: View {
                     .execute().value
             }
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
+            let previouslyVerified = Set(tokens.filter(\.hasConnected).map(\.id))
             tokens = items
+            for token in items where token.hasConnected && !previouslyVerified.contains(token.id) {
+                ReperaAnalytics.track(.aiConnectionVerified, parameters: [
+                    "feature_area": "ai",
+                    "result": "success"
+                ])
+            }
             errorMessage = nil
         } catch {
             errorMessage = "No se pudieron cargar las conexiones: \(error.localizedDescription)"

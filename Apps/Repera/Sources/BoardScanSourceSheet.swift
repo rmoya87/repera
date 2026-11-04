@@ -242,6 +242,10 @@ struct BoardScanIntoRoutineView: View {
         guard checkScanPermission() else { return }
         failure = nil
         reading = true
+        ReperaAnalytics.track(.scanStarted, parameters: [
+            "feature_area": "scanner",
+            "result": "pending"
+        ])
         let catalog = store.state.exercises
         scanTask?.cancel()
         scanTask = Task { @MainActor in
@@ -255,6 +259,11 @@ struct BoardScanIntoRoutineView: View {
                 let proposal = BoardImportPipeline.interpretSync(ocrText: text, catalog: catalog)
                 guard !proposal.blocks.isEmpty || !proposal.lines.isEmpty else {
                     failure = "No se han encontrado ejercicios. Prueba con otra foto."
+                    ReperaAnalytics.track(.scanFailed, parameters: [
+                        "feature_area": "scanner",
+                        "result": "failure",
+                        "error_code": "empty_parse"
+                    ])
                     return
                 }
                 let result = BoardScanReviewPayload(
@@ -263,10 +272,23 @@ struct BoardScanIntoRoutineView: View {
                 )
                 _ = subscriptions.consumeBoardScanIfNeeded(attemptID: result.id.uuidString)
                 review = result
+                ReperaAnalytics.track(.scanProcessed, parameters: [
+                    "feature_area": "scanner",
+                    "result": "success"
+                ])
+                ReperaAnalytics.track(.scanResultAccepted, parameters: [
+                    "feature_area": "scanner",
+                    "result": "success"
+                ])
             } catch is CancellationError {
                 // Cerrar el editor no guarda nada.
             } catch {
                 failure = error.localizedDescription
+                ReperaAnalytics.track(.scanFailed, parameters: [
+                    "feature_area": "scanner",
+                    "result": "failure",
+                    "error_code": "recognize"
+                ])
             }
         }
     }

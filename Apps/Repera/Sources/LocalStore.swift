@@ -615,12 +615,34 @@ final class LocalStore {
                 self.syncPhase = .offline
             case .unavailable:
                 self.syncPhase = .offline
+                Task { @MainActor in
+                    ReperaAnalytics.track(.syncFailed, parameters: [
+                        "feature_area": "reliability",
+                        "error_code": "icloud_unavailable",
+                        "result": "failure"
+                    ])
+                }
             case .waitingForDownload:
                 self.syncPhase = .awaitingRemote
             case .corruptRemote:
                 self.syncPhase = .recoveringCorrupt
+                Task { @MainActor in
+                    ReperaAnalytics.track(.syncFailed, parameters: [
+                        "feature_area": "reliability",
+                        "error_code": "corrupt_remote",
+                        "result": "failure"
+                    ])
+                }
             case .adoptedRemote, .reconciledRouteData, .keptLocal, .noRemoteDocument:
                 self.syncPhase = status == .available ? .ready : .offline
+                if status == .available {
+                    Task { @MainActor in
+                        ReperaAnalytics.track(.syncCompleted, parameters: [
+                            "feature_area": "reliability",
+                            "result": "success"
+                        ])
+                    }
+                }
             }
             return outcome
         }
@@ -641,10 +663,30 @@ final class LocalStore {
             }
             do {
                 try await self.persistence.writeCloud(at: url, state: state)
+                Task { @MainActor in
+                    ReperaAnalytics.track(.syncCompleted, parameters: [
+                        "feature_area": "reliability",
+                        "result": "success"
+                    ])
+                }
             } catch let error as PersistenceError {
                 self.lastPersistenceError = error
+                Task { @MainActor in
+                    ReperaAnalytics.track(.syncFailed, parameters: [
+                        "feature_area": "reliability",
+                        "error_code": "write_failed",
+                        "result": "failure"
+                    ])
+                }
             } catch {
                 self.lastPersistenceError = .writeFailed
+                Task { @MainActor in
+                    ReperaAnalytics.track(.syncFailed, parameters: [
+                        "feature_area": "reliability",
+                        "error_code": "write_failed",
+                        "result": "failure"
+                    ])
+                }
             }
         }
     }

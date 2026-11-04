@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import dev.repera.domain.SessionSportMetrics
+import dev.repera.mobile.analytics.ReperaAnalytics
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.animateContentSize
@@ -376,7 +377,15 @@ internal fun ExercisesTab(
         item {
             ReperaSearchField(
                 value = exerciseSearch,
-                onValueChange = { exerciseSearch = it },
+                onValueChange = {
+                    exerciseSearch = it
+                    if (it.isNotBlank()) {
+                        ReperaAnalytics.track(
+                            ReperaAnalytics.Event.EXERCISE_SEARCH_USED,
+                            mapOf("feature_area" to "exercises", "result" to "success")
+                        )
+                    }
+                },
                 placeholder = "Nombre, músculo o equipo"
             )
         }

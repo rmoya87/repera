@@ -450,6 +450,12 @@ struct ExerciseDetailView: View {
                 ContentUnavailableView("Ejercicio no encontrado", systemImage: "questionmark")
             }
         }
+        .onAppear {
+            ReperaAnalytics.track(.exerciseDetailViewed, parameters: [
+                "feature_area": "exercises",
+                "result": "success"
+            ])
+        }
     }
 
     @ViewBuilder

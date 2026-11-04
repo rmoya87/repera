@@ -4,6 +4,7 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.VibrationEffect
 import android.os.Vibrator
+import dev.repera.mobile.analytics.ReperaAnalytics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -377,7 +378,16 @@ internal fun StandaloneTimerScreen(
             phaseEndMs = 0L
             phaseStartMs = 0L
             StandaloneTimerService.stop(context)
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.TIMER_PAUSED,
+                mapOf(
+                    "feature_area" to "timer",
+                    "timer_type" to "standalone",
+                    "result" to "success"
+                )
+            )
         } else {
+            val wasPaused = pausedDisplaySeconds != null || timerStartedAtMs != null
             isRunning = true
             pausedDisplaySeconds = null
             if (timerStartedAtMs == null) timerStartedAtMs = nowMs
@@ -398,6 +408,16 @@ internal fun StandaloneTimerScreen(
             StandaloneTimerService.sync(
                 context, true, config.mode, remainingOrElapsed, config.shortLabel
             )
+            if (wasPaused) {
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.TIMER_RESUMED,
+                    mapOf(
+                        "feature_area" to "timer",
+                        "timer_type" to "standalone",
+                        "result" to "success"
+                    )
+                )
+            }
         }
     }
 

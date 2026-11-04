@@ -59,7 +59,20 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
             // Keep the exact target through a terminated/background app launch.
             UserDefaults.standard.set(id.uuidString, forKey: Self.pendingKey)
             Task { @MainActor in
+                ReperaAnalytics.track(.notificationOpened, parameters: [
+                    "feature_area": "training",
+                    "entry_point": "workout_complete",
+                    "result": "success"
+                ])
                 NotificationCenter.default.post(name: Self.openEvent, object: id)
+            }
+        } else {
+            Task { @MainActor in
+                ReperaAnalytics.track(.notificationOpened, parameters: [
+                    "feature_area": "reliability",
+                    "entry_point": "system",
+                    "result": "success"
+                ])
             }
         }
         completionHandler()

@@ -461,6 +461,35 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         requestToday(deferIfOffline: true)
     }
 
+    /// Product metrics only: phone hosts Firebase; Watch never links Analytics SDKs.
+    func enqueueAnalyticsEvent(
+        _ event: String,
+        featureArea: String = "reliability",
+        result: String = "success",
+        actionName: String? = nil
+    ) {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              let owner = currentOwnerScope else { return }
+        var payload: [String: Any] = [
+            "ownerScope": owner,
+            "action": "analyticsEvent",
+            "event": event,
+            "feature_area": featureArea,
+            "result": result,
+            "actionId": UUID().uuidString
+        ]
+        if let actionName { payload["action_name"] = actionName }
+        let wc = WCSession.default
+        if wc.isReachable {
+            wc.sendMessage(payload, replyHandler: { _ in }, errorHandler: { [payload] _ in
+                WCSession.default.transferUserInfo(payload)
+            })
+        } else {
+            wc.transferUserInfo(payload)
+        }
+    }
+
     private func requestToday(deferIfOffline: Bool = false) {
         guard WCSession.isSupported() else { return }
         let wc = WCSession.default

@@ -32,6 +32,20 @@ struct ExerciseProgressView: View {
         .background(OG.bg.ignoresSafeArea())
         .ogScrollingTitleNav(usesGroupedList: false)
         .ogDiaryTransparentNav()
+        .onAppear {
+            ReperaAnalytics.track(.progressDetailOpened, parameters: [
+                "feature_area": "progress",
+                "section_name": "strength",
+                "result": "success"
+            ])
+            let history = store.cachedHistory(for: exerciseId)
+            if history.maxWeightKg != nil || history.estimatedOneRM != nil {
+                ReperaAnalytics.track(.personalRecordViewed, parameters: [
+                    "feature_area": "progress",
+                    "result": "success"
+                ])
+            }
+        }
     }
 
     /// El historial propio es gratuito; la evolución Pro se ilustra sin leer sus marcas.
@@ -656,5 +670,11 @@ struct ExerciseHistoryView: View {
         .background(OG.bg)
         .ogScrollingTitleNav()
         .ogDiaryTransparentNav()
+        .onAppear {
+            ReperaAnalytics.track(.exerciseHistoryViewed, parameters: [
+                "feature_area": "progress",
+                "result": "success"
+            ])
+        }
     }
 }
