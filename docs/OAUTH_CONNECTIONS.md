@@ -10,7 +10,7 @@ El usuario abre **Ajustes → Datos → Conecta tu IA**. ChatGPT abrirá la fich
 
 ## Despliegue comprobado — 2026-10-24
 
-En producción (`uvzgujlrqohreoucirms`) se ha aplicado `ai_oauth_connections` con versión remota `20261024164612` (archivo local `20261024162744_ai_oauth_connections.sql`; misma migración, no reaplicar). Funciones ACTIVE tras esta actualización: `repera-mcp` v19, `repera-ai-tokens` v3 y `repera-ai-connect` v2, todas con autenticación propia.
+En producción (`uvzgujlrqohreoucirms`) se ha aplicado `ai_oauth_connections` con versión remota `20261024164612` (archivo local `20261024164612_ai_oauth_connections.sql`; misma migración, no reaplicar). Funciones ACTIVE tras esta actualización: `repera-mcp` v19, `repera-ai-tokens` v3 y `repera-ai-connect` v2, todas con autenticación propia.
 
 Verificación HTTP real: catálogo y metadata 200; MCP sin credenciales 401 con desafío OAuth; autorización y emisión de PAT sin sesión 401. Esta comprobación inicial se realizó con los proveedores desactivados. La activación posterior del cliente público de Claude se registra abajo; no existen fichas públicas.
 
@@ -38,7 +38,7 @@ La ayuda oficial de Claude permite un conector personalizado en Free; publicar u
 - `web/ai/`: consentimiento accesible, login PKCE mediante Supabase JS 2.118.0, estado en sessionStorage y autorización explícita. No escribe tokens en URLs, prompts ni localStorage. `pack-ionos.sh` incluye esta carpeta y su `.htaccess` sin caché ni referrer.
 - `repera-ai-connect`: catálogo con `setup.kind=claude_prompt` e ID público solo para Claude habilitado y registrado; detalles de autorización, consentimiento y desconexión. Solo una sesión personal verificada puede autorizar o revocar. El client ID se obtiene de Auth, nunca del cuerpo enviado por el navegador. Solo clientes habilitados por el operador.
 - `repera-mcp` / `_shared/ai-oauth.ts`: OAuth JWT firmado con claves asimétricas del proyecto, issuer y audiencia MCP exactos, role `repera_mcp`, propietario, client ID y sesión viva. Mantiene Bearer PAT. Publica resource metadata y desafío HTTP 401 `WWW-Authenticate`.
-- Migración `20261024162744_ai_oauth_connections.sql`: proveedores, atribución OAuth en `ai_access_tokens`, hook de aislamiento y resolución del permiso contra `auth.sessions`. No almacena access/refresh tokens de OAuth. El hash de la fila de permiso es aleatorio y no tiene ningún PAT correspondiente.
+- Migración `20261024164612_ai_oauth_connections.sql`: proveedores, atribución OAuth en `ai_access_tokens`, hook de aislamiento y resolución del permiso contra `auth.sessions`. No almacena access/refresh tokens de OAuth. El hash de la fila de permiso es aleatorio y no tiene ningún PAT correspondiente.
 
 ## Autorización y revocación
 
