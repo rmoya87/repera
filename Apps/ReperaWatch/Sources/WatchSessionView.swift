@@ -590,6 +590,7 @@ struct WatchSessionView: View {
                     if hub.isIntervalClock {
                         // The interval countdown is already the large clock.
                         Button("Saltar descanso") { hub.skipRest() }
+                            .handGestureShortcut(.primaryAction, isEnabled: !hub.isPaused)
                             .buttonStyle(.borderedProminent)
                             .tint(accent)
                             .foregroundStyle(.black)
@@ -630,6 +631,8 @@ struct WatchSessionView: View {
                     .tint(accent)
                     .foregroundStyle(.black)
                     .accessibilityLabel(hub.nextActionIsFinish ? "Terminar" : "Siguiente")
+                    // El doble toque nunca finaliza ni descarta sesiones.
+                    .handGestureShortcut(.primaryAction, isEnabled: hub.canConfirmCurrentEntry && !hub.nextActionIsFinish && hub.restRemaining == 0)
                     .accessibilityHint(
                         hub.currentIsWOD && !hub.wodUsesSeries
                             ? "Abrir el resultado del WOD"
