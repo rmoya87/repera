@@ -10,11 +10,24 @@ enum ReperaSystemCommand {
     }
 
     static let notification = Notification.Name("repera.systemCommand")
+    private static let pendingExerciseKey = "repera.systemCommand.exercise"
     private static let pendingKey = "repera.systemCommand.pending"
 
     static func request(_ destination: Destination) {
         UserDefaults.standard.set(destination.rawValue, forKey: pendingKey)
         NotificationCenter.default.post(name: notification, object: nil)
+    }
+
+    static func requestExercise(identifier: String) {
+        guard let exercise = ExerciseSpotlightIndexer.exerciseID(for: identifier) else { return }
+        UserDefaults.standard.set(exercise.uuidString, forKey: pendingExerciseKey)
+        NotificationCenter.default.post(name: notification, object: nil)
+    }
+
+    static func takePendingExercise() -> UUID? {
+        let raw = UserDefaults.standard.string(forKey: pendingExerciseKey)
+        UserDefaults.standard.removeObject(forKey: pendingExerciseKey)
+        return raw.flatMap(UUID.init(uuidString:))
     }
 
     static func takePending() -> Destination? {
