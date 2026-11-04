@@ -33,6 +33,32 @@ Comprobaciones: cuatro tablas nuevas con RLS activo, un trigger de reservas inst
 
 **Estado posterior: 98 versiones compartidas, 30 solo en git, 0 solo en remoto.**
 
+## RPC de negocio recuperadas sin sobrescribir operaciones actuales
+
+El 04/11/2026 se aplicó `20261104074250_repera_missing_business_rpc_recovery.sql` (registrada mediante `apply_migration`; SQL remoto y GitHub idénticos). Corrige efectos parcialmente ausentes de cinco migraciones antiguas sin reejecutarlas completas ni sobrescribir las funciones de reservas y chat actualizadas:
+
+- `athlete_send_org_message`, `update_organization_branding`.
+- `business_mark_class_attendance` (funciones pública y privada).
+- `decline_org_invitation` (funciones pública y privada).
+- Columna `service_occurrences.coach_ack` y trigger `service_occurrence_coach_ack`.
+- `list_my_coach_assignments`, `coach_ack_occurrence`, `coach_reschedule_occurrence` y `coach_cancel_occurrence`.
+
+Se probó el mismo SQL previamente en una transacción revertida y se verificó después el catálogo de funciones: ocho RPC públicas, tres auxiliares privadas, columna y trigger presentes. `anon` no puede llamar a las RPC sensibles comprobadas; `authenticated` puede invocarlas, con autorización por organización en su implementación.
+
+**Estado de historial después de la recuperación de funciones: 99 versiones compartidas, 30 solo en git, 0 solo en remoto.** Las migraciones históricas sin registro requieren cotejar sus efectos reales antes de reparar metadatos: en la misma migración pueden existir unas funciones mientras faltan otras.
+
+## Endurecimiento de seguridad aplicado
+
+Se ejecutó previamente una prueba en transacción revertida y luego se desplegó `20261104074721_repera_catalog_invoker_and_business_rpc_security.sql`:
+
+- La vista `public.training_exercise_catalog` ahora opera con `security_invoker=true`, manteniendo la lectura de `business_exercise_catalog` para `authenticated` mediante RLS.
+- Se revocó la ejecución anónima de `class_occurrence_roster`, `delete_managed_occurrence` y `update_org_booking_window`; `authenticated` y `service_role` mantienen acceso, con las comprobaciones internas de autorización existentes.
+- `private.pass_kind_matches_occurrence` fija `search_path` sin cambiar su comparación de cadenas.
+
+Tras el despliegue, el asesor de seguridad Supabase ya **no informa** `security_definer_view`, `anon_security_definer_function_executable` ni `function_search_path_mutable`. Continúan advertencias a revisar aparte (funciones `SECURITY DEFINER` invocables por usuarios autenticados, controles internos RLS sin política y protección de contraseñas filtradas).
+
+**Estado del historial remoto/ramal de integración: 100 versiones compartidas, 30 solo en git, 0 solo en remoto.**
+
 ## Regla de seguridad
 
 No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 30 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
