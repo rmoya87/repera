@@ -25,7 +25,8 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
         self.assertNotIn("AITrainingProfileView()",settings)
         self.assertNotIn('Text(issue).font(.footnote).foregroundStyle(OG.red)',settings)
         self.assertFalse((ROOT / "Apps/Repera/Sources/AITrainingProfileView.swift").exists())
-        self.assertIn("AITrainingProgramsView()", settings)
+        self.assertIn("AIAccessView()", settings)
+        self.assertNotIn("AITrainingProgramsView()", settings)
         self.assertNotIn("AITrainingProgramsView()", src("Apps/Repera/Sources/PlanView.swift"))
 
     def test_no_unsolicited_health_sleep_or_pending_badges(self):
