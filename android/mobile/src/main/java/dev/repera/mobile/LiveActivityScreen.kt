@@ -72,6 +72,7 @@ import androidx.core.content.ContextCompat
 import dev.repera.domain.LiveActivityState
 import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.LiveSport
+import dev.repera.mobile.analytics.ReperaAnalytics
 import dev.repera.domain.LiveSportHistory
 import dev.repera.domain.AdaptiveRoutePace
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -459,7 +460,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                         filtered.forEach { sport ->
                             Surface(
-                                onClick = { runtime.choose(sport); showSportPicker = false },
+                                onClick = {
+                                    runtime.choose(sport)
+                                    ReperaAnalytics.track(
+                                        ReperaAnalytics.Event.ACTIVITY_SELECTED,
+                                        mapOf("feature_area" to "live_sport", "activity_type" to sport.id)
+                                    )
+                                    showSportPicker = false
+                                },
                                 shape = RoundedCornerShape(14.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                                 modifier = Modifier
