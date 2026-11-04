@@ -722,6 +722,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             )
         )
         super.onCreate(savedInstanceState)
+        ReperaSystemShortcuts.register(this)
         externalRoute = routeFromIntent(intent)
         restoreStoredSession()
         lifecycleScope.launch { subscriptions.start() }
