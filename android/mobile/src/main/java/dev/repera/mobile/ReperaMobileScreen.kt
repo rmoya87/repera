@@ -449,7 +449,8 @@ fun ReperaMobileScreen(
                     navController.navigate(route) { launchSingleTop = true }
                     onExternalRouteHandled()
                 }
-            } else if (route == "en-vivo" || route == "inicio" || route == "entreno-activo") {
+            } else if (route == "en-vivo" || route == "inicio" || route == "entreno-activo" ||
+                route == "temporizador" || route == "ejercicios") {
                 navigateTab(LiveNavigationTarget.resolvedRoute(route, activeWorkout != null))
                 onExternalRouteHandled()
             }
