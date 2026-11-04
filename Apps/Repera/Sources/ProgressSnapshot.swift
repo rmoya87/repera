@@ -317,39 +317,40 @@ enum ProgressDataEngine {
             return pts.map(\.avgBpm).reduce(0, +) / Double(pts.count)
         }()
 
-        let records = StatsEngine.personalRecords(from: filteredWorkouts)
+        // Récords = mejores marcas de siempre (no limitadas al periodo del hub).
+        let records = StatsEngine.personalRecords(from: input.workouts)
         if Task.isCancelled { return nil }
 
+        // Equilibrio muscular = estado actual (fatiga retenida desde ahora), no agregado del periodo.
         let muscleAll = MuscleLoadEngine.load(
-            workouts: filteredWorkouts,
-            external: filteredStimuli,
+            workouts: input.workouts,
+            external: stimuli,
             window: .all,
             weekStartsOnMonday: monday,
             now: now,
             hardOnly: false
         )
         let muscleHard = MuscleLoadEngine.load(
-            workouts: filteredWorkouts,
-            external: filteredHighEffortStimuli,
+            workouts: input.workouts,
+            external: highEffortStimuli,
             window: .all,
             weekStartsOnMonday: monday,
             now: now,
             hardOnly: true
         )
-        // Fatiga con decaimiento desde `now` (solo estímulos del periodo filtrado).
         let muscleFatigueAll = MuscleMapEngine.retainedLoad(
-            workouts: filteredWorkouts,
-            external: filteredStimuli,
+            workouts: input.workouts,
+            external: stimuli,
             hardOnly: false,
             now: now
         )
         let muscleFatigueHard = MuscleMapEngine.retainedLoad(
-            workouts: filteredWorkouts,
-            external: filteredHighEffortStimuli,
+            workouts: input.workouts,
+            external: highEffortStimuli,
             hardOnly: true,
             now: now
         )
-        let hasHardSets = !filteredHighEffortStimuli.isEmpty || filteredWorkouts.contains { session in
+        let hasHardSets = !highEffortStimuli.isEmpty || input.workouts.contains { session in
             session.exercises.contains { entry in
                 !entry.exercise.isMobility && StatsEngine.confirmedWorkSets(entry, in: session)
                     .contains { Effort.isHard(rir: $0.rir) }
@@ -373,10 +374,9 @@ enum ProgressDataEngine {
             now: now
         )
 
-        // Últimos ejercicios realmente entrenados, no los primeros alfabéticos.
-        // Prepararlo aquí evita ordenar un historial completo durante el scroll.
+        // Progreso por ejercicio / tops = mejores marcas de siempre (no solo el periodo del hub).
         var lastExerciseDate: [UUID: Date] = [:]
-        for workout in filteredWorkouts {
+        for workout in input.workouts {
             let date = workout.finishedAt ?? workout.startedAt ?? .distantPast
             for entry in workout.exercises {
                 // Las gráficas deben mostrar ejercicios practicados, no todos
@@ -412,7 +412,7 @@ enum ProgressDataEngine {
             }
         }
         var tops: [UUID: Double] = [:]
-        for workout in filteredWorkouts {
+        for workout in input.workouts {
             for entry in workout.exercises {
                 for set in StatsEngine.confirmedWorkSets(entry, in: workout) {
                     guard let w = set.weightKg, w > 0 else { continue }

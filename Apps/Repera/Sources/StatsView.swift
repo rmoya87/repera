@@ -145,12 +145,9 @@ struct StatsView: View {
     private var categoryHubSubtitle: String {
         switch category {
         case .training, .strength, .fitness, .sports:
-            // Misma etiqueta que ProgressTimeRange.week.title / mes del hub.
-            return isPro ? "Este mes" : "Últimos 7 días"
-        case .heart:
+            return "Últimos 7 días"
+        case .heart, .recovery:
             return "Ahora"
-        case .recovery:
-            return "Preparación"
         }
     }
 
@@ -182,7 +179,7 @@ struct StatsView: View {
         }
     }
 
-    private var hubPeriodCaption: String { isPro ? "este mes" : "últimos 7 días" }
+    private var hubPeriodCaption: String { "últimos 7 días" }
 
     /// Resumen de mes calendario (estilo Apple Salud), aunque el hub esté en 7 días.
     private var calendarMonthSummary: ProgressHealthSummary {
@@ -237,10 +234,10 @@ struct StatsView: View {
         Int(snap.filteredExternal.reduce(0.0) { $0 + max(0, $1.minutes) }.rounded())
     }
 
-    /// Progresiones e1RM solo con sesiones del periodo del hub (no 3 meses fijos).
+    /// Progresiones e1RM = mejores marcas / historial completo (no limitado a 7 días).
     private var exerciseProgressDeltas: [(id: UUID, name: String, ratio: Double)] {
         var rows: [(id: UUID, name: String, ratio: Double)] = []
-        let workouts = snap.filteredWorkouts
+        let workouts = store.state.workouts
         for exercise in snap.chartExercises.prefix(40) {
             let points = StatsEngine.exerciseProgressSeries(
                 exerciseId: exercise.id,
@@ -259,11 +256,21 @@ struct StatsView: View {
 
     private var improvedExerciseCount: Int { exerciseProgressDeltas.count }
 
-    /// Minutos de salidas En vivo por día con actividad (máx. 14 barras reales).
+    /// Minutos En vivo por día en el hub (últimos 7 días).
     private var sportsDailySparkSamples: [ClosedRange<Double>] {
+        sportsSparkSamples(from: sportsInHub)
+    }
+
+    /// Evolución En vivo / récords: historial completo (mejores marcas no limitadas a 7 días).
+    private var sportsEvolutionSparkSamples: [ClosedRange<Double>] {
+        let allLive = store.state.workouts.filter { $0.liveSportID != nil && $0.finishedAt != nil }
+        return sportsSparkSamples(from: allLive)
+    }
+
+    private func sportsSparkSamples(from sessions: [WorkoutSession]) -> [ClosedRange<Double>] {
         let cal = Calendar.current
         var byDay: [Date: Double] = [:]
-        for session in sportsInHub {
+        for session in sessions {
             let day = cal.startOfDay(for: session.startedAt ?? session.finishedAt ?? Date())
             byDay[day, default: 0] += max(0, session.durationMinutes)
         }
@@ -338,8 +345,7 @@ struct StatsView: View {
         }
         let period = hubPeriodCaption
         let totalLabel = Self.compactActiveDuration(total)
-        // No es solo «una semana»: Pro = mes calendario; Gratis = últimos 7 días.
-        // Suma entrenos Repera + actividades externas de Apple Salud (p. ej. caminatas).
+        // Hub Físico = últimos 7 días. Suma Repera + Apple Salud (p. ej. caminatas).
         if external > 0 && repera > 0 {
             return "\(totalLabel) en \(period): \(Self.compactActiveDuration(repera)) de entrenos Repera y \(Self.compactActiveDuration(external)) de Apple Salud."
         }
@@ -363,7 +369,7 @@ struct StatsView: View {
         case .recovery:
             VStack(alignment: .leading, spacing: 12) {
                 HealthRecoveryProgressView(
-                    range: model.range,
+                    range: .week,
                     weekStartsOnMonday: mondayFirst,
                     usesExpandedLayout: isExpandedLayout
                 )
@@ -377,8 +383,8 @@ struct StatsView: View {
     @ViewBuilder
     private var trainingCategoryContent: some View {
         trainingScoreAndMuscleSections
-        trainingGlanceMetricsGrid
         thisWeekConsistencyCard
+        trainingGlanceMetricsGrid
         mobilityProgressCard
         if isPro {
             longTermTrainingTeaser
@@ -406,10 +412,10 @@ struct StatsView: View {
         .buttonStyle(.plain)
     }
 
-    /// Media / Racha / Entrenos / Tiempo — cards 2×2 estilo Salud (sin chevron falso).
+    /// Media mes / Racha / Entrenos / Tiempo — métricas de mes calendario (tras «Últimos 7 días»).
     private var trainingGlanceMetricsGrid: some View {
-        let summary = snap.summary
-        let avg = trainingAverageScoreText
+        let summary = calendarMonthSummary
+        let avg = trainingMonthAverageScoreText
         let minutes = Int(summary.totalMinutes.rounded())
         let timeText: String = {
             if minutes >= 60 {
@@ -423,16 +429,19 @@ struct StatsView: View {
             columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
             spacing: 8
         ) {
-            ProgressMetricGlanceCard(title: "Media \(isPro ? "mes" : "7 d")", value: avg)
+            ProgressMetricGlanceCard(title: "Media mes", value: avg)
             ProgressMetricGlanceCard(title: "Racha", value: snap.streak > 0 ? "\(snap.streak) sem" : "—")
             ProgressMetricGlanceCard(title: "Entrenos", value: "\(summary.sessionCount)")
             ProgressMetricGlanceCard(title: "Tiempo", value: timeText)
         }
     }
 
-    private var trainingAverageScoreText: String {
-        let scores = snap.filteredWorkouts.compactMap { session -> Int? in
-            guard let review = session.sessionReview, review.scoreBasis == .personalHistory else { return nil }
+    private var trainingMonthAverageScoreText: String {
+        let scores = store.state.workouts.compactMap { session -> Int? in
+            guard let when = session.finishedAt ?? session.startedAt,
+                  ProgressTimeRange.month.contains(when, weekStartsOnMonday: mondayFirst),
+                  let review = session.sessionReview, review.scoreBasis == .personalHistory
+            else { return nil }
             return review.overallScore
         }
         guard !scores.isEmpty else { return "—" }
@@ -461,7 +470,7 @@ struct StatsView: View {
     private func consistencyDays(count: Int) -> [ProgressConsistencyDots.DayMark] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let trainedDays: Set<Date> = Set(snap.filteredWorkouts.compactMap { session in
+        let trainedDays: Set<Date> = Set(store.state.workouts.compactMap { session in
             guard let finished = session.finishedAt else { return nil }
             return cal.startOfDay(for: finished)
         })
@@ -582,7 +591,7 @@ struct StatsView: View {
         let repera = fitnessReperaMinutes
         let external = fitnessExternalMinutes
         let hero = Self.activeDurationHero(minutes)
-        OGCardSectionTitle(title: "Forma física")
+        OGCardSectionTitle(title: "Físico")
         ProgressInsightCard(
             title: "Estímulo activo",
             systemImage: ProgressCategory.fitness.systemImage,
@@ -611,7 +620,7 @@ struct StatsView: View {
             freeActivityCard
             freeCaloriesWeightPreview
             ProTeaserCard(
-                title: "Forma física completa",
+                title: "Físico completo",
                 bodyText: "Calorías, peso y tendencias largas con Repera Pro.",
                 cta: "Descubrir Repera Pro",
                 appearance: .activity
@@ -659,13 +668,13 @@ struct StatsView: View {
             spacing: 8
         ) {
             ProgressMetricGlanceCard(
-                title: "Mín. reciente",
-                value: heartExtremeText(\.minBpm),
+                title: "Mín. 7 d",
+                value: heartExtremeText(minimum: true),
                 tint: ProgressCategory.heart.accent
             )
             ProgressMetricGlanceCard(
-                title: "Máx. reciente",
-                value: heartExtremeText(\.maxBpm),
+                title: "Máx. 7 d",
+                value: heartExtremeText(minimum: false),
                 tint: ProgressCategory.heart.accent
             )
         }
@@ -691,14 +700,21 @@ struct StatsView: View {
 
     private var heartInsightCopy: String {
         if let bpm = health.recentDailyHeartRate.last?.avgBpm, bpm > 0 {
-            return "Datos reales de Apple Salud: tu frecuencia cardíaca media reciente es de \(Int(bpm.rounded())) LPM. Las barras son el rango mín–máx de cada día."
+            return "Datos reales de Apple Salud (últimos 7 días): tu frecuencia cardíaca media reciente es de \(Int(bpm.rounded())) LPM. Las barras son el rango mín–máx de cada día."
         }
         return "Conecta Salud o entrena con pulsómetro para ver tu ritmo cardíaco real aquí. Sin muestras no se inventan barras."
     }
 
-    /// Barras reales mín–máx por día (HealthKit). Vacío si no hay muestras (nunca placeholder).
+    /// Barras reales mín–máx por día (HealthKit), últimos 7 días. Vacío si no hay muestras.
+    private var heartPointsLast7Days: [HealthKitStore.DailyHeartRatePoint] {
+        let now = Date()
+        return health.recentDailyHeartRate.filter {
+            ProgressTimeRange.week.contains($0.date, now: now, weekStartsOnMonday: mondayFirst)
+        }
+    }
+
     private var heartSparkSamples: [ClosedRange<Double>] {
-        let points = health.recentDailyHeartRate.suffix(14)
+        let points = heartPointsLast7Days
         guard !points.isEmpty else { return [] }
         let maxB = points.map(\.maxBpm).max() ?? 160
         let minB = points.map(\.minBpm).min() ?? 50
@@ -710,11 +726,12 @@ struct StatsView: View {
         }
     }
 
-    private func heartExtremeText(_ keyPath: KeyPath<HealthKitStore.DailyHeartRatePoint, Double>) -> String {
-        guard let last = health.recentDailyHeartRate.last else { return "—" }
-        let v = last[keyPath: keyPath]
-        guard v > 0 else { return "—" }
-        return "\(Int(v.rounded()))"
+    private func heartExtremeText(minimum: Bool) -> String {
+        let points = heartPointsLast7Days
+        guard !points.isEmpty else { return "—" }
+        let values = points.map { minimum ? $0.minBpm : $0.maxBpm }.filter { $0 > 0 }
+        guard let extreme = minimum ? values.min() : values.max() else { return "—" }
+        return "\(Int(extreme.rounded()))"
     }
 
     @ViewBuilder
@@ -723,8 +740,14 @@ struct StatsView: View {
         let sportMins = sportsHubMinutes
         let improved = improvedExerciseCount
         let planned = plannedWorkoutCount
-        let sportBars = sportsDailySparkSamples
+        let evolutionBars = sportsEvolutionSparkSamples
         let progressBars = exerciseProgressSparkSamples
+        let allLiveMins = Int(
+            store.state.workouts
+                .filter { $0.liveSportID != nil && $0.finishedAt != nil }
+                .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+                .rounded()
+        )
         OGCardSectionTitle(title: "Deportes")
         ProgressInsightCard(
             title: "Actividad deportiva",
@@ -770,7 +793,7 @@ struct StatsView: View {
             )
             ProgressMetricGlanceCard(
                 title: "Periodo",
-                value: isPro ? "Mes" : "7 d",
+                value: "7 d",
                 tint: ProgressCategory.sports.accent
             )
         }
@@ -780,28 +803,28 @@ struct StatsView: View {
             ProgressInsightCard(
                 title: "Evolución y récords",
                 systemImage: "chart.line.uptrend.xyaxis",
-                narrative: sportCount == 0
-                    ? "Aún no hay salidas En vivo en \(hubPeriodCaption). Cuando las registres verás aquí minutos por día y el detalle por deporte."
-                    : "Minutos de salidas En vivo por día en \(hubPeriodCaption). Toca para distancias, ritmos y marcas.",
+                narrative: allLiveMins == 0
+                    ? "Cuando registres salidas En vivo verás aquí la evolución y tus mejores marcas (récords)."
+                    : "Evolución de minutos En vivo y mejores marcas. Toca para distancias, ritmos y récords.",
                 tint: ProgressCategory.sports.accent,
                 showsChevron: true
             ) {
-                if sportBars.isEmpty {
+                if evolutionBars.isEmpty {
                     ProgressHeroMetricRow(
                         value: "—",
                         unit: nil,
-                        caption: "sin actividad diaria"
+                        caption: "sin actividad registrada"
                     ) {
                         EmptyView()
                     }
                 } else {
                     ProgressHeroMetricRow(
-                        value: Self.compactActiveDuration(sportMins),
+                        value: Self.compactActiveDuration(allLiveMins),
                         unit: nil,
-                        caption: isPro ? "últimos 14 días del mes" : "últimos 7 días"
+                        caption: "historial · mejores marcas"
                     ) {
                         ProgressMiniRangeBars(
-                            samples: sportBars,
+                            samples: evolutionBars,
                             tint: ProgressCategory.sports.accent,
                             height: 56
                         )
@@ -816,13 +839,13 @@ struct StatsView: View {
             ProgressInsightCard(
                 title: "Progresión en ejercicios",
                 systemImage: "arrow.up.right",
-                narrative: "\(improved) ejercicio\(improved == 1 ? "" : "s") con e1RM al alza en \(hubPeriodCaption). Las barras muestran cuánto sube cada uno respecto a su primera marca del periodo.",
+                narrative: "\(improved) ejercicio\(improved == 1 ? "" : "s") con e1RM al alza en tu historial. Las barras muestran la mejora respecto a la primera marca.",
                 tint: ProgressCategory.strength.accent
             ) {
                 ProgressHeroMetricRow(
                     value: "\(improved)",
                     unit: "al alza",
-                    caption: hubPeriodCaption
+                    caption: "mejores marcas"
                 ) {
                     ProgressMiniRangeBars(
                         samples: progressBars,
@@ -1042,9 +1065,9 @@ struct StatsView: View {
         }
     }
 
-    /// Sin calendario en el hub: gratis = 7 días; Pro = este mes (largo plazo embebido).
+    /// Sin calendario en el hub: ventana fija Últimos 7 días (mes solo en bloques «Este mes» / Media mes).
     private func applyHubRangePolicy() {
-        let target: ProgressTimeRange = isPro ? .month : .week
+        let target: ProgressTimeRange = .week
         guard model.range != target else { return }
         model.setRange(target)
     }
@@ -1138,7 +1161,7 @@ struct StatsView: View {
     private var recordSummarySection: some View {
         if snap.records.isEmpty {
             progressEmptyCard(
-                title: "Sin récords en el periodo",
+                title: "Sin récords aún",
                 subtitle: "Entrena y apunta pesos para ver e1RM.",
                 systemImage: "trophy",
                 cta: nil,
@@ -1434,7 +1457,7 @@ struct StatsView: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
                     if listed.isEmpty {
-                        Text("Sin ejercicios en este periodo.")
+                        Text("Sin ejercicios registrados aún.")
                             .foregroundStyle(OG.label2)
                     } else {
                         ForEach(listed) { ex in
@@ -1492,7 +1515,7 @@ struct StatsView: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 12) {
                     if snap.records.isEmpty {
-                        Text("Sin PRs en este periodo.")
+                        Text("Sin PRs aún.")
                             .foregroundStyle(OG.label2)
                     } else {
                         ForEach(listed) { pr in

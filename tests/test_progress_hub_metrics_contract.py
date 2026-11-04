@@ -67,7 +67,7 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             "private var longTermTrainingTeaser", 1
         )[0]
         self.assertIn("Actividad deportiva", sports)
-        self.assertIn("sportsDailySparkSamples", sports)
+        self.assertIn("sportsEvolutionSparkSamples", sports)
         self.assertIn("exerciseProgressSparkSamples", sports)
         self.assertIn("Ejercicios al alza", sports)
         self.assertIn("Tiempo En vivo", sports)
@@ -109,13 +109,32 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         stats = read(IOS / "StatsView.swift")
         chips = read(IOS / "ProgressCategoryChips.swift")
         tab = read(ANDROID / "ProgressTab.kt")
+        android_chips = read(ANDROID / "ProgressCategoryChips.kt")
         self.assertIn("Últimos 7 días", stats)
         self.assertNotIn("Esta semana", stats)
         self.assertIn("Últimos 7 días", tab)
         self.assertNotIn("Esta semana", tab)
         self.assertIn('case .recovery: return "moon.fill"', chips)
+        self.assertIn('case .fitness: return "Físico"', chips)
+        self.assertIn('FITNESS("Físico"', android_chips)
         self.assertIn("0.29, green: 0.22, blue: 0.55", chips)
         self.assertIn("0.10, green: 0.61, blue: 0.56", chips)
+        # Hub fijo a 7 días; Recuperación/Corazón = Ahora; Media mes tras consistencia.
+        self.assertIn('let target: ProgressTimeRange = .week', stats)
+        self.assertIn('case .heart, .recovery:\n            return "Ahora"', stats)
+        self.assertIn('ProgressCategory.HEART, ProgressCategory.RECOVERY -> "Ahora"', tab)
+        self.assertLess(
+            stats.index("thisWeekConsistencyCard"),
+            stats.index("trainingGlanceMetricsGrid"),
+        )
+        self.assertLess(
+            tab.index("ProgressWeekConsistencyCard"),
+            tab.index("ProgressTrainingGlanceGrid("),
+        )
+        self.assertIn('title = "Media mes"', tab)
+        self.assertIn("sportsEvolutionSparkSamples", stats)
+        self.assertIn("historial · mejores marcas", stats)
+        self.assertIn("mejores marcas", tab)
 
     def test_month_summaries_at_end_of_health_tabs(self):
         stats = read(IOS / "StatsView.swift")

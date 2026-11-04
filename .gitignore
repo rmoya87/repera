@@ -28,6 +28,7 @@ Packages/**/.build/
 !.env.example
 **/Secrets.plist
 **/GoogleService-Info.plist
+**/google-services.json
 
 # OS
 .DS_Store

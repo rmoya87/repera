@@ -1,10 +1,10 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-04 (Firebase SPM archive dSYMs + BoardImportPipeline híbrido).
+Última actualización: 2026-11-04 (hub Progreso 7 días / Físico / Ahora).
 
 ## Hub Progreso — chips (2026-11-04)
 
-`StatsView` / `ProgressTab` sustituyen el segmentado Entreno/Actividad/Recuperación por `ProgressCategory` + barra de chips (`ProgressCategoryChips.swift` / `ProgressCategoryChips.kt`). Sin `ProgressTimeRange` elegible en cabecera: `applyHubRangePolicy` fija `.week` (gratis) o `.month` (Pro). El sheet de periodo del hub se elimina.
+`StatsView` / `ProgressTab` sustituyen el segmentado Entreno/Actividad/Recuperación por `ProgressCategory` + barra de chips (`ProgressCategoryChips.swift` / `ProgressCategoryChips.kt`). Sin `ProgressTimeRange` elegible en cabecera: `applyHubRangePolicy` fija siempre `.week` (Últimos 7 días); mes solo en bloques «Este mes» / Media mes. El sheet de periodo del hub se elimina.
 
 ## Comparador visual de los KPIs de Progreso (2026-11-03)
 

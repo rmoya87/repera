@@ -303,28 +303,19 @@ object ProgressSnapshotBuilder {
             ?.takeIf { it.isNotEmpty() }
             ?.map { it.avgBpm }?.average()
 
-        val records = StatsEngine.personalRecords(filtered)
+        // Récords = mejores marcas de siempre (no limitadas al periodo del hub).
+        val records = StatsEngine.personalRecords(workouts)
 
-        val externalInRange = externalStimuli.filter { stimulus ->
-            range.contains(
-                Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
-                now, monday)
-        }
-        val highEffortInRange = highEffortStimuli.filter { stimulus ->
-            range.contains(
-                Instant.ofEpochMilli(stimulus.epochMillis).atZone(zone).toLocalDate(),
-                now, monday)
-        }
+        // Equilibrio muscular = estado actual (fatiga retenida), no agregado del periodo.
         val statuses = MuscleMapEngine.statuses(
-            filteredStimuli, externalInRange, hardOnly = false, nowMillis = nowMillis)
-        // Mapas preparados para la tarjeta Equilibrio muscular (port iOS ProgressSnapshot).
-        val loadAll = MuscleLoadEngine.load(filteredStimuli, externalInRange, hardOnly = false)
-        val loadHard = MuscleLoadEngine.load(filteredStimuli, highEffortInRange, hardOnly = true)
-        val fatigueAll = MuscleMapEngine.retainedLoad(filteredStimuli, externalInRange,
+            stimuli, externalStimuli, hardOnly = false, nowMillis = nowMillis)
+        val loadAll = MuscleLoadEngine.load(stimuli, externalStimuli, hardOnly = false)
+        val loadHard = MuscleLoadEngine.load(stimuli, highEffortStimuli, hardOnly = true)
+        val fatigueAll = MuscleMapEngine.retainedLoad(stimuli, externalStimuli,
             hardOnly = false, nowMillis = nowMillis)
-        val fatigueHard = MuscleMapEngine.retainedLoad(filteredStimuli, highEffortInRange,
+        val fatigueHard = MuscleMapEngine.retainedLoad(stimuli, highEffortStimuli,
             hardOnly = true, nowMillis = nowMillis)
-        val hasHardSets = highEffortInRange.isNotEmpty() || filteredStimuli.any { stimulus ->
+        val hasHardSets = highEffortStimuli.isNotEmpty() || stimuli.any { stimulus ->
             stimulus.exercises.any { entry ->
                 entry.sportTag != "Movilidad" && entry.sets.any {
                     !it.isWarmup && it.reps > 0 &&
@@ -334,7 +325,7 @@ object ProgressSnapshotBuilder {
         }
 
         // Apple MuscleBalanceCard.includesEstimatedWODMuscles: nota solo si algún WOD confirmado aporta estimación mínima.
-        val includesEstimatedWodMuscles = filteredStimuli.any { w -> w.exercises.any { it.completedWodSetEquivalent > 0 } }
+        val includesEstimatedWodMuscles = stimuli.any { w -> w.exercises.any { it.completedWodSetEquivalent > 0 } }
 
         val activity = StatsEngine.dailyActivity(filtered, filteredExternal, zone)
         val thresholds = StatsEngine.heatmapThresholds(
@@ -429,7 +420,8 @@ object ProgressSnapshotBuilder {
             records = records,
             // Apple ProgressSnapshot (live main): solo ejercicios realmente practicados (series confirmadas, o movilidad con reps);
             // los que solo figuraban en el plan no entran, y la fecha es la de la última sesión donde se practicó.
-            chartExercises=filtered.flatMap {w ->w.exercises.filter {performedForChart(it)}.map {w.epochMillis to it}}.groupBy {it.second.exerciseId}.map {(id,items) ->
+            // Progreso por ejercicio = mejores marcas de siempre (no solo el periodo del hub).
+            chartExercises=workouts.flatMap {w ->w.exercises.filter {performedForChart(it)}.map {w.epochMillis to it}}.groupBy {it.second.exerciseId}.map {(id,items) ->
                 val ex=items.map {it.second}
                 ProgressExerciseRow(id,ex.first().exerciseName,ex.flatMap {it.sets}.filter { !it.isWarmup && it.reps>0 }.mapNotNull {it.weightKg?.takeIf {kg ->kg>0}}.maxOrNull(),
                     items.maxOf {it.first},ex.any {it.isMobility})

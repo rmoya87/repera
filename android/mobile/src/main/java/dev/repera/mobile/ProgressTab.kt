@@ -106,8 +106,9 @@ internal fun ProgressTab(
     }
     val pro = subscriptions?.isPro ?: false
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
-    LaunchedEffect(pro) {
-        selectedRange = if (pro) ProgressTimeRange.MONTH.wire else ProgressTimeRange.WEEK.wire
+    LaunchedEffect(Unit) {
+        // Hub fijo: Últimos 7 días (mes solo en bloques «Este mes» / Media mes).
+        selectedRange = ProgressTimeRange.WEEK.wire
     }
     LaunchedEffect(selectedRange) {
         onProgressRangeChange(selectedRange)
@@ -121,9 +122,8 @@ internal fun ProgressTab(
         )
     }
     val hubSubtitle = when (selectedCategory) {
-        ProgressCategory.HEART -> "Ahora"
-        ProgressCategory.RECOVERY -> "Preparación"
-        else -> if (pro) "Este mes" else "Últimos 7 días"
+        ProgressCategory.HEART, ProgressCategory.RECOVERY -> "Ahora"
+        else -> "Últimos 7 días"
     }
     val rawSnapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
@@ -158,14 +158,20 @@ internal fun ProgressTab(
     }
     val rangeEnum = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange } ?: ProgressTimeRange.WEEK
     // Series reales de HC (siempre en overview); las teasers gratis van aparte en preparedCharts.
-    val realHeartCharts = overview?.chartsByRange?.get(selectedRange)
-    val recentHeartPoint = realHeartCharts?.heartRate?.lastOrNull { it.avgBpm > 0 }
+    val realHeartCharts = overview?.chartsByRange?.get(ProgressTimeRange.WEEK.wire)
+    val heartWeekPoints = realHeartCharts?.heartRate.orEmpty().filter {
+        ProgressTimeRange.WEEK.contains(it.day, today, monday)
+    }
+    val recentHeartPoint = heartWeekPoints.lastOrNull { it.avgBpm > 0 }
+        ?: realHeartCharts?.heartRate?.lastOrNull { it.avgBpm > 0 }
     val recentHeartBpm = recentHeartPoint?.avgBpm?.takeIf { it > 0 }?.roundToInt()
         ?: realHeartCharts?.averageHeartRate?.takeIf { it > 0 }?.roundToInt()
         ?: snapshot?.averageHeartRate?.takeIf { it > 0 }?.roundToInt()
-    val recentHeartMin = recentHeartPoint?.minBpm?.takeIf { it > 0 }?.roundToInt()
-    val recentHeartMax = recentHeartPoint?.maxBpm?.takeIf { it > 0 }?.roundToInt()
-    val heartSparkFractions = heartDailyBarFractions(realHeartCharts?.heartRate.orEmpty())
+    val recentHeartMin = heartWeekPoints.mapNotNull { it.minBpm.takeIf { bpm -> bpm > 0 } }
+        .minOrNull()?.roundToInt()
+    val recentHeartMax = heartWeekPoints.mapNotNull { it.maxBpm.takeIf { bpm -> bpm > 0 } }
+        .maxOrNull()?.roundToInt()
+    val heartSparkFractions = heartDailyBarFractions(heartWeekPoints)
     val preparedCharts = remember(overview, selectedRange, pro, today, monday) {
         val realCharts = if (pro) overview?.chartsByRange?.get(selectedRange) else null
         when {
@@ -271,16 +277,21 @@ internal fun ProgressTab(
                             }
                         )
                     }
+                    item { ProgressWeekConsistencyCard(today = today, overview = overview) }
                     item {
-                        val avg = overview?.sessionScoresByRange?.get(selectedRange)
+                        val monthSnap = overview?.progressByRange?.get(ProgressTimeRange.MONTH.wire)
+                        val avg = overview?.sessionScoresByRange?.get(ProgressTimeRange.MONTH.wire)
                             ?.map { it.value }
                             ?.takeIf { it.isNotEmpty() }
                             ?.let { values ->
                                 String.format(java.util.Locale("es", "ES"), "%.1f", values.average())
                             } ?: "—"
-                        ProgressTrainingGlanceGrid(snapshot, pro, averageText = avg)
+                        ProgressTrainingGlanceGrid(
+                            monthSnap ?: snapshot,
+                            averageText = avg,
+                            streakOverride = snapshot.streak
+                        )
                     }
-                    item { ProgressWeekConsistencyCard(today = today, overview = overview) }
                     if (snapshot.mobilitySessions > 0) {
                         item { ReperaSectionTitle("Movilidad") }
                         item {
@@ -417,11 +428,11 @@ internal fun ProgressTab(
                 }
             }
             ProgressCategory.FITNESS -> {
-                item { ReperaSectionTitle("Forma física") }
+                item { ReperaSectionTitle("Físico") }
                 item {
                     val minutes = snapshot?.summary?.totalMinutes?.toInt() ?: 0
                     val hero = activeDurationHero(minutes)
-                    val period = if (pro) "este mes" else "últimos 7 días"
+                    val period = "últimos 7 días"
                     ProgressSaludInsightCard(
                         title = stringResource(R.string.progress_tab_estimulo_activo),
                         icon = Icons.Outlined.DirectionsWalk,
@@ -489,13 +500,13 @@ internal fun ProgressTab(
                         tint = ProgressCategory.HEART.accent,
                         narrative = when {
                             recentHeartBpm != null ->
-                                "Datos de Health Connect: tu frecuencia cardíaca media reciente es de $recentHeartBpm LPM."
+                                "Datos de Health Connect (últimos 7 días): tu frecuencia cardíaca media reciente es de $recentHeartBpm LPM."
                             else ->
                                 "Conecta Health Connect o entrena con pulsómetro para ver tu ritmo cardíaco real aquí. Sin muestras no se inventan barras."
                         },
                         heroValue = recentHeartBpm?.toString() ?: "—",
                         heroUnit = if (recentHeartBpm != null) "LPM" else null,
-                        heroCaption = if (recentHeartBpm != null) "media reciente" else null,
+                        heroCaption = if (recentHeartBpm != null) "media reciente · 7 d" else null,
                         barFractions = heartSparkFractions
                     )
                 }
@@ -503,13 +514,13 @@ internal fun ProgressTab(
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ProgressMetricGlanceCard(
-                                title = "Mín. reciente",
+                                title = "Mín. 7 d",
                                 value = recentHeartMin?.toString() ?: "—",
                                 modifier = Modifier.weight(1f),
                                 tint = ProgressCategory.HEART.accent
                             )
                             ProgressMetricGlanceCard(
-                                title = "Máx. reciente",
+                                title = "Máx. 7 d",
                                 value = recentHeartMax?.toString() ?: "—",
                                 modifier = Modifier.weight(1f),
                                 tint = ProgressCategory.HEART.accent
@@ -582,7 +593,13 @@ internal fun ProgressTab(
                 val baseRecovery = overview?.recovery ?: RecoveryState(null, null, null, null)
                 val recovery = if (PROGRESS_DEMO_CHARTS) enrichRecoveryWithDemo(baseRecovery, today) else baseRecovery
                 item {
-                    RecoveryHistoryCards(recovery, rangeEnum, monday, pro || PROGRESS_DEMO_CHARTS, outerHorizontalPaddingDp = 32f)
+                    RecoveryHistoryCards(
+                        recovery,
+                        ProgressTimeRange.WEEK,
+                        monday,
+                        pro || PROGRESS_DEMO_CHARTS,
+                        outerHorizontalPaddingDp = 32f
+                    )
                 }
                 if (!pro) {
                     item {
@@ -624,7 +641,7 @@ internal fun ProgressTab(
                 }
             }
             ProgressCategory.SPORTS -> {
-                val period = if (pro) "este mes" else "últimos 7 días"
+                val period = "últimos 7 días"
                 val zone = java.time.ZoneId.systemDefault()
                 fun liveSessionDay(session: dev.repera.domain.LiveSportHistory.LiveSession): LocalDate? {
                     val millis = session.finishedEpochMillis ?: session.startedEpochMillis ?: return null
@@ -643,6 +660,9 @@ internal fun ProgressTab(
                 val sportMins = sportSessions.sumOf {
                     ((it.activeDurationSeconds ?: 0.0) / 60.0).coerceAtLeast(0.0)
                 }.toInt()
+                val allLiveMins = allSportSessions.sumOf {
+                    ((it.activeDurationSeconds ?: 0.0) / 60.0).coerceAtLeast(0.0)
+                }.toInt()
                 val monthSportCount = monthSportSessions.size
                 val monthSportMins = monthSportSessions.sumOf {
                     ((it.activeDurationSeconds ?: 0.0) / 60.0).coerceAtLeast(0.0)
@@ -657,7 +677,7 @@ internal fun ProgressTab(
                 val improved = overview?.exerciseProgress?.values?.count { summary ->
                     summary.timesPerformed >= 2 && (summary.estimatedOneRM ?: 0.0) > 0
                 } ?: 0
-                val sportDayFractions = sportsDailyBarFractions(sportSessions)
+                val evolutionFractions = sportsDailyBarFractions(allSportSessions)
                 val progressFractions = exerciseProgressBarFractions(overview?.exerciseProgress.orEmpty())
                 item { ReperaSectionTitle("Deportes") }
                 item {
@@ -701,7 +721,7 @@ internal fun ProgressTab(
                         )
                         ProgressMetricGlanceCard(
                             title = "Periodo",
-                            value = if (pro) "Mes" else "7 días",
+                            value = "7 días",
                             modifier = Modifier.weight(1f),
                             tint = ProgressCategory.SPORTS.accent
                         )
@@ -718,16 +738,21 @@ internal fun ProgressTab(
                                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                if (sportCount == 0) {
-                                    "Aún no hay salidas En vivo en $period."
+                                if (allSportSessions.isEmpty()) {
+                                    "Cuando registres salidas En vivo verás aquí la evolución y tus mejores marcas (récords)."
                                 } else {
-                                    "Minutos En vivo por día en $period. Toca para distancias, ritmos y marcas."
+                                    "Evolución de minutos En vivo y mejores marcas. Toca para distancias, ritmos y récords."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (sportDayFractions.isNotEmpty()) {
-                                ProgressMiniBarRow(sportDayFractions, ProgressCategory.SPORTS.accent)
+                            if (evolutionFractions.isNotEmpty()) {
+                                Text(
+                                    "${compactActiveDuration(allLiveMins)} · historial · mejores marcas",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                ProgressMiniBarRow(evolutionFractions, ProgressCategory.SPORTS.accent)
                             }
                         }
                     }
@@ -745,7 +770,7 @@ internal fun ProgressTab(
                                     )
                                 }
                                 Text(
-                                    "$improved ejercicios con historial de fuerza. Barras relativas de e1RM.",
+                                    "$improved ejercicios con e1RM al alza en tu historial. Barras de mejores marcas.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -824,9 +849,9 @@ private fun sportsHubNarrative(sportCount: Int, improved: Int, planned: Int, per
     return parts.joinToString(" · ") + " · $period."
 }
 
-/** Barras relativas de FC media diaria (Health Connect). Vacío si no hay muestras. */
+/** Barras relativas de FC diaria (Health Connect), últimos 7 días. Vacío si no hay muestras. */
 private fun heartDailyBarFractions(points: List<HeartRatePlotPoint>): List<Float> {
-    val sample = points.takeLast(14).filter { it.avgBpm > 0 && it.maxBpm > 0 }
+    val sample = points.takeLast(7).filter { it.avgBpm > 0 && it.maxBpm > 0 }
     if (sample.isEmpty()) return emptyList()
     val maxB = sample.maxOf { it.maxBpm }
     val minB = sample.minOf { it.minBpm }
@@ -893,8 +918,8 @@ private fun ProgressMiniBarRow(
 @Composable
 private fun ProgressTrainingGlanceGrid(
     snapshot: ProgressSnapshotData,
-    pro: Boolean,
-    averageText: String
+    averageText: String,
+    streakOverride: Int = snapshot.streak
 ) {
     val minutes = snapshot.summary.totalMinutes.toInt()
     val timeText = if (minutes >= 60) {
@@ -904,11 +929,11 @@ private fun ProgressTrainingGlanceGrid(
     } else {
         "${minutes}′"
     }
-    val streak = if (snapshot.streak > 0) "${snapshot.streak} sem" else "—"
+    val streak = if (streakOverride > 0) "$streakOverride sem" else "—"
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ProgressMetricGlanceCard(
-                title = if (pro) "Media mes" else "Media 7 días",
+                title = "Media mes",
                 value = averageText,
                 modifier = Modifier.weight(1f)
             )

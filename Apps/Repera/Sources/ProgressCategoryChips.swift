@@ -15,7 +15,7 @@ enum ProgressCategory: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .training: return "Entreno"
         case .strength: return "Fuerza"
-        case .fitness: return "Forma física"
+        case .fitness: return "Físico"
         case .heart: return "Corazón"
         case .recovery: return "Recuperación"
         case .sports: return "Deportes"

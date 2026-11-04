@@ -107,7 +107,7 @@ internal fun RecoveryHistoryCards(
                             ) {
                                 Column(Modifier.widthIn(min = 72.dp)) {
                                     Text(
-                                        "Media",
+                                        if (nights.size <= 1) "Última noche" else "Media de sueño",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

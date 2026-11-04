@@ -92,7 +92,7 @@ struct MuscleBalanceCard: View {
                     }
 
                     if ranked.missed.count > 0 {
-                        Text(hardOnly ? "Sin series duras en este periodo" : "Sin entrenar en este periodo")
+                        Text(hardOnly ? "Sin series duras con fatiga retenida" : "Sin fatiga retenida ahora")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(OG.label2)
                             .padding(.top, 4)

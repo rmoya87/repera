@@ -45,7 +45,7 @@ internal enum class ProgressCategory(
 ) {
     TRAINING("Entreno", Icons.Outlined.Bolt, ReperaAccents.training, R.string.progress_category_training),
     STRENGTH("Fuerza", Icons.Outlined.FitnessCenter, ReperaAccents.strength, R.string.progress_category_strength),
-    FITNESS("Forma física", Icons.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
+    FITNESS("Físico", Icons.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
     HEART("Corazón", Icons.Outlined.MonitorHeart, ReperaAccents.heart, R.string.progress_category_heart),
     RECOVERY("Recuperación", Icons.Outlined.DarkMode, ReperaAccents.recovery, R.string.progress_category_recovery),
     SPORTS("Deportes", Icons.Outlined.Flag, ReperaAccents.sports, R.string.progress_category_sports);

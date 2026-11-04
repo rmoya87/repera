@@ -30,7 +30,7 @@
     <!-- Progreso: categorías -->
     <string name="progress_category_training">Entreno</string>
     <string name="progress_category_strength">Fuerza</string>
-    <string name="progress_category_fitness">Forma física</string>
+    <string name="progress_category_fitness">Físico</string>
     <string name="progress_category_heart">Corazón</string>
     <string name="progress_category_recovery">Recuperación</string>
     <string name="progress_category_sports">Deportes</string>
@@ -182,7 +182,7 @@
     <string name="progress_tab_sesiones">Sesiones</string>
     <string name="progress_tab_evolucion_de_fuerza">Evolución de fuerza</string>
     <string name="progress_tab_estimulo_activo">Estímulo activo</string>
-    <string name="progress_tab_forma_fisica_completa">Forma física completa</string>
+    <string name="progress_tab_forma_fisica_completa">Físico completo</string>
     <string name="progress_tab_frecuencia_cardiaca">Frecuencia cardíaca</string>
     <string name="progress_tab_corazon_en_detalle">Corazón en detalle</string>
     <string name="progress_tab_recuperacion_completa">Recuperación completa</string>
@@ -190,7 +190,7 @@
     <string name="progress_tab_entrenos">Entrenos</string>
     <string name="progress_tab_periodo">Periodo</string>
     <string name="progress_tab_peso_kg">Peso (kg)</string>
-    <string name="progress_exercises_card_todos_los_ejercicios_del_periodo">Todos los ejercicios del periodo</string>
+    <string name="progress_exercises_card_todos_los_ejercicios_del_periodo">Todos los ejercicios</string>
     <string name="progress_exercises_card_evolucion_por_ejercicio">Evolución por ejercicio</string>
     <string name="progress_exercises_card_ejemplo">Ejemplo</string>
     <string name="progress_exercises_card_evolucion_de_carga_datos_ficticios">Evolución de carga · datos ficticios</string>
@@ -198,9 +198,9 @@
     <string name="progress_exercises_card_cuando_registres_series_veras_el_progreso">Cuando registres series, verás el progreso aquí</string>
     <string name="progress_exercises_card_tiempo_registrado">Tiempo registrado</string>
     <string name="progress_exercises_card_sesiones_con_movilidad">Sesiones con movilidad</string>
-    <string name="progress_records_card_records_del_periodo">Récords del periodo</string>
+    <string name="progress_records_card_records_del_periodo">Récords</string>
     <string name="progress_records_card_todos_los_records">Todos los récords</string>
-    <string name="progress_records_card_sin_records_en_el_periodo">Sin récords en el periodo</string>
+    <string name="progress_records_card_sin_records_en_el_periodo">Sin récords aún</string>
     <string name="progress_records_card_entrena_y_apunta_pesos_para_ver">Entrena y apunta pesos para ver e1RM</string>
     <string name="live_activity_screen_no_se_pudo_comprobar_pro">No se pudo comprobar Pro</string>
     <string name="live_activity_screen_no_se_ha_podido_verificar_tu">No se ha podido verificar tu suscripción. Comprueba el acceso en Ajustes o restaura tus compras.</string>
