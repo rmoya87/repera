@@ -6,4 +6,6 @@
     <string name="shortcut_repera_live_long">Abrir el registro de actividad</string>
     <string name="shortcut_repera_timer">Temporizador</string>
     <string name="shortcut_repera_timer_long">Abrir el temporizador</string>
+    <string name="shortcut_repera_exercises">Ejercicios</string>
+    <string name="shortcut_repera_exercises_long">Buscar en el catálogo de ejercicios</string>
 </resources>
