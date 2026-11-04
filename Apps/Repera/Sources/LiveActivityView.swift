@@ -2386,6 +2386,12 @@ struct LiveActivityView: View {
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
                     recorder.choose(sport)
+                    if recorder.sport == sport {
+                        ReperaAnalytics.track(.activitySelected, parameters: [
+                            "feature_area": "live_sport",
+                            "activity_type": sport.rawValue
+                        ])
+                    }
                     // La preferencia Mapa/Métricas pertenece al usuario,
                     // no a la actividad que acaba de elegir.
                     position = .userLocation(fallback: .automatic)
