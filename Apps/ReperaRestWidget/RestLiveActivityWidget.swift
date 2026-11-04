@@ -80,5 +80,8 @@ struct ReperaRestWidgetBundle: WidgetBundle {
         RestLiveActivityWidget()
         TrainingLiveActivityWidget()
         ReperaHomeWidget()
+        ReperaBeginControl()
+        ReperaTodayControl()
+        ReperaTimerControl()
     }
 }
