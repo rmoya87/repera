@@ -22,6 +22,19 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("guard store.isHydrated else { return }", root)
         self.assertIn('case "today":', root)
 
+    def test_control_center_scene_routing_cannot_start_sensors(self):
+        control = source("Apps/ReperaRestWidget/ReperaControls.swift")
+        self.assertIn("StaticControlConfiguration", control)
+        self.assertIn("ReperaControlOpenIntent(target: .live)", control)
+        self.assertNotIn("HKWorkoutSession", control)
+        shared = source("Apps/Shared/ReperaControlOpenIntent.swift")
+        self.assertIn("OpenIntent, TargetContentProvidingIntent", shared)
+        app = source("Apps/Repera/Sources/ReperaApp.swift")
+        self.assertIn('.handlesExternalEvents(matching: ["repera.control.open"])', app)
+        self.assertIn(".onAppIntentExecution(ReperaControlOpenIntent.self)", app)
+        widget_bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
+        self.assertIn("ReperaBeginControl()", widget_bundle)
+
     def test_apple_widgets_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
         self.assertIn("ReperaHomeWidget()", bundle)
