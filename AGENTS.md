@@ -124,9 +124,36 @@ Solo cuando el usuario lo pida. Seguir las user rules de git/PR del entorno.
 
 Tras un fallo real de CI/compilación/producto: corregir causa raíz **y** registrar la lección en `.cursor/rules/native-platform-lessons.mdc` (proceso en `.cursor/rules/learn-from-failures.mdc`). Priorizar APIs nativas por SO, sin duplicar sensores ni inventar datos. No dar por cerrado un trabajo solo porque compile.
 
+## Fiabilidad, rendimiento y seguridad (auditoría 2026-11-04)
+
+Fuente de la pasada: `docs/RELIABILITY_SECURITY_AUDIT_2026_11_04.md`. En trabajo nuevo, **mantener** estas invariantes:
+
+### Rendimiento
+- **Android:** no leer/parsear `app_state.json` ni Health Connect en el hilo principal desde Compose/callbacks; usar `Dispatchers.IO` + caché por revisión. Release con **R8 + shrinkResources**. Preferir `collectAsStateWithLifecycle` y `key` estable en Lazy lists.
+- **iOS:** rutas GPS y snapshots grandes en Application Support (Data Protection), no UserDefaults; no invalidar toda `LiveActivityView` por cada fix GPS; cachear historial/formatters calientes.
+- **Relojes:** Always On / Ambient con métricas clave y ticks lentos; GPS con `distanceFilter`; rutas grandes por archivo/trozos, no un `transferUserInfo` monstruo; sensores (acelerómetro) solo cuando hacen falta.
+
+### Bugs / sync móvil↔reloj
+- Confirmaciones explícitas: Wear `live-start` debe ACK también con la app móvil en primer plano; el resumen de fin companion **solo** tras confirmación del teléfono.
+- Nunca doble escritura Salud/Health Connect (Watch dueño → iPhone enlaza; companion Wear sin ExerciseClient de workout).
+- Aislar preferencias por cuenta (`ownerScope` / account id); no adoptar datos legados sin dueño.
+- Session vacía por WatchConnectivity **no** cancela; solo evento terminal por id (doc en `docs/watch-healthkit.md`).
+
+### Seguridad
+- Edge Functions: secretos de cron **obligatorios** (fail closed); CORS con allowlist; rate limit en MCP; nunca `service_role` en clientes.
+- Logs: nada de OCR/salud/tokens en release (`#if DEBUG` / strip R8).
+- Monetización: no tratar «sin snapshot» como Pro; verificar compras en servidor cuando exista el camino (Play ya; App Store en progreso).
+- Placeholder `YOUR_REVENUECAT_PUBLIC_API_KEY`: runtime = monetización no disponible; archive Release debe fallar (`project.yml` preBuildScripts).
+- No aplicar migraciones ni desplegar Edge desde el agente sin confirmación explícita del humano; seguir `docs/SUPABASE_MIGRATION_RECONCILIATION_2026-11-04.md`.
+
+### UX
+- «**Center**» es nombre de producto (no traducir a «Centro»); accesibilidad en español natural.
+- Roots `ogFixedTopBar` / subpáginas `ogPinnedTransparentNav`; Watch tokens `WatchTheme` (no `#30D158` suelto); Wear touch ≥ 48 dp y `strings.xml`.
+
 ## No hacer
 
 - No asumir backend social.
 - No meter API keys de LLM cloud para el escáner (on-device o parser local).
 - No reintroducir el botón «+ Plan» en la lista de ejercicios sin pedirlo.
 - No reutilizar APIs de otra plataforma sin comprobar disponibilidad en el SDK del target (p. ej. `openInWorkoutApp` solo watchOS).
+- No dejar Edge Functions abiertas sin secreto de cron ni logs con texto OCR/PII en release.
