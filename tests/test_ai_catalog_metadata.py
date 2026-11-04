@@ -10,8 +10,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "Packages/ReperaDomain/Sources/ReperaDomain"
-SQL = (ROOT / "supabase/migrations/20261021235000_complete_ai_catalog_muscle_mappings.sql").read_text("utf-8")
-SQL_EXTRA = (ROOT / "supabase/migrations/20261022003500_new_photo_movements_crossfit.sql").read_text("utf-8")
+SQL = (ROOT / "supabase/migrations/20261021213713_complete_ai_catalog_muscle_mappings.sql").read_text("utf-8")
+SQL_EXTRA = (ROOT / "supabase/migrations/20261021222922_new_photo_movements_crossfit.sql").read_text("utf-8")
 SQL_NATIVE_ADDED = (ROOT / "supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql").read_text("utf-8")
 SQL_EQUIPMENT = (ROOT / "supabase/migrations/20261103221000_native_equipment_metadata_parity.sql").read_text("utf-8")
 SQL_SCAN = (ROOT / "supabase/migrations/20261103233000_board_scan_ddb_stepup_rkbs.sql").read_text("utf-8")

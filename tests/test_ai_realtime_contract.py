@@ -42,7 +42,7 @@ class AIRealtimeContractTests(unittest.TestCase):
 
     def test_realtime_publication_does_not_include_other_private_tables(self):
         migration = (
-            ROOT / "supabase/migrations/20261021171000_ai_training_plans_realtime_publication.sql"
+            ROOT / "supabase/migrations/20261021165932_ai_training_plans_realtime_publication.sql"
         ).read_text(encoding="utf-8")
         self.assertIn("ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_training_plans", migration)
         self.assertNotIn("ADD TABLE public.ai_access_tokens", migration)

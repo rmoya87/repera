@@ -50,10 +50,10 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn("case scopes",ios)
         self.assertIn("revoke",ios)
         self.assertIn("ai_access_tokens_scope_vocabulary",
-                      read("supabase/migrations/20261022004000_ai_pat_scopes.sql"))
+                      read("supabase/migrations/20261021223428_ai_pat_scopes.sql"))
 
     def test_ai_access_tokens_grants_new_scopes_without_exposing_secrets(self):
-        migration=read("supabase/migrations/20261022070000_ai_access_tokens_scopes_column_grant.sql")
+        migration=read("supabase/migrations/20261022044054_ai_access_tokens_scopes_column_grant.sql")
         token_view=read("Apps/Repera/Sources/AIAccessView.swift")
         self.assertIn("GRANT SELECT (scopes)",migration)
         self.assertIn("TO authenticated",migration)
@@ -79,8 +79,8 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn("Use exactly one of catalogKey or name",coach)
 
     def test_joint_coverage_and_new_exercise_identity(self):
-        joints=read("supabase/migrations/20261022002000_joint_demands_all_catalog.sql")
-        new=read("supabase/migrations/20261022003500_new_photo_movements_crossfit.sql")
+        joints=read("supabase/migrations/20261021222254_joint_demands_all_catalog.sql")
+        new=read("supabase/migrations/20261021222922_new_photo_movements_crossfit.sql")
         for term in ("joint_demands_source","muscle_region_heuristic_v1",
                      "movement_specific_plus_muscle_heuristic_v1"):
             self.assertIn(term,joints)

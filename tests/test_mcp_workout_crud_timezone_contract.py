@@ -64,7 +64,7 @@ class MCPWorkoutCRUDContractTests(unittest.TestCase):
         self.assertIn('Text("Cambios solicitados por la IA")',source("Apps/Repera/Sources/AIAccessView.swift"))
 
     def test_private_rls_queue_and_custom_catalog(self):
-        sql=source("supabase/migrations/20261022110000_mcp_change_inbox_custom_exercises_tz.sql")
+        sql=source("supabase/migrations/20261022050145_mcp_change_inbox_custom_exercises_tz.sql")
         for name in ('ai_athlete_change_requests','athlete_custom_exercise_mirror'):
             self.assertIn('ALTER TABLE public.'+name+' ENABLE ROW LEVEL SECURITY',sql)
         self.assertIn("owner_id=(SELECT auth.uid())",sql)

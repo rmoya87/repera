@@ -83,7 +83,7 @@ test('Política: operador no se convierte en propietario ni se envía email sin 
  const sql=readFileSync(new URL('20261027152538_platform_center_visibility.sql',base),'utf8');
  assert.match(sql,/private.is_repera_platform_admin/);
  assert.match(sql,/SUSPENDED_CENTER_NOT_DISCOVERABLE/);
- const invitation=readFileSync(new URL('20261027185000_business_invitation_email_dispatch.sql',base),'utf8');
+ const invitation=readFileSync(new URL('20261027153156_business_invitation_email_dispatch.sql',base),'utf8');
  assert.match(invitation,/business_invite_email_payload/);
  assert.match(invitation,/INVITATION_RATE_LIMIT/);
  const edge=readFileSync(new URL('../../../supabase/functions/repera-business-invite/index.ts',import.meta.url),'utf8');

@@ -11,7 +11,7 @@ def src(path):
 
 class AppleSyncAndAIChatContracts(unittest.TestCase):
     def test_profile_backend_matches_native_avatar_contract(self):
-        sql=src("supabase/migrations/20261021235500_apple_profile_avatar_storage.sql")
+        sql=src("supabase/migrations/20261021215222_apple_profile_avatar_storage.sql")
         native=src("Apps/Repera/Sources/BusinessAuthStore.swift")
         self.assertIn("ADD COLUMN IF NOT EXISTS avatar_url",sql)
         self.assertIn("GRANT UPDATE(display_name,avatar_url)",sql)
@@ -40,7 +40,7 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
 
     def test_mcp_observes_history_and_filters_by_real_gear(self):
         coach=src("supabase/functions/repera-mcp/coach.ts")
-        migration=src("supabase/migrations/20261021235800_exercise_equipment_joint_demands.sql")
+        migration=src("supabase/migrations/20261021215502_exercise_equipment_joint_demands.sql")
         self.assertIn("await history(90)",coach)
         self.assertIn("questions_to_ask_before_building_a_program",coach)
         self.assertIn('server.registerTool("set_training_preferences"',coach)
