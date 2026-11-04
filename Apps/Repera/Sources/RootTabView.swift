@@ -89,7 +89,18 @@ struct RootTabView: View {
         .onChange(of: horizontalSizeClass) { _, _ in
             updateDuoLayout(availableSize: lastAvailableSize)
         }
-        .onAppear { updateDuoLayout(availableSize: lastAvailableSize) }
+        .onAppear {
+            updateDuoLayout(availableSize: lastAvailableSize)
+            ReperaAnalytics.track(.screenView, parameters: [
+                "screen_name": switch tab {
+                case .home: "home"
+                case .start: "start"
+                case .plus: "center"
+                case .stats: "progress"
+                case .exercises: "exercises"
+                }
+            ])
+        }
         .onChange(of: hasLinkedCenter) { _, linked in
             if !linked && tab == .plus { tab = .home }
         }
