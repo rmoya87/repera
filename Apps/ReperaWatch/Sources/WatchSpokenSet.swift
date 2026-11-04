@@ -17,7 +17,7 @@ struct WatchSpokenSet: Equatable {
         )
         let weight = numericValue(
             in: normalized,
-            pattern: #"\b(\d{1,3}(?:\.\d{1,2})?)\s*(?:kg|kilos?|kilogramos?)\b"#
+            pattern: #"\b(\d{1,3}(?:\.\d{1})?)\s*(?:kg|kilos?|kilogramos?)\b"#
         )
         let reps = repetitions.flatMap { $0.rounded() == $0 && (0...500).contains($0) ? Int($0) : nil }
         let kilos = weight.flatMap { (0...500).contains($0) ? $0 : nil }
