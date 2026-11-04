@@ -63,6 +63,16 @@ struct StatsView: View {
                 isExpandedLayout = expanded
             }
             .ogContentTitleNav()
+            .onAppear {
+                ReperaAnalytics.track(.progressSectionViewed, parameters: [
+                    "feature_area": "progress", "section_name": category.rawValue
+                ])
+            }
+            .onChange(of: category) { _, selected in
+                ReperaAnalytics.track(.progressSectionViewed, parameters: [
+                    "feature_area": "progress", "section_name": selected.rawValue
+                ])
+            }
             .task {
                 applyHubRangePolicy()
                 schedulePrepare(reason: "initial")
