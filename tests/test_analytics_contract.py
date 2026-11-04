@@ -27,12 +27,12 @@ class AnalyticsContractTests(unittest.TestCase):
         swift_sports = (ROOT / "Apps/Repera/Sources/LiveActivityView.swift").read_text()
         android_sports = (ROOT / "android/domain/src/main/java/dev/repera/domain/LiveSport.kt").read_text()
         for sport in CONTRACT["sport_ids"]:
-            self.assertRegex(swift_sports, r"\\b" + re.escape(sport) + r"\\b")
+            self.assertRegex(swift_sports, r"\b" + re.escape(sport) + r"\b")
             self.assertIn('("' + sport + '"', android_sports)
         swift_wod = (ROOT / "Packages/ReperaDomain/Sources/ReperaDomain/Models.swift").read_text()
         kotlin_wod = (ROOT / "android/domain/src/main/java/dev/repera/domain/WodRules.kt").read_text()
         for wod in CONTRACT["enum_values"]["wod_format"]:
-            self.assertRegex(swift_wod, r"\\bcase\\s+" + re.escape(wod) + r"\\b")
+            self.assertRegex(swift_wod, r"\bcase\s+" + re.escape(wod) + r"\b")
             self.assertIn('("' + wod + '")', kotlin_wod)
 
     def test_opt_in_and_no_health_sdk_in_analytics_adapter(self):
