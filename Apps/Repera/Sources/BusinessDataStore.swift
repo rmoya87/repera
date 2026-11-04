@@ -583,6 +583,7 @@ final class BusinessDataStore {
         // Invalidate every in-flight response before clearing PII from a previous user.
         refreshRevision &+= 1
         isLoading = false
+        BusinessBookingReminderScheduler.clear()
         centers = []
         athleteCenterIds = []
         invitations = []
@@ -715,6 +716,9 @@ final class BusinessDataStore {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
             }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
+            await BusinessBookingReminderScheduler.reconcile(
+                userID: currentUser, bookings: bookings, occurrences: occurrences
+            )
             progressDataRevision &+= 1
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             historicalProfessionalSessions = fetchedTrainingSessions.filter {
@@ -1010,6 +1014,12 @@ final class BusinessDataStore {
                                           "p_request": request]).execute()
             await refresh()
             await requestPushPermissionAfterBookingIfNeeded()
+            if BusinessAuthStore.shared.isConnected,
+               let currentUser = try? await client.auth.session.user.id {
+                await BusinessBookingReminderScheduler.reconcile(
+                    userID: currentUser, bookings: bookings, occurrences: occurrences
+                )
+            }
         } catch {
             let raw = error.localizedDescription
             if raw.localizedCaseInsensitiveContains("BOOKING_NOT_OPEN_YET") {
