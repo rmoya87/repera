@@ -1,5 +1,9 @@
 # Arquitectura Repera
 
+## Hub Progreso — chips (2026-11-04)
+
+`StatsView` / `ProgressTab` sustituyen el segmentado Entreno/Actividad/Recuperación por `ProgressCategory` + barra de chips (`ProgressCategoryChips.swift` / `ProgressCategoryChips.kt`). Sin `ProgressTimeRange` elegible en cabecera: `applyHubRangePolicy` fija `.week` (gratis) o `.month` (Pro). El sheet de periodo del hub se elimina.
+
 ## Comparador visual de los KPIs de Progreso (2026-11-03)
 
 Las cuadrículas `StatsView.freeTilesGrid` y `StatsView.tilesGrid` utilizan el único renderer `StatsView.tile()`: variación `delta > 0` en `OG.accent` verde, `delta < 0` en `OG.red` rojo y `delta == 0` o `nil` en `OG.label3` gris. `ProgressMetricsTilesGrid` en Android aplica las mismas reglas con `brandGreen`, `MaterialTheme.colorScheme.error` y `onSurfaceVariant`, respectivamente. No se alteran las reglas de cálculo de `ProgressSnapshot` ni el periodo de 7 días del plan gratuito. El plan gratis conserva tiles reales pero usa previsualizaciones explícitas para puntuación y confianza, zonas, cardio, calorías y peso; Pro usa el snapshot verificado y periodos superiores. Tests de contrato: `tests/test_progress_confidence_contract.py`.

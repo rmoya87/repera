@@ -9,15 +9,8 @@ struct StatsView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
     @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
-    @State private var showRangePicker = false
-    @State private var topic: ProgressTopic = .training
+    @State private var category: ProgressCategory = .training
     @State private var isExpandedLayout = false
-
-    private enum ProgressTopic: String, CaseIterable {
-        case training = "Entreno"
-        case health = "Actividad"
-        case recovery = "Recuperación"
-    }
 
     private var mondayFirst: Bool {
         store.state.settings.weekStartsOn == .monday
@@ -33,27 +26,14 @@ struct StatsView: View {
                 // El título y el calendario se desplazan con el contenido; sin franja opaca.
                 // Solo las pestañas quedan ancladas al alcanzar la parte superior.
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                    OGFixedTopBar(title: "Progreso", subtitle: model.range.title, drawsBackground: false) {
-                        Button {
-                            showRangePicker = true
-                        } label: {
-                            Image(systemName: "calendar")
-                                .font(.system(size: OG.toolbarGlassIcon, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: OG.toolbarGlassSize, height: OG.toolbarGlassSize)
-                                .contentShape(Circle())
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Filtrar periodo")
+                    OGFixedTopBar(title: "Progreso", subtitle: categoryHubSubtitle, drawsBackground: false) {
+                        EmptyView()
                     }
                     .id("progress-scroll-top")
 
                     Section {
-                        // Un único VStack no lazy evita reciclar gráficas y saltos de offset.
                         VStack(alignment: .leading, spacing: 12) {
-                            // No dibujar primero métricas vacías ni reorganizar tarjetas a mitad de carga.
-                            if topic != .recovery && (snap.key.syncRevision < 0 || snap.range != model.range) {
+                            if categoryNeedsSnapshotPrep && (snap.key.syncRevision < 0 || snap.range != model.range) {
                                 OGCard {
                                     ProgressView("Preparando progreso…")
                                         .tint(OG.accent)
@@ -61,109 +41,30 @@ struct StatsView: View {
                                         .frame(height: 180)
                                 }
                             } else {
-                            switch topic {
-                            case .training:
-                                if isPro {
-                                    tilesGrid
-                                    trainingScoreAndMuscleSections
-                                    trainingHeartZonesSection
-                                    mobilityProgressCard
-                                    proAdvancedSections
-                                } else {
-                                    freeTilesGrid
-                                    trainingScoreAndMuscleSections
-                                    trainingHeartZonesSection
-                                    mobilityProgressCard
-                                    freeExerciseTrendPreview
-                                    ProTeaserCard(
-                                        title: "Descubre todo tu progreso",
-                                        bodyText: "Analiza tu evolución por ejercicio y tus marcas personales.",
-                                        cta: "Descubrir Repera Pro",
-                                        appearance: .progress
-                                    ) {
-                                        subscriptions.presentPaywall(.progress, feature: .advancedProgress)
-                                    }
-                                }
-                            case .health:
-                                if isPro {
-                                    activityCard
-                                    healthSections
-                                } else {
-                                    freeActivityCard
-                                    freeHealthPreview
-                                    ProTeaserCard(
-                                        title: "Métricas de actividad avanzadas",
-                                        bodyText: "Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",
-                                        cta: "Descubrir Repera Pro",
-                                        appearance: .activity
-                                    ) {
-                                        subscriptions.presentPaywall(.progress, feature: .advancedProgress)
-                                    }
-                                }
-                            case .recovery:
-                                HealthRecoveryProgressView(
-                                    range: model.range,
-                                    weekStartsOnMonday: mondayFirst,
-                                    usesExpandedLayout: isExpandedLayout
-                                )
-                            }
-                            }
-
-                            if topic == .training {
-                                NavigationLink {
-                                    HistoryView()
-                                } label: {
-                                OGCard {
-                                    HStack {
-                                        Label("Historial", systemImage: "clock")
-                                            .foregroundStyle(OG.label)
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundStyle(OG.label3)
-                                    }
-                                }
-                            }
-                                .buttonStyle(.plain)
+                                categoryContent
                             }
                         }
                         .padding(.horizontal, OG.pad)
                         .padding(.top, 0)
                         .padding(.bottom, 28)
                         .frame(maxWidth: isExpandedLayout ? .infinity : OG.contentColumnMaxWidth)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     } header: {
-                        // El control nativo mantiene la animación Liquid Glass
-                        // de la selección al pulsar y arrastrar entre pestañas.
-                        Picker("Categoría", selection: $topic) {
-                            ForEach(ProgressTopic.allCases, id: \.self) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .controlSize(.large)
-                        .glassEffect(.regular, in: .capsule)
-                        .padding(.horizontal, OG.pad)
-                        .padding(.top, 4)
-                        .padding(.bottom, 10)
-                        .ogReadableColumn()
+                        ProgressCategoryChipBar(selection: $category) { chipGlanceValue(for: $0) }
+                            .padding(.top, 4)
+                            .padding(.bottom, 10)
+                            .background(OG.bg)
                     }
                 }
             }
-            // Mantener estable el ScrollView al cambiar de categoría evita un desmontaje
-            // y remontaje con saltos visibles durante la carga de Recuperación.
             .defaultScrollAnchor(.top, for: .sizeChanges)
             .background(OG.bg)
             .onGeometryChange(for: Bool.self, of: { $0.size.width >= 620 }) { _, expanded in
                 isExpandedLayout = expanded
             }
             .ogContentTitleNav()
-            .sheet(isPresented: $showRangePicker) {
-                progressRangeSheet
-                    .ogFittedSheet()
-            }
             .task {
-                enforceFreeRangeIfNeeded()
-                // Preparar datos locales inmediatamente; Salud puede tardar en refrescar.
+                applyHubRangePolicy()
                 schedulePrepare(reason: "initial")
                 if BusinessAuthStore.shared.isConnected {
                     await BusinessDataStore.shared.refresh()
@@ -174,9 +75,6 @@ struct StatsView: View {
                     schedulePrepare(reason: "no-health")
                     return
                 }
-                // Cargar solo la cobertura de Salud necesaria para este
-                // filtro. Los 360 días pedirían 730 días con el periodo previo;
-                // nunca ejecutar esa consulta al abrir la semana por defecto.
                 await refreshHealthForSelectedRange(reason: "hk-ready")
             }
             .onChange(of: model.range) { _, _ in
@@ -203,15 +101,10 @@ struct StatsView: View {
                 schedulePrepare(reason: "sync-rev")
             }
             .onChange(of: subscriptions.isPro) { _, _ in
-                // Solo si cambia el acceso Pro; ignorar churn isConfigured / refresh.
-                enforceFreeRangeIfNeeded()
+                applyHubRangePolicy()
                 schedulePrepare(reason: "subscription")
             }
-            .onChange(of: topic) { _, _ in
-                // Las tres pestañas comparten el mismo ScrollView. Si Entreno
-                // está muy abajo y Actividad/Recuperación tienen menos altura,
-                // SwiftUI conservaba un offset inválido, dejando la vista negra.
-                // Volver al encabezado inmediatamente, sin animación ni salto.
+            .onChange(of: category) { _, _ in
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
@@ -220,6 +113,283 @@ struct StatsView: View {
             }
             }
         }
+    }
+
+    private var categoryNeedsSnapshotPrep: Bool {
+        switch category {
+        case .recovery, .sports: return false
+        case .training, .strength, .fitness, .heart: return true
+        }
+    }
+
+    private var categoryHubSubtitle: String {
+        switch category {
+        case .training, .strength, .fitness, .sports:
+            return isPro ? "Este mes" : "Esta semana"
+        case .heart:
+            return "Ahora"
+        case .recovery:
+            return "Preparación"
+        }
+    }
+
+    private func chipGlanceValue(for category: ProgressCategory) -> String {
+        switch category {
+        case .training:
+            if let last = snap.filteredWorkouts.compactMap({ $0.sessionReview }).last(where: { $0.scoreBasis == .personalHistory }) {
+                return "\(last.overallScore)"
+            }
+            return snap.summary.sessionCount > 0 ? "\(snap.summary.sessionCount)" : "—"
+        case .strength:
+            return snap.records.isEmpty ? "—" : "\(min(snap.records.count, 99)) PR"
+        case .fitness:
+            let minutes = Int(snap.summary.totalMinutes.rounded())
+            return minutes > 0 ? "\(minutes)′" : "—"
+        case .heart:
+            if let bpm = health.recentDailyHeartRate.last?.avgBpm, bpm > 0 {
+                return "\(Int(bpm.rounded()))"
+            }
+            return "—"
+        case .recovery:
+            return "·"
+        case .sports:
+            return "·"
+        }
+    }
+
+    @ViewBuilder
+    private var categoryContent: some View {
+        switch category {
+        case .training:
+            trainingCategoryContent
+        case .strength:
+            strengthCategoryContent
+        case .fitness:
+            fitnessCategoryContent
+        case .heart:
+            heartCategoryContent
+        case .recovery:
+            HealthRecoveryProgressView(
+                range: model.range,
+                weekStartsOnMonday: mondayFirst,
+                usesExpandedLayout: isExpandedLayout
+            )
+        case .sports:
+            sportsCategoryContent
+        }
+    }
+
+    @ViewBuilder
+    private var trainingCategoryContent: some View {
+        if isPro {
+            tilesGrid
+            trainingScoreAndMuscleSections
+            mobilityProgressCard
+            longTermTrainingTeaser
+        } else {
+            freeTilesGrid
+            trainingScoreAndMuscleSections
+            mobilityProgressCard
+            ProTeaserCard(
+                title: "Tendencias a largo plazo",
+                bodyText: "Con Pro ves consistencia de 4 semanas y evolución de puntuación sin límites.",
+                cta: "Descubrir Repera Pro",
+                appearance: .progress
+            ) {
+                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+            }
+        }
+        NavigationLink {
+            HistoryView()
+        } label: {
+            OGCard {
+                HStack {
+                    Label("Historial", systemImage: "clock")
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(OG.label3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var strengthCategoryContent: some View {
+        OGCardSectionTitle(title: "Fuerza")
+        OGCard {
+            VStack(alignment: .leading, spacing: 8) {
+                ProgressInsightHeader(
+                    title: "Carga y marcas",
+                    systemImage: ProgressCategory.strength.systemImage,
+                    tint: ProgressCategory.strength.accent
+                )
+                Text(strengthInsightCopy)
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        if isPro {
+            proAdvancedSections
+            longTermStrengthNote
+        } else {
+            freeExerciseTrendPreview
+            ProTeaserCard(
+                title: "Evolución de fuerza",
+                bodyText: "Sigue e1RM, progreso por ejercicio y tu índice de progresión con Repera Pro.",
+                cta: "Descubrir Repera Pro",
+                appearance: .progress
+            ) {
+                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+            }
+        }
+    }
+
+    private var strengthInsightCopy: String {
+        let prCount = snap.records.count
+        if prCount == 0 {
+            return "Cuando registres series de fuerza, verás récords y volumen aquí."
+        }
+        return "Has logrado \(prCount) marca\(prCount == 1 ? "" : "s") en el periodo. El volumen y el e1RM viven en las tarjetas de abajo."
+    }
+
+    @ViewBuilder
+    private var fitnessCategoryContent: some View {
+        if isPro {
+            activityCard
+            healthChartsLayout {
+                caloriesHealthSection
+                weightHealthSection
+            }
+            healthPermissionCard
+        } else {
+            freeActivityCard
+            freeCaloriesWeightPreview
+            ProTeaserCard(
+                title: "Forma física completa",
+                bodyText: "Calorías, peso y tendencias largas con Repera Pro.",
+                cta: "Descubrir Repera Pro",
+                appearance: .activity
+            ) {
+                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var heartCategoryContent: some View {
+        OGCardSectionTitle(title: "Corazón")
+        OGCard {
+            VStack(alignment: .leading, spacing: 8) {
+                ProgressInsightHeader(
+                    title: "Frecuencia cardíaca",
+                    systemImage: ProgressCategory.heart.systemImage,
+                    tint: ProgressCategory.heart.accent
+                )
+                Text(heartInsightCopy)
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        trainingHeartZonesSection
+        if isPro {
+            healthChartsLayout {
+                cardioHealthSection
+            }
+        } else {
+            freeCardioPreview
+            ProTeaserCard(
+                title: "Corazón en detalle",
+                bodyText: "Consulta FC diaria, recuperación tras el entreno y tendencias con Repera Pro.",
+                cta: "Descubrir Repera Pro",
+                appearance: .activity
+            ) {
+                subscriptions.presentPaywall(.progress, feature: .advancedProgress)
+            }
+        }
+        healthPermissionCard
+    }
+
+    private var heartInsightCopy: String {
+        if let bpm = health.recentDailyHeartRate.last?.avgBpm, bpm > 0 {
+            return "Recientemente, tu frecuencia cardíaca media ha sido de \(Int(bpm.rounded())) latidos por minuto."
+        }
+        return "Conecta Salud o entrena con pulsómetro para ver tu ritmo cardíaco aquí."
+    }
+
+    @ViewBuilder
+    private var sportsCategoryContent: some View {
+        OGCardSectionTitle(title: "Deportes")
+        NavigationLink {
+            LiveSportsCatalogView()
+        } label: {
+            OGCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressInsightHeader(
+                        title: "Evolución y récords",
+                        systemImage: ProgressCategory.sports.systemImage,
+                        tint: ProgressCategory.sports.accent
+                    )
+                    Text("Consulta distancias, ritmos y marcas por deporte desde tus salidas Comenzar y Salud.")
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var longTermTrainingTeaser: some View {
+        OGCardSectionTitle(title: "A largo plazo")
+        OGCard {
+            VStack(alignment: .leading, spacing: 8) {
+                ProgressInsightHeader(
+                    title: "Consistencia",
+                    systemImage: "calendar",
+                    tint: OG.accent
+                )
+                Text("En este mes llevas \(snap.summary.sessionCount) entrenos y \(ReperaNumberFormat.integer(Int(snap.summary.totalMinutes.rounded()))) minutos registrados.")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var longTermStrengthNote: some View {
+        OGCardSectionTitle(title: "A largo plazo")
+        OGCard {
+            Text("Las listas de ejercicios y récords usan el periodo del hub (\(model.range.title)).")
+                .font(.subheadline)
+                .foregroundStyle(OG.label2)
+        }
+    }
+
+    @ViewBuilder
+    private var freeCaloriesWeightPreview: some View {
+        let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
+        healthChartsLayout {
+            ProgressCaloriesChartCard(prepared: sample)
+            freeHealthWeightCard
+        }
+        .allowsHitTesting(false)
+        .accessibilityLabel("Gráficas de ejemplo de calorías y peso. No son datos reales.")
+    }
+
+    @ViewBuilder
+    private var freeCardioPreview: some View {
+        let sample = ProgressPreparedCharts.teaserSample(weekStartsOnMonday: mondayFirst)
+        healthChartsLayout {
+            ProgressCardioChartCard(prepared: sample, showZones: false)
+        }
+        .allowsHitTesting(false)
+        .accessibilityLabel("Gráfica de ejemplo de frecuencia cardíaca. No son datos reales.")
     }
 
     @MainActor
@@ -240,9 +410,11 @@ struct StatsView: View {
         }
     }
 
-    private func enforceFreeRangeIfNeeded() {
-        guard !isPro, model.range != .week else { return }
-        model.setRange(.week)
+    /// Sin calendario en el hub: gratis = 7 días; Pro = este mes (largo plazo embebido).
+    private func applyHubRangePolicy() {
+        let target: ProgressTimeRange = isPro ? .month : .week
+        guard model.range != target else { return }
+        model.setRange(target)
     }
 
     /// Solo tiempo confirmado mediante series reales: los objetivos sin completar no suman.
@@ -635,82 +807,6 @@ struct StatsView: View {
                 }
             }
         }
-    }
-
-    // MARK: - Range sheet
-
-    private var progressRangeSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            OGPageHeader(title: "Periodo") {
-                CloseToolbarButton { showRangePicker = false }
-            }
-            .padding(.top, 4)
-
-            VStack(spacing: 0) {
-                ForEach(Array(ProgressTimeRange.allCases.enumerated()), id: \.element.id) { index, option in
-                    if index > 0 {
-                        Divider().opacity(0.35).padding(.leading, 50)
-                    }
-                    Button {
-                        let decision = subscriptions.canSelectProgressRange(option)
-                        guard decision.allowed else {
-                            showRangePicker = false
-                            subscriptions.presentPaywall(
-                                decision.paywallContext,
-                                feature: .progressPeriodBeyondWeek
-                            )
-                            return
-                        }
-                        guard option != model.range else {
-                            showRangePicker = false
-                            return
-                        }
-                        ProgressLog.rangeTap(from: model.range, to: option)
-                        showRangePicker = false
-                        // Close sheet first; prep runs after — selector stays instant.
-                        Task { @MainActor in
-                            let t0 = CFAbsoluteTimeGetCurrent()
-                            await Task.yield()
-                            model.setRange(option)
-                            schedulePrepare(reason: "range")
-                            ProgressLog.rangeApplied(
-                                option,
-                                elapsedMs: (CFAbsoluteTimeGetCurrent() - t0) * 1000
-                            )
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "calendar")
-                                .foregroundStyle(model.range == option ? OG.accent : OG.label2)
-                                .frame(width: 24)
-                            Text(option.title)
-                                .foregroundStyle(OG.label)
-                            Spacer()
-                            if ReperaFeature.requiresPro(for: option) && !isPro {
-                                Text("Pro")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(OG.accent)
-                            } else if model.range == option {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(OG.accent)
-                                    .fontWeight(.semibold)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
-        }
-        .padding(.horizontal, OG.pad)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .ogFittedHeight()
-        .tint(OG.accent)
     }
 
     // MARK: - Tiles (data from snapshot only)

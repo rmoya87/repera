@@ -10,7 +10,9 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
@@ -84,21 +86,22 @@ internal fun ProgressTab(
     modifier: Modifier = Modifier,
     accountId: String = ""
 ) {
-    // The inline archive is recent; aggregate snapshots use the complete local archive.
     val recent = overview?.history.orEmpty()
     val subscriptions = LocalSubscriptions.current
-    // R5 P1-8: restaurar segmentado Entreno/Actividad/Recuperación (regresión #170).
-    var topic by rememberSaveable { mutableStateOf("Entreno") }
-    val pro=subscriptions?.isPro ?: true
+    var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
+    val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
+        ?: ProgressCategory.TRAINING
+    val pro = subscriptions?.isPro ?: true
     var selectedRange by rememberSaveable { mutableStateOf(ProgressTimeRange.WEEK.wire) }
-    var showRangePicker by rememberSaveable { mutableStateOf(false) }
-    val selectedRangeTitle = remember(selectedRange) {
-        ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }?.title ?: "Últimos 7 días"
+    LaunchedEffect(pro) {
+        selectedRange = if (pro) ProgressTimeRange.MONTH.wire else ProgressTimeRange.WEEK.wire
     }
-    LaunchedEffect(pro) {if(!pro) selectedRange=ProgressTimeRange.WEEK.wire}
-    // Apple 479d8407: la cobertura de Salud sigue al rango elegido (tambien al
-    // aparecer la pestana); MainActivity solo amplia la ventana si hace falta.
     LaunchedEffect(selectedRange) { onProgressRangeChange(selectedRange) }
+    val hubSubtitle = when (selectedCategory) {
+        ProgressCategory.HEART -> "Ahora"
+        ProgressCategory.RECOVERY -> "Preparación"
+        else -> if (pro) "Este mes" else "Esta semana"
+    }
     val rawSnapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val monday = overview?.trainingSettings?.weekStartsOnMonday ?: true
@@ -106,8 +109,6 @@ internal fun ProgressTab(
         if (!PROGRESS_DEMO_CHARTS || rawSnapshot == null) rawSnapshot
         else enrichSnapshotWithDemo(rawSnapshot, today)
     }
-    // Solo mediciones cardiometabólicas vinculadas a sesiones finalizadas.
-    // El pulso diario permanece en Actividad; no se atribuyen zonas estimadas.
     val latestMeasuredWorkout = remember(overview, selectedRange, monday, today) {
         val selected = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }
             ?: ProgressTimeRange.WEEK
@@ -125,46 +126,38 @@ internal fun ProgressTab(
     }
     val demoBanner = PROGRESS_DEMO_CHARTS
     val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
-    var shownTopic by remember { mutableStateOf(topic) }
-    LaunchedEffect(topic) {
-        if (topic != shownTopic) {
-            shownTopic = topic
+    var shownCategory by remember { mutableStateOf(category) }
+    LaunchedEffect(category) {
+        if (category != shownCategory) {
+            shownCategory = category
             dragListState.scrollToItem(0)
         }
     }
-    ProvideLazyDragAutoScroll(dragListState) {
-    if (showRangePicker) {
-        ProgressRangePickerSheet(
-            selectedWire = selectedRange,
-            isPro = pro,
-            subscriptions = subscriptions,
-            onDismiss = { showRangePicker = false },
-            onSelect = { wire ->
-                showRangePicker = false
-                selectedRange = wire
-            }
-        )
+    val rangeEnum = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange } ?: ProgressTimeRange.WEEK
+    val preparedCharts = remember(overview, selectedRange, pro, today, monday) {
+        val realCharts = if (pro) overview?.chartsByRange?.get(selectedRange) else null
+        when {
+            !pro || (PROGRESS_DEMO_CHARTS && (realCharts == null || realCharts.heartRate.isEmpty())) ->
+                ProgressPreview.charts(today, monday)
+            else -> realCharts ?: dev.repera.domain.ProgressChartBuilder.build(
+                range = rangeEnum,
+                weekStartsOnMonday = monday,
+                heartRateDays = emptyList(),
+                energyDays = emptyList(),
+                workouts = emptyList(),
+                external = emptyList(),
+                now = today
+            )
+        }
     }
+    ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
         state = dragListState,
         modifier = modifier.fillMaxSize().then(Modifier.testTag("progress_list")),
         contentPadding = reperaScrollContentPadding(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            ReperaPageHeader(
-                title = "Progreso",
-                subtitle = selectedRangeTitle,
-                trailing = {
-                    ReperaToolbarGlassIconButton(
-                        icon = Icons.Outlined.CalendarMonth,
-                        contentDescription = "Filtrar periodo",
-                        onClick = { showRangePicker = true },
-                        modifier = Modifier.testTag("progress_range_picker")
-                    )
-                }
-            )
-        }
+        item { ReperaPageHeader(title = "Progreso", subtitle = hubSubtitle) }
         if (demoBanner) {
             item {
                 Text(
@@ -175,213 +168,319 @@ internal fun ProgressTab(
             }
         }
         stickyHeader {
-            Surface(
-                color = MaterialTheme.colorScheme.background,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                ReperaTopicSegmentedPicker(
-                    options = listOf("Entreno", "Actividad", "Recuperación"),
-                    selected = topic,
-                    onSelected = { topic = it },
+            Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+                ProgressCategoryChipBar(
+                    selected = selectedCategory,
+                    glanceValue = { cat ->
+                        when (cat) {
+                            ProgressCategory.TRAINING ->
+                                overview?.sessionScoresByRange?.get(selectedRange)
+                                    ?.lastOrNull()?.value?.toInt()?.let { "$it" }
+                                    ?: snapshot?.summary?.sessionCount?.takeIf { it > 0 }?.toString()
+                                    ?: "—"
+                            ProgressCategory.STRENGTH ->
+                                snapshot?.records?.size?.takeIf { it > 0 }?.let { "$it PR" } ?: "—"
+                            ProgressCategory.FITNESS ->
+                                snapshot?.summary?.totalMinutes?.toInt()?.takeIf { it > 0 }?.let { "$it′" } ?: "—"
+                            ProgressCategory.HEART -> "—"
+                            ProgressCategory.RECOVERY -> "·"
+                            ProgressCategory.SPORTS -> "·"
+                        }
+                    },
+                    onSelected = { category = it.name },
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
         }
-        if (topic == "Entreno" && snapshot != null) {
-            item { ProgressMetricsTilesGrid(snapshot, pro) }
-        }
-        if (snapshot != null) {
-            if(topic=="Recuperación") {
-                val baseRecovery=overview?.recovery ?: RecoveryState(null,null,null,null)
-                val recovery=if(PROGRESS_DEMO_CHARTS) enrichRecoveryWithDemo(baseRecovery,today) else baseRecovery
-                item {RecoveryHistoryCards(recovery,ProgressTimeRange.entries.first {it.wire==selectedRange},monday,pro || PROGRESS_DEMO_CHARTS,outerHorizontalPaddingDp=32f)}
-                if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Recuperación completa",bodyText="Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.RECOVERY,onClick={
-                    subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
-                })}
-            }
-            if(topic=="Actividad") {
-            if (snapshot.heatmapTime.isNotEmpty()) {
-                item { ReperaSectionTitle("Días activos") }
-                item { ActivityHeatmapCard(
-                    snapshot.heatmapTime, snapshot.heatmapVolume,
-                    ProgressTimeRange.entries.first { it.wire == selectedRange }
-                ) }
-            }
-            val realCharts=if(pro) overview?.chartsByRange?.get(selectedRange) else null
-            val charts=when {
-                !pro || PROGRESS_DEMO_CHARTS && (realCharts==null || realCharts.heartRate.isEmpty()) ->
-                    ProgressPreview.charts(today,monday)
-                else -> realCharts
-            }
-            item {
-                Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                val prepared=charts ?: dev.repera.domain.ProgressChartBuilder.build(
-                    range = ProgressTimeRange.entries.first { it.wire == selectedRange },
-                    weekStartsOnMonday = monday,
-                    heartRateDays = emptyList(),
-                    energyDays = emptyList(),
-                    workouts = emptyList(),
-                    external = emptyList(),
-                    now = today
-                )
-                ProgressHealthGrid(
-                    score={},
-                    showScore=false,
-                    cardio={ProgressCardioCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},calories={ProgressCaloriesCard(prepared,!pro || PROGRESS_DEMO_CHARTS)},
-                    weight={
-                        if (!pro || (PROGRESS_DEMO_CHARTS && snapshot.weightPoints.size < 2))
-                            WeightPreviewCard(
-                                today,
-                                loggedPoints = snapshot.weightPoints,
-                                accountId = accountId,
-                                busy = busy,
-                                onLogBodyWeight = onLogBodyWeight
-                            )
-                        else ProgressWeightCard(snapshot.weightPoints,snapshot.weightDelta30d,overview?.healthGoals?.weightKg,accountId,busy,onLogBodyWeight)
-                    })
-                if (PROGRESS_DEMO_CHARTS) {
-                    ReperaSectionTitle("Zonas cardíacas · ejemplo")
-                    HeartZonesDemoCard()
-                }
-                }
-            }
-            val healthPrompt=if(pro) ProgressHealthPrompt.kind(healthAccess,charts) else ProgressHealthPromptKind.NONE
-            if(healthPrompt!=ProgressHealthPromptKind.NONE) item {
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    if(healthPrompt==ProgressHealthPromptKind.NOT_AUTHORIZED) {
-                        Text("Salud sin permiso de lectura",style=MaterialTheme.typography.titleMedium)
-                        Text("Autoriza Health Connect para ver FC y kcal.")
-                        TextButton(onClick=onHealthConnect) {Text("Autorizar Salud")}
-                    } else {
-                        Text("Health Connect no disponible",style=MaterialTheme.typography.titleMedium)
-                        Text("Este dispositivo no tiene Health Connect disponible, así que no hay FC ni kcal que mostrar.")
-                    }
-                }}
-            }
-            if(!pro) item {dev.repera.mobile.monetization.ProTeaserCard(title="Métricas de actividad avanzadas",bodyText="Consulta frecuencia cardíaca, calorías y evolución de peso con Repera Pro.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,onClick={subscriptions?.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)})}
-            }
-            if(topic=="Entreno") {
-            item {
-                AdaptiveCardPair(
-                    first = {
-                        SessionScoreProgressCard(
-                            points = if (pro) overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
-                                else ProgressPreview.sessionScores(today),
-                            preview = !pro,
-                            range = ProgressTimeRange.entries.first { it.wire == selectedRange },
-                            monday = monday,
-                            confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
+
+        when (selectedCategory) {
+            ProgressCategory.TRAINING -> {
+                if (snapshot != null) {
+                    item { ProgressMetricsTilesGrid(snapshot, pro) }
+                    item {
+                        AdaptiveCardPair(
+                            first = {
+                                SessionScoreProgressCard(
+                                    points = if (pro) overview?.sessionScoresByRange?.get(selectedRange).orEmpty()
+                                    else ProgressPreview.sessionScores(today),
+                                    preview = !pro,
+                                    range = rangeEnum,
+                                    monday = monday,
+                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
+                                )
+                            },
+                            second = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ReperaSectionTitle("Equilibrio muscular")
+                                    MuscleBalanceCard(
+                                        loadAll = snapshot.muscleLoadAll,
+                                        loadHard = snapshot.muscleLoadHard,
+                                        fatigueAll = snapshot.muscleFatigueAll,
+                                        fatigueHard = snapshot.muscleFatigueHard,
+                                        hasHardSets = snapshot.hasHardSets,
+                                        includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles
+                                    )
+                                }
+                            }
                         )
-                    },
-                    second = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ReperaSectionTitle("Equilibrio muscular")
-                            MuscleBalanceCard(
-                                loadAll = snapshot.muscleLoadAll,
-                                loadHard = snapshot.muscleLoadHard,
-                                fatigueAll = snapshot.muscleFatigueAll,
-                                fatigueHard = snapshot.muscleFatigueHard,
-                                hasHardSets = snapshot.hasHardSets,
-                                includesEstimatedWodMuscles = snapshot.includesEstimatedWodMuscles
+                    }
+                    if (snapshot.mobilitySessions > 0) {
+                        item { ReperaSectionTitle("Movilidad") }
+                        item {
+                            ProgressMobilityCard(
+                                snapshot.mobilitySessions,
+                                snapshot.mobilitySeconds,
+                                if (subscriptions == null || subscriptions.isPro) {
+                                    snapshot.chartExercises.filter { it.isMobility }.take(3)
+                                } else emptyList(),
+                                onOpenExercise
                             )
                         }
                     }
-                )
-            }
-            if (latestMeasuredWorkout != null) {
-                item { TrainingMeasuredEffortCard(latestMeasuredWorkout) }
-            }
-            if(snapshot.mobilitySessions>0) {
-                item { ReperaSectionTitle("Movilidad") }
-                item {ProgressMobilityCard(snapshot.mobilitySessions,snapshot.mobilitySeconds,
-                if(subscriptions==null || subscriptions.isPro) snapshot.chartExercises.filter {it.isMobility}.take(3) else emptyList(),onOpenExercise)}
-            }
-            if(subscriptions==null || subscriptions.isPro) {
-                item { ReperaSectionTitle("Progreso por ejercicio") }
-                item {AdaptiveCardPair(
-                    first={ProgressExercisesCard(snapshot.chartExercises,onOpenExercise)},
-                    second={ProgressRecordsCard(snapshot.records,onOpenExercise)})}
-            }
-            else item {ProgressExerciseTrendPreview(today)}
-            if(!(subscriptions==null || subscriptions.isPro)) item {dev.repera.mobile.monetization.ProTeaserCard(title="Descubre todo tu progreso",bodyText="Analiza tu evolución por ejercicio y tus marcas personales.",cta="Descubrir Repera Pro",appearance=dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,onClick={
-                subscriptions.presentPaywall(dev.repera.domain.monetization.PaywallContext.PROGRESS,feature=dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS)
-            })}
-            }
-        }
-        if (topic == "Entreno" && overview?.liveSportSessions.orEmpty().isNotEmpty()) {
-            item {
-                ReperaCard(
-                    onClick = onOpenSports,
-                    modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")
-                ) {
-                    Row(Modifier.padding(16.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Deportes · evolución y récords")
-                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (pro) {
+                        item { ReperaSectionTitle("A largo plazo") }
+                        item {
+                            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("Consistencia", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "En este periodo llevas ${snapshot.summary.sessionCount} entrenos y ${snapshot.summary.totalMinutes.toInt()} minutos registrados.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        item {
+                            dev.repera.mobile.monetization.ProTeaserCard(
+                                title = "Tendencias a largo plazo",
+                                bodyText = "Con Pro ves consistencia de semanas y evolución de puntuación sin límites.",
+                                cta = "Descubrir Repera Pro",
+                                appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,
+                                onClick = {
+                                    subscriptions?.presentPaywall(
+                                        dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                        feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+                if (recent.isNotEmpty()) {
+                    item { ReperaSectionTitle("Resultados recientes") }
+                    items(recent, key = { "progress:" + it.id }) { workout ->
+                        ReperaCard(
+                            onClick = { onOpenWorkoutDetail(workout.id) },
+                            modifier = Modifier.fillMaxWidth().testTag("progress_recent_${workout.id}")
+                        ) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(workout.title, style = MaterialTheme.typography.titleMedium)
+                                if (workout.startedAt.isNotBlank()) {
+                                    Text(workout.startedAt, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    ReperaCard(
+                        onClick = { if (overview != null) onOpenHistory() },
+                        modifier = Modifier.fillMaxWidth().testTag("progress_history_link")
+                    ) {
+                        Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Historial", style = MaterialTheme.typography.titleMedium)
+                            }
+                            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
-        }
-        if (topic == "Entreno") {
-        // Resultados recientes; Historial al final (última opción de Entreno).
-        if (recent.isNotEmpty()) {
-            item { ReperaSectionTitle("Resultados recientes") }
-            items(recent, key = { "progress:" + it.id }) { workout ->
-                ReperaCard(
-                    onClick = { onOpenWorkoutDetail(workout.id) },
-                    modifier = Modifier.fillMaxWidth().testTag("progress_recent_${workout.id}")
-                ) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(workout.title, style = MaterialTheme.typography.titleMedium)
-                        if (workout.startedAt.isNotBlank()) {
+            ProgressCategory.STRENGTH -> {
+                if (snapshot != null) {
+                    item { ReperaSectionTitle("Fuerza") }
+                    item {
+                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.FitnessCenter, null, tint = ProgressCategory.STRENGTH.accent)
+                                    Text("Carga y marcas", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.STRENGTH.accent)
+                                }
+                                Text(
+                                    if (snapshot.records.isEmpty()) "Cuando registres series de fuerza, verás récords y volumen aquí."
+                                    else "Has logrado ${snapshot.records.size} marcas en el periodo.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    if (subscriptions == null || subscriptions.isPro) {
+                        item {
+                            AdaptiveCardPair(
+                                first = { ProgressExercisesCard(snapshot.chartExercises, onOpenExercise) },
+                                second = { ProgressRecordsCard(snapshot.records, onOpenExercise) }
+                            )
+                        }
+                    } else {
+                        item { ProgressExerciseTrendPreview(today) }
+                        item {
+                            dev.repera.mobile.monetization.ProTeaserCard(
+                                title = "Evolución de fuerza",
+                                bodyText = "Sigue e1RM y progreso por ejercicio con Repera Pro.",
+                                cta = "Descubrir Repera Pro",
+                                appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,
+                                onClick = {
+                                    subscriptions.presentPaywall(
+                                        dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                        feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            ProgressCategory.FITNESS -> {
+                if (snapshot != null && snapshot.heatmapTime.isNotEmpty()) {
+                    item { ReperaSectionTitle("Días activos") }
+                    item { ActivityHeatmapCard(snapshot.heatmapTime, snapshot.heatmapVolume, rangeEnum) }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ProgressCaloriesCard(preparedCharts, !pro || PROGRESS_DEMO_CHARTS)
+                        if (!pro || (PROGRESS_DEMO_CHARTS && (snapshot?.weightPoints?.size ?: 0) < 2)) {
+                            WeightPreviewCard(today, loggedPoints = snapshot?.weightPoints.orEmpty(), accountId = accountId, busy = busy, onLogBodyWeight = onLogBodyWeight)
+                        } else if (snapshot != null) {
+                            ProgressWeightCard(snapshot.weightPoints, snapshot.weightDelta30d, overview?.healthGoals?.weightKg, accountId, busy, onLogBodyWeight)
+                        }
+                    }
+                }
+                if (!pro) {
+                    item {
+                        dev.repera.mobile.monetization.ProTeaserCard(
+                            title = "Forma física completa",
+                            bodyText = "Calorías, peso y tendencias largas con Repera Pro.",
+                            cta = "Descubrir Repera Pro",
+                            appearance = dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,
+                            onClick = {
+                                subscriptions?.presentPaywall(
+                                    dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                    feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+            ProgressCategory.HEART -> {
+                item { ReperaSectionTitle("Corazón") }
+                item {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.MonitorHeart, null, tint = ProgressCategory.HEART.accent)
+                                Text("Frecuencia cardíaca", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.HEART.accent)
+                            }
                             Text(
-                                workout.startedAt,
-                                style = MaterialTheme.typography.bodySmall,
+                                "Consulta tu pulso diario y el esfuerzo medido de tus entrenos.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                if (latestMeasuredWorkout != null) item { TrainingMeasuredEffortCard(latestMeasuredWorkout) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ProgressCardioCard(preparedCharts, !pro || PROGRESS_DEMO_CHARTS)
+                        if (PROGRESS_DEMO_CHARTS) {
+                            ReperaSectionTitle("Zonas cardíacas · ejemplo")
+                            HeartZonesDemoCard()
+                        }
+                    }
+                }
+                val healthPrompt = if (pro) ProgressHealthPrompt.kind(healthAccess, preparedCharts) else ProgressHealthPromptKind.NONE
+                if (healthPrompt != ProgressHealthPromptKind.NONE) {
+                    item {
+                        ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (healthPrompt == ProgressHealthPromptKind.NOT_AUTHORIZED) {
+                                    Text("Salud sin permiso de lectura", style = MaterialTheme.typography.titleMedium)
+                                    Text("Autoriza Health Connect para ver FC y kcal.")
+                                    TextButton(onClick = onHealthConnect) { Text("Autorizar Salud") }
+                                } else {
+                                    Text("Health Connect no disponible", style = MaterialTheme.typography.titleMedium)
+                                    Text("Este dispositivo no tiene Health Connect disponible, así que no hay FC ni kcal que mostrar.")
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!pro) {
+                    item {
+                        dev.repera.mobile.monetization.ProTeaserCard(
+                            title = "Corazón en detalle",
+                            bodyText = "Consulta FC diaria y tendencias con Repera Pro.",
+                            cta = "Descubrir Repera Pro",
+                            appearance = dev.repera.mobile.monetization.ProTeaserAppearance.ACTIVITY,
+                            onClick = {
+                                subscriptions?.presentPaywall(
+                                    dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                    feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+            ProgressCategory.RECOVERY -> {
+                val baseRecovery = overview?.recovery ?: RecoveryState(null, null, null, null)
+                val recovery = if (PROGRESS_DEMO_CHARTS) enrichRecoveryWithDemo(baseRecovery, today) else baseRecovery
+                item {
+                    RecoveryHistoryCards(recovery, rangeEnum, monday, pro || PROGRESS_DEMO_CHARTS, outerHorizontalPaddingDp = 32f)
+                }
+                if (!pro) {
+                    item {
+                        dev.repera.mobile.monetization.ProTeaserCard(
+                            title = "Recuperación completa",
+                            bodyText = "Consulta cómo evolucionan tu descanso y tu preparación para entrenar.",
+                            cta = "Descubrir Repera Pro",
+                            appearance = dev.repera.mobile.monetization.ProTeaserAppearance.RECOVERY,
+                            onClick = {
+                                subscriptions?.presentPaywall(
+                                    dev.repera.domain.monetization.PaywallContext.PROGRESS,
+                                    feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+            ProgressCategory.SPORTS -> {
+                item { ReperaSectionTitle("Deportes") }
+                item {
+                    ReperaCard(onClick = onOpenSports, modifier = Modifier.fillMaxWidth().testTag("progress_sports_link")) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.Flag, null, tint = ProgressCategory.SPORTS.accent)
+                                    Text("Evolución y récords", style = MaterialTheme.typography.titleSmall, color = ProgressCategory.SPORTS.accent)
+                                }
+                                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(
+                                "Consulta distancias, ritmos y marcas por deporte desde tus salidas Comenzar y Salud.",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
             }
-        } else {
-            item {
-                ReperaEmptyState(
-                    title = "Todavía no hay entrenamientos para analizar",
-                    subtitle = "Completa sesiones para ver resumen y tendencias"
-                )
-            }
-        }
-        item {
-            ReperaCard(
-                onClick = { if (overview != null) onOpenHistory() },
-                modifier = Modifier.fillMaxWidth().testTag("progress_history_link")
-            ) {
-                Row(
-                    Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Outlined.Schedule,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text("Historial", style = MaterialTheme.typography.titleMedium)
-                    }
-                    Icon(
-                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
         }
     }
     }
