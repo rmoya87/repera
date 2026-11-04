@@ -213,6 +213,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     val routesStore = remember(accountId) { runCatching { LiveRoutesStore(context, accountId) }.getOrNull() }
     var routesVersion by remember { mutableStateOf(0) }
+    // Se utiliza en la importación de GPX por LaunchedEffect: debe declararse antes.
+    var error by remember { mutableStateOf<String?>(null) }
     var showRoutes by remember { mutableStateOf(false) }
     var pendingDeleteRoute by remember { mutableStateOf<LiveSavedRoute?>(null) }
     LaunchedEffect(routesStore) {
@@ -260,7 +262,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     var title by androidx.compose.runtime.saveable.rememberSaveable(accountId) { mutableStateOf("") }
     var notes by androidx.compose.runtime.saveable.rememberSaveable(accountId) { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
     var savingActivity by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
