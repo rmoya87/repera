@@ -716,11 +716,6 @@ final class BusinessDataStore {
                 $0.isActive && athleteCenterIds.contains($0.orgId)
             }
             bookings = fetchedBookings.filter { ownedClientIds.contains($0.clientId) }
-            // Reservas del atleta, nunca todas las de un centro o profesional.
-            await BusinessSessionReminderScheduler.synchronize(
-                bookings: bookings, occurrences: occurrences
-            )
-            guard revision == refreshRevision else { return }
             progressDataRevision &+= 1
             personalNotices = fetchedNotices.filter { ownedClientIds.contains($0.clientId) }
             historicalProfessionalSessions = fetchedTrainingSessions.filter {
@@ -729,6 +724,13 @@ final class BusinessDataStore {
             trainingSessions = historicalProfessionalSessions.filter {
                 $0.status == "scheduled"
             }.sorted { $0.scheduledDate < $1.scheduledDate }
+            // Clases y citas directas del entrenador, sólo del atleta activo.
+            await BusinessSessionReminderScheduler.synchronize(
+                bookings: bookings,
+                occurrences: occurrences,
+                trainingSessions: trainingSessions
+            )
+            guard revision == refreshRevision else { return }
             NotificationCenter.default.post(name: Notification.Name("repera.professionalPlansChanged"), object: nil)
             errorMessage = nil
         } catch {
