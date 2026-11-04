@@ -2,7 +2,7 @@
 
 ## Gestión de visibilidad e invitaciones por correo (27/10/2026)
 
-- Migración 20261027184500_platform_center_visibility.sql: `platform_admin_set_visibility(uuid,boolean)` protege visibilidad con rol platform admin, impide mostrar suspendidos y registra auditoría. `is_discoverable` es independiente de la reclamación de propietario.
+- Migración 20261027152538_platform_center_visibility.sql: `platform_admin_set_visibility(uuid,boolean)` protege visibilidad con rol platform admin, impide mostrar suspendidos y registra auditoría. `is_discoverable` es independiente de la reclamación de propietario.
 - Migración 20261027185000_business_invitation_email_dispatch.sql: tabla con RLS `business_invitation_email_attempts` y RPC `business_invite_email_payload(uuid)` para obtener centro/correo de invitaciones activas con permisos y límite temporal.
 - Migración 20261027185500_pending_owner_email_recovery.sql: `platform_owner_email_attempts` y `platform_admin_owner_email_payload(uuid)` permiten recuperar alta pendiente por el correo destinado, sin crear membresía owner ni saltarse la verificación.
 
@@ -15,7 +15,7 @@ Las tres migraciones están **aplicadas** en Supabase Repera. La función Edge `
 - `private.platform_admin_directory` devuelve `status` (operativo active/suspended) por separado de `registration_status` (pending/claimed).
 - `platform_admin_athlete_activity(uuid,date)` lista días y contadores del mes de `athlete_workouts`, con huso `Europe/Madrid`; `platform_admin_athlete_day(uuid,date)` entrega el detalle de hasta 100 registros del día con bloques, ejercicios, series y resultados, autorizado y auditado.
 - `business_bulk_training_batches`: clave de idempotencia y resultados de publicación. `business_publish_training_bulk` valida permisos del centro, clientes activos y vinculados, plantilla real, fechas, días laborales, hasta 20 clientes, 56 días y 120 sesiones; invoca al publicador nativo de prescripciones. Todo en una transacción, sin escritura de workout completado.
-- Migraciones `20261027181000_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas al Supabase de Repera. Sin cobros simulados.
+- Migraciones `20261027141021_enrollments_and_operating_status.sql` y `20261027182000_athlete_activity_bulk_training.sql` aplicadas al Supabase de Repera. Sin cobros simulados.
 
 
 ## Fichas 360 y plazo de prueba configurable (2026-10-27)
