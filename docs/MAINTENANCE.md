@@ -1,6 +1,6 @@
 # Mantenimiento de la documentación
 
-Última actualización: 2026-11-03 (XcodeGen, WeatherKit en Watch y fuentes de compilación)
+Última actualización: 2026-11-04 (reglas de agentes fusionadas en `AGENTS.md`)
 
 ## Regla de oro
 
@@ -19,7 +19,7 @@ No acumular docs obsoletas. Preferir editar y borrar a añadir páginas huérfan
 | Rendimiento / Observation / caches | `PERFORMANCE.md`, a veces `ARCHITECTURE.md` |
 | Freemium / RevenueCat / límites | `MONETIZATION.md`, `FEATURES.md`, `ARCHITECTURE.md`, `TESTING_GUIDE.md` |
 | Web marketing / legales ASC | `web/` (`index`, `privacy`, `terms`, `faq`, `.htaccess`, `pack-ionos.sh`, `README`) + `FEATURES` / `ARCHITECTURE` si cambia alcance |
-| Convención para agentes | `AGENTS.md`, `.cursor/rules/` |
+| Convención para agentes | Solo `AGENTS.md` (cualquier IA). Skills en `.agents/skills/`. `.cursor/rules/` = stubs opcionales |
 | Feature eliminada o renombrada | Quitar o corregir en **todos** los docs que la citaban |
 
 ## Checklist al terminar un cambio

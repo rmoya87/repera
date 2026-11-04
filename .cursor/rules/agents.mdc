@@ -1,0 +1,10 @@
+---
+description: Reglas operativas Repera — fuente canónica AGENTS.md (cualquier IA)
+alwaysApply: true
+---
+
+# Agentes Repera
+
+Seguir **`AGENTS.md`** en la raíz del repo (fuente única para cualquier IA).
+
+No duplicar reglas aquí. Skills: `.agents/skills/`.

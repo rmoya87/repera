@@ -111,7 +111,7 @@ ni está autorizado para producción**. Véanse
 | [AGENTS.md](AGENTS.md) | Instrucciones para agentes Cursor |
 | [docs/business/PLAN_MAESTRO.md](docs/business/PLAN_MAESTRO.md) | Plataforma profesional, seguridad, fases y seguimiento |
 
-> **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y la regla Cursor `update-docs-on-change`).
+> **Obligatorio:** cualquier cambio de comportamiento debe actualizar estos docs (ver `MAINTENANCE.md` y `AGENTS.md`).
 
 ## Estado actual (oct 2026)
 
