@@ -1235,7 +1235,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val current = sessionCache.getString("snapshot", null)?.let {
             runCatching { JSONObject(it) }.getOrNull()
         } ?: return
-        if (current.optString("id") != sessionId || current.optJSONObject("locationPin") != null) return
+        if (current.optString("id") != sessionId || current.optJSONObject("locationPin")?.let { it.optString("name").isNotBlank() || it.optString("mapItemIdentifier").isNotBlank() } == true) return
         val fine = androidx.core.content.ContextCompat.checkSelfPermission(
             this, android.Manifest.permission.ACCESS_FINE_LOCATION
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -1255,7 +1255,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             val snapshot = sessionCache.getString("snapshot", null)?.let {
                 runCatching { JSONObject(it) }.getOrNull()
             } ?: return@capture
-            if (snapshot.optString("id") != sessionId || snapshot.optJSONObject("locationPin") != null) return@capture
+            if (snapshot.optString("id") != sessionId || snapshot.optJSONObject("locationPin")?.let { it.optString("name").isNotBlank() || it.optString("mapItemIdentifier").isNotBlank() } == true) return@capture
             val started = runCatching {
                 java.time.Instant.parse(snapshot.getString("startedAt")).toEpochMilli()
             }.getOrNull() ?: return@capture

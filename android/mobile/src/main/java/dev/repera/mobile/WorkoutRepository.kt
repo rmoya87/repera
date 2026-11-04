@@ -2228,7 +2228,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val adopted = JSONObject(sessionJson.toString())
         // Never accept an invalid or forged wrist coordinate during adoption.
         val incoming = adopted.optJSONObject("locationPin")
-        if (incoming != null) {
+        if (incoming != null && incoming.optString("name").isBlank() &&
+            incoming.optString("mapItemIdentifier").isBlank()) {
+            // El lugar escogido en la plantilla es válido y no se descarta.
+            // Solo el GPS anónimo de Wear requiere validación de sensor.
             adopted.remove("locationPin")
             applyWearStartPin(adopted, incoming)
         }
