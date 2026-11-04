@@ -36,6 +36,7 @@ class SupabaseReconciledMigrationContracts(unittest.TestCase):
             "20261104073557_business_push_outbox_reconciled.sql",
             "20261104074250_repera_missing_business_rpc_recovery.sql",
             "20261104074721_repera_catalog_invoker_and_business_rpc_security.sql",
+            "20261104075611_repera_attendance_request_unique_index_recovery.sql",
         )
         for path in required:
             self.assertTrue((MIGRATIONS / path).is_file(), path)
