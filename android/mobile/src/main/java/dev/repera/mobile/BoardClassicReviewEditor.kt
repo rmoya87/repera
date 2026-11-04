@@ -84,5 +84,8 @@ import dev.repera.domain.BoardClassicReview
 }
 
 internal data class BoardReviewProposal(val lite:dev.repera.domain.BoardScanLiteParser.Output,val classic:List<BoardClassicReview.Draft>)
-internal fun prepareBoardReview(text:String,catalog:List<dev.repera.domain.CatalogExercise>,aliases:Map<String,String>):BoardReviewProposal =
- BoardReviewProposal(dev.repera.domain.BoardScanLiteParser.parse(text,catalog,aliases),BoardClassicReview.drafts(text,catalog))
+internal fun prepareBoardReview(text:String,catalog:List<dev.repera.domain.CatalogExercise>,aliases:Map<String,String>):BoardReviewProposal {
+ val local=dev.repera.domain.BoardScanLocalPipeline.interpret(text,catalog,aliases)
+ val lite=dev.repera.domain.BoardScanLiteParser.Output(local.blocks,local.lines)
+ return BoardReviewProposal(lite,BoardClassicReview.drafts(local.ocrText,catalog))
+}

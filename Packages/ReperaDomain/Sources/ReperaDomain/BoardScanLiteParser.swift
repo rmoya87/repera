@@ -118,55 +118,61 @@ public enum BoardScanLiteParser {
             blocks = [block]
         }
 
-        // Match catálogo por nombre canónico.
-        if !catalog.isEmpty {
-            let index = catalogIndex(catalog)
-            blocks = blocks.map { block in
-                var b = block
-                b.movements = block.movements.map { move in
-                    guard !move.isRest else { return move }
-                    var m = move
-                    // A specific official title outranks fuzzy glossary aliases:
-                    // otherwise "step up" collapses a double-dumbbell step-up.
-                    let directCanonical = SportExerciseNames.canonicalName(move.name)
-                    let canonical = SportExerciseNames.canonicalName(
-                        CrossFitGlossary.canonicalName(for: move.name)
-                    )
-                    let keys = [norm(move.name), norm(directCanonical), norm(canonical)]
-                    if let ex = keys.lazy.compactMap({ index[$0] }).first {
-                        m.exerciseId = ex.id
-                        m.name = ex.name
-                    } else if canonical != move.name {
-                        m.name = canonical
-                    }
-                    return m
-                }
-                // Un único movimiento, una onda de 4 series y «Every 2'×4»:
-                // registrarlo como fuerza editable (no como EMOM de estaciones).
-                if b.wodFormat == .emom,
-                   b.title.uppercased().hasPrefix("EVERY ") || b.title.uppercased().hasPrefix("CADA "),
-                   let interval = b.emomIntervalSeconds, interval > 0,
-                   b.movements.count == 1,
-                   let move = b.movements.first, !move.isRest,
-                   let exerciseID = move.exerciseId,
-                   let scheme = move.repScheme, scheme.count == b.rounds {
-                    let rir = rpeMidpointRIR(from: move.notes)
-                    let sets = scheme.map { PlannedSet(targetReps: $0, targetWeightKg: move.weightMaleKg, targetRir: rir) }
-                    var strength = RoutineBlock.strength(
-                        title: b.title,
-                        exercises: [RoutineExercise(exerciseId: exerciseID, plannedSets: sets)]
-                    )
-                    strength.emomIntervalSeconds = interval
-                    strength.timeCapMinutes = b.timeCapMinutes
-                    strength.wodNotes = b.wodNotes
-                    return strength
-                }
-                return b
-            }
-        }
+        blocks = enrichBlocks(blocks, catalog: catalog)
+        return Output(blocks: blocks, lines: importLines(from: blocks, catalog: catalog))
+    }
 
+    /// Empareja movimientos WOD con el catálogo (también tras IA on-device).
+    public static func enrichBlocks(_ blocks: [RoutineBlock], catalog: [Exercise]) -> [RoutineBlock] {
+        guard !catalog.isEmpty else { return blocks }
+        let index = catalogIndex(catalog)
+        return blocks.map { block in
+            var b = block
+            b.movements = block.movements.map { move in
+                guard !move.isRest else { return move }
+                var m = move
+                // A specific official title outranks fuzzy glossary aliases:
+                // otherwise "step up" collapses a double-dumbbell step-up.
+                let directCanonical = SportExerciseNames.canonicalName(move.name)
+                let canonical = SportExerciseNames.canonicalName(
+                    CrossFitGlossary.canonicalName(for: move.name)
+                )
+                let keys = [norm(move.name), norm(directCanonical), norm(canonical)]
+                if let ex = keys.lazy.compactMap({ index[$0] }).first {
+                    m.exerciseId = ex.id
+                    m.name = ex.name
+                } else if canonical != move.name {
+                    m.name = canonical
+                }
+                return m
+            }
+            // Un único movimiento, una onda de 4 series y «Every 2'×4»:
+            // registrarlo como fuerza editable (no como EMOM de estaciones).
+            if b.wodFormat == .emom,
+               b.title.uppercased().hasPrefix("EVERY ") || b.title.uppercased().hasPrefix("CADA "),
+               let interval = b.emomIntervalSeconds, interval > 0,
+               b.movements.count == 1,
+               let move = b.movements.first, !move.isRest,
+               let exerciseID = move.exerciseId,
+               let scheme = move.repScheme, scheme.count == b.rounds {
+                let rir = rpeMidpointRIR(from: move.notes)
+                let sets = scheme.map { PlannedSet(targetReps: $0, targetWeightKg: move.weightMaleKg, targetRir: rir) }
+                var strength = RoutineBlock.strength(
+                    title: b.title,
+                    exercises: [RoutineExercise(exerciseId: exerciseID, plannedSets: sets)]
+                )
+                strength.emomIntervalSeconds = interval
+                strength.timeCapMinutes = b.timeCapMinutes
+                strength.wodNotes = b.wodNotes
+                return strength
+            }
+            return b
+        }
+    }
+
+    public static func importLines(from blocks: [RoutineBlock], catalog: [Exercise]) -> [BoardImportLine] {
         let byExerciseID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0.name) })
-        let lines: [BoardImportLine] = blocks.flatMap { block -> [BoardImportLine] in
+        return blocks.flatMap { block -> [BoardImportLine] in
             if block.kind == .strength {
                 return block.exercises.map { ex in
                     BoardImportLine(
@@ -188,8 +194,6 @@ public enum BoardScanLiteParser {
                 )
             }
         }
-
-        return Output(blocks: blocks, lines: lines)
     }
 
     // MARK: - Internals

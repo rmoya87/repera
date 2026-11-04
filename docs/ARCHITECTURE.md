@@ -1,5 +1,7 @@
 # Arquitectura Repera
 
+Última actualización: 2026-11-04 (BoardImportPipeline híbrido score + LocalRepair + FM timeout).
+
 ## Hub Progreso — chips (2026-11-04)
 
 `StatsView` / `ProgressTab` sustituyen el segmentado Entreno/Actividad/Recuperación por `ProgressCategory` + barra de chips (`ProgressCategoryChips.swift` / `ProgressCategoryChips.kt`). Sin `ProgressTimeRange` elegible en cabecera: `applyHubRangePolicy` fija `.week` (gratis) o `.month` (Pro). El sheet de periodo del hub se elimina.
@@ -297,7 +299,7 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 |---------|-----|
 | `BoardTextRecognizer` | Vision OCR |
 | `BoardAIImporter` | Foundation Models (Apple Intelligence) |
-| `BoardImportPipeline` | Local primero (skip IA si ≥2 bloques) → IA → fallback → enrich + rondas EMOM |
+| `BoardImportPipeline` | Lite → score → LocalRepair (&lt;0,85) → IA siempre si FM (timeout 4s) → enrich; gratis |
 | `OGRoutineBlockCard` | Cards+thumbs compartidas (preview día + revisión pizarra) |
 | `BoardScanReviewPayload` | Cierra `DayPlusSheet` y empuja `BoardImportReviewView` como página en Inicio («Añadir entreno») |
 | `RestLiveActivity` + widget | Timer de descanso en isla / lock screen |

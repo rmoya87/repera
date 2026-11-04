@@ -285,7 +285,7 @@ struct StartHubSheet: View {
             try Task.checkCancellation()
 
             BoardScanLog.step("interpret", "start catalog=\(catalog.count)")
-            let result = BoardImportPipeline.interpretSync(ocrText: text, catalog: catalog)
+            let result = await BoardImportPipeline.interpret(ocrText: text, catalog: catalog)
             BoardScanLog.step(
                 "interpret.done",
                 "blocks=\(result.blocks.count) lines=\(result.lines.count) source=\(result.source.rawValue)"

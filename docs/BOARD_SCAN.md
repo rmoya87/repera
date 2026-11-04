@@ -1,6 +1,6 @@
 # Escáner de pizarra / TV
 
-Última actualización: 2026-11-04 (logs de release sin texto OCR; antes: alias EN variantes, BTT, C&J y matching canónico de OCR)
+Última actualización: 2026-11-04 (híbrido score + LocalRepair + Apple Intelligence con timeout; gratis)
 
 ## Objetivo
 
@@ -10,22 +10,26 @@ Entrada cámara/galería: modal `BoardScanSourceSheet`. Flujo anti-cuelgue:
 
 1. JPEG reducido en MainActor (UIKit).
 2. Vision off-main (**fast**, accurate si hace falta) con timeout 20s.
-3. Tras OCR: **`BoardScanLiteParser`** (paquete `ReperaDomain`) síncrono. Normaliza ruido Vision (`4RFf`→`4 RFT`, `8BOB`→`8 BOB`) antes de partir cabeceras. Sin `BoardImportParser` pesado, sin hilos, sin IA.
-4. Galería: `PHPicker` en `fullScreenCover`. Sheet crece solo con «Leyendo…» / error.
+3. Tras OCR: **`BoardScanLocalPipeline`** (lite → score → LocalRepair si score &lt; 0,85).
+4. Si **Foundation Models** está disponible: **siempre** `BoardAIImporter` con timeout duro 4 s; si falla/timeout → mejor resultado local. Sin FM → solo local. **Gratis** (no es feature Pro).
+5. Galería: `PHPicker` en `fullScreenCover`. Sheet crece solo con «Leyendo…» / error.
 
-Causa del cuelgue: `BoardImportParser` + concurrencia (GCD/Thread/semáforo) no reanudaban la continuation en dispositivo. El lite parser con la pizarra de prueba produce 3 bloques en <1 ms.
+Causa del cuelgue histórico: `BoardImportParser` + concurrencia (GCD/Thread/semáforo) no reanudaban la continuation. El parser pesado **sigue fuera** del hot path. La IA vuelve con timeout cancelable.
 
 ## Pipeline actual en la app
 
 ```
 UIImage
   → BoardTextRecognizer (Vision OCR ES+EN)
-  → BoardImportPipeline.interpretSync
-  → BoardScanLiteParser (lineal: cabeceras → series/movimientos → catálogo)
+  → BoardImportPipeline.interpret (async)
+       → BoardScanLiteParser
+       → BoardScanConfidence (0…1)
+       → BoardScanLocalRepair si score < 0,85
+       → BoardAIImporter si FM disponible (timeout 4s)
   → BoardImportReviewView (editar/guardar/empezar)
 ```
 
-La ruta activa **no** ejecuta `BoardImportParser.parseBlocks` ni Foundation Models: es intencional para evitar bloqueos observados en iPhone. `BoardImportParser` sigue disponible para reglas completas y tests de dominio, pero no se usa en el flujo de cámara.
+`BoardImportParser` sigue disponible para reglas completas y tests de dominio, pero no se usa en el flujo de cámara. Android: mismo lite + score + LocalRepair; sin Foundation Models Apple (excepción documentada).
 
 Regresión del 19/10/2026: pizarra con tres bloques:
 1. `EMOM 8’ @6-8`: 8 minutos, 2 High Hang Squat Snatch por estación; intensidad original conservada.
@@ -104,13 +108,20 @@ Editar movimiento WOD (`WODMovementEditor`): mismas series derivadas que Apuntar
 - Toolbar: **Guardar** (`checkmark`, tint neutro) y **Empezar** (`play.fill`, accent); sin botón Editar.
 - Guardar / Empezar usan los bloques del draft (incl. rondas derivadas).
 
+## Score y LocalRepair
+
+- `BoardScanConfidence`: señales de estructura débil, match de catálogo bajo, ruido OCR, `EVERY` ambiguo, etc.
+- Umbral repair: **&lt; 0,85**. Con FM, la IA se intenta **siempre** tras el paso local (también con score alto).
+- `BoardScanLocalRepair`: normalización extra (typos Jerk, GTOH, C2B, E2MOM, CAL/metros…) + re-parse lite; se conserva el mejor score.
+
 ## IA on-device (`BoardAIImporter`)
 
 - Framework: `FoundationModels`.
 - Guided generation (`@Generable` → `AIBoardPlan`).
-- Si `availability != .available` → `nil` y el pipeline usa el parser.
+- Si `availability != .available` → se omite; el pipeline entrega local (+ repair).
+- Si disponible → **siempre** se llama tras el local; timeout **4 s**; enrich catálogo con `BoardScanLiteParser.enrichBlocks`.
 - Tras convertir, `deriveEmomRoundsIfNeeded`.
-- No hay LLM en la nube ni API keys.
+- No hay LLM en la nube ni API keys. La capa lista **no** está detrás de Pro.
 
 ## Cuota freemium
 
@@ -122,7 +133,7 @@ Editar movimiento WOD (`WODMovementEditor`): mismas series derivadas que Apuntar
 - **Crear** tab: `StartHubSheet`
 - **Inicio** día +: `DayPlusSheet`
 
-Ambos llaman `BoardImportPipeline.interpret`.
+Ambos llaman `await BoardImportPipeline.interpret` (local + IA si hay FM).
 
 ## Tests
 
@@ -131,7 +142,7 @@ cd Packages/ReperaDomain && swift test --filter BoardImportParserTests
 cd Packages/ReperaDomain && swift test --filter SessionControllerTests
 ```
 
-Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de series en sesión y prueba de regresión del WOD de octubre. La ruta activa es `BoardScanLiteParser`; hace falta además prueba manual con la captura original.
+Incluye EMOM 12' multi-estación → 4 rondas, fuerza+AMRAP, expansión de series en sesión y prueba de regresión del WOD de octubre. Dominio: `BoardScanConfidenceTests` + lite. La ruta de cámara usa el híbrido; hace falta prueba manual con FM disponible y sin FM.
 
 ## Logs
 

@@ -1,7 +1,7 @@
 import Foundation
 import ReperaDomain
 
-/// OCR → parser lite síncrono. Sin hilos, sin IA, sin BoardImportParser pesado.
+/// OCR → local (lite + score + repair) → Apple Intelligence si FM disponible (timeout).
 enum BoardImportPipeline {
     enum Source: String, Sendable, Hashable {
         case appleIntelligence
@@ -15,38 +15,100 @@ enum BoardImportPipeline {
         }
     }
 
+    /// Timeout duro para Foundation Models (evita «Leyendo…» infinito).
+    static let aiTimeoutSeconds: TimeInterval = 4
+
     struct Result: Sendable {
         var ocrText: String
         var blocks: [RoutineBlock]
         var lines: [BoardImportLine]
         var source: Source
+        var confidence: Double
     }
 
-    /// Síncrono y barato. `async` solo para encajar en callers existentes.
+    /// Pipeline completo: local + IA on-device cuando hay Foundation Models.
     static func interpret(ocrText: String, catalog: [Exercise]) async -> Result {
-        interpretSync(ocrText: ocrText, catalog: catalog)
+        let local = interpretLocal(ocrText: ocrText, catalog: catalog)
+        guard BoardAIImporter.isAvailable else {
+            BoardScanLog.step("pipeline.ai", "skip unavailable")
+            BoardScanLog.step("pipeline.done", "source=localRules score=\(String(format: "%.2f", local.confidence))")
+            return local
+        }
+
+        BoardScanLog.step("pipeline.ai", "attempt timeout=\(Int(aiTimeoutSeconds))s")
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let aiBlocks = await withTimeout(seconds: aiTimeoutSeconds) {
+            await BoardAIImporter.interpret(ocrText: local.ocrText)
+        }
+        let ms = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+
+        guard let aiBlocks, !aiBlocks.isEmpty else {
+            BoardScanLog.step("pipeline.ai", "timeout_or_fail \(ms)ms → local")
+            BoardScanLog.step("pipeline.done", "source=localRules score=\(String(format: "%.2f", local.confidence))")
+            return local
+        }
+
+        let enriched = BoardScanLiteParser.enrichBlocks(aiBlocks, catalog: catalog)
+        let lines = BoardScanLiteParser.importLines(from: enriched, catalog: catalog)
+        BoardScanLog.step("pipeline.ai", "ok \(ms)ms blocks=\(enriched.count)")
+        for (i, b) in enriched.enumerated() {
+            BoardScanLog.info(
+                "    ai[\(i)] \(b.headerLabel) fmt=\(b.wodFormat?.rawValue ?? "—") moves=\(b.movements.count)"
+            )
+        }
+        BoardScanLog.step("pipeline.done", "source=appleIntelligence")
+        return Result(
+            ocrText: local.ocrText,
+            blocks: enriched,
+            lines: lines,
+            source: .appleIntelligence,
+            confidence: local.confidence
+        )
     }
 
+    /// Solo local (tests / callers síncronos). Incluye repair si score bajo.
     static func interpretSync(ocrText: String, catalog: [Exercise]) -> Result {
-        BoardScanLog.step("pipeline.start", "lite chars=\(ocrText.count) catalog=\(catalog.count)")
+        interpretLocal(ocrText: ocrText, catalog: catalog)
+    }
+
+    private static func interpretLocal(ocrText: String, catalog: [Exercise]) -> Result {
+        BoardScanLog.step("pipeline.start", "local chars=\(ocrText.count) catalog=\(catalog.count)")
         let t0 = CFAbsoluteTimeGetCurrent()
-        let parsed = BoardScanLiteParser.parse(ocrText: ocrText, catalog: catalog)
+        let parsed = BoardScanLocalPipeline.interpret(ocrText: ocrText, catalog: catalog)
         let ms = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
         BoardScanLog.step(
             "pipeline.local",
-            "lite \(ms)ms blocks=\(parsed.blocks.count) lines=\(parsed.lines.count)"
+            "\(ms)ms blocks=\(parsed.blocks.count) lines=\(parsed.lines.count) score=\(String(format: "%.2f", parsed.confidence.score)) repair=\(parsed.didRepair) reasons=\(parsed.confidence.reasons.joined(separator: ","))"
         )
         for (i, b) in parsed.blocks.enumerated() {
             BoardScanLog.info(
-                "    lite[\(i)] \(b.headerLabel) fmt=\(b.wodFormat?.rawValue ?? "—") moves=\(b.movements.count)"
+                "    local[\(i)] \(b.headerLabel) fmt=\(b.wodFormat?.rawValue ?? "—") moves=\(b.movements.count)"
             )
         }
-        BoardScanLog.step("pipeline.done", "source=localRules (lite)")
         return Result(
-            ocrText: ocrText,
+            ocrText: parsed.ocrText,
             blocks: parsed.blocks,
             lines: parsed.lines,
-            source: .localRules
+            source: .localRules,
+            confidence: parsed.confidence.score
         )
+    }
+
+    /// Primer resultado gana; el perdedor se cancela (timeout → nil).
+    private static func withTimeout<T: Sendable>(
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async -> T?
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await operation() }
+            group.addTask {
+                let ns = UInt64(max(seconds, 0.1) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first ?? nil
+        }
     }
 }

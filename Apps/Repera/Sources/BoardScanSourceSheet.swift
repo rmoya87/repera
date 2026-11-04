@@ -256,7 +256,7 @@ struct BoardScanIntoRoutineView: View {
                 }
                 let text = try await BoardTextRecognizer.recognize(jpegData: jpeg)
                 try Task.checkCancellation()
-                let proposal = BoardImportPipeline.interpretSync(ocrText: text, catalog: catalog)
+                let proposal = await BoardImportPipeline.interpret(ocrText: text, catalog: catalog)
                 guard !proposal.blocks.isEmpty || !proposal.lines.isEmpty else {
                     failure = "No se han encontrado ejercicios. Prueba con otra foto."
                     ReperaAnalytics.track(.scanFailed, parameters: [
