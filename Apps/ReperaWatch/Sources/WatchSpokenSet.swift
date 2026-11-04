@@ -13,7 +13,7 @@ struct WatchSpokenSet: Equatable {
         ).lowercased().replacingOccurrences(of: ",", with: ".")
         let repetitions = numericValue(
             in: normalized,
-            pattern: #"\b(\d{1,3})\s*(?:repeticiones?|repes|reps?|rpt)\b"#
+            pattern: #"\b(\d{1,3})\s*(?:repeticion(?:es)?|repes|reps?|rpt)\b"#
         )
         let weight = numericValue(
             in: normalized,
