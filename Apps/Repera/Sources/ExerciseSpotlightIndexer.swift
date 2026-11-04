@@ -8,12 +8,25 @@ import ReperaDomain
 enum ExerciseSpotlightIndexer {
     static let domain = "com.app.repera.public-exercises"
     static let idPrefix = "exercise:"
+    private static var lastIndexedSignature: Int?
 
     static func indexPublicExercises(_ exercises: [Exercise]) {
         let curated = exercises.filter {
             !$0.isCustom && !$0.isCatalogArchived && !$0.name.isEmpty
         }
         guard !curated.isEmpty else { return }
+
+        // Favorite toggles can advance catalogEpoch without changing the
+        // public searchable corpus. Coalesce full-catalog reindexing.
+        var signature = Hasher()
+        for exercise in curated {
+            signature.combine(exercise.id)
+            signature.combine(exercise.name)
+            signature.combine(exercise.searchAliases)
+        }
+        let nextSignature = signature.finalize()
+        guard lastIndexedSignature != nextSignature else { return }
+        lastIndexedSignature = nextSignature
 
         // Public content only. The catalog updates asynchronously and can contain
         // repeated UUIDs after a remote merge: do not index duplicates.
