@@ -25,12 +25,14 @@ class EmbedIosArchiveDsymsTests(unittest.TestCase):
         self.assertIn("DEBUG_INFORMATION_FORMAT: dwarf-with-dsym", text)
         self.assertIn("runOnlyWhenInstalling: true", text)
         self.assertIn("--archive", text)
-        # Must invoke the file at build time — `path:` would inline a stale copy in pbxproj.
-        self.assertIn('"${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"', text)
+        # Must not use `path:` (inlines stale copy). Sandbox needs inputFiles.
         phase = text.split("Embed framework dSYMs in archive", 1)[1].split(
             "info:", 1
         )[0]
         self.assertNotIn("path: scripts/embed_ios_archive_dsyms.sh", phase)
+        self.assertIn("SCRIPT_INPUT_FILE_0", phase)
+        self.assertIn("$(SRCROOT)/scripts/embed_ios_archive_dsyms.sh", phase)
+        self.assertIn("soft-failed", phase)
 
     def test_help_exits_zero(self) -> None:
         result = subprocess.run(
@@ -89,7 +91,7 @@ class EmbedIosArchiveDsymsTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         combined = result.stdout + result.stderr
-        self.assertIn("no .app yet (build-phase)", combined)
+        self.assertIn("nothing to embed yet (build-phase)", combined)
         self.assertNotIn("warning: embed_ios_archive_dsyms: no .app found", combined)
         self.assertIn("CODESIGNING_FOLDER_PATH", SCRIPT.read_text(encoding="utf-8"))
         self.assertIn("FULL_PRODUCT_NAME", SCRIPT.read_text(encoding="utf-8"))

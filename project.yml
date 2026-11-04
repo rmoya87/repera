@@ -154,14 +154,25 @@ targets:
       - sdk: MediaPlayer.framework
       - sdk: AuthenticationServices.framework
     # Firebase Analytics / GoogleAppMeasurement SPM binaries ship without public dSYMs.
-    # Call the .sh by path (do NOT use `path:` — XcodeGen inlines file contents into
-    # pbxproj and Archives keep running a stale copy until the next generate).
+    # Invoke the .sh via SCRIPT_INPUT_FILE_0 (User Script Sandboxing blocks bare exec of
+    # PROJECT_DIR/scripts/*.sh → "Operation not permitted"). Soft-fail: Archive post-action
+    # is the reliable pass. Avoid XcodeGen `path:` (inlines a stale copy into pbxproj).
     postBuildScripts:
       - name: Embed framework dSYMs in archive
         shell: /bin/bash
         script: |
-          set -euo pipefail
-          "${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"
+          set -uo pipefail
+          SCRIPT="${SCRIPT_INPUT_FILE_0:-${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh}"
+          if [[ ! -f "${SCRIPT}" ]]; then
+            echo "note: embed dSYM script missing at ${SCRIPT}; Archive post-action will embed."
+            exit 0
+          fi
+          /bin/bash "${SCRIPT}" || {
+            echo "note: embed_ios_archive_dsyms soft-failed ($?); Archive post-action will embed."
+            exit 0
+          }
+        inputFiles:
+          - $(SRCROOT)/scripts/embed_ios_archive_dsyms.sh
         runOnlyWhenInstalling: true
         basedOnDependencyAnalysis: false
         showEnvVars: false

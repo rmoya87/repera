@@ -161,18 +161,19 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 
 - Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
-#### Apple — XcodeGen `postBuildScripts.path` congela el script
+#### Apple — XcodeGen scripts + User Script Sandboxing (dSYMs Archive)
 
 ```yaml
-# ❌ BAD — XcodeGen incrusta el contenido del .sh en pbxproj al generate.
-# Editar scripts/embed_ios_archive_dsyms.sh no cambia lo que Archive ejecuta.
-# postBuildScripts:
-#   - path: scripts/embed_ios_archive_dsyms.sh
+# ❌ BAD — `path:` incrusta el .sh en pbxproj (Archive ejecuta copia vieja).
+# ❌ BAD — exec directo de PROJECT_DIR/scripts/*.sh sin inputFiles
+#          → bash: … Operation not permitted → PhaseScriptExecution nonzero
 
-# ✅ GOOD — la fase llama al fichero en disco
+# ✅ GOOD — declarar el .sh como inputFile + soft-fail (post-action Archive es el pase fiable)
 # postBuildScripts:
 #   - script: |
-#       "${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"
+#       /bin/bash "${SCRIPT_INPUT_FILE_0}" || exit 0
+#     inputFiles:
+#       - $(SRCROOT)/scripts/embed_ios_archive_dsyms.sh
 ```
 
 - Tras cambiar el wiring: `xcodegen generate`. Contrato: `tests/test_embed_ios_archive_dsyms.py`.

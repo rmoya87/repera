@@ -1,6 +1,6 @@
 # Configuración Firebase / GA4 — Repera
 
-**Última actualización:** 2026-11-04 (dSYM embed: phase llama al .sh en disco; no inline XcodeGen).
+**Última actualización:** 2026-11-04 (dSYM embed: inputFiles + soft-fail; evita Operation not permitted).
 
 ## Modelo
 
@@ -18,7 +18,7 @@ Firebase se integra por **SPM** (`firebase-ios-sdk` en `project.yml`, producto `
 
 La fase de build puede imprimir `note: … no .app yet (build-phase)` si Xcode aún no ha asentado el `.app`; **no es un fallo**. El post-action de Archive (`--archive ${ARCHIVE_PATH}`) es el pase fiable. Log: `${TMPDIR}/repera_archive_dsyms.log`.
 
-La fase **invoca** `scripts/embed_ios_archive_dsyms.sh` (no incrusta el cuerpo): tras editar el `.sh` no hace falta regenerar solo por el texto del script. Tras cambiar `project.yml`, sí: `xcodegen generate`.
+La fase invoca el `.sh` vía `SCRIPT_INPUT_FILE_0` (User Script Sandboxing) y **no falla el Archive** si el embed soft-falla; el post-action es el pase fiable. Tras editar solo el `.sh` no hace falta regenerar; tras cambiar `project.yml`, sí: `xcodegen generate`.
 
 Tras regenerar (si tocaste el wiring) y archivar de nuevo, el aviso de esos frameworks debería desaparecer. Si un archive antiguo ya está en Organizer, puedes repararlo a mano:
 

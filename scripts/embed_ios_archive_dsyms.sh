@@ -293,12 +293,11 @@ embed_dsyms_from_app_bundles() {
 
   if [[ "${#generated[@]}" -eq 0 && "${#failed[@]}" -eq 0 ]]; then
     if [[ "${MODE}" == "build-phase" ]]; then
-      # Common during Archive: the install phase can run before WRAPPER_NAME /
-      # products settle. The scheme Archive post-action (--archive) is the
-      # reliable pass; do not fail the build on this soft miss.
-      echo "note: embed_ios_archive_dsyms: no .app yet (build-phase); Archive post-action will embed."
+      # Soft miss is OK: frameworks may not be settled yet, or sandbox limited the
+      # scan. Scheme Archive post-action (--archive) is the reliable pass.
+      echo "note: embed_ios_archive_dsyms: nothing to embed yet (build-phase); Archive post-action will embed."
     else
-      echo "warning: embed_ios_archive_dsyms: no .app found in archive Products."
+      echo "warning: embed_ios_archive_dsyms: no embeddable frameworks found in archive Products."
       echo "warning: Re-run: scripts/embed_ios_archive_dsyms.sh --archive <path.xcarchive>"
     fi
     return 0
