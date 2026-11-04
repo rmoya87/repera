@@ -33,6 +33,20 @@ Comprobaciones: cuatro tablas nuevas con RLS activo, un trigger de reservas inst
 
 **Estado posterior: 98 versiones compartidas, 30 solo en git, 0 solo en remoto.**
 
+## RPC de negocio recuperadas sin sobrescribir operaciones actuales
+
+El 04/11/2026 se aplicó `20261104074250_repera_missing_business_rpc_recovery.sql` (registrada mediante `apply_migration`; SQL remoto y GitHub idénticos). Corrige efectos parcialmente ausentes de cinco migraciones antiguas sin reejecutarlas completas ni sobrescribir las funciones de reservas y chat actualizadas:
+
+- `athlete_send_org_message`, `update_organization_branding`.
+- `business_mark_class_attendance` (funciones pública y privada).
+- `decline_org_invitation` (funciones pública y privada).
+- Columna `service_occurrences.coach_ack` y trigger `service_occurrence_coach_ack`.
+- `list_my_coach_assignments`, `coach_ack_occurrence`, `coach_reschedule_occurrence` y `coach_cancel_occurrence`.
+
+Se probó el mismo SQL previamente en una transacción revertida y se verificó después el catálogo de funciones: ocho RPC públicas, tres auxiliares privadas, columna y trigger presentes. `anon` no puede llamar a las RPC sensibles comprobadas; `authenticated` puede invocarlas, con autorización por organización en su implementación.
+
+**Estado de historial después de la recuperación: 99 versiones compartidas, 30 solo en git, 0 solo en remoto.** Las migraciones históricas sin registro requieren cotejar sus efectos reales antes de reparar metadatos: en la misma migración pueden existir unas funciones mientras faltan otras.
+
 ## Regla de seguridad
 
 No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin historial que puedan estar parcial o completamente aplicadas. Revisar independientemente las 30 versiones restantes y proteger los datos de producción antes de corregirlas. Las migraciones de catálogo nuevas son DML idempotente, independientes del historial antiguo.
