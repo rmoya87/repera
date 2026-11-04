@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         get() = verifiedSupabaseState
         set(value) {
             if(centerGate.update(value?.userId)) {
+                BusinessSessionReminderScheduler.cancelAll(this@MainActivity)
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
                 centerDirectory=emptyList();centerDirectorySearching=false;centerDirectoryGeneration++
                 todayHealth=null;healthSamples=null;recoveryRead=null;healthAccess=HealthAccessState.UNKNOWN
@@ -1844,6 +1845,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
+                    profile?.uniqueId?.let { id ->
+                        if (centerGate.accepts(session.userId, revision)) {
+                            BusinessSessionReminderScheduler.synchronize(
+                                this@MainActivity, id, session.userId, result.snapshot
+                            )
+                        }
+                    }
                     profile?.uniqueId?.let { id ->
                         if (centerGate.accepts(session.userId, revision)) {
                             publishEffectiveWatchPlan(id, result.snapshot.trainingSessions)
