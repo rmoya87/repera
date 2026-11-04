@@ -1,5 +1,6 @@
 import HealthKit
 import SwiftUI
+import UIKit
 import WorkoutKit
 
 /// Apple Workout is an alternative owner of the sensor session, not a mirror of
@@ -44,67 +45,151 @@ struct AppleWorkoutExportSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Actividad") {
-                    Label(sport.title, systemImage: sport.symbol)
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            OGPageHeader(title: "Enviar a Apple Watch") {
+                CloseToolbarButton(action: { dismiss() }, large: true)
+            }
+            .padding(.top, 4)
 
-                Section("Objetivo") {
-                    Picker("Tipo", selection: $goalMode) {
-                        ForEach(GoalMode.allCases) { mode in
-                            Text(mode.label).tag(mode)
+            OGCard(padding: 14, verticalPadding: 14) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 12) {
+                        Image(systemName: sport.symbol)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 36, height: 36)
+                            .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Actividad")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(OG.label2)
+                            Text(sport.title)
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(OG.label)
                         }
+                        Spacer(minLength: 0)
                     }
-                    .pickerStyle(.segmented)
 
-                    switch goalMode {
-                    case .time:
-                        Stepper("Duración: \(minutes) min", value: $minutes, in: 5...240, step: 5)
-                    case .distance:
-                        Stepper("Distancia: \(distanceKm) km", value: $distanceKm, in: 1...100)
-                    case .intervals:
-                        Stepper("Bloques de trabajo: \(minutes) × 1 min", value: $minutes, in: 4...40, step: 2)
-                        Text("Cada bloque: 1 min trabajo + 1 min recuperación. Sin inventar distancias GPS.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Objetivo")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+
+                        Picker("Tipo", selection: $goalMode) {
+                            ForEach(GoalMode.allCases) { mode in
+                                Text(mode.label).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        goalValueField
                     }
                 }
+            }
 
-                Section {
-                    Text("Prepara el objetivo en Entreno del Apple Watch. Para no registrar dos sesiones en Salud, utiliza Entreno de Apple o Repera, pero no ambas grabaciones a la vez.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            Button {
+                openWorkout()
+            } label: {
+                Text(isOpening ? "Enviando…" : "Enviar")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(OG.accent, in: Capsule())
             }
-            .navigationTitle("Enviar a Apple Watch")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Abrir Entreno") { openWorkout() }
-                        .disabled(isOpening)
-                }
-            }
-            .alert("No se pudo abrir Entreno", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )) {
-                Button("Aceptar", role: .cancel) { errorMessage = nil }
-            } message: {
-                Text(errorMessage ?? "")
-            }
+            .buttonStyle(.plain)
+            .disabled(isOpening)
+            .opacity(isOpening ? 0.5 : 1)
+            .accessibilityLabel("Enviar a Entreno del Apple Watch")
         }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .ogFittedSheet()
         .tint(OG.accent)
-        .presentationDetents([.medium, .large])
+        .alert("No se pudo enviar", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
         .workoutPreview(previewPlan ?? placeholderPlan, isPresented: $showWorkoutPreview)
         .onChange(of: showWorkoutPreview) { _, presented in
             if !presented {
                 previewPlan = nil
                 dismiss()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var goalValueField: some View {
+        switch goalMode {
+        case .time:
+            labeledStepper(
+                label: "Minutos",
+                display: "\(minutes)",
+                keyboard: .numberPad,
+                onMinus: { minutes = max(5, minutes - 5) },
+                onPlus: { minutes = min(240, minutes + 5) },
+                onCommitText: { text in
+                    if let value = Int(text.filter(\.isNumber)) {
+                        minutes = min(240, max(5, value))
+                    }
+                }
+            )
+        case .distance:
+            labeledStepper(
+                label: "Kilómetros",
+                display: "\(distanceKm)",
+                keyboard: .numberPad,
+                onMinus: { distanceKm = max(1, distanceKm - 1) },
+                onPlus: { distanceKm = min(100, distanceKm + 1) },
+                onCommitText: { text in
+                    if let value = Int(text.filter(\.isNumber)) {
+                        distanceKm = min(100, max(1, value))
+                    }
+                }
+            )
+        case .intervals:
+            labeledStepper(
+                label: "Bloques (1 min trabajo + 1 min recuperación)",
+                display: "\(max(2, minutes / 2))",
+                keyboard: .numberPad,
+                onMinus: { minutes = max(4, minutes - 2) },
+                onPlus: { minutes = min(40, minutes + 2) },
+                onCommitText: { text in
+                    if let blocks = Int(text.filter(\.isNumber)) {
+                        let clamped = min(20, max(2, blocks))
+                        minutes = clamped * 2
+                    }
+                }
+            )
+        }
+    }
+
+    private func labeledStepper(
+        label: String,
+        display: String,
+        keyboard: UIKeyboardType,
+        onMinus: @escaping () -> Void,
+        onPlus: @escaping () -> Void,
+        onCommitText: @escaping (String) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(OG.label2)
+            OGRepeatStepper(
+                display: display,
+                keyboard: keyboard,
+                onMinus: onMinus,
+                onPlus: onPlus,
+                onCommitText: onCommitText
+            )
         }
     }
 

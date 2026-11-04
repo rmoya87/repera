@@ -452,13 +452,16 @@ enum ProgressDataEngine {
         weekStartsOnMonday: Bool,
         now: Date = Date()
     ) -> [ProgressWeightPoint] {
+        // Relativo al último año introducido: no arrastrar pesajes >365 días.
+        let yearStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? now
+        let recentEntries = entries.filter { $0.date >= yearStart }
         let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday) ?? .distantPast
         let end = Calendar.current.date(
             byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)
         ) ?? now
-        let current = entries.filter { $0.date >= start && $0.date < end }
-        // Preserve old measurements when this period has no weigh-ins.
-        let raw = (current.isEmpty ? entries.filter { $0.date < end } : current)
+        let current = recentEntries.filter { $0.date >= start && $0.date < end }
+        // Preserve old measurements (within the year) when this period has no weigh-ins.
+        let raw = (current.isEmpty ? recentEntries.filter { $0.date < end } : current)
             .sorted { $0.date < $1.date }
         let granularity = current.isEmpty ? ProgressSeriesGranularity.day
             : ProgressSeriesGranularity.forChart(range: range)

@@ -1,13 +1,13 @@
 # Progreso y preparación: fuentes verificadas
 
-Última actualización: 2026-11-04 (hub 7 días + Físico + Ahora).
+Última actualización: 2026-11-04 (FC Canvas Y(min)→Y(max) sin anclar al eje X; chip Físico = media 7d).
 
 ## Organización del hub (chips, 04/11/2026)
 
 - Navegación por **chips horizontales** (no segmentado Entreno/Actividad/Recuperación): **Entreno · Fuerza · Físico · Corazón · Recuperación · Deportes**.
 - Iconos propios Repera (bolt, mancuerna, caminar, ECG, **luna**, bandera); **sin** anillos Activity ni set de Apple Salud.
 - Chip: icono + título en la misma fila; valor debajo. Seleccionado = verde sólido + texto/icono negros (sin borde). Fila de chips con fondo transparente; iOS = Liquid Glass en no seleccionados.
-- Valores glance: Entreno (nota/sesiones), Fuerza (PR all-time), Físico (`45′` / `1 h 20` en 7 días), Corazón (LPM real), Recuperación (nota de preparación 0–10, nunca «·»), Deportes (nº de salidas En vivo **de los últimos 7 días**).
+- Valores glance: Entreno (nota/sesiones), Fuerza (PR all-time), Físico (**media diaria** de estímulo en 7 días), Corazón (LPM real), Recuperación (nota de preparación 0–10, nunca «·»), Deportes (nº de salidas En vivo **de los últimos 7 días**).
 - **Sin calendario** de periodo global: el hub usa siempre la ventana móvil **Últimos 7 días** (hoy + 6 anteriores, no lun–dom). Pro añade bloques «A largo plazo» y resúmenes **«Este mes»** / **Media mes** embebidos, no cambia el subtítulo del hub a mes.
 - Subtítulos: Entreno/Fuerza/Físico/Deportes = **Últimos 7 días**; Corazón y Recuperación = **Ahora**.
 - Cierre estilo Apple Salud: bloque **«Este mes»** al final de Físico / Corazón / Recuperación / Deportes (mes calendario aunque el hub mire 7 días).
@@ -30,11 +30,14 @@ La información de clases se carga por usuario autenticado desde `BusinessDataSt
 ## Organización de Progreso (iOS y Android, 04/11/2026)
 
 - **Entreno:** consistencia **«Últimos 7 días»** primero; después tiles **Media mes / Racha / Entrenos / Tiempo** (mes calendario). Puntuación verificada + confianza; **equilibrio muscular = estado actual** (fatiga retenida); movilidad; largo plazo (Pro) e Historial.
-- **Fuerza:** insight «Carga y marcas»: héroe = nº de PR **all-time**; caption = kg de volumen de los últimos 7 días; barras = **volumen semanal relativo**. **Progreso por ejercicio** y **récords** = mejores marcas de siempre. Teasers en gratis.
-- **Físico:** estímulo activo = **suma de minutos de entrenos Repera terminados + Salud/HC** en **últimos 7 días** (nunca sesiones abiertas: en iOS `durationMinutes` con `finishedAt ?? now` inflaría el total). Duración en **h + min** si ≥ 60 min. Heatmap, calorías y peso aparte; cierre «Este mes».
-- **Corazón:** FC de **últimos 7 días** (Apple Salud / Health Connect) en barras y mín/máx; héroe = media reciente real. **Sin placeholders**. Android Gratis: gráfica detallada teaser; número del hub usa HC real.
-- **Recuperación:** subtítulo **Ahora**; preparación actual; **evolución y sueño en 7 días**; constantes y ciclo. Sueño: barras por noche + lista (sin inventar datos). Cierre «Este mes».
-- **Deportes:** tiles (salidas, plan, tiempo En vivo) = **últimos 7 días**. **Evolución y récords** y **progresión en ejercicios** = historial / mejores marcas. Cierre «Este mes». El tiempo del tile Deportes es solo salidas En vivo, no el total de Físico.
+- **Fuerza:** insight «Carga y marcas»: héroe = nº de PR **all-time**; caption = kg de volumen de los **últimos 7 días**; barras = **volumen diario** de esos mismos 7 días (relativo al pico). Tiles **Sesiones fuerza / Ejercicios** = solo sesiones con series de fuerza confirmadas en esos 7 días. **Progreso por ejercicio** y **récords** = mejores marcas de siempre. Teasers en gratis.
+- **Físico — Estímulo activo (7d):** héroe = **media diaria** = `minutos totales (Repera terminados + Salud/HC) / 7` (ventana fija; días sin estímulo cuentan como 0 min de actividad, no son ceros fisiológicos). Mini gráfica = barras desde la base (`ProgressMiniFillBars` / `FILL`). Caption sin «Repera + Salud». Nunca sesiones abiertas (en iOS `durationMinutes` con `finishedAt ?? now` inflaría el total). Duración en **h + min** si ≥ 60 min.
+- **Físico — Este mes:** héroe = **media por semana** = `minutos del mes / (días transcurridos del mes / 7)`; narrativa con total y sesiones; mini gráfica de minutos/día del mes calendario. Heatmap, calorías y peso aparte.
+- **Calorías (Pro, hub 7d):** fuente = **energía activa de Apple Salud / Health Connect** (y kcal de actividades externas HK/HC; nunca MET inventados de Repera). El eje X muestra siempre los **7 días** de la ventana (ticks de calendario); días sin kcal = **hueco** (no se inventa 0 kcal fisiológico). Media/día = media solo sobre días **con** dato. iOS: `ProgressChartBuilder.mergedDailyCalories` → `ProgressCaloriesChartCard`; Android: `ProgressChartBuilder` → `ProgressCaloriesPlot`.
+- **Peso:** puntos filtrados al **último año (~365 días)** respecto a hoy (`buildWeightPoints` / snapshot Android). Si el periodo del hub no tiene pesajes, se muestra el historial real dentro de ese año. Sin interpolar huecos.
+- **Corazón:** FC de **últimos 7 días** (Apple Salud / Health Connect) como **cápsulas a la derecha** dibujadas en Canvas de Y(min lpm)→Y(max lpm) sobre un dominio holgado (p.ej. mín−12…máx+12): un día 58…120 **flota** a media altura; **no nace en el eje X**. Héroe = media reciente; tiles Mín./Máx. 7 d. **Sin placeholders**. **Este mes (Cardio):** media **semanal** + mismos rangos. Android Gratis: teaser; número del hub usa HC real.
+- **Recuperación:** subtítulo **Ahora**; preparación actual; **evolución y sueño en 7 días**; constantes y ciclo. Textos vacíos cortos («Aprendiendo · …», 1 línea). Sueño: barras por noche + lista (sin inventar datos). Cierre «Este mes».
+- **Deportes:** tiles (salidas, plan, tiempo En vivo) = **últimos 7 días**. **Evolución y récords** = valor + minigráfica (sin narrativa larga ni caption «historial · mejores marcas»). **Progresión en ejercicios** = título a la izquierda y «N al alza» a la derecha + lista e1RM (sin héroe grande ni narrativa). Cierre **Este mes** = resumen por actividad con **total / más larga / N× a la derecha**. Android: `ExternalHealthHistoryEntry.distanceMeters` solo si el permiso `DistanceRecord` ya está concedido (mismo fail-closed que `readSessionMovement`: origen de la sesión preferente; si no, un único origen en ventana).
 - **Gratis/Pro:** hub siempre Últimos 7 días (+ resumen «Este mes» + teasers «Ejemplo» en gratis); Pro añade largo plazo real. Sin selector de periodo en el hub.
 
 ## Entrenamiento (puntuación personal)
@@ -71,7 +74,7 @@ Este índice es orientativo: no diagnostica ni sustituye la evaluación de sensa
 
 ## Peso corporal
 
-Si el rango actual no contiene pesajes, se muestra el historial real hasta hoy, con fecha visible del último registro. Un único registro aparece como punto sin línea artificial; los intervalos sin registros no se rellenan. En periodos con pesajes se conserva el filtrado habitual. El eje temporal se adapta a los puntos que se muestran.
+Fuente: pesajes introducidos en Repera (`bodyWeights`). Ventana máxima de visualización: **últimos ~365 días**. Si el rango actual no contiene pesajes, se muestra el historial real de ese año hasta hoy, con fecha visible del último registro. Un único registro aparece como punto sin línea artificial; los intervalos sin registros no se rellenan. En periodos con pesajes se conserva el filtrado habitual. El eje temporal se adapta a los puntos que se muestran.
 
 ## Editor
 

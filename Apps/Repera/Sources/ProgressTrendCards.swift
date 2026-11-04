@@ -451,8 +451,20 @@ struct ProgressCaloriesChartCard: View {
         )
     }
 
+    /// Eje X = ventana completa (7 días en hub); no colapsar a días con kcal.
     private var axisValues: [Date] {
-        ProgressChartAxis.tickDates(points.map(\.date), range: range, granularity: granularity)
+        if range == .week || range == .today, !prepared.isTeaserPreview {
+            return ProgressChartAxis.calendarDays(
+                range: range,
+                weekStartsOnMonday: weekStartsOnMonday
+            )
+        }
+        return ProgressChartAxis.tickDates(points.map(\.date), range: range, granularity: granularity)
+    }
+
+    /// Días con hueco: PointMark; línea continua solo si hay ≥3 puntos cercanos.
+    private var prefersSparseMarks: Bool {
+        range == .week && points.count < 5 && !prepared.isTeaserPreview
     }
 
     var body: some View {
@@ -478,27 +490,34 @@ struct ProgressCaloriesChartCard: View {
                     if hasData {
                         Chart {
                             ForEach(points) { point in
-                                AreaMark(
-                                    x: .value("Día", point.date),
-                                    y: .value("kcal", point.value)
-                                )
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [OG.orange.opacity(0.32), OG.orange.opacity(0.02)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
+                                if !prefersSparseMarks {
+                                    AreaMark(
+                                        x: .value("Día", point.date),
+                                        y: .value("kcal", point.value)
                                     )
-                                )
-                                .interpolationMethod(calorieInterpolation)
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [OG.orange.opacity(0.32), OG.orange.opacity(0.02)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                    .interpolationMethod(calorieInterpolation)
 
-                                LineMark(
+                                    LineMark(
+                                        x: .value("Día", point.date),
+                                        y: .value("kcal", point.value)
+                                    )
+                                    .foregroundStyle(OG.orange)
+                                    .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(calorieInterpolation)
+                                }
+                                PointMark(
                                     x: .value("Día", point.date),
                                     y: .value("kcal", point.value)
                                 )
                                 .foregroundStyle(OG.orange)
-                                .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(calorieInterpolation)
-
+                                .symbolSize(prefersSparseMarks ? 48 : 28)
                             }
                             if let selectedPoint {
                                 RuleMark(x: .value("Día seleccionado", selectedPoint.date))
@@ -604,24 +623,33 @@ struct ProgressWeightChartCard: View {
     /// Preview free: misma suavidad que cardio/kcal.
     var isTeaserPreview: Bool = false
 
+    private var yearScopedEntries: [BodyWeightEntry] {
+        let now = Date()
+        let yearStart = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? now
+        return entries.filter { $0.date >= yearStart }
+    }
+
     private var rawPoints: [BodyWeightEntry] {
-        let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday)
+        let now = Date()
+        let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday)
             ?? .distantPast
         let end = Calendar.current.date(
-            byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date())
-        ) ?? Date()
-        let current = entries.filter { $0.date >= start && $0.date < end }
-        return (current.isEmpty ? entries.filter { $0.date < end } : current)
+            byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)
+        ) ?? now
+        let scoped = yearScopedEntries
+        let current = scoped.filter { $0.date >= start && $0.date < end }
+        return (current.isEmpty ? scoped.filter { $0.date < end } : current)
             .sorted { $0.date < $1.date }
     }
 
     private var isHistoricalFallback: Bool {
-        guard !isTeaserPreview, !entries.isEmpty else { return false }
-        let start = range.startDate(now: Date(), weekStartsOnMonday: weekStartsOnMonday)
+        guard !isTeaserPreview, !yearScopedEntries.isEmpty else { return false }
+        let now = Date()
+        let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday)
             ?? .distantPast
         let end = Calendar.current.date(byAdding: .day, value: 1,
-            to: Calendar.current.startOfDay(for: Date())) ?? Date()
-        return !entries.contains { $0.date >= start && $0.date < end }
+            to: Calendar.current.startOfDay(for: now)) ?? now
+        return !yearScopedEntries.contains { $0.date >= start && $0.date < end }
     }
 
     private var granularity: ProgressSeriesGranularity {
@@ -930,5 +958,26 @@ enum ProgressChartAxis {
             if out.last != d { out.append(d) }
         }
         return out
+    }
+
+    /// Días naturales de la ventana (hoy incluido). Para eje de calorías 7d sin colapsar.
+    static func calendarDays(
+        range: ProgressTimeRange,
+        weekStartsOnMonday: Bool,
+        now: Date = Date()
+    ) -> [Date] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: now)
+        guard let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday) else {
+            return [today]
+        }
+        var days: [Date] = []
+        var day = start
+        while day <= today {
+            days.append(day)
+            guard let next = cal.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return days
     }
 }

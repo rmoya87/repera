@@ -18,7 +18,7 @@ import dev.repera.domain.ProgressDayPoint
   }
   if(values.size>=2) DayPointLineChart(values,valueFormat={"${formatWeight(it)} ms"},chartHeight=height,physiologyStyle=true)
   else {
-   EmptyHealthChart(if(values.isEmpty()) "Sin mediciones de VFC en el periodo" else "Una medición de VFC; aún no hay tendencia",0.0,100.0,height)
+   EmptyHealthChart(if(values.isEmpty()) "Repera necesita 2 días de VFC para evaluarte." else "Repera necesita 2 días medidos para evaluarte · lleva 1.",0.0,100.0,height)
   }
  }
 }

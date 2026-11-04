@@ -17,7 +17,8 @@ class DayChartPositionsTest {
   val day=LocalDate.of(2026,10,27)
   val days=listOf(day.minusDays(6),day)
   val real=ProgressPlotAxis.domain(days,dev.repera.domain.ProgressTimeRange.WEEK,true,day,false)
-  assertEquals(LocalDate.of(2026,10,26).toEpochDay().toDouble(),real.first,0.001)
+  // Semana = ventana móvil (hoy − 6), no lun–dom de calendario.
+  assertEquals(LocalDate.of(2026,10,21).toEpochDay().toDouble(),real.first,0.001)
   assertEquals(day.toEpochDay().toDouble(),real.second,0.001)
   val teaser=ProgressPlotAxis.domain(days,dev.repera.domain.ProgressTimeRange.WEEK,true,day,true)
   assertEquals(days.first().toEpochDay()-0.5,teaser.first,0.001)
@@ -29,7 +30,18 @@ class DayChartPositionsTest {
   val days=(0..19).map {LocalDate.of(2026,10,1).plusDays(it.toLong())}
   val result=ProgressPlotAxis.ticks(days,dev.repera.domain.ProgressTimeRange.MONTH,dev.repera.domain.ProgressSeriesGranularity.DAY)
   assertEquals(listOf(0,3,6,9,12,15,18,19).map {days[it]},result)
-  assertEquals(days.take(7),ProgressPlotAxis.ticks(days.take(7),dev.repera.domain.ProgressTimeRange.WEEK,dev.repera.domain.ProgressSeriesGranularity.DAY))
+  // Semana = ventana fija de 7 días naturales (hoy + 6 previos), aunque falten kcal.
+  val weekEnd = LocalDate.of(2026, 10, 27)
+  val weekAxis = (0..6).map { weekEnd.minusDays((6 - it).toLong()) }
+  assertEquals(
+   weekAxis,
+   ProgressPlotAxis.ticks(
+    emptyList(),
+    dev.repera.domain.ProgressTimeRange.WEEK,
+    dev.repera.domain.ProgressSeriesGranularity.DAY,
+    today = weekEnd
+   )
+  )
  }
  @Test fun cardioDomainPadsExtremaAndClampsLow() {
   val day=LocalDate.of(2026,10,27)

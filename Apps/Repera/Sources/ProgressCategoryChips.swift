@@ -134,6 +134,7 @@ struct ProgressInsightHeader: View {
     let systemImage: String
     var tint: Color = OG.accent
     var showsChevron: Bool = false
+    var trailingText: String? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -145,6 +146,12 @@ struct ProgressInsightHeader: View {
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(tint)
             Spacer(minLength: 0)
+            if let trailingText {
+                Text(trailingText)
+                    .font(.callout.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+            }
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
@@ -161,14 +168,16 @@ struct ProgressInsightCard<Content: View>: View {
     let narrative: String
     var tint: Color = OG.accent
     var showsChevron: Bool = false
+    var trailingText: String? = nil
     @ViewBuilder var content: () -> Content
 
     init(
         title: String,
         systemImage: String,
-        narrative: String,
+        narrative: String = "",
         tint: Color = OG.accent,
         showsChevron: Bool = false,
+        trailingText: String? = nil,
         @ViewBuilder content: @escaping () -> Content = { EmptyView() }
     ) {
         self.title = title
@@ -176,6 +185,7 @@ struct ProgressInsightCard<Content: View>: View {
         self.narrative = narrative
         self.tint = tint
         self.showsChevron = showsChevron
+        self.trailingText = trailingText
         self.content = content
     }
 
@@ -186,13 +196,16 @@ struct ProgressInsightCard<Content: View>: View {
                     title: title,
                     systemImage: systemImage,
                     tint: tint,
-                    showsChevron: showsChevron
+                    showsChevron: showsChevron,
+                    trailingText: trailingText
                 )
-                Text(narrative)
-                    .font(.subheadline)
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(2)
+                if !narrative.isEmpty {
+                    Text(narrative)
+                        .font(.subheadline)
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(2)
+                }
                 content()
             }
         }
@@ -204,32 +217,168 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
     let value: String
     let unit: String?
     let caption: String?
+    /// Tamaño del número héroe (Estímulo/FC usan ~54).
+    var valuePointSize: CGFloat = 44
+    /// Meta apilada a la derecha del número (p. ej. tiempo encima de «salidas»), misma tipografía.
+    var stackedMeta: (top: String, bottom: String)? = nil
     @ViewBuilder var accessory: () -> Accessory
+
+    init(
+        value: String,
+        unit: String? = nil,
+        caption: String? = nil,
+        valuePointSize: CGFloat = 44,
+        stackedMeta: (top: String, bottom: String)? = nil,
+        @ViewBuilder accessory: @escaping () -> Accessory
+    ) {
+        self.value = value
+        self.unit = unit
+        self.caption = caption
+        self.valuePointSize = valuePointSize
+        self.stackedMeta = stackedMeta
+        self.accessory = accessory
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(value)
-                        .ogFont(44, weight: .bold, design: .rounded, relativeTo: .largeTitle)
-                        .monospacedDigit()
-                        .foregroundStyle(OG.label)
-                        .minimumScaleFactor(0.6)
-                        .lineLimit(1)
-                    if let unit {
-                        Text(unit)
-                            .font(.headline)
-                            .foregroundStyle(OG.label2)
+            Group {
+                if let stackedMeta {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text(value)
+                            .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                            .monospacedDigit()
+                            .foregroundStyle(OG.label)
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(stackedMeta.top)
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            Text(stackedMeta.bottom)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
+                        }
+                        .frame(minHeight: valuePointSize * 0.85, alignment: .center)
                     }
-                }
-                if let caption {
-                    Text(caption)
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(OG.label3)
+                } else {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(value)
+                                .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                                .monospacedDigit()
+                                .foregroundStyle(OG.label)
+                                .minimumScaleFactor(0.55)
+                                .lineLimit(1)
+                            if let unit {
+                                Text(unit)
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        if let caption {
+                            Text(caption)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(OG.label3)
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             accessory()
+        }
+    }
+}
+
+/// Card insight: título arriba; debajo, héroe grande + caption muy ajustado y gráfica a la derecha
+/// alineada al bloque del dato (no sube hasta el título).
+struct ProgressInsightElevatedCard<Chart: View>: View {
+    let title: String
+    let systemImage: String
+    var tint: Color = OG.accent
+    var value: String
+    var unit: String? = nil
+    var caption: String? = nil
+    var valuePointSize: CGFloat = 64
+    var showsChevron: Bool = false
+    var trailingText: String? = nil
+    /// FC estilo Salud: gráfica a ancho completo bajo el héroe (barras min–máx).
+    var chartBelow: Bool = false
+    var chartHeight: CGFloat = 72
+    /// Carga / Estímulo: la gráfica sube hasta la fila del título (junto a header + héroe).
+    var chartBesideTitle: Bool = false
+    @ViewBuilder var chart: () -> Chart
+
+    var body: some View {
+        OGCard {
+            if chartBesideTitle {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ProgressInsightHeader(
+                            title: title,
+                            systemImage: systemImage,
+                            tint: tint,
+                            showsChevron: showsChevron,
+                            trailingText: trailingText
+                        )
+                        heroMetrics
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    chart()
+                        .frame(width: 152, height: chartHeight, alignment: .top)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressInsightHeader(
+                        title: title,
+                        systemImage: systemImage,
+                        tint: tint,
+                        showsChevron: showsChevron,
+                        trailingText: trailingText
+                    )
+                    if chartBelow {
+                        heroMetrics
+                        chart()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: chartHeight)
+                    } else {
+                        HStack(alignment: .center, spacing: 12) {
+                            heroMetrics
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            // center (no .bottom): si la gráfica levita, .bottom la recorta y parece
+                            // que todas las barras salen del eje X.
+                            chart()
+                                .frame(width: 152, height: chartHeight, alignment: .center)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var heroMetrics: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                    .monospacedDigit()
+                    .foregroundStyle(OG.label)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                if let unit {
+                    Text(unit)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(OG.label2)
+                }
+            }
+            if let caption {
+                Text(caption)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(OG.label3)
+                    .padding(.top, -2)
+            }
         }
     }
 }
@@ -266,35 +415,154 @@ struct ProgressMetricGlanceCard: View {
     }
 }
 
-/// Mini barras de rango (estilo FC Salud) a partir de valores 0…1.
+/// Barras levitando (estilo Salud): cada cápsula va de `lower`→`upper` en Y normalizado.
+/// `0` = suelo del plot, `1` = techo. Si el mín del día es 58 lpm, `lower` es Y(58), no el eje X.
 struct ProgressMiniRangeBars: View {
     let samples: [ClosedRange<Double>]
     var tint: Color = OG.red
     var height: CGFloat = 72
 
     var body: some View {
+        Canvas { context, size in
+            let n = samples.count
+            guard n > 0, size.height > 0, size.width > 0 else { return }
+            let spacing = n > 14 ? CGFloat(2) : CGFloat(4)
+            let slot = (size.width - spacing * CGFloat(n - 1)) / CGFloat(n)
+            let barW = max(slot * 0.72, 3)
+            for (i, range) in samples.enumerated() {
+                let lo = min(max(range.lowerBound, 0), 1)
+                let hi = min(max(range.upperBound, lo + 0.06), 1)
+                // Y crece hacia abajo: hi arriba, lo abajo. Nunca anclar lo a y = size.height
+                // salvo que lowerBound sea realmente 0 en el dominio (no lpm 0).
+                let yTop = size.height * (1 - hi)
+                let yBot = size.height * (1 - lo)
+                let barH = max(yBot - yTop, 5)
+                let x = CGFloat(i) * (slot + spacing) + (slot - barW) / 2
+                let rect = CGRect(x: x, y: yTop, width: barW, height: barH)
+                let path = Path(roundedRect: rect, cornerRadius: barW / 2, style: .continuous)
+                context.fill(path, with: .color(tint.opacity(0.92)))
+            }
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Barras rellenas desde la base (estímulo / minutos). Distinto del rango flotante de FC.
+struct ProgressMiniFillBars: View {
+    let fractions: [Double]
+    var tint: Color = OG.accent
+    var height: CGFloat = 72
+
+    var body: some View {
         GeometryReader { geo in
             let w = max(geo.size.width, 1)
-            let spacing: CGFloat = 3
-            let count = max(samples.count, 1)
-            let barW = max((w - spacing * CGFloat(count - 1)) / CGFloat(count), 2)
+            let spacing: CGFloat = 4
+            let count = max(fractions.count, 1)
+            let barW = max((w - spacing * CGFloat(count - 1)) / CGFloat(count), 3)
             HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(Array(samples.enumerated()), id: \.offset) { _, range in
-                    let lo = min(max(range.lowerBound, 0), 1)
-                    let hi = min(max(range.upperBound, 0), 1)
-                    let top = height * (1 - hi)
-                    let barH = max(height * (hi - lo), 4)
-                    Capsule()
-                        .fill(tint.opacity(0.85))
-                        .frame(width: barW, height: barH)
-                        .padding(.top, top)
-                        .frame(height: height, alignment: .top)
+                ForEach(Array(fractions.enumerated()), id: \.offset) { _, raw in
+                    let f = min(max(raw, 0), 1)
+                    RoundedRectangle(cornerRadius: barW * 0.35, style: .continuous)
+                        .fill(tint.opacity(0.9))
+                        .frame(width: barW, height: max(height * CGFloat(f), 3))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .frame(height: height)
         .accessibilityHidden(true)
+    }
+}
+
+/// Sparkline con área y picos suavizados (carga / volumen).
+struct ProgressMiniAreaSpark: View {
+    let fractions: [Double]
+    var tint: Color = OG.accent
+    var height: CGFloat = 72
+
+    var body: some View {
+        GeometryReader { geo in
+            let values = Self.smoothed(fractions.map { min(max($0, 0), 1) })
+            let n = max(values.count, 1)
+            let w = max(geo.size.width, 1)
+            let h = max(geo.size.height, 1)
+            let step = n == 1 ? 0 : w / CGFloat(n - 1)
+            let points: [CGPoint] = values.enumerated().map { i, v in
+                CGPoint(x: CGFloat(i) * step, y: h * (1 - CGFloat(v)))
+            }
+            Path { path in
+                Self.addSmoothCurve(to: &path, points: points, closeToBaseline: h)
+            }
+            .fill(
+                LinearGradient(
+                    colors: [tint.opacity(0.42), tint.opacity(0.05)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            Path { path in
+                Self.addSmoothCurve(to: &path, points: points, closeToBaseline: nil)
+            }
+            .stroke(tint, style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+
+    /// Media móvil ligera (2 pases) para suavizar picos sin inventar tendencia.
+    private static func smoothed(_ values: [Double]) -> [Double] {
+        guard values.count > 2 else { return values }
+        var current = values
+        for _ in 0..<2 {
+            var next = current
+            for i in 1..<(current.count - 1) {
+                next[i] = current[i - 1] * 0.22 + current[i] * 0.56 + current[i + 1] * 0.22
+            }
+            current = next
+        }
+        return current
+    }
+
+    /// Catmull–Rom → curvas cúbicas. `closeToBaseline` cierra el área inferior.
+    private static func addSmoothCurve(
+        to path: inout Path,
+        points: [CGPoint],
+        closeToBaseline: CGFloat?
+    ) {
+        guard let first = points.first else { return }
+        if let baseline = closeToBaseline {
+            path.move(to: CGPoint(x: first.x, y: baseline))
+            path.addLine(to: first)
+        } else {
+            path.move(to: first)
+        }
+        guard points.count > 1 else {
+            if let baseline = closeToBaseline {
+                path.addLine(to: CGPoint(x: first.x, y: baseline))
+                path.closeSubpath()
+            }
+            return
+        }
+        for i in 0..<(points.count - 1) {
+            let p0 = points[max(i - 1, 0)]
+            let p1 = points[i]
+            let p2 = points[i + 1]
+            let p3 = points[min(i + 2, points.count - 1)]
+            let cp1 = CGPoint(
+                x: p1.x + (p2.x - p0.x) / 6,
+                y: p1.y + (p2.y - p0.y) / 6
+            )
+            let cp2 = CGPoint(
+                x: p2.x - (p3.x - p1.x) / 6,
+                y: p2.y - (p3.y - p1.y) / 6
+            )
+            path.addCurve(to: p2, control1: cp1, control2: cp2)
+        }
+        if let baseline = closeToBaseline, let last = points.last {
+            path.addLine(to: CGPoint(x: last.x, y: baseline))
+            path.closeSubpath()
+        }
     }
 }
 

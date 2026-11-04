@@ -69,7 +69,13 @@ data class ProgressSnapshotData(
     val averageHeartRate: Double? = null,
     val previousAverageHeartRate: Double? = null,
     val externalSessions: Int = 0,
-    val chartExercises:List<ProgressExerciseRow> = emptyList()
+    val chartExercises:List<ProgressExerciseRow> = emptyList(),
+    /** Sesiones del hub con series de fuerza (no caminatas / En vivo). */
+    val strengthSessionCount: Int = 0,
+    /** Ejercicios distintos de fuerza practicados en el hub (no all-time). */
+    val strengthExerciseCount: Int = 0,
+    /** Volumen kg/día en la ventana del hub (más antiguo → hoy). */
+    val hubDailyVolumeKg: List<Double> = emptyList()
 )
 
 object ProgressSnapshotBuilder {
@@ -391,12 +397,15 @@ object ProgressSnapshotBuilder {
             val kg = entry.optDouble("weightKg")
             if (kg > 0) date to kg else null
         }
+        // Relativo al último año introducido (~365 días); no arrastrar pesajes antiguos.
+        val yearStart = now.minusDays(365)
+        val recentWeights = weightEntries.filter { (day, _) -> !day.isBefore(yearStart) }
         // Preserve dated historical weigh-ins when this period is empty.
         // No interpolation or invented day-level measurements.
-        val weightWithinPeriod = weightEntries.filter { (day, _) ->
+        val weightWithinPeriod = recentWeights.filter { (day, _) ->
             range.contains(day, now, monday)
         }
-        val weightPoints = (weightWithinPeriod.ifEmpty { weightEntries.filter { it.first <= now } })
+        val weightPoints = (weightWithinPeriod.ifEmpty { recentWeights.filter { it.first <= now } })
             .sortedBy { it.first }
             .map { ProgressDayPoint(it.first, it.second) }
             .let { raw ->
@@ -449,7 +458,32 @@ object ProgressSnapshotBuilder {
             filteredWorkouts = filtered.size,
             averageHeartRate = averageHeartRate,
             previousAverageHeartRate = previousAverageHeartRate,
-            externalSessions = filteredExternal.size
+            externalSessions = filteredExternal.size,
+            strengthSessionCount = filtered.count { workout ->
+                workout.finished && workout.exercises.any { ex ->
+                    !ex.isMobility && performedForChart(ex)
+                }
+            },
+            strengthExerciseCount = filtered
+                .filter { it.finished }
+                .flatMap { w ->
+                    w.exercises.filter { !it.isMobility && performedForChart(it) }.map { it.exerciseId }
+                }
+                .toSet()
+                .size,
+            hubDailyVolumeKg = run {
+                val start = range.startDate(now, monday) ?: now
+                generateSequence(start) { it.plusDays(1) }
+                    .takeWhile { !it.isAfter(now) }
+                    .map { day ->
+                        filtered.filter { workout ->
+                            workout.finished &&
+                                Instant.ofEpochMilli(workout.epochMillis)
+                                    .atZone(zone).toLocalDate() == day
+                        }.sumOf { it.totalVolumeKg }
+                    }
+                    .toList()
+            }
         )
     }
 }

@@ -44,7 +44,7 @@ internal object RecoveryVitalBarGeometry {
   }
   if (rest.size < 2) {
    Text(
-    "Repera está aprendiendo de ti · pulso en reposo ${rest.size}/2 días. La preparación requiere 7 días anteriores.",
+    "Repera necesita 2 días de reposo para evaluarte · lleva ${rest.size}.",
     style = MaterialTheme.typography.bodySmall,
     color = MaterialTheme.colorScheme.onSurfaceVariant
    )

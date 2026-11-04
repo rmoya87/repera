@@ -180,6 +180,7 @@
     <string name="progress_tab_tendencias_a_largo_plazo">Tendencias a largo plazo</string>
     <string name="progress_tab_carga_y_marcas">Carga y marcas</string>
     <string name="progress_tab_sesiones">Sesiones</string>
+    <string name="progress_tab_sesiones_fuerza">Sesiones fuerza</string>
     <string name="progress_tab_evolucion_de_fuerza">Evolución de fuerza</string>
     <string name="progress_tab_estimulo_activo">Estímulo activo</string>
     <string name="progress_tab_forma_fisica_completa">Físico completo</string>

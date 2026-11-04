@@ -771,7 +771,7 @@ struct HealthRecoveryProgressView: View {
                     OGCardSectionTitle(title: "Evolución")
                     OGCard {
                         ProgressEmptyChart(
-                            message: "Repera está aprendiendo de ti. Necesita al menos 2 días con preparación evaluable. Sin sueño: 7 días previos de constantes.",
+                            message: "Repera necesita 2 días evaluables para evaluarte.",
                             height: primaryChartHeight
                         )
                         .frame(height: readinessChartHeight)
@@ -936,8 +936,8 @@ struct HealthRecoveryProgressView: View {
             OGCard {
                 ProgressEmptyChart(
                     message: recovery.sleepEnabled
-                        ? "Sin registros de sueño en Apple Salud todavía."
-                        : "Activa el análisis de descanso en Ajustes → Salud conectada.",
+                        ? "Repera necesita 1 noche de sueño para evaluarte."
+                        : "Repera necesita el sueño activado en Ajustes para evaluarte.",
                     height: fittedSleepChartHeight,
                     yRange: 0.0...10.0
                 )
@@ -1035,8 +1035,8 @@ struct HealthRecoveryProgressView: View {
             } else {
                 ProgressEmptyChart(
                     message: values.isEmpty
-                        ? "Repera está aprendiendo de ti. Necesita al menos 2 días con mediciones para mostrar la tendencia."
-                        : "Repera está aprendiendo de ti: 1 de 2 días con mediciones.",
+                        ? "Repera necesita 2 días medidos para evaluarte."
+                        : "Repera necesita 2 días medidos para evaluarte · lleva 1.",
                     height: physiologyChartHeight,
                     yRange: 0.0...100.0
                 )
@@ -1139,10 +1139,11 @@ struct HealthRecoveryProgressView: View {
                     }
                     let restingDays = vitalValues(\.restingHeartRateAllDayBpm).count
                     if restingDays < 2 {
-                        Text("Repera está aprendiendo de ti · pulso en reposo \(restingDays)/2 días. Para interpretar la preparación necesita 7 días anteriores.")
+                        Text("Repera necesita 2 días de reposo para evaluarte · lleva \(restingDays).")
                             .font(.caption)
                             .foregroundStyle(OG.label2)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                     }
                     if let latest = physiology.days.last {
                         HStack(alignment: .top, spacing: 10) {
@@ -1244,9 +1245,9 @@ struct HealthRecoveryProgressView: View {
     private var readinessLearningMessage: String {
         let days = RecoveryEngine.vitalLearningDays(at: Date(), history: physiology.days)
         if measuredTrainingLoadLabel == "—" {
-            return "Repera está aprendiendo de ti. Registra al menos 1 entrenamiento finalizado con duración real durante los últimos 7 días."
+            return "Repera necesita 1 entreno medido en 7 días para evaluarte."
         }
-        return "Repera está aprendiendo de ti. Sin sueño medido, necesita 7 días anteriores con VFC, pulso en reposo o respiración y una lectura de hoy (\(days)/7 días). O registra una noche de sueño."
+        return "Repera necesita sueño o 7 días de constantes para evaluarte · lleva \(days)."
     }
 
     private func readinessFactor(

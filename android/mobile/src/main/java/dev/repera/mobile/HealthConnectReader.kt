@@ -47,7 +47,17 @@ data class RecoveryRead(
     val positiveOvulationTests:List<LocalDate> = emptyList()
 )
 
-data class ExternalHealthHistoryEntry(val id:String,val title:String,val startMillis:Long,val endMillis:Long,val minutes:Double,val sourcePackage:String,val exerciseTypeKey:String="other")
+data class ExternalHealthHistoryEntry(
+    val id: String,
+    val title: String,
+    val startMillis: Long,
+    val endMillis: Long,
+    val minutes: Double,
+    val sourcePackage: String,
+    val exerciseTypeKey: String = "other",
+    /** Distancia HC del rango de la sesión; solo si hay permiso DistanceRecord y un origen fiable. */
+    val distanceMeters: Double? = null
+)
 
 data class ExternalHealthDetail(val entry:ExternalHealthHistoryEntry,val heart:List<Pair<Long,Int>>,val activeKcal:Double?)
 
@@ -513,6 +523,7 @@ class HealthConnectReader(private val context: Context) {
         val externalHistory=mutableListOf<ExternalHealthHistoryEntry>()
         val verifiedMinutes=mutableMapOf<String,HealthWorkoutMinutes.Verified>()
         val linkedIDs=localSessions.mapNotNull {it.linkedHealthId}.toSet()
+        val canDistance = HealthPermission.getReadPermission(DistanceRecord::class) in granted
         if (granted.contains(HealthPermission.getReadPermission(
                 ExerciseSessionRecord::class))) {
             val response = client.readAllRecords(
@@ -530,12 +541,23 @@ class HealthConnectReader(private val context: Context) {
                 if(dev.repera.domain.ReperaHealthExclusion.matches(record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),record.metadata.id,localSessions)) continue
                 val minutes = measured
                 if (minutes <= 0) continue
+                val typeKey = exerciseTypeKey(record.exerciseType)
+                val distanceMeters = if (canDistance) {
+                    sessionDistanceMeters(
+                        client = client,
+                        start = record.startTime,
+                        end = record.endTime,
+                        sessionPackage = record.metadata.dataOrigin.packageName,
+                        typeKey = typeKey
+                    )
+                } else null
                 externalHistory.add(ExternalHealthHistoryEntry(record.metadata.id,
-                    record.title?.takeIf {it.isNotBlank()} ?: exerciseTypeKey(record.exerciseType),
-                    record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),minutes,record.metadata.dataOrigin.packageName,exerciseTypeKey(record.exerciseType)))
+                    record.title?.takeIf {it.isNotBlank()} ?: typeKey,
+                    record.startTime.toEpochMilli(),record.endTime.toEpochMilli(),minutes,record.metadata.dataOrigin.packageName,typeKey,
+                    distanceMeters = distanceMeters))
                 externalActivities.add(HealthMuscleMapper.ExternalActivity(
                     epochMillis = record.startTime.toEpochMilli(),
-                    type = exerciseTypeKey(record.exerciseType),
+                    type = typeKey,
                     durationMinutes = minutes))
             }
         }
@@ -547,6 +569,41 @@ class HealthConnectReader(private val context: Context) {
             externalActivities = externalActivities.sortedBy { it.epochMillis },
             verifiedWorkoutMinutes=verifiedMinutes,externalHistory=externalHistory.sortedByDescending {it.startMillis}
         )
+    }
+
+    /**
+     * Distancia HC del rango de una sesión externa: mismo fail-closed que [readSessionMovement]
+     * (origen de la sesión preferente; si no, ventana solo con un único origen; sin inventar).
+     * Tipos de agua / sin etiqueta de distancia → null.
+     */
+    private suspend fun sessionDistanceMeters(
+        client: HealthConnectClient,
+        start: Instant,
+        end: Instant,
+        sessionPackage: String,
+        typeKey: String
+    ): Double? {
+        if (end <= start) return null
+        if (dev.repera.domain.SessionMovementMetrics.distanceLabel(typeKey) == null) return null
+        val range = TimeRangeFilter.between(start, end)
+        suspend fun total(origins: Set<String>): Double? {
+            val r = client.aggregate(
+                AggregateRequest(
+                    setOf(DistanceRecord.DISTANCE_TOTAL),
+                    range,
+                    origins.map { DataOrigin(it) }.toSet()
+                )
+            )
+            return r[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+        }
+        val own = total(setOf(sessionPackage))?.takeIf { it.isFinite() && it > 0 }
+        if (own != null) return own
+        val perOrigin = client.readAllRecords(DistanceRecord::class, range)
+            .map { it.metadata.dataOrigin.packageName }
+            .toSet()
+            .mapNotNull { origin -> total(setOf(origin))?.let { origin to it } }
+            .toMap()
+        return dev.repera.domain.SessionMovementMetrics.windowTotal(perOrigin)
     }
 
     /** Mediana diaria con los rangos válidos y el corte de las 7:00 de iOS

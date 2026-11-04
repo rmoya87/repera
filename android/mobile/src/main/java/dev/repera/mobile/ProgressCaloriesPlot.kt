@@ -28,7 +28,14 @@ internal object ProgressPlotAxis {
   return start.toEpochDay()-pad to end.toEpochDay()+pad
  }
  fun fraction(day:LocalDate,domain:Pair<Double,Double>):Float =((day.toEpochDay()-domain.first)/(domain.second-domain.first).coerceAtLeast(1.0)).toFloat()
- fun ticks(days:List<LocalDate>,range:ProgressTimeRange,granularity:ProgressSeriesGranularity):List<LocalDate> {
+ /** Eje de semana/hoy = todos los días de la ventana (huecos honestos), no solo días con kcal. */
+ fun ticks(days:List<LocalDate>,range:ProgressTimeRange,granularity:ProgressSeriesGranularity,monday:Boolean=true,today:LocalDate=LocalDate.now(),preview:Boolean=false):List<LocalDate> {
+  if (!preview && granularity == ProgressSeriesGranularity.DAY &&
+   (range == ProgressTimeRange.WEEK || range == ProgressTimeRange.TODAY)
+  ) {
+   val start = range.startDate(today, monday) ?: today
+   return generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.toList()
+  }
   val step=if(granularity==ProgressSeriesGranularity.DAY && (range==ProgressTimeRange.TODAY || range==ProgressTimeRange.WEEK)) 1 else maxOf(1,days.size/6)
   return days.filterIndexed {i,_ ->i%step==0 || i==days.lastIndex}.distinct()
  }
@@ -38,7 +45,10 @@ internal object ProgressPlotAxis {
 /** Observed/prepared calories, not invented bars. No sample changes or Health reads. */
 @Composable internal fun ProgressCaloriesPlot(charts:ProgressPreparedCharts,preview:Boolean=false,today:LocalDate=LocalDate.now()) {
  val points=charts.calories.sortedBy {it.day}
- val ticks=ProgressPlotAxis.ticks(points.map {it.day},charts.range,charts.granularity)
+ val ticks=ProgressPlotAxis.ticks(
+  points.map {it.day}, charts.range, charts.granularity,
+  monday = charts.weekStartsOnMonday, today = today, preview = preview
+ )
  val maximum=ProgressPlotAxis.kcalMax(points,preview)
  val domain=ProgressPlotAxis.domain(points.map {it.day},charts.range,charts.weekStartsOnMonday,today,preview)
  var selected by remember(points,domain) {mutableStateOf<Int?>(null)}

@@ -55,7 +55,7 @@ internal fun RecoveryHistoryCards(
                         if (pro) {
                             if (trend.size < 2) {
                                 EmptyHealthChart(
-                                    "Repera está aprendiendo de ti. Necesita 2 días evaluables. Sin sueño: 7 días previos de constantes.",
+                                    "Repera necesita 2 días evaluables para evaluarte.",
                                     0.0, 10.0, readinessHeight
                                 )
                             } else {
@@ -96,7 +96,7 @@ internal fun RecoveryHistoryCards(
                     ) {
                         if (nights.isEmpty()) {
                             EmptyHealthChart(
-                                "Sin registros de sueño en Health Connect todavía.",
+                                "Repera necesita 1 noche de sueño para evaluarte.",
                                 0.0, 10.0, sleepHeight
                             )
                         } else {

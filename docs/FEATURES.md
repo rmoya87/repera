@@ -1,5 +1,13 @@
 # Funcionalidades Repera
 
+Última actualización: 2026-11-04.
+
+## Enviar objetivo a Entreno (Comenzar → Apple Watch) (04/11/2026)
+
+- En deportes de resistencia compatibles (carrera, caminata, senderismo, trail, ciclismo y variantes), Comenzar ofrece el icono de Apple Watch para enviar un objetivo a la app **Entreno** del reloj (WorkoutKit: `workoutPreview` + programación).
+- Modal con cabecera OG y cierre **X**, actividad y objetivo en una sola card opaca, valores con `OGRepeatStepper` (minutos / km / bloques) y CTA **Enviar**. Sin caja de ayuda «Prepara el objetivo…».
+- No inicia una segunda grabación en Repera: el dueño del sensor es Entreno de Apple. Sin grabar a la vez Repera + Entreno.
+
 ## Analytics GA4 (04/11/2026)
 
 - Métricas de producto vía Firebase Analytics (iOS/Android), estilo cafesito-app: **sin toggle en Ajustes**, sin IDFA/`AD_ID`.
@@ -112,7 +120,11 @@ La gráfica de **Puntuación de entrenamiento** y el detalle de sesión presenta
 
 ## Hub Progreso por chips temáticos (04/11/2026)
 
-Progreso usa chips horizontales **Entreno · Fuerza · Físico · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa, héroe numérico y mini viz). Hub fijo a **Últimos 7 días**; consistencia **«Últimos 7 días»** antes de **Media mes / Racha / Entrenos / Tiempo** (métricas de mes). Subtítulos: Entreno/Fuerza/Físico/Deportes = **Últimos 7 días**; Corazón y Recuperación = **Ahora**. Al final de Físico, Corazón, Recuperación y Deportes: bloque **«Este mes»**. Equilibrio muscular = estado actual (fatiga retenida). Fuerza/Deportes: progreso por ejercicio y récords = mejores marcas all-time; resto del hub Deportes/Físico en 7 días. Sueño: barras por noche + lista legible. Recuperación: evolución en 7 días. Corazón: FC de últimos 7 días. Recuperación: icono luna + acento azul oscuro violáceo; Deportes: teal. Pro: largo plazo (StoreKit/Play o Pro patrocinado Center).
+Última actualización: 2026-11-04 (FC cápsulas Y(min lpm)→Y(max lpm) flotando; chip Físico = media 7d).
+
+Progreso usa chips horizontales **Entreno · Fuerza · Físico · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa opcional, héroe numérico y mini viz). Hub fijo a **Últimos 7 días**; consistencia **«Últimos 7 días»** antes de **Media mes / Racha / Entrenos / Tiempo** (métricas de mes). Subtítulos: Entreno/Fuerza/Físico/Deportes = **Últimos 7 días**; Corazón y Recuperación = **Ahora**. Al final de Físico, Corazón, Recuperación y Deportes: bloque **«Este mes»**. Equilibrio muscular = estado actual (fatiga retenida). **Físico:** estímulo = **media diaria** (total 7d / 7) + minigráfica de minutos/día; chip glance = misma media; **Este mes** = media/semana + gráfica del mes. **Calorías:** eje completo de 7 días (huecos sin inventar kcal). **Peso:** últimos ~365 días. **Corazón:** frec. cardíaca = cápsulas **a la derecha** entre min–máx (levitan, no desde 0); **Este mes (Cardio)** igual. **Carga y marcas:** kg del hub = últimos 7 días; barras/área suavizada de volumen diario 7d. Sueño: barras por noche + lista legible. Recuperación: evolución en 7 días; textos vacíos en 1 línea. Recuperación: icono luna + acento azul oscuro violáceo; Deportes: teal. Pro: largo plazo (StoreKit/Play o Pro patrocinado Center).
+
+**Deportes — Este mes y progresión:** el cierre **«Este mes»** es un **resumen por actividad** (En vivo + Salud/HC) con **total, más larga y N× alineados a la derecha**. **Progresión en ejercicios** = título a la izquierda y «N al alza» a la derecha + lista e1RM (sin narrativa larga ni héroe grande). **Evolución y récords** sin caption «historial · mejores marcas». En Android, la distancia de actividades HC solo se usa si el permiso `DistanceRecord` ya está concedido (fail-closed).
 
 ## Redistribución de Progreso y confianza visual (03/11/2026)
 

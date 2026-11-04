@@ -15,7 +15,7 @@ Implementación incremental sobre la PR #221. Distinguir **implementado / compil
 - **Fase 2, Android:** launcher shortcuts, Quick Settings Tiles, Glance widget; **Google Assistant App Actions** (`OPEN_APP_FEATURE` / `GET_THING`) enlazadas a deep links `repera://…` sin sensores.
 - **Fase 2, Apple Watch:** doble toque condicionado en el avance de sesión (`handGestureShortcut`); Action Button del Ultra en iPhone vía Control Widgets (validación en hardware pendiente).
 - **Fase 3:** Spotlight solo catálogo público; **AppSearch Android opt-in** (consentimiento en Salud conectada, solo ejercicios públicos, borrado al cerrar sesión); dictado Watch/Wear con confirmación previa; recordatorios locales −60 min de reservas `booked`; sugerencias de lugar editables al revisar (sin inventar GPS).
-- **Fase 4:** GPX iOS/Android solo puntos reales; WorkoutKit con `workoutPreview` + `WorkoutScheduler` en iPhone (API `openInWorkoutApp` no disponible en iOS); objetivos tiempo/distancia e **intervalos estructurados** `CustomWorkout` con aviso de zona FC cuando el SDK lo admite; sin grabación paralela Repera+Entreno.
+- **Fase 4:** GPX iOS/Android solo puntos reales; WorkoutKit con `workoutPreview` + `WorkoutScheduler` en iPhone (API `openInWorkoutApp` no disponible en iOS); objetivos tiempo/distancia e **intervalos estructurados** `CustomWorkout` con aviso de zona FC cuando el SDK lo admite; sin grabación paralela Repera+Entreno. UI del sheet: cierre X, card opaca actividad+objetivo, steppers OG y CTA «Enviar».
 
 ### Backend de recordatorios (remoto)
 
