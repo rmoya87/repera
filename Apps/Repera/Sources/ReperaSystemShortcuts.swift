@@ -44,7 +44,7 @@ enum ReperaSystemCommand {
 struct ReperaTodayIntent: AppIntent {
     static let title: LocalizedStringResource = "Entrenamiento de hoy"
     static let description = IntentDescription("Abre la sesión prevista en Repera para revisarla antes de comenzar.")
-    static var openAppWhenRun = true
+    static let openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -56,7 +56,7 @@ struct ReperaTodayIntent: AppIntent {
 struct ReperaLiveIntent: AppIntent {
     static let title: LocalizedStringResource = "Comenzar actividad en Repera"
     static let description = IntentDescription("Abre Comenzar; Repera solicita confirmación antes de activar sensores.")
-    static var openAppWhenRun = true
+    static let openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -68,7 +68,7 @@ struct ReperaLiveIntent: AppIntent {
 struct ReperaToolsIntent: AppIntent {
     static let title: LocalizedStringResource = "Abrir temporizador de Repera"
     static let description = IntentDescription("Abre las herramientas de entrenamiento donde se encuentra el temporizador.")
-    static var openAppWhenRun = true
+    static let openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -79,7 +79,7 @@ struct ReperaToolsIntent: AppIntent {
 
 struct ReperaExerciseLibraryIntent: AppIntent {
     static let title: LocalizedStringResource = "Buscar ejercicios en Repera"
-    static var openAppWhenRun = true
+    static let openAppWhenRun = true
 
     @MainActor
     func perform() async throws -> some IntentResult {
