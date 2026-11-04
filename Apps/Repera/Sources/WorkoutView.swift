@@ -1440,7 +1440,12 @@ struct WorkoutView: View {
             Section {
                 // Mapa a bleed (clear + insets 0); sin lugar → tarjeta blanca «Añadir lugar».
                 let hasChosenPlace = store.state.activeSession?.locationPin?.hasChosenPlace == true
-                WorkoutPlacePickerRow(pin: activeLocationPin)
+                WorkoutPlacePickerRow(
+                    pin: activeLocationPin,
+                    suggestNearbyPlaceOnAppear: store.state.activeSession.map {
+                        !WorkoutLocationTracker.shouldTrackRoute(for: $0)
+                    } ?? false
+                )
                     .listRowInsets(hasChosenPlace ? EdgeInsets() : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                     .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
             } header: {
