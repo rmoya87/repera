@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-01.
+Última actualización: 2026-11-04.
 
 Instrucciones para agentes (Cursor / Auto) que trabajan en este repo.
 
@@ -34,7 +34,8 @@ Referencia oficial: https://github.com/emilkowalski/skills
 Las skills viven versionadas en `.agents/skills/` (lock en `skills-lock.json`). Si faltan en el entorno local: `npx skills@latest add emilkowalski/skills`. Para actualizar el set vendored: mismo comando y revisar el diff antes de commit.
 
 - Antes de proponer, diseñar o implementar cambios de UI, UX, componentes visuales, transiciones o animaciones, **identificar las skills pertinentes**, abrir y leer sus archivos `SKILL.md` y aplicar sus criterios al cambio concreto.
-- Seleccionar según el trabajo: `emil-design-eng` (calidad visual e interacciones), `write-swift` (Swift moderno), `animate`, `review-animations`, `improve-animations`, `remove-animations` y `animation-performance` (movimiento justificado, revisión y fluidez), `apple-design` (principios de Apple adaptados a web), `mobile-native` (experiencia web móvil), `break-ui` (casos extremos) y `pick-ui-library` (priorizar soluciones maduras frente a componentes improvisados).
+- En trabajo de **diseño de producto / Progreso / métricas / dashboards de datos**, leer primero **`repera-design`** (`.agents/skills/repera-design/SKILL.md`): lenguaje tipo Apple Salud (chips, insights narrativos, ventanas fijas) con métricas propias Repera, Liquid Glass, chips verde/negro y sin clonar iconografía Activity/Salud.
+- Seleccionar según el trabajo: `repera-design` (filosofía de producto Repera), `emil-design-eng` (calidad visual e interacciones), `write-swift` (Swift moderno), `animate`, `review-animations`, `improve-animations`, `remove-animations` y `animation-performance` (movimiento justificado, revisión y fluidez), `apple-design` (principios de Apple adaptados a web), `mobile-native` (experiencia web móvil), `break-ui` (casos extremos) y `pick-ui-library` (priorizar soluciones maduras frente a componentes improvisados).
 - Las skills **complementan** las guías oficiales de cada plataforma; no sustituyen las APIs, los patrones nativos ni las convenciones de Repera.
 - Si una skill no existe, no está instalada o no puede leerse, comunicarlo. **Nunca afirmar que se ha consultado sin haber leído su contenido** ni bloquear una corrección urgente por ello.
 - No instalar dependencias innecesarias ni añadir complejidad solo para aplicar una skill.
@@ -95,6 +96,15 @@ Cuando el usuario solicite una **nueva funcionalidad, modificación de comportam
 - Subpáginas con volver: `ogPinnedTransparentNav` (título large debajo del chevron/acciones).
 - Sheets compactos: `OGPageHeader` + `ogFittedSheet` / `ogSheetCorners`.
 - Títulos de sección **encima** de las cards: `OGCardSectionTitle` (gris, estilo Ajustes).
+
+### Filosofía de diseño (agente de diseño)
+
+Fuente de verdad: `.agents/skills/repera-design/SKILL.md` (regla `.cursor/rules/repera-design.mdc`).
+
+- **Salud como lenguaje, Repera como contenido:** chips temáticos + insights narrativos + ventanas fijas; métricas propias (entreno + sensores), no dump de Health ni clon de Apple.
+- **Chips:** icono+nombre en fila, valor debajo; seleccionado = verde sólido + negro sin outline; no seleccionado = Liquid Glass (iOS); barra transparente.
+- **Jerarquía:** héroe → grid glance → insights de periodo → largo plazo (Pro). Cards insight con icono tintado, frase, número y mini viz.
+- **No:** calendario global en hubs, chevrons muertos, anillos Activity, iconos Salud Apple, pantallas tintadas de verde, ceros fisiológicos inventados.
 
 ## Arte de ejercicios (carrusel)
 
