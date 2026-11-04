@@ -2123,5 +2123,29 @@ public enum CatalogSpanish {
             "Fuerza de agarre y pull críticas. Usa tiza.",
             "Si no hay pegboard, rope climb o towel pull-ups como estímulo.",
         ],
+        "Step-up al cajón con kettlebell goblet": [
+            "Colócate de pie frente al cajón con la kettlebell sujeta en goblet: ambas manos bajo las asas o el cuerpo de la pesa pegado al pecho, codos hacia abajo.",
+            "Apoya un pie completo sobre el cajón, con la rodilla alineada sobre el tobillo y el tronco ligeramente inclinado hacia delante.",
+            "Extiende la pierna de apoyo para subir hasta quedar erguido encima; evita impulsarte con la pierna que queda en el suelo.",
+            "Baja con control por la misma pierna, sin dejar caer la cadera ni perder la kettlebell pegada al pecho.",
+            "Alterna la pierna de apoyo en cada repetición o completa la serie de un lado según la prescripción.",
+            "Error típico: empujar con el pie del suelo y convertirlo en un salto. Progresión: domina el step-up con peso corporal antes de añadir la kettlebell.",
+        ],
+        "Cargada y envión con mancuerna": [
+            "De pie, con la mancuerna colgando a un lado del cuerpo (hang), pies al ancho de cadera y tronco firme.",
+            "Haz una bisagra de cadera breve y extiende piernas y cadera con fuerza para elevar la mancuerna cerca del cuerpo.",
+            "Recibe la mancuerna sobre el hombro con el codo alto y las rodillas ligeramente flexionadas (cargada).",
+            "Desde el hombro, hunde un poco cadera y rodillas y empuja con piernas y brazo hasta bloquear la mancuerna sobre la cabeza (envión).",
+            "Estabiliza con el brazo extendido y el tronco vertical antes de bajar la mancuerna al hombro y luego al hang.",
+            "Alterna el brazo en cada repetición si el WOD indica ALT; no gires el tronco para ayudar al bloqueo.",
+            "Error típico: empujar solo con el brazo sin usar la extensión de cadera. Progresión: domina la cargada con mancuerna antes de añadir el envión.",
+        ],
+        "Carrera": [
+            "Comienza con una zancada cómoda: aterriza bajo la cadera, con el tronco erguido y la mirada al frente.",
+            "Mantén una cadencia constante y brazos activos a unos 90°, sin cruzarlos delante del pecho.",
+            "Gestiona el ritmo según la distancia o el tiempo prescrito: reserva aire para los tramos finales.",
+            "En tramos de metcon, entra y sale de la carrera con transiciones rápidas y controla la respiración al reincorporarte.",
+            "Registra metros o tiempo según la prescripción; no anotes repeticiones ficticias.",
+        ],
     ]
 }
