@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "Packages/ReperaDomain/Sources/ReperaDomain/Catalog.swift",
-  "count": 290,
+  "count": 433,
   "exercises": [
     {
       "catalogKey": "catalog:Press banca",
@@ -1735,6 +1735,721 @@
         "snatch grip pp",
         "push press ancho"
       ]
+    },
+    {
+      "catalogKey": "catalog:Bike Erg",
+      "name": "Bike Erg",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ab Mat Sit-Up",
+      "name": "Ab Mat Sit-Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Overhead Lunge",
+      "name": "Overhead Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Alternating Dumbbell Snatch",
+      "name": "Alternating Dumbbell Snatch",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Overhead Lunge",
+      "name": "Dumbbell Overhead Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dead Hang",
+      "name": "Dead Hang",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Box Step-Over",
+      "name": "Box Step-Over",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:D-Ball Clean",
+      "name": "D-Ball Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:D-Ball Over Shoulder",
+      "name": "D-Ball Over Shoulder",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Seated Box Jump",
+      "name": "Seated Box Jump",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Front Squat",
+      "name": "Dumbbell Front Squat",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Front Rack Lunge",
+      "name": "Dumbbell Front Rack Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Power Snatch",
+      "name": "Dumbbell Power Snatch",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Power Clean",
+      "name": "Dumbbell Power Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Push Press",
+      "name": "Dumbbell Push Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Push Jerk",
+      "name": "Dumbbell Push Jerk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Overhead Squat",
+      "name": "Dumbbell Overhead Squat",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Walking Lunge",
+      "name": "Dumbbell Walking Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Hang Clean and Jerk",
+      "name": "Dumbbell Hang Clean and Jerk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Double Kettlebell Front Rack Carry",
+      "name": "Double Kettlebell Front Rack Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Double Kettlebell Overhead Carry",
+      "name": "Double Kettlebell Overhead Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Clean and Jerk",
+      "name": "Kettlebell Clean and Jerk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Overhead Lunge",
+      "name": "Kettlebell Overhead Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Push Press",
+      "name": "Kettlebell Push Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Jumping Pull-Up",
+      "name": "Jumping Pull-Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee Muscle-Up",
+      "name": "Burpee Muscle-Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bear Hug Carry",
+      "name": "Bear Hug Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Box Squat",
+      "name": "Box Squat",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Atlas Stone Over Shoulder",
+      "name": "Atlas Stone Over Shoulder",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Axle Deadlift",
+      "name": "Axle Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Axle Press",
+      "name": "Axle Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Back Rack Lunge",
+      "name": "Back Rack Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Barbell Squat Jump",
+      "name": "Barbell Squat Jump",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Barbell Step Up",
+      "name": "Barbell Step Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Battle Rope",
+      "name": "Battle Rope",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bird Dog",
+      "name": "Bird Dog",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bodyweight Clean And Jerk",
+      "name": "Bodyweight Clean And Jerk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Bradford Press",
+      "name": "Bradford Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee Bar Muscle Up",
+      "name": "Burpee Bar Muscle Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee Over Dumbbell",
+      "name": "Burpee Over Dumbbell",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Burpee Over The Bar",
+      "name": "Burpee Over The Bar",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Copenhagen Plank",
+      "name": "Copenhagen Plank",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Crab Walk",
+      "name": "Crab Walk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Crossover Single Under",
+      "name": "Crossover Single Under",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dead Bug",
+      "name": "Dead Bug",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Deficit Deadlift",
+      "name": "Deficit Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Double Kettlebell Farmers Carry",
+      "name": "Double Kettlebell Farmers Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Double Kettlebell Front Rack Lunge",
+      "name": "Double Kettlebell Front Rack Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Bench Press",
+      "name": "Dumbbell Bench Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Box Step Up",
+      "name": "Dumbbell Box Step Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Burpee Deadlift",
+      "name": "Dumbbell Burpee Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Carry",
+      "name": "Dumbbell Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Deadlift",
+      "name": "Dumbbell Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Floor Press",
+      "name": "Dumbbell Floor Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Hang Clean To Overhead",
+      "name": "Dumbbell Hang Clean To Overhead",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Hang Power Clean",
+      "name": "Dumbbell Hang Power Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Hang Split Snatch",
+      "name": "Dumbbell Hang Split Snatch",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Hang Squat Clean",
+      "name": "Dumbbell Hang Squat Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Overhead Carry",
+      "name": "Dumbbell Overhead Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Romanian Deadlift",
+      "name": "Dumbbell Romanian Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Shoulder Press",
+      "name": "Dumbbell Shoulder Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Shoulder To Overhead",
+      "name": "Dumbbell Shoulder To Overhead",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Split Clean",
+      "name": "Dumbbell Split Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Squat Clean",
+      "name": "Dumbbell Squat Clean",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Squat Clean Thruster",
+      "name": "Dumbbell Squat Clean Thruster",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Strict Press",
+      "name": "Dumbbell Strict Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Dumbbell Waiters Walk",
+      "name": "Dumbbell Waiters Walk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Floor Press",
+      "name": "Floor Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Flutter Kick",
+      "name": "Flutter Kick",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Glute Bridge",
+      "name": "Glute Bridge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Glute Ham Raise",
+      "name": "Glute Ham Raise",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Hand Release Push Up",
+      "name": "Hand Release Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Hang High Pull",
+      "name": "Hang High Pull",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Hanging Hip Touch",
+      "name": "Hanging Hip Touch",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Hanging Knee Raise",
+      "name": "Hanging Knee Raise",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Husafell Carry",
+      "name": "Husafell Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Jefferson Curl",
+      "name": "Jefferson Curl",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Jerry Bag Carry",
+      "name": "Jerry Bag Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Jumping Jack",
+      "name": "Jumping Jack",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Keg Carry",
+      "name": "Keg Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Deadlift",
+      "name": "Kettlebell Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Front Rack Lunge",
+      "name": "Kettlebell Front Rack Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Halo",
+      "name": "Kettlebell Halo",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Press",
+      "name": "Kettlebell Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Sumo Deadlift High Pull",
+      "name": "Kettlebell Sumo Deadlift High Pull",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kettlebell Windmill",
+      "name": "Kettlebell Windmill",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Kipping Handstand Push Up",
+      "name": "Kipping Handstand Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:L Pull Up",
+      "name": "L Pull Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Landmine Press",
+      "name": "Landmine Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Lateral Burpee",
+      "name": "Lateral Burpee",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Lateral Lunge",
+      "name": "Lateral Lunge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Log Carry",
+      "name": "Log Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Log Clean And Jerk",
+      "name": "Log Clean And Jerk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Log Press",
+      "name": "Log Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Medicine Ball Box Step Over",
+      "name": "Medicine Ball Box Step Over",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Medicine Ball Sit Up",
+      "name": "Medicine Ball Sit Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Medicine Ball Throw",
+      "name": "Medicine Ball Throw",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Mountain Climber",
+      "name": "Mountain Climber",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Negative Pull Up",
+      "name": "Negative Pull Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Nordic Curl",
+      "name": "Nordic Curl",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Overhead Walk",
+      "name": "Overhead Walk",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Pallof Press",
+      "name": "Pallof Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Parallel Bar Traverse",
+      "name": "Parallel Bar Traverse",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Parallette Handstand Push Up",
+      "name": "Parallette Handstand Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Pendlay Row",
+      "name": "Pendlay Row",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Plate Carry",
+      "name": "Plate Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Push Up",
+      "name": "Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Renegade Row",
+      "name": "Renegade Row",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Reverse Hyper",
+      "name": "Reverse Hyper",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ring Hamstring Curl",
+      "name": "Ring Hamstring Curl",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ring Handstand Push Up",
+      "name": "Ring Handstand Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ring Lower",
+      "name": "Ring Lower",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Ring Push Up",
+      "name": "Ring Push Up",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Russian Twist",
+      "name": "Russian Twist",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Carry",
+      "name": "Sandbag Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Ground To Shoulder",
+      "name": "Sandbag Ground To Shoulder",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Load To Box",
+      "name": "Sandbag Load To Box",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Over Log",
+      "name": "Sandbag Over Log",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sandbag Squat",
+      "name": "Sandbag Squat",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Side Plank",
+      "name": "Side Plank",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Single Arm Dumbbell Thruster",
+      "name": "Single Arm Dumbbell Thruster",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Single Arm Kettlebell Swing",
+      "name": "Single Arm Kettlebell Swing",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Single Arm Kettlebell Thruster",
+      "name": "Single Arm Kettlebell Thruster",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Single Leg Glute Bridge",
+      "name": "Single Leg Glute Bridge",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Single Leg Romanian Deadlift",
+      "name": "Single Leg Romanian Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Skater Jump",
+      "name": "Skater Jump",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sled Drag",
+      "name": "Sled Drag",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Sledgehammer Strike",
+      "name": "Sledgehammer Strike",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Stiff Legged Deadlift",
+      "name": "Stiff Legged Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Strict Knee Raise",
+      "name": "Strict Knee Raise",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Strict Knees To Chest",
+      "name": "Strict Knees To Chest",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Suitcase Carry",
+      "name": "Suitcase Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Superman",
+      "name": "Superman",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Tire Flip",
+      "name": "Tire Flip",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Trap Bar Deadlift",
+      "name": "Trap Bar Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Tuck Jump",
+      "name": "Tuck Jump",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Wall Climb",
+      "name": "Wall Climb",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Wall Climb Over",
+      "name": "Wall Climb Over",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Wall Sit",
+      "name": "Wall Sit",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Z Press",
+      "name": "Z Press",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Zercher Carry",
+      "name": "Zercher Carry",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Zercher Deadlift",
+      "name": "Zercher Deadlift",
+      "category": "CrossFit"
+    },
+    {
+      "catalogKey": "catalog:Zercher Squat",
+      "name": "Zercher Squat",
+      "category": "CrossFit"
     }
   ]
 }

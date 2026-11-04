@@ -112,6 +112,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         }
         working.put("revision", cursor)
         commitCache(working) // atomic: no partial cursor after a failed page
+        RemoteExerciseArtCache.prefetchFromCatalogCache(context)
         return true
     }
 
@@ -167,6 +168,16 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             exercise.put("_remoteCatalogKey", key)
             exercise.put("isCatalogArchived", !remote.optBoolean("is_active", true))
             if (nativeID.isNotBlank()) exercise.put("catalogId", nativeID)
+            if (!remote.isNull("skill_level") && remote.optString("skill_level").isNotBlank())
+                exercise.put("skillLevel", remote.getString("skill_level"))
+            if (!remote.isNull("movement_pattern") && remote.optString("movement_pattern").isNotBlank())
+                exercise.put("movementPattern", remote.getString("movement_pattern"))
+            val alternatives = remote.optJSONArray("alternatives")
+            if (alternatives != null && alternatives.length() > 0)
+                exercise.put("catalogAlternatives", JSONArray(alternatives.toString()))
+            val artKeys = remote.optJSONArray("art_keys")
+            if (artKeys != null && artKeys.length() > 0)
+                exercise.put("artKeys", JSONArray(artKeys.toString()))
             val primary = remote.optJSONArray("primary_muscles") ?: JSONArray()
             val secondary = remote.optJSONArray("secondary_muscles") ?: JSONArray()
             if (primary.length() > 0) {
@@ -199,12 +210,20 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             val steps = remote.optJSONArray("instructions")
             if (steps != null && steps.length() > 0)
                 exercise.put("instructions", JSONArray(steps.toString()))
-            if (!remote.isNull("equipment_override") && remote.has("equipment_override"))
-                exercise.put("equipment", remote.getString("equipment_override"))
-            else if (!exercise.has("equipment")) {
-                val eq = remote.optJSONArray("equipment") ?: JSONArray()
-                if (eq.length() > 0) exercise.put("equipment",
-                    (0 until eq.length()).joinToString(", ") { eq.getString(it) })
+            // Publicado gana: override → array remoto no vacío → seed/local.
+            // (paridad RemoteExerciseCatalogMerge iOS; el seed no bloquea equipo remoto)
+            when {
+                !remote.isNull("equipment_override") && remote.has("equipment_override") ->
+                    exercise.put("equipment", remote.getString("equipment_override"))
+                else -> {
+                    val eq = remote.optJSONArray("equipment") ?: JSONArray()
+                    if (eq.length() > 0) {
+                        exercise.put(
+                            "equipment",
+                            (0 until eq.length()).joinToString(", ") { eq.getString(it) }
+                        )
+                    }
+                }
             }
             val sport = remote.optString("sport_tag").ifBlank { remote.optString("category") }
             when {

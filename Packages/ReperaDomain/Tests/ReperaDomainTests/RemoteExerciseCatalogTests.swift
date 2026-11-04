@@ -48,4 +48,168 @@ final class RemoteExerciseCatalogTests: XCTestCase {
         XCTAssertFalse(restored.isCatalogArchived)
         XCTAssertFalse(restored.isCustom)
     }
+
+    func testMergeAppendsRemoteOnlyExerciseWithStableUUID() {
+        let key = "catalog:Ejercicio Solo Remoto"
+        let remote = RemoteExerciseCatalogEntry(
+            name: "Ejercicio Solo Remoto",
+            category: "Fuerza",
+            primaryMuscles: ["Pecho"],
+            equipment: ["Mancuernas"],
+            description: "Alta solo en Supabase",
+            instructions: ["Paso 1", "Paso 2"],
+            muscleGroup: "Pecho",
+            isActive: true
+        )
+        let source = RemoteExerciseCatalogSnapshot(
+            revision: 10,
+            entries: [key: remote]
+        )
+        let result = RemoteExerciseCatalogMerge.apply(source: source, current: [])
+        XCTAssertTrue(result.changed)
+        XCTAssertEqual(result.exercises.count, 1)
+        let added = result.exercises[0]
+        XCTAssertEqual(added.name, "Ejercicio Solo Remoto")
+        XCTAssertEqual(added.detailDescription, "Alta solo en Supabase")
+        XCTAssertEqual(added.instructions, ["Paso 1", "Paso 2"])
+        XCTAssertEqual(added.equipment, "Mancuernas")
+        XCTAssertEqual(added.muscleGroup, "Pecho")
+        XCTAssertEqual(added.id, RemoteExerciseCatalogMerge.stableUUID(for: key))
+        XCTAssertEqual(result.snapshot.localIDs[key], added.id)
+        XCTAssertFalse(added.isCatalogArchived)
+    }
+
+    func testMergePublishedFieldsOverwriteSeedKeepingFavoriteAndUUID() {
+        let id = UUID()
+        let seed = Exercise(
+            id: id,
+            name: "Press banca",
+            muscleGroup: "Pecho",
+            equipment: "Barra",
+            detailDescription: "Texto seed",
+            instructions: ["Seed A"],
+            isFavorite: true
+        )
+        let key = "catalog:Press banca"
+        let remote = RemoteExerciseCatalogEntry(
+            name: "Press banca corregido",
+            category: "Fuerza",
+            aliases: ["Bench"],
+            primaryMuscles: ["Pecho"],
+            equipment: ["Barra", "Banco"],
+            description: "Texto remoto",
+            instructions: ["Remoto 1"],
+            muscleGroup: "Pecho",
+            skillLevel: "intermediate",
+            movementPattern: "push",
+            alternatives: ["Press mancuernas"],
+            artKeys: ["art_press_banca", "art_press_banca_1"],
+            isActive: true
+        )
+        let source = RemoteExerciseCatalogSnapshot(
+            revision: 3,
+            entries: [key: remote],
+            localIDs: [key: id]
+        )
+        let result = RemoteExerciseCatalogMerge.apply(source: source, current: [seed])
+        XCTAssertTrue(result.changed)
+        XCTAssertEqual(result.exercises.count, 1)
+        let next = result.exercises[0]
+        XCTAssertEqual(next.id, id)
+        XCTAssertTrue(next.isFavorite)
+        XCTAssertEqual(next.name, "Press banca corregido")
+        XCTAssertEqual(next.detailDescription, "Texto remoto")
+        XCTAssertEqual(next.instructions, ["Remoto 1"])
+        XCTAssertEqual(next.equipment, "Barra, Banco")
+        XCTAssertEqual(next.searchAliases, ["Bench"])
+        XCTAssertEqual(next.skillLevel, "intermediate")
+        XCTAssertEqual(next.movementPattern, "push")
+        XCTAssertEqual(next.catalogAlternatives, ["Press mancuernas"])
+        XCTAssertEqual(next.artKeys, ["art_press_banca", "art_press_banca_1"])
+    }
+
+    func testPublishedAlternativesPreferredOverHeuristic() {
+        let press = Exercise(id: UUID(), name: "Press banca", muscleGroup: "Pecho",
+                             catalogAlternatives: ["Fondos"])
+        let fondos = Exercise(id: UUID(), name: "Fondos", muscleGroup: "Pecho")
+        let other = Exercise(id: UUID(), name: "Aperturas", muscleGroup: "Pecho",
+                             targetMuscle: "Pecho")
+        let hits = ExerciseSubstitutes.substitutes(
+            for: press, in: [press, fondos, other], limit: 5
+        )
+        XCTAssertEqual(hits.map(\.name), ["Fondos"])
+    }
+
+    func testMergeEmptyRemoteFieldsDoNotWipeSeed() {
+        let id = UUID()
+        let seed = Exercise(
+            id: id,
+            name: "Dominadas",
+            muscleGroup: "Espalda",
+            equipment: "Barra de dominadas",
+            detailDescription: "Descripción seed",
+            instructions: ["Agarre", "Sube"],
+            isFavorite: false
+        )
+        let key = "catalog:Dominadas"
+        let remote = RemoteExerciseCatalogEntry(
+            name: "Dominadas",
+            category: "Fuerza",
+            equipment: [],
+            description: nil,
+            instructions: [],
+            isActive: true
+        )
+        let source = RemoteExerciseCatalogSnapshot(
+            revision: 2,
+            entries: [key: remote],
+            localIDs: [key: id]
+        )
+        let result = RemoteExerciseCatalogMerge.apply(source: source, current: [seed])
+        let next = result.exercises[0]
+        XCTAssertEqual(next.id, id)
+        XCTAssertEqual(next.detailDescription, "Descripción seed")
+        XCTAssertEqual(next.instructions, ["Agarre", "Sube"])
+        XCTAssertEqual(next.equipment, "Barra de dominadas")
+    }
+
+    func testMergeInactiveArchivesWithoutLosingIdentity() {
+        let id = UUID()
+        let seed = Exercise(
+            id: id,
+            name: "Fondos",
+            muscleGroup: "Pecho",
+            isFavorite: true
+        )
+        let key = "catalog:Fondos"
+        let remote = RemoteExerciseCatalogEntry(
+            name: "Fondos",
+            category: "Fuerza",
+            isActive: false
+        )
+        let source = RemoteExerciseCatalogSnapshot(
+            revision: 5,
+            entries: [key: remote],
+            localIDs: [key: id],
+            tombstones: [key]
+        )
+        let result = RemoteExerciseCatalogMerge.apply(source: source, current: [seed])
+        XCTAssertTrue(result.changed)
+        let next = result.exercises[0]
+        XCTAssertEqual(next.id, id)
+        XCTAssertTrue(next.isFavorite)
+        XCTAssertTrue(next.isCatalogArchived)
+    }
+
+    func testStableUUIDIsDeterministicAcrossCalls() {
+        let key = "catalog:Arrancada"
+        XCTAssertEqual(
+            RemoteExerciseCatalogMerge.stableUUID(for: key),
+            RemoteExerciseCatalogMerge.stableUUID(for: key)
+        )
+        XCTAssertNotEqual(
+            RemoteExerciseCatalogMerge.stableUUID(for: key),
+            RemoteExerciseCatalogMerge.stableUUID(for: "catalog:Envión")
+        )
+    }
 }

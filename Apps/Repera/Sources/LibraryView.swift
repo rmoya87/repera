@@ -39,7 +39,6 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
     case mobility
     case favorites
     case wods
-    case sports
 
     var id: String { rawValue }
     var title: String {
@@ -53,7 +52,6 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .mobility: return "Movilidad"
         case .favorites: return "Favoritos"
         case .wods: return "WODs"
-        case .sports: return "Deportes"
         }
     }
     var icon: String {
@@ -67,7 +65,6 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .mobility: return ExerciseCategorySymbols.discipline("Movilidad")
         case .favorites: return "star"
         case .wods: return "stopwatch"
-        case .sports: return "figure.run"
         }
     }
     // Las variantes «.fill» no existen para todos los SF Symbols deportivos.
@@ -78,7 +75,6 @@ private enum ExerciseFilterMode: String, CaseIterable, Identifiable, Sendable {
         case .cardio: return "heart.fill"
         case .favorites: return "star.fill"
         case .wods: return "stopwatch.fill"
-        case .sports: return "figure.run"
         case .weightlifting, .crossfit, .gymnastics, .hyrox, .mobility: return icon
         }
     }
@@ -101,9 +97,9 @@ struct LibraryView: View {
     @State private var isExpandedLayout = false
 
     /// La distribución doble solo pertenece al catálogo de ejercicios;
-    /// WODs y Deportes conservan su navegación habitual.
+    /// WODs conservan su navegación habitual.
     private var usesSplitExerciseLayout: Bool {
-        guard isExpandedLayout, filterMode != .sports else { return false }
+        guard isExpandedLayout else { return false }
         if filterMode == .wods {
             return !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && filteredWODTemplates.isEmpty
@@ -111,9 +107,9 @@ struct LibraryView: View {
         return true
     }
     /// En iPhone Ejercicios usa título + acciones en la MISMA línea.
-    /// WODs/Deportes conservan su búsqueda y navegación nativas.
+    /// WODs conservan su búsqueda y navegación nativas.
     private var usesCompactExerciseHeader: Bool {
-        !isExpandedLayout && filterMode != .wods && filterMode != .sports
+        !isExpandedLayout && filterMode != .wods
     }
 
     private var hasCustomExerciseHeader: Bool {
@@ -209,9 +205,7 @@ struct LibraryView: View {
             Group {
                 // En WODs, si la búsqueda no pega con ningún WOD (p. ej. «back squat»),
                 // mostrar ejercicios: si no, parece que «no hay ejercicio».
-                if filterMode == .sports {
-                    LiveSportsCatalogView(query: query)
-                } else if filterMode == .wods &&
+                if filterMode == .wods &&
                     (query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                         || !filteredWODTemplates.isEmpty) {
                     wodsList
@@ -297,19 +291,19 @@ struct LibraryView: View {
                 await applySectionsCancelable(reason: query.isEmpty ? "browse" : "query")
             }
             .onChange(of: filterMode) { _, _ in
-                if filterMode != .wods && filterMode != .sports {
+                if filterMode != .wods {
                     prefetchVisibleThumbs()
                 }
             }
             .onAppear {
-                if filterMode != .wods && filterMode != .sports {
+                if filterMode != .wods {
                     prefetchVisibleThumbs()
                 }
             }
             .onDisappear {
                 ExerciseArt.cancelThumbPrefetch()
             }
-            // Ejercicios conserva dos filas fijas de controles; WODs y Deportes
+            // Ejercicios conserva dos filas fijas de controles; WODs
             // dibujan el título en la propia lista para ocultarlo al desplazar.
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
@@ -335,7 +329,7 @@ struct LibraryView: View {
                         showFilter = true
                     }
                 }
-                if filterMode != .wods && filterMode != .sports {
+                if filterMode != .wods {
                     ToolbarItem(placement: .topBarTrailing) {
                         OGToolbarGlassButton(
                             systemName: "plus",
@@ -733,7 +727,7 @@ struct LibraryView: View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let docs = index.filter { doc in
             switch filterMode {
-            case .all, .wods, .sports: return true
+            case .all, .wods: return true
             case .weightlifting: return doc.disciplineTags.contains("Halterofilia")
             case .crossfit: return doc.disciplineTags.contains("CrossFit")
             case .gymnastics: return doc.disciplineTags.contains("Gimnasia")

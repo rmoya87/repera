@@ -219,12 +219,25 @@ private enum ExerciseDisciplineRules {
 
     static let crossFitGeneral: Set<String> = [
         // Básicos de fuerza y acondicionamiento habituales en un box.
-        "press banca", "press banca inclinada", "press militar", "remo con barra",
+        "press banca", "press banca inclinada", "press banca declinado", "press mancuernas",
+        "press militar", "press arnold", "press cerrado", "press frances",
+        "remo con barra", "remo mancuerna", "remo sentado", "remo en t", "remo al menton",
+        "remo con apoyo de pecho", "jalon al pecho", "pullover",
         "peso muerto", "peso muerto rumano", "peso muerto sumo",
-        "sentadilla", "sentadilla frontal", "zancadas", "plancha",
-        "fondos", "dominadas", "remo invertido", "ab wheel",
-        "farmer walk", "remo maquina", "bici estatica",
-        "paso lateral con banda"
+        "sentadilla", "sentadilla frontal", "sentadilla en smith", "sentadilla bulgara",
+        "sentadilla bulgara con mancuernas", "sentadilla a cajon con mancuernas",
+        "zancadas", "hack squat", "prensa", "hip thrust", "buenos dias",
+        "plancha", "crunch", "crunch en polea", "elevacion de piernas", "ab wheel",
+        "woodchop en polea",
+        "fondos", "fondos en banco", "dominadas", "remo invertido",
+        "farmer walk", "remo maquina", "bici estatica", "cinta / carrera",
+        "paso lateral con banda", "face pull", "elevaciones laterales", "elevaciones frontales",
+        "elevaciones laterales en polea", "pajaros",
+        "curl barra", "curl mancuernas", "curl martillo", "curl predicador",
+        "curl inclinado con mancuernas", "curl femoral", "curl femoral sentado",
+        "curl femoral tumbado", "extension de cuadriceps", "extension triceps polea",
+        "elevacion de gemelos", "aperturas", "pec deck", "cruce de poleas",
+        "abduccion de cadera en maquina", "aduccion de cadera en maquina"
     ]
 
     static let crossFitGymnastics: Set<String> = [
@@ -234,7 +247,7 @@ private enum ExerciseDisciplineRules {
         "box jump", "salto al cajon", "box jump over",
         "box step-up", "step-up al cajon", "broad jump", "bear crawl",
         "walking lunge", "fondos", "dominadas", "remo invertido",
-        "plancha", "ab wheel"
+        "plancha", "ab wheel", "elevacion de piernas"
     ]
 
     static let hyroxAlsoCrossFit: Set<String> = [
@@ -272,6 +285,14 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
     public var isCatalogArchived: Bool
     /// Origen deportivo o disciplina (incluye Movilidad); no sustituye el grupo muscular.
     public var sportTag: String?
+    /// Nivel editorial canónico (`beginner` / `intermediate` / `advanced`); nil = sin publicar.
+    public var skillLevel: String?
+    /// Patrón de movimiento canónico (squat, pull, olympic…); transformación UI en la app.
+    public var movementPattern: String?
+    /// Nombres de alternativas publicadas en Supabase (sustitutos editoriales).
+    public var catalogAlternatives: [String]
+    /// Stems de arte (hero primero). Vacío = resolver por nameMap / binario.
+    public var artKeys: [String]
 
     public var isMobility: Bool { sportTag == "Movilidad" }
 
@@ -613,7 +634,11 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         secondaryRegions: [String] = [],
         isFavorite: Bool = false,
         isCatalogArchived: Bool = false,
-        sportTag: String? = nil
+        sportTag: String? = nil,
+        skillLevel: String? = nil,
+        movementPattern: String? = nil,
+        catalogAlternatives: [String] = [],
+        artKeys: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -632,6 +657,10 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         self.isFavorite = isFavorite
         self.isCatalogArchived = isCatalogArchived
         self.sportTag = sportTag
+        self.skillLevel = skillLevel
+        self.movementPattern = movementPattern
+        self.catalogAlternatives = catalogAlternatives
+        self.artKeys = artKeys
     }
 
     enum CodingKeys: String, CodingKey {
@@ -639,6 +668,7 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         case catalogId, targetMuscle, secondaryMuscles, bodyPart
         case detailDescription, instructions, searchAliases, primaryRegions, secondaryRegions, isFavorite
         case isCatalogArchived, sportTag
+        case skillLevel, movementPattern, catalogAlternatives, artKeys
     }
 
     public init(from decoder: Decoder) throws {
@@ -660,6 +690,10 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         isCatalogArchived = try c.decodeIfPresent(Bool.self, forKey: .isCatalogArchived) ?? false
         sportTag = try c.decodeIfPresent(String.self, forKey: .sportTag)
+        skillLevel = try c.decodeIfPresent(String.self, forKey: .skillLevel)
+        movementPattern = try c.decodeIfPresent(String.self, forKey: .movementPattern)
+        catalogAlternatives = try c.decodeIfPresent([String].self, forKey: .catalogAlternatives) ?? []
+        artKeys = try c.decodeIfPresent([String].self, forKey: .artKeys) ?? []
         // Migración: antiguos grupos deporte → sportTag + músculo principal.
         let legacySports: Set<String> = ["CrossFit", "Halterofilia", "Gimnasia"]
         if sportTag == nil, legacySports.contains(muscleGroup) {
@@ -669,6 +703,31 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
                 target: targetMuscle
             )
         }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(muscleGroup, forKey: .muscleGroup)
+        try c.encodeIfPresent(equipment, forKey: .equipment)
+        try c.encode(isCustom, forKey: .isCustom)
+        try c.encodeIfPresent(catalogId, forKey: .catalogId)
+        try c.encodeIfPresent(targetMuscle, forKey: .targetMuscle)
+        try c.encode(secondaryMuscles, forKey: .secondaryMuscles)
+        try c.encodeIfPresent(bodyPart, forKey: .bodyPart)
+        try c.encodeIfPresent(detailDescription, forKey: .detailDescription)
+        try c.encode(instructions, forKey: .instructions)
+        try c.encode(searchAliases, forKey: .searchAliases)
+        try c.encode(primaryRegions, forKey: .primaryRegions)
+        try c.encode(secondaryRegions, forKey: .secondaryRegions)
+        try c.encode(isFavorite, forKey: .isFavorite)
+        try c.encode(isCatalogArchived, forKey: .isCatalogArchived)
+        try c.encodeIfPresent(sportTag, forKey: .sportTag)
+        try c.encodeIfPresent(skillLevel, forKey: .skillLevel)
+        try c.encodeIfPresent(movementPattern, forKey: .movementPattern)
+        try c.encode(catalogAlternatives, forKey: .catalogAlternatives)
+        try c.encode(artKeys, forKey: .artKeys)
     }
 }
 

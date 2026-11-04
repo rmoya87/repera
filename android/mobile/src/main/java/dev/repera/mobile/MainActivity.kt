@@ -3527,6 +3527,14 @@ data class StateOverview(
                             (0 until arr.length()).map { arr.getString(it) }
                         }.orEmpty(),
                         isCustom = ex.optBoolean("isCustom"),
+                        skillLevel = ex.optJsonString("skillLevel"),
+                        movementPattern = ex.optJsonString("movementPattern"),
+                        catalogAlternatives = ex.optJSONArray("catalogAlternatives")?.let { arr ->
+                            (0 until arr.length()).map { arr.getString(it) }
+                        }.orEmpty(),
+                        artKeys = ex.optJSONArray("artKeys")?.let { arr ->
+                            (0 until arr.length()).map { arr.getString(it) }
+                        }.orEmpty(),
                         mobilityHold = sportTag == "Movilidad" &&
                             ex.optJsonString("catalogId") in setOf(
                                 "mobility-14", "mobility-15", "mobility-16", "mobility-20",
@@ -3750,7 +3758,11 @@ data class ExerciseEntry(
     val isFavorite: Boolean = false,
     val mobilityHold:Boolean = false,
     val searchAliases: List<String> = emptyList(),
-    val isCatalogArchived: Boolean = false
+    val isCatalogArchived: Boolean = false,
+    val skillLevel: String? = null,
+    val movementPattern: String? = null,
+    val catalogAlternatives: List<String> = emptyList(),
+    val artKeys: List<String> = emptyList(),
 ) {
     /** Nombre visible como en Apple: SportExerciseNames.displayName canoniza
      * CrossFit/Halterofilia al inglés sin tocar el nombre persistido ni el ID. */

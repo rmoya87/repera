@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import ReperaDomain
 import Supabase
@@ -9,42 +8,11 @@ import Supabase
 final class RemoteExerciseCatalogStore {
     static let shared = RemoteExerciseCatalogStore()
 
-    private struct RemoteEntry: Codable, Sendable {
-        var name: String
-        var category: String
-        var displayNameEn: String?
-        var aliases: [String]?
-        var primaryMuscles: [String]?
-        var secondaryMuscles: [String]?
-        var equipment: [String]?
-        var equipmentOverride: String?
-        var nativeCatalogId: String?
-        var description: String?
-        var instructions: [String]?
-        var bodyPart: String?
-        var muscleGroup: String?
-        var sportTag: String?
-        var isActive: Bool
-
-        enum CodingKeys: String, CodingKey {
-            case name, category, aliases, equipment, description, instructions
-            case displayNameEn = "display_name_en"
-            case equipmentOverride = "equipment_override"
-            case primaryMuscles = "primary_muscles"
-            case secondaryMuscles = "secondary_muscles"
-            case nativeCatalogId = "native_catalog_id"
-            case bodyPart = "body_part"
-            case muscleGroup = "muscle_group"
-            case sportTag = "sport_tag"
-            case isActive = "is_active"
-        }
-    }
-
     private struct Event: Decodable {
         let id: Int64
         let catalogKey: String
         let operation: String
-        let payload: RemoteEntry?
+        let payload: RemoteExerciseCatalogEntry?
 
         enum CodingKeys: String, CodingKey {
             case id, operation, payload
@@ -54,15 +22,7 @@ final class RemoteExerciseCatalogStore {
 
     private struct Version: Decodable { let id: Int64 }
 
-    private struct DiskSnapshot: Codable, Sendable {
-        var revision: Int64 = 0
-        var entries: [String: RemoteEntry] = [:]
-        /// La clave editorial nunca cambia, aunque se renombre el ejercicio.
-        var localIDs: [String: UUID] = [:]
-        var tombstones: Set<String> = []
-    }
-
-    private var snapshot: DiskSnapshot?
+    private var snapshot: RemoteExerciseCatalogSnapshot?
     private var isRefreshing = false
     private var lastProbeAt: Date?
     private(set) var lastErrorMessage: String?
@@ -78,14 +38,14 @@ final class RemoteExerciseCatalogStore {
             return directory.appendingPathComponent("exercise_catalog_remote_v1.json")
         }()
 
-        func read() -> DiskSnapshot {
+        func read() -> RemoteExerciseCatalogSnapshot {
             guard let data = try? Data(contentsOf: url),
-                  let saved = try? JSONDecoder().decode(DiskSnapshot.self, from: data)
-            else { return DiskSnapshot() }
+                  let saved = try? JSONDecoder().decode(RemoteExerciseCatalogSnapshot.self, from: data)
+            else { return RemoteExerciseCatalogSnapshot() }
             return saved
         }
 
-        func write(_ snapshot: DiskSnapshot) throws {
+        func write(_ snapshot: RemoteExerciseCatalogSnapshot) throws {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true
             )
@@ -98,7 +58,7 @@ final class RemoteExerciseCatalogStore {
 
     private init() {}
 
-    private func localSnapshot() async -> DiskSnapshot {
+    private func localSnapshot() async -> RemoteExerciseCatalogSnapshot {
         if let snapshot { return snapshot }
         let loaded = await disk.read()
         snapshot = loaded
@@ -146,7 +106,7 @@ final class RemoteExerciseCatalogStore {
             lastProbeAt = Date()
             guard let head = versions.first?.id, head > 0 else { return }
             var working = await localSnapshot()
-            if working.revision > head { working = DiskSnapshot() }
+            if working.revision > head { working = RemoteExerciseCatalogSnapshot() }
             guard head > working.revision else {
                 // Sin eventos nuevos NO significa que el estado local esté
                 // enlazado: iCloud o un snapshot antiguo pueden restaurarlo.
@@ -202,6 +162,8 @@ final class RemoteExerciseCatalogStore {
             // First write is the crash-consistent cursor checkpoint.
             try await disk.write(working)
             snapshot = working
+            // Arte antes del merge UI: evita marcar stems como missing en el primer paint.
+            await prefetchRemoteArt(from: working)
             let idsBeforeMerge = working.localIDs
             if let store, await applyAndRelink(saved: &working, to: store) {
                 store.notifyCatalogChangedForWatch()
@@ -219,11 +181,20 @@ final class RemoteExerciseCatalogStore {
         }
     }
 
+    private func prefetchRemoteArt(from snapshot: RemoteExerciseCatalogSnapshot) async {
+        let stems = snapshot.entries.values.flatMap { $0.artKeys ?? [] }
+        guard !stems.isEmpty,
+              let urlString = Bundle.main.object(forInfoDictionaryKey: "ReperaSupabaseURL") as? String,
+              let url = URL(string: urlString)
+        else { return }
+        await RemoteExerciseArtCache.shared.prefetch(stems: stems, supabaseURL: url)
+    }
+
     /// Aplicar catálogo y referencias de WOD antiguos es una sola operación
     /// lógica. Las llamadas anteriores actualizaban solo las plantillas,
     /// dejando sin reconciliar SessionExercise.exercise de AMRAP ya terminados.
     @discardableResult
-    private func applyAndRelink(saved: inout DiskSnapshot, to store: ReperaStore) async -> Bool {
+    private func applyAndRelink(saved: inout RemoteExerciseCatalogSnapshot, to store: ReperaStore) async -> Bool {
         let catalogChanged = await apply(saved: &saved, to: store)
         let historyChanged = store.relinkOrphanSessionExercisesToCatalog()
         let plannedChanged = store.relinkScheduledWODMovementsToCatalog()
@@ -239,14 +210,14 @@ final class RemoteExerciseCatalogStore {
     /// Mezcla por clave editorial + UUID persistente + alias original de la clave.
     /// Nunca se reemplazan los UUID históricos ni los favoritos del usuario.
     @discardableResult
-    private func apply(saved: inout DiskSnapshot, to store: ReperaStore) async -> Bool {
+    private func apply(saved: inout RemoteExerciseCatalogSnapshot, to store: ReperaStore) async -> Bool {
         for _ in 0..<3 {
             let revision = store.state.syncRevision
             let epoch = store.catalogEpoch
             let current = store.state.exercises
             let source = saved
             let merged = await Task.detached(priority: .utility) {
-                Self.merge(source: source, current: current)
+                RemoteExerciseCatalogMerge.apply(source: source, current: current)
             }.value
             // A user can edit favourites during decoding: never commit stale input.
             guard store.state.syncRevision == revision, store.catalogEpoch == epoch else { continue }
@@ -258,112 +229,6 @@ final class RemoteExerciseCatalogStore {
             return merged.changed
         }
         return false
-    }
-
-    nonisolated private static func merge(
-        source: DiskSnapshot, current: [Exercise]
-    ) -> (snapshot: DiskSnapshot, exercises: [Exercise], changed: Bool) {
-        var saved = source
-        var result = current
-        var byID: [UUID: Int] = [:]
-        var byName: [String: Int] = [:]
-        var byCanonical: [String: Int] = [:]
-        var byCatalogID: [String: Int] = [:]
-        for (i, ex) in result.enumerated() where !ex.isCustom {
-            byID[ex.id] = i
-            byName[Self.normalized(ex.name)] = i
-            byCanonical[Self.normalized(SportExerciseNames.canonicalName(ex.name))] = i
-            if let id = ex.catalogId { byCatalogID[id] = i }
-        }
-
-        var changed = false
-        for (key, remote) in saved.entries.sorted(by: { $0.key < $1.key }) {
-            let originalName = key.hasPrefix("catalog:") ? String(key.dropFirst(8)) : remote.name
-            let matchedIndex = saved.localIDs[key].flatMap { byID[$0] }
-                ?? remote.nativeCatalogId.flatMap { byCatalogID[$0] }
-                ?? byName[Self.normalized(originalName)]
-                ?? byCanonical[Self.normalized(SportExerciseNames.canonicalName(originalName))]
-                ?? byName[Self.normalized(remote.name)]
-            let old = matchedIndex.map { result[$0] }
-            let resolvedID = old?.id ?? saved.localIDs[key] ?? Self.stableUUID(for: key)
-            saved.localIDs[key] = resolvedID
-
-            let primary = remote.primaryMuscles ?? []
-            let secondary = remote.secondaryMuscles ?? []
-            let resolvedGroup = remote.muscleGroup
-                ?? (primary.isEmpty
-                    ? (old?.muscleGroup ?? "Custom")
-                    : MuscleTaxonomy.libraryMuscleGroup(primaries: primary, target: primary.first))
-            // Conservar textos del seed hasta que se hayan trasladado al servidor.
-            // Una descripción publicada reemplaza inmediatamente la embebida.
-            let description = remote.description ?? old?.detailDescription
-            let instructions = (remote.instructions?.isEmpty == false)
-                ? remote.instructions! : (old?.instructions ?? [])
-            let equipment = remote.equipmentOverride
-                ?? old?.equipment
-                ?? (remote.equipment?.isEmpty == false
-                    ? remote.equipment!.joined(separator: ", ") : nil)
-            let sport = remote.sportTag
-                ?? (remote.category == "Fuerza" ? nil : remote.category)
-            let archived = saved.tombstones.contains(key) || !remote.isActive
-            let next = Exercise(
-                id: resolvedID,
-                name: remote.name,
-                muscleGroup: resolvedGroup,
-                equipment: equipment,
-                isCustom: false,
-                catalogId: remote.nativeCatalogId ?? old?.catalogId,
-                targetMuscle: primary.first ?? old?.targetMuscle,
-                secondaryMuscles: secondary.isEmpty ? (old?.secondaryMuscles ?? []) : secondary,
-                bodyPart: remote.bodyPart ?? old?.bodyPart,
-                detailDescription: description,
-                instructions: instructions,
-                searchAliases: remote.aliases ?? [],
-                primaryRegions: primary.isEmpty ? (old?.primaryRegions ?? []) : primary,
-                secondaryRegions: secondary.isEmpty ? (old?.secondaryRegions ?? []) : secondary,
-                isFavorite: old?.isFavorite ?? false,
-                isCatalogArchived: archived,
-                sportTag: sport
-            )
-            if let matchedIndex {
-                if result[matchedIndex] != next {
-                    result[matchedIndex] = next
-                    changed = true
-                }
-            } else {
-                result.append(next)
-                changed = true
-            }
-            let index = matchedIndex ?? result.count - 1
-            byID[resolvedID] = index
-            byName[Self.normalized(remote.name)] = index
-            byCanonical[Self.normalized(SportExerciseNames.canonicalName(remote.name))] = index
-            if let id = next.catalogId { byCatalogID[id] = index }
-        }
-        // Las bajas se conservan en la librería interna; UI/pickers las ocultan,
-        // por lo que sesiones, rutinas y PRs antiguos siguen resolviendo el UUID.
-        return (saved, result, changed)
-    }
-
-    /// UUID reproducible para fichas publicadas tras la instalación del seed;
-    /// dos iPhone con la misma cuenta nunca crean dos IDs para la misma clave.
-    private nonisolated static func stableUUID(for catalogKey: String) -> UUID {
-        var bytes = Array(SHA256.hash(data: Data(
-            ("com.app.repera.remote-catalog.v1:" + catalogKey).utf8
-        )).prefix(16))
-        bytes[6] = (bytes[6] & 0x0f) | 0x50
-        bytes[8] = (bytes[8] & 0x3f) | 0x80
-        let hex = bytes.map { String(format: "%02x", $0) }.joined()
-        return UUID(uuidString:
-            "\(hex.prefix(8))-\(hex.dropFirst(8).prefix(4))-\(hex.dropFirst(12).prefix(4))-\(hex.dropFirst(16).prefix(4))-\(hex.dropFirst(20).prefix(12))"
-        )!
-    }
-
-    private nonisolated static func normalized(_ value: String) -> String {
-        value.trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.diacriticInsensitive, .caseInsensitive],
-                     locale: Locale(identifier: "es_ES"))
-            .lowercased()
     }
 
     private enum CatalogSyncError: LocalizedError {

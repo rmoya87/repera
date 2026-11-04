@@ -1,8 +1,10 @@
 # Contrato de programación profesional v1
 
-El catálogo profesional es un **espejo versionado** de los 189 nombres presentes en `Catalog.seed()` para que el administrador no invente IDs distintos de iOS. Origen: los cuatro archivos `CatalogEnrichment.swift`, `CatalogHalterofilia.swift`, `CatalogGimnasia.swift` y `CatalogCrossFit.swift`; catálogo publicado en `web/console/src/data/exercise-catalog.json` e insertado en `public.business_exercise_catalog` en Supabase. Cualquier alta/baja/cambio en el catálogo móvil exige actualizar ambos artefactos y pasar los tests de paridad.
+Última actualización: 2026-11-04.
 
-`catalogKey` usa `catalog:<nombre exacto de Catalog.seed()>`, que es una identidad lógica compartida, **no** un UUID aleatorio de `Exercise.id` (los IDs locales cambian). La app resuelve primero `catalogKey` y como alternativa el nombre normalizado. Los movimientos libres tienen `source: "free"`, `name` y `catalogKey: null`; permanecen dentro de la prescripción del entrenador, sin contaminar el catálogo global.
+La **fuente editorial viva** del catálogo móvil es Supabase (`business_exercise_catalog` + `training_exercise_metadata` → feed `mobile_exercise_catalog_events`). Las apps reciben altas/ediciones/bajas **sin App Store**; detalle en [REMOTE_EXERCISE_CATALOG.md](../REMOTE_EXERCISE_CATALOG.md). `Catalog.seed()` y `web/console/src/data/exercise-catalog.json` son bootstrap / espejo de consola: **no** es obligatorio actualizarlos al publicar un ejercicio nuevo o corregir campos.
+
+`catalogKey` usa `catalog:<nombre canónico>` como identidad lógica **inmutable** compartida entre Business, MCP y apps, **no** un UUID aleatorio de `Exercise.id` (los IDs locales cambian). La app resuelve primero `catalogKey` y como alternativa el nombre normalizado. Los movimientos libres tienen `source: "free"`, `name` y `catalogKey: null`; permanecen dentro de la prescripción del entrenador, sin contaminar el catálogo global.
 
 El formato JSON se guarda en `professional_training_sessions.prescription` y se valida por el backend:
 ```json

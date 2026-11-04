@@ -191,13 +191,36 @@ struct ExerciseEvolutionPanel: View {
 
     @ViewBuilder
     private var metricPicker: some View {
-        if progressStyle == .machineWork {
-            Picker("Métrica", selection: $metric) {
-                ForEach(availableMetrics) { m in
-                    Text(m.title).tag(m)
+        // Cardio/máquina: tabs scrollables (Mejor m / Mejor cal / Suma…), nunca menú.
+        // Fuerza/móvil con ≤4 métricas: segmented; si hubiera más, mismos chips.
+        if progressStyle == .machineWork || availableMetrics.count > 4 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(availableMetrics) { m in
+                        Button {
+                            metric = m
+                        } label: {
+                            Text(m.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(metric == m ? Color.black : OG.label)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background {
+                                    let shape = Capsule(style: .continuous)
+                                    if metric == m {
+                                        shape.fill(OG.accent)
+                                    } else {
+                                        shape.fill(.clear)
+                                            .glassEffect(.regular.interactive(), in: shape)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(metric == m ? .isSelected : [])
+                    }
                 }
             }
-            .pickerStyle(.menu)
+            .accessibilityLabel("Métrica de evolución")
         } else {
             Picker("Métrica", selection: $metric) {
                 ForEach(availableMetrics) { m in

@@ -159,6 +159,15 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 # scripts/check_xcode_sources.py REQUIRED + tests/test_xcode_sources.py
 ```
 
+```yaml
+# ❌ BAD — RemoteExerciseArtCache.swift en disco; .xcodeproj viejo no lo compila
+# → Cannot find 'RemoteExerciseArtCache' in scope (ExerciseArt.swift)
+
+# ✅ GOOD — exclude + path explícito (igual que RemoteExerciseCatalogStore)
+# project.yml: - path: Apps/Repera/Sources/RemoteExerciseArtCache.swift
+# scripts/check_xcode_sources.py REQUIRED + tests/test_xcode_sources.py
+```
+
 - Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
 #### Apple — XcodeGen scripts + User Script Sandboxing (dSYMs Archive)

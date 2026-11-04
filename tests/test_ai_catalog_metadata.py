@@ -15,6 +15,19 @@ SQL_EXTRA = (ROOT / "supabase/migrations/20261021222922_new_photo_movements_cros
 SQL_NATIVE_ADDED = (ROOT / "supabase/migrations/20261103220000_native_catalog_ai_metadata_parity.sql").read_text("utf-8")
 SQL_EQUIPMENT = (ROOT / "supabase/migrations/20261103221000_native_equipment_metadata_parity.sql").read_text("utf-8")
 SQL_SCAN = (ROOT / "supabase/migrations/20261103233000_board_scan_ddb_stepup_rkbs.sql").read_text("utf-8")
+SQL_PHASE_B = (ROOT / "supabase/migrations/20261104203000_phase_b_selective_crossfit_gaps.sql").read_text("utf-8")
+SQL_PHASE_C = (ROOT / "supabase/migrations/20261104210000_phase_c_selective_crossfit_gaps.sql").read_text("utf-8")
+SQL_PHASE_D = (ROOT / "supabase/migrations/20261104220000_phase_d_open_wod_gaps_and_enrich.sql").read_text("utf-8")
+SQL_PHASE_D_COACHING = (
+    ROOT / "supabase/migrations/20261104233000_phase_d_coaching_rewrite.sql"
+).read_text("utf-8")
+SQL_PHASE_E = (
+    ROOT / "supabase/migrations/20261104234000_phase_e_fed_selective_gym.sql"
+).read_text("utf-8")
+SQL_OPEN_SOURCES = (
+    SQL_PHASE_B + "\n" + SQL_PHASE_C + "\n" + SQL_PHASE_D
+    + "\n" + SQL_PHASE_D_COACHING + "\n" + SQL_PHASE_E
+)
 CORRECTED_NAMES = set(re.findall(r"\('catalog:([^']+)', ARRAY\[", SQL_EQUIPMENT))
 NEW_NATIVE_NAMES = {
     "Tirón alto de arrancada",
@@ -32,11 +45,170 @@ EXTRA_NAMES = {
     "Remo pliométrico en anillas pies elevados",
     "Step-up al cajón con kettlebell goblet",
 }
+OPEN_SOURCE_PHASE_NAMES = {
+    "Bike Erg",
+    "Ab Mat Sit-Up",
+    "Overhead Lunge",
+    "Alternating Dumbbell Snatch",
+    "Dumbbell Overhead Lunge",
+    "Dead Hang",
+    "Box Step-Over",
+    "D-Ball Clean",
+    "D-Ball Over Shoulder",
+    "Seated Box Jump",
+    "Dumbbell Front Squat",
+    "Dumbbell Front Rack Lunge",
+    "Dumbbell Power Snatch",
+    "Dumbbell Power Clean",
+    "Dumbbell Push Press",
+    "Dumbbell Push Jerk",
+    "Dumbbell Overhead Squat",
+    "Dumbbell Walking Lunge",
+    "Dumbbell Hang Clean and Jerk",
+    "Double Kettlebell Front Rack Carry",
+    "Double Kettlebell Overhead Carry",
+    "Kettlebell Clean and Jerk",
+    "Kettlebell Overhead Lunge",
+    "Kettlebell Push Press",
+    "Jumping Pull-Up",
+    "Burpee Muscle-Up",
+    "Bear Hug Carry",
+    "Box Squat",
+    "Atlas Stone Over Shoulder",
+    "Axle Deadlift",
+    "Axle Press",
+    "Back Rack Lunge",
+    "Barbell Squat Jump",
+    "Barbell Step Up",
+    "Battle Rope",
+    "Bird Dog",
+    "Bodyweight Clean And Jerk",
+    "Bradford Press",
+    "Burpee Bar Muscle Up",
+    "Burpee Over Dumbbell",
+    "Burpee Over The Bar",
+    "Copenhagen Plank",
+    "Crab Walk",
+    "Crossover Single Under",
+    "Dead Bug",
+    "Deficit Deadlift",
+    "Double Kettlebell Farmers Carry",
+    "Double Kettlebell Front Rack Lunge",
+    "Dumbbell Bench Press",
+    "Dumbbell Box Step Up",
+    "Dumbbell Burpee Deadlift",
+    "Dumbbell Carry",
+    "Dumbbell Deadlift",
+    "Dumbbell Floor Press",
+    "Dumbbell Hang Clean To Overhead",
+    "Dumbbell Hang Power Clean",
+    "Dumbbell Hang Split Snatch",
+    "Dumbbell Hang Squat Clean",
+    "Dumbbell Overhead Carry",
+    "Dumbbell Romanian Deadlift",
+    "Dumbbell Shoulder Press",
+    "Dumbbell Shoulder To Overhead",
+    "Dumbbell Split Clean",
+    "Dumbbell Squat Clean",
+    "Dumbbell Squat Clean Thruster",
+    "Dumbbell Strict Press",
+    "Dumbbell Waiters Walk",
+    "Floor Press",
+    "Flutter Kick",
+    "Glute Bridge",
+    "Glute Ham Raise",
+    "Hand Release Push Up",
+    "Hang High Pull",
+    "Hanging Hip Touch",
+    "Hanging Knee Raise",
+    "Husafell Carry",
+    "Jefferson Curl",
+    "Jerry Bag Carry",
+    "Jumping Jack",
+    "Keg Carry",
+    "Kettlebell Deadlift",
+    "Kettlebell Front Rack Lunge",
+    "Kettlebell Halo",
+    "Kettlebell Press",
+    "Kettlebell Sumo Deadlift High Pull",
+    "Kettlebell Windmill",
+    "Kipping Handstand Push Up",
+    "L Pull Up",
+    "Landmine Press",
+    "Lateral Burpee",
+    "Lateral Lunge",
+    "Log Carry",
+    "Log Clean And Jerk",
+    "Log Press",
+    "Medicine Ball Box Step Over",
+    "Medicine Ball Sit Up",
+    "Medicine Ball Throw",
+    "Mountain Climber",
+    "Negative Pull Up",
+    "Nordic Curl",
+    "Overhead Walk",
+    "Pallof Press",
+    "Parallel Bar Traverse",
+    "Parallette Handstand Push Up",
+    "Pendlay Row",
+    "Plate Carry",
+    "Push Up",
+    "Renegade Row",
+    "Reverse Hyper",
+    "Ring Hamstring Curl",
+    "Ring Handstand Push Up",
+    "Ring Lower",
+    "Ring Push Up",
+    "Russian Twist",
+    "Sandbag Carry",
+    "Sandbag Ground To Shoulder",
+    "Sandbag Load To Box",
+    "Sandbag Over Log",
+    "Sandbag Squat",
+    "Side Plank",
+    "Single Arm Dumbbell Thruster",
+    "Single Arm Kettlebell Swing",
+    "Single Arm Kettlebell Thruster",
+    "Single Leg Glute Bridge",
+    "Single Leg Romanian Deadlift",
+    "Skater Jump",
+    "Sled Drag",
+    "Sledgehammer Strike",
+    "Stiff Legged Deadlift",
+    "Strict Knee Raise",
+    "Strict Knees To Chest",
+    "Suitcase Carry",
+    "Superman",
+    "Tire Flip",
+    "Trap Bar Deadlift",
+    "Tuck Jump",
+    "Wall Climb",
+    "Wall Climb Over",
+    "Wall Sit",
+    "Z Press",
+    "Zercher Carry",
+    "Zercher Deadlift",
+    "Zercher Squat",
+    "Crunch en polea",
+    "Elevaciones laterales en polea",
+    "Remo con apoyo de pecho",
+    "Curl femoral sentado",
+    "Curl femoral tumbado",
+    "Pec deck",
+    "Abducción de cadera en máquina",
+    "Aducción de cadera en máquina",
+    "Sentadilla en Smith",
+    "Remo en T",
+    "Curl inclinado con mancuernas",
+    "Sentadilla a cajón con mancuernas",
+    "Sentadilla búlgara con mancuernas",
+    "Woodchop en polea",
+}
 
 FILES = {
     "CatalogHalterofilia.swift": ("h", 48),
     "CatalogGimnasia.swift": ("gy", 58),
-    "CatalogCrossFit.swift": ("cf", 48),
+    "CatalogCrossFit.swift": ("cf", 191),
 }
 CANONICAL = {
     "trapezius", "deltoids", "chest", "upper-back", "serratus",
@@ -105,6 +277,10 @@ class CatalogMetadataParityTests(unittest.TestCase):
                     self.assertIn("'catalog:" + name + "'", SQL_EXTRA, name)
                     self.assertIn(sql_array(primary), SQL_EXTRA, name)
                     self.assertIn(sql_array(secondary), SQL_EXTRA, name)
+                elif name in OPEN_SOURCE_PHASE_NAMES:
+                    self.assertIn("'catalog:" + name + "'", SQL_OPEN_SOURCES, name)
+                    self.assertIn(sql_array(primary), SQL_OPEN_SOURCES, name)
+                    self.assertIn(sql_array(secondary), SQL_OPEN_SOURCES, name)
                 else:
                     prefix = "('catalog:" + name.replace("'", "''") + "', " + sql_array(primary)
                     self.assertIn(prefix, SQL, name)
@@ -113,13 +289,14 @@ class CatalogMetadataParityTests(unittest.TestCase):
                         SQL, name,
                     )
                     self.assertIn("'native:" + filename.removesuffix(".swift") + "'", SQL)
-        self.assertEqual(total, 154)
+        self.assertEqual(total, 297)
+        self.assertEqual(len(OPEN_SOURCE_PHASE_NAMES), 157)
         self.assertEqual(len(CORRECTED_NAMES), 52)
         self.assertEqual(len(set(all_names)), total)
         self.assertEqual(
             set(cardio_names),
             {"Dobles de comba", "Simples de comba", "Triples de comba",
-             "Air bike", "Echo bike", "Shuttle run", "Carrera"},
+             "Air bike", "Echo bike", "Bike Erg", "Shuttle run", "Carrera"},
         )
 
     def test_migration_is_non_destructive_and_tracks_provenance(self):

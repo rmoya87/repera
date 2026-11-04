@@ -1,51 +1,127 @@
 # Catálogo remoto incremental de ejercicios
 
-Última actualización: 2026-10-29. Actualización invisible y tareas nativas iOS 27; Android `RemoteExerciseCatalog` aplica caché aunque no haya eventos nuevos (paridad `applyAndRelink`). **El deploy SQL y las pruebas de dispositivo se verifican por separado.**
+Última actualización: 2026-11-04. **Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap. Payload canónico ampliado (`skill_level`, `movement_pattern`, `alternatives`, `art_keys`) + bucket Storage `exercise-art`. Merge en `RemoteExerciseCatalogMerge`. Sync invisible (BGAppRefresh / WorkManager). **Migración `20261104260000_mobile_catalog_canonical_fields_and_art.sql` aplicada en remoto `uvzgujlrqohreoucirms` (2026-11-04).** Enriquecimiento: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).
+
+## Contrato de autoridad
+
+| Capa | Rol |
+|------|-----|
+| `Catalog.seed()` | Bootstrap offline / primera instalación. **No** es requisito para publicar altas o correcciones. |
+| `business_exercise_catalog` + `training_exercise_metadata` | Fuente editorial viva (escritura admin/SQL). |
+| `mobile_exercise_catalog_events` | Feed incremental de solo lectura para apps autenticadas. |
+| `exercise_catalog_remote_v1.json` | Caché en disco; usable sin cobertura tras sync. |
+
+Campos canónicos en el feed (arrays/textos estables en SQL; la app transforma a UI):
+
+| Payload | Origen SQL | Uso en app |
+|---------|------------|------------|
+| `aliases`, `primary_muscles`, `secondary_muscles`, `equipment` | `training_exercise_metadata` | búsqueda, taxonomía, string de equipo |
+| `equipment_override` | `business_exercise_catalog.mobile_equipment` | material visible preciso |
+| `description`, `instructions`, `body_part`, `muscle_group`, `sport_tag` | `mobile_*` | ficha / biblioteca |
+| `skill_level`, `movement_pattern`, `alternatives` | metadata | nivel, patrón, sustitutos editoriales |
+| `art_keys` | `mobile_art_keys` | stems JPG (hero + frames); vacío = nameMap del binario |
+
+Publicados no vacíos **pisan** el seed; `null`/vacío no borra. Altas nuevas → UUID estable + caché offline. Logging (kg×reps…) sigue **derivado** en la app a partir de nombre/equipo.
+
+**Arte remoto:** bucket público `exercise-art` (`{stem}.jpg`). Apps prefetch a disco (`ExerciseArtRemote` / `exercise-art-remote`) tras sync; binario tiene prioridad si el stem ya existe empaquetado.
+
+Publicar **no** exige App Store. Subir JPG nuevos al bucket + `mobile_art_keys` en SQL basta para arte de altas nuevas (tras aplicar la migración). CMS: fuera de alcance.
 
 ## Fuente editorial
 
-La fuente de datos es `public.business_exercise_catalog` unida a `public.training_exercise_metadata`, **no** otro catálogo nuevo. La migración `20261024223050_mobile_exercise_catalog_events.sql` añade campos opcionales de descripción, instrucciones, grupo, parte corporal y disciplina a la tabla editorial y un registro de eventos `public.mobile_exercise_catalog_events`.
+La fuente de datos es `public.business_exercise_catalog` unida a `public.training_exercise_metadata`, **no** otro catálogo nuevo. La migración `20261024223050_mobile_exercise_catalog_events.sql` (y `…equipment_override`) añade campos `mobile_*` y el registro `public.mobile_exercise_catalog_events`.
 
-La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No se autorizan INSERT/UPDATE/DELETE desde la app, ni se distribuyen claves de servicio. Dos triggers (cambios en ficha o metadatos) publican una revisión monotónica `id`, con `catalog_key`, `operation=upsert|delete` y `payload` del ejercicio. `is_active=false` o el borrado editorial generan una lápida. La migración publica una instantánea inicial para todas las claves existentes.
+La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No se autorizan INSERT/UPDATE/DELETE desde la app, ni se distribuyen claves de servicio. Dos triggers publican revisión monotónica `id`, con `catalog_key`, `operation=upsert|delete` y `payload`. `is_active=false` o borrado editorial → lápida.
 
-## Flujo offline-first iPhone
+## Flujo offline-first (iPhone / Android)
 
-1. Inicio: `ReperaStore` hidrata el JSON personal y, como respaldo de primera instalación sin Internet, las fichas empaquetadas en `Catalog.seed()`. Ni red ni Supabase bloquean el arranque.
-2. Después de recuperar iCloud, `RemoteExerciseCatalogStore.restoreCached` superpone la última instantánea remota persistida en Application Support (`exercise_catalog_remote_v1.json`).
-3. Sin ningún botón o indicador de sincronización, una tarea asíncrona de prioridad baja consulta **una fila** (`max(id)` mediante orden descendente y límite 1). Si no cambió, no se descarga el catálogo.
-4. Si hay revisión posterior, se solicitan **solo los eventos nuevos** en páginas de 150 (`id > cursor` y `id <= revisionObjetivo`, orden ascendente). Solo tras recibir todas las páginas se escribe de forma atómica el snapshot y se avanza el cursor.
-5. Se actualizan fichas sin cambiar UUID locales, favoritos, rutinas, sesiones ni récords. Las claves `catalog_key` se mantienen aunque cambie el nombre; para adopción inicial también se reconoce el nombre histórico en `catalog:NombreAnterior` y `native_catalog_id`.
-6. Las bajas se marcan `isCatalogArchived=true`: desaparecen de biblioteca y selectores compartidos, pero las referencias históricas permanecen y siguen decodificándose. El reloj recibe el contexto actualizado de la sesión desde el iPhone.
-7. Al volver a primer plano se restaura la caché tras iCloud y se vuelve a comprobar la revisión remota. Sin Internet, sin cuenta Supabase o ante un error se conserva la copia local sin borrar información.
+1. Inicio: hidratar JSON personal + `Catalog.seed()` si hace falta. Ni red ni Supabase bloquean el arranque.
+2. Tras iCloud (iOS): `restoreCached` aplica `exercise_catalog_remote_v1.json` sobre el seed.
+3. Sync **invisible** (background + primer plano/login, sin botón): probe de `max(id)`; si no cambió, no descarga páginas (sí puede reaplicar caché).
+4. Si hay revisión nueva: páginas de 150 eventos; solo tras completarlas se escribe el snapshot atómico y avanza el cursor.
+5. `RemoteExerciseCatalogMerge` actualiza fichas sin cambiar UUID, favoritos, rutinas, sesiones ni récords.
+6. Bajas → `isCatalogArchived=true` (ocultas en UI; historial sigue resolviendo).
+7. Sin Internet / sin cuenta / error → se conserva caché + seed; no se borra información.
 
-**Optimización de I/O (25/10/2026):** el snapshot se reescribe únicamente cuando llega una revisión nueva o se aprende una asociación de UUID antes desconocida. La recuperación de iCloud no dispara escrituras repetidas de las 288 fichas si nada ha cambiado. Las solicitudes nativas BGAppRefresh existentes se conservan, sin cancelarlas y volver a programarlas en cada transición de escena; de lo contrario, abrir la app con frecuencia pospondría indefinidamente la actualización nocturna. No se eliminan pruebas de dominio que detectan regresiones ajenas al catálogo para obtener un CI artificialmente verde.
+**Rendimiento:** I/O en actor/`AtomicFile`; merge off MainActor; BGAppRefresh oportunista (iOS) / WorkManager (Android). La caché remota **no** contiene entrenamientos ni Salud.
 
-**Rendimiento y ejecución en segundo plano (iOS 27):** `RemoteExerciseCatalogStore.DiskStorage` es un actor dedicado para las lecturas y escrituras JSON atómicas. La reconstrucción de fichas se calcula en un `Task.detached(priority: .utility)` antes de actualizar el estado observable en MainActor; se descarta la mezcla si el usuario editó favoritos o entrenamientos durante el cálculo. El arranque no espera a Supabase ni muestra un spinner. `ReperaApp` integra el modificador nativo `.backgroundTask(.appRefresh(...))` y `BGAppRefreshTaskRequest`, declarado en el Info.plist generado por XcodeGen con `UIBackgroundModes=fetch`. La ejecución es **oportunista y controlada por iOS**, no un temporizador exacto: si el sistema no la concede, se refresca de forma silenciosa en lanzamiento/regreso a primer plano. Una ejecución solo en segundo plano actualiza la caché pública en disco; nunca accede al historial personal ni modifica el JSON/iCloud antes de hidratar la app.
+## Runbook SQL (publicación sin App Store)
 
-Al eliminar la sincronización manual de Cuenta, los entrenamientos de Salud pendientes también se reintentan automáticamente en tareas de prioridad utility cuando existe permiso previo de escritura HealthKit. No se solicitan permisos nuevos en segundo plano; se evitan reintentos simultáneos y se limita el repaso a una vez por hora.
+Sesión administrativa / `service_role` o rol con escritura en tablas editoriales (nunca desde la app).
 
-La caché remota **no** contiene entrenamientos ni datos de Salud. La sincronización del catálogo **no** es una sincronización de historias de usuario.
+### Alta completa
 
-## Publicar cambios editoriales (sin nuevas versiones)
+Insertar la **misma** `catalog_key` inmutable en ambas tablas, con payload usable sin seed:
 
-Con una sesión administrativa autorizada y un canal seguro de escritura a base de datos:
+```sql
+-- Ejemplo: sustituir valores; no reutilizar una clave archivada para otro movimiento.
+insert into public.business_exercise_catalog (
+  catalog_key, name, category, display_name_en,
+  mobile_description, mobile_instructions,
+  mobile_body_part, mobile_muscle_group, mobile_sport_tag,
+  mobile_equipment, mobile_art_keys, is_active
+) values (
+  'catalog:Nuevo movimiento',
+  'Nuevo movimiento',
+  'Fuerza',
+  'New Movement',
+  'Descripción visible en la ficha.',
+  array['Paso 1', 'Paso 2'],
+  'Pecho', 'Pecho', null,
+  'Barra, Banco',
+  array['art_nuevo_movimiento', 'art_nuevo_movimiento_1'],
+  true
+);
 
-- Para corregir metadatos: actualizar `training_exercise_metadata`. Para el nombre, disciplina y campos de la ficha: actualizar `business_exercise_catalog`.
-- Para publicar un ejercicio nuevo: insertar en **ambas** tablas con la **misma clave inmutable** `catalog_key`, nombre y categoría, principales/secundarios, equipo y, preferentemente, `mobile_description` y `mobile_instructions`. No crear dos claves para la misma variante. El trigger emite el cambio al instante.
-- Para corregir **material** sin perder especificidad del seed: editar `business_exercise_catalog.mobile_equipment` (cadena visible, por ejemplo `Barra, Banco`). El equipo genérico de `training_exercise_metadata.equipment` se usa como respaldo para ejercicios nuevos, pero no sustituye material local más preciso mientras no haya una corrección explícita.
-- Para retirar un ejercicio: cambiar `business_exercise_catalog.is_active` a `false`. No reutilizar su clave en otro movimiento. Para rehabilitarlo volver a `true` (genera nueva revisión).
-- Las instrucciones existentes del catálogo Swift se utilizan como respaldo mientras `mobile_description` / `mobile_instructions` sean NULL/vacías. Conviene trasladarlas gradualmente y verificar su fidelidad antes de dejar de empaquetar un seed.
-- Se requiere revisión anatómica editorial; los metadatos antiguos representan el catálogo de Repera y no están verificados clínicamente.
+insert into public.training_exercise_metadata (
+  catalog_key, aliases, primary_muscles, secondary_muscles, equipment,
+  skill_level, movement_pattern, alternatives, native_catalog_id
+) values (
+  'catalog:Nuevo movimiento',
+  array['alias buscable'],
+  array['Pecho'],
+  array['Tríceps'],
+  array['Barra', 'Banco'],
+  'intermediate',
+  'push',
+  array['Press banca'],
+  null
+);
+-- Subir art_nuevo_movimiento.jpg (+ frames) al bucket Storage exercise-art.
+```
+
+El trigger emite `upsert`. Tras sync en background, la app cachea la ficha y la usa offline.
+
+### Edición de campos
+
+- Ficha / textos / `mobile_equipment` / `is_active`: `update business_exercise_catalog …`
+- Aliases, músculos, equipo genérico, `native_catalog_id`: `update training_exercise_metadata …`
+- Preferir `mobile_equipment` (va a `equipment_override` en el payload) para material visible preciso; el array `equipment` de metadatos también actualiza la ficha si no hay override (ya no lo bloquea el seed).
+
+### Baja
+
+```sql
+update public.business_exercise_catalog
+set is_active = false
+where catalog_key = 'catalog:…';
+```
+
+No reutilizar la clave. Rehabilitar con `is_active = true` (nueva revisión).
+
+### Checklist manual
+
+1. Insert/update en SQL → fila nueva en `mobile_exercise_catalog_events`.
+2. App autenticada con cobertura → background o volver a primer plano → ficha actualizada / nueva en biblioteca.
+3. Modo avión → la ficha cacheada sigue usable.
+4. Favoritos, UUID e historial intactos; archivado oculta en pickers.
+
+Se requiere revisión anatómica editorial; los metadatos no están verificados clínicamente.
 
 ## Despliegue y pruebas
 
-1. Ejecutar migración SQL antes de distribuir la nueva aplicación. Verificar que la cuenta autenticada puede hacer SELECT del feed y que `anon` no puede. Comprobar 288 fichas editoriales vigentes o el recuento vigente antes del deploy.
-2. La cola de eventos serializa transacciones antes de asignar IDs, para que una transacción tardía no quede por debajo de un cursor ya confirmado. Las páginas no se saltan cambios concurrentes confirmados.
-3. iPhone con historial y favoritos: comprobar que el primer fetch no cambia UUID, que corregir nombre/material/instrucciones refleja el cambio y que los récords se conservan.
-3. Probar sin conexión, reinstalación, segunda apertura sin cambios (una consulta ligera), actualización de más de 150 registros, renombrado de una clave estable, archivado y reactivación.
-4. Probar iCloud restaurado de otro dispositivo (la caché remota debe prevalecer), inicio sin cuenta, cambio de sesión y fallo de Supabase.
-6. Regenerar XcodeGen por el nuevo archivo Swift. Ejecutar `swift test` en ReperaDomain, compilar iOS/watchOS, hacer QA en iPhone y Apple Watch reales. No asumir compilación ni E2E con base de datos por el mero hecho de fusionar la rama.
+1. Esquema de eventos ya debe estar aplicado en el proyecto remoto (no redeploy automático en este cambio de contrato). Verificar SELECT autenticado del feed y denegación `anon`.
+2. Cola serializada: páginas no saltan cambios concurrentes confirmados.
+3. QA: primer fetch no cambia UUID; corrección de nombre/material/instrucciones; alta solo-remota; offline tras sync; >150 eventos; archivado/reactivación; iCloud + caché remota.
+4. `swift test --filter RemoteExerciseCatalogTests` en ReperaDomain; instrumented Android `RemoteExerciseCatalogInstrumentedTest` (incl. equipo por array sin override).
 
-**Paridad Android/Wear:** Android consume la misma tabla `mobile_exercise_catalog_events` vía `RemoteExerciseCatalog` + `RemoteExerciseCatalogWorker` (caché `exercise_catalog_remote_v1.json`, páginas de 150, apply atómico al snapshot local). En primer plano, tras throttle 60 s o sin eventos nuevos, se reaplica la caché al estado de cuenta (como iOS `applyAndRelink`). El Watch no consulta el catálogo completo en la nube: mantiene su flujo nativo mediante WatchConnectivity desde el iPhone.
-
-**Paridad de catálogo (25/10/2026):** la variante *Fondos en anillas kipping* se ha incorporado a Supabase con instrucciones, material y músculos. La fuente editorial contiene ahora 288 ejercicios distintos, igual que el seed Android. El mapeo iOS/Android mediante `SportExerciseNames.canonicalName` evita duplicar fichas si el seed usa nombres ingleses y Supabase publica los nombres originales españoles.
+**Paridad Android/Wear:** misma tabla y caché vía `RemoteExerciseCatalog` + `RemoteExerciseCatalogWorker`. Watch vía WatchConnectivity desde el iPhone (sin cliente Supabase propio).

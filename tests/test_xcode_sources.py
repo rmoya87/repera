@@ -25,6 +25,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
         (directory / "RemoteExerciseCatalogStore.swift").write_text("// Catalog feed", encoding="utf-8")
+        (directory / "RemoteExerciseArtCache.swift").write_text("// Remote art cache", encoding="utf-8")
         (directory / "LiveActivityView.swift").write_text("// En vivo", encoding="utf-8")
         (directory / "LiveActivityLocationName.swift").write_text("// Ruta localidad", encoding="utf-8")
         (directory / "WorkoutLiveActivityCoordinator.swift").write_text("// ActivityKit", encoding="utf-8")
@@ -50,6 +51,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (self.root / "project.yml").write_text(
             "targets:\n  Repera:\n    sources:\n      - path: Apps/Repera/Sources\n"
             "      - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift\n"
+            "      - path: Apps/Repera/Sources/RemoteExerciseArtCache.swift\n"
             "      - path: Apps/Repera/Sources/LiveActivityView.swift\n"
             "      - path: Apps/Repera/Sources/LiveActivityLocationName.swift\n"
             "      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift\n"
@@ -76,6 +78,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AITrainingInboxStore.swift", "AIAccessView.swift",
             "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
             "AIChangeRequestStore.swift", "RemoteExerciseCatalogStore.swift",
+            "RemoteExerciseArtCache.swift",
             "LiveActivityView.swift", "LiveActivityLocationName.swift",
             "WorkoutLiveActivityCoordinator.swift",
             "LiveSportHistoryView.swift",

@@ -69,6 +69,10 @@ repera-sa.json
 # Python
 **/__pycache__/
 
+# Snapshots grandes de catálogos abiertos (regenerar con fetch_sources.py)
+tools/catalog_ingest/vendor/
+tools/catalog_ingest/out/
+
 # Superpowers local runtime
 .superpowers/
 

@@ -12,7 +12,6 @@ import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -108,7 +107,6 @@ internal fun ExerciseFilterContent(
                 "Cardio" -> if (selected) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder
                 "Favoritos" -> if (selected) Icons.Outlined.Star else Icons.Outlined.StarBorder
                 "WODs" -> Icons.Outlined.Timer
-                "Deportes" -> Icons.Outlined.DirectionsRun
                 else -> ExerciseCategorySymbols.discipline(value)
             }
             ExerciseFacetRow(value, icon, selected) { onFilter(value) }

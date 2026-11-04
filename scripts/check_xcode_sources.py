@@ -23,6 +23,7 @@ REQUIRED = (
     "AITrainingProgramsView.swift",
     "AIChangeRequestStore.swift",
     "RemoteExerciseCatalogStore.swift",
+    "RemoteExerciseArtCache.swift",
     "LiveActivityView.swift",
     "LiveActivityLocationName.swift",
     "WorkoutLiveActivityCoordinator.swift",

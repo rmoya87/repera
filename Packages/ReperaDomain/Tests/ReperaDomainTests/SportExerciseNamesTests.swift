@@ -6,7 +6,7 @@ final class SportExerciseNamesTests: XCTestCase {
         let sports = Catalog.seed().filter {
             $0.sportTag == "CrossFit" || $0.sportTag == "Halterofilia"
         }
-        XCTAssertEqual(sports.count, 96)
+        XCTAssertEqual(sports.count, 108)
 
         for exercise in sports {
             guard let spanish = SportExerciseNames.spanishAlias(for: exercise.name) else {
@@ -37,23 +37,53 @@ final class SportExerciseNamesTests: XCTestCase {
             XCTAssertEqual(SportExerciseNames.canonicalName(spanish), english)
             XCTAssertTrue(ExerciseEquivalence.sameName(spanish, english))
             XCTAssertEqual(SportExerciseNames.spanishAlias(for: english), spanish)
-            XCTAssertEqual(SportExerciseNames.localizedDisplayName(english), spanish)
+            XCTAssertEqual(SportExerciseNames.localizedDisplayName(english), english)
+            XCTAssertEqual(SportExerciseNames.localizedDisplayName(spanish), english)
+            XCTAssertTrue(
+                SportExerciseNames.searchAliases(for: english)
+                    .contains { ExerciseSearch.normalize($0) == ExerciseSearch.normalize(spanish) }
+                    || ExerciseSearch.normalize(SportExerciseNames.spanishAlias(for: english) ?? "")
+                        == ExerciseSearch.normalize(spanish),
+                "\(english) debe exponer alias español \(spanish)"
+            )
         }
     }
 
-    func testLocalizedDisplayNamePrefersSpanishAlias() {
+    func testLocalizedDisplayNamePrefersEnglishCrossFitTitle() {
         XCTAssertEqual(
             SportExerciseNames.localizedDisplayName("Clean and Jerk"),
-            "Cargada y envión"
+            "Clean and Jerk"
         )
         XCTAssertEqual(
             SportExerciseNames.localizedDisplayName("Cargada y envión"),
-            "Cargada y envión"
+            "Clean and Jerk"
         )
         XCTAssertEqual(
             SportExerciseNames.localizedDisplayName("Press banca"),
             "Press banca"
         )
+    }
+
+    func testSpanishAndEnglishSlangAliasesResolve() {
+        let samples: [(String, String)] = [
+            ("dos tiempos", "Clean and Jerk"),
+            ("arrancada", "Snatch"),
+            ("cargada power", "Power Clean"),
+            ("dobles", "Double-Under"),
+            ("TGU", "Turkish get-up"),
+            ("assault bike", "Air bike"),
+            ("pino flexiones", "HSPU"),
+            ("thrusters", "Thruster"),
+            ("suiza", "Shuttle run"),
+        ]
+        for (alias, expected) in samples {
+            XCTAssertEqual(
+                SportExerciseNames.canonicalName(forSearchAlias: alias)
+                    ?? SportExerciseNames.canonicalName(alias),
+                expected,
+                "\(alias) → \(expected)"
+            )
+        }
     }
 
     func testAcronymsAndExtraBilingualAliasesFindCorrectMovements() {

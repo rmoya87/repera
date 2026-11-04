@@ -615,6 +615,46 @@ fun ReperaTopicSegmentedPicker(
     }
 }
 
+/** Tabs horizontales scrollables (evolución cardio: Mejor m / Mejor cal / Suma…). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReperaScrollableTopicTabs(
+    options: List<String>,
+    selected: String,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    optionTestTag: (index: Int, label: String) -> String = { index, _ -> "progress_topic_$index" },
+) {
+    if (options.isEmpty()) return
+    val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
+    androidx.compose.material3.ScrollableTabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = modifier.fillMaxWidth().testTag("repera_scrollable_tabs"),
+        edgePadding = 0.dp,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        divider = {}
+    ) {
+        options.forEachIndexed { index, label ->
+            androidx.compose.material3.Tab(
+                selected = index == selectedIndex,
+                onClick = { onSelected(label) },
+                modifier = Modifier.testTag(optionTestTag(index, label)),
+                text = {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (index == selectedIndex) FontWeight.SemiBold
+                        else FontWeight.Medium,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            )
+        }
+    }
+}
+
 /** Subtítulo de biblioteca (paridad LibraryView.librarySubtitle iOS).
  *  Filtra el literal JSON «null» de optString y deduplica etiquetas
  *  (p. ej. muscleGroup Cardio + discipline Cardio). */
@@ -638,15 +678,17 @@ internal fun ExerciseListThumb(
     aliases: Map<String, String>,
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
+    artKeys: List<String> = emptyList(),
 ) {
     val context = LocalContext.current
-    val stem = remember(name, sportTag) {
+    val stem = remember(name, sportTag, artKeys) {
         ExerciseArtImages.carouselStems(
             context,
             name,
             sportTag == "Movilidad",
             aliases,
-            captionCount = 1
+            captionCount = 1,
+            artKeys = artKeys,
         ).firstOrNull()
     }
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, stem) {

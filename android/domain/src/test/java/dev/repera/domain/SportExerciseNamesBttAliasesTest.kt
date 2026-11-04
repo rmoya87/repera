@@ -31,7 +31,7 @@ class SportExerciseNamesBttAliasesTest {
         }
     }
 
-    @Test fun wearLocalePrefersSpanishCrossFitNames() {
+    @Test fun spanishAliasHelperKeepsSpanishFormsForSearch() {
         assertEquals(
             "Cargada y envión",
             SportExerciseNames.localizedSpanishName("Clean and Jerk", "CrossFit")
@@ -41,5 +41,20 @@ class SportExerciseNamesBttAliasesTest {
             SportExerciseNames.localizedSpanishName("Cargada y envión", "CrossFit")
         )
         assertEquals("Press banca", SportExerciseNames.localizedSpanishName("Press banca", null))
+    }
+
+    @Test fun slangAndAcronymsResolveInEnglishAndSpanish() {
+        for ((alias, canonical) in listOf(
+            "dos tiempos" to "Clean and Jerk",
+            "c&j" to "Clean and Jerk",
+            "arrancada" to "Snatch",
+            "dobles" to "Double-Under",
+            "tgu" to "Turkish get-up",
+            "assault bike" to "Air bike",
+            "thrusters" to "Thruster",
+            "suiza" to "Shuttle run",
+        )) {
+            assertEquals(alias, canonical, SportExerciseNames.canonicalNameForSearchAlias(alias))
+        }
     }
 }

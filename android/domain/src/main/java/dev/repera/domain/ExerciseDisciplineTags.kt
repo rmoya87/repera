@@ -22,12 +22,25 @@ object ExerciseDisciplineTags {
 
     private val crossFitGeneral = setOf(
         // Básicos de fuerza y acondicionamiento habituales en un box.
-        "press banca", "press banca inclinada", "press militar", "remo con barra",
+        "press banca", "press banca inclinada", "press banca declinado", "press mancuernas",
+        "press militar", "press arnold", "press cerrado", "press frances",
+        "remo con barra", "remo mancuerna", "remo sentado", "remo en t", "remo al menton",
+        "remo con apoyo de pecho", "jalon al pecho", "pullover",
         "peso muerto", "peso muerto rumano", "peso muerto sumo",
-        "sentadilla", "sentadilla frontal", "zancadas", "plancha",
-        "fondos", "dominadas", "remo invertido", "ab wheel",
-        "farmer walk", "remo maquina", "bici estatica",
-        "paso lateral con banda"
+        "sentadilla", "sentadilla frontal", "sentadilla en smith", "sentadilla bulgara",
+        "sentadilla bulgara con mancuernas", "sentadilla a cajon con mancuernas",
+        "zancadas", "hack squat", "prensa", "hip thrust", "buenos dias",
+        "plancha", "crunch", "crunch en polea", "elevacion de piernas", "ab wheel",
+        "woodchop en polea",
+        "fondos", "fondos en banco", "dominadas", "remo invertido",
+        "farmer walk", "remo maquina", "bici estatica", "cinta / carrera",
+        "paso lateral con banda", "face pull", "elevaciones laterales", "elevaciones frontales",
+        "elevaciones laterales en polea", "pajaros",
+        "curl barra", "curl mancuernas", "curl martillo", "curl predicador",
+        "curl inclinado con mancuernas", "curl femoral", "curl femoral sentado",
+        "curl femoral tumbado", "extension de cuadriceps", "extension triceps polea",
+        "elevacion de gemelos", "aperturas", "pec deck", "cruce de poleas",
+        "abduccion de cadera en maquina", "aduccion de cadera en maquina"
     )
 
     private val crossFitGymnastics = setOf(
@@ -37,7 +50,7 @@ object ExerciseDisciplineTags {
         "box jump", "salto al cajon", "box jump over",
         "box step-up", "step-up al cajon", "broad jump", "bear crawl",
         "walking lunge", "fondos", "dominadas", "remo invertido",
-        "plancha", "ab wheel"
+        "plancha", "ab wheel", "elevacion de piernas"
     )
 
     private val hyroxAlsoCrossFit = setOf(

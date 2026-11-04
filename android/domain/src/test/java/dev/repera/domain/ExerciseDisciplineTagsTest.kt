@@ -36,14 +36,19 @@ class ExerciseDisciplineTagsTest {
         assertEquals(listOf("CrossFit", "HYROX", "Cardio"), tags("Remo máquina", "CrossFit", hyrox = true))
     }
 
-    @Test fun commonStrengthCrossFitButMachinesStayGymOnly() {
-        assertTrue("CrossFit" in tags("Peso muerto", null, "Piernas"))
-        assertEquals(listOf("CrossFit", "Gimnasia"), tags("Dominadas", null, "Espalda").let { t ->
-            // Dominadas sin sportTag: entra por crossFitGeneral y crossFitGymnastics; orden CrossFit primero.
-            assertEquals(listOf("CrossFit", "Gimnasia"), t); t
-        })
-        assertTrue(tags("Prensa", null, "Piernas").isEmpty())
-        assertTrue(tags("Curl femoral", null, "Piernas").isEmpty())
+    @Test fun enrichmentGymNowHasSportTagsAndMultiFilters() {
+        // Halterofilia también aparece en CrossFit.
+        assertEquals(listOf("Halterofilia", "CrossFit"), tags("Peso muerto", "Halterofilia", "Piernas"))
+        assertEquals(listOf("Halterofilia", "CrossFit"), tags("Sentadilla", "Halterofilia", "Piernas"))
+        // Gimnasia también CrossFit.
+        assertEquals(listOf("Gimnasia", "CrossFit"), tags("Dominadas", "Gimnasia", "Espalda"))
+        assertEquals(listOf("Gimnasia", "CrossFit"), tags("Plancha", "Gimnasia", "Core"))
+        // Máquinas / aislamiento del Enrichment: sportTag CrossFit (antes sin tag).
+        assertEquals(listOf("CrossFit"), tags("Prensa", "CrossFit", "Piernas"))
+        assertEquals(listOf("CrossFit"), tags("Curl femoral", "CrossFit", "Isquios"))
+        // Cardio gym: CrossFit + Cardio por muscleGroup.
+        assertEquals(listOf("CrossFit", "Cardio"), tags("Remo máquina", "CrossFit", "Cardio"))
+        assertEquals(listOf("CrossFit", "Cardio"), tags("Cinta / carrera", "CrossFit", "Cardio"))
     }
 
     @Test fun mobilityIsNotAutomaticallyCrossFit() {

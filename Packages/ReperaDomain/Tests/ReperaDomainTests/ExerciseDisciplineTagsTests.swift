@@ -25,7 +25,8 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
                        "La mancuerna no es una arrancada olímpica con barra")
 
         let weightlifting = Catalog.seed().filter { $0.sportTag == "Halterofilia" }
-        XCTAssertEqual(weightlifting.count, 48)
+        // 48 olímpicos + 9 fuerza Enrichment (sentadilla/peso muerto/press militar…).
+        XCTAssertEqual(weightlifting.count, 57)
         XCTAssertTrue(weightlifting.allSatisfy { $0.disciplineTags.contains("CrossFit") })
     }
 
@@ -36,7 +37,8 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
         check("Burpee", includes: ["CrossFit", "Gimnasia"])
 
         let gymnastics = Catalog.seed().filter { $0.sportTag == "Gimnasia" }
-        XCTAssertEqual(gymnastics.count, 58)
+        // 58 gimnasia pura + 6 Enrichment (dominadas/fondos/plancha…).
+        XCTAssertEqual(gymnastics.count, 64)
         XCTAssertTrue(gymnastics.allSatisfy { $0.disciplineTags.contains("CrossFit") })
     }
 
@@ -48,21 +50,30 @@ final class ExerciseDisciplineTagsTests: XCTestCase {
         check("Remo máquina", includes: ["HYROX", "CrossFit", "Cardio"])
     }
 
-    func testCommonStrengthMovementsCrossFitButMachinesStayGymOnly() {
-        check("Peso muerto", includes: ["CrossFit"])
-        check("Dominadas", includes: ["CrossFit", "Gimnasia"])
-        XCTAssertTrue(exercise("Prensa").disciplineTags.isEmpty)
-        XCTAssertTrue(exercise("Curl femoral").disciplineTags.isEmpty)
+    func testEnrichmentGymSportTagsAndMultiFilters() {
+        check("Peso muerto", includes: ["Halterofilia", "CrossFit"])
+        check("Sentadilla", includes: ["Halterofilia", "CrossFit"])
+        check("Dominadas", includes: ["Gimnasia", "CrossFit"])
+        check("Plancha", includes: ["Gimnasia", "CrossFit"])
+        check("Prensa", includes: ["CrossFit"])
+        check("Curl femoral", includes: ["CrossFit"])
+        // Remo máquina también es estación HYROX → CrossFit + HYROX + Cardio.
+        check("Remo máquina", includes: ["CrossFit", "HYROX", "Cardio"])
+        check("Cinta / carrera", includes: ["CrossFit", "Cardio"])
+        check("Bici estática", includes: ["CrossFit", "Cardio"])
     }
 
     func testMobilityIsNotAutomaticallyCrossFitAndIDsRemainUnique() {
         let mobility = exercise("Gato-vaca")
         XCTAssertEqual(mobility.disciplineTags, ["Movilidad"])
         let all = Catalog.seed()
-        XCTAssertEqual(all.count, 290)
+        XCTAssertEqual(all.count, 447)
         XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         XCTAssertEqual(Set(all.map(\.name)).count, all.count)
         XCTAssertTrue(all.allSatisfy { $0.disciplineTags.count == Set($0.disciplineTags).count })
+        XCTAssertTrue(all.allSatisfy { ($0.sportTag ?? "").isEmpty == false || $0.isCustom })
+        // Tras el assign: ninguna ficha seed sin sportTag.
+        XCTAssertEqual(all.filter { $0.sportTag == nil }.count, 0)
     }
 
     func testRepeatedAccessIsStableAndDoesNotChangeCodableOrigin() throws {

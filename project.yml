@@ -54,6 +54,7 @@ targets:
       - path: Apps/Repera/Sources
         excludes:
           - RemoteExerciseCatalogStore.swift
+          - RemoteExerciseArtCache.swift
           - LiveActivityView.swift
           - LiveActivityLocationName.swift
           - WorkoutLiveActivityCoordinator.swift
@@ -62,6 +63,7 @@ targets:
           - PlusHubView.swift
           - Analytics/ReperaAnalytics.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
+      - path: Apps/Repera/Sources/RemoteExerciseArtCache.swift
       # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
       - path: Apps/Repera/Sources/LiveActivityView.swift
       - path: Apps/Repera/Sources/LiveActivityLocationName.swift

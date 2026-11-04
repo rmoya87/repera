@@ -556,6 +556,9 @@ struct SettingsView: View {
                     confirmDeleteAccount = true
                 }
                 .disabled(isDeletingAccount)
+            } footer: {
+                Text("Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.")
+                    .font(.caption2)
             }
         }
         .listStyle(.insetGrouped)

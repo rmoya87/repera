@@ -17,7 +17,7 @@ final class CatalogWeightliftingCoverageTests: XCTestCase {
         let all = Catalog.seed()
         let lifts = all.filter { $0.sportTag == "Halterofilia" }
         XCTAssertEqual(lifts.count, 48)
-        XCTAssertEqual(all.count, 290)
+        XCTAssertEqual(all.count, 302)
         XCTAssertEqual(Set(all.map(\.id)).count, all.count)
         for name in added {
             let canonical = SportExerciseNames.canonicalName(name)

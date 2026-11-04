@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-04 (hub Progreso 7 días / Físico / Ahora).
+Última actualización: 2026-11-04 (hub Progreso; catálogo remoto = autoridad viva).
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -81,9 +81,11 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 
 `CatalogMovilidad` incorpora 82 ejercicios ES/EN identificados con `sportTag = "Movilidad"`. `Exercise.isMobilityHold` distingue las posturas estáticas de los movimientos dinámicos. Ambos usan registro tiempo+reps mediante `ExerciseLoggingStyle.repsAndTime`, con UI que oculta reps para una postura sostenida. `PlannedSet.targetDurationSeconds` es opcional en Codable y sobrevive a la duplicación de planes; `WorkoutView` lo utiliza para precargar la duración editable sin contabilizarla como registro real hasta confirmar la serie. `LoggedSet.durationSeconds` conserva los segundos ejecutados. La evolución temporal soporta `ExerciseProgressMetric.bestHold` y `duration`, y `ProgressSnapshot` resume segundos reales y número de sesiones sin asignarlos a fatiga/e1RM. `ExerciseArt` bloquea coincidencias parciales con arte de fuerza y utiliza placeholder hasta que las 82 fichas tengan imágenes revisadas.
 
-## Catálogo de ejercicios remoto y offline (2026-10-25)
+## Catálogo de ejercicios remoto y offline (2026-10-25; autoridad remota 2026-11-04)
 
-`RemoteExerciseCatalogStore` consulta el feed de cambios `mobile_exercise_catalog_events` generado por triggers sobre el catálogo profesional y sus metadatos. Una lectura de la última revisión precede a páginas incrementales de 150 eventos (confirmaciones serializadas). Las correcciones de material usan `mobile_equipment`, sin sustituir el seed más detallado por el material genérico de MCP. El actor `DiskStorage` escribe y lee la caché de forma atómica fuera de MainActor; la mezcla de fichas se calcula en una tarea detached con prioridad utility y se actualiza el estado observable solo al completar. `ReperaApp` instala `.backgroundTask(.appRefresh(...))` y agenda `BGAppRefreshTaskRequest` oportunista nativo iOS 27, además de comprobar los cambios al volver a primer plano. No existe botón manual para sincronizar. Los resultados se guardan atómicamente fuera del JSON personal/iCloud en Application Support; tras cualquier recuperación de iCloud se aplica la caché como capa editorial. `Catalog.seed()` permanece de respaldo para primer arranque sin red. `Exercise.isCatalogArchived` preserva UUID/estadísticas, resuelve equivalencias ES/EN y oculta bajas de biblioteca/pickers. Watch recibe actualizaciones de contexto desde iOS y no requiere un cliente Supabase propio. Detalles y límites de implantación: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
+El enriquecimiento y altas desde bibliotecas abiertas (Free Exercise DB, Open WOD, OpenExerciseDB, RepDB, Kinetic, …) se preparan con `tools/catalog_ingest/` y se publican por el mismo canal editorial; las apps no consultan esas fuentes y el arte sigue el estilo ExerciseArt Repera ([CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md)). RepDB free: crédito «Exercise data by RepDB (repdb.co)» en Ajustes.
+
+**Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap (publicar no exige binario). Feed `mobile_exercise_catalog_events` con campos canónicos (músculos/equipo/aliases/textos/`skill_level`/`movement_pattern`/`alternatives`/`art_keys`); la app transforma a UI. `RemoteExerciseCatalogMerge` aplica sobre el seed; null/vacío no borra. Arte: stems en `mobile_art_keys` + Storage `exercise-art` → caché en disco (`RemoteExerciseArtCache`); binario tiene prioridad si el stem ya existe. Sustitutos: `catalogAlternatives` publicados antes que la heurística muscular. Sync invisible BGAppRefresh / WorkManager. Migración `20261104260000_…` **aplicada** en `uvzgujlrqohreoucirms` (2026-11-04). Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 
 ## Unidad de cardio en rutinas y sesiones
 

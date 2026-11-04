@@ -168,6 +168,13 @@ enum ExerciseArt {
         subdirectory: String = "ExerciseArt"
     ) -> UIImage? {
         if subdirectory == "ExerciseArt", let img = UIImage(named: name) { return img }
+        if subdirectory == "ExerciseArt" || subdirectory == "ExerciseArt/thumbs" {
+            let remote = RemoteExerciseArtCache.localFileURL(for: name)
+            if FileManager.default.fileExists(atPath: remote.path),
+               let img = UIImage(contentsOfFile: remote.path) {
+                return img
+            }
+        }
         let bundle = Bundle.main
         let candidates: [URL?] = [
             bundle.resourceURL?.appendingPathComponent("\(subdirectory)/\(name).jpg"),
@@ -188,6 +195,15 @@ enum ExerciseArt {
     /// Solo para ficha / carrusel — no usar en filas de lista.
     static func imageNames(for exercise: Exercise) -> [String] {
         let cacheKey = exercise.name
+        if !exercise.artKeys.isEmpty {
+            let available = exercise.artKeys.filter {
+                uiImage(named: $0) != nil || RemoteExerciseArtCache.hasCachedFile(for: $0)
+            }
+            if available.count >= 1 {
+                lookup.setNames(available, for: cacheKey)
+                return available
+            }
+        }
         // Movilidad: solo arte propio con nombre exacto; sin mezclar arte de fuerza.
         if exercise.isMobility {
             guard let base = mobilityArtBase(forExerciseName: exercise.name) else {
@@ -269,15 +285,18 @@ enum ExerciseArt {
         return resolved
     }
 
-    /// Hero para listas: alias editoriales ES/EN tienen prioridad sobre el
-    /// fallback difuso, con el mismo archivo verificado que en el detalle.
+    /// Hero para listas: `artKeys` remotos primero; luego alias ES/EN y nameMap.
     private static func heroImageName(for exercise: Exercise) -> String? {
-        let key = "\(exercise.id.uuidString)|\(exercise.name)|\(exercise.sportTag ?? "")|\(exercise.searchAliases.joined(separator: "|"))"
+        let artKeyPart = exercise.artKeys.joined(separator: ",")
+        let key = "\(exercise.id.uuidString)|\(exercise.name)|\(exercise.sportTag ?? "")|\(exercise.searchAliases.joined(separator: "|"))|\(artKeyPart)"
         if let cached = lookup.heroName(for: key) {
             return cached.isEmpty ? nil : cached
         }
         let base: String?
-        if exercise.isMobility {
+        if let remoteHero = exercise.artKeys.first, acceptedHero(remoteHero) != nil,
+           uiImage(named: remoteHero) != nil || RemoteExerciseArtCache.hasCachedFile(for: remoteHero) {
+            base = remoteHero
+        } else if exercise.isMobility {
             // Nunca coger arte de fuerza por parecido para un ejercicio de movilidad.
             base = mobilityArtBase(forExerciseName: exercise.name)
                 ?? exercise.searchAliases.lazy
@@ -507,7 +526,26 @@ enum ExerciseArt {
         "Curl barra": ["art_curl_barra", "art_curl_mancuernas", "art_curl_predicador"],
         "Press francés": ["art_press_frances", "art_press_cerrado", "art_fondos_banco"],
         "Pullover": ["art_pullover", "art_aperturas", "art_press_banca"],
-    ]
+    
+        // Open sources B/C/D — reuse validated carousels
+        "Kipping Handstand Push Up": ["art_cf_hspu_kipping"],
+        "Ring Handstand Push Up": ["art_cf_hspu_1", "art_cf_hspu_2", "art_cf_hspu_3"],
+        "Parallette Handstand Push Up": ["art_cf_hspu_1", "art_cf_hspu_2", "art_cf_hspu_3"],
+        // HSPU / deficit / libre: carrusel en bloque Gimnasia (sin duplicar claves).
+        "Push Up": ["art_cf_push_up"],
+        "Hand Release Push Up": ["art_cf_push_up"],
+        "Burpee Over Dumbbell": ["art_cf_burpee_1", "art_cf_burpee_2", "art_cf_burpee_3"],
+        "Burpee Over The Bar": ["art_cf_burpee_1", "art_cf_burpee_2", "art_cf_burpee_3"],
+        "Lateral Burpee": ["art_cf_burpee_1", "art_cf_burpee_2", "art_cf_burpee_3"],
+        "Burpee Muscle-Up": ["art_cf_burpee_pu_1", "art_cf_burpee_pu_2", "art_cf_burpee_pu_3"],
+        "Jumping Pull-Up": ["art_dominadas"],
+        "Dumbbell Deadlift": ["art_peso_muerto_1", "art_peso_muerto_2"],
+        "Trap Bar Deadlift": ["art_peso_muerto_1", "art_peso_muerto_2"],
+        "Floor Press": ["art_press_banca_1", "art_press_banca_2"],
+        "Dumbbell Bench Press": ["art_press_mancuernas"],
+        "Sandbag Carry": ["art_cf_farmer_carry"],
+        "Suitcase Carry": ["art_cf_farmer_carry"],
+]
 
     /// Cache thread-safe for full-bleed + name maps. Thumbs live only in `ThumbMemoryCache`.
     private final class ImageLookupCache: @unchecked Sendable {
@@ -612,6 +650,12 @@ enum ExerciseArt {
             lookup.storeFull(img, named: name)
             return img
         }
+        let remote = RemoteExerciseArtCache.localFileURL(for: name)
+        if FileManager.default.fileExists(atPath: remote.path),
+           let img = UIImage(contentsOfFile: remote.path) {
+            lookup.storeFull(img, named: name)
+            return img
+        }
         lookup.markMissing(name)
         return nil
     }
@@ -673,6 +717,54 @@ enum ExerciseArt {
         "Farmer walk": "art_farmer",
         "Ab wheel": "art_ab_wheel",
         "Press Arnold": "art_arnold",
+        "Crunch en polea": "art_crunch",
+        "Elevaciones laterales en polea": "art_elev_lat",
+        "Remo con apoyo de pecho": "art_remo_manc",
+        "Curl femoral sentado": "art_curl_fem",
+        "Curl femoral tumbado": "art_curl_fem",
+        "Pec deck": "art_aperturas",
+        "Abducción de cadera en máquina": "art_abduccion",
+        "Aducción de cadera en máquina": "art_aduccion",
+        "Sentadilla en Smith": "art_sentadilla",
+        "Remo en T": "art_remo_barra",
+        "Curl inclinado con mancuernas": "art_curl_manc",
+        "Sentadilla a cajón con mancuernas": "art_box_squat",
+        "Sentadilla búlgara con mancuernas": "art_bulgara",
+        "Woodchop en polea": "art_pallof",
+
+        // Fase F FED/OEDB (2026-11-04)
+        "Encogimientos": "art_remo_barra",
+        "Gemelos sentado": "art_gemelos",
+        "Press pecho en máquina": "art_press_banca",
+        "Press hombro en máquina": "art_press_militar",
+        "Dominadas asistidas": "art_dominadas",
+        "Fondos asistidos": "art_fondos",
+        "Curl concentrado": "art_curl_manc",
+        "Kickback de tríceps": "art_triceps_polea",
+        "Zancada inversa": "art_zancadas",
+        "Tirón de rack": "art_peso_muerto",
+        "Seal row": "art_remo_manc",
+        "Extensión tríceps overhead": "art_triceps_polea",
+        "Jalón a brazos rectos": "art_jalon",
+        "Hip extension": "art_gy_ghd_back",
+        "Sissy squat": "art_sentadilla",
+        "Sentadilla con safety bar": "art_sentadilla",
+        "Meadows row": "art_remo_barra",
+        "Spider curl": "art_curl_manc",
+        "Curl de muñeca": "art_curl_barra",
+        "Gemelos de burro": "art_gemelos",
+        "Zancada en cortesía": "art_zancadas",
+        "Step-down": "art_cf_step_up",
+        "Aperturas con banda": "art_pajaros",
+
+        // Fase G RepDB/Kinetic (2026-11-04)
+        "Almeja con banda": "art_abduccion",
+        "Hidrante con banda": "art_abduccion",
+        "TKE con banda": "art_extension_cuad",
+        "Windshield wipers": "art_cf_vup",
+        "Dragon flag": "art_gy_hollow_hold",
+        "Planche lean": "art_gy_planche",
+
         // CrossFit
         "Cargada": "art_cf_cargada",
         "Cargada de potencia": "art_cf_power_clean",
@@ -926,7 +1018,202 @@ enum ExerciseArt {
         "Tirón alto de arrancada": "art_hl_snatch_high_pull",
         "Envión en sentadilla": "art_hl_squat_jerk",
 
-    ]
+    
+        // MARK: Open sources B/C/D + full catalog coverage (2026-11-04)
+        "Ab Mat Sit-Up": "art_cf_situp",
+        "Alternating Dumbbell Snatch": "art_cf_power_snatch",
+        "American Kettlebell Swing": "art_cf_kb_swing",
+        "Atlas Stone Over Shoulder": "art_hx_sb_lunge",
+        "Axle Deadlift": "art_peso_muerto",
+        "Axle Press": "art_cf_push_press",
+        "Back Rack Lunge": "art_zancadas",
+        "Barbell Squat Jump": "art_gy_air_squat",
+        "Barbell Step Up": "art_cf_step_up_db",
+        "Battle Rope": "art_cf_battle_rope",
+        "Bear Hug Carry": "art_cf_sandbag_carry",
+        "Behind-the-Neck Jerk": "art_cf_push_jerk",
+        "Behind-the-Neck Press": "art_gy_air_squat",
+        "Bike Erg": "art_cf_airbike",
+        "Bird Dog": "art_gy_air_squat",
+        "Block Clean": "art_cf_power_clean",
+        "Block Power Clean": "art_cf_power_clean",
+        "Block Power Snatch": "art_cf_power_snatch",
+        "Block Snatch": "art_cf_power_snatch",
+        "Bodyweight Clean And Jerk": "art_cf_power_clean",
+        "Box Jump": "art_cf_box_jump",
+        "Box Squat": "art_sentadilla",
+        "Box Step-Over": "art_cf_box_jump",
+        "Box Step-Up": "art_cf_box_jump",
+        "Bradford Press": "art_cf_push_press",
+        "Burpee Bar Muscle Up": "art_cf_mu_bar",
+        "Burpee Box Jump": "art_cf_burpee_box",
+        "Burpee Muscle-Up": "art_cf_mu_bar",
+        "Burpee Over Dumbbell": "art_cf_burpee",
+        "Burpee Over The Bar": "art_cf_burpee",
+        "Clean": "art_cf_power_clean",
+        "Clean and Jerk": "art_cf_power_clean",
+        "Clean and Press": "art_cf_power_clean",
+        "Clean Deadlift": "art_peso_muerto",
+        "Clean High Pull": "art_cf_power_clean",
+        "Clean Pull": "art_cf_power_clean",
+        "Copenhagen Plank": "art_plancha",
+        "Crab Walk": "art_gy_air_squat",
+        "Crossover Single Under": "art_cf_du",
+        "D-Ball Clean": "art_cf_power_clean",
+        "D-Ball Over Shoulder": "art_hx_sb_lunge",
+        "Dead Bug": "art_gy_air_squat",
+        "Dead Hang": "art_mv_dead_hang",
+        "Deficit Deadlift": "art_peso_muerto",
+        "Double Dumbbell Step Up": "art_cf_step_up_db",
+        "Double Kettlebell Farmers Carry": "art_cf_farmer_carry",
+        "Double Kettlebell Front Rack Carry": "art_cf_farmer_carry",
+        "Double Kettlebell Front Rack Lunge": "art_zancadas",
+        "Double Kettlebell Overhead Carry": "art_cf_farmer_carry",
+        "Double-Under": "art_cf_du",
+        "Dumbbell Bench Press": "art_press_banca",
+        "Dumbbell Box Step Up": "art_cf_box_jump",
+        "Dumbbell Burpee Deadlift": "art_cf_burpee",
+        "Dumbbell Carry": "art_cf_farmer_carry",
+        "Dumbbell Clean": "art_cf_power_clean",
+        "Dumbbell Clean and Jerk": "art_cf_power_clean",
+        "Dumbbell Deadlift": "art_peso_muerto",
+        "Dumbbell Floor Press": "art_cf_floor_press",
+        "Dumbbell Front Rack Lunge": "art_zancadas",
+        "Dumbbell Front Squat": "art_cf_goblet",
+        "Dumbbell Hang Clean and Jerk": "art_cf_power_clean",
+        "Dumbbell Hang Clean To Overhead": "art_cf_power_clean",
+        "Dumbbell Hang Power Clean": "art_cf_power_clean",
+        "Dumbbell Hang Split Snatch": "art_cf_power_snatch",
+        "Dumbbell Hang Squat Clean": "art_cf_power_clean",
+        "Dumbbell Overhead Carry": "art_cf_farmer_carry",
+        "Dumbbell Overhead Lunge": "art_zancadas",
+        "Dumbbell Overhead Squat": "art_cf_ohs",
+        "Dumbbell Power Clean": "art_cf_power_clean",
+        "Dumbbell Power Snatch": "art_cf_power_snatch",
+        "Dumbbell Push Jerk": "art_cf_push_press",
+        "Dumbbell Push Press": "art_cf_push_press",
+        "Dumbbell Romanian Deadlift": "art_rdl",
+        "Dumbbell Shoulder Press": "art_cf_push_press",
+        "Dumbbell Shoulder To Overhead": "art_cf_push_press",
+        "Dumbbell Snatch": "art_cf_power_snatch",
+        "Dumbbell Split Clean": "art_cf_power_clean",
+        "Dumbbell Squat Clean": "art_cf_power_clean",
+        "Dumbbell Squat Clean Thruster": "art_cf_thruster",
+        "Dumbbell Strict Press": "art_cf_push_press",
+        "Dumbbell Thruster": "art_cf_thruster",
+        "Dumbbell Waiters Walk": "art_cf_farmer_carry",
+        "Dumbbell Walking Lunge": "art_zancadas",
+        "Floor Press": "art_cf_floor_press",
+        "Flutter Kick": "art_gy_air_squat",
+        "Glute Bridge": "art_hip_thrust",
+        "Glute Ham Raise": "art_hip_thrust",
+        "Hand Release Push Up": "art_cf_push_up",
+        "Hang Clean": "art_cf_power_clean",
+        "Hang High Pull": "art_gy_air_squat",
+        "Hang Snatch": "art_cf_power_snatch",
+        "Hang Squat Clean": "art_cf_power_clean",
+        "Hanging Hip Touch": "art_gy_air_squat",
+        "Hanging Knee Raise": "art_gy_air_squat",
+        "Husafell Carry": "art_cf_farmer_carry",
+        "Jefferson Curl": "art_curl_mancuernas",
+        "Jerk Balance": "art_cf_push_jerk",
+        "Jerk Dip and Drive": "art_cf_push_jerk",
+        "Jerry Bag Carry": "art_cf_farmer_carry",
+        "Jumping Jack": "art_gy_air_squat",
+        "Jumping Pull-Up": "art_dominadas",
+        "Keg Carry": "art_cf_farmer_carry",
+        "Kettlebell Clean": "art_cf_power_clean",
+        "Kettlebell Clean and Jerk": "art_cf_power_clean",
+        "Kettlebell Deadlift": "art_peso_muerto",
+        "Kettlebell Front Rack Lunge": "art_zancadas",
+        "Kettlebell Goblet Box Step-Up": "art_cf_box_jump",
+        "Kettlebell Halo": "art_cf_kb_clean",
+        "Kettlebell Overhead Lunge": "art_zancadas",
+        "Kettlebell Press": "art_cf_kb_clean",
+        "Kettlebell Push Press": "art_cf_push_press",
+        "Kettlebell Snatch": "art_cf_power_snatch",
+        "Kettlebell Sumo Deadlift High Pull": "art_peso_muerto",
+        "Kettlebell Swing": "art_cf_kb_swing",
+        "Kettlebell Thruster": "art_cf_thruster",
+        "Kettlebell Windmill": "art_cf_kb_clean",
+        "Kipping Handstand Push Up": "art_cf_hspu_kipping",
+        "L Pull Up": "art_dominadas",
+        "Landmine Press": "art_cf_push_press",
+        "Lateral Burpee": "art_cf_burpee",
+        "Lateral Lunge": "art_zancadas",
+        "Log Carry": "art_cf_farmer_carry",
+        "Log Clean And Jerk": "art_cf_power_clean",
+        "Log Press": "art_hx_sb_lunge",
+        "Medicine Ball Box Step Over": "art_cf_box_jump",
+        "Medicine Ball Sit Up": "art_cf_situp",
+        "Medicine Ball Throw": "art_remo_mancuerna",
+        "Mountain Climber": "art_gy_air_squat",
+        "Muscle Clean": "art_cf_power_clean",
+        "Muscle Snatch": "art_cf_power_snatch",
+        "Negative Pull Up": "art_dominadas",
+        "Nordic Curl": "art_curl_mancuernas",
+        "Overhead Lunge": "art_zancadas",
+        "Overhead Walk": "art_cf_farmer_carry",
+        "Pallof Press": "art_gy_air_squat",
+        "Parallel Bar Traverse": "art_gy_air_squat",
+        "Parallette Handstand Push Up": "art_cf_hspu",
+        "Pause Clean": "art_cf_power_clean",
+        "Pause Front Squat": "art_cf_goblet",
+        "Pause Snatch": "art_cf_power_snatch",
+        "Pendlay Row": "art_remo_mancuerna",
+        "Plate Carry": "art_cf_farmer_carry",
+        "Power Clean": "art_cf_power_clean",
+        "Power Snatch": "art_cf_power_snatch",
+        "Push Up": "art_cf_push_up",
+        "Renegade Row": "art_press_mancuernas",
+        "Reverse Hyper": "art_gy_air_squat",
+        "Ring Hamstring Curl": "art_cf_mu_rings",
+        "Ring Handstand Push Up": "art_cf_hspu",
+        "Ring Lower": "art_cf_mu_rings",
+        "Ring Push Up": "art_cf_push_up",
+        "Run": "art_gy_air_squat",
+        "Russian Twist": "art_gy_air_squat",
+        "Sandbag Carry": "art_cf_sandbag_carry",
+        "Sandbag Ground To Shoulder": "art_cf_sandbag_carry",
+        "Sandbag Load To Box": "art_hx_sb_lunge",
+        "Sandbag Over Log": "art_hx_sb_lunge",
+        "Sandbag Squat": "art_hx_sb_lunge",
+        "Seated Box Jump": "art_cf_box_jump",
+        "Side Plank": "art_plancha",
+        "Single Arm Dumbbell Thruster": "art_cf_thruster",
+        "Single Arm Kettlebell Swing": "art_cf_kb_swing",
+        "Single Arm Kettlebell Thruster": "art_cf_thruster",
+        "Single Leg Glute Bridge": "art_hip_thrust",
+        "Single Leg Romanian Deadlift": "art_rdl",
+        "Single-Under": "art_cf_du",
+        "Skater Jump": "art_gy_air_squat",
+        "Sled Drag": "art_cf_sled_push",
+        "Sledgehammer Strike": "art_cf_sled_push",
+        "Snatch": "art_cf_power_snatch",
+        "Snatch Balance": "art_cf_power_snatch",
+        "Snatch High Pull": "art_cf_power_snatch",
+        "Snatch Pull": "art_cf_power_snatch",
+        "Snatch-Grip Deadlift": "art_peso_muerto",
+        "Snatch-Grip Push Press": "art_cf_push_press",
+        "Split Snatch": "art_cf_power_snatch",
+        "Squat Jerk": "art_cf_push_jerk",
+        "Stiff Legged Deadlift": "art_peso_muerto",
+        "Strict Knee Raise": "art_gy_air_squat",
+        "Strict Knees To Chest": "art_gy_air_squat",
+        "Suitcase Carry": "art_cf_farmer_carry",
+        "Superman": "art_gy_air_squat",
+        "Tire Flip": "art_hx_sb_lunge",
+        "Trap Bar Deadlift": "art_cf_trap_deadlift",
+        "Triple-Under": "art_cf_du",
+        "Tuck Jump": "art_gy_air_squat",
+        "Wall Climb": "art_cf_wall_walk",
+        "Wall Climb Over": "art_cf_wall_walk",
+        "Wall Sit": "art_gy_air_squat",
+        "Z Press": "art_cf_push_press",
+        "Zercher Carry": "art_cf_farmer_carry",
+        "Zercher Deadlift": "art_peso_muerto",
+        "Zercher Squat": "art_gy_air_squat",
+]
 
 }
 

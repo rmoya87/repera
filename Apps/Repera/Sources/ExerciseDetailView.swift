@@ -390,7 +390,9 @@ struct ExerciseDetailView: View {
                                 )
                             }
 
-                            if exercise.sportTag != "Movilidad" {
+                            // %1RM solo tiene sentido en fuerza con kg×reps.
+                            if exercise.sportTag != "Movilidad",
+                               exercise.loggingStyle == .loadAndReps {
                                 VStack(alignment: .leading, spacing: 8) {
                                     OGCardSectionTitle(title: "Carga sugerida")
                                     OGCard { suggestedLoadSection(exercise) }

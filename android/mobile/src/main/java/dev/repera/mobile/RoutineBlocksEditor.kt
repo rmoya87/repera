@@ -1264,7 +1264,8 @@ private fun EntryEditorRow(
                     ExerciseListThumb(
                         name = exerciseEntry.name,
                         sportTag = exerciseEntry.sportTag,
-                        aliases = emptyMap()
+                        aliases = emptyMap(),
+                        artKeys = exerciseEntry.artKeys,
                     )
                 } else if (!isRest) {
                     ExerciseListThumb(

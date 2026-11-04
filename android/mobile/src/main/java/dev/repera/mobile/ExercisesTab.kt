@@ -135,13 +135,13 @@ internal fun ExercisesTab(
         }
         QuickLogSheet(entry,accountId,busy,last,{quickLogId=null}) {rows,notes,requestId ->onSaveQuickSets(entry.id,rows,notes,requestId) {quickLogId=null}}
     }
-    var selectedLiveSessionID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
     var libraryMode by rememberSaveable { mutableStateOf("Ejercicios") }
-    var selectedSportID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
-    var sportSearch by rememberSaveable { mutableStateOf("") }
-    // Entrada desde Progreso ("Deportes · evolución y récords", Apple StatsView): abre el catálogo de deportes una vez.
+    // Entrada desde Progreso u otras rutas: solo WODs sigue viviendo en Ejercicios.
     LaunchedEffect(requestedLibraryMode) {
-        requestedLibraryMode?.let {libraryMode=it;selectedSportID=null;onLibraryModeRequestConsumed()}
+        requestedLibraryMode?.let { mode ->
+            if (mode == "WODs") libraryMode = mode
+            onLibraryModeRequestConsumed()
+        }
     }
     var exerciseSearch by rememberSaveable { mutableStateOf("") }
     var exerciseFilter by rememberSaveable { mutableStateOf("Todos") }
@@ -150,7 +150,7 @@ internal fun ExercisesTab(
     var exerciseSort by rememberSaveable { mutableStateOf("Alfabético") }
     var showingExerciseFilters by rememberSaveable {mutableStateOf(false)}
     if(showingExerciseFilters) ExerciseFilterSheet(
-        listOf("WODs", "Deportes") + listOf("Favoritos") +
+        listOf("WODs") + listOf("Favoritos") +
             ExerciseCatalogFilters.available(overview?.exerciseEntries.orEmpty()),
         exerciseFilter,exerciseSort,
         onFilter = { value ->
@@ -159,24 +159,12 @@ internal fun ExercisesTab(
                     libraryMode = "WODs"
                     showingExerciseFilters = false
                 }
-                "Deportes" -> {
-                    libraryMode = "Deportes"
-                    showingExerciseFilters = false
-                }
                 else -> exerciseFilter = value
             }
         },
         onSort = { exerciseSort = it },
         onClose = { showingExerciseFilters = false })
     val context = LocalContext.current
-    var routeVersion by remember { mutableStateOf(0) }
-    var routeError by remember { mutableStateOf<String?>(null) }
-    val routeStore = remember(accountId) {
-        if (accountId.isBlank()) null else runCatching { LiveRoutesStore(context, accountId) }.getOrNull()
-    }
-    var evolutionRouteID by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
-    var editingLiveSession by rememberSaveable(accountId) { mutableStateOf(false) }
-    val savedRoutes = remember(routeStore, routeVersion) { routeStore?.routes.orEmpty() }
     val englishAliases = remember(context) { ExerciseSearchAssets.load(context) }
     // LazyListScope is not @Composable: calculate the filtered list here,
     // where remember is legal, then hand the immutable result to LazyColumn.
@@ -218,133 +206,6 @@ internal fun ExercisesTab(
                     exerciseSummary=exerciseSummary,
                     exerciseSeries=exerciseSeries,onBack=close)
             })
-        return
-    }
-    if (libraryMode == "Deportes") {
-        val selected = selectedSportID?.let { dev.repera.domain.LiveSport.byId(it) }
-        androidx.activity.compose.BackHandler(
-            enabled = selectedSportID != null || selectedLiveSessionID != null || evolutionRouteID != null
-        ) {
-            when {
-                selectedLiveSessionID != null -> selectedLiveSessionID = null
-                evolutionRouteID != null -> evolutionRouteID = null
-                else -> selectedSportID = null
-            }
-        }
-        Column(modifier.fillMaxSize()) {
-            val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
-            if (detail != null && editingLiveSession) {
-                FinishedWorkoutEditorScreen(
-                    workout = detail,
-                    accountId = accountId,
-                    busy = busy,
-                    exerciseCatalog = overview?.exerciseEntries.orEmpty(),
-                    effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
-                    importableRoutines = overview?.routineEntries.orEmpty(),
-                    onBack = { editingLiveSession = false },
-                    onSave = { edit, drafts ->
-                        onUpdateFinishedWorkout(detail.id, edit, drafts)
-                        editingLiveSession = false
-                    }
-                )
-            } else if (detail != null) {
-                val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
-                ProvideLazyDragAutoScroll(dragListState) {
-                LazyColumn(state = dragListState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item { TextButton(onClick = { selectedLiveSessionID = null }) { Text("Volver al deporte") } }
-                    item {
-                        Text(detail.title, style = MaterialTheme.typography.headlineMedium)
-                        Text(detail.startedAt, style = MaterialTheme.typography.bodySmall)
-                        overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
-                            Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
-                            session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text(dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)+" km") }
-                            session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it)) }
-                            session.activeEnergyKcal?.takeIf { it > 0 }?.let { Text("Energía activa medida: %.0f kcal".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it)) }
-                        }
-                    }
-                    item { SessionMovementSection(detail.id) }
-                    item { SessionSportMetricRow(detail) }
-                    item { RouteUnavailableNotice(detail) }
-                    item { detail.review?.let { SessionReviewCard(it) } }
-                    if (detail.routePoints.size >= 2) item {
-                        CardioRouteSection(
-                            detail.routePoints,
-                            showComputedSplits = detail.liveKilometerSplitsSeconds.isEmpty(),
-                            waterSport = detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.isWaterSport == true,
-                            workoutEpochMs = workoutEpochMs(detail),
-                            liveSportId = detail.liveSportID,
-                            persistedConditions = detail.activityConditions
-                        )
-                    }
-                    item {
-                        val heart by androidx.compose.runtime.produceState<List<Pair<Long,Int>>>(emptyList(),detail.id) {
-                            value=runCatching { heartSeriesProvider(detail.id) }.getOrDefault(emptyList())
-                        }
-                        HeartRateCurveSection(detail.id,heartSeriesProvider)
-                        SessionRangeTiles("Frecuencia cardiaca",SessionSportMetrics.heartRange(heart.map {it.second}),"lpm",heart=true)
-                        if (detail.routePoints.size >= 2) SessionRangeTiles("Altitud",SessionSportMetrics.altitudeRange(detail.routePoints),"m")
-                        LiveKilometerSplitsSection(detail.liveKilometerSplitsSeconds,
-                            detail.liveSportID?.let(dev.repera.domain.LiveSport::byId)?.displaysSpeed == true,
-                            detail.routePoints,heart)
-                    }
-                    item {
-                        FinishedWorkoutEditorSection(
-                            workout = detail,
-                            accountId = accountId,
-                            busy = busy,
-                            exerciseCatalog = overview?.exerciseEntries.orEmpty(),
-                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
-                            onOpenFullEditor = { editingLiveSession = true },
-                            onSave = { edit -> onUpdateFinishedWorkout(detail.id, edit, null) }
-                        )
-                    }
-                }
-                }
-            } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
-                LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,
-                    overview?.liveSportSessions.orEmpty(), onBack = { evolutionRouteID = null },
-                    onOpenSession = { selectedLiveSessionID = it })
-            } else if (selected != null) {
-                routeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                LiveSportHistoryScreen(selected, overview?.liveSportSessions.orEmpty(),
-                    onBack = { selectedSportID = null },
-                    onOpenSession = { selectedLiveSessionID = it },
-                    favoriteRoutes = savedRoutes.filter { r -> r.isFavorite &&
-                        (r.sportID == selected.id || overview?.liveSportSessions.orEmpty().any { it.sportID == selected.id && it.liveRouteID == r.id }) },
-                    canSaveRoute = { id -> routeStore != null &&
-                        overview?.completeHistory?.firstOrNull { it.id == id }?.routePoints.orEmpty().size >= 2 &&
-                        savedRoutes.none { r -> r.isFavorite && overview?.liveSportSessions.orEmpty().any { it.id == id && it.liveRouteID == r.id } } },
-                    onOpenRoute = { evolutionRouteID = it.id },
-                    onSaveRoute = { id ->
-                        try {
-                            val store = routeStore ?: error("Almacén no disponible")
-                            val current = overview ?: error("Historial no disponible")
-                            val session = current.liveSportSessions.firstOrNull { it.id == id }
-                                ?: error("Sesión no encontrada")
-                            val existing = savedRoutes.firstOrNull { it.id == session.liveRouteID }
-                            if (existing != null) store.setFavorite(existing.id, true)
-                            else {
-                                val detail = current.completeHistory.firstOrNull { it.id == id }
-                                    ?: error("Sesión no encontrada")
-                                val route = store.addRecordedRoute(detail.title, detail.routePoints, selected.id,
-                                    true, session.startedEpochMillis ?: System.currentTimeMillis())
-                                WorkoutRepository(context, accountId).setLiveRouteID(id, route.id)
-                            }
-                            routeVersion++;routeError = null;onArchiveChanged()
-                        } catch (_: Exception) { routeError = "No se pudo guardar la ruta. Comprueba el almacenamiento e inténtalo de nuevo." }
-                    })
-            } else {
-                TextButton(onClick = { libraryMode = "Ejercicios" }) { Text("Volver a Ejercicios") }
-                ReperaSearchField(
-                    value = sportSearch,
-                    onValueChange = { sportSearch = it },
-                    placeholder = "Buscar deporte",
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                LiveSportsCatalogScreen(overview?.liveSportSessions.orEmpty(), sportSearch,
-                    onOpenSport = { selectedSportID = it.id })
-            }
-        }
         return
     }
     val listContent: @Composable ((String)->Unit)->Unit = {openExercise ->

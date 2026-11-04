@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -507,7 +508,6 @@ internal fun ProgressTab(
                 item {
                     val monthSnap = overview?.progressByRange?.get(ProgressTimeRange.MONTH.wire)
                     val monthMins = monthSnap?.summary?.totalMinutes?.toInt() ?: 0
-                    val monthSessions = monthSnap?.summary?.sessionCount ?: 0
                     val daysElapsed = daysElapsedInCalendarMonth(today)
                     val weeklyAvg = weeklyAverageMinutes(monthMins, daysElapsed)
                     val hero = activeDurationHero(weeklyAvg)
@@ -526,13 +526,11 @@ internal fun ProgressTab(
                         },
                         heroValue = hero.first,
                         heroUnit = hero.second,
-                        heroCaption = if (monthMins > 0) {
-                            "media/semana · $monthSessions sesiones"
-                        } else {
-                            null
-                        },
+                        heroCaption = if (monthMins > 0) "media semana" else null,
                         barFractions = spark,
-                        elevateChart = true
+                        elevateChart = true,
+                        chartBesideTitle = true,
+                        chartStyle = ProgressMiniChartStyle.FILL
                     )
                 }
             }
@@ -917,32 +915,30 @@ internal fun ProgressTab(
                             ReperaCard(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     Modifier.padding(14.dp).fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.Top
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(Modifier.weight(1f)) {
                                         Text(
                                             row.title,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                            color = ProgressCategory.SPORTS.accent,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             maxLines = 2
                                         )
                                         Text(
-                                            "${row.sessionCount}×",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            "${row.sessionCount}× · ${row.bestLine}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
                                         )
                                     }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text(
-                                            row.totalLine,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(row.bestLine, style = MaterialTheme.typography.bodyMedium)
-                                    }
+                                    Text(
+                                        row.primaryValue,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                        maxLines = 1
+                                    )
                                 }
                             }
                         }
@@ -981,10 +977,10 @@ private fun compactActiveDuration(minutes: Int): String {
 
 private fun activeDurationHero(minutes: Int): Pair<String, String?> {
     if (minutes <= 0) return "—" to null
-    if (minutes < 60) return "$minutes" to "min"
+    if (minutes < 60) return "$minutes" to "m"
     val h = minutes / 60
     val m = minutes % 60
-    return if (m == 0) "$h" to "h" else "$h h $m" to "min"
+    return if (m == 0) "$h" to "h" else "$h h $m" to "m"
 }
 
 /** Media diaria = minutos totales / 7 (ventana fija; días sin estímulo = 0 min). */
@@ -1112,7 +1108,7 @@ private fun smoothFractions(values: List<Float>): List<Float> {
 private data class MonthActivityHighlightRow(
     val title: String,
     val sessionCount: Int,
-    val totalLine: String,
+    val primaryValue: String,
     val bestLine: String,
     val sortMeters: Double,
     val sortMinutes: Double
@@ -1181,10 +1177,10 @@ private fun monthActivityHighlights(
         MonthActivityHighlightRow(
             title = bucket.title,
             sessionCount = bucket.count,
-            totalLine = if (useDistance) {
-                "Total · ${compactDistanceMeters(bucket.totalMeters)}"
+            primaryValue = if (useDistance) {
+                compactDistanceMeters(bucket.totalMeters)
             } else {
-                "Total · ${compactActiveDuration(bucket.totalMinutes.roundToInt())}"
+                compactActiveDuration(bucket.totalMinutes.roundToInt())
             },
             bestLine = if (useDistance) {
                 "Más larga · ${compactDistanceMeters(bucket.bestMeters)}"
@@ -1422,6 +1418,7 @@ private fun ProgressMonthSummaryCard(
     barFractions: List<Float> = emptyList(),
     barRanges: List<Pair<Float, Float>> = emptyList(),
     elevateChart: Boolean = false,
+    chartBesideTitle: Boolean = false,
     chartStyle: ProgressMiniChartStyle = ProgressMiniChartStyle.FILL
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1437,6 +1434,7 @@ private fun ProgressMonthSummaryCard(
             barFractions = barFractions,
             barRanges = barRanges,
             elevateChart = elevateChart,
+            chartBesideTitle = chartBesideTitle,
             chartStyle = chartStyle
         )
     }
@@ -1467,15 +1465,19 @@ private fun ProgressSaludInsightCard(
         else -> 64.dp
     }
     val barWidth = if (elevateChart || chartBesideTitle) 152.dp else 120.dp
+    val alignChartBottom = chartStyle != ProgressMiniChartStyle.RANGE
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
         if (elevateChart && barFractions.isNotEmpty() && narrative.isEmpty()) {
             if (chartBesideTitle) {
                 Row(
-                    Modifier.padding(16.dp).fillMaxWidth(),
+                    Modifier.padding(16.dp).fillMaxWidth().height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1492,7 +1494,8 @@ private fun ProgressSaludInsightCard(
                             Text(
                                 heroValue,
                                 style = MaterialTheme.typography.displayLarge,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                maxLines = 1
                             )
                             if (heroUnit != null) {
                                 Text(
@@ -1540,16 +1543,20 @@ private fun ProgressSaludInsightCard(
                         )
                     }
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.Bottom
+                        verticalAlignment = if (alignChartBottom) Alignment.Bottom else Alignment.CenterVertically
                     ) {
-                        Column(Modifier.weight(1f)) {
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
                                     heroValue,
                                     style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1
                                 )
                                 if (heroUnit != null) {
                                     Text(
@@ -1565,8 +1572,7 @@ private fun ProgressSaludInsightCard(
                                     heroCaption,
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 0.dp)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

@@ -40,12 +40,24 @@ internal object ExerciseArtImages {
         return sample
     }
 
-    fun carouselStems(context: Context, name: String, isMobility: Boolean,
-                      aliases: Map<String, String>, captionCount: Int): List<String> {
-        val stems = availableStems(context)
+    fun carouselStems(
+        context: Context,
+        name: String,
+        isMobility: Boolean,
+        aliases: Map<String, String>,
+        captionCount: Int,
+        artKeys: List<String> = emptyList(),
+    ): List<String> {
+        val packaged = availableStems(context)
+        fun present(stem: String) =
+            stem in packaged || RemoteExerciseArtCache.hasFile(context, stem)
+        if (artKeys.isNotEmpty()) {
+            val available = artKeys.filter(::present)
+            if (available.isNotEmpty()) return available
+        }
         val hero = ExerciseArtResolver.heroFor(name, isMobility, aliases) ?: return emptyList()
-        return ExerciseArtResolver.framesFor(name, hero, captionCount, isMobility) { it in stems }
-            .filter { it in stems }
+        return ExerciseArtResolver.framesFor(name, hero, captionCount, isMobility, ::present)
+            .filter(::present)
     }
 
     /** [targetPx] is the largest rendered side; 0 decodes at full resolution (hero). */
@@ -54,16 +66,29 @@ internal object ExerciseArtImages {
         cache.get(key)?.let { return it }
         return withContext(Dispatchers.IO) {
             runCatching {
-                val path = "exercise-art/$stem.jpg"
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
-                val options = BitmapFactory.Options().apply {
-                    inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, targetPx)
-                }
-                context.assets.open(path).use { input ->
-                    BitmapFactory.decodeStream(input, null, options)?.asImageBitmap()
-                }
+                decodeStem(context, stem, targetPx)
             }.getOrNull()?.also { cache.put(key, it) }
+        }
+    }
+
+    private fun decodeStem(context: Context, stem: String, targetPx: Int): ImageBitmap? {
+        val remote = RemoteExerciseArtCache.fileFor(context, stem)
+        if (remote.isFile) {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(remote.path, bounds)
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, targetPx)
+            }
+            return BitmapFactory.decodeFile(remote.path, options)?.asImageBitmap()
+        }
+        val path = "exercise-art/$stem.jpg"
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, targetPx)
+        }
+        return context.assets.open(path).use { input ->
+            BitmapFactory.decodeStream(input, null, options)?.asImageBitmap()
         }
     }
 }

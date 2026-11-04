@@ -97,6 +97,57 @@ class RemoteExerciseCatalogInstrumentedTest {
     }
 
     @Test
+    fun remoteEquipmentArrayUpdatesSeedWithoutOverride() {
+        // Paridad RemoteExerciseCatalogMerge: array `equipment` publicado pisa seed;
+        // no hace falta equipment_override. Vacío remoto conserva el seed.
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previous = if (file.exists()) file.readBytes() else null
+        val account = "remote-equipment-array-${UUID.randomUUID()}"
+        val id = UUID.randomUUID().toString()
+        val key = "catalog:Press banca"
+        val local = LocalSnapshotStore(context, account)
+        local.write(JSONObject()
+            .put("exercises", JSONArray().put(JSONObject()
+                .put("id", id).put("name", "Press banca")
+                .put("muscleGroup", "Pecho").put("equipment", "Barra")
+                .put("isFavorite", true).put("isCustom", false)))
+            .put("workouts", JSONArray()).put("routines", JSONArray())
+            .put("syncRevision", 1).toString().toByteArray())
+        try {
+            val remote = JSONObject()
+                .put("name", "Press banca")
+                .put("category", "Fuerza")
+                .put("equipment", JSONArray().put("Barra").put("Banco"))
+                .put("is_active", true)
+            file.writeText(JSONObject()
+                .put("revision", 1)
+                .put("entries", JSONObject().put(key, remote))
+                .put("localIDs", JSONObject()).toString())
+            assertTrue(RemoteExerciseCatalog(context).applyToAccount(account))
+            val updated = JSONObject(String(local.read()!!, Charsets.UTF_8))
+                .getJSONArray("exercises").getJSONObject(0)
+            assertEquals(id, updated.getString("id"))
+            assertEquals("Barra, Banco", updated.getString("equipment"))
+            assertTrue(updated.getBoolean("isFavorite"))
+
+            // Remoto sin equipment no debe borrar el valor ya aplicado (ni el seed).
+            remote.remove("equipment")
+            remote.put("name", "Press banca") // sin otros cambios → apply idempotente
+            file.writeText(JSONObject()
+                .put("revision", 2)
+                .put("entries", JSONObject().put(key, remote))
+                .put("localIDs", JSONObject()).toString())
+            assertFalse(RemoteExerciseCatalog(context).applyToAccount(account))
+            val kept = JSONObject(String(local.read()!!, Charsets.UTF_8))
+                .getJSONArray("exercises").getJSONObject(0)
+            assertEquals("Barra, Banco", kept.getString("equipment"))
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
+    @Test
     fun remoteUpdateKeepsFavoriteIdentityAndArchivesWithoutDeletingHistory() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.filesDir, "exercise_catalog_remote_v1.json")

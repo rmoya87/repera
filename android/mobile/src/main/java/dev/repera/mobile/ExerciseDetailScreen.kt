@@ -103,9 +103,12 @@ internal fun ExerciseDetailScreen(
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second
     val isMobility = entry.sportTag == "Movilidad"
-    val frames = remember(entry.id) {
-        ExerciseArtImages.carouselStems(context, entry.name, isMobility, aliases,
-            captionCount = entry.instructions.count { it.isNotBlank() })
+    val frames = remember(entry.id, entry.artKeys) {
+        ExerciseArtImages.carouselStems(
+            context, entry.name, isMobility, aliases,
+            captionCount = entry.instructions.count { it.isNotBlank() },
+            artKeys = entry.artKeys,
+        )
     }
     ReadableColumn {
     LazyColumn(
@@ -192,7 +195,8 @@ internal fun ExerciseDetailScreen(
             }
         }
         item { MuscleEquipmentCard(entry) }
-        if (!isMobility) {
+        // %1RM solo en fuerza kg×reps (paridad iOS ExerciseDetailView).
+        if (!isMobility && entry.loggingStyle == "loadAndReps") {
             item { ReperaSectionTitle("Carga sugerida") }
             item { SuggestedExerciseLoadCard(testedOneRM, estimatedOneRM, incrementKg) }
         }
@@ -473,8 +477,8 @@ internal fun ExerciseEvolutionSection(
                     }
                 )
             }
-            // Píldoras full-width (mismo estilo que Progreso / resto de la app).
-            ReperaTopicSegmentedPicker(
+            // Tabs scrollables: Mejor m / Mejor cal / Suma m / Suma cal / Tiempo (no menú).
+            ReperaScrollableTopicTabs(
                 options = metrics.map { it.title },
                 selected = selectedMetric.title,
                 onSelected = { label ->

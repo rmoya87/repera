@@ -356,14 +356,14 @@ struct StatsView: View {
         return m == 0 ? "\(h) h" : "\(h) h \(m)"
     }
 
-    /// Valor + unidad del héroe de estímulo (≥60 min → horas y minutos).
+    /// Valor + unidad del héroe de estímulo (≥60 min → horas y minutos). Unidad corta «m».
     private static func activeDurationHero(_ minutes: Int) -> (value: String, unit: String?) {
         guard minutes > 0 else { return ("—", nil) }
-        if minutes < 60 { return ("\(minutes)", "min") }
+        if minutes < 60 { return ("\(minutes)", "m") }
         let h = minutes / 60
         let m = minutes % 60
         if m == 0 { return ("\(h)", "h") }
-        return ("\(h) h \(m)", "min")
+        return ("\(h) h \(m)", "m")
     }
 
     /// Media diaria = minutos totales / 7 (ventana fija; días sin estímulo cuentan como 0 min).
@@ -809,7 +809,8 @@ struct StatsView: View {
                 unit: "LPM",
                 caption: "media reciente",
                 valuePointSize: 64,
-                chartHeight: 72
+                chartHeight: 72,
+                chartAlignsBottom: false
             ) {
                 // A la derecha: cápsulas redondeadas levitando entre mín–máx (nunca desde 0).
                 ProgressMiniRangeBars(
@@ -1086,11 +1087,13 @@ struct StatsView: View {
                     tint: ProgressCategory.fitness.accent,
                     value: hero.value,
                     unit: hero.unit,
-                    caption: "media/semana · \(month.sessionCount) sesiones",
-                    valuePointSize: 54
+                    caption: "media semana",
+                    valuePointSize: 54,
+                    chartHeight: 108,
+                    chartBesideTitle: true
                 ) {
-                    ProgressMiniRangeBars(
-                        samples: spark,
+                    ProgressMiniFillBars(
+                        fractions: spark.map(\.upperBound),
                         tint: ProgressCategory.fitness.accent,
                         height: 108
                     )
@@ -1108,9 +1111,7 @@ struct StatsView: View {
                     ProgressHeroMetricRow(
                         value: hero.value,
                         unit: hero.unit,
-                        caption: minutes > 0
-                            ? "media/semana · \(month.sessionCount) sesiones"
-                            : nil,
+                        caption: minutes > 0 ? "media semana" : nil,
                         valuePointSize: 54
                     ) {
                         EmptyView()
@@ -1136,7 +1137,8 @@ struct StatsView: View {
                     unit: "LPM",
                     caption: "media/semana",
                     valuePointSize: 54,
-                    chartHeight: 72
+                    chartHeight: 72,
+                    chartAlignsBottom: false
                 ) {
                     ProgressMiniRangeBars(
                         samples: spark,
@@ -1232,31 +1234,26 @@ struct StatsView: View {
                 if !highlights.isEmpty {
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(highlights.prefix(6)) { row in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: row.symbol)
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(ProgressCategory.sports.accent)
-                                    .padding(.top, 2)
+                            HStack(alignment: .center, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(row.title)
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(OG.label)
                                         .lineLimit(2)
-                                    Text("\(row.sessionCount)×")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(OG.label2)
+                                    Text("\(row.sessionCount)× · \(row.bestLine)")
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(OG.label3)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                VStack(alignment: .trailing, spacing: 2) {
-                                    Text(row.totalLine)
-                                        .font(.subheadline)
-                                        .foregroundStyle(OG.label2)
-                                        .multilineTextAlignment(.trailing)
-                                    Text(row.bestLine)
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(OG.label)
-                                        .multilineTextAlignment(.trailing)
-                                }
+                                Text(row.primaryValue)
+                                    .ogFont(28, weight: .bold, design: .rounded, relativeTo: .title)
+                                    .monospacedDigit()
+                                    .foregroundStyle(OG.label)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                                    .multilineTextAlignment(.trailing)
                             }
                         }
                     }
@@ -2201,11 +2198,12 @@ private struct ProgressSessionScoreChartCard: View {
 
 /// Fila del resumen «Este mes» por actividad (Deportes).
 private struct MonthActivityHighlight: Identifiable {
-    var id: String { title + totalLine + bestLine }
+    var id: String { title + primaryValue + bestLine }
     var title: String
     var symbol: String
     var sessionCount: Int
-    var totalLine: String
+    /// Dato grande a la derecha (km o duración).
+    var primaryValue: String
     var bestLine: String
     var sortMeters: Double
     var sortMinutes: Double
@@ -2233,20 +2231,20 @@ private struct MonthActivityBucket {
 
     func highlight() -> MonthActivityHighlight {
         let useDistance = prefersDistance && totalMeters > 0
-        let totalLine: String
+        let primaryValue: String
         let bestLine: String
         if useDistance {
-            totalLine = "Total · \(StatsView.compactDistance(totalMeters))"
+            primaryValue = StatsView.compactDistance(totalMeters)
             bestLine = "Más larga · \(StatsView.compactDistance(bestMeters))"
         } else {
-            totalLine = "Total · \(StatsView.compactActiveDuration(Int(totalMinutes.rounded())))"
+            primaryValue = StatsView.compactActiveDuration(Int(totalMinutes.rounded()))
             bestLine = "Más larga · \(StatsView.compactActiveDuration(Int(bestMinutes.rounded())))"
         }
         return MonthActivityHighlight(
             title: title,
             symbol: symbol,
             sessionCount: sessionCount,
-            totalLine: totalLine,
+            primaryValue: primaryValue,
             bestLine: bestLine,
             sortMeters: totalMeters,
             sortMinutes: totalMinutes

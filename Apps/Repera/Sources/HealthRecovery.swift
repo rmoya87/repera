@@ -1498,19 +1498,27 @@ struct HealthRecoveryProgressView: View {
 
                 Chart {
                     ForEach(orderedNights) { night in
-                        BarMark(
-                            x: .value("Día", night.date, unit: .day),
-                            y: .value("Horas", night.hours)
+                        AreaMark(
+                            x: .value("Día", night.date),
+                            yStart: .value("Base", yLo),
+                            yEnd: .value("Horas", night.hours)
                         )
-                        .foregroundStyle(NightSky.mid.opacity(0.85))
-                        .cornerRadius(4)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [NightSky.mid.opacity(0.5), NightSky.ink.opacity(0.15)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .interpolationMethod(.catmullRom)
 
-                        PointMark(
-                            x: .value("Día", night.date, unit: .day),
+                        LineMark(
+                            x: .value("Día", night.date),
                             y: .value("Horas", night.hours)
                         )
-                        .symbolSize(36)
                         .foregroundStyle(NightSky.glow)
+                        .lineStyle(StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+                        .interpolationMethod(.catmullRom)
                     }
                     if let selectedSleepDate,
                        let selected = orderedNights.min(by: {
@@ -1531,57 +1539,25 @@ struct HealthRecoveryProgressView: View {
                 .chartXSelection(value: $selectedSleepDate)
                 .chartXScale(domain: xStart...xEnd)
                 .chartYScale(domain: yLo...yHi)
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
-                            .foregroundStyle(Color.white.opacity(0.25))
-                        AxisValueLabel {
-                            if let hours = value.as(Double.self) {
-                                Text("\(Int(hours.rounded())) h")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.white.opacity(0.75))
-                            }
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .stride(by: .day)) { value in
-                        AxisValueLabel {
-                            if let date = value.as(Date.self) {
-                                Text(date.formatted(Date.FormatStyle().weekday(.narrow).locale(SpanishDate.appLocale)))
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.white.opacity(0.75))
-                            }
-                        }
-                    }
-                }
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
                 .padding(10)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")
 
                 if orderedNights.count > 1 {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(orderedNights.reversed().enumerated()), id: \.element.id) { index, night in
-                            HStack {
-                                Text(night.date.formatted(Date.FormatStyle().weekday(.abbreviated).day().month(.abbreviated).locale(SpanishDate.appLocale)))
-                                    .font(.footnote)
-                                    .foregroundStyle(OG.label2)
-                                Spacer()
-                                Text("\(ReperaNumberFormat.decimal(night.hours)) h")
-                                    .font(.footnote.weight(.semibold).monospacedDigit())
-                                    .foregroundStyle(OG.label)
-                            }
-                            .padding(.vertical, 8)
-                            if index < orderedNights.count - 1 {
-                                Divider().overlay(OG.surface3.opacity(0.55))
-                            }
-                        }
+                    HStack {
+                        Text(xStart.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
+                        Spacer()
+                        Text(xEnd.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
                     }
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(OG.label3)
                 }
             }
         }

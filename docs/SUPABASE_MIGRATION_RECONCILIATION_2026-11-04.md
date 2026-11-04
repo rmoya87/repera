@@ -164,3 +164,18 @@ Lista reparada: `20261020140000`, `20261020160000`, `20261020162000`,
 **Estado tras el cierre: 0 solo en git / 0 solo en remoto** (historial alineado;
 `shared` ≈ 134). Seguir sin `db push` masivo en el futuro si vuelve a haber
 desfases: verificar efectos y `repair`, o aplicar SQL idempotente una a una.
+
+## Catálogo open-sources C–G en producción (04/11 noche)
+
+Aplicadas una a una (`supabase db query --linked -f …` +
+`migration repair --status applied`), sin `db push` masivo:
+
+| Versión | Contenido |
+|---|---|
+| `20261104210000` … `20261104250000` | Fases C–F + backfills/alternatives/coaching rewrite/sport tags |
+| `20261104260000` | Ya estaba (campos canónicos / `mobile_art_keys`) |
+| `20261104270000` | Fase G (+6 RepDB/Kinetic) |
+
+Verificación: `business_exercise_catalog` activo = **476**; Fase F meta = 23;
+Fase G meta = 6; 0 fichas activas sin descripción ni `mobile_sport_tag`.
+Pendientes de este lote en historial local↔remoto: **0**.

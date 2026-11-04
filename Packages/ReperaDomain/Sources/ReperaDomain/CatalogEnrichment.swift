@@ -13,7 +13,8 @@ enum CatalogEnrichment {
             description: "Press de banca en banco plano: bajas la barra al pecho y la empujas a bloqueo. Pecho, hombros y tríceps.",
             instructions: ["Lie flat on a bench with your feet flat on the ground and your back pressed against the bench.", "Grasp the barbell with an overhand grip slightly wider than shoulder-width apart.", "Lift the barbell off the rack and hold it directly above your chest with your arms fully extended.", "Lower the barbell slowly towards your chest, keeping your elbows tucked in.", "Pause for a moment when the barbell touches your chest.", "Push the barbell back up to the starting position by extending your arms."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids"]
+            secondaries: ["triceps", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press banca inclinada",
@@ -26,7 +27,8 @@ enum CatalogEnrichment {
             description: "Press en banco inclinado (30–45°): más énfasis en pecho alto y deltoides anterior.",
             instructions: ["Set up an incline bench at a 45-degree angle.", "Lie back on the bench and grasp the barbell with a reverse grip, hands slightly wider than shoulder-width apart.", "Unrack the barbell and lower it towards your upper chest, keeping your elbows tucked in.", "Pause for a moment at the bottom, then push the barbell back up to the starting position.", "Repeat for the desired number of repetitions."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids"]
+            secondaries: ["triceps", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press mancuernas",
@@ -39,7 +41,8 @@ enum CatalogEnrichment {
             description: "Press con mancuernas en banco plano: mayor rango y estabilización que con barra.",
             instructions: ["Túmbate en banco plano, pies firmes, mancuernas a los lados del pecho.", "Muñecas sobre los codos; omóplatos retraídos.", "Empuja arriba juntando ligeramente las mancuernas sin chocarlas.", "Baja controlado hasta estirar el pecho; no abras los codos en exceso."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids"]
+            secondaries: ["triceps", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Aperturas",
@@ -52,7 +55,8 @@ enum CatalogEnrichment {
             description: "Aperturas en banco inclinado: abres y cierras en arco con codos blandos para estirar y contraer el pecho.",
             instructions: ["Lie back on a bench set to about a 30 degree incline.", "Hold weights above your chest.", "Open arms.", "Stretch your chest.", "Bring weights together.", "Keep elbows soft."],
             primaries: ["chest"],
-            secondaries: ["deltoids", "biceps"]
+            secondaries: ["deltoids", "biceps"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Fondos",
@@ -65,7 +69,8 @@ enum CatalogEnrichment {
             description: "Fondos en paralelas inclinando el torso: pecho y tríceps; más vertical = más tríceps.",
             instructions: ["Agarra las paralelas y súbete a soporte con brazos bloqueados.", "Inclina el torso ligeramente adelante y baja hasta ~90° de codo.", "Empuja a bloqueo sin encoger trapecios ni balancear piernas.", "Si buscas más pecho, inclina más; más vertical = más tríceps."],
             primaries: ["chest", "triceps"],
-            secondaries: ["deltoids", "abs"]
+            secondaries: ["deltoids", "abs"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Dominadas",
@@ -78,7 +83,8 @@ enum CatalogEnrichment {
             description: "Dominadas: tiras el pecho hacia la barra. Dorsales, bíceps y agarre.",
             instructions: ["Set a sturdy bar across two stable chairs, high enough to sit under.", "Sit or lie beneath it and grip the bar slightly wider than your shoulders.", "Keep your knees bent with feet on the floor for light help.", "Pull your chest toward the bar by driving elbows down.", "Lower slowly until your arms are straight.", "Use your legs as little as you can."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "forearm", "trapezius"]
+            secondaries: ["biceps", "forearm", "trapezius"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Jalón al pecho",
@@ -91,7 +97,8 @@ enum CatalogEnrichment {
             description: "Jalón al pecho sentado: tiras la barra a la clavícula/pecho alto. Dorsales y espalda media.",
             instructions: ["Siéntate con muslos fijados; agarre prono un poco más ancho que hombros.", "Inicia el tirón llevando los codos abajo y atrás.", "Lleva la barra a pecho alto / clavícula sin balancear el tronco.", "Extiende los brazos con control manteniendo tensión en dorsales."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "forearm", "trapezius"]
+            secondaries: ["biceps", "forearm", "trapezius"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo con barra",
@@ -104,7 +111,8 @@ enum CatalogEnrichment {
             description: "Remo con barra inclinado: tiras la barra al abdomen. Espalda media/dorsal y bíceps.",
             instructions: ["Bisagra de cadera, espalda plana, barra colgando a brazos extendidos.", "Tira la barra hacia el ombligo / abdomen bajo, codos cerca del cuerpo.", "Aprieta omóplatos un segundo arriba.", "Baja sin redondear la lumbar; no uses impulso de cadera excesivo."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "deltoids", "forearm", "lower-back"]
+            secondaries: ["biceps", "deltoids", "forearm", "lower-back"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo mancuerna",
@@ -117,7 +125,8 @@ enum CatalogEnrichment {
             description: "Remo a una mano apoyado en banco: dorsal y espalda media con buen estiramiento.",
             instructions: ["Apoya una rodilla y una mano en el banco; tronco casi paralelo.", "Mancuerna colgando a brazo largo; omóplato activo.", "Tira el codo hacia la cadera hasta la costilla.", "Baja con control y cambia de lado al terminar la serie."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "deltoids", "forearm"]
+            secondaries: ["biceps", "deltoids", "forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Peso muerto",
@@ -130,7 +139,8 @@ enum CatalogEnrichment {
             description: "Peso muerto convencional: bisagra y extensión de cadera hasta de pie. Posterior completo y agarre.",
             instructions: ["Stand with feet hip width apart, bar over mid-foot.", "Hinge at the hips and grip the bar just outside your legs.", "Brace your core and keep your back flat.", "Push the floor away and stand up, keeping the bar close to your legs.", "Lock out your hips at the top without leaning back.", "Lower the bar by pushing your hips back and bending your knees."],
             primaries: ["gluteal", "hamstring", "lower-back"],
-            secondaries: ["upper-back", "quadriceps", "forearm", "trapezius"]
+            secondaries: ["upper-back", "quadriceps", "forearm", "trapezius"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Peso muerto rumano",
@@ -143,7 +153,8 @@ enum CatalogEnrichment {
             description: "Peso muerto rumano: bisagra con poca flexión de rodilla; isquios y glúteos.",
             instructions: ["Attach a straight bar to a low pulley and face the machine.", "Hold the bar, step back and stand tall with soft knees.", "Push your hips back and slide the bar down your thighs.", "Keep your back flat and shoulders pulled back.", "Lower until you feel a hamstring stretch.", "Drive your hips forward to stand up."],
             primaries: ["hamstring", "gluteal"],
-            secondaries: ["lower-back", "forearm"]
+            secondaries: ["lower-back", "forearm"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Sentadilla",
@@ -156,7 +167,8 @@ enum CatalogEnrichment {
             description: "Sentadilla con barra en espalda: bajas a paralelo o más y te levantas. Cuádriceps, glúteos y core.",
             instructions: ["Stand with your feet shoulder-width apart, toes slightly turned out.", "Hold the barbell across your upper back, resting it on your traps or rear delts.", "Engage your core and keep your chest up as you begin to lower your body down.", "Bend at the knees and hips, pushing your hips back and down as if sitting into a chair.", "Lower your body until your thighs are parallel to the ground or slightly below.", "Keep your knees in line with your toes and your weight in your heels."],
             primaries: ["quadriceps", "gluteal"],
-            secondaries: ["hamstring", "adductors", "abs", "calves"]
+            secondaries: ["hamstring", "adductors", "abs", "calves"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Sentadilla frontal",
@@ -169,7 +181,8 @@ enum CatalogEnrichment {
             description: "Sentadilla frontal: barra en rack frontal, torso vertical; énfasis en cuádriceps.",
             instructions: ["Set the bar at shoulder height and rest it on the front of your shoulders with elbows up.", "Unrack it and step your feet slightly forward.", "Squat down until your thighs are about parallel to the floor.", "Keep your elbows high and your chest up.", "Press through your heels to stand and rerack when done."],
             primaries: ["quadriceps"],
-            secondaries: ["gluteal", "abs", "upper-back"]
+            secondaries: ["gluteal", "abs", "upper-back"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Prensa",
@@ -182,7 +195,8 @@ enum CatalogEnrichment {
             description: "Prensa de piernas: empujas la plataforma. Cuádriceps y glúteos con trayectoria guiada.",
             instructions: ["Espalda y pelvis pegadas al respaldo; pies al ancho de hombros en la plataforma.", "Baja flexionando rodillas sin despegar la lumbar.", "Empuja hasta casi extender sin bloquear de golpe las rodillas.", "Controla el descenso; no dejes que la plataforma te aplaste el pecho."],
             primaries: ["quadriceps", "gluteal"],
-            secondaries: ["hamstring", "calves"]
+            secondaries: ["hamstring", "calves"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Zancadas",
@@ -195,7 +209,8 @@ enum CatalogEnrichment {
             description: "Zancadas: paso adelante o caminando; trabajo unilateral de piernas y estabilidad.",
             instructions: ["Start by standing with your feet shoulder-width apart.", "Take a step forward with your right foot, lowering your body into a lunge position.", "Push off with your right foot and jump into the air, switching the position of your feet mid-air.", "Land softly with your left foot forward and immediately lower your body into a lunge position.", "Continue alternating between lunges and jumps for the desired number of repetitions."],
             primaries: ["quadriceps", "gluteal"],
-            secondaries: ["hamstring", "calves"]
+            secondaries: ["hamstring", "calves"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Extensión de cuádriceps",
@@ -208,7 +223,8 @@ enum CatalogEnrichment {
             description: "Extensión de cuádriceps en máquina: aísla la cara anterior del muslo.",
             instructions: ["Ajusta el rodillo sobre la tibia distal; espalda apoyada.", "Extiende las rodillas hasta casi bloqueo sin arquear la lumbar.", "Pausa breve arriba apretando cuádriceps.", "Baja despacio hasta el rango cómodo; no rebotes abajo."],
             primaries: ["quadriceps"],
-            secondaries: ["hip-flexors"]
+            secondaries: ["hip-flexors"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Curl femoral",
@@ -221,7 +237,8 @@ enum CatalogEnrichment {
             description: "Curl femoral en máquina: flexión de rodilla para isquiotibiales.",
             instructions: ["Ajusta almohadillas; cadera estable en la máquina.", "Flexiona rodillas llevando el rodillo hacia los glúteos.", "Aprieta isquios arriba sin levantar la pelvis.", "Extiende con control hasta casi estirar."],
             primaries: ["hamstring"],
-            secondaries: ["gluteal", "calves"]
+            secondaries: ["gluteal", "calves"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Elevación de gemelos",
@@ -234,7 +251,8 @@ enum CatalogEnrichment {
             description: "Elevación de gemelos de pie o en máquina: extensión de tobillo.",
             instructions: ["Antepié en el borde o plataforma; tobillos libres.", "Sube lo más alto posible sobre las puntas.", "Pausa arriba; baja talones por debajo del nivel del apoyo.", "Rodillas casi extendidas (de pie) o flexionadas (sentado/sóleo)."],
             primaries: ["calves"],
-            secondaries: ["tibialis"]
+            secondaries: ["tibialis"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press militar",
@@ -247,7 +265,8 @@ enum CatalogEnrichment {
             description: "Press militar de pie: empujas la barra desde hombros a overhead. Deltoides y tríceps.",
             instructions: ["Stand on the band with feet shoulder-width apart.", "Hold the band at shoulder height.", "Press your hands overhead until your arms are straight.", "Keep your core tight.", "Lower slowly back to the shoulders.", "Avoid leaning back."],
             primaries: ["deltoids"],
-            secondaries: ["triceps", "chest", "abs", "trapezius"]
+            secondaries: ["triceps", "chest", "abs", "trapezius"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Elevaciones laterales",
@@ -260,7 +279,8 @@ enum CatalogEnrichment {
             description: "Elevaciones laterales: aíslan el deltoides medio hasta la altura del hombro.",
             instructions: ["Mancuernas a los lados, codos blandos, torso quieto.", "Eleva en arco hasta ~altura de hombros, meñiques ligeramente arriba.", "No encogas trapecios ni balancees el cuerpo.", "Baja en 2–3 segundos manteniendo tensión."],
             primaries: ["deltoids"],
-            secondaries: ["trapezius"]
+            secondaries: ["trapezius"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Pájaros",
@@ -273,7 +293,8 @@ enum CatalogEnrichment {
             description: "Pájaros / elevaciones posteriores: deltoides posterior y espalda alta.",
             instructions: ["Inclina el torso o tumba boca abajo; mancuernas colgando.", "Abre los brazos en cruz con codos blandos, apretando omóplatos.", "Llega a la línea de los hombros sin hiperextender la lumbar.", "Baja controlado; prioriza deltoides posterior, no el peso."],
             primaries: ["deltoids"],
-            secondaries: ["upper-back", "trapezius"]
+            secondaries: ["upper-back", "trapezius"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Curl barra",
@@ -286,7 +307,8 @@ enum CatalogEnrichment {
             description: "Curl de bíceps con barra: flexión de codo sin balanceo de tronco.",
             instructions: ["Agarre supino al ancho de hombros; codos pegados al torso.", "Sube la barra sin balancear cadera ni hombros.", "Aprieta bíceps arriba; muñecas neutras.", "Baja hasta casi extender sin soltar tensión."],
             primaries: ["biceps"],
-            secondaries: ["forearm"]
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Curl mancuernas",
@@ -299,7 +321,8 @@ enum CatalogEnrichment {
             description: "Curl con mancuernas: permite rotación y mayor rango que la barra.",
             instructions: ["Mancuernas a los lados, palmas al frente o semi-supinación.", "Curl sin balanceo; codos fijos junto a las costillas.", "Opcional: rota la palma arriba al subir (supinación).", "Baja controlado y alterna o haz ambas a la vez."],
             primaries: ["biceps"],
-            secondaries: ["forearm"]
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Curl martillo",
@@ -312,7 +335,8 @@ enum CatalogEnrichment {
             description: "Curl martillo: agarre neutro; bíceps, braquial y antebrazo.",
             instructions: ["Agarre neutro (palmas mirándose); codos quietos.", "Sube las mancuernas hacia el hombro sin abrir los codos.", "Pausa breve arriba.", "Baja lento; trabaja braquial y antebrazo además del bíceps."],
             primaries: ["biceps"],
-            secondaries: ["forearm"]
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Fondos en banco",
@@ -325,7 +349,8 @@ enum CatalogEnrichment {
             description: "Fondos en banco: tríceps con manos en el borde y pies al frente.",
             instructions: ["Manos en el borde del banco, dedos al frente; glúteos cerca del banco.", "Baja flexionando codos hasta ~90° con hombros bajos.", "Empuja a extensión sin encoger el cuello.", "Mantén el pecho abierto; no te alejes demasiado del banco."],
             primaries: ["triceps"],
-            secondaries: ["chest", "deltoids"]
+            secondaries: ["chest", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Extensión tríceps polea",
@@ -338,7 +363,8 @@ enum CatalogEnrichment {
             description: "Extensión de tríceps en polea alta: aísla la cara posterior del brazo.",
             instructions: ["Codos pegados al cuerpo, antebrazos paralelos al suelo al inicio.", "Extiende solo el codo llevando la barra/cuerda abajo.", "Aprieta tríceps abajo; no muevas hombros ni tronco.", "Vuelve con control hasta el estiramiento cómodo."],
             primaries: ["triceps"],
-            secondaries: ["forearm", "deltoids"]
+            secondaries: ["forearm", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press cerrado",
@@ -351,7 +377,8 @@ enum CatalogEnrichment {
             description: "Press banca agarre cerrado: más énfasis en tríceps, pecho como secundario.",
             instructions: ["Banco plano; agarre al ancho de hombros o un poco más estrecho.", "Baja la barra al pecho medio con codos cerca del cuerpo.", "Empuja a bloqueo priorizando tríceps.", "No abras los codos como en press ancho."],
             primaries: ["triceps", "chest"],
-            secondaries: ["deltoids"]
+            secondaries: ["deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Plancha",
@@ -364,7 +391,8 @@ enum CatalogEnrichment {
             description: "Plancha isométrica: cuerpo en línea, abdomen y glúteos activos.",
             instructions: ["Antebrazos o manos bajo hombros; cuerpo en línea recta.", "Activa abdomen y glúteos; pelvis neutra (sin hundir lumbar).", "Mirada al suelo; hombros lejos de las orejas.", "Respira y mantén el tiempo objetivo sin elevar cadera."],
             primaries: ["abs"],
-            secondaries: ["obliques", "deltoids", "gluteal"]
+            secondaries: ["obliques", "deltoids", "gluteal"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Crunch",
@@ -377,7 +405,8 @@ enum CatalogEnrichment {
             description: "Crunch: flexionas el tronco acercando costillas a pelvis sin tirar del cuello.",
             instructions: ["Tumbado, rodillas flexionadas, lumbar apoyada.", "Manos junto a sienes (no tires del cuello).", "Enrolla costillas hacia pelvis; omóplatos despegan poco.", "Baja controlado; no uses impulso de cadera."],
             primaries: ["abs"],
-            secondaries: ["hip-flexors"]
+            secondaries: ["hip-flexors"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Elevación de piernas",
@@ -390,7 +419,8 @@ enum CatalogEnrichment {
             description: "Elevación de piernas: abdominales inferiores y flexores de cadera.",
             instructions: ["Tumbado o colgado; lumbar estable (presiona el suelo si estás tumbado).", "Eleva piernas juntas hasta ~90° o el rango sin arquear.", "Baja despacio sin soltar el abdomen.", "Si es difícil, flexiona ligeramente las rodillas."],
             primaries: ["abs"],
-            secondaries: ["hip-flexors"]
+            secondaries: ["hip-flexors"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Hip thrust",
@@ -403,7 +433,8 @@ enum CatalogEnrichment {
             description: "Hip thrust: empuje de cadera con espalda en banco; glúteos como motor principal.",
             instructions: ["Sit on the floor with your upper back against a bench and knees bent.", "Plant your feet flat, hip-width apart.", "Drive through your heels to lift your hips until your torso is level.", "Squeeze your glutes at the top.", "Lower slowly and repeat."],
             primaries: ["gluteal"],
-            secondaries: ["hamstring", "abs"]
+            secondaries: ["hamstring", "abs"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Face pull",
@@ -416,7 +447,8 @@ enum CatalogEnrichment {
             description: "Face pull: tiras hacia la cara con codos altos; deltoides posterior y estabilizadores.",
             instructions: ["Polea o banda a altura de cara; agarre neutro/cuerda.", "Tira hacia la cara con codos altos y abiertos.", "Separa las manos al llegar; aprieta omóplatos y deltoides posterior.", "Vuelve sin dejar que los hombros se redondeen."],
             primaries: ["deltoids"],
-            secondaries: ["upper-back", "trapezius"]
+            secondaries: ["upper-back", "trapezius"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo al mentón",
@@ -429,7 +461,8 @@ enum CatalogEnrichment {
             description: "Remo al mentón: tiras la barra hacia el pecho con codos altos; hombros y trapecio.",
             instructions: ["Barra o mancuernas delante de muslos; agarre prono.", "Tira hacia arriba guiando con los codos hasta pecho alto.", "Mantén la barra cerca del cuerpo; no encogas orejas.", "Baja controlado; usa carga moderada por el hombro."],
             primaries: ["deltoids", "trapezius"],
-            secondaries: ["biceps", "upper-back"]
+            secondaries: ["biceps", "upper-back"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Buenos días",
@@ -442,7 +475,8 @@ enum CatalogEnrichment {
             description: "Buenos días: bisagra de cadera con barra en espalda; isquios y lumbares.",
             instructions: ["Barra sobre trapecios; pies al ancho de cadera.", "Bisagra de cadera empujando glúteos atrás, rodillas blandas.", "Baja hasta sentir isquios; espalda plana.", "Extiende cadera para volver; no redondees la lumbar."],
             primaries: ["hamstring", "gluteal"],
-            secondaries: ["lower-back", "abs"]
+            secondaries: ["lower-back", "abs"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Hack squat",
@@ -455,7 +489,8 @@ enum CatalogEnrichment {
             description: "Hack squat: sentadilla guiada con énfasis en cuádriceps.",
             instructions: ["Espalda y hombros en los pads; pies al ancho cómodo.", "Baja en sentadilla controlada hasta profundidad segura.", "Empuja la plataforma sin despegar talones ni lumbar.", "No bloquees rodillas de golpe arriba."],
             primaries: ["quadriceps"],
-            secondaries: ["gluteal", "hamstring"]
+            secondaries: ["gluteal", "hamstring"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Pullover",
@@ -468,7 +503,8 @@ enum CatalogEnrichment {
             description: "Pullover con mancuerna: dorsales y pecho con brazos semi-extendidos.",
             instructions: ["Tumbado, mancuerna a dos manos sobre el pecho.", "Brazos casi extendidos; baja la carga atrás en arco.", "Siente el estiramiento en dorsal/pecho; no arquees lumbar.", "Vuelve sobre el pecho apretando dorsales."],
             primaries: ["upper-back"],
-            secondaries: ["chest", "triceps", "abs"]
+            secondaries: ["chest", "triceps", "abs"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Cinta / carrera",
@@ -481,7 +517,8 @@ enum CatalogEnrichment {
             description: "Carrera en cinta u outdoor: cardio de piernas y resistencia.",
             instructions: ["Calienta caminando; sube velocidad de forma progresiva.", "Postura alta, mirada al frente, brazos relajados.", "Pasos cortos bajo la cadera; aterriza suave.", "Enfría 2–3 min andando al terminar."],
             primaries: ["quadriceps", "calves"],
-            secondaries: ["hamstring", "gluteal"]
+            secondaries: ["hamstring", "gluteal"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Bici estática",
@@ -494,7 +531,8 @@ enum CatalogEnrichment {
             description: "Bici estática: cardio de piernas con bajo impacto.",
             instructions: ["Ajusta sillín: rodilla casi extendida abajo del pedal.", "Pedalea redondo; torso estable, hombros relajados.", "Elige resistencia que permita ritmo constante.", "Incluye calentamiento y enfriamiento de 2–3 min."],
             primaries: ["quadriceps"],
-            secondaries: ["hamstring", "gluteal", "calves"]
+            secondaries: ["hamstring", "gluteal", "calves"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo máquina",
@@ -507,7 +545,8 @@ enum CatalogEnrichment {
             description: "Remoergómetro: cardio de cuerpo completo (piernas + tirón).",
             instructions: ["Pies fijados; inicia el remada con empuje de piernas.", "Luego bisagra y tira el mango a costillas bajas.", "Recupera en orden inverso: brazos, cadera, rodillas.", "Cadencia suave; no redondees la espalda al llegar adelante."],
             primaries: ["upper-back", "quadriceps"],
-            secondaries: ["hamstring", "gluteal", "abs", "biceps"]
+            secondaries: ["hamstring", "gluteal", "abs", "biceps"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Farmer walk",
@@ -520,7 +559,8 @@ enum CatalogEnrichment {
             description: "Paseo del granjero: caminas erguido con carga en cada mano; agarre, core y postura.",
             instructions: ["Coge las cargas, párate alto, hombros abajo y atrás.", "Camina con pasos cortos y firmes; mirada al frente.", "Evita inclinarte lateralmente; aprieta el abdomen.", "Deja la carga con control al terminar la distancia."],
             primaries: ["forearm", "abs", "trapezius"],
-            secondaries: ["gluteal", "calves", "obliques"]
+            secondaries: ["gluteal", "calves", "obliques"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press banca declinado",
@@ -533,7 +573,8 @@ enum CatalogEnrichment {
             description: "Press banca declinado: más énfasis en pecho inferior y tríceps.",
             instructions: ["Asegura pies en el banco declinado; omóplatos retraídos.", "Baja la barra al pecho bajo/medio con control.", "Empuja a bloqueo sobre el pecho.", "No rebotes la barra en el esternón."],
             primaries: ["chest"],
-            secondaries: ["triceps", "deltoids"]
+            secondaries: ["triceps", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Cruce de poleas",
@@ -546,7 +587,8 @@ enum CatalogEnrichment {
             description: "Cruce de poleas: aperturas con tensión constante sobre el pecho.",
             instructions: ["Poleas altas o medias; un paso adelante, torso estable.", "Brazos semi-extendidos; cierra en arco hacia el centro.", "Aprieta pecho al juntar las manos.", "Abre hasta estirar sin arquear la lumbar."],
             primaries: ["chest"],
-            secondaries: ["deltoids", "biceps"]
+            secondaries: ["deltoids", "biceps"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo sentado",
@@ -559,7 +601,8 @@ enum CatalogEnrichment {
             description: "Remo sentado en polea: espalda media y dorsales con torso estable.",
             instructions: ["Pies en la plataforma; torso erguido, ligera inclinación.", "Tira el agarre al abdomen, codos atrás.", "Aprieta omóplatos; no uses balanceo de tronco.", "Extiende brazos con control manteniendo pecho alto."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "deltoids", "forearm"]
+            secondaries: ["biceps", "deltoids", "forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Peso muerto sumo",
@@ -572,7 +615,8 @@ enum CatalogEnrichment {
             description: "Peso muerto sumo: stance ancho; glúteos, aductores y cuádriceps.",
             instructions: ["Pies anchos, puntas afuera; barra cerca de las espinillas.", "Agarre dentro de las piernas; pecho alto, espalda plana.", "Empuja el suelo y extiende rodillas y cadera a la vez.", "Bloquea arriba sin hiperextender; baja con control."],
             primaries: ["gluteal", "quadriceps", "adductors"],
-            secondaries: ["hamstring", "upper-back", "trapezius"]
+            secondaries: ["hamstring", "upper-back", "trapezius"],
+            sportTag: "Halterofilia"
         ),
         EnrichedSeed(
             name: "Sentadilla búlgara",
@@ -585,7 +629,8 @@ enum CatalogEnrichment {
             description: "Sentadilla búlgara: pierna trasera elevada; cuádriceps y glúteo de la pierna delantera.",
             instructions: ["Rest the top of your rear foot on a bench and plant your front foot far enough forward.", "Lower with control until your rear knee approaches the floor and your front thigh is about parallel.", "Keep your torso upright and your front knee tracking over your toes.", "Push through your front foot to stand; the rear leg only stabilizes.", "Finish your reps, then switch legs."],
             primaries: ["quadriceps", "gluteal"],
-            secondaries: ["hamstring", "abs"]
+            secondaries: ["hamstring", "abs"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Curl predicador",
@@ -598,7 +643,8 @@ enum CatalogEnrichment {
             description: "Curl predicador: bíceps con brazos apoyados; menos trampa de balanceo.",
             instructions: ["Brazos apoyados en el banco predicador; axilas al borde.", "Curl sin despegar los brazos del pad.", "No hiperextiendas del todo abajo si te duele el codo.", "Sube y baja en rango controlado."],
             primaries: ["biceps"],
-            secondaries: ["forearm"]
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Press francés",
@@ -611,7 +657,8 @@ enum CatalogEnrichment {
             description: "Press francés / skull crusher: extensión de tríceps tumbado.",
             instructions: ["Tumbado, barra o mancuerna sobre el pecho, brazos verticales.", "Flexiona solo codos bajando la carga hacia la frente/sien.", "Extiende a bloqueo apretando tríceps.", "Codos apuntando al techo; no abras hacia fuera."],
             primaries: ["triceps"],
-            secondaries: ["forearm", "deltoids"]
+            secondaries: ["forearm", "deltoids"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Elevaciones frontales",
@@ -624,7 +671,8 @@ enum CatalogEnrichment {
             description: "Elevaciones frontales: deltoides anterior hasta la altura de los ojos.",
             instructions: ["Mancuernas delante de muslos, agarre prono o neutro.", "Eleva hasta altura de ojos con codos blandos.", "Torso quieto; no uses impulso de cadera.", "Baja en 2–3 segundos."],
             primaries: ["deltoids"],
-            secondaries: ["chest", "trapezius"]
+            secondaries: ["chest", "trapezius"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Ab wheel",
@@ -637,7 +685,8 @@ enum CatalogEnrichment {
             description: "Rueda abdominal: rollout de core manteniendo pelvis neutra.",
             instructions: ["De rodillas, rueda bajo los hombros, pelvis neutra.", "Rueda hacia delante manteniendo costillas abajo.", "Ve solo hasta donde controles sin hundir la lumbar.", "Vuelve tirando con el abdomen, no solo con los hombros."],
             primaries: ["abs"],
-            secondaries: ["obliques", "upper-back", "deltoids", "hip-flexors"]
+            secondaries: ["obliques", "upper-back", "deltoids", "hip-flexors"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Paso lateral con banda",
@@ -650,7 +699,8 @@ enum CatalogEnrichment {
             description: "Pasos laterales con banda: glúteo medio y estabilidad de cadera.",
             instructions: ["Banda sobre rodillas o tobillos; media sentadilla.", "Pasos laterales cortos sin juntar del todo los pies.", "Mantén rodillas alineadas con puntas; torso alto.", "Cambia de dirección a mitad de serie."],
             primaries: ["gluteal"],
-            secondaries: ["abs", "obliques"]
+            secondaries: ["abs", "obliques"],
+            sportTag: "CrossFit"
         ),
         EnrichedSeed(
             name: "Remo invertido",
@@ -663,7 +713,8 @@ enum CatalogEnrichment {
             description: "Remo invertido: remo con peso corporal bajo una barra o mesa.",
             instructions: ["Cuelga bajo la barra en plancha invertida, cuerpo recto.", "Tira el pecho a la barra apretando omóplatos.", "Baja a brazos extendidos sin hundir cadera.", "Cuanto más horizontal, más difícil."],
             primaries: ["upper-back"],
-            secondaries: ["biceps", "abs"]
+            secondaries: ["biceps", "abs"],
+            sportTag: "Gimnasia"
         ),
         EnrichedSeed(
             name: "Press Arnold",
@@ -676,7 +727,961 @@ enum CatalogEnrichment {
             description: "Press Arnold: press con rotación de mancuernas; las tres cabezas del hombro.",
             instructions: ["Mancuernas a la altura de hombros, palmas hacia ti.", "Presiona arriba rotando palmas hacia delante.", "Bloquea sin encoger trapecios.", "Baja rotando de nuevo a palmas hacia ti."],
             primaries: ["deltoids"],
-            secondaries: ["triceps", "chest"]
+            secondaries: ["triceps", "chest"],
+            sportTag: "CrossFit"
+        ),
+
+        // MARK: Fase E — huecos FED/OEDB gym (selectivo, 2026-11-04)
+        EnrichedSeed(
+            name: "Crunch en polea",
+            muscleGroup: "Core",
+            equipment: "Polea",
+            catalogId: nil,
+            target: "abs",
+            secondaryMuscles: ["obliques"],
+            bodyPart: "waist",
+            description: "Crunch arrodillado en polea alta: codos hacia los muslos con tensión constante.",
+            instructions: [
+                "Arrodíllate bajo la polea alta con cuerda a ambos lados de la cabeza.",
+                "Flexiona el tronco llevando los codos hacia los muslos sin tirar de la nuca.",
+                "Vuelve arriba con control manteniendo tensión en el abdomen.",
+                "Error típico: usar solo brazos o redondear de golpe la lumbar.",
+                "Exhala al bajar el tronco.",
+                "Progresión: más peso o tempo lento. Alternativa: crunch en suelo.",
+                "Estándar: flexión clara de tronco en cada rep.",
+            ],
+            primaries: ["abs"],
+            secondaries: ["obliques"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Elevaciones laterales en polea",
+            muscleGroup: "Hombros",
+            equipment: "Polea",
+            catalogId: nil,
+            target: "shoulders",
+            secondaryMuscles: ["traps"],
+            bodyPart: "shoulders",
+            description: "Elevación lateral a una mano en polea baja; deltoides medio con tensión continua.",
+            instructions: [
+                "Ponte de lado a la polea baja; agarra el mango cruzando por delante del cuerpo.",
+                "Eleva el brazo en arco hasta la altura del hombro, codo suave.",
+                "Baja con control sin dejar caer el peso.",
+                "Error típico: encoger el trapecio o balancear el torso.",
+                "Exhala al subir.",
+                "Progresión: más peso o pausa arriba. Alternativa: elevaciones laterales con mancuerna.",
+                "Estándar: brazo a ~altura de hombro sin subir por encima de la oreja.",
+            ],
+            primaries: ["deltoids"],
+            secondaries: ["trapezius"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Remo con apoyo de pecho",
+            muscleGroup: "Espalda",
+            equipment: "Banco, Mancuernas",
+            catalogId: nil,
+            target: "upper-back",
+            secondaryMuscles: ["lats", "biceps", "rear deltoids"],
+            bodyPart: "back",
+            description: "Remo con pecho apoyado en banco inclinado; menos trampa lumbar que el remo libre.",
+            instructions: [
+                "Banco a ~30–45°; pecho pegado al respaldo, mancuernas colgando.",
+                "Tira las mancuernas hacia la cadera/costillas apretando omóplatos.",
+                "Baja con control hasta estirar sin despegar el pecho.",
+                "Error típico: arrancar el pecho del banco o encoger el cuello.",
+                "Exhala al tirar.",
+                "Progresión: más peso. Alternativa: remo mancuerna a un brazo.",
+                "Estándar: pecho apoyado y codos atrás en cada rep.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Curl femoral sentado",
+            muscleGroup: "Isquios",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "hamstrings",
+            secondaryMuscles: ["calves"],
+            bodyPart: "upper legs",
+            description: "Curl femoral en máquina sentado: flexión de rodilla contra el rodillo.",
+            instructions: [
+                "Ajusta el respaldo y el rodillo sobre los tobillos.",
+                "Flexiona las rodillas llevando el rodillo hacia abajo/atrás.",
+                "Extiende con control sin dejar que los pesos choquen.",
+                "Error típico: levantarte del asiento o usar impulso.",
+                "Exhala al flexionar.",
+                "Progresión: más peso o una pierna. Alternativa: curl femoral tumbado.",
+                "Estándar: rango completo de flexión de rodilla en cada rep.",
+            ],
+            primaries: ["hamstring"],
+            secondaries: ["calves"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Curl femoral tumbado",
+            muscleGroup: "Isquios",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "hamstrings",
+            secondaryMuscles: ["calves", "glutes"],
+            bodyPart: "upper legs",
+            description: "Curl femoral en máquina tumbado boca abajo.",
+            instructions: [
+                "Túmbate boca abajo; rodillo sobre los tendones de Aquiles.",
+                "Flexiona las rodillas llevando los talones hacia los glúteos.",
+                "Baja con control hasta casi extensión sin bloquear de golpe.",
+                "Error típico: arching lumbar o levantar las caderas.",
+                "Exhala al flexionar.",
+                "Progresión: más peso. Alternativa: curl femoral sentado.",
+                "Estándar: talones cerca de glúteos y bajada controlada.",
+            ],
+            primaries: ["hamstring"],
+            secondaries: ["calves", "gluteal"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Pec deck",
+            muscleGroup: "Pecho",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "chest",
+            secondaryMuscles: ["shoulders"],
+            bodyPart: "chest",
+            description: "Aperturas en máquina pec deck / mariposa; pecho con trayectoria fija.",
+            instructions: [
+                "Siéntate con la espalda pegada; antebrazos en los pads o agarres en manos.",
+                "Cierra en arco hasta juntar los pads delante del pecho.",
+                "Abre con control hasta estirar sin forzar el hombro.",
+                "Error típico: empujar con los trapecios o rebotar al cierre.",
+                "Exhala al cerrar.",
+                "Progresión: más peso. Alternativa: aperturas con mancuernas.",
+                "Estándar: cierre completo delante del pecho en cada rep.",
+            ],
+            primaries: ["chest"],
+            secondaries: ["deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Abducción de cadera en máquina",
+            muscleGroup: "Glúteos",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "glutes",
+            secondaryMuscles: ["core"],
+            bodyPart: "upper legs",
+            description: "Abducción de cadera sentado en máquina (glúteo medio).",
+            instructions: [
+                "Siéntate con la espalda apoyada; almohadillas en la cara externa de las rodillas/muslos.",
+                "Abre las piernas contra la resistencia sin arching lumbar.",
+                "Vuelve al centro con control.",
+                "Error típico: empujar con los pies o inclinarte hacia delante.",
+                "Exhala al abrir.",
+                "Progresión: más peso o pausa en apertura.",
+                "Estándar: apertura controlada hasta el tope cómodo de la máquina.",
+            ],
+            primaries: ["gluteal"],
+            secondaries: ["abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Aducción de cadera en máquina",
+            muscleGroup: "Glúteos",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "glutes",
+            secondaryMuscles: ["adductors", "core"],
+            bodyPart: "upper legs",
+            description: "Aducción de cadera sentado en máquina (aductores).",
+            instructions: [
+                "Siéntate con almohadillas en la cara interna de las rodillas/muslos.",
+                "Cierra las piernas contra la resistencia de forma controlada.",
+                "Abre de nuevo sin dejar que el peso tire de golpe.",
+                "Error típico: rebotar al cierre o despegar la espalda.",
+                "Exhala al cerrar.",
+                "Progresión: más peso.",
+                "Estándar: cierre completo y apertura controlada en cada rep.",
+            ],
+            primaries: ["adductors"],
+            secondaries: ["gluteal", "abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Sentadilla en Smith",
+            muscleGroup: "Piernas",
+            equipment: "Smith",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Sentadilla guiada en máquina Smith; trayectoria fija de la barra.",
+            instructions: [
+                "Coloca la barra Smith sobre trapecios; pies algo adelantados si la máquina lo pide.",
+                "Desengancha; baja a paralelo o más con rodillas alineadas.",
+                "Empuja hasta extensión y reengancha al terminar la serie.",
+                "Error típico: pies demasiado atrás (rodillas dolorosas) o cortar profundidad.",
+                "Inhala al bajar; exhala al subir.",
+                "Progresión: más peso. Alternativa: sentadilla libre con barra.",
+                "Estándar: profundidad marcada y extensión completa arriba.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "Halterofilia"
+        ),
+        EnrichedSeed(
+            name: "Remo en T",
+            muscleGroup: "Espalda",
+            equipment: "Barra T / landmine",
+            catalogId: nil,
+            target: "upper-back",
+            secondaryMuscles: ["lats", "biceps", "rear deltoids"],
+            bodyPart: "back",
+            description: "Remo en barra T o landmine; espalda media y dorsales.",
+            instructions: [
+                "Agarra el mango de la barra T; bisagra con espalda neutra.",
+                "Tira el mango al pecho/abdomen apretando omóplatos.",
+                "Baja con control hasta estirar sin redondear la lumbar.",
+                "Error típico: usar impulso de torso o encoger el cuello.",
+                "Exhala al tirar.",
+                "Progresión: más discos. Alternativa: remo con barra.",
+                "Estándar: contacto al torso y bajada controlada en cada rep.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Curl inclinado con mancuernas",
+            muscleGroup: "Bíceps",
+            equipment: "Mancuernas, Banco",
+            catalogId: nil,
+            target: "biceps",
+            secondaryMuscles: ["forearms"],
+            bodyPart: "upper arms",
+            description: "Curl en banco inclinado: estiramiento largo del bíceps.",
+            instructions: [
+                "Banco a ~45–60°; espalda pegada, mancuernas colgando con brazos largos.",
+                "Curl sin balancear; codos estables bajo los hombros.",
+                "Baja hasta estirar por completo el bíceps.",
+                "Error típico: arching espalda o acortar el estiramiento abajo.",
+                "Exhala al subir.",
+                "Progresión: más peso o tempo. Alternativa: curl mancuernas de pie.",
+                "Estándar: rango completo con espalda en el banco.",
+            ],
+            primaries: ["biceps"],
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
+        ),
+
+        EnrichedSeed(
+            name: "Sentadilla a cajón con mancuernas",
+            muscleGroup: "Piernas",
+            equipment: "Mancuernas, Cajón",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Sentadilla a cajón con mancuernas a los lados o en goblet.",
+            instructions: [
+                "Cajón detrás; mancuernas a los lados o una en goblet.",
+                "Baja hasta sentarte breve en el cajón sin desplomarte.",
+                "Sube sin rebote empujando el suelo.",
+                "Error típico: dejarte caer en el cajón o perder el pecho alto.",
+                "Inhala al bajar; exhala al subir.",
+                "Progresión: más peso o caja más baja. Alternativa: box squat con barra.",
+                "Estándar: contacto controlado con el cajón y extensión completa arriba.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "Halterofilia"
+        ),
+        EnrichedSeed(
+            name: "Sentadilla búlgara con mancuernas",
+            muscleGroup: "Piernas",
+            equipment: "Mancuernas, Banco",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Búlgara con el pie de atrás elevado y mancuernas a los lados.",
+            instructions: [
+                "Pie trasero en banco; mancuernas a los lados; torso erguido.",
+                "Baja hasta el muslo delantero paralelo (o más) con rodilla alineada.",
+                "Empuja el suelo con el pie delantero hasta extensión.",
+                "Error típico: empujar con el pie de atrás o inclinarte en exceso.",
+                "Exhala al subir; completa el lado antes de cambiar.",
+                "Progresión: más peso. Alternativa: búlgara a peso corporal.",
+                "Estándar: profundidad marcada y control en cada rep.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Woodchop en polea",
+            muscleGroup: "Core",
+            equipment: "Polea",
+            catalogId: nil,
+            target: "core",
+            secondaryMuscles: ["shoulders", "obliques"],
+            bodyPart: "waist",
+            description: "Chop en polea (alto-bajo o bajo-alto): oblicuos y anti-rotación.",
+            instructions: [
+                "Colócate de lado a la polea; agarra el mango con ambas manos.",
+                "Lleva el mango en diagonal cruzando el cuerpo (alto→bajo o bajo→alto).",
+                "Gira desde el tronco con cadera estable; brazos semi-extendidos.",
+                "Error típico: solo mover los brazos o despegar los pies.",
+                "Exhala en el corte diagonal.",
+                "Progresión: más peso o más control. Alternativa: Pallof press.",
+                "Estándar: diagonal completa a cada lado según el esquema.",
+            ],
+            primaries: ["abs", "obliques"],
+            secondaries: ["deltoids"],
+            sportTag: "CrossFit"
+        ),
+
+        // MARK: Fase F — huecos FED/OEDB gym + opcionales (2026-11-04)
+        EnrichedSeed(
+            name: "Encogimientos",
+            muscleGroup: "Espalda",
+            equipment: "Barra",
+            catalogId: nil,
+            target: "traps",
+            secondaryMuscles: ["forearms"],
+            bodyPart: "back",
+            description: "Encogimientos de trapecio con barra: eleva los hombros hacia las orejas sin flexionar codos.",
+            instructions: [
+                "Barra colgando a brazos extendidos; pies al ancho de cadera.",
+                "Encoge trapecios elevando los hombros; pausa breve arriba.",
+                "Baja con control sin redondear la cervical.",
+                "Error típico: rizar los codos o girar la cabeza.",
+                "Exhala al subir.",
+                "Progresión: más peso o mancuernas. Alternativa: shrug en máquina.",
+                "Estándar: rango completo de elevación escapular en cada rep.",
+            ],
+            primaries: ["trapezius"],
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Gemelos sentado",
+            muscleGroup: "Gemelos",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "calves",
+            secondaryMuscles: [],
+            bodyPart: "lower legs",
+            description: "Elevación de gemelos sentado en máquina: énfasis en sóleo con rodilla flexionada.",
+            instructions: [
+                "Siéntate; almohadilla sobre muslos; antepié en el borde.",
+                "Extiende tobillos elevando los talones; pausa arriba.",
+                "Baja hasta estirar el sóleo sin rebotar.",
+                "Error típico: usar impulso de rodillas o rango corto.",
+                "Exhala al subir.",
+                "Progresión: más peso o una pierna. Alternativa: gemelos de pie.",
+                "Estándar: extensión completa de tobillo en cada rep.",
+            ],
+            primaries: ["calves"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Press pecho en máquina",
+            muscleGroup: "Pecho",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "pectorals",
+            secondaryMuscles: ["triceps", "shoulders"],
+            bodyPart: "chest",
+            description: "Press de pecho sentado en máquina; trayectoria guiada para pecho y tríceps.",
+            instructions: [
+                "Ajusta asiento para que los agarres queden a la altura del pecho medio.",
+                "Empuja hasta extensión casi completa sin bloquear de golpe.",
+                "Vuelve con control hasta el tope de la máquina.",
+                "Error típico: encoger trapecios o despegar la espalda del respaldo.",
+                "Exhala al empujar.",
+                "Progresión: más peso. Alternativa: press banca o press mancuernas.",
+                "Estándar: rango completo y pecho activo en cada rep.",
+            ],
+            primaries: ["chest"],
+            secondaries: ["triceps", "deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Press hombro en máquina",
+            muscleGroup: "Hombros",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "delts",
+            secondaryMuscles: ["triceps"],
+            bodyPart: "shoulders",
+            description: "Press de hombros sentado en máquina; deltoides con recorrido guiado.",
+            instructions: [
+                "Asiento alto; agarres a la altura de los hombros; espalda pegada.",
+                "Empuja overhead hasta casi bloqueo sin encoger trapecios.",
+                "Baja con control hasta el tope inferior cómodo.",
+                "Error típico: arching lumbar o subir el peso con impulso de piernas.",
+                "Exhala al subir.",
+                "Progresión: más peso. Alternativa: press militar o press Arnold.",
+                "Estándar: extensión alta controlada en cada rep.",
+            ],
+            primaries: ["deltoids"],
+            secondaries: ["triceps"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Dominadas asistidas",
+            muscleGroup: "Espalda",
+            equipment: "Máquina asistida",
+            catalogId: nil,
+            target: "lats",
+            secondaryMuscles: ["biceps", "upper-back"],
+            bodyPart: "back",
+            description: "Dominada con asistencia de máquina o banda; progresión hacia dominada estricta.",
+            instructions: [
+                "Elige asistencia que permita 5–8 reps controladas.",
+                "Agarre prono; tira pecho a la barra/agarres con codos abajo.",
+                "Baja a extensión casi completa sin soltar la escápula.",
+                "Error típico: kipping o no completar el rango abajo.",
+                "Exhala al subir.",
+                "Progresión: menos asistencia. Alternativa: remo invertido.",
+                "Estándar: mentón sobre la barra y bajada controlada.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["biceps"],
+            sportTag: "Gimnasia"
+        ),
+        EnrichedSeed(
+            name: "Fondos asistidos",
+            muscleGroup: "Pecho",
+            equipment: "Máquina asistida",
+            catalogId: nil,
+            target: "chest",
+            secondaryMuscles: ["triceps", "shoulders"],
+            bodyPart: "chest",
+            description: "Fondos en máquina asistida o con banda; pecho y tríceps con ayuda escalable.",
+            instructions: [
+                "Ajusta asistencia; agarra paralelas o pads; torso ligeramente inclinado.",
+                "Baja hasta ~90° de codo; empuja a bloqueo sin encoger trapecios.",
+                "Controla la bajada; no rebotes abajo.",
+                "Error típico: hombros encogidos o rango incompleto.",
+                "Exhala al subir.",
+                "Progresión: menos asistencia. Alternativa: fondos en banco.",
+                "Estándar: profundidad marcada y extensión arriba.",
+            ],
+            primaries: ["chest", "triceps"],
+            secondaries: ["deltoids"],
+            sportTag: "Gimnasia"
+        ),
+        EnrichedSeed(
+            name: "Curl concentrado",
+            muscleGroup: "Bíceps",
+            equipment: "Mancuernas",
+            catalogId: nil,
+            target: "biceps",
+            secondaryMuscles: ["forearms"],
+            bodyPart: "upper arms",
+            description: "Curl de bíceps con codo apoyado en el muslo; aísla el pico del bíceps.",
+            instructions: [
+                "Sentado; codo interno apoyado en el muslo interno; mancuerna colgando.",
+                "Flexiona el codo sin balancear el torso; aprieta arriba.",
+                "Baja hasta extensión casi completa.",
+                "Error típico: levantar el hombro o usar impulso de cadera.",
+                "Exhala al subir.",
+                "Progresión: más peso o tempo. Alternativa: curl predicador.",
+                "Estándar: codo fijo y rango completo en cada rep.",
+            ],
+            primaries: ["biceps"],
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Kickback de tríceps",
+            muscleGroup: "Tríceps",
+            equipment: "Mancuernas",
+            catalogId: nil,
+            target: "triceps",
+            secondaryMuscles: [],
+            bodyPart: "upper arms",
+            description: "Kickback de tríceps con mancuerna o polea; extensión de codo con húmero paralelo al suelo.",
+            instructions: [
+                "Bisagra; brazo superior pegado al torso y paralelo al suelo.",
+                "Extiende el codo hacia atrás hasta bloqueo; pausa.",
+                "Flexiona con control sin mover el hombro.",
+                "Error típico: balancear el brazo completo o abrir el codo.",
+                "Exhala al extender.",
+                "Progresión: más peso o kickback en polea. Alternativa: extensión tríceps polea.",
+                "Estándar: bloqueo completo con húmero estable.",
+            ],
+            primaries: ["triceps"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Zancada inversa",
+            muscleGroup: "Piernas",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Zancada hacia atrás: paso atrás y bajada controlada; menos estrés de frenado que la zancada adelante.",
+            instructions: [
+                "De pie erguido; da un paso largo atrás.",
+                "Baja hasta rodilla trasera cerca del suelo; tibia delantera vertical.",
+                "Empuja con el pie delantero y vuelve a la postura inicial.",
+                "Error típico: truncar el paso o inclinarte en exceso.",
+                "Exhala al subir; alterna piernas.",
+                "Progresión: mancuernas o barra. Alternativa: zancadas caminando.",
+                "Estándar: profundidad marcada y equilibrio en cada rep.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Tirón de rack",
+            muscleGroup: "Espalda",
+            equipment: "Barra",
+            catalogId: nil,
+            target: "hamstrings",
+            secondaryMuscles: ["glutes", "upper-back", "traps", "forearms"],
+            bodyPart: "back",
+            description: "Peso muerto parcial desde pins/rack a altura de rodilla o superior; carga alta y bloqueo de cadera.",
+            instructions: [
+                "Coloca la barra en pins a la altura prescrita; stance de peso muerto.",
+                "Bracea; tira hasta extensión completa de cadera y rodillas.",
+                "Baja con control hasta los pins; no rebotes.",
+                "Error típico: redondear lumbar o hiperextender arriba.",
+                "Inhala y bracea antes de tirar; exhala al bloqueo.",
+                "Progresión: más peso. Alternativa: peso muerto completo.",
+                "Estándar: bloqueo completo arriba en cada rep.",
+            ],
+            primaries: ["hamstring", "gluteal"],
+            secondaries: ["upper-back", "trapezius", "forearm"],
+            sportTag: "Halterofilia"
+        ),
+        EnrichedSeed(
+            name: "Seal row",
+            muscleGroup: "Espalda",
+            equipment: "Mancuernas, Banco",
+            catalogId: nil,
+            target: "upper-back",
+            secondaryMuscles: ["lats", "biceps", "rear deltoids"],
+            bodyPart: "back",
+            description: "Remo tumbado boca abajo en banco elevado (seal row); elimina impulso de torso.",
+            instructions: [
+                "Banco alto o apoyado; pecho pegado; mancuernas o barra colgando.",
+                "Tira hacia la cadera/costillas apretando omóplatos.",
+                "Baja hasta estirar sin despegar el pecho.",
+                "Error típico: arrancar el pecho o usar demasiado peso y acortar rango.",
+                "Exhala al tirar.",
+                "Progresión: más peso. Alternativa: remo con apoyo de pecho.",
+                "Estándar: pecho pegado y contacto al torso en cada rep.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Extensión tríceps overhead",
+            muscleGroup: "Tríceps",
+            equipment: "Mancuernas",
+            catalogId: nil,
+            target: "triceps",
+            secondaryMuscles: [],
+            bodyPart: "upper arms",
+            description: "Extensión de tríceps por encima de la cabeza (mancuerna, EZ o polea); énfasis en la cabeza larga.",
+            instructions: [
+                "Sentado o de pie; peso overhead con codos altos y juntos.",
+                "Flexiona solo los codos bajando el peso detrás de la cabeza.",
+                "Extiende hasta bloqueo sin abrir los codos hacia fuera.",
+                "Error típico: abrir codos o arquear la lumbar.",
+                "Exhala al extender.",
+                "Progresión: más peso o polea. Alternativa: press francés.",
+                "Estándar: bloqueo overhead con codos estables.",
+            ],
+            primaries: ["triceps"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Jalón a brazos rectos",
+            muscleGroup: "Espalda",
+            equipment: "Polea",
+            catalogId: nil,
+            target: "lats",
+            secondaryMuscles: ["core"],
+            bodyPart: "back",
+            description: "Jalón en polea alta con brazos casi extendidos; aísla dorsales sin flexión fuerte de codo.",
+            instructions: [
+                "De pie ante polea alta; barra o cuerda a brazos largos.",
+                "Lleva la barra hacia los muslos con dorsales; codos suaves.",
+                "Vuelve arriba con control manteniendo tensión.",
+                "Error típico: flexionar demasiado los codos (se vuelve jalón) o balancear.",
+                "Exhala al bajar la barra.",
+                "Progresión: más peso. Alternativa: jalón al pecho.",
+                "Estándar: recorrido completo con brazos largos.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Hip extension",
+            muscleGroup: "Glúteos",
+            equipment: "Máquina / banco 45°",
+            catalogId: nil,
+            target: "glutes",
+            secondaryMuscles: ["hamstrings", "lower-back"],
+            bodyPart: "upper legs",
+            description: "Extensión de cadera en banco 45° o máquina (no GHD): glúteos e isquios con pelvis controlada.",
+            instructions: [
+                "Ajusta el pad en la cadera; tobillos fijados; torso alineado.",
+                "Extiende la cadera subiendo el tronco hasta la línea del cuerpo.",
+                "Baja con control sin redondear de golpe la lumbar.",
+                "Error típico: hiperextender arriba o usar solo lumbar.",
+                "Exhala al extender.",
+                "Progresión: más rango o disco en pecho. Alternativa: GHD back extension.",
+                "Estándar: extensión de cadera completa y controlada.",
+            ],
+            primaries: ["gluteal", "hamstring"],
+            secondaries: ["lower-back"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Sissy squat",
+            muscleGroup: "Piernas",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["core"],
+            bodyPart: "upper legs",
+            description: "Sissy squat: sentadilla con énfasis en cuádriceps, torso y rodillas hacia delante con control.",
+            instructions: [
+                "Agarra un apoyo si hace falta; pies fijos; torso erguido.",
+                "Lleva rodillas delante y cuerpo atrás en diagonal; talones bajos.",
+                "Vuelve extendiendo rodillas sin empujar con impulso.",
+                "Error típico: perder el equilibrio o flexionar demasiado la cadera.",
+                "Exhala al subir.",
+                "Progresión: más rango o peso ligero. Alternativa: extensión de cuádriceps.",
+                "Estándar: tensión continua en cuádriceps en cada rep.",
+            ],
+            primaries: ["quadriceps"],
+            secondaries: ["abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Sentadilla con safety bar",
+            muscleGroup: "Piernas",
+            equipment: "Safety bar",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Sentadilla con safety squat bar: agarres delanteros y carga más cómoda para hombros/torso.",
+            instructions: [
+                "Safety bar sobre trapecios; manos en los agarres; torso más vertical.",
+                "Baja a profundidad prescrita con rodillas alineadas.",
+                "Empuja el suelo hasta extensión completa.",
+                "Error típico: dejar caer los codos o cortar profundidad.",
+                "Inhala al bajar; exhala al subir.",
+                "Progresión: más peso. Alternativa: sentadilla con barra.",
+                "Estándar: profundidad y bloqueo arriba en cada rep.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "Halterofilia"
+        ),
+        EnrichedSeed(
+            name: "Meadows row",
+            muscleGroup: "Espalda",
+            equipment: "Barra landmine",
+            catalogId: nil,
+            target: "upper-back",
+            secondaryMuscles: ["lats", "biceps", "rear deltoids"],
+            bodyPart: "back",
+            description: "Remo Meadows a un brazo en landmine; dorsal y espalda media con torso en bisagra.",
+            instructions: [
+                "Barra en landmine; stance en staggered; torso inclinado.",
+                "Tira el codo hacia la cadera con el brazo cercano a la placa.",
+                "Baja hasta estirar sin rotar en exceso el tronco.",
+                "Error típico: girar todo el torso o usar impulso de piernas.",
+                "Exhala al tirar; completa el lado antes de cambiar.",
+                "Progresión: más discos. Alternativa: remo mancuerna.",
+                "Estándar: rango completo a un brazo en cada rep.",
+            ],
+            primaries: ["upper-back"],
+            secondaries: ["biceps", "deltoids"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Spider curl",
+            muscleGroup: "Bíceps",
+            equipment: "Mancuernas, Banco",
+            catalogId: nil,
+            target: "biceps",
+            secondaryMuscles: ["forearms"],
+            bodyPart: "upper arms",
+            description: "Curl en banco inclinado boca abajo (spider curl); bíceps sin impulso de cadera.",
+            instructions: [
+                "Pecho en banco inclinado; brazos colgando por delante.",
+                "Curl sin balancear; aprieta arriba con codos fijos.",
+                "Baja hasta extensión completa.",
+                "Error típico: acortar el rango abajo o despegar el pecho.",
+                "Exhala al subir.",
+                "Progresión: más peso. Alternativa: curl inclinado.",
+                "Estándar: pecho pegado y extensión completa abajo.",
+            ],
+            primaries: ["biceps"],
+            secondaries: ["forearm"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Curl de muñeca",
+            muscleGroup: "Antebrazos",
+            equipment: "Barra",
+            catalogId: nil,
+            target: "forearms",
+            secondaryMuscles: [],
+            bodyPart: "lower arms",
+            description: "Curl de muñeca con barra o mancuernas; flexores del antebrazo.",
+            instructions: [
+                "Antebrazos apoyados en banco o muslos; muñecas fuera del borde; agarre prono o supino según variante.",
+                "Flexiona solo las muñecas elevando la barra.",
+                "Baja hasta estirar con control.",
+                "Error típico: mover los codos o usar demasiado peso.",
+                "Exhala al flexionar.",
+                "Progresión: más peso o reverse wrist curl. Alternativa: farmer carry.",
+                "Estándar: solo movimiento de muñeca en cada rep.",
+            ],
+            primaries: ["forearm"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Gemelos de burro",
+            muscleGroup: "Gemelos",
+            equipment: "Máquina",
+            catalogId: nil,
+            target: "calves",
+            secondaryMuscles: [],
+            bodyPart: "lower legs",
+            description: "Elevación de gemelos tipo burro (cadera flexionada); estiramiento largo del gemelo.",
+            instructions: [
+                "Cadera flexionada; antepié en el borde; carga sobre cadera/espalda baja según máquina.",
+                "Extiende tobillos hasta elevación máxima; pausa.",
+                "Baja hasta estirar gemelos sin rebotar.",
+                "Error típico: flexionar rodillas o rango corto.",
+                "Exhala al subir.",
+                "Progresión: más peso. Alternativa: gemelos de pie.",
+                "Estándar: extensión completa de tobillo.",
+            ],
+            primaries: ["calves"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Zancada en cortesía",
+            muscleGroup: "Piernas",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "adductors", "core"],
+            bodyPart: "upper legs",
+            description: "Curtsy lunge: paso atrás cruzado; glúteo medio y estabilidad de cadera.",
+            instructions: [
+                "De pie; cruza un pie atrás y hacia el lado contrario.",
+                "Baja hasta muslo delantero paralelo; torso erguido.",
+                "Vuelve al centro empujando el pie delantero.",
+                "Error típico: rotar en exceso la rodilla delantera o perder el equilibrio.",
+                "Exhala al subir; alterna.",
+                "Progresión: mancuernas. Alternativa: zancada lateral.",
+                "Estándar: cruce claro y profundidad controlada.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["adductors", "abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Step-down",
+            muscleGroup: "Piernas",
+            equipment: "Cajón",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: ["glutes", "hamstrings", "core"],
+            bodyPart: "upper legs",
+            description: "Bajada controlada desde cajón a una pierna (step-down); fuerza excéntrica y control de rodilla.",
+            instructions: [
+                "Un pie en el cajón; el otro libre; torso erguido.",
+                "Flexiona la pierna de apoyo hasta tocar el suelo con el talón libre (o cerca).",
+                "Extiende la pierna de apoyo y vuelve arriba con control.",
+                "Error típico: dejar caer la cadera o colapsar la rodilla hacia dentro.",
+                "Exhala al subir; completa el lado.",
+                "Progresión: cajón más alto o peso. Alternativa: step-up.",
+                "Estándar: toque controlado y rodilla alineada.",
+            ],
+            primaries: ["quadriceps", "gluteal"],
+            secondaries: ["hamstring", "abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Aperturas con banda",
+            muscleGroup: "Hombros",
+            equipment: "Banda",
+            catalogId: nil,
+            target: "shoulders",
+            secondaryMuscles: ["upper-back"],
+            bodyPart: "shoulders",
+            description: "Band pull-apart: abre la banda a la altura del pecho; deltoides posterior y escapulares.",
+            instructions: [
+                "Banda a la altura del pecho; brazos extendidos delante.",
+                "Abre hacia los lados apretando omóplatos; banda toca el pecho.",
+                "Vuelve con control sin perder tensión.",
+                "Error típico: encoger trapecios o flexionar demasiado los codos.",
+                "Exhala al abrir.",
+                "Progresión: banda más fuerte o más reps. Alternativa: pájaros.",
+                "Estándar: apertura completa con omóplatos activos.",
+            ],
+            primaries: ["deltoids"],
+            secondaries: ["upper-back"],
+            sportTag: "Movilidad"
+        ),
+
+        // MARK: Fase G — huecos RepDB/Kinetic selectivos (2026-11-04)
+        EnrichedSeed(
+            name: "Almeja con banda",
+            muscleGroup: "Glúteos",
+            equipment: "Banda",
+            catalogId: nil,
+            target: "glutes",
+            secondaryMuscles: ["abs"],
+            bodyPart: "upper legs",
+            description: "Clamshell con minibanda: tumbado de lado, abre la rodilla de arriba sin girar la pelvis; glúteo medio.",
+            instructions: [
+                "Túmbate de lado; rodillas flexionadas ~90°; banda encima de las rodillas; pies juntos.",
+                "Abre la rodilla de arriba como una almeja sin separar los pies ni rotar la pelvis.",
+                "Baja con control hasta casi tocar sin perder tensión de la banda.",
+                "Error típico: rodar la cadera atrás o abrir con el lumbar.",
+                "Exhala al abrir; completa el lado y cambia.",
+                "Progresión: banda más fuerte o tempo lento. Alternativa: abducción en máquina.",
+                "Estándar: pelvis quieta y apertura completa en cada rep.",
+            ],
+            primaries: ["gluteal"],
+            secondaries: ["abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Hidrante con banda",
+            muscleGroup: "Glúteos",
+            equipment: "Banda",
+            catalogId: nil,
+            target: "glutes",
+            secondaryMuscles: ["abs"],
+            bodyPart: "upper legs",
+            description: "Fire hydrant con banda: a cuatro apoyos, eleva la rodilla hacia el lado; glúteo medio y estabilidad de cadera.",
+            instructions: [
+                "A cuatro apoyos; banda encima de las rodillas; espalda neutra.",
+                "Eleva una rodilla hacia el lado manteniendo la cadera cuadrada; pie flexionado.",
+                "Baja con control sin tocar el suelo entre reps si buscas tensión continua.",
+                "Error típico: arching lumbar o abrir rotando todo el torso.",
+                "Exhala al subir; completa el lado.",
+                "Progresión: banda más fuerte o pausa arriba. Alternativa: almeja con banda.",
+                "Estándar: rodilla a la altura de la cadera sin perder el cuadrúpedo.",
+            ],
+            primaries: ["gluteal"],
+            secondaries: ["abs"],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "TKE con banda",
+            muscleGroup: "Piernas",
+            equipment: "Banda",
+            catalogId: nil,
+            target: "quads",
+            secondaryMuscles: [],
+            bodyPart: "upper legs",
+            description: "Terminal knee extension (TKE) con banda: extensión final de rodilla de pie; cuádriceps (VMO) y control de rodilla.",
+            instructions: [
+                "Ancla la banda detrás a la altura de la rodilla; pásala por detrás de la rodilla de trabajo; pie adelantado.",
+                "Parte con la rodilla ligeramente flexionada y extiende hasta bloqueo suave contra la tensión.",
+                "Flexiona un poco y repite sin perder la alineación rodilla-pie.",
+                "Error típico: empujar con la cadera o hiperextender de golpe.",
+                "Exhala al extender; completa el lado.",
+                "Progresión: banda más fuerte o más reps. Alternativa: extensión de cuádriceps en máquina con rango corto.",
+                "Estándar: extensión terminal controlada sin dolor de rodilla.",
+            ],
+            primaries: ["quadriceps"],
+            secondaries: [],
+            sportTag: "CrossFit"
+        ),
+        EnrichedSeed(
+            name: "Windshield wipers",
+            muscleGroup: "Core",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "abs",
+            secondaryMuscles: ["obliques"],
+            bodyPart: "waist",
+            description: "Limpiaparabrisas: tumbado o colgado, lleva las piernas de lado a lado con control; oblicuos y core.",
+            instructions: [
+                "Tumbado con brazos en cruz (o colgado de barra); piernas juntas extendidas o semi-flexionadas.",
+                "Baja las piernas hacia un lado sin despegar hombros/omóplatos; vuelve al centro y al otro lado.",
+                "Mantén el lumbar pegado o la pelvis controlada; no rebotes.",
+                "Error típico: usar impulso o rotar toda la espalda alta del suelo.",
+                "Exhala al bajar a cada lado.",
+                "Progresión: piernas más rectas o colgado. Alternativa: Russian twist.",
+                "Estándar: arco controlado lado a lado sin perder el anclaje de torso.",
+            ],
+            primaries: ["abs", "obliques"],
+            secondaries: [],
+            sportTag: "Gimnasia"
+        ),
+        EnrichedSeed(
+            name: "Dragon flag",
+            muscleGroup: "Core",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "abs",
+            secondaryMuscles: ["upper-back", "glutes"],
+            bodyPart: "waist",
+            description: "Dragon flag: cuerpo rígido en línea desde un anclaje de cabeza/hombros; anti-extensión avanzada de core.",
+            instructions: [
+                "Túmbate en banco; agarra el borde detrás de la cabeza; hombros anclados.",
+                "Eleva el cuerpo rígido (hombros a pies) hasta casi vertical; baja en línea sin romper la cadera.",
+                "Controla la bajada hasta el ángulo que mantengas rígido; no dejes caer la lumbar.",
+                "Error típico: picar de cadera o flexionar solo de rodillas.",
+                "Exhala en la bajada controlada.",
+                "Progresión: negatives lentos o rodillas recogidas. Alternativa: hollow rock / hollow hold.",
+                "Estándar: línea recta hombros-cadera-tobillos en todo el rango usable.",
+            ],
+            primaries: ["abs"],
+            secondaries: ["gluteal", "upper-back"],
+            sportTag: "Gimnasia"
+        ),
+        EnrichedSeed(
+            name: "Planche lean",
+            muscleGroup: "Hombros",
+            equipment: "Peso corporal",
+            catalogId: nil,
+            target: "shoulders",
+            secondaryMuscles: ["chest", "triceps", "abs"],
+            bodyPart: "shoulders",
+            description: "Planche lean: en plancha alta, proyecta los hombros delante de las muñecas; progresión hacia planche.",
+            instructions: [
+                "Plancha alta; manos bajo hombros; body hollow (glúteos y abs activos).",
+                "Inclina el cuerpo hacia delante llevando los hombros por delante de las muñecas sin hundir la lumbar.",
+                "Mantén o haz micro-pulsos; vuelve a la plancha neutra con control.",
+                "Error típico: arquear la espalda o subir las caderas en pica.",
+                "Exhala al inclinarte; respira corto en la retención.",
+                "Progresión: más lean o planche tuck. Alternativa: pike push-up / crow.",
+                "Estándar: línea de cuerpo rígida con proyección clara de hombros.",
+            ],
+            primaries: ["deltoids"],
+            secondaries: ["chest", "triceps", "abs"],
+            sportTag: "Gimnasia"
         ),
     ]
 }

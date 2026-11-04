@@ -1258,7 +1258,7 @@ fun ReperaMobileScreen(
                             // Push sobre Progreso: Volver hace pop y recupera esta pestaña.
                             navController.navigate("ejercicio/${Uri.encode(targetId)}")
                         },
-                        onOpenSports={libraryModeRequest="Deportes";navController.navigate("ejercicios")},
+                        onOpenSports={ navController.navigate("deportes") },
                         accountId = accountId,
                         busy = busy,
                         syncing = syncing,
@@ -1302,6 +1302,17 @@ fun ReperaMobileScreen(
                     } else {
                         LaunchedEffect(Unit) { navController.popBackStack() }
                     }
+                }
+                composable("deportes") {
+                    LiveSportsLibraryScreen(
+                        overview = overview,
+                        accountId = accountId,
+                        busy = busy,
+                        heartSeriesProvider = heartSeriesProvider,
+                        onUpdateFinishedWorkout = onUpdateFinishedWorkout,
+                        onArchiveChanged = { onLiveActivitySaved(null) },
+                        onBack = { navController.popBackStack() },
+                    )
                 }
                 composable("ejercicios") {
                     // Apple 11ea29a6: entrar en Ejercicios refresca el catalogo.
@@ -1513,10 +1524,7 @@ fun ReperaMobileScreen(
                                     "&instancia=" + Uri.encode(instanceId)
                             )
                         },
-                        onOpenSports = {
-                            libraryModeRequest = "Deportes"
-                            navController.navigate("ejercicios")
-                        },
+                        onOpenSports = { navController.navigate("deportes") },
                         onBack = { navController.popBackStack() },
                         onToggleWorkoutFavorite = onToggleWorkoutFavorite,
                         isWorkoutFavorite = isWorkoutFavorite
@@ -2223,6 +2231,12 @@ internal fun SettingsTab(
                 )
             }
         }
+        Text(
+            text = "Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
     }
     }
 }

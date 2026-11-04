@@ -44,9 +44,12 @@ internal fun WodExerciseThumbnail(
     size: androidx.compose.ui.unit.Dp = 40.dp,
 ) {
     val context=LocalContext.current
-    val stem=remember(exercise.name,exercise.sportTag) {
-        ExerciseArtImages.carouselStems(context,exercise.name,exercise.sportTag=="Movilidad",aliases,
-            exercise.instructions.count {it.isNotBlank()}).firstOrNull()
+    val stem=remember(exercise.name,exercise.sportTag,exercise.artKeys) {
+        ExerciseArtImages.carouselStems(
+            context, exercise.name, exercise.sportTag=="Movilidad", aliases,
+            exercise.instructions.count { it.isNotBlank() },
+            artKeys = exercise.artKeys,
+        ).firstOrNull()
     }
     val targetPx=with(androidx.compose.ui.platform.LocalDensity.current) {size.roundToPx()}
     val bitmap by produceState<ImageBitmap?>(null,stem,targetPx) {value=stem?.let {ExerciseArtImages.load(context,it,targetPx)}}

@@ -135,7 +135,8 @@ internal fun ExercisePickerSheet(
                             ExerciseListThumb(
                                 name = entry.name,
                                 sportTag = entry.sportTag,
-                                aliases = aliases
+                                aliases = aliases,
+                                artKeys = entry.artKeys,
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(

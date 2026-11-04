@@ -14,7 +14,7 @@ final class ExerciseEquipmentAuditTests: XCTestCase {
 
     func testEntireBuiltInCatalogHasExplicitEquipment() {
         let exercises = catalog
-        XCTAssertEqual(exercises.count, 290)
+        XCTAssertEqual(exercises.count, 302)
         XCTAssertTrue(exercises.allSatisfy {
             $0.equipment?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         }, "Todos los ejercicios de fábrica deben indicar su material, incluso Peso corporal")

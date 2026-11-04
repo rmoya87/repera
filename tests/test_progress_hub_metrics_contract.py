@@ -90,11 +90,13 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         month = stats.split("private var fitnessMonthSummaryCard", 1)[1].split(
             "private var heartMonthSummaryCard", 1
         )[0]
-        self.assertIn("media/semana", month)
+        self.assertIn("media semana", month)
+        self.assertNotIn("sesiones", month)
+        self.assertIn("ProgressMiniFillBars", month)
         self.assertIn("ProgressInsightElevatedCard", month)
         self.assertNotIn("Repera + Salud", month)
         tab = read(ANDROID / "ProgressTab.kt")
-        self.assertIn("media/semana", tab)
+        self.assertIn("media semana", tab)
         self.assertIn("weeklyAverageMinutes", tab)
 
     def test_heart_month_shows_weekly_average_and_progression(self):

@@ -292,8 +292,8 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
     }
 }
 
-/// Card insight: título arriba; debajo, héroe grande + caption muy ajustado y gráfica a la derecha
-/// alineada al bloque del dato (no sube hasta el título).
+/// Card insight: título arriba; el sobrante hasta el caption es el dato grande;
+/// caption alineado abajo con la gráfica.
 struct ProgressInsightElevatedCard<Chart: View>: View {
     let title: String
     let systemImage: String
@@ -309,13 +309,17 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
     var chartHeight: CGFloat = 72
     /// Carga / Estímulo: la gráfica sube hasta la fila del título (junto a header + héroe).
     var chartBesideTitle: Bool = false
+    /// Levitating (FC): alinear al centro para no recortar cápsulas. Fill/área: abajo con caption.
+    var chartAlignsBottom: Bool = true
     @ViewBuilder var chart: () -> Chart
 
     var body: some View {
         OGCard {
             if chartBesideTitle {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
+                // Misma altura que la gráfica: título arriba, caption abajo con las barras,
+                // dato grande en el sobrante.
+                HStack(alignment: .bottom, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 0) {
                         ProgressInsightHeader(
                             title: title,
                             systemImage: systemImage,
@@ -323,11 +327,18 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
                             showsChevron: showsChevron,
                             trailingText: trailingText
                         )
-                        heroMetrics
+                        Spacer(minLength: 4)
+                        heroValueBlock
+                        if let caption {
+                            Text(caption)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(OG.label3)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: chartHeight, alignment: .bottom)
                     chart()
-                        .frame(width: 152, height: chartHeight, alignment: .top)
+                        .frame(width: 152, height: chartHeight, alignment: .bottom)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 8) {
@@ -339,18 +350,32 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
                         trailingText: trailingText
                     )
                     if chartBelow {
-                        heroMetrics
+                        heroMetricsStacked
                         chart()
                             .frame(maxWidth: .infinity)
                             .frame(height: chartHeight)
                     } else {
-                        HStack(alignment: .center, spacing: 12) {
-                            heroMetrics
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            // center (no .bottom): si la gráfica levita, .bottom la recorta y parece
-                            // que todas las barras salen del eje X.
+                        HStack(
+                            alignment: chartAlignsBottom ? .bottom : .center,
+                            spacing: 12
+                        ) {
+                            VStack(alignment: .leading, spacing: 0) {
+                                Spacer(minLength: 0)
+                                heroValueBlock
+                                if let caption {
+                                    Text(caption)
+                                        .font(.footnote.weight(.semibold))
+                                        .foregroundStyle(OG.label3)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: chartHeight, alignment: .bottom)
                             chart()
-                                .frame(width: 152, height: chartHeight, alignment: .center)
+                                .frame(
+                                    width: 152,
+                                    height: chartHeight,
+                                    alignment: chartAlignsBottom ? .bottom : .center
+                                )
                         }
                     }
                 }
@@ -358,21 +383,25 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
         }
     }
 
-    private var heroMetrics: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
-                    .monospacedDigit()
-                    .foregroundStyle(OG.label)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                if let unit {
-                    Text(unit)
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(OG.label2)
-                }
+    private var heroValueBlock: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(value)
+                .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                .monospacedDigit()
+                .foregroundStyle(OG.label)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+            if let unit {
+                Text(unit)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(OG.label2)
             }
+        }
+    }
+
+    private var heroMetricsStacked: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            heroValueBlock
             if let caption {
                 Text(caption)
                     .font(.footnote.weight(.semibold))
@@ -455,20 +484,21 @@ struct ProgressMiniFillBars: View {
     var height: CGFloat = 72
 
     var body: some View {
-        GeometryReader { geo in
-            let w = max(geo.size.width, 1)
-            let spacing: CGFloat = 4
-            let count = max(fractions.count, 1)
-            let barW = max((w - spacing * CGFloat(count - 1)) / CGFloat(count), 3)
-            HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(Array(fractions.enumerated()), id: \.offset) { _, raw in
-                    let f = min(max(raw, 0), 1)
-                    RoundedRectangle(cornerRadius: barW * 0.35, style: .continuous)
-                        .fill(tint.opacity(0.9))
-                        .frame(width: barW, height: max(height * CGFloat(f), 3))
-                }
+        Canvas { context, size in
+            let n = fractions.count
+            guard n > 0, size.height > 0, size.width > 0 else { return }
+            // Mes (~28–31): spacing estrecho para caber sin desbordar el marco.
+            let spacing: CGFloat = n > 14 ? 2 : 4
+            let slot = (size.width - spacing * CGFloat(n - 1)) / CGFloat(n)
+            let barW = max(slot * 0.85, 2)
+            for (i, raw) in fractions.enumerated() {
+                let f = min(max(raw, 0), 1)
+                let barH = max(size.height * CGFloat(f), 3)
+                let x = CGFloat(i) * (slot + spacing) + (slot - barW) / 2
+                let rect = CGRect(x: x, y: size.height - barH, width: barW, height: barH)
+                let path = Path(roundedRect: rect, cornerRadius: min(barW * 0.35, 4), style: .continuous)
+                context.fill(path, with: .color(tint.opacity(0.9)))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
         .frame(height: height)
         .accessibilityHidden(true)
