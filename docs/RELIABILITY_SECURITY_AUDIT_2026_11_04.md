@@ -43,23 +43,35 @@ R8 en instalación Play, FCM/APNs con secretos de producción).
   strings/colores hacia recursos, TalkBack, tablets.
 
 ### Seguridad
-- `repera-business-push`: falla cerrado sin `REPERA_PUSH_CRON_SECRET`; entrega
-  FCM/APNs cuando hay secretos (código listo; **no desplegado** desde aquí).
-- MCP: rate limit por token/herramienta; CORS de invite con allowlist.
+- `repera-business-push`: falla cerrado sin `REPERA_PUSH_CRON_SECRET`; desplegada
+  en prod con secreto + cron `pg_cron`/`pg_net` (vault). Entrega FCM/APNs solo
+  cuando existan secretos de proveedor (`fcm_configured`/`apns_configured`).
+- MCP: rate limit por token/herramienta desplegado (`consume_ai_mcp_quota`);
+  CORS de invite con allowlist.
 - `.mcp.json` / `.cursor/mcp.json` en `.gitignore`.
 - RevenueCat: runtime trata el placeholder como no disponible; el archive
   Release falla si sigue el placeholder (`project.yml` preBuildScripts).
 - Contratos `BusinessAgenda.source` alineados Swift/Kotlin.
-- Espejo de entrenos: sync por cursor / índice (migración nueva, no aplicada).
+- Espejo de entrenos: índice keyset `athlete_workout_mirror_owner_id_keyset_idx`
+  aplicado en prod (`20261104104041`).
 
-## Pendiente de despliegue / operación (humano)
+## Despliegue Supabase (04/11 tarde — hecho)
 
-1. Configurar `REPERA_PUSH_CRON_SECRET` (+ credenciales FCM/APNs) y desplegar
-   `repera-business-push` / MCP actualizados.
-2. Revisar y aplicar migraciones nuevas (`20261104102807_*`,
-   `20261104103112_*`, `20261104104041_*`) y el plan de reconciliación de las
-   ~30 versiones solo en git (`docs/SUPABASE_MIGRATION_RECONCILIATION_2026-11-04.md`).
-   **No** hacer `supabase db push` masivo.
+1. Migraciones aplicadas una a una (sin `db push` masivo) y registradas:
+   `20261104102807`, `20261104103112`, `20261104104041`.
+2. Edge: `repera-business-push` (nueva) y `repera-mcp` (redeploy) con
+   `--no-verify-jwt` en push (auth por `x-repera-cron`).
+3. Secreto `REPERA_PUSH_CRON_SECRET` en Edge Secrets + Vault; job cron cada
+   minuto `repera-business-push`. Verificado: sin header / secreto malo → 403;
+   con secreto → 200 (`claimed:0`, proveedores aún no configurados).
+
+## Pendiente de operación (humano)
+
+1. Añadir secretos de proveedor `FCM_SERVICE_ACCOUNT_JSON` + `FCM_PROJECT_ID`
+   y/o `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY` / `APNS_BUNDLE_ID`
+   para que la cola deje de quedar en pending.
+2. Seguir el plan de reconciliación de versiones históricas solo en git
+   (`docs/SUPABASE_MIGRATION_RECONCILIATION_2026-11-04.md`). **No** `db push` masivo.
 3. Inyectar `RevenueCatPublicAPIKey` real en CI/xcconfig antes de archive.
 4. Validar en dispositivos reales el checklist de Always On, live-start con
    app abierta, GPS largo, R8 install y doble escritura Salud/Health Connect.
