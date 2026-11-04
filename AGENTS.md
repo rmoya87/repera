@@ -195,6 +195,20 @@ await WorkoutScheduler.shared.schedule(plan, at: when)
 
 - Títulos/flags/`AppEnum`: `let` / estáticos; evitar `var` mutables entre procesos.
 
+#### Android / Wear — Pro B2B naming (CI 2026-11-04)
+
+```kotlin
+// ❌ BAD — `var businessSponsoredAccess by mutableStateOf` genera setBusinessSponsoredAccess
+//         y choca en JVM con el método homónimo (Platform declaration clash).
+var businessSponsoredAccess by mutableStateOf(false)
+fun setBusinessSponsoredAccess(enabled: Boolean) { … }
+
+// ✅ GOOD — backing privado + val de lectura; método = mismo nombre que iOS
+private var businessSponsoredAccessState by mutableStateOf(false)
+val businessSponsoredAccess: Boolean get() = businessSponsoredAccessState
+fun setBusinessSponsoredAccess(enabled: Boolean) { … }
+```
+
 #### Android / Wear
 
 - Assistant: deep links `repera://…`; capabilities en el mismo XML de shortcuts.

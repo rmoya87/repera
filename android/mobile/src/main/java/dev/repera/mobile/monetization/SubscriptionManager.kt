@@ -32,9 +32,13 @@ class SubscriptionManager(
     /** Cache estable: las vistas que solo leen Pro no se invalidan por cuotas. */
     var isPro by mutableStateOf(false)
         private set
-    /** Acceso completo mientras está vinculado a un centro/entrenador que paga. */
-    var businessSponsoredAccess by mutableStateOf(false)
-        private set
+    /**
+     * Acceso completo mientras está vinculado a un centro/entrenador que paga.
+     * Backing privado: el setter sintético de `var … by mutableStateOf` choca en JVM
+     * con `setBusinessSponsoredAccess` (mismo nombre que iOS).
+     */
+    private var businessSponsoredAccessState by mutableStateOf(false)
+    val businessSponsoredAccess: Boolean get() = businessSponsoredAccessState
     var offerings by mutableStateOf(CommercialOfferings.empty)
         private set
     var isRefreshing by mutableStateOf(false)
@@ -62,15 +66,15 @@ class SubscriptionManager(
             libraryRoutineCount = libraryRoutineCount,
             customExerciseCount = customExerciseCount,
             favoriteCount = favoriteCount,
-            businessSponsoredAccess = businessSponsoredAccess
+            businessSponsoredAccess = businessSponsoredAccessState
         )
 
     fun setBusinessSponsoredAccess(enabled: Boolean) {
-        if (businessSponsoredAccess == enabled) {
-            isPro = snapshot.grantsProAccess || businessSponsoredAccess
+        if (businessSponsoredAccessState == enabled) {
+            isPro = snapshot.grantsProAccess || businessSponsoredAccessState
             return
         }
-        businessSponsoredAccess = enabled
+        businessSponsoredAccessState = enabled
         isPro = snapshot.grantsProAccess || enabled
     }
 
