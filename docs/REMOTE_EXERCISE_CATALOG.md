@@ -38,7 +38,7 @@ La tabla de eventos es de **solo lectura para clientes autenticados** (RLS). No 
 1. Inicio: hidratar JSON personal + `Catalog.seed()` si hace falta. Ni red ni Supabase bloquean el arranque.
 2. Tras iCloud (iOS): `restoreCached` aplica `exercise_catalog_remote_v1.json` sobre el seed.
 3. Sync **invisible** (background + primer plano/login, sin botón): probe de `max(id)`; si no cambió, no descarga páginas (sí puede reaplicar caché).
-4. Si hay revisión nueva: páginas de 150 eventos; solo tras completarlas se escribe el snapshot atómico y avanza el cursor.
+4. Si el cursor es 0 o el lag es **> 300** eventos: RPC `mobile_exercise_catalog_bootstrap()` (1 round-trip con el estado canónico de ~476 fichas + `revision`). Si el lag es pequeño: páginas de **500** eventos. Solo tras completar se escribe el snapshot atómico y avanza el cursor.
 5. `RemoteExerciseCatalogMerge` actualiza fichas sin cambiar UUID, favoritos, rutinas, sesiones ni récords.
 6. Bajas → `isCatalogArchived=true` (ocultas en UI; historial sigue resolviendo).
 7. Sin Internet / sin cuenta / error → se conserva caché + seed; no se borra información.

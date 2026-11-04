@@ -22,6 +22,16 @@ final class RemoteExerciseCatalogStore {
 
     private struct Version: Decodable { let id: Int64 }
 
+    private struct Bootstrap: Decodable {
+        let revision: Int64
+        let entries: [String: RemoteExerciseCatalogEntry]
+    }
+
+    /// Si el cursor va muy atrás, un RPC con el estado actual es más barato
+    /// que rejugar miles de eventos (p. ej. tras un reemit editorial).
+    private static let bootstrapLagThreshold: Int64 = 300
+    private static let eventPageSize = 500
+
     private var snapshot: RemoteExerciseCatalogSnapshot?
     private var isRefreshing = false
     private var lastProbeAt: Date?
@@ -119,6 +129,36 @@ final class RemoteExerciseCatalogStore {
                 return
             }
 
+            let lag = head - working.revision
+            if working.revision == 0 || lag > Self.bootstrapLagThreshold {
+                try Task.checkCancellation()
+                let boot: Bootstrap = try await client
+                    .rpc("mobile_exercise_catalog_bootstrap")
+                    .execute()
+                    .value
+                guard boot.revision > 0, !boot.entries.isEmpty else {
+                    throw CatalogSyncError.invalidEvent
+                }
+                let keptIDs = working.localIDs
+                var next = RemoteExerciseCatalogSnapshot(
+                    revision: min(boot.revision, head),
+                    entries: boot.entries,
+                    localIDs: keptIDs,
+                    tombstones: Set(boot.entries.compactMap { pair in
+                        pair.value.isActive ? nil : pair.key
+                    })
+                )
+                // Claves que ya no vienen en el bootstrap: conservar lápida local.
+                for key in working.entries.keys where next.entries[key] == nil {
+                    next.tombstones.insert(key)
+                    if var old = working.entries[key] {
+                        old.isActive = false
+                        next.entries[key] = old
+                    }
+                }
+                working = next
+            }
+
             // Ventana cerrada por `head`: cambios concurrentes se recogerán después.
             while working.revision < head {
                 try Task.checkCancellation()
@@ -128,7 +168,7 @@ final class RemoteExerciseCatalogStore {
                     .gt("id", value: String(working.revision))
                     .lte("id", value: String(head))
                     .order("id", ascending: true)
-                    .limit(150)
+                    .limit(Self.eventPageSize)
                     .execute().value
                 guard !events.isEmpty else {
                     throw CatalogSyncError.incompletePage

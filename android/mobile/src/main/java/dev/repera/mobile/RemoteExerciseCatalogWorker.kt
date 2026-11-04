@@ -12,8 +12,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -29,7 +31,12 @@ import java.util.concurrent.TimeUnit
  * account hydration so a background sync cannot overwrite a user's workout.
  */
 internal class RemoteExerciseCatalog(private val context: Context) {
-    private companion object { val gate = Any() }
+    private companion object {
+        const val BOOTSTRAP_LAG_THRESHOLD = 300L
+        const val EVENT_PAGE_SIZE = 500
+        val gate = Any()
+    }
+
     private val cache = AtomicFile(File(context.filesDir, "exercise_catalog_remote_v1.json"))
     private val http = OkHttpClient.Builder().callTimeout(25, TimeUnit.SECONDS).build()
 
@@ -67,6 +74,22 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         }
     }
 
+    private fun fetchBootstrap(accessToken: String): JSONObject {
+        val body = "{}".toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url(BuildConfig.SUPABASE_URL + "/rest/v1/rpc/mobile_exercise_catalog_bootstrap")
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer $accessToken")
+            .header("Accept", "application/json")
+            .post(body)
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful)
+                throw IllegalStateException("Bootstrap catálogo HTTP ${response.code}")
+            return JSONObject(response.body?.string() ?: error("Bootstrap vacío"))
+        }
+    }
+
     fun refresh(accessToken: String): Boolean = synchronized(gate) {
         require(accessToken.isNotBlank())
         val latest = fetch("mobile_exercise_catalog_events?select=id&order=id.desc&limit=1", accessToken)
@@ -74,16 +97,49 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         val head = latest.getJSONObject(0).getLong("id")
         var working = readCache()
         var cursor = working.optLong("revision", 0)
+        val keptIds = working.optJSONObject("localIDs") ?: JSONObject()
         if (cursor > head) {
-            working = JSONObject().put("entries", JSONObject()).put("localIDs", JSONObject())
+            working = JSONObject().put("entries", JSONObject()).put("localIDs", keptIds)
             cursor = 0
         }
         if (cursor == head) return false
-        val entries = working.getJSONObject("entries")
+        var entries = working.getJSONObject("entries")
+        val lag = head - cursor
+        if (cursor == 0L || lag > BOOTSTRAP_LAG_THRESHOLD) {
+            val boot = fetchBootstrap(accessToken)
+            val bootRevision = boot.optLong("revision", 0)
+            val bootEntries = boot.optJSONObject("entries")
+            require(bootRevision > 0 && bootEntries != null && bootEntries.length() > 0) {
+                "Bootstrap del catálogo incompleto"
+            }
+            // Conservar UUID locales; sustituir fichas por el estado canónico.
+            val merged = JSONObject()
+            val keys = bootEntries.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                merged.put(key, JSONObject(bootEntries.getJSONObject(key).toString()))
+            }
+            // Lápidas: claves locales ausentes en bootstrap.
+            val oldKeys = entries.keys().asSequence().toList()
+            for (key in oldKeys) {
+                if (!merged.has(key)) {
+                    val item = entries.optJSONObject(key) ?: JSONObject()
+                        .put("name", key.removePrefix("catalog:"))
+                        .put("category", "Fuerza")
+                    item.put("is_active", false)
+                    merged.put(key, item)
+                }
+            }
+            entries = merged
+            working.put("entries", entries)
+            working.put("localIDs", keptIds)
+            cursor = minOf(bootRevision, head)
+            working.put("revision", cursor)
+        }
         while (cursor < head) {
             val page = fetch(
                 "mobile_exercise_catalog_events?select=id,catalog_key,operation,payload" +
-                    "&id=gt.$cursor&id=lte.$head&order=id.asc&limit=150",
+                    "&id=gt.$cursor&id=lte.$head&order=id.asc&limit=$EVENT_PAGE_SIZE",
                 accessToken
             )
             check(page.length() > 0) { "Faltan páginas del catálogo remoto" }
