@@ -106,8 +106,17 @@ class WorkoutLocationTracker(private val context: Context) {
         pointCounter = 0
         lastAccepted = null
         try {
-            manager?.requestLocationUpdates(
+            val mgr = manager ?: error("El servicio de ubicación no está disponible")
+            // AOSP devices and some watches do not expose FUSED_PROVIDER.
+            val enabled = mgr.getProviders(true)
+            val provider = listOf(
                 LocationManager.FUSED_PROVIDER,
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER
+            ).firstOrNull { it in enabled }
+                ?: error("No hay proveedores GPS activos")
+            mgr.requestLocationUpdates(
+                provider,
                 /* minTimeMs = */ 1_000L,
                 WorkoutLocationLogic.MIN_DISTANCE_METERS,
                 listener,
@@ -116,12 +125,18 @@ class WorkoutLocationTracker(private val context: Context) {
         } catch (error: SecurityException) {
             lastErrorMessage = error.localizedMessage
             trackingSessionID = null
+        } catch (error: IllegalArgumentException) {
+            lastErrorMessage = "Proveedor GPS no disponible"
+            trackingSessionID = null
+        } catch (error: IllegalStateException) {
+            lastErrorMessage = error.message
+            trackingSessionID = null
         }
     }
 
     /** Detiene la captura y devuelve la ruta downsampleada (máx. 400 puntos). */
     fun stopRouteTracking(): List<WorkoutRoutePoint> {
-        manager?.removeUpdates(listener)
+        runCatching { manager?.removeUpdates(listener) }
         trackingSessionID = null
         pinContinuation?.invoke(null)
         pinContinuation = null
