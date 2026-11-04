@@ -143,6 +143,9 @@ struct RootTabView: View {
         .task(id: store.catalogEpoch) {
             guard store.isHydrated, !store.state.exercises.isEmpty else { return }
             ExerciseSpotlightIndexer.indexPublicExercises(store.state.exercises)
+            // Spotlight may wake a freshly installed app before its catalog is
+            // hydrated. Consume its pending target only once the catalog exists.
+            openPendingSystemCommand()
         }
         .onReceive(NotificationCenter.default.publisher(for: ReperaSystemCommand.notification)) { _ in
             openPendingSystemCommand()
@@ -345,7 +348,8 @@ struct RootTabView: View {
 
     private func openPendingSystemCommand() {
         guard store.isHydrated else { return }
-        if let exerciseID = ReperaSystemCommand.takePendingExercise(),
+        if !store.state.exercises.isEmpty,
+           let exerciseID = ReperaSystemCommand.takePendingExercise(),
            store.state.exercises.contains(where: {
                $0.id == exerciseID && !$0.isCustom && !$0.isCatalogArchived
            }) {
