@@ -7,6 +7,9 @@ internal object LiveNavigationTarget {
         "live" -> "en-vivo"
         "workout" -> "entreno-activo"
         "invitation" -> "center"
+        "today" -> "inicio"
+        "timer" -> "temporizador"
+        "exercises" -> "ejercicios"
         else -> null
     }
     fun resolvedRoute(route:String,hasActiveWorkout:Boolean):String =
