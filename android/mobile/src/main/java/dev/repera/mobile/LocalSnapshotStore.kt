@@ -11,6 +11,7 @@ import java.security.MessageDigest
  * State payload stays in ReperaDomain's JSON field schema.
  */
 class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotStorage {
+    private val appContext = context.applicationContext
     private val folder = File(context.filesDir, "users/" + sha256(uniqueGoogleId))
         .apply { mkdirs() }
     private val stateLock=locks.computeIfAbsent(folder.absolutePath) {Any()}
@@ -38,6 +39,7 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
         try {
             stream.write(bytes)
             stateFile.finishWrite(stream)
+            ReperaWidgetRefresh.enqueue(appContext)
         } catch (error: Exception) {
             stateFile.failWrite(stream)
             throw error
