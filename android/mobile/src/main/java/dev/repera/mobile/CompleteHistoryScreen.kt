@@ -410,6 +410,19 @@ internal fun WorkoutHistoryDetailScreen(
      liveSportId = workout.liveSportID,
      persistedConditions = workout.activityConditions
     )
+    OutlinedButton(
+     onClick = {
+      val shared = runCatching {
+       WorkoutRouteShare.shareGPX(context, workout.routePoints)
+      }.getOrDefault(false)
+      if (!shared) android.widget.Toast.makeText(
+       context, "No se pudo compartir el recorrido", android.widget.Toast.LENGTH_SHORT
+      ).show()
+     },
+     modifier = Modifier.fillMaxWidth()
+    ) {
+     Text("Compartir recorrido GPX")
+    }
    }
   }
   // Bloques / ejercicios con thumb (paridad iOS exerciseCard).

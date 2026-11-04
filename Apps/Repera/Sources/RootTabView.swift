@@ -136,7 +136,26 @@ struct RootTabView: View {
         )) { _ in
             LiveRoutesStore.shared.requestICloudSynchronization()
         }
-        .task { restoreActiveSessionOnLaunch() }
+        .task { restoreActiveSessionOnLaunch(); openPendingSystemCommand() }
+        .task(id: store.isHydrated) {
+            if store.isHydrated {
+                openPendingSystemCommand()
+                applyPendingLiveActivityCommand()
+            }
+        }
+        .task(id: store.catalogEpoch) {
+            guard store.isHydrated, !store.state.exercises.isEmpty else { return }
+            ExerciseSpotlightIndexer.indexPublicExercises(store.state.exercises)
+            // Spotlight may wake a freshly installed app before its catalog is
+            // hydrated. Consume its pending target only once the catalog exists.
+            openPendingSystemCommand()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: ReperaSystemCommand.notification)) { _ in
+            openPendingSystemCommand()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: TrainingLiveActivityCommand.notification)) { _ in
+            applyPendingLiveActivityCommand()
+        }
         .onOpenURL(perform: handleOpenURL)
         .sheet(isPresented: $showInvitationSheet) {
             InvitationDeepLinkSheet(
@@ -333,6 +352,60 @@ struct RootTabView: View {
         openNotifiedCompletedWorkout(id)
     }
 
+    private func openPendingSystemCommand() {
+        guard store.isHydrated else { return }
+        if !store.state.exercises.isEmpty,
+           let exerciseID = ReperaSystemCommand.takePendingExercise(),
+           store.state.exercises.contains(where: {
+               $0.id == exerciseID && !$0.isCustom && !$0.isCatalogArchived
+           }) {
+            flowPath = [.exerciseDetail(exerciseId: exerciseID)]
+            tab = .exercises
+            return
+        }
+        guard let destination = ReperaSystemCommand.takePending() else { return }
+        switch destination {
+        case .today:
+            flowPath = []
+            tab = .home
+            openTodayPreview()
+        case .live:
+            flowPath = []
+            tab = .start
+        case .tools:
+            flowPath = []
+            tab = .home
+            showStartHub = true
+        case .exercises:
+            flowPath = []
+            tab = .exercises
+        }
+    }
+
+    /// Applies Live Activity / Dynamic Island actions after identity hydration.
+    /// Pause/resume never invent GPS samples; openSession never auto-confirms sets.
+    private func applyPendingLiveActivityCommand() {
+        guard store.isHydrated else { return }
+        guard let action = TrainingLiveActivityCommand.takePending() else { return }
+        switch action {
+        case .pause:
+            LiveActivityRecorder.shared.pause()
+            flowPath = []
+            tab = .start
+        case .resume:
+            LiveActivityRecorder.shared.resume()
+            flowPath = []
+            tab = .start
+        case .openSession:
+            flowPath = []
+            if store.hasActiveSession {
+                openWorkout()
+            } else {
+                tab = .start
+            }
+        }
+    }
+
     private func handleOpenURL(_ url: URL) {
         guard url.scheme == "repera" else { return }
         switch url.host {
@@ -346,6 +419,17 @@ struct RootTabView: View {
                 flowPath = []
                 tab = .home
             }
+        case "today":
+            flowPath = []
+            tab = .home
+            openTodayPreview()
+        case "tools":
+            flowPath = []
+            tab = .home
+            showStartHub = true
+        case "exercises":
+            flowPath = []
+            tab = .exercises
         case "invitation":
             let idString = url.pathComponents.dropFirst().first
                 ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))

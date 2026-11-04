@@ -11,6 +11,7 @@ import java.security.MessageDigest
  * State payload stays in ReperaDomain's JSON field schema.
  */
 class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotStorage {
+    private val appContext = context.applicationContext
     private val folder = File(context.filesDir, "users/" + sha256(uniqueGoogleId))
         .apply { mkdirs() }
     private val stateLock=locks.computeIfAbsent(folder.absolutePath) {Any()}
@@ -30,18 +31,22 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
         true
     }
 
-    override fun write(bytes: ByteArray) = synchronized(stateLock) {
-        validate(bytes)
-        val existing = read()
-        if (existing != null && !existing.contentEquals(bytes)) backup.writeBytes(existing)
-        val stream = stateFile.startWrite()
-        try {
-            stream.write(bytes)
-            stateFile.finishWrite(stream)
-        } catch (error: Exception) {
-            stateFile.failWrite(stream)
-            throw error
+    override fun write(bytes: ByteArray) {
+        synchronized(stateLock) {
+            validate(bytes)
+            val existing = read()
+            if (existing != null && !existing.contentEquals(bytes)) backup.writeBytes(existing)
+            val stream = stateFile.startWrite()
+            try {
+                stream.write(bytes)
+                stateFile.finishWrite(stream)
+            } catch (error: Exception) {
+                stateFile.failWrite(stream)
+                throw error
+            }
         }
+        // Widget failures must never undo or misreport a committed workout.
+        runCatching { ReperaWidgetRefresh.enqueue(appContext) }
     }
 
     /** Safeguard a remote document before replacing it with a newer local revision. */

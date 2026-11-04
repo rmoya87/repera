@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         get() = verifiedSupabaseState
         set(value) {
             if(centerGate.update(value?.userId)) {
+                ClassBookingReminders.clear(this@MainActivity)
                 centerSnapshot=null;centerError=null;centerLoading=false;centerSubmitting=false
                 centerDirectory=emptyList();centerDirectorySearching=false;centerDirectoryGeneration++
                 todayHealth=null;healthSamples=null;recoveryRead=null;healthAccess=HealthAccessState.UNKNOWN
@@ -113,6 +114,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         if (grants.values.any { it }) beginLocationCapture()
+    }
+    private val bookingNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* The booking succeeds independently of notification permission. */ }
+
+    private fun requestBookingNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            bookingNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
     /** Estado comercial (Pro/Gratis) + cuotas + paywall. Port del entorno iOS.
      * Play Billing detecta compras; Pro solo tras verify Edge Function. */
@@ -1067,6 +1080,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     centerAction { s -> accept(s, invitation) }
                 },
                 onCenterBook = { occurrence, pass ->
+                    requestBookingNotificationPermission()
                     centerAction { s -> book(s, occurrence, pass) }
                 },
                 onCenterCancel = { booking ->
@@ -1847,6 +1861,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 is BusinessCenterStore.LoadResult.Loaded -> {
                     centerSnapshot = result.snapshot
                     centerError = null
+                    profile?.uniqueId?.let { owner ->
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                ClassBookingReminders.reconcile(
+                                    this@MainActivity, owner, session.userId, result.snapshot
+                                )
+                            }
+                        }
+                    }
                     profile?.uniqueId?.let { id ->
                         if (centerGate.accepts(session.userId, revision)) {
                             publishEffectiveWatchPlan(id, result.snapshot.trainingSessions)
@@ -2833,9 +2856,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
                 clearAIAccessState()
+                val signedOutAccount = sessionStore.load()?.userId
                 sessionStore.clear()
+                ClassBookingReminders.clear(this@MainActivity)
                 PlannedWorkoutNotification.cancel(this@MainActivity)
                 RemoteExerciseCatalogWorker.cancel(this@MainActivity)
+                PublicExerciseAppSearch.clearConsent(this@MainActivity, signedOutAccount)
+                PublicExerciseAppSearch.clearAll(this@MainActivity)
                 // Data Layer is best effort: a disconnected watch must never prevent
                 // clearing the authenticated phone UI and its in-memory state.
                 withContext(Dispatchers.IO) {

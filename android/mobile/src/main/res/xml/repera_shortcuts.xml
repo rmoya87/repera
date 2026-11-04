@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcuts + Google Assistant capabilities. Navigation only:
+     never start sensors, Health Connect, or set logging from voice/tiles. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.GET_THING">
+        <intent>
+            <url-template android:value="repera://exercises{?query}" />
+            <parameter android:name="thing.name" android:key="query" android:required="false" />
+        </intent>
+    </capability>
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent>
+            <url-template android:value="repera://live" />
+            <parameter android:name="feature" android:key="feature" android:required="false" />
+        </intent>
+        <intent>
+            <url-template android:value="repera://today" />
+        </intent>
+        <intent>
+            <url-template android:value="repera://timer" />
+        </intent>
+        <intent>
+            <url-template android:value="repera://exercises" />
+        </intent>
+    </capability>
+
+    <shortcut android:shortcutId="repera_today" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_today"
+        android:shortcutLongLabel="@string/shortcut_repera_today_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://today" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding android:key="feature" android:value="hoy|entrenamiento de hoy" />
+        </capability-binding>
+    </shortcut>
+    <shortcut android:shortcutId="repera_live" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_live"
+        android:shortcutLongLabel="@string/shortcut_repera_live_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://live" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding android:key="feature" android:value="comenzar|entrenar|actividad" />
+        </capability-binding>
+    </shortcut>
+    <shortcut android:shortcutId="repera_timer" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_timer"
+        android:shortcutLongLabel="@string/shortcut_repera_timer_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://timer" />
+        <capability-binding android:key="actions.intent.OPEN_APP_FEATURE">
+            <parameter-binding android:key="feature" android:value="temporizador|timer" />
+        </capability-binding>
+    </shortcut>
+    <shortcut android:shortcutId="repera_exercises" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_exercises"
+        android:shortcutLongLabel="@string/shortcut_repera_exercises_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://exercises" />
+        <capability-binding android:key="actions.intent.GET_THING">
+            <parameter-binding
+                android:key="thing.name"
+                android:value="@string/shortcut_repera_exercises" />
+        </capability-binding>
+    </shortcut>
+</shortcuts>

@@ -8,7 +8,7 @@ Al **finalizar**, la pantalla «Guardar entreno» presenta un resumen estilo Fit
 
 El guardado llama a `ReperaStore.saveWorkout(_ :)`, creando un `WorkoutSession` con `phase = .finished`, `startedAt`, `finishedAt`, `liveSportID`, `activeDurationSeconds`, `recordedDistanceMeters` y `routePoints`. Se persiste con los mismos mecanismos local/iCloud que los entrenos habituales, incrementando `workoutsEpoch`. **Inicio agrupa los registros de Comenzar por el día local de inicio** (no por el de finalización); al guardarlos vuelve a Inicio seleccionando esa fecha. Las tarjetas permiten consultar el detalle, el mapa y la distancia. Las actividades también se encuentran en Historial y Progreso.
 
-Última actualización: 2026-10-30.
+Última actualización: 2026-11-04.
 
 ## Ubicación y recorridos
 
@@ -40,7 +40,9 @@ El reloj se renderiza localmente en el sistema con `Text(date, style: .timer)` y
 
 En los entrenamientos planificados (también los creados con OCR o recibidos del Apple Watch), `ReperaStore` publica el nombre de la sesión, ejercicio actual, progreso de ejercicios y número de series registradas. El widget se actualiza al mutar `activeSession`, persiste aunque `WorkoutView` deje de ser visible y se cierra al finalizar o descartar la sesión. El enlace en la Dynamic Island vuelve a Play si hay una sesión activa.
 
-Apple impone límites de duración y actualización a las Live Activities; por tanto, **no debe confundirse su duración en pantalla con la persistencia y grabación del entrenamiento**. En dispositivos sin soporte de Dynamic Island sigue apareciendo la Live Activity de pantalla bloqueada si el sistema y el usuario la permiten. Sin permiso de Actividades en directo, se sigue grabando el entrenamiento de forma normal. Los controles de pausa de momento están en la aplicación, no son botones App Intent dentro del widget.
+Apple impone límites de duración y actualización a las Live Activities; por tanto, **no debe confundirse su duración en pantalla con la persistencia y grabación del entrenamiento**. En dispositivos sin soporte de Dynamic Island sigue apareciendo la Live Activity de pantalla bloqueada si el sistema y el usuario la permiten. Sin permiso de Actividades en directo, se sigue grabando el entrenamiento de forma normal.
+
+Los botones de **Pausar / Reanudar / Abrir** en bloqueo e isla usan `LiveActivityIntent` compartidos (`TrainingLiveActivityIntents.swift`): solo encolan un comando al proceso de Repera. La app aplica pausa/reanudación en `LiveActivityRecorder` tras hidratar identidad. **Abrir / Confirmar serie** navega a la sesión; nunca confirma series ni escribe HealthKit desde la extensión.
 
 ### Comprobaciones específicas
 

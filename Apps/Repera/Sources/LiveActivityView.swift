@@ -2190,6 +2190,7 @@ struct LiveActivityView: View {
     @State private var previewHeadingRunning = false
     @State private var routes = LiveRoutesStore.shared
     @State private var sportPicker = false
+    @State private var appleWorkoutExport = false
     @State private var routePicker = false
     @State private var importing = false
     @State private var importAfterRouteSheet = false
@@ -2274,6 +2275,9 @@ struct LiveActivityView: View {
                 .navigationTransition(.zoom(
                     sourceID: "live-review-route", in: routeZoomNamespace
                 ))
+            }
+            .sheet(isPresented: $appleWorkoutExport) {
+                AppleWorkoutExportSheet(sport: recorder.sport)
             }
             .sheet(isPresented: $sportPicker) {
                 LiveSportPicker { sport in
@@ -2719,6 +2723,12 @@ struct LiveActivityView: View {
             Spacer(minLength: 0)
             // Separación táctil de 60 pt entre centros de botones de 44 pt.
             VStack(spacing: 16) {
+                if recorder.phase == .idle, !recorder.isStartCountingDown,
+                   !store.hasActiveSession, AppleWorkoutExportSheet.supports(recorder.sport) {
+                    mapCircleButton("applewatch", label: "Enviar objetivo a Entreno de Apple Watch") {
+                        appleWorkoutExport = true
+                    }
+                }
                 if recorder.phase == .recording {
                     sessionMapButton(
                         "pause.fill", label: "Pausar grabación",
@@ -3255,6 +3265,12 @@ struct LiveActivityView: View {
     /// Finalizar aparece a su izquierda al pausar, sin mover los tres botones.
     private var metricsTrailingActions: some View {
         HStack(spacing: 6) {
+            if recorder.phase == .idle, !recorder.isStartCountingDown,
+               !store.hasActiveSession, AppleWorkoutExportSheet.supports(recorder.sport) {
+                metricsCircleButton("applewatch", label: "Enviar objetivo a Entreno de Apple Watch") {
+                    appleWorkoutExport = true
+                }
+            }
             if showGuidanceToggle {
                 metricsCircleButton(
                     guidanceSymbol, label: guidanceAccessibilityLabel

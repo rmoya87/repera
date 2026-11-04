@@ -26,6 +26,7 @@ jobs:
       - name: Validate native background sync and catalog integrity
         run: |
           python3 -m unittest discover -s tests -p 'test_unified_gps_contract.py' -v
+          python3 -m unittest discover -s tests -p 'test_native_system_entries_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_kilometer_voice_background_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_live_map_heading_voice_contract.py' -v
           python3 -m unittest discover -s tests -p 'test_gpx_turn_voice_contract.py' -v

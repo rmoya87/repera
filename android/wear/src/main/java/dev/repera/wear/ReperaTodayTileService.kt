@@ -34,10 +34,19 @@ class ReperaTodayTileService : TileService() {
         }.getOrDefault("Entreno de hoy")
     }
 
+    private fun activeSessionTitle(): String? {
+        val raw = prefs().getString("snapshot", null) ?: return null
+        return runCatching {
+            val session = WatchSessionSummary.fromJson(JSONObject(raw))
+            session.title.takeIf { it.isNotBlank() } ?: "Entrenamiento activo"
+        }.getOrNull()
+    }
+
     override fun onTileRequest(
         requestParams: RequestBuilders.TileRequest
     ): ListenableFuture<TileBuilders.Tile> {
-        val title = planTitle()
+        val activeTitle = activeSessionTitle()
+        val title = activeTitle ?: planTitle()
         val click = ModifiersBuilders.Clickable.Builder()
             .setId("open")
             .setOnClick(
@@ -75,7 +84,7 @@ class ReperaTodayTileService : TileService() {
             )
             .addContent(
                 LayoutElementBuilders.Text.Builder()
-                    .setText("Iniciar")
+                    .setText(if (activeTitle != null) "Continuar" else "Abrir")
                     .setFontStyle(
                         LayoutElementBuilders.FontStyle.Builder()
                             .setColor(argb(0xFF30D158.toInt()))

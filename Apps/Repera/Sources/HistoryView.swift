@@ -2179,7 +2179,12 @@ struct WorkoutMapTapTarget<MapPreview: View>: View {
 /// Comparte los controles y la apariencia; recibe ruta real o ubicación.
 struct WorkoutMapZoomDestination: View {
     @Environment(\.colorScheme) private var colorScheme
+    @State private var exportedRoute: URL?
     var points: [HealthKitStore.RoutePoint]
+    private var routeExportIdentity: String {
+        guard let first = points.first, let last = points.last else { return "empty" }
+        return "\(points.count)-\(first.date.timeIntervalSince1970)-\(last.date.timeIntervalSince1970)-\(first.latitude)-\(last.longitude)"
+    }
     var pin: WorkoutLocationPin? = nil
     var isWaterSport: Bool = false
     var paceMode: AdaptiveRoutePace.Mode = .walking
@@ -2217,8 +2222,26 @@ struct WorkoutMapZoomDestination: View {
             .padding(.trailing, 16)
             .padding(.top, 10)
         }
+        .overlay(alignment: .topLeading) {
+            if let exportedRoute {
+                ShareLink(item: exportedRoute) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                        .glassEffect(.regular, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Exportar recorrido GPX")
+                .padding(.leading, 16)
+                .padding(.top, 10)
+            }
+        }
         .toolbar(.hidden, for: .navigationBar)
         .background(OG.bg)
+        .task(id: routeExportIdentity) {
+            exportedRoute = try? RouteGPXExporter.export(points: points)
+        }
     }
 }
 

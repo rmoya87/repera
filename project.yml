@@ -68,6 +68,8 @@ targets:
       - path: Apps/Repera/Sources/PlusHubView.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
+      - path: Apps/Shared/ReperaControlOpenIntent.swift
+      - path: Apps/Shared/TrainingLiveActivityIntents.swift
       - path: Apps/Shared/AppleWeatherConditionsClient.swift
       - path: Apps/Shared/AppleWeatherAttributionView.swift
       # XcodeGen 2.46 + objectVersion 77 omite `resources:`; hay que declarar assets a mano.
@@ -125,6 +127,7 @@ targets:
       - target: ReperaRestWidget
         embed: true
       - sdk: HealthKit.framework
+      - sdk: WorkoutKit.framework
       - sdk: WeatherKit.framework
       - sdk: FoundationModels.framework
       - sdk: ActivityKit.framework
@@ -135,6 +138,8 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
         GIDClientID: "$(REPERA_GOOGLE_IOS_CLIENT_ID)"
         GIDServerClientID: "$(REPERA_GOOGLE_SERVER_CLIENT_ID)"
         CFBundleURLTypes:
@@ -187,6 +192,8 @@ targets:
       - path: Apps/ReperaRestWidget
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
+      - path: Apps/Shared/ReperaControlOpenIntent.swift
+      - path: Apps/Shared/TrainingLiveActivityIntents.swift
       # El logotipo corporativo se empaqueta también en la extensión WidgetKit;
       # los assets de la app no son visibles automáticamente desde otra bundle.
       - path: Apps/Repera/Resources/Assets.xcassets

@@ -4,6 +4,11 @@ import WidgetKit
 private struct ReperaWatchEntry: TimelineEntry {
     let date: Date
     let session: ReperaComplicationSnapshot?
+    // Sesión activa más relevante para la Smart Stack, sin forzar su aparición.
+    var relevance: TimelineEntryRelevance? {
+        guard session != nil else { return nil }
+        return TimelineEntryRelevance(score: 10)
+    }
 }
 
 private struct ReperaWatchProvider: TimelineProvider {

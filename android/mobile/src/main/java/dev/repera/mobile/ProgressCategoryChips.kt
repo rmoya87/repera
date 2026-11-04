@@ -45,7 +45,7 @@ internal enum class ProgressCategory(
     SPORTS("Deportes", Icons.Outlined.Flag, Color(0xFF8C73F2));
 }
 
-private val brandGreen = Color(0xFF30D158)
+private val progressChipGreen = Color(0xFF30D158)
 
 @Composable
 internal fun ProgressCategoryChipBar(
@@ -82,7 +82,7 @@ private fun ProgressCategoryChip(
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(16.dp)
-    val bg = if (selected) brandGreen else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+    val bg = if (selected) progressChipGreen else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
     val fg = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface
     val secondary = if (selected) Color.Black.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant
     val iconTint = if (selected) Color.Black else category.accent
