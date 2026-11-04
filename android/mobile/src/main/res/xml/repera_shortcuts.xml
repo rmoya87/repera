@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="repera_today" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_today"
+        android:shortcutLongLabel="@string/shortcut_repera_today_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://today" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+    <shortcut android:shortcutId="repera_live" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_live"
+        android:shortcutLongLabel="@string/shortcut_repera_live_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://live" />
+    </shortcut>
+    <shortcut android:shortcutId="repera_timer" android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_repera_timer"
+        android:shortcutLongLabel="@string/shortcut_repera_timer_long">
+        <intent android:action="android.intent.action.VIEW"
+            android:targetPackage="com.app.repera"
+            android:targetClass="dev.repera.mobile.MainActivity"
+            android:data="repera://timer" />
+    </shortcut>
+</shortcuts>
