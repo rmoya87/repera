@@ -80,7 +80,7 @@ test('Invitaciones solo se aceptan con correo verificado y email puede quedar si
 
 test('Política: operador no se convierte en propietario ni se envía email sin proveedor',()=>{
  const base=new URL('../../../supabase/migrations/',import.meta.url);
- const sql=readFileSync(new URL('20261027184500_platform_center_visibility.sql',base),'utf8');
+ const sql=readFileSync(new URL('20261027152538_platform_center_visibility.sql',base),'utf8');
  assert.match(sql,/private.is_repera_platform_admin/);
  assert.match(sql,/SUSPENDED_CENTER_NOT_DISCOVERABLE/);
  const invitation=readFileSync(new URL('20261027185000_business_invitation_email_dispatch.sql',base),'utf8');
@@ -126,7 +126,7 @@ test('Los entrenadores consultan fichas básicas sin notas internas ni teléfono
 });
 
 test('La búsqueda de centros oculta suspendidos y limita ejecución por rol',()=>{
- const migration=readFileSync(new URL('../../../supabase/migrations/20261027190000_discoverable_center_excludes_suspended.sql',import.meta.url),'utf8');
+ const migration=readFileSync(new URL('../../../supabase/migrations/20261027160015_discoverable_center_excludes_suspended.sql',import.meta.url),'utf8');
  assert.match(migration,/not exists\s*\(/i);
  assert.match(migration,/controls\.status='suspended'/);
  assert.match(migration,/security invoker/);
