@@ -434,6 +434,17 @@ fun ReperaMobileScreen(
         }
         LaunchedEffect(analyticsScreen) {
             ReperaAnalytics.track(ReperaAnalytics.Event.SCREEN_VIEW, mapOf("screen_name" to analyticsScreen))
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.UI_INTERACTION,
+                mapOf(
+                    "feature_area" to "home",
+                    "interaction_type" to "selection",
+                    "component_id" to "tab_bar",
+                    "action_name" to "select",
+                    "screen_name" to analyticsScreen,
+                    "result" to "success"
+                )
+            )
         }
         val hasLinkedCenter = centerSnapshot?.athleteCenterIds?.isNotEmpty() == true
         val darkTheme = isSystemInDarkTheme()

@@ -5,6 +5,7 @@ import android.os.Looper
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.google.android.gms.wearable.Wearable
+import dev.repera.mobile.analytics.ReperaAnalytics
 import org.json.JSONObject
 
 /**
@@ -23,6 +24,10 @@ class WearLiveCommandListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
         // Misma cota que WearPayload en el reloj: rechazar antes de JSONObject.
         if (!WearMessageBounds.withinLimit(event.data)) return
+        if (event.path == "/repera/analytics-event") {
+            handleAnalyticsEvent(event)
+            return
+        }
         if (event.path == "/repera/live-heart-rate") {
             if (!WearUiPresence.active) handleBackgroundLiveHeartRate(event)
             return
@@ -332,5 +337,44 @@ class WearLiveCommandListener : WearableListenerService() {
             JSONObject().put("id", id).put("status", status)
                 .toString().toByteArray(Charsets.UTF_8)
         )
+        ReperaAnalytics.track(
+            if (status == "saved") ReperaAnalytics.Event.WATCH_SYNC_CONFIRMED
+            else ReperaAnalytics.Event.WATCH_SYNC_FAILED,
+            mapOf(
+                "feature_area" to "reliability",
+                "action_name" to "log_set",
+                "result" to if (status == "saved") "success" else "failure",
+                "session_origin_platform" to "wearos"
+            )
+        )
+    }
+
+    private fun handleAnalyticsEvent(event: MessageEvent) {
+        val payload = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val id = payload.optString("id")
+        val name = payload.optString("event")
+        val eventEnum = ReperaAnalytics.Event.entries.firstOrNull { it.wire == name }
+        val accepted = if (eventEnum != null) {
+            val params = mutableMapOf(
+                "session_origin_platform" to "wearos",
+                "feature_area" to payload.optString("feature_area", "reliability"),
+                "result" to payload.optString("result", "success")
+            )
+            payload.optString("action_name").takeIf { it.isNotBlank() }?.let {
+                params["action_name"] = it
+            }
+            ReperaAnalytics.track(eventEnum, params)
+            true
+        } else false
+        if (id.isNotBlank()) {
+            Wearable.getMessageClient(this).sendMessage(
+                event.sourceNodeId,
+                "/repera/analytics-ack",
+                JSONObject().put("id", id).put("status", if (accepted) "ok" else "rejected")
+                    .toString().toByteArray(Charsets.UTF_8)
+            )
+        }
     }
 }

@@ -120,6 +120,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     fun setNavigationMode(enabled: Boolean) {
         navigationMode = enabled
         mapPrefs.edit().putBoolean("navigation3D.enabled", enabled).apply()
+        ReperaAnalytics.track(
+            ReperaAnalytics.Event.NAVIGATION_MODE_CHANGED,
+            mapOf(
+                "feature_area" to "live_sport",
+                "action_name" to if (enabled) "nav_3d" else "nav_2d",
+                "result" to "success"
+            )
+        )
     }
     var followingMap by remember { mutableStateOf(true) }
     var recenterToken by remember { mutableStateOf(0) }
@@ -757,6 +765,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 if (!followingMap && (state.points.isNotEmpty() || freshPosition != null)) {
                     LiveMapCircleFab(Icons.Outlined.MyLocation, "Centrar en mi posición") {
                         followingMap = true; recenterToken++
+                        ReperaAnalytics.track(
+                            ReperaAnalytics.Event.MAP_RECENTER_REQUESTED,
+                            mapOf(
+                                "feature_area" to "live_sport",
+                                "result" to "success"
+                            )
+                        )
                     }
                 }
                 LiveMapCircleFab(Icons.Outlined.BarChart, "Ver métricas") { showingMetrics = true }

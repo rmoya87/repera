@@ -324,6 +324,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             if(!current()) return@launch
             if (failure != null) aiProgramsError = failure
+            else if (status == "paused") {
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.AI_PROGRAM_PAUSED,
+                    mapOf("feature_area" to "ai", "result" to "success")
+                )
+            }
             aiProgramsUpdatingId = null
             refreshAIPrograms()
         }
@@ -1520,6 +1526,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     override fun onMessageReceived(event: MessageEvent) {
         if (!WearMessageBounds.withinLimit(event.data)) return
+        if (event.path == "/repera/analytics-event") {
+            handleWearAnalyticsEvent(event)
+            return
+        }
         if (event.path == "/repera/live-heart-rate") {
             val payload = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8))
@@ -1856,10 +1866,28 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 if(!current()) return@launch
                 if (result.isSuccess) {
                     sendWearAck(event.sourceNodeId, id, "saved")
+                    ReperaAnalytics.track(
+                        ReperaAnalytics.Event.WATCH_SYNC_CONFIRMED,
+                        mapOf(
+                            "feature_area" to "reliability",
+                            "action_name" to "log_set",
+                            "result" to "success",
+                            "session_origin_platform" to "wearos"
+                        )
+                    )
                     DriveSyncWorker.syncNow(this@MainActivity)
                     status = null
                 } else {
                     sendWearAck(event.sourceNodeId, id, "rejected")
+                    ReperaAnalytics.track(
+                        ReperaAnalytics.Event.WATCH_SYNC_FAILED,
+                        mapOf(
+                            "feature_area" to "reliability",
+                            "action_name" to "log_set",
+                            "result" to "failure",
+                            "session_origin_platform" to "wearos"
+                        )
+                    )
                     status = "Registro Wear: " + (result.exceptionOrNull()?.localizedMessage
                         ?: "no se pudo confirmar")
                 }
@@ -1872,6 +1900,36 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val body = JSONObject().put("id", id).put("status", result)
             .toString().toByteArray(Charsets.UTF_8)
         wearMessages.sendMessage(node, "/repera/log-set-ack", body)
+    }
+
+    private fun handleWearAnalyticsEvent(event: MessageEvent) {
+        val payload = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val id = payload.optString("id")
+        val name = payload.optString("event")
+        val eventEnum = ReperaAnalytics.Event.entries.firstOrNull { it.wire == name }
+        val accepted = if (eventEnum != null) {
+            val params = mutableMapOf(
+                "session_origin_platform" to "wearos",
+                "feature_area" to payload.optString("feature_area", "reliability"),
+                "result" to payload.optString("result", "success")
+            )
+            payload.optString("action_name").takeIf { it.isNotBlank() }?.let {
+                params["action_name"] = it
+            }
+            ReperaAnalytics.track(eventEnum, params)
+            true
+        } else {
+            false
+        }
+        if (id.isNotBlank()) {
+            val body = JSONObject()
+                .put("id", id)
+                .put("status", if (accepted) "ok" else "rejected")
+                .toString().toByteArray(Charsets.UTF_8)
+            wearMessages.sendMessage(event.sourceNodeId, "/repera/analytics-ack", body)
+        }
     }
 
     /**
@@ -1900,6 +1958,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             if (result.error != null) {
                 status = result.error
             } else if (result.imported > 0) {
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.AI_PROGRAM_RECEIVED,
+                    mapOf("feature_area" to "ai", "result" to "success")
+                )
+                ReperaAnalytics.track(
+                    ReperaAnalytics.Event.AI_PROGRAM_ACTIVATED,
+                    mapOf(
+                        "feature_area" to "ai",
+                        "workout_type" to "planned",
+                        "result" to "success"
+                    )
+                )
                 status = "Plan de IA aplicado: " + (result.lastImportedTitle ?: "entreno")
                 reloadFor(uniqueId)
             }
@@ -1911,6 +1981,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val revision=centerGate.revision
         val generation=++centerDirectoryGeneration
         centerDirectorySearching=true
+        if (query.isNotBlank()) {
+            ReperaAnalytics.track(
+                ReperaAnalytics.Event.CENTER_SEARCH_USED,
+                mapOf("feature_area" to "center", "result" to "success")
+            )
+        }
         lifecycleScope.launch {
             val result=withContext(Dispatchers.IO) {runCatching {BusinessCenterStore().searchDirectory(session,query)}}
             if(!centerGate.accepts(session.userId,revision) || generation!=centerDirectoryGeneration) return@launch
@@ -1936,7 +2012,36 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             if(!centerGate.accepts(session.userId,revision)) return@launch
             when (result) {
                 is BusinessCenterStore.LoadResult.Loaded -> {
+                    val previousAttended = centerSnapshot?.bookings
+                        ?.filter { it.status == "attended" }?.map { it.id }?.toSet().orEmpty()
+                    val previousWaitlist = centerSnapshot?.bookings
+                        ?.filter { it.status == "waitlist" }?.map { it.id }?.toSet().orEmpty()
                     centerSnapshot = result.snapshot
+                    for (booking in result.snapshot.bookings) {
+                        val kind = result.snapshot.occurrences
+                            .firstOrNull { it.id == booking.occurrenceId }?.kind
+                        val serviceKind = if (kind == "appointment") "appointment" else "class"
+                        if (booking.status == "attended" && booking.id !in previousAttended) {
+                            ReperaAnalytics.track(
+                                ReperaAnalytics.Event.CLASS_ATTENDED,
+                                mapOf(
+                                    "feature_area" to "center",
+                                    "service_kind" to serviceKind,
+                                    "result" to "success"
+                                )
+                            )
+                        }
+                        if (booking.status == "waitlist" && booking.id !in previousWaitlist) {
+                            ReperaAnalytics.track(
+                                ReperaAnalytics.Event.CLASS_WAITLIST_JOINED,
+                                mapOf(
+                                    "feature_area" to "center",
+                                    "service_kind" to serviceKind,
+                                    "result" to "success"
+                                )
+                            )
+                        }
+                    }
                     centerError = null
                     profile?.uniqueId?.let { owner ->
                         withContext(Dispatchers.IO) {
@@ -2399,8 +2504,38 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     DriveSnapshotService.Outcome.PreconditionFailed ->
                         "Drive cambió en otro dispositivo: vuelve a sincronizar"
                 }
+                when (result.first) {
+                    DriveSnapshotService.Outcome.Uploaded,
+                    DriveSnapshotService.Outcome.Downloaded,
+                    DriveSnapshotService.Outcome.Unchanged ->
+                        ReperaAnalytics.track(
+                            ReperaAnalytics.Event.SYNC_COMPLETED,
+                            mapOf("feature_area" to "reliability", "result" to "success")
+                        )
+                    DriveSnapshotService.Outcome.Conflict,
+                    DriveSnapshotService.Outcome.PreconditionFailed ->
+                        ReperaAnalytics.track(
+                            ReperaAnalytics.Event.SYNC_FAILED,
+                            mapOf(
+                                "feature_area" to "reliability",
+                                "error_code" to "drive_conflict",
+                                "result" to "failure"
+                            )
+                        )
+                    DriveSnapshotService.Outcome.Empty -> Unit
+                }
             } catch (error: Exception) {
-                if(current()) status = "Sincronización incompleta: " + error.localizedMessage
+                if(current()) {
+                    status = "Sincronización incompleta: " + error.localizedMessage
+                    ReperaAnalytics.track(
+                        ReperaAnalytics.Event.SYNC_FAILED,
+                        mapOf(
+                            "feature_area" to "reliability",
+                            "error_code" to "drive_failed",
+                            "result" to "failure"
+                        )
+                    )
+                }
             } finally {
                 if(current()) {busy = false;syncing = false}
             }

@@ -113,6 +113,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val pendingStore by lazy { WearPendingSetStore(this) }
     private val pendingFinish by lazy {WearPendingFinishStore(this)}
+    private val pendingAnalytics by lazy { WearPendingAnalyticsStore(this) }
     private var repsInput by mutableStateOf(0)
     private var dictatedText by mutableStateOf<String?>(null)
     private var dictationSessionId: String? = null
@@ -303,6 +304,10 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sendStatus = "Error leyendo las series pendientes; no se han eliminado"
             0
         }
+        runCatching {
+            pendingAnalytics.append("watch_app_opened", featureArea = "reliability", result = "success")
+        }
+        resendPendingAnalytics()
         // Read-only recovery: no locally confirmed set is written to the phone.
         sessionCache.getString("snapshot", null)?.let { cached ->
             val restored = runCatching { WatchSessionSummary.fromJson(JSONObject(cached)) }.getOrNull()
@@ -775,6 +780,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             if(ack.optString("status")=="saved") runOnUiThread {
                 runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sendStatus="Fin confirmado por el teléfono";haptic(WearHaptic.CONFIRM)}}.onSuccess {}
                     .onFailure {sendStatus="No se pudo guardar la confirmación; se reintentará sin duplicar"}
+            }
+            return
+        }
+        if (event.path == "/repera/analytics-ack") {
+            val ack = WearPayload.json(event.data) ?: return
+            val id = ack.optString("id")
+            if (id.isNotBlank() && ack.optString("status") == "ok") {
+                runCatching { pendingAnalytics.remove(id) }
             }
             return
         }
@@ -2144,6 +2157,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun resendPending() {
+        resendPendingAnalytics()
         val revision=transportRevision
         val commands = runCatching { pendingStore.all() }.getOrElse {
             sendStatus = "No se puede leer la cola; los datos siguen guardados"
@@ -2166,6 +2180,20 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }.addOnFailureListener {
                 runOnUiThread { if(revision==transportRevision) sendStatus = "Pendiente de conexión con el teléfono" }
             }
+    }
+
+    private fun resendPendingAnalytics() {
+        val rows = runCatching { pendingAnalytics.all() }.getOrElse { emptyList() }
+        if (rows.isEmpty()) return
+        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
+            for (node in nodes) for (row in rows) {
+                messageClient.sendMessage(
+                    node.id,
+                    "/repera/analytics-event",
+                    row.toString().toByteArray(Charsets.UTF_8)
+                )
+            }
+        }
     }
 
     private fun showSession(

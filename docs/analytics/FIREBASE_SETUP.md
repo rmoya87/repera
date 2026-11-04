@@ -4,36 +4,74 @@
 
 ## Modelo
 
-Misma idea que cafesito-app móvil: **métricas de producto**, sin UI de consentimiento en la app, sin IDFA/`AD_ID`. Si el proyecto Firebase está configurado, la colección se activa en `ReperaAnalytics.configure()`. Sin ficheros reales, Analytics es no-op y el entrenamiento no se ve afectado.
+Métricas de producto (estilo cafesito-app): sin UI de consentimiento in-app, sin IDFA/`AD_ID`. Con ficheros reales, `ReperaAnalytics.configure()` activa la colección. Sin ellos, Analytics es no-op.
 
-## Ficheros reales (no inventar)
+## Qué necesitas de ti (bloqueante para ver datos)
 
-| Plataforma | Fichero | Ubicación en repo |
-| --- | --- | --- |
-| iOS | `GoogleService-Info.plist` | `Apps/Repera/Resources/GoogleService-Info.plist` (XcodeGen ya lo incluye si existe) |
-| Android | `google-services.json` | `android/mobile/google-services.json` (el plugin solo se aplica si el fichero existe) |
+1. Acceso a [Firebase Console](https://console.firebase.google.com/) del proyecto Repera (o crear uno).
+2. Acceso a [Google Analytics](https://analytics.google.com/) para vincular GA4.
+3. Bundle / application IDs reales:
+   - iOS: `com.app.repera`
+   - Android mobile: el `applicationId` de `android/mobile` (revisar `build.gradle.kts`)
+4. Decisión **dev vs prod**: dos propiedades GA4 / dos apps Firebase recomendado.
 
-Obtenerlos desde la consola Firebase del proyecto Repera (apps iOS `com.app.repera` y Android equivalentes). **No** commitear secretos de service account; estos JSON/plist de cliente son los de la app, no `service_role`.
+No hace falta `service_role` ni service accounts en el repo: solo los JSON/plist **cliente**.
 
-## CI / secretos recomendados
+## Pasos (orden)
 
-1. Guardar el contenido como secretos de GitHub Actions, p. ej. `REPERA_IOS_GOOGLESERVICE_INFO_PLIST` y `REPERA_ANDROID_GOOGLE_SERVICES_JSON`.
-2. En el job de build release/internal, escribirlos en las rutas anteriores antes de `xcodegen` / Gradle.
-3. Builds locales de desarrollo pueden omitirlos: la app compila y corre sin Analytics.
+### A. Firebase + apps
 
-## Entornos
+1. Crear o abrir el proyecto Firebase «Repera».
+2. Añadir app **iOS** con bundle `com.app.repera` → descargar `GoogleService-Info.plist`.
+3. Añadir app **Android** con el `applicationId` móvil → descargar `google-services.json`.
+4. Colocar localmente (no inventar valores):
+   - `Apps/Repera/Resources/GoogleService-Info.plist`
+   - `android/mobile/google-services.json`
+5. (Opcional CI) Secretos GitHub:
+   - `REPERA_IOS_GOOGLESERVICE_INFO_PLIST`
+   - `REPERA_ANDROID_GOOGLE_SERVICES_JSON`
+   y escribirlos en esas rutas en el job de release.
 
-Usar propiedades GA4 / proyectos Firebase distintos para **dev** y **producción** para no contaminar informes reales. El código no distingue entornos: la separación es por fichero de configuración inyectado.
+### B. GA4
 
-## DebugView
+1. En Firebase → Project settings → Integrations → vincular **Google Analytics** (o crear propiedad GA4).
+2. Confirmar streams iOS y Android en la propiedad.
+3. En GA4 → Admin → Data streams → cada app → **DebugView** disponible.
 
-Con el plist/json reales:
+### C. Validar DebugView (tú en dispositivo)
 
-- iOS: argumento de scheme `-FIRAnalyticsDebugEnabled`.
-- Android: `adb shell setprop debug.firebase.analytics.app <package>`.
+**iOS**
 
-No afirmar validación DebugView sin haber observado eventos reales.
+1. Scheme Repera → Arguments → `-FIRAnalyticsDebugEnabled`
+2. Instalar con plist real, abrir app, cambiar de tab / guardar un entreno.
+3. GA4 → DebugView: deben aparecer `screen_view`, `workout_completed`, etc.
 
-## BigQuery / dashboards
+**Android**
 
-Plantillas SQL: `analytics/bigquery/` (cuando existan). Activación de exportación GA4→BigQuery en consola Firebase; no automatizada en esta fase.
+```bash
+adb shell setprop debug.firebase.analytics.app <applicationId>
+```
+
+Luego abrir la app y mirar DebugView.
+
+### D. BigQuery (operación)
+
+1. GA4 → Admin → Product links → BigQuery Link → export diario.
+2. Sustituir `PROJECT.DATASET` en `analytics/bigquery/*.sql` y ejecutar en BigQuery.
+3. Plantillas: workouts, sports, funnel Center, plataformas/reloj.
+
+### E. Business web (opcional)
+
+1. Crear measurement ID GA4 web (o stream web).
+2. Cargar `gtag` en la consola (`web/console`) con ese ID.
+3. El módulo `web/console/src/core/product-analytics.js` ya emite eventos allowlisted si `window.gtag` existe.
+
+### F. Textos legales / tiendas
+
+Revisar App Store Privacy / Play Data Safety: analytics de producto sin ads ID. Textos en `docs/analytics/PRIVACY.md`.
+
+## Qué NO hacer
+
+- No commitear placeholders inventados de plist/json.
+- No poner service accounts o `service_role` en apps.
+- No afirmar DebugView OK sin haber visto eventos reales.

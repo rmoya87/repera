@@ -5,6 +5,7 @@ import {uniqueSlug,publicBusinessValues,legalProfileValues} from './business-pro
  * Browser tokens live in sessionStorage (this tab only); Auth, not this code, grants roles.
  */
 import {browserFetch,wrapFetcher} from './http.js';
+import {trackProductEvent} from './product-analytics.js';
 const URL_REPERA='https://uvzgujlrqohreoucirms.supabase.co';
 const SESSION_KEY='repera-business-supabase-session-v1';
 const emptyStorage={getItem:()=>null,setItem:()=>{},removeItem:()=>{}};
@@ -54,11 +55,17 @@ export class ReperaAuthAPI {
   }
   return data;
  }
- async signIn(email,password){const result=await this.#request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});this.#save(result);return this.currentUser();}
+ async signIn(email,password){
+  const result=await this.#request('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});
+  this.#save(result);
+  trackProductEvent('login',{feature_area:'account',entry_point:'business_web',result:'success'});
+  return this.currentUser();
+ }
  async signUp(email,password,redirectTo){
   const q=redirectTo?`?redirect_to=${encodeURIComponent(redirectTo)}`:'';
   const result=await this.#request('/auth/v1/signup'+q,{method:'POST',body:{email,password}});
   if(result?.access_token)this.#save(result);
+  trackProductEvent('sign_up',{feature_area:'account',entry_point:'business_web',result:'success'});
   return {confirmationRequired:!result?.access_token};
  }
  async requestPasswordReset(email,redirectTo){
@@ -554,8 +561,12 @@ export class ReperaAuthAPI {
   if(!/^[0-9a-f-]{36}$/i.test(bookingId||'')||!/^[0-9a-f-]{36}$/i.test(requestId||'')||
      !['attended','no_show'].includes(status))
    throw Error('Asistencia no válida');
-  return this.#authorized('rpc/business_mark_class_attendance',{method:'POST',body:{
+  const row=await this.#authorized('rpc/business_mark_class_attendance',{method:'POST',body:{
    p_booking:bookingId,p_status:status,p_request:requestId}});
+  if(status==='attended'){
+   trackProductEvent('class_attended',{feature_area:'center',service_kind:'class',result:'success'});
+  }
+  return row;
  }
  async trainerAttendance(orgId){
   if(!/^[0-9a-f-]{36}$/i.test(orgId||''))throw Error('Organización inválida');
@@ -625,11 +636,20 @@ export class ReperaAuthAPI {
  }
  async bookService({occurrenceId,passId,requestId}){
   if(![occurrenceId,passId,requestId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Reserva inválida');
-  return this.#authorized('rpc/book_service_occurrence',{method:'POST',body:{p_occurrence:occurrenceId,p_pass:passId,p_request:requestId}});
+  try{
+   const row=await this.#authorized('rpc/book_service_occurrence',{method:'POST',body:{p_occurrence:occurrenceId,p_pass:passId,p_request:requestId}});
+   trackProductEvent('class_booking_confirmed',{feature_area:'center',service_kind:'class',result:'success'});
+   return row;
+  }catch(error){
+   trackProductEvent('operation_failed',{feature_area:'center',error_code:'booking_failed',result:'failure'});
+   throw error;
+  }
  }
  async cancelService({bookingId,requestId}){
   if(![bookingId,requestId].every(x=>/^[0-9a-f-]{36}$/i.test(x||'')))throw Error('Cancelación inválida');
-  return this.#authorized('rpc/cancel_service_booking',{method:'POST',body:{p_booking:bookingId,p_request:requestId}});
+  const row=await this.#authorized('rpc/cancel_service_booking',{method:'POST',body:{p_booking:bookingId,p_request:requestId}});
+  trackProductEvent('class_booking_cancelled',{feature_area:'center',service_kind:'class',result:'success'});
+  return row;
  }
  async memberships(){
   return this.#authorized('organization_memberships?select=organization_id,user_id,role,status');

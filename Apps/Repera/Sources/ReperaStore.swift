@@ -425,8 +425,15 @@ final class ReperaStore: NSObject {
         let snapshot = state
         Task { @MainActor in
             await LocalStore.shared.persistAndFlush(snapshot)
-            guard LocalStore.shared.lastPersistenceError == nil,
-                  BusinessAuthStore.shared.isConnected else { return }
+            if LocalStore.shared.lastPersistenceError != nil {
+                ReperaAnalytics.track(.workoutSaveFailed, parameters: [
+                    "feature_area": "training",
+                    "error_code": "persist_failed",
+                    "result": "failure"
+                ])
+                return
+            }
+            guard BusinessAuthStore.shared.isConnected else { return }
             _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
         }
     }
