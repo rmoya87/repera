@@ -71,6 +71,16 @@
                 <data android:scheme="repera" android:host="invitation" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ReperaQuickTileService"
+            android:exported="true"
+            android:label="Comenzar en Repera"
+            android:icon="@drawable/ic_timer"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
         <activity android:name=".HealthPrivacyActivity" android:exported="false" />
         <service
             android:name=".WearLiveCommandListener"
