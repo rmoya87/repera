@@ -294,7 +294,8 @@ jobs:
           # que ni Android ni Gradle utilizan; no borrar el SDK ni los builds.
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
           echo "Espacio disponible para AVD:"
-          df -h "${HOME}/.android"
+          mkdir -p "${HOME}/.android/avd"
+          df -h "${HOME}/.android/avd"
           df -h /
       - name: Run wear instrumented tests on ${{ matrix.label }}
         uses: reactivecircus/android-emulator-runner@v2
