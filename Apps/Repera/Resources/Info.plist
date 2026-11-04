@@ -112,8 +112,6 @@
 	<string>sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA</string>
 	<key>ReperaSupabaseURL</key>
 	<string>https://uvzgujlrqohreoucirms.supabase.co</string>
-	<key>RevenueCatPublicAPIKey</key>
-	<string>YOUR_REVENUECAT_PUBLIC_API_KEY</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

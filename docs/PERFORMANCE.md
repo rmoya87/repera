@@ -78,7 +78,7 @@ Prácticas nativas aplicadas para fluidez (listas, Inicio, sesión, Salud) y arr
 - `syncCounts` solo escribe si cambian; conteos O(n) sin `libraryRoutines` sorted.
 - Arranque: `customerInfo` sí; **offerings** solo al abrir paywall. Foreground refresh throttled 30s.
 - `FreeUsageStore.load/persist` iCloud fuera del MainActor.
-- RevenueCat `logLevel = .warn` (evitar `.debug` en simulador).
+- Monetización: evitar logs verbosos de StoreKit/Play en release.
 - Progreso: `schedulePrepare` solo si cambia `isPro`, no cada refresh de snapshot.
 
 ## Qué no tocar

@@ -15,6 +15,15 @@ struct ReperaFocusFilterIntent: SetFocusFilterIntent {
     @Parameter(title: "Mostrar solo sesión / descanso", default: true)
     var sessionOnly: Bool
 
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(
+            title: "Repera",
+            subtitle: silenceCenter
+                ? "Center silenciado · sesión prioritaria"
+                : "Preferencias de Focus"
+        )
+    }
+
     func perform() async throws -> some IntentResult {
         ReperaFocusPreferences.apply(silenceCenter: silenceCenter, sessionOnly: sessionOnly)
         return .result()

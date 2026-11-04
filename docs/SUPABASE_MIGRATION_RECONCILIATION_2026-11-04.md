@@ -144,3 +144,23 @@ No ejecutar `supabase db push` masivo mientras haya migraciones de schema sin hi
 | `20261103185104` | `20261103190000_athlete_workout_hard_delete.sql` |
 
 Fuente: historial del proyecto Supabase y árbol de GitHub del 04/11/2026. No se han reejecutado SQL históricos.
+
+## Cierre de las 30 versiones solo en git (04/11 tarde)
+
+Se cotejó el catálogo remoto (tablas, funciones `public`/`private`, índices y
+columnas `ALTER … ADD COLUMN`) contra los 30 SQL locales sin historial.
+**No** se ejecutó `supabase db push` masivo ni se reaplicó SQL con
+`CREATE OR REPLACE` que pudiera bajar de versión RPCs ya endurecidas.
+
+| Acción | Versiones | Evidencia |
+|---|---|---|
+| `migration repair --status applied` | las 30 | Objetos/columnas/índices ya presentes; bucket `profile-avatars` presente |
+| SQL puntual aplicado | `20261101183500` | `grant insert(…phone…) on clients` (antes `phone` INSERT = false) |
+
+Lista reparada: `20261020140000`, `20261020160000`, `20261020162000`,
+`20261101120000` … `20261101194500`, `20261101210000` … `20261101260000`,
+`20261101292000` … `20261101295000`.
+
+**Estado tras el cierre: 0 solo en git / 0 solo en remoto** (historial alineado;
+`shared` ≈ 134). Seguir sin `db push` masivo en el futuro si vuelve a haber
+desfases: verificar efectos y `repair`, o aplicar SQL idempotente una a una.

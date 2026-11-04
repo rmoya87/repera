@@ -65,15 +65,7 @@ final class SubscriptionManager {
             return DebugEntitlementController.shared.provider
         }
         #endif
-        if let key = CommercialConfig.publicAPIKey {
-            #if canImport(RevenueCat)
-            // RevenueCat expone precios localizados desde App Store Connect / StoreKit.
-            return RevenueCatEntitlementProvider(apiKey: key)
-            #else
-            return StoreKitEntitlementProvider()
-            #endif
-        }
-        // Sin RevenueCat: precios y cargos directamente desde StoreKit (ASC o .storekit del scheme).
+        // Precios y cargos directamente desde StoreKit (ASC o .storekit del scheme).
         return StoreKitEntitlementProvider()
     }
 
@@ -82,11 +74,8 @@ final class SubscriptionManager {
     func startTransactionUpdatesObservation() {
         StoreKitEntitlementProvider.startTransactionUpdates { [weak self] in
             guard let self else { return false }
-            // No finalizar una transacción que pertenecía a RevenueCat aunque
-            // el fallback de verificación active después StoreKit directo.
-            let isDirectStoreKitPurchase = self.provider is StoreKitEntitlementProvider
             await self.refresh(reason: "verified-storekit-transaction")
-            return isDirectStoreKitPurchase
+            return self.provider is StoreKitEntitlementProvider
         }
     }
 
@@ -180,44 +169,16 @@ final class SubscriptionManager {
     func loadOfferings() async {
         do {
             var loaded = try await provider.offerings()
-            // No ofrecer IDs antiguos: RevenueCat puede tener un offering no actualizado.
             let validIDs: Set<String> = [
                 CommercialConfig.monthlyProductID, CommercialConfig.annualProductID,
             ]
             loaded.packages = loaded.packages.filter { validIDs.contains($0.productID) }
-            // Si el catálogo de RevenueCat aún no se ha configurado, comprar y
-            // verificar también con StoreKit. Nunca mezclar productos de StoreKit
-            // con un proveedor de compra diferente.
-            if loaded.packages.isEmpty, !(provider is StoreKitEntitlementProvider) {
-                let storeKit = StoreKitEntitlementProvider()
-                let fallback = try await storeKit.offerings()
-                if !fallback.packages.isEmpty {
-                    // Abrir el catálogo NO puede revocar un derecho Pro
-                    // previamente comprobado. Un proveedor puede reconocer una
-                    // suscripción mientras el otro no tiene el mismo contexto.
-                    if !snapshot.grantsProAccess {
-                        provider = storeKit
-                        applySnapshot(await storeKit.refresh())
-                    }
-                    loaded = fallback
-                }
-            }
             offerings = loaded
         } catch {
-            // Último recurso: StoreKit directo.
-            do {
-                let storeKit = StoreKitEntitlementProvider()
-                offerings = try await storeKit.offerings()
-                if !offerings.packages.isEmpty, !snapshot.grantsProAccess {
-                    provider = storeKit
-                    applySnapshot(await storeKit.refresh())
-                }
-            } catch {
-                offerings = CommercialOfferings(
-                    packages: [],
-                    unavailableReason: error.localizedDescription
-                )
-            }
+            offerings = CommercialOfferings(
+                packages: [],
+                unavailableReason: error.localizedDescription
+            )
         }
     }
 
@@ -280,22 +241,10 @@ final class SubscriptionManager {
         }
 
         if !verifiedRestore {
-            // TestFlight puede tener una transacción Apple válida aunque
-            // RevenueCat no haya sincronizado aún el entitlement `pro`
-            // o falle su endpoint de restauración. Intentar restauración
-            // directa en StoreKit y aceptar únicamente compras verificadas.
+            // Si AppStore.sync() falló, no ignorar una transacción local
+            // todavía válida que currentEntitlements sí puede verificar.
             let apple = StoreKitEntitlementProvider()
-            let appleSnapshot: CommercialSnapshot
-            if provider is StoreKitEntitlementProvider {
-                // El proveedor principal ya llamó a AppStore.sync().
-                appleSnapshot = await apple.refresh()
-            } else if let restored = try? await apple.restore() {
-                appleSnapshot = restored
-            } else {
-                // Si AppStore.sync() falla, no ignorar una transacción local
-                // todavía válida que currentEntitlements sí puede verificar.
-                appleSnapshot = await apple.refresh()
-            }
+            let appleSnapshot = await apple.refresh()
             if appleSnapshot.grantsProAccess {
                 provider = apple
                 applySnapshot(mergedVerifiedCache(appleSnapshot, from: previous))
@@ -339,19 +288,8 @@ final class SubscriptionManager {
     /// Solo valida transacciones firmadas por Apple y productos propios.
     /// Nunca concede Pro por un estado local o una compra no verificada.
     private func verifiedAppleAccessIfNeeded(_ snapshot: CommercialSnapshot) async -> CommercialSnapshot {
-        guard !snapshot.grantsProAccess else { return snapshot }
-        #if canImport(RevenueCat)
-        guard provider is RevenueCatEntitlementProvider else { return snapshot }
-        let apple = StoreKitEntitlementProvider()
-        let verified = await apple.refresh()
-        guard verified.grantsProAccess else { return snapshot }
-        // A partir de aquí usar el mismo verificador para compras/restore,
-        // evitando discrepancias de entitlement entre proveedores.
-        provider = apple
-        return verified
-        #else
-        return snapshot
-        #endif
+        // StoreKit es el único proveedor de producción: el snapshot ya viene de él.
+        snapshot
     }
 
     private func applySnapshot(_ next: CommercialSnapshot) {

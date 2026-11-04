@@ -2,8 +2,7 @@ import Foundation
 import ReperaDomain
 import StoreKit
 
-/// Precios y compras desde StoreKit / App Store Connect (sin hardcodear importes).
-/// Se usa cuando no hay clave RevenueCat, o como fuente de verdad de catálogo local/sandbox.
+/// Precios y compras desde StoreKit 2 / App Store Connect (sin hardcodear importes).
 final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendable {
     var isConfigured: Bool { true }
 
@@ -14,7 +13,6 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
 
     // Un único observador para toda la aplicación. Escucha compras aprobadas
     // después del cierre del sheet (Ask to Buy), renovaciones y reembolsos.
-    // No finalizamos compras gestionadas por RevenueCat: su SDK las procesa.
     @MainActor private static var updatesTask: Task<Void, Never>?
     @MainActor private static var onVerifiedUpdate: (@MainActor @Sendable () async -> Bool)?
 

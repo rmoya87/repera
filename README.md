@@ -102,7 +102,7 @@ ni está autorizado para producción**. Véanse
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Observation, caches, Home/HK, thumbs |
 | [docs/BOARD_SCAN.md](docs/BOARD_SCAN.md) | Escáner de pizarra (OCR + IA + parser) |
 | [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Checklist manual por feature |
-| [docs/MONETIZATION.md](docs/MONETIZATION.md) | Freemium, RevenueCat, límites Gratis/Pro |
+| [docs/MONETIZATION.md](docs/MONETIZATION.md) | Freemium, StoreKit/Play, límites Gratis/Pro |
 | [web/](web/) | Sitio estático (producto, precios, privacidad, términos, FAQ) |
 | [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Cómo mantener docs al día |
 | [docs/MCP_PLAN.md](docs/MCP_PLAN.md) | MCP Repera: estado real, migraciones, privacidad, fases y seguridad |
@@ -131,7 +131,7 @@ ni está autorizado para producción**. Véanse
 | **Ajustes** | Cuenta Apple/Google, estado/reintento manual de la copia de entrenos en Supabase, Pro/iCloud, Salud, peso, export/import |
 | **Datos** | JSON local + iCloud Documents; CSV Strong/Hevy (sin entitlement en el JSON) |
 | **Watch** | Confirmar → conteo → **+1 serie** / log rápido (sin límites Pro en v1) |
-| **Monetización** | StoreKit + RevenueCat; ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
+| **Monetización** | StoreKit 2 (iOS) + Play Billing (Android); ver [docs/MONETIZATION.md](docs/MONETIZATION.md) |
 
 ## Arranque rápido en Mac (doble clic)
 
@@ -209,7 +209,7 @@ python3 -m unittest discover -s tests -p 'test_sync_versions.py'
 | Bundle iOS | `com.app.repera` |
 | iCloud | `iCloud.com.app.repera` |
 | Team | ver `project.yml` |
-| RevenueCat API key | `RevenueCatPublicAPIKey` en Info.plist (pública `appl_…`) |
+| Suscripciones App Store | Productos `com.app.repera.premium.monthly` / `.yearly` en ASC |
 | Productos | `com.app.repera.premium.monthly` / `com.app.repera.premium.yearly` · entitlement `pro` |
 
 ## No integrados aún en las apps
@@ -217,7 +217,7 @@ python3 -m unittest discover -s tests -p 'test_sync_versions.py'
 - Android nativo: planificado, no implementado.
 - Backend Supabase de Repera: **migraciones de negocio aplicadas en Supabase Repera y tablas públicas protegidas por RLS**, con operaciones pendientes de validación E2E. Panel profesional conectado a invitaciones, horarios, bonos de cortesía y entrenamientos fechados. iOS incluye puente Apple→Supabase y lectura de Center/Diario/Inicio/Ajustes, **pendiente compilar y validar con proveedor Apple y cuentas reales**. No hay Stripe, facturación legal ni bonos de pago; la elección de planes no cobra ni activa prestaciones. Ver [estado real](docs/business/ESTADO_DESARROLLO.md) y [criterios y accesos necesarios para cerrar la entrega](docs/business/RELEASE_GATE.md).
 - Coach / tips con IA (sí hay Foundation Models on-device para pizarra)
-- SDK RevenueCat en Apple Watch
+- Monetización de terceros en Apple Watch (las compras van en iPhone)
 
 ## Licencia
 
@@ -241,7 +241,7 @@ El perfil de entrenamiento se observa a partir del historial deportivo de Repera
 
 ## Escáner CrossFit / Coach MCP v0.4 (22/10/2026)
 
-El catálogo nativo, la búsqueda y Supabase incorporan cuatro movimientos distintivos detectados en ejemplos de gimnasios (Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados y Step-up al cajón con kettlebell goblet). El parser ligero separa intervalos, For Time con varios tramos, series de halterofilia con %1RM, pausas y descansos. Los programas de IA se abren desde Diario; antes de empezar una sesión se puede pulsar en movimientos enlazados a la biblioteca. En Cuenta el avatar editable integra el indicador Apple y la sincronización muestra el estado dentro del botón. Se elimina el texto que pedía configurar RevenueCat porque StoreKit puede funcionar sin él.
+El catálogo nativo, la búsqueda y Supabase incorporan cuatro movimientos distintivos detectados en ejemplos de gimnasios (Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados y Step-up al cajón con kettlebell goblet). El parser ligero separa intervalos, For Time con varios tramos, series de halterofilia con %1RM, pausas y descansos. Los programas de IA se abren desde Diario; antes de empezar una sesión se puede pulsar en movimientos enlazados a la biblioteca. En Cuenta el avatar editable integra el indicador Apple y la sincronización muestra el estado dentro del botón. Las compras iOS van solo por StoreKit 2 y el paywall propio.
 
 El MCP v0.4 ofrece edición/archivo/restauración de propuestas pendientes con versiones, tokens personales de solo lectura o lectura/escritura y fechas de vencimiento, entradas estrictas, paginación de historial/planes/programas y metadatos de articulaciones informativos. **No** borra directamente entrenamientos ya realizados ni envía notificaciones cuando la app está cerrada. El soporte OAuth 2.1 se añade detrás de activación controlada; véase [conexiones OAuth](docs/OAUTH_CONNECTIONS.md). Ver [docs/MCP_PLAN.md](docs/MCP_PLAN.md).
 

@@ -17,7 +17,7 @@ No acumular docs obsoletas. Preferir editar y borrar a añadir páginas huérfan
 | OCR / IA / parser pizarra | `BOARD_SCAN.md` (+ tests mencionados) |
 | Bundle, iCloud, arranque, requisitos | `README.md` |
 | Rendimiento / Observation / caches | `PERFORMANCE.md`, a veces `ARCHITECTURE.md` |
-| Freemium / RevenueCat / límites | `MONETIZATION.md`, `FEATURES.md`, `ARCHITECTURE.md`, `TESTING_GUIDE.md` |
+| Freemium / StoreKit·Play / límites | `MONETIZATION.md`, `FEATURES.md`, `ARCHITECTURE.md`, `TESTING_GUIDE.md` |
 | Web marketing / legales ASC | `web/` (`index`, `privacy`, `terms`, `faq`, `.htaccess`, `pack-ionos.sh`, `README`) + `FEATURES` / `ARCHITECTURE` si cambia alcance |
 | Convención para agentes | Solo `AGENTS.md` (cualquier IA). Skills en `.agents/skills/`. `.cursor/rules/` = stubs opcionales |
 | Feature eliminada o renombrada | Quitar o corregir en **todos** los docs que la citaban |

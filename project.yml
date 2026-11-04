@@ -16,9 +16,6 @@ fileGroups:
 packages:
   ReperaDomain:
     path: Packages/ReperaDomain
-  RevenueCat:
-    url: https://github.com/RevenueCat/purchases-ios-spm
-    from: 5.0.0
   Supabase:
     url: https://github.com/supabase/supabase-swift.git
     exactVersion: 2.55.4
@@ -117,26 +114,8 @@ targets:
           - iCloud.com.app.repera
         com.apple.security.application-groups:
           - group.com.app.repera
-    # Solo archives Release: rechaza el placeholder de RevenueCat (Debug/simulador OK).
-    preBuildScripts:
-      - name: Reject RevenueCat placeholder on Release archive
-        basedOnDependencyAnalysis: false
-        script: |
-          set -euo pipefail
-          if [ "${CONFIGURATION:-}" != "Release" ]; then exit 0; fi
-          if [ "${ACTION:-}" != "install" ]; then exit 0; fi
-          PLIST="${SRCROOT}/Apps/Repera/Resources/Info.plist"
-          KEY="$(/usr/libexec/PlistBuddy -c 'Print :RevenueCatPublicAPIKey' "$PLIST" 2>/dev/null || true)"
-          case "$KEY" in
-            ""|"YOUR_REVENUECAT_PUBLIC_API_KEY")
-              echo "error: RevenueCatPublicAPIKey is still the placeholder. Inject a real appl_/test_ key via xcconfig/CI before archiving Release." >&2
-              exit 1
-              ;;
-          esac
     dependencies:
       - package: ReperaDomain
-      - package: RevenueCat
-        product: RevenueCat
       - package: Supabase
         product: Supabase
       - package: GoogleSignIn
@@ -196,8 +175,6 @@ targets:
                 - application/xml
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        # Clave pública RevenueCat (`appl_…`). Sustituir en ASC / xcconfig; vacío = modo gratis.
-        RevenueCatPublicAPIKey: YOUR_REVENUECAT_PUBLIC_API_KEY
         ReperaSupabaseURL: https://uvzgujlrqohreoucirms.supabase.co
         ReperaSupabasePublishableKey: sb_publishable_uY9c82Ur7VK4VOo9n2zCEg_PmywmLbA
         UILaunchStoryboardName: LaunchScreen

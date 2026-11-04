@@ -163,7 +163,7 @@ jobs:
           set -euo pipefail
           # Do not force -sdk iphonesimulator here: the Repera scheme embeds
           # ReperaWatch, which must retain watchsimulator as its SDK.
-          # Xcode 27 + RevenueCat: el SDK externo usa -suppress-warnings.
+          # Xcode 27: algunos paquetes SPM usan -suppress-warnings.
           # El flag global -warnings-as-errors provoca opciones incompatibles
           # antes de que compile Repera. Swift 6 strict concurrency se mantiene.
           xcodebuild -project Repera.xcodeproj -scheme Repera \

@@ -1,7 +1,7 @@
 import Foundation
 import ReperaDomain
 
-/// Abstracción de derechos comerciales (RevenueCat / Debug / stub).
+/// Abstracción de derechos comerciales (StoreKit / Debug / stub).
 protocol EntitlementProviding: AnyObject, Sendable {
     var isConfigured: Bool { get }
     func refresh() async -> CommercialSnapshot
@@ -73,7 +73,7 @@ final class UnconfiguredEntitlementProvider: EntitlementProviding, @unchecked Se
     func offerings() async throws -> CommercialOfferings {
         CommercialOfferings(
             packages: [],
-            unavailableReason: "Configura RevenueCatPublicAPIKey para activar compras."
+            unavailableReason: "Las compras no están disponibles en este build."
         )
     }
 }

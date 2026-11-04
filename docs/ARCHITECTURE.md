@@ -149,7 +149,7 @@ La preacción del scheme `Repera` guarda los valores efectivos que Xcode muestra
 └─────────────────────────────────────────┘
 ```
 
-Dependencia SPM adicional (app iOS): **RevenueCat** (`purchases-ios-spm`). No se enlaza en Watch.
+Monetización iOS: StoreKit 2 nativo (sin SPM de suscripciones de terceros). No se enlaza monetización en Watch.
 
 ### `ReperaStore` (`Apps/Repera/Sources/ReperaStore.swift`)
 
@@ -204,7 +204,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Archivo | Rol |
 |---------|-----|
 | `SubscriptionManager` | Estado comercial observable, ofertas, compra/restore, paywall; `businessSponsoredAccess` si hay vínculo activo a centro/entrenador |
-| `RevenueCatEntitlementProvider` | CustomerInfo → `CommercialSnapshot` |
+| `StoreKitEntitlementProvider` | StoreKit 2 → `CommercialSnapshot` |
 | `FreeUsageStore` | Cuota escáner (`free_usage.json`, fuera del JSON deportivo) |
 | `PaywallView` / `ProTeaserCard` | Página comercial minimalista y banners Pro; iOS la muestra como overlay raíz (no sheet), Android como pantalla Compose completa |
 | Detalle | [MONETIZATION.md](MONETIZATION.md) |

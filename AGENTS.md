@@ -212,7 +212,8 @@ Fuente: `docs/RELIABILITY_SECURITY_AUDIT_2026_11_04.md`. Mantener estas invarian
 - Edge: secreto de cron obligatorio (fail closed); CORS allowlist; rate limit MCP; nunca `service_role` en cliente.
 - Logs release sin OCR/salud/tokens.
 - Monetización: sin snapshot ≠ Pro; compras en servidor cuando exista el camino.
-- Placeholder RevenueCat: runtime = monetización off; archive Release debe fallar (`project.yml`).
+- Monetización iOS: solo StoreKit 2 (`StoreKitEntitlementProvider`); sin RevenueCat.
+  Sin snapshot Pro verificado → Gratis (fail-closed). Android: Play Billing.
 - No migrar/desplegar Edge sin confirmación humana (`docs/SUPABASE_MIGRATION_RECONCILIATION_2026_11_04.md`).
 
 ### UX

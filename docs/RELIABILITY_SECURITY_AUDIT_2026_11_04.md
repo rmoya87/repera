@@ -49,8 +49,8 @@ R8 en instalación Play, FCM/APNs con secretos de producción).
 - MCP: rate limit por token/herramienta desplegado (`consume_ai_mcp_quota`);
   CORS de invite con allowlist.
 - `.mcp.json` / `.cursor/mcp.json` en `.gitignore`.
-- RevenueCat: runtime trata el placeholder como no disponible; el archive
-  Release falla si sigue el placeholder (`project.yml` preBuildScripts).
+- Monetización: RevenueCat eliminado; iOS solo StoreKit 2 + paywall propio;
+  Android Play Billing. Pro fail-closed sin snapshot verificado.
 - Contratos `BusinessAgenda.source` alineados Swift/Kotlin.
 - Espejo de entrenos: índice keyset `athlete_workout_mirror_owner_id_keyset_idx`
   aplicado en prod (`20261104104041`).
@@ -67,14 +67,12 @@ R8 en instalación Play, FCM/APNs con secretos de producción).
 
 ## Pendiente de operación (humano)
 
-1. Añadir secretos de proveedor `FCM_SERVICE_ACCOUNT_JSON` + `FCM_PROJECT_ID`
-   y/o `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_PRIVATE_KEY` / `APNS_BUNDLE_ID`
-   para que la cola deje de quedar en pending.
-2. Seguir el plan de reconciliación de versiones históricas solo en git
-   (`docs/SUPABASE_MIGRATION_RECONCILIATION_2026-11-04.md`). **No** `db push` masivo.
-3. Inyectar `RevenueCatPublicAPIKey` real en CI/xcconfig antes de archive.
-4. Validar en dispositivos reales el checklist de Always On, live-start con
-   app abierta, GPS largo, R8 install y doble escritura Salud/Health Connect.
+1. FCM/APNs de push: **configurados** (smoke `fcm_configured`/`apns_configured`).
+2. Reconciliación de ~30 migraciones históricas: **cerrada** el 04/11
+   (`docs/SUPABASE_MIGRATION_RECONCILIATION_2026-11-04.md`).
+3. Validar en dispositivos reales el checklist de Always On, live-start con
+   app abierta, GPS largo, R8 install, compra StoreKit sandbox y doble escritura
+   Salud/Health Connect.
 
 ## Segunda pasada (04/11 tarde)
 
