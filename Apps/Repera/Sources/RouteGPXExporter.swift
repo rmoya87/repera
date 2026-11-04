@@ -19,7 +19,13 @@ enum RouteGPXExporter {
         var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         xml += "<gpx version=\"1.1\" creator=\"Repera\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n"
         xml += "  <trk><name>Recorrido Repera</name><trkseg>\n"
+        var lastTime: Date?
         for sample in valid {
+            // Gaps are separate track segments; never draw an invented line.
+            if let lastTime, sample.date.timeIntervalSince(lastTime) > 30 {
+                xml += "  </trkseg><trkseg>\n"
+            }
+            lastTime = sample.date
             xml += "    <trkpt lat=\"\(number(sample.latitude))\" lon=\"\(number(sample.longitude))\">"
             if let altitude = sample.altitudeMeters, altitude.isFinite {
                 xml += "<ele>\(number(altitude))</ele>"
