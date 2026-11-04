@@ -62,7 +62,7 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         storage = source("android/mobile/src/main/java/dev/repera/mobile/LocalSnapshotStore.kt")
         self.assertIn("ReperaWidgetRefresh.enqueue(appContext)", storage)
         session = source("android/mobile/src/main/java/dev/repera/mobile/SessionStore.kt")
-        self.assertIn("if (identityChanged) ReperaWidgetRefresh.enqueue(appContext)", session)
+        self.assertIn("if (identityChanged) runCatching { ReperaWidgetRefresh.enqueue(appContext) }", session)
 
     def test_export_is_explicit_and_uses_unmodified_gps(self):
         export = source("Apps/Repera/Sources/RouteGPXExporter.swift")
