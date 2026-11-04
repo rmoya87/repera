@@ -14,7 +14,7 @@ class NativeSystemEntryContractTests(unittest.TestCase):
     def test_ios_shortcuts_only_enqueue_navigation(self):
         swift = source("Apps/Repera/Sources/ReperaSystemShortcuts.swift")
         self.assertIn("AppShortcutsProvider", swift)
-        self.assertIn("static var openAppWhenRun = true", swift)
+        self.assertIn("static let openAppWhenRun = true", swift)
         self.assertIn("ReperaSystemCommand.request(.today)", swift)
         self.assertNotIn("HKWorkoutSession(", swift)
         self.assertNotIn("startActivity(with:", swift)
