@@ -1,6 +1,8 @@
 package dev.repera.wear
 
 import android.content.Intent
+import android.speech.RecognizerIntent
+import android.app.Activity
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -69,6 +71,23 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val pendingStore by lazy { WearPendingSetStore(this) }
     private val pendingFinish by lazy {WearPendingFinishStore(this)}
     private var repsInput by mutableStateOf(0)
+    private var dictatedText by mutableStateOf<String?>(null)
+    private var dictationSessionId: String? = null
+    private var dictationExerciseIndex: Int? = null
+    private val dictationLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val active = visibleSession
+        if (result.resultCode != Activity.RESULT_OK ||
+            active == null || dictationSessionId != active.sessionId ||
+            dictationExerciseIndex != active.exerciseIndex) {
+            dictatedText = null
+            return@registerForActivityResult
+        }
+        dictatedText = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()?.takeIf { it.isNotBlank() }
+    }
     private var weightInput by mutableStateOf<Double?>(null)
     private var rirInput by mutableStateOf<Double?>(null)
     private var durationInput by mutableStateOf(30)
@@ -174,6 +193,45 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var reviewElapsedSeconds by mutableStateOf(0)
     private var setReviewIndex by mutableStateOf<Int?>(null)
     private val sessionCache by lazy { getSharedPreferences("repera.wear.session", MODE_PRIVATE) }
+
+    private fun requestSpokenSetInput() {
+        val session = visibleSession ?: return
+        if (sessionPaused || session.phase != "counting" || !session.canLogOnWatch) return
+        dictationSessionId = session.sessionId
+        dictationExerciseIndex = session.exerciseIndex
+        dictatedText = null
+        val voice = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Ejemplo: 12 repeticiones 45 kilos")
+        try {
+            dictationLauncher.launch(voice)
+        } catch (_: android.content.ActivityNotFoundException) {
+            sendStatus = "Dictado no disponible. Usa los controles de la serie."
+        }
+    }
+
+    private fun applySpokenSetInput() {
+        val session = visibleSession ?: return
+        if (dictationSessionId != session.sessionId ||
+            dictationExerciseIndex != session.exerciseIndex ||
+            sessionPaused || session.phase != "counting" || !session.canLogOnWatch) {
+            dictatedText = null
+            return
+        }
+        val parsed = dictatedText?.let(WearSpokenSet::parse) ?: return
+        if (parsed.weightKg != null && !session.allowsWeight) {
+            sendStatus = "Este ejercicio no registra kilos"
+            return
+        }
+        parsed.reps?.let { repsInput = it }
+        parsed.weightKg?.let { weightInput = it }
+        persistDraft()
+        dictatedText = null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -307,6 +365,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 sessionPaused = sessionPaused,
                                 restRemaining = restRemaining,
                                 repsInput = repsInput,
+                                spokenDraft = dictatedText,
                                 weightInput = weightInput,
                                 rirInput = rirInput,
                                 durationInput = durationInput,
@@ -351,6 +410,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                 onSyncRequest = { requestTodayPlanSync() },
                                 onRepsMinus = { adjustQuantity(-1) },
                                 onRepsPlus = { adjustQuantity(1) },
+                                onDictateSet = { requestSpokenSetInput() },
+                                onCancelSpokenSet = { dictatedText = null },
+                                onApplySpokenSet = { applySpokenSetInput() },
                                 onWeightDelta = { delta ->
                                     weightInput = (kotlin.math.round(((weightInput ?: 0.0) + delta)*10.0)/10.0)
                                         .coerceAtLeast(0.0).coerceAtMost(2000.0)
