@@ -6,6 +6,31 @@ package dev.repera.domain
 object RecentPlaces {
     const val LIMIT = 5
 
+    /** Sugerencia de lugar habitual basada sólo en GPS disponible al abrir el
+     * selector, sin rastreo en segundo plano ni adivinar la ubicación. */
+    fun nearbyNamed(
+        current: List<WorkoutLocationPin>,
+        latitude: Double,
+        longitude: Double,
+        maxMeters: Double = 50.0
+    ): WorkoutLocationPin? {
+        if (!latitude.isFinite() || !longitude.isFinite()) return null
+        val latRad = Math.toRadians(latitude)
+        return current
+            .filter { !it.name.isNullOrBlank() }
+            .mapNotNull { place ->
+                val dLat = Math.toRadians(place.latitude - latitude)
+                val dLon = Math.toRadians(place.longitude - longitude)
+                val a = kotlin.math.sin(dLat / 2).let { it * it } +
+                    kotlin.math.cos(latRad) * kotlin.math.cos(Math.toRadians(place.latitude)) *
+                    kotlin.math.sin(dLon / 2).let { it * it }
+                val distance = 2.0 * 6371000.0 * kotlin.math.asin(
+                    kotlin.math.sqrt(a.coerceIn(0.0, 1.0))
+                )
+                if (distance <= maxMeters) place to distance else null
+            }.minByOrNull { it.second }?.first
+    }
+
     /** iOS isSamePlace: mismo mapItemIdentifier (si ambos lo tienen) o
      *  coordenadas a < 0.0001° (~11 m). */
     fun isSamePlace(a: WorkoutLocationPin, b: WorkoutLocationPin): Boolean {
