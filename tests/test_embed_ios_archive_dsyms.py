@@ -25,6 +25,12 @@ class EmbedIosArchiveDsymsTests(unittest.TestCase):
         self.assertIn("DEBUG_INFORMATION_FORMAT: dwarf-with-dsym", text)
         self.assertIn("runOnlyWhenInstalling: true", text)
         self.assertIn("--archive", text)
+        # Must invoke the file at build time — `path:` would inline a stale copy in pbxproj.
+        self.assertIn('"${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"', text)
+        phase = text.split("Embed framework dSYMs in archive", 1)[1].split(
+            "info:", 1
+        )[0]
+        self.assertNotIn("path: scripts/embed_ios_archive_dsyms.sh", phase)
 
     def test_help_exits_zero(self) -> None:
         result = subprocess.run(

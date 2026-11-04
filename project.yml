@@ -154,11 +154,14 @@ targets:
       - sdk: MediaPlayer.framework
       - sdk: AuthenticationServices.framework
     # Firebase Analytics / GoogleAppMeasurement SPM binaries ship without public dSYMs.
-    # Generate UUID-matching stubs into the archive so Organizer stops "Upload Symbols Failed".
+    # Call the .sh by path (do NOT use `path:` — XcodeGen inlines file contents into
+    # pbxproj and Archives keep running a stale copy until the next generate).
     postBuildScripts:
-      - path: scripts/embed_ios_archive_dsyms.sh
-        name: Embed framework dSYMs in archive
+      - name: Embed framework dSYMs in archive
         shell: /bin/bash
+        script: |
+          set -euo pipefail
+          "${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"
         runOnlyWhenInstalling: true
         basedOnDependencyAnalysis: false
         showEnvVars: false

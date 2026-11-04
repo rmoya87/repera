@@ -1,6 +1,6 @@
 # Configuración Firebase / GA4 — Repera
 
-**Última actualización:** 2026-11-04 (dSYM embed: note soft en build-phase + CODESIGNING_FOLDER_PATH).
+**Última actualización:** 2026-11-04 (dSYM embed: phase llama al .sh en disco; no inline XcodeGen).
 
 ## Modelo
 
@@ -18,7 +18,9 @@ Firebase se integra por **SPM** (`firebase-ios-sdk` en `project.yml`, producto `
 
 La fase de build puede imprimir `note: … no .app yet (build-phase)` si Xcode aún no ha asentado el `.app`; **no es un fallo**. El post-action de Archive (`--archive ${ARCHIVE_PATH}`) es el pase fiable. Log: `${TMPDIR}/repera_archive_dsyms.log`.
 
-Tras regenerar (`xcodegen generate`) y archivar de nuevo, el aviso de esos frameworks debería desaparecer. Si un archive antiguo ya está en Organizer, puedes repararlo a mano:
+La fase **invoca** `scripts/embed_ios_archive_dsyms.sh` (no incrusta el cuerpo): tras editar el `.sh` no hace falta regenerar solo por el texto del script. Tras cambiar `project.yml`, sí: `xcodegen generate`.
+
+Tras regenerar (si tocaste el wiring) y archivar de nuevo, el aviso de esos frameworks debería desaparecer. Si un archive antiguo ya está en Organizer, puedes repararlo a mano:
 
 ```bash
 ./scripts/embed_ios_archive_dsyms.sh --archive ~/Library/Developer/Xcode/Archives/.../Repera.xcarchive

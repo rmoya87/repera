@@ -161,6 +161,22 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 
 - Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
+#### Apple — XcodeGen `postBuildScripts.path` congela el script
+
+```yaml
+# ❌ BAD — XcodeGen incrusta el contenido del .sh en pbxproj al generate.
+# Editar scripts/embed_ios_archive_dsyms.sh no cambia lo que Archive ejecuta.
+# postBuildScripts:
+#   - path: scripts/embed_ios_archive_dsyms.sh
+
+# ✅ GOOD — la fase llama al fichero en disco
+# postBuildScripts:
+#   - script: |
+#       "${PROJECT_DIR}/scripts/embed_ios_archive_dsyms.sh"
+```
+
+- Tras cambiar el wiring: `xcodegen generate`. Contrato: `tests/test_embed_ios_archive_dsyms.py`.
+
 #### Apple — Microbenchmarks en CI (ExerciseSearch)
 
 ```swift
