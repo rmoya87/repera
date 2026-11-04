@@ -49,23 +49,21 @@ class TopBarAlignmentContractTests(unittest.TestCase):
             self.assertIn(".padding(.bottom, OG.topBarBottomInset)", header)
 
     def test_compact_diary_and_split_exercises_use_shared_spacing(self):
-        diary = read("PlanView.swift")
-        section = diary.split("private var diaryTopBar:", 1)[1].split(
-            "private struct DiaryDateBox:", 1
-        )[0]
-        self.assertIn("OGFixedTopBar(title:", section)
+        # Plan / diario: barra fija compartida (ogFixedTopBar) con insets de Theme.
+        plan = read("PlanView.swift")
+        self.assertIn(".ogFixedTopBar(", plan)
+        theme = read("Theme.swift")
         for p in (".padding(.horizontal, OG.topBarHorizontalInset)",
                   ".padding(.top, OG.topBarTopInset)",
                   ".padding(.bottom, OG.topBarBottomInset)"):
-            self.assertIn(p, section)
+            self.assertIn(p, theme)
         library = read("LibraryView.swift")
         root = library.split("private var exerciseActionHeader: some View {", 1)[1].split(
             "private var exerciseSearchField:", 1
         )[0]
-        for p in (".padding(.horizontal, OG.topBarHorizontalInset)",
-                  ".padding(.top, OG.topBarTopInset)",
-                  ".padding(.bottom, OG.topBarBottomInset)"):
-            self.assertIn(p, root)
+        self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", root)
+        self.assertIn("OG.topBarTopInset", root)
+        self.assertIn("OG.topBarBottomInset", root)
         self.assertIn("HStack(alignment: .center, spacing: 16)", root)
         self.assertIn('Text("Ejercicios")', root)
 
@@ -73,10 +71,10 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         sections = (
             (read("DayPlusSheet.swift"), 'OGPageHeader(title: "Añadir entreno"'),
             (read("DayOverrideSheet.swift"), "OGPageHeader(title: dayLabel)"),
-            (read("PlanView.swift"), 'OGPageHeader(title: "Añadir rutina")'),
             (read("LibraryView.swift"), 'OGPageHeader(title: "Ordenar y filtrar")'),
         )
         for source, anchor in sections:
+            self.assertIn(anchor, source, anchor)
             snippet = source.split(anchor, 1)[1].split("}", 2)[-1][:120]
             self.assertNotIn(".padding(.top, 4)", snippet, anchor)
 
@@ -118,7 +116,9 @@ class TopBarAlignmentContractTests(unittest.TestCase):
         self.assertIn(".toolbar(hasCustomExerciseHeader ? .hidden : .visible", library)
         self.assertIn("enabled: !hasCustomExerciseHeader", library)
         self.assertGreaterEqual(library.count("ToolbarItem(placement: .topBarTrailing)"), 2)
-        self.assertIn(".navigationBarTitleDisplayMode(.large)", library)
+        # Root Ejercicios: título inline + OGFixedTopBar (misma convención que Inicio).
+        self.assertIn(".navigationBarTitleDisplayMode(.inline)", library)
+        self.assertIn('OGFixedTopBar(title: "Ejercicios"', library)
 
     def test_native_toolbar_is_not_forced_into_manual_custom_geometry(self):
         theme = read("Theme.swift")

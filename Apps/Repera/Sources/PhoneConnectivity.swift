@@ -210,6 +210,45 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         decode(userInfo)
     }
 
+    /// Sesión terminada con ruta grande: el Watch manda `transferFile` (JSON
+    /// completo) además del userInfo ligero. Sin este callback la geometría GPS
+    /// se pierde tras el ACK.
+    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        let meta = file.metadata ?? [:]
+        guard (meta["kind"] as? String) == "finishedSession" else {
+            logger.warning("Ignoring Watch file with unexpected kind")
+            return
+        }
+        let expected = latestPayloadLock.withLock {
+            latestPayload?["ownerScope"] as? String
+        }
+        guard let expected, !expected.isEmpty,
+              meta["ownerScope"] as? String == expected else {
+            logger.warning("Ignoring Watch route file with missing/mismatched account scope")
+            return
+        }
+        let byteCount = (meta["byteCount"] as? Int)
+            ?? (try? FileManager.default.attributesOfItem(atPath: file.fileURL.path)[.size] as? Int)
+            ?? 0
+        guard WatchTransportLimits.acceptsFile(byteCount: byteCount) else {
+            logger.warning("Ignoring oversized Watch route file")
+            return
+        }
+        guard let data = try? Data(contentsOf: file.fileURL),
+              WatchTransportLimits.acceptsFile(byteCount: data.count),
+              let workout = try? JSONDecoder().decode(WorkoutSession.self, from: data) else {
+            logger.warning("Watch route file could not be decoded")
+            return
+        }
+        if let rawID = meta["sessionId"] as? String,
+           let metaID = UUID(uuidString: rawID),
+           metaID != workout.id {
+            logger.warning("Ignoring Watch route file with mismatched session id")
+            return
+        }
+        delegate?.phoneConnectivityDidReceive(session: workout)
+    }
+
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         if message["ping"] as? Bool == true { return }
         if let action = message["action"] as? String {
@@ -366,8 +405,12 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 return
             }
         }
-        if let data = payload["timerMirror"] as? Data,
-           let mirror = try? JSONDecoder().decode(WatchTimerMirror.self, from: data) {
+        if let data = payload["timerMirror"] as? Data {
+            guard WatchTransportLimits.accepts(data),
+                  let mirror = try? JSONDecoder().decode(WatchTimerMirror.self, from: data) else {
+                logger.warning("Ignoring oversized or invalid Watch timer mirror")
+                return
+            }
             delegate?.phoneConnectivityDidReceiveTimer(mirror)
         }
         if payload["discarded"] as? Bool == true
@@ -377,9 +420,15 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             delegate?.phoneConnectivityDidReceiveDiscard(sessionId: id)
             return
         }
-        guard let data = payload["session"] as? Data, !data.isEmpty,
-              let session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
+        guard let data = payload["session"] as? Data, !data.isEmpty else { return }
+        guard WatchTransportLimits.accepts(data) else {
+            logger.warning("Ignoring oversized Watch session payload")
+            return
+        }
+        guard let session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
         else { return }
+        // userInfo ligero (routeViaFile): se aplica ya; el fichero posterior
+        // fusionará la ruta en applyWatchSession sin pisar series editadas.
         delegate?.phoneConnectivityDidReceive(session: session)
     }
 }

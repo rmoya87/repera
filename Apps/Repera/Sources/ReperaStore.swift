@@ -2123,6 +2123,12 @@ final class ReperaStore: NSObject {
                     saved.locationPin = watchPin
                     changed = true
                 }
+                // Ruta GPS grande: el userInfo llega sin puntos y el fichero
+                // completo después. Fusionar solo si el reloj aporta más geometría.
+                if session.routePoints.count > saved.routePoints.count {
+                    saved.routePoints = session.routePoints
+                    changed = true
+                }
                 if changed { upsertWorkout(saved) }
             } else {
                 var completed = session

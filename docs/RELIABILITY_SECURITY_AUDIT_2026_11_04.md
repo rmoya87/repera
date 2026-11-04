@@ -64,6 +64,17 @@ R8 en instalación Play, FCM/APNs con secretos de producción).
 4. Validar en dispositivos reales el checklist de Always On, live-start con
    app abierta, GPS largo, R8 install y doble escritura Salud/Health Connect.
 
+## Segunda pasada (04/11 tarde)
+
+Hallazgo Alta restante cerrado en código:
+- iPhone ahora implementa `WCSessionDelegate.session(_:didReceive:)` para
+  `kind=finishedSession` + fusión de `routePoints` en `applyWatchSession` cuando
+  el fichero llega tras el userInfo ligero (`routeViaFile`).
+- `WatchTransportLimits` en decode de `PhoneConnectivity`.
+- ProgressTab Android: fail-closed si `subscriptions == null`.
+- Tope de bytes Wear en `MainActivity` / `WearLiveCommandListener`.
+- Lectura de ajustes En vivo fuera del hilo principal.
+
 ## Verificaciones locales
 
 - iOS: `xcodebuild` Repera → BUILD SUCCEEDED (varias pasadas).

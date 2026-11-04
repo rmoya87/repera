@@ -134,7 +134,7 @@ El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Vali
 en hardware y CI siguen siendo obligatorias.
 
 
-Última actualización: 2026-11-02 (Business: capas agenda unificada box/gym/multi-sala)
+Última actualización: 2026-11-04 (Always On relojes, ACK Wear live-start, R8 Android, push fail-closed)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 

@@ -21,6 +21,8 @@ internal object WearUiPresence {
 
 class WearLiveCommandListener : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
+        // Misma cota que WearPayload en el reloj: rechazar antes de JSONObject.
+        if (!WearMessageBounds.withinLimit(event.data)) return
         if (event.path == "/repera/live-heart-rate") {
             if (!WearUiPresence.active) handleBackgroundLiveHeartRate(event)
             return

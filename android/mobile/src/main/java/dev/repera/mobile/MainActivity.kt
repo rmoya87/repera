@@ -1497,6 +1497,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
     }
 
     override fun onMessageReceived(event: MessageEvent) {
+        if (!WearMessageBounds.withinLimit(event.data)) return
         if (event.path == "/repera/live-heart-rate") {
             val payload = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8))

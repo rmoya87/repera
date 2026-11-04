@@ -52,7 +52,7 @@ struct WatchLiveSessionView: View {
                     }
                     if let bpm = hub.heartRateBpm {
                         if isLuminanceReduced {
-                            WatchLiveMetricRow(label: "FC", value: "\(Int(bpm.rounded()))")
+                            WatchLiveMetricRow(label: "FC", value: "\(bpm)")
                         } else {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text("FC")

@@ -75,8 +75,10 @@ import dev.repera.domain.LiveSport
 import dev.repera.domain.LiveSportHistory
 import dev.repera.domain.AdaptiveRoutePace
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /** Primer wiring ejecutable: no estima kcal/pulso ni escribe Salud.
@@ -171,8 +173,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
-    val maxHeartRateBpm = remember(accountId) {
-        trainingSettingsForAccount(context, accountId).heartRateMaxBpm ?: 190
+    val maxHeartRateBpm by produceState(initialValue = 190, accountId) {
+        value = withContext(Dispatchers.IO) {
+            trainingSettingsForAccount(context, accountId).heartRateMaxBpm ?: 190
+        }
     }
     // Mapa begins compact for every new live activity; Métricas remains full.
     var mapDetailsExpanded by remember(accountId, state.gpsSessionID) {

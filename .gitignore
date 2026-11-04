@@ -67,3 +67,6 @@ repera-sa.json
 
 # Python
 **/__pycache__/
+
+# Superpowers local runtime
+.superpowers/

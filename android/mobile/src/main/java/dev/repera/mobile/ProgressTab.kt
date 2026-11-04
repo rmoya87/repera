@@ -243,7 +243,7 @@ internal fun ProgressTab(
                             ProgressMobilityCard(
                                 snapshot.mobilitySessions,
                                 snapshot.mobilitySeconds,
-                                if (subscriptions == null || subscriptions.isPro) {
+                                if (subscriptions?.isPro == true) {
                                     snapshot.chartExercises.filter { it.isMobility }.take(3)
                                 } else emptyList(),
                                 onOpenExercise
@@ -342,7 +342,7 @@ internal fun ProgressTab(
                             )
                         }
                     }
-                    if (subscriptions == null || subscriptions.isPro) {
+                    if (subscriptions?.isPro == true) {
                         item {
                             AdaptiveCardPair(
                                 first = { ProgressExercisesCard(snapshot.chartExercises, onOpenExercise) },
@@ -358,7 +358,7 @@ internal fun ProgressTab(
                                 cta = "Descubrir Repera Pro",
                                 appearance = dev.repera.mobile.monetization.ProTeaserAppearance.PROGRESS,
                                 onClick = {
-                                    subscriptions.presentPaywall(
+                                    subscriptions?.presentPaywall(
                                         dev.repera.domain.monetization.PaywallContext.PROGRESS,
                                         feature = dev.repera.domain.monetization.ReperaFeature.ADVANCED_PROGRESS
                                     )
@@ -870,7 +870,7 @@ private fun ProgressRangePickerSheet(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                         )
                     }
-                    val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: true
+                    val allowed = subscriptions?.canSelectProgressRange(range)?.allowed ?: false
                     val selected = selectedWire == range.wire
                     Row(
                         Modifier
