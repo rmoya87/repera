@@ -2017,6 +2017,11 @@ final class ReperaStore: NSObject {
                     pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
                     pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
                     pending.appleDurationSeconds = session.appleDurationSeconds ?? old.appleDurationSeconds
+                    if old.locationPin?.hasChosenPlace == true {
+                        pending.locationPin = old.locationPin
+                    } else if pending.locationPin == nil {
+                        pending.locationPin = old.locationPin
+                    }
                 }
                 upsertWorkout(pending)
                 if session.finishedAt != nil {
@@ -2082,6 +2087,12 @@ final class ReperaStore: NSObject {
                 if let heartRate = session.appleAverageHeartRateBpm, heartRate > 0,
                    saved.appleAverageHeartRateBpm != heartRate {
                     saved.appleAverageHeartRateBpm = heartRate
+                    changed = true
+                }
+                // La ubicación del Watch puede llegar después del primer resumen.
+                // No sustituir nunca el lugar seleccionado por el deportista.
+                if saved.locationPin == nil, let watchPin = session.locationPin {
+                    saved.locationPin = watchPin
                     changed = true
                 }
                 if changed { upsertWorkout(saved) }

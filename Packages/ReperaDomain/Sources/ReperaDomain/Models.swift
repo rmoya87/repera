@@ -2052,6 +2052,10 @@ public struct WorkoutLocationPin: Codable, Sendable, Hashable {
     public var mapItemIdentifier: String?
     /// `MKPointOfInterestCategory.rawValue` para el glyph de Mapas.
     public var pointOfInterestCategory: String?
+    /// Precisión de la coordenada real (opcional para históricos y lugares manuales).
+    public var horizontalAccuracyMeters: Double?
+    /// iPhone, appleWatch, androidPhone o wearOS.
+    public var source: String?
 
     public init(
         latitude: Double,
@@ -2059,7 +2063,9 @@ public struct WorkoutLocationPin: Codable, Sendable, Hashable {
         recordedAt: Date = Date(),
         name: String? = nil,
         mapItemIdentifier: String? = nil,
-        pointOfInterestCategory: String? = nil
+        pointOfInterestCategory: String? = nil,
+        horizontalAccuracyMeters: Double? = nil,
+        source: String? = nil
     ) {
         self.latitude = latitude
         self.longitude = longitude
@@ -2067,6 +2073,8 @@ public struct WorkoutLocationPin: Codable, Sendable, Hashable {
         self.name = name
         self.mapItemIdentifier = mapItemIdentifier
         self.pointOfInterestCategory = pointOfInterestCategory
+        self.horizontalAccuracyMeters = horizontalAccuracyMeters
+        self.source = source
     }
 
     /// Lugar elegido (nombre o MapItem). Un pin GPS anónimo no cuenta.
