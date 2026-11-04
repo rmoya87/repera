@@ -137,6 +137,8 @@ targets:
       path: Apps/Repera/Resources/Info.plist
       properties:
         CFBundleDisplayName: Repera
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
         GIDClientID: "$(REPERA_GOOGLE_IOS_CLIENT_ID)"
         GIDServerClientID: "$(REPERA_GOOGLE_SERVER_CLIENT_ID)"
         CFBundleURLTypes:
