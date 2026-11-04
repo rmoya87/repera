@@ -99,9 +99,10 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn(".photosPicker(",settings)
         self.assertNotIn("Quitar foto",settings)
         self.assertNotIn("Compras no configuradas en este build",settings)
-        # Eliminado Diario: los programas IA están disponibles desde Ajustes.
-        self.assertIn("Programas de entrenamiento IA", settings)
-        self.assertIn("AITrainingProgramsView()", settings)
+        # Los planes entrantes aparecen en Inicio; la conexión de IA está en Ajustes.
+        self.assertIn("Conecta tu IA", settings)
+        self.assertIn("AIAccessView()", settings)
+        self.assertNotIn("AITrainingProgramsView()", settings)
         self.assertNotIn("AITrainingProgramsView()", plan)
         self.assertNotIn("syncFeedback", settings)
 
