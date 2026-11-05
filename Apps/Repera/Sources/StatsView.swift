@@ -2186,7 +2186,7 @@ private struct ProgressSessionScoreChartCard: View {
                     }
                 }
                 .chartXSelection(value: $selectedRecentWorkoutIndex)
-                .chartXScale(domain: 0...max(8, recent.count + 1))
+                .chartXScale(domain: 0...max(2, recent.count + 1))
                 .chartYAxis {
                     AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
