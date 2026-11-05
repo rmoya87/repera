@@ -408,9 +408,9 @@ internal fun ProgressTab(
                             }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
                             if (day == today) overview?.prCountBySessionId?.get(entry.id) ?: 0 else 0
                         }
-                        val todaySummary = (overview?.dayWorkoutCounts?.get(today) ?: 0).toString() +
-                            " sesiones · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
-                            " kg · " + todayPrs + " PR hoy"
+                        val todaySummary = "Hoy " + (overview?.dayWorkoutCounts?.get(today) ?: 0) +
+                            " ses. · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
+                            " kg · " + todayPrs + " PR"
                         ProgressSaludInsightCard(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
@@ -424,8 +424,8 @@ internal fun ProgressTab(
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
                             heroCaption = when {
                                 snapshot.summary.volumeKg > 0 ->
-                                    snapshot.summary.volumeKg.toInt().toString() + " kg · " + period +
-                                        " · " + todaySummary
+                                    snapshot.summary.volumeKg.toInt().toString() + " kg / 7 d\n" +
+                                        todaySummary
                                 (overview?.dayWorkoutCounts?.get(today) ?: 0) > 0 -> todaySummary
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
