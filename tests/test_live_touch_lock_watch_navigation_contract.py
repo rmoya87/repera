@@ -56,7 +56,7 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         wear = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         bridge = source("android/mobile/src/main/java/dev/repera/mobile/WearActiveSessionBridge.kt")
         self.assertIn("VerticalPager(state = verticalPages", wear)
-        self.assertIn("HorizontalPager(state = pager", wear)
+        self.assertIn("HorizontalPager(\n            state = pager", wear)
         self.assertIn("!live.isNull(\"nextTurn\")", wear)
         self.assertIn("WearLiveMetricsPage(live = live", wear)
         self.assertIn("haptic.performHapticFeedback(HapticFeedbackType.LongPress)", wear)
