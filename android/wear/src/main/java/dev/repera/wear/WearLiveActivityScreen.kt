@@ -84,6 +84,11 @@ internal fun WearLiveActivityScreen(
     val sport = LiveSport.byId(live.optString("sportId"))
     val hasGuidance = phase != "review" &&
         !live.isNull("nextTurn") && live.optString("nextTurn").isNotBlank()
+    val liveSessionId = live.optString("sessionId")
+    var metricsWereAlreadyVisible by remember(liveSessionId) { mutableStateOf(!hasGuidance) }
+    LaunchedEffect(hasGuidance, liveSessionId) {
+        if (!hasGuidance) metricsWereAlreadyVisible = true
+    }
     // Mantener dos páginas también al entrar en revisión evita un índice inválido.
     val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
     var confirmFinish by remember(live.optString("sessionId")) { mutableStateOf(false) }
@@ -97,8 +102,11 @@ internal fun WearLiveActivityScreen(
                 phase == "review" -> WearLiveReviewPage(onDismissLiveToHome)
                 page == 0 -> {
                     if (hasGuidance) {
-                        key(live.optString("sessionId")) {
-                            val verticalPages = rememberPagerState(initialPage = 0, pageCount = { 2 })
+                        key(liveSessionId) {
+                            val verticalPages = rememberPagerState(
+                                initialPage = if (metricsWereAlreadyVisible) 1 else 0,
+                                pageCount = { 2 }
+                            )
                             VerticalPager(state = verticalPages, modifier = Modifier.fillMaxSize()) { verticalPage ->
                                 if (verticalPage == 0) {
                                     WearLiveNavigationPage(live)
