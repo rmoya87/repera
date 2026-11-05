@@ -571,7 +571,8 @@ fun ReperaMobileScreen(
         val hideAppShell = reperaRouteHidesAppShell(currentRoute)
         // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
         val showTabBar = currentRoute != "mensajes" &&
-            (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute))
+            (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)) &&
+            !(currentRoute == "en-vivo" && LiveActivityTouchLockState.locked)
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         var tabBarChromeHeightDp by remember { mutableStateOf(0.dp) }
         Scaffold(
@@ -701,7 +702,8 @@ fun ReperaMobileScreen(
             }
         ) { padding ->
             // Comenzar: mapa 100% detrás de status + tab/nav (LiveActivityView iOS).
-            val mapUnderTabs = currentRoute == "en-vivo" && showTabBar
+            // Mapa siempre a sangre, incluso si se oculta el menú por bloqueo táctil.
+            val mapUnderTabs = currentRoute == "en-vivo"
             val inicioEdge = currentRoute == "inicio"
             // Con tab bar: el contenido llega al borde inferior y pasa por detrás
             // del menú flotante (solo se reserva el topBar/status).
