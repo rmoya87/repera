@@ -213,6 +213,23 @@ internal fun ProgressTab(
         }
     }
     val rangeEnum = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange } ?: ProgressTimeRange.WEEK
+    // dayWorkoutCounts incluye temporizadores; descontarlos de la métrica
+    // de entrenamientos reales, sin perder sesiones importadas de Salud.
+    val timerCountsByDay = remember(overview) {
+        overview?.completeHistory.orEmpty().filter { it.timerDetails != null }
+            .mapNotNull { timer ->
+                timer.finishedAtIso?.let {
+                    runCatching { java.time.Instant.parse(it) }.getOrNull()
+                }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+            }.groupingBy { it }.eachCount()
+    }
+    val realWorkoutsToday = ((overview?.dayWorkoutCounts?.get(today) ?: 0) -
+        (timerCountsByDay[today] ?: 0)).coerceAtLeast(0)
+    val realWorkoutsInRange = overview?.dayWorkoutCounts.orEmpty()
+        .filterKeys { rangeEnum.contains(it, today, monday) }
+        .entries.sumOf { (day, count) ->
+            (count - (timerCountsByDay[day] ?: 0)).coerceAtLeast(0)
+        }
     // Series reales de HC (siempre en overview); las teasers gratis van aparte en preparedCharts.
     val realHeartCharts = overview?.chartsByRange?.get(ProgressTimeRange.WEEK.wire)
     val heartWeekPoints = realHeartCharts?.heartRate.orEmpty().filter {
@@ -321,9 +338,7 @@ internal fun ProgressTab(
                                     monday = monday,
                                     confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null,
                                     latestActivity = latestActivityTitle,
-                                    recordedSessions = overview?.dayWorkoutCounts
-                                        ?.filterKeys { rangeEnum.contains(it, today, monday) }
-                                        ?.values?.sum() ?: 0,
+                                    recordedSessions = realWorkoutsInRange,
                                     recentWorkouts = recentWorkoutBars
                                 )
                             },
@@ -440,7 +455,7 @@ internal fun ProgressTab(
                             }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
                             if (day == today) overview?.prCountBySessionId?.get(entry.id) ?: 0 else 0
                         }
-                        val todaySummary = "Hoy " + (overview?.dayWorkoutCounts?.get(today) ?: 0) +
+                        val todaySummary = "Hoy " + realWorkoutsToday +
                             " ses. · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
                             " kg · " + todayPrs + " PR"
                         ProgressSaludInsightCard(
@@ -450,7 +465,7 @@ internal fun ProgressTab(
                             narrative = strengthInsightCopy(
                                 prCount = snapshot.records.size,
                                 volumeKg = snapshot.summary.volumeKg.toInt(),
-                                activitiesToday = overview?.dayWorkoutCounts?.get(today) ?: 0
+                                activitiesToday = realWorkoutsToday
                             ),
                             heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
@@ -458,7 +473,7 @@ internal fun ProgressTab(
                                 snapshot.summary.volumeKg > 0 ->
                                     snapshot.summary.volumeKg.toInt().toString() + " kg / 7 d\n" +
                                         todaySummary
-                                (overview?.dayWorkoutCounts?.get(today) ?: 0) > 0 -> todaySummary
+                                realWorkoutsToday > 0 -> todaySummary
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
                             },
