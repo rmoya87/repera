@@ -1653,7 +1653,7 @@ internal fun WorkoutHistoryCard(
                     durationLabel = durationLabel,
                     sport = sport,
                     kcal = workout.appleActiveEnergyKcal,
-                    averageHeartRateBpm = workout.appleAverageHeartRateBpm,
+                    averageHeartRateBpm = workout.wearAverageHeartRateBpm ?: workout.appleAverageHeartRateBpm,
                     distanceMeters = workout.recordedDistanceMeters,
                     paceOrSpeedLabel = SessionSummaryTilesBuilder.paceOrSpeedLabel(
                         sport,
@@ -1670,6 +1670,10 @@ internal fun WorkoutHistoryCard(
                 specs.forEach { spec ->
                     HistoryMetricTile(spec.title, spec.value, Modifier.weight(1f))
                 }
+            }
+            workout.wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+                Text("${it.toInt()} kcal totales del reloj",
+                    style = MaterialTheme.typography.labelMedium)
             }
             if (workout.startedAt.isNotBlank()) {
                 Text(workout.startedAt, style = MaterialTheme.typography.labelMedium)

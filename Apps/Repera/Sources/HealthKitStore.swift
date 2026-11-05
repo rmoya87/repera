@@ -353,6 +353,12 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.workoutType(),
             HKSeriesType.workoutRoute(),
+            // La ruta sola no aporta ritmo en Fitness. Solo al registrar
+            // un deporte de exterior se escribe distancia GPS verificada.
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+            HKObjectType.quantityType(forIdentifier: .distanceSwimming)!,
+            HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!,
         ]
         do {
             let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read)
@@ -2631,7 +2637,8 @@ final class HealthKitStore {
         end: Date,
         fallbackKcal: Double? = nil,
         activityType: HKWorkoutActivityType = .traditionalStrengthTraining,
-        locationType: HKWorkoutSessionLocationType = .indoor
+        locationType: HKWorkoutSessionLocationType = .indoor,
+        recordedDistanceMeters: Double? = nil
     ) async -> WorkoutSyncResult {
         let safeEnd = max(end, start.addingTimeInterval(60))
         guard syncingSessionIds.insert(sessionId).inserted else {
@@ -2754,7 +2761,8 @@ final class HealthKitStore {
                     end: resolvedEnd,
                     preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil,
                     activityType: activityType,
-                    locationType: locationType
+                    locationType: locationType,
+                    recordedDistanceMeters: recordedDistanceMeters
                 )
                 if savedUUID != nil { lastError = nil }
             }
@@ -2965,6 +2973,53 @@ final class HealthKitStore {
         }
     }
 
+    /// Tipo de distancia atribuible a un deporte, sin convertir kilómetros
+    /// de bici o natación en pasos/caminata.
+    private static func routeDistanceType(for activity: HKWorkoutActivityType) -> HKQuantityType? {
+        let id: HKQuantityTypeIdentifier
+        switch activity {
+        case .walking, .running, .hiking: id = .distanceWalkingRunning
+        case .cycling: id = .distanceCycling
+        case .swimming: id = .distanceSwimming
+        case .downhillSkiing, .snowboarding, .crossCountrySkiing: id = .distanceDownhillSnowSports
+        default: return nil
+        }
+        return HKQuantityType.quantityType(forIdentifier: id)
+    }
+
+    /// El mapa HKWorkoutRoute no actualiza por sí solo la distancia/ritmo.
+    /// Adjuntar antes de finishWorkout únicamente una medición GPS real y
+    /// únicamente si los sensores ya no aportaron distancia nativa.
+    private func addRecordedDistanceIfNeeded(
+        to builder: HKWorkoutBuilder,
+        activityType: HKWorkoutActivityType,
+        locationType: HKWorkoutSessionLocationType,
+        start: Date,
+        end: Date,
+        meters: Double?
+    ) async {
+        guard locationType == .outdoor,
+              let meters, meters.isFinite, meters >= 20,
+              let type = Self.routeDistanceType(for: activityType),
+              store.authorizationStatus(for: type) == .sharingAuthorized else { return }
+        let existing = builder.statistics(for: type)?
+            .sumQuantity()?.doubleValue(for: .meter()) ?? 0
+        guard existing <= 0 else { return }
+        let sample = HKQuantitySample(
+            type: type,
+            quantity: HKQuantity(unit: .meter(), doubleValue: meters),
+            start: min(start, end.addingTimeInterval(-1)),
+            end: end,
+            metadata: ["ReperaDistanceSource": "recordedGPS"]
+        )
+        do {
+            try await builder.addSamples([sample])
+        } catch {
+            // No descartar el workout porque falte permiso de una métrica.
+            lastError = "La actividad se guardará sin distancia GPS en Salud: " + error.localizedDescription
+        }
+    }
+
     private func saveStrengthWorkout(
         sessionId: UUID,
         title: String,
@@ -2972,7 +3027,8 @@ final class HealthKitStore {
         end: Date,
         preferBuilder: HKWorkoutBuilder?,
         activityType: HKWorkoutActivityType,
-        locationType: HKWorkoutSessionLocationType
+        locationType: HKWorkoutSessionLocationType,
+        recordedDistanceMeters: Double?
     ) async -> UUID? {
         guard canWriteWorkouts else {
             lastError = "Falta permiso para guardar entrenamientos en Apple Salud"
@@ -2986,6 +3042,10 @@ final class HealthKitStore {
         }
         if let builder = preferBuilder {
             do {
+                await addRecordedDistanceIfNeeded(
+                    to: builder, activityType: activityType, locationType: locationType,
+                    start: start, end: end, meters: recordedDistanceMeters
+                )
                 try await builder.endCollection(at: end)
                 let saved = try await builder.finishWorkout()
                 liveBuilder = nil
@@ -3010,6 +3070,10 @@ final class HealthKitStore {
         do {
             try await builder.beginCollection(at: start)
             try await builder.addMetadata(sessionMetadata(id: sessionId, title: title))
+            await addRecordedDistanceIfNeeded(
+                to: builder, activityType: activityType, locationType: locationType,
+                start: start, end: end, meters: recordedDistanceMeters
+            )
             try await builder.endCollection(at: end)
             let saved = try await builder.finishWorkout()
             if let saved { return saved.uuid }

@@ -555,9 +555,14 @@ internal fun HomeCompletedWorkoutCard(
         workout.appleActiveEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
             add(Icons.Outlined.LocalFireDepartment to "${it.toInt()} kcal")
         }
-        workout.appleAverageHeartRateBpm?.takeIf { it.isFinite() && it > 0 }?.let {
-            add(Icons.Outlined.Favorite to "${it.toInt()} lpm")
+        workout.wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+            // Health Services total kcal (incluye metabolismo basal): separate from active kcal.
+            add(Icons.Outlined.LocalFireDepartment to "${it.toInt()} kcal totales")
         }
+        (workout.wearAverageHeartRateBpm ?: workout.appleAverageHeartRateBpm)
+            ?.takeIf { it.isFinite() && it > 0 }?.let {
+                add(Icons.Outlined.Favorite to "${it.toInt()} lpm")
+            }
         workout.recordedDistanceMeters?.takeIf { it > 0 }?.let {
             add(Icons.Outlined.Route to "${dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)} km")
         }

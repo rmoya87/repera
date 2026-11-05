@@ -1302,7 +1302,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         title,
                         notes,
                         activityConditions = conditions,
-                        locationPin = runtime.startLocationPin
+                        locationPin = runtime.startLocationPin,
+                        wearTotalEnergyKcal = runtime.currentWearTotalEnergyKcal(),
+                        wearAverageHeartRateBpm = runtime.currentWearAverageHeartRateBpm()
                     )
                 }
                 if (runtime.discard()) {
@@ -1330,6 +1332,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             notes = notes,
             onNotesChange = { notes = it },
             previewHealth = previewHealth,
+            wearTotalEnergyKcal = runtime.currentWearTotalEnergyKcal(),
+            wearAverageHeartRateBpm = runtime.currentWearAverageHeartRateBpm(),
             routes = routes,
             nowTick = nowTick,
             error = error ?: runtime.lastError,
@@ -1583,6 +1587,8 @@ private fun LiveActivityReviewContent(
     notes: String,
     onNotesChange: (String) -> Unit,
     previewHealth: dev.repera.domain.SessionCardioSample?,
+    wearTotalEnergyKcal: Double?,
+    wearAverageHeartRateBpm: Double?,
     routes: List<LiveSavedRoute>,
     nowTick: Long,
     error: String?,
@@ -1688,7 +1694,7 @@ private fun LiveActivityReviewContent(
             kcal = previewHealth?.activeEnergyKcal?.takeIf { it.isFinite() && it > 0 },
             distanceMeters = state.distanceMeters.takeIf { it > 0 },
             paceOrSpeedLabel = if (state.sport.usesGPS) paceOrSpeed else null,
-            averageHeartRateBpm = previewHealth?.averageHeartRateBpm
+            averageHeartRateBpm = wearAverageHeartRateBpm ?: previewHealth?.averageHeartRateBpm
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             reviewSpecs.forEach { spec ->
@@ -1700,6 +1706,23 @@ private fun LiveActivityReviewContent(
                     iconTint = spec.tint,
                     compact = false
                 )
+            }
+        }
+        // Wear Health Services reports CALORIES_TOTAL, not active kcal.
+        // Show the wrist's measured total separately from verified Health
+        // Connect active energy, rather than silently relabeling it as active.
+        if ((wearTotalEnergyKcal ?: 0.0) > 0 || (wearAverageHeartRateBpm ?: 0.0) > 0) {
+            ReperaCard(Modifier.fillMaxWidth()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let { total ->
+                        Text("Calorías totales del reloj · ${total.toInt()} kcal",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    wearAverageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let { bpm ->
+                        Text("FC media del reloj · ${bpm.toInt()} lpm",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
         }
         // Métricas (parciales / elevación) sin título «Entreno», como iOS.

@@ -152,6 +152,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var restJob: kotlinx.coroutines.Job? = null
     private val restClock=dev.repera.domain.RestCountdown()
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
+    private var sensorAverageHeartRateBpm: Double? = null
     private var displayedHeartSampleAtElapsed = 0L
     private var displayedHeartExpiry: kotlinx.coroutines.Job? = null
 
@@ -160,6 +161,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         displayedHeartExpiry = null
         displayedHeartSampleAtElapsed = 0L
         health = null
+        sensorAverageHeartRateBpm = null
     }
 
     private var healthConnection:WearHealthService.Connection?=null
@@ -182,6 +184,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     val last = if (valid) state.heart else
                         if (captured == 0L) health?.first else null
                     health = last to (state.energy ?: health?.second)
+                    state.averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }
+                        ?.let { sensorAverageHeartRateBpm = it }
                     if (watchOwnedLive && state.distanceMeters != null) {
                         liveActivityJson?.takeIf { it.optBoolean("watchOwned") }?.let { live ->
                             if (live.optString("sessionId") == current) {
@@ -861,7 +865,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if(event.path=="/repera/session-finish-ack") {
             val ack=WearPayload.json(event.data) ?: return
             if(ack.optString("status")=="saved") runOnUiThread {
-                runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sendStatus="Fin confirmado por el teléfono";haptic(WearHaptic.CONFIRM)}}.onSuccess {}
+                runCatching {if(pendingFinish.sessionId()==ack.optString("sessionId")) {pendingFinish.acknowledge(ack.optString("sessionId"));sessionCache.edit().remove("finishMetrics:" + ack.optString("sessionId")).apply();sendStatus="Fin confirmado por el teléfono";haptic(WearHaptic.CONFIRM)}}.onSuccess {}
                     .onFailure {sendStatus="No se pudo guardar la confirmación; se reintentará sin duplicar"}
             }
             return
@@ -1398,65 +1402,29 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     /**
-     * Prefer phone companion when reachable (paridad Apple playHubSport).
-     * Sin móvil / ACK negativo / timeout → grabación autónoma en el reloj.
+     * A sport explicitly started on Wear is always measured on Wear.
+     * Starting the phone instead produced GPS sessions without wrist kcal.
+     * The completed workout is transferred with its stable UUID; the phone
+     * contributes display, history and Health Connect persistence afterwards.
      */
     private fun requestLiveStart(sportId: String) {
         if (sportId.isBlank()) return
-        if (pendingLiveStartSport == sportId) return
-        suppressCompanionLive = false
         val phase = liveActivityJson?.optString("phase")
-        if (watchOwnedLive && liveActivityJson?.optBoolean("watchOwned") == true &&
-            phase in setOf("recording", "paused")) {
+        if (watchOwnedLive && phase in setOf("recording", "paused")) {
             hubNotice = getString(R.string.wear_live_running_on_watch)
             return
         }
-        if (liveActivityJson != null && phase != "review" && !watchOwnedLive) {
+        if (liveActivityJson != null && phase in setOf("recording", "paused")) {
             hubNotice = getString(R.string.wear_live_running_on_phone)
             return
-        }
-        if (phase == "review") {
-            liveActivityJson = null
         }
         if (visibleSession != null) {
             hubNotice = "Hay un entreno activo; termínalo antes de Comenzar"
             return
         }
-        val requestId = java.util.UUID.randomUUID().toString()
-        val payload = JSONObject().put("sportId", sportId).put("requestId", requestId)
-            .toString().toByteArray(Charsets.UTF_8)
-        val title = LiveSport.byId(sportId)?.title ?: getString(R.string.wear_live_start_generic_activity)
-        retryLiveStartSport = null
-        pendingLiveStartId = requestId
-        pendingLiveStartSport = sportId
-        hubNotice = getString(R.string.wear_live_start_pending, title)
-        liveStartTimeout?.cancel()
-        liveStartTimeout = lifecycleScope.launch {
-            kotlinx.coroutines.delay(PHONE_REPLY_TIMEOUT_MS)
-            if (pendingLiveStartId == requestId) {
-                val sport = pendingLiveStartSport
-                clearPendingLiveStart()
-                if (sport != null) startWatchOwnedLive(sport)
-            }
-        }
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            if (pendingLiveStartId != requestId) return@addOnSuccessListener
-            if (nodes.isEmpty()) {
-                val sport = pendingLiveStartSport
-                clearPendingLiveStart()
-                if (sport != null) startWatchOwnedLive(sport)
-                return@addOnSuccessListener
-            }
-            nodes.forEach { node ->
-                messageClient.sendMessage(node.id, "/repera/live-start", payload)
-            }
-        }.addOnFailureListener {
-            if (pendingLiveStartId == requestId) {
-                val sport = pendingLiveStartSport
-                clearPendingLiveStart()
-                if (sport != null) startWatchOwnedLive(sport)
-            }
-        }
+        if (phase == "review") liveActivityJson = null
+        clearPendingLiveStart()
+        startWatchOwnedLive(sportId)
     }
 
     private fun receiveLiveStartAck(reply: JSONObject) {
@@ -1653,6 +1621,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }
         }
         tracked.forEach { routePoints.put(it) }
+        // A route drawn on a map is not necessarily a numeric distance sample.
+        // Fallback to the distance between actual GPS fixes only when native
+        // Health Services distance is absent, ignoring pauses and GPS jumps.
+        val recordedDistance = sensorDistance
+            ?: WearRouteTracker.measuredDistanceMeters(routePoints).takeIf { it >= 20 }
         val payload = JSONObject()
             .put("id", id)
             .put("sportId", sportId)
@@ -1660,15 +1633,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             .put("startedAtMillis", started)
             .put("finishedAtMillis", finishedAt)
             .put("activeDurationSeconds", elapsed)
-            .put("distanceMeters", sensorDistance ?: JSONObject.NULL)
+            .put("distanceMeters", recordedDistance ?: JSONObject.NULL)
             .put("awaitingResultEntry", true)
         if (routePoints.length() >= 2) payload.put("routePoints", routePoints)
         pin?.let { payload.put("locationPin", it) }
-        health?.first?.takeIf { it in 25..250 }?.let {
-            payload.put("averageHeartRateBpm", it.toDouble())
+        sensorAverageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
+            payload.put("averageHeartRateBpm", it)
         }
-        health?.second?.takeIf { it.isFinite() && it >= 0 }?.let {
-            payload.put("activeEnergyKcal", it)
+        // Health Services CALORIES_TOTAL includes basal energy: NOT active kcal.
+        health?.second?.takeIf { it.isFinite() && it > 0 }?.let {
+            payload.put("totalEnergyKcal", it)
         }
         queueWatchOwnedLiveSave(payload)
         finishedSummary = FinishedSummary(
@@ -1680,7 +1654,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             reps = 0,
             volumeKg = 0,
             isLive = true,
-            distanceLabel = sensorDistance?.let { String.format("%.2f km", it / 1000.0) },
+            distanceLabel = recordedDistance?.let { String.format("%.2f km", it / 1000.0) },
             kcal = health?.second?.takeIf { it.isFinite() && it >= 0 }?.toInt() ?: 0,
             avgHr = health?.first
         )
@@ -2107,6 +2081,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sendStatus="La sesión cambió; revisa el entrenamiento antes de terminar";return
         }
         rememberDiscarded(session.sessionId)
+        val finishMetrics = JSONObject()
+        sensorAverageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }
+            ?.let { finishMetrics.put("averageHeartRateBpm", it) }
+        health?.second?.takeIf { it.isFinite() && it > 0 }
+            ?.let { finishMetrics.put("totalEnergyKcal", it) }
+        // Persist before awaiting the phone: a disconnected finish can retry.
+        sessionCache.edit().putString("finishMetrics:" + session.sessionId, finishMetrics.toString()).commit()
         runCatching {pendingFinish.queue(session.sessionId)}.onFailure {
             sendStatus="No se pudo guardar la petición de terminar: ${it.localizedMessage}"
             haptic(WearHaptic.REJECT);return
@@ -2127,6 +2108,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }?.optJSONObject("locationPin")
         }
         val finishBody = JSONObject().put("sessionId", sessionId)
+        sessionCache.getString("finishMetrics:" + sessionId, null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+            ?.let { metrics ->
+                listOf("totalEnergyKcal", "averageHeartRateBpm").forEach { key ->
+                    if (metrics.has(key) && !metrics.isNull(key)) {
+                        finishBody.put(key, metrics.getDouble(key))
+                    }
+                }
+            }
         if (pin != null) finishBody.put("locationPin", pin)
         val payload = finishBody.toString().toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener {nodes ->
@@ -2869,7 +2859,22 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         // Each snapshot calls this: an owned, running service needs no new promotion.
         if (healthConnection?.owns(id) == true) return
-        runCatching { WearHealthService.startFromVisibleUI(this, id, liveActivityJson?.optString("sportId")) }
+        val plannedSnapshot = sessionCache.getString("snapshot", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val plannedSport = plannedSnapshot?.optString("liveSportID")
+            ?.takeIf { it.isNotBlank() && it != "null" }
+        val hasWod = visibleSession?.wodFormatLabel != null ||
+            plannedSnapshot?.optJSONArray("routineBlocks")?.let { blocks ->
+                (0 until blocks.length()).any { blocks.optJSONObject(it)?.optString("kind") == "wod" }
+            } == true ||
+            plannedSnapshot?.optJSONArray("exercises")?.let { exercises ->
+                (0 until exercises.length()).any {
+                    exercises.optJSONObject(it)?.optString("blockKind") == "wod"
+                }
+            } == true
+        val effectiveSportId = liveActivityJson?.optString("sportId")
+            ?.takeIf { it.isNotBlank() } ?: plannedSport ?: if (hasWod) "crossfit" else null
+        runCatching { WearHealthService.startFromVisibleUI(this, id, effectiveSportId) }
             .onFailure { sendStatus = it.localizedMessage ?: getString(R.string.wear_sensors_start_failed) }
     }
 

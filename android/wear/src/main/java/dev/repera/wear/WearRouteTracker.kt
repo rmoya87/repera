@@ -78,6 +78,42 @@ internal class WearRouteTracker(private val context: Context) {
         if (points.size > 4_000) points.removeAt(0)
     }
 
+    companion object {
+        /** Metres from verified GPS fixes, not a route title or time estimate.
+         * Skip gaps caused by pause, missing accuracy and GPS teleportation.
+         * Only used when native Health Services did not yield distance. */
+        fun measuredDistanceMeters(routePoints: JSONArray): Double {
+            var last: JSONObject? = null
+            var total = 0.0
+            val buffer = FloatArray(1)
+            for (index in 0 until routePoints.length()) {
+                val point = routePoints.optJSONObject(index) ?: continue
+                val lat = point.optDouble("latitude", Double.NaN)
+                val lon = point.optDouble("longitude", Double.NaN)
+                val accuracy = point.optDouble("horizontalAccuracyMeters", Double.NaN)
+                val timestamp = point.optLong("recordedAtEpochMs", 0L)
+                if (!lat.isFinite() || lat !in -90.0..90.0 ||
+                    !lon.isFinite() || lon !in -180.0..180.0 ||
+                    !accuracy.isFinite() || accuracy !in 0.0..50.0 ||
+                    timestamp <= 0L) continue
+                val prev = last
+                if (prev != null) {
+                    val deltaMs = timestamp - prev.optLong("recordedAtEpochMs")
+                    if (deltaMs in 0L..90_000L) {
+                        Location.distanceBetween(
+                            prev.getDouble("latitude"), prev.getDouble("longitude"),
+                            lat, lon, buffer
+                        )
+                        val meters = buffer[0].toDouble()
+                        if (meters.isFinite() && meters in 0.0..80.0) total += meters
+                    }
+                }
+                last = point
+            }
+            return total
+        }
+    }
+
     private fun hasPermission(): Boolean {
         val fine = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION

@@ -1255,7 +1255,8 @@ final class ReperaStore: NSObject {
                     end: end,
                     activityType: workoutHealthType(for: session),
                     locationType: WorkoutLocationTracker.shouldTrackRoute(for: session)
-                        ? .outdoor : .indoor
+                        ? .outdoor : .indoor,
+                    recordedDistanceMeters: session.recordedDistanceMeters
                 )
                 if let uuid = apple.workoutUUID, !routePoints.isEmpty {
                     let streamed = await HealthKitStore.shared.finishRecordedGPSRoute(
@@ -2002,7 +2003,8 @@ final class ReperaStore: NSObject {
             start: start,
             end: end,
             activityType: liveSport?.healthType ?? workoutHealthType(for: session),
-            locationType: WorkoutLocationTracker.shouldTrackRoute(for: session) ? .outdoor : .indoor
+            locationType: WorkoutLocationTracker.shouldTrackRoute(for: session) ? .outdoor : .indoor,
+            recordedDistanceMeters: session.recordedDistanceMeters
         )
         guard let uuid = apple.workoutUUID,
               var current = state.workouts.first(where: { $0.id == sessionId })

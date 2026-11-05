@@ -23,6 +23,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -88,6 +89,11 @@ class HealthConnectReader(private val context: Context) {
             HealthPermission.getReadPermission(HeartRateRecord::class),
             HealthPermission.getReadPermission(ExerciseSessionRecord::class),
             HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+            // Real GPS distance and wrist TOTAL calories (not active energy).
+            // Explicit user consent is required; absence leaves local data intact.
+            HealthPermission.getWritePermission(DistanceRecord::class),
+            HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+            HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
             // Apple 435f6992: workoutRoute en la autorizacion de escritura.
             HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE,
             HealthPermission.getReadPermission(
@@ -103,7 +109,7 @@ class HealthConnectReader(private val context: Context) {
         fun hasReadablePermission(granted:Set<String>):Boolean = granted.any {it in permissions + optionalVitalPermissions + setOf(
             HealthPermission.getReadPermission(SleepSessionRecord::class),HealthPermission.getReadPermission(MenstruationFlowRecord::class),
             HealthPermission.getReadPermission(OvulationTestRecord::class),HealthPermission.getReadPermission(MenstruationPeriodRecord::class),
-            HealthPermission.getReadPermission(SkinTemperatureRecord::class)) && it !in setOf(HealthPermission.getWritePermission(WeightRecord::class),HealthPermission.getWritePermission(ExerciseSessionRecord::class),HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE)}
+            HealthPermission.getReadPermission(SkinTemperatureRecord::class)) && it !in setOf(HealthPermission.getWritePermission(WeightRecord::class),HealthPermission.getWritePermission(ExerciseSessionRecord::class),HealthPermission.PERMISSION_WRITE_EXERCISE_ROUTE, HealthPermission.getWritePermission(DistanceRecord::class), HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class))}
 
         /** Health Connect EXERCISE_TYPE_* → claves de HealthMuscleMapper
          *  (mismas familias que HKWorkoutActivityType en iOS). */

@@ -90,14 +90,9 @@ class WearLiveCommandListener : WearableListenerService() {
         val payload = runCatching {
             JSONObject(String(event.data, Charsets.UTF_8))
         }.getOrNull() ?: return
-        val sessionID = payload.optString("sessionId")
-        val bpm = payload.optInt("bpm", -1)
-        val timestamp = payload.optLong("capturedAt", 0L)
-        if (sessionID.isBlank() || bpm !in 25..250) return
         Handler(Looper.getMainLooper()).post {
             if (SessionStore(this).load()?.uniqueId != owner) return@post
-            LiveActivityRuntime.forAccount(this, owner)
-                .acceptWearHeartRate(sessionID, bpm, timestamp)
+            WearLiveMetricsReceiver.accept(this, owner, payload)
         }
     }
 
@@ -183,8 +178,10 @@ class WearLiveCommandListener : WearableListenerService() {
                     locationPin = body.optJSONObject("locationPin"),
                     averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
                         .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
-                    activeEnergyKcal = body.optDouble("activeEnergyKcal")
-                        .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
+                    totalEnergyKcal = body.optDouble("totalEnergyKcal")
+                        .takeIf { body.has("totalEnergyKcal") && !body.isNull("totalEnergyKcal") }
+                        ?: body.optDouble("activeEnergyKcal")
+                            .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
                     routePoints = body.optJSONArray("routePoints")
                 ).isNotBlank()
         }.getOrDefault(false)
@@ -210,9 +207,11 @@ class WearLiveCommandListener : WearableListenerService() {
                             id, info.first, info.second, info.third,
                             repo.healthRecordId(id),
                             HealthConnectWriter.exerciseTypeFor(
-                                repo.liveSportId(id)?.let(LiveSport::byId)
+                                repo.sessionHealthSportId(id)?.let(LiveSport::byId)
                             ),
-                            repo.sessionRoutePoints(id)
+                            repo.sessionRoutePoints(id),
+                            repo.sessionRecordedDistanceMeters(id),
+                            repo.sessionWearTotalEnergyKcal(id)
                         )
                     if (authorized() && linked != null && repo.healthRecordId(id) == null) {
                         repo.setHealthRecordId(id, linked)
@@ -338,7 +337,17 @@ class WearLiveCommandListener : WearableListenerService() {
             val saved = runCatching {
                 if (!authorized()) false else {
                     json.optJSONObject("locationPin")?.let { repo.attachWearStartPin(id, it) }
-                    repo.finishWearSession(id)
+                    val finished = repo.finishWearSession(id)
+                    if (finished) {
+                        repo.mergeWearMeasuredMetrics(
+                            id,
+                            json.optDouble("totalEnergyKcal", Double.NaN)
+                                .takeIf { it.isFinite() && it > 0 },
+                            json.optDouble("averageHeartRateBpm", Double.NaN)
+                                .takeIf { it.isFinite() && it in 25.0..250.0 }
+                        )
+                    }
+                    finished
                 }
             }.getOrDefault(false)
             if (saved) {
