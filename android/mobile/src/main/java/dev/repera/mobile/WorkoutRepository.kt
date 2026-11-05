@@ -3323,8 +3323,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             || (end != null && end.toString() != beforeEnd)
         if (scheduleChanged) {
             target.put("userEditedDuration", true)
-            // Las métricas asociadas al horario anterior dejan de ser válidas.
-            // Se recargarán exclusivamente desde Health Connect si hay fuente fiable.
+            // Guardar el testimonio original de los sensores Wear antes de
+            // invalidar los tiles. Podría no existir réplica en Health Connect.
+            if (!target.has("originalSensorEnergyKcal") &&
+                target.has("appleActiveEnergyKcal") && !target.isNull("appleActiveEnergyKcal")) {
+                target.put("originalSensorEnergyKcal", target.getDouble("appleActiveEnergyKcal"))
+            }
+            if (!target.has("originalSensorHeartRateBpm") &&
+                target.has("appleAverageHeartRateBpm") && !target.isNull("appleAverageHeartRateBpm")) {
+                target.put("originalSensorHeartRateBpm", target.getDouble("appleAverageHeartRateBpm"))
+            }
+            // Solo se mostrarán de nuevo al obtener la lectura para la nueva ventana.
             target.remove("appleActiveEnergyKcal")
             target.remove("appleAverageHeartRateBpm")
         }
