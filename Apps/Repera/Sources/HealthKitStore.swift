@@ -174,6 +174,8 @@ final class HealthKitStore {
         /// procedencia en la UI y evitar atribuirlas a una serie concreta.
         var movementUsesTimeWindow: Bool = false
         var activeEnergyKcal: Double?
+        /// Identidad verificada: Apple Watch u otra app de Salud, no kcal históricas de Repera iPhone.
+        var energySourceIsVerified: Bool = false
         var sourceName: String?
         var activityTypeRaw: UInt?
         var resolvedWorkoutUUID: UUID?
@@ -214,6 +216,7 @@ final class HealthKitStore {
 
         /// Origen externo (Watch / otra app). El workout escrito por Repera no cuenta.
         var hasExternalSaludSource: Bool {
+            if energySourceIsVerified { return true }
             guard let name = sourceName?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !name.isEmpty else { return false }
             return !name.localizedCaseInsensitiveContains("repera")
@@ -1279,8 +1282,10 @@ final class HealthKitStore {
            Self.isReperaSource(workout.sourceRevision.source),
            !Self.isWatchRecordedSource(workout.sourceRevision.source) {
             extras.activeEnergyKcal = nil
+            extras.energySourceIsVerified = false
         } else if let workoutUUID {
             extras.activeEnergyKcal = await externalWorkoutEnergyKcal(uuid: workoutUUID)
+            if workout != nil { extras.energySourceIsVerified = true }
         } else {
             extras.activeEnergyKcal = nil
         }
@@ -1478,6 +1483,7 @@ final class HealthKitStore {
         var kcal: Double?
         var source: String?
         var typeRaw: UInt?
+        var verifiedSource = false
         var steps: Int?
         var movingMeters: Double?
         var distanceLabel: String?
@@ -1485,7 +1491,9 @@ final class HealthKitStore {
         if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
             source = workout.sourceRevision.source.name
             typeRaw = workout.workoutActivityType.rawValue
-            kcal = Self.workoutEnergyKcal(workout)
+            verifiedSource = !Self.isReperaSource(workout.sourceRevision.source)
+                || Self.isWatchRecordedSource(workout.sourceRevision.source)
+            if verifiedSource { kcal = Self.workoutEnergyKcal(workout) }
             let movement = await workoutMovementMetrics(workout)
             steps = movement.steps
             movingMeters = movement.distanceMeters
@@ -1508,6 +1516,7 @@ final class HealthKitStore {
             movementDistanceLabel: distanceLabel,
             movementUsesTimeWindow: timedMovement,
             activeEnergyKcal: kcal,
+            energySourceIsVerified: verifiedSource,
             sourceName: source,
             activityTypeRaw: typeRaw,
             resolvedWorkoutUUID: workoutUUID
@@ -1976,7 +1985,7 @@ final class HealthKitStore {
             guard !Self.isReperaSource(workout.sourceRevision.source)
                 || Self.isWatchRecordedSource(workout.sourceRevision.source) else { continue }
             externalUUIDs.insert(uuid)
-            if let kcal = Self.workoutEnergyKcal(workout) {
+            if let kcal = await energyKcalForWorkout(workout) {
                 verified[uuid] = kcal
             }
         }
@@ -2017,13 +2026,35 @@ final class HealthKitStore {
         )
     }
 
+    /// Si aún no se ha calculado el total del workout, consultar únicamente
+    /// muestras de energía vinculadas a ese HKWorkout, nunca energía diaria
+    /// ni un rango horario que pueda incluir otro entrenamiento.
+    private func energyKcalForWorkout(_ workout: HKWorkout) async -> Double? {
+        if let total = Self.workoutEnergyKcal(workout) { return total }
+        guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else { return nil }
+        let predicate = HKQuery.predicateForObjects(from: workout)
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, statistics, _ in
+                let measured = statistics?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                continuation.resume(returning: measured.flatMap {
+                    $0.isFinite && $0 > 0 ? $0 : nil
+                })
+            }
+            store.execute(query)
+        }
+    }
+
     /// kcal de un workout de Salud **ajeno** (Watch / otra app). `nil` si es nuestro o no hay energía.
     /// Sirve para no tratar como «verdad Apple» las kcal que Repera escribió mal (p. ej. 2 kcal ambiente).
     func externalWorkoutEnergyKcal(uuid: UUID) async -> Double? {
         guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
         if Self.isReperaSource(workout.sourceRevision.source),
            !Self.isWatchRecordedSource(workout.sourceRevision.source) { return nil }
-        return Self.workoutEnergyKcal(workout)
+        return await energyKcalForWorkout(workout)
     }
 
     private func fetchRoutes(for workout: HKWorkout) async -> [HKWorkoutRoute] {
