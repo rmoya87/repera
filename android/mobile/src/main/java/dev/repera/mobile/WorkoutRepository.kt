@@ -3654,7 +3654,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = loadOrNull() ?: return null
         val updated = SessionReviewSupport.refineWithCardio(state, sessionId, sample)
         val energy = SessionReviewSupport.applyMeasuredEnergy(state, sessionId, sample.activeEnergyKcal, sample.sourceRecordId)
-        if (updated == null && !energy) return null
+        val heart = SessionReviewSupport.applyMeasuredHeartRate(
+            state, sessionId, sample.averageHeartRateBpm, sample.sourceRecordId
+        )
+        if (updated == null && !energy && !heart) return null
         save(state)
         return updated
     }
