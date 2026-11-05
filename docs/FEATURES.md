@@ -1,6 +1,16 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (Fitness: ruta Watch + borrar cáscaras 0 kcal; Wear route→HC).
+Última actualización: 2026-11-05 (bloqueo táctil Comenzar y navegación Watch/Wear; Fitness: ruta Watch + cáscaras 0 kcal).
+
+## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
+
+- iOS/iPadOS: en `LiveActivityView`, durante `recording/paused`, candado de 44 pt antes de Audio, tanto en mapa (2D/3D y vertical/horizontal) como en métricas. Un toque bloquea el contenido y conserva pantalla/actualizaciones; únicamente el candado se superpone como control accesible, con pulsación prolongada de **1 s** para desbloquear. Sin cambio de ruta, tiempo, HealthKit ni audio; al acabar/revisar se libera.
+- El coordinador `TimerScreenAwake` incorpora fuente `.liveLock`: las otras fuentes de temporizadores/descansos siguen siendo independientes y `scenePhase` suspende el permiso de pantalla despierta en segundo plano.
+- Android: `LiveActivityScreen` aplica la misma lógica con Compose (`LiveScreenTouchBlocker`, retención de pantalla con `keepScreenOn`, interceptación de gestos y tecla Atrás). El desbloqueo por 1 s también expone acción accesible TalkBack. Incluye deportes interiores sin mapa.
+- watchOS: la actividad `Comenzar` cuya fuente es iPhone usa `TabView(.verticalPage)`; con `nextTurn` válido, indicación y distancia primero, métricas al desplazar verticalmente; sin indicación, solo métricas. `WatchSwipeControlSurface` mantiene el deslizamiento lateral para Pausar / Finalizar. El giro a 100 m desencadena háptico sin repeticiones continuas.
+- Wear OS: `HorizontalPager` conserva controles en segunda página horizontal y su primera página contiene `VerticalPager` navegación → métricas solo si llega `nextTurn`. Data Layer también transfiere `nextTurnMeters`; sin indicaciones no se fabrica navegación. Aviso háptico en el umbral de 100 m.
+- En relojes no se fuerza iluminación permanente a través de `FLAG_KEEP_SCREEN_ON`: watchOS Always On / Wear ambiente mandan. Para actividades locales iniciadas sin GPX/indicación en el propio reloj se mantienen las métricas como primera vista.
+- **Validación física pendiente:** comprobar el bloqueo sobre mapa con gestos y tab bar del sistema, cambio de orientación/split view, consumo y suspensión, vibración con GPS y paginación vertical/horizontal en relojes reales.
 
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 
