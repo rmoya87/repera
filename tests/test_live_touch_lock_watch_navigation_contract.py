@@ -49,8 +49,8 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn(".tag(1)", watch)
         self.assertIn("WatchSwipeControlSurface {", watch)
         self.assertIn("hub.controlLiveActivity(\"finish\")", watch)
-        self.assertIn("previous > 100, current <= 100", watch)
-        self.assertIn("alreadyWarnedAboutThisTurn", watch)
+        self.assertIn("current <= 100, !companionTurnAlerted", watch)
+        self.assertIn("previouslySeenCompanionTurnMeters", watch)
 
     def test_wear_vertical_inside_horizontal_and_real_cue_only(self):
         wear = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
