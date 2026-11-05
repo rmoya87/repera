@@ -188,11 +188,21 @@ internal class WearHealthService:Service() {
             val result=runCatching {
                 // ExerciseClient measures HR + actual total kcal. MeasureClient
                 // remains a degraded HR-only fallback on unsupported devices.
-                sensors.start(id, sportId = sportId, companion = companion) {
-                    token == revision && isCurrent(id)
-                }
-                if (companion && !sensors.recording && !sensors.ended) {
-                    sensors.startMeasure(id) { token == revision && isCurrent(id) }
+                if (companion) {
+                    // Some Wear devices cannot start the native exercise for
+                    // this sport; retain measured live heart rate where possible.
+                    val native = runCatching {
+                        sensors.start(id, sportId = sportId, companion = true) {
+                            token == revision && isCurrent(id)
+                        }
+                    }
+                    if (native.isFailure || (!sensors.recording && !sensors.ended)) {
+                        sensors.startMeasure(id) { token == revision && isCurrent(id) }
+                    }
+                } else {
+                    sensors.start(id, sportId = sportId, companion = false) {
+                        token == revision && isCurrent(id)
+                    }
                 }
             }
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
