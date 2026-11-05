@@ -27,7 +27,9 @@ internal fun SessionScoreProgressCard(
     range: ProgressTimeRange = ProgressTimeRange.WEEK,
     monday: Boolean = true,
     today: LocalDate = LocalDate.now(),
-    confidenceLabel: String? = null
+    confidenceLabel: String? = null,
+    latestActivity: String? = null,
+    recordedSessions: Int = 0
 ) {
     val values = points.sortedBy { it.day }
     val domain = ProgressPlotAxis.domain(values.map { it.day }, range, monday, today, preview)
@@ -56,6 +58,16 @@ internal fun SessionScoreProgressCard(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (!preview && latestActivity != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Última actividad registrada",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(latestActivity,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
                 val average = values.takeIf { it.isNotEmpty() }
                     ?.map { it.value }?.average()?.roundToInt()
                 Row(
@@ -67,11 +79,12 @@ internal fun SessionScoreProgressCard(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(9.dp)
                     ) {
-                        TrendScoreMetric("Última nota",
+                        TrendScoreMetric("Última nota verificada",
                             values.lastOrNull()?.let { "${it.value.roundToInt()}/10" } ?: "—")
                         TrendScoreMetric("Mejor nota",
                             values.maxOfOrNull { it.value }?.let { "${it.roundToInt()}/10" } ?: "—")
                         TrendScoreMetric("Días evaluados", "${values.size}")
+                        if (!preview) TrendScoreMetric("Entrenos registrados", recordedSessions.toString())
                     }
                     Box(
                         Modifier.size(112.dp).semantics {
