@@ -2073,6 +2073,8 @@ private struct ProgressSessionScoreChartCard: View {
         let title: String
         let endedAt: Date
         let durationMinutes: Int
+        let activeEnergyKcal: Double?
+        let averageHeartRateBpm: Double?
         let hasVerifiedScore: Bool
     }
 
@@ -2084,6 +2086,8 @@ private struct ProgressSessionScoreChartCard: View {
             return RecentActivity(
                 title: external.title, endedAt: external.end,
                 durationMinutes: Int(external.durationMinutes.rounded()),
+                activeEnergyKcal: external.activeEnergyKcal,
+                averageHeartRateBpm: nil,
                 hasVerifiedScore: false
             )
         }
@@ -2091,6 +2095,8 @@ private struct ProgressSessionScoreChartCard: View {
         return RecentActivity(
             title: recorded.title, endedAt: endedAt,
             durationMinutes: Int(recorded.durationMinutes.rounded()),
+            activeEnergyKcal: recorded.appleActiveEnergyKcal,
+            averageHeartRateBpm: recorded.appleAverageHeartRateBpm,
             hasVerifiedScore: recorded.sessionReview?.scoreBasis == .personalHistory
         )
     }
@@ -2133,6 +2139,16 @@ private struct ProgressSessionScoreChartCard: View {
                     Text("\(latest.endedAt.formatted(Date.FormatStyle().day().month(.abbreviated).hour().minute().locale(SpanishDate.appLocale))) · \(latest.durationMinutes) min")
                         .font(.caption2)
                         .foregroundStyle(OG.label2)
+                    HStack(spacing: 8) {
+                        if let kcal = latest.activeEnergyKcal, kcal > 0 {
+                            Text("\(Int(kcal.rounded())) kcal")
+                        }
+                        if let bpm = latest.averageHeartRateBpm, bpm > 0 {
+                            Text("\(Int(bpm.rounded())) lpm")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(OG.label2)
                     if !latest.hasVerifiedScore {
                         Text("Registrada en tu histórico · sin nota comparable todavía")
                             .font(.caption2)
