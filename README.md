@@ -1,5 +1,13 @@
 # Repera
 
+## Comenzar: bloqueo táctil y navegación en el reloj (05/11/2026)
+
+Durante una grabación libre o en pausa, iPhone/iPad y Android permiten bloquear los toques con un candado situado antes del control de voz. La pantalla de mapa o métricas sigue mostrando datos en directo, y mantener el candado pulsado **un segundo** desbloquea. Mientras el bloqueo está activo, el móvil evita el autobloqueo de pantalla en primer plano; al finalizar, salir de Comenzar o poner la app en segundo plano libera su petición de pantalla despierta. Nunca se pausa GPS, sensores o locución por bloquear los toques.
+
+En Apple Watch y Wear OS, si existe una indicación real enviada desde el móvil, la primera página muestra dirección y distancia; el siguiente desplazamiento **vertical** lleva a métricas. Sin ruta, se muestran métricas directamente. El gesto **horizontal** sigue abriendo Pausar / Finalizar. Ambos relojes avisan con vibración al cruzar el umbral aproximado de 100 m del giro (una sola vez hasta que se rearma por distancia). Always On/ambiente depende del sistema y de los ajustes del reloj. Ver [docs/FEATURES.md](docs/FEATURES.md) y [docs/WATCH_WEAR_LIVE_SYNC_2026_10_30.md](docs/WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
+
+# Repera
+
 ## Comenzar: zona de frecuencia cardiaca (2026-11-03)
 
 Carrera, caminata, senderismo, ciclismo y el resto de deportes GPS y no GPS muestran cinco barras de zona de FC de colores sólidos sin degradado; la zona actual se expande y contiene su número y pulsaciones medidas. En iPhone/Android la vista de Métricas muestra zonas solamente con lecturas recientes; el panel del Mapa empieza compacto y se amplía al tocarlo para enseñar elevación disponible y zonas de FC. Otro toque lo contrae. HealthKit/Health Connect y los sensores de Apple Watch/Wear OS son las fuentes de medida; **sin lectura válida no se muestra la sección de FC ni mensajes de ausencia**. Detalles y límites: [docs/FEATURES.md](docs/FEATURES.md) y [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
