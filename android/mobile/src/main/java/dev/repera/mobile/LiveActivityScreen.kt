@@ -5,6 +5,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,6 +39,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
@@ -53,6 +57,15 @@ import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.unit.IntOffset
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -79,6 +92,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
@@ -277,6 +291,31 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     var sportQuery by remember {mutableStateOf("")}
     var showingMetrics by remember(accountId) {
         mutableStateOf(mapPrefs.getBoolean("preferredDisplay.metrics", false))
+    }
+    var touchLocked by remember(accountId, state.gpsSessionID) { mutableStateOf(false) }
+    val touchLockAvailable = state.phase == LiveActivityState.Phase.RECORDING ||
+        state.phase == LiveActivityState.Phase.PAUSED
+    var lockTarget by remember { mutableStateOf<Rect?>(null) }
+    var lockContainer by remember { mutableStateOf<Rect?>(null) }
+    val rootView = LocalView.current
+    fun lockTouch() {
+        touchLocked = true
+        rootView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+    fun unlockTouch() {
+        touchLocked = false
+        rootView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+    BackHandler(enabled = touchLocked) { /* La flecha física tampoco cierra la sesión accidentalmente. */ }
+    LaunchedEffect(state.phase) {
+        if (!touchLockAvailable) touchLocked = false
+    }
+    DisposableEffect(touchLocked, touchLockAvailable, rootView) {
+        val keepAwake = touchLocked && touchLockAvailable
+        if (keepAwake) rootView.keepScreenOn = true
+        onDispose {
+            if (keepAwake) rootView.keepScreenOn = false
+        }
     }
     LaunchedEffect(showingMetrics) {
         mapPrefs.edit().putBoolean("preferredDisplay.metrics", showingMetrics).apply()
@@ -674,7 +713,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         LaunchedEffect(freshPosition?.recordedAtEpochMs, state.selectedRouteID, state.phase) {
             if (state.phase == LiveActivityState.Phase.IDLE) freshPosition?.let { runtime.previewGuidance(it) }
         }
-        BoxWithConstraints(Modifier.fillMaxSize().testTag("live_activity_screen")) {
+        BoxWithConstraints(
+            Modifier.fillMaxSize().testTag("live_activity_screen")
+                .onGloballyPositioned { lockContainer = it.boundsInRoot() }
+        ) {
             val mapLandscape=liveMapLandscape(maxWidth.value,maxHeight.value)
             val overlayWidth=liveMapOverlayWidth(maxWidth.value)
             RouteMapView(if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
@@ -776,6 +818,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                 }
                 LiveMapCircleFab(Icons.Outlined.BarChart, "Ver métricas") { showingMetrics = true }
+                if (touchLockAvailable) {
+                    Box(Modifier.onGloballyPositioned { lockTarget = it.boundsInRoot() }) {
+                        LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
+                    }
+                }
                 LiveMapCircleFab(
                     if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
                     if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
@@ -948,6 +995,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         expanded = mapDetailsExpanded, maxBpm = maxHeartRateBpm.toDouble())
                 }
             }
+            if (touchLocked) {
+                LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
+            }
         }
         return
     }
@@ -970,6 +1020,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         val paceLabel = if (state.sport.displaysSpeed)
             "Velocidad media (km/h)" else "Ritmo medio (min/km)"
         val km = state.distanceMeters / 1000.0
+        Box(
+            Modifier.fillMaxSize()
+                .onGloballyPositioned { lockContainer = it.boundsInRoot() }
+        ) {
         Column(
             Modifier
                 .fillMaxSize()
@@ -998,8 +1052,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                // Paridad iOS metricsTrailingActions: Audio · Mapa · Pausa | Finalizar+Play.
+                // Candado · Audio · Mapa · Pausa / Finalizar+Play.
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (touchLockAvailable) {
+                        Box(Modifier.onGloballyPositioned { lockTarget = it.boundsInRoot() }) {
+                            LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
+                        }
+                    }
                     LiveMapCircleFab(
                         if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp
                         else Icons.Outlined.VolumeOff,
@@ -1208,6 +1267,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 Spacer(Modifier.height(8.dp))
             }
         }
+        if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
+        }
         return
     }
     // REVIEW: resumen estilo Fitness (mapa + métricas + guardar), sin el formulario genérico.
@@ -1275,6 +1336,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         return
     }
     // Sin GPS / rutas: formulario bajo status bar (mapa usa fillMaxSize a sangre).
+    Box(Modifier.fillMaxSize().onGloballyPositioned { lockContainer = it.boundsInRoot() }) {
     Column(
         Modifier
             .fillMaxSize()
@@ -1376,6 +1438,74 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada))}
+    }
+    if (touchLockAvailable) {
+        Box(
+            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 16.dp)
+                .onGloballyPositioned { lockTarget = it.boundsInRoot() }
+        ) {
+            LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
+        }
+    }
+    if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
+    }
+}
+
+/**
+ * No tapa los datos ni detiene GPS. Solo intercepta los gestos de la sesión
+ * y superpone un candado en la misma posición del control original.
+ * Mantener pulsado un segundo desbloquea; la acción accesible permite TalkBack.
+ */
+@Composable
+private fun LiveScreenTouchBlocker(
+    target: Rect?,
+    container: Rect?,
+    onUnlock: () -> Unit
+) {
+    Box(
+        Modifier.fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                    }
+                }
+            }
+            .testTag("live_touch_blocked")
+    )
+    if (target != null && container != null) {
+        Box(
+            Modifier
+                .offset {
+                    IntOffset(
+                        (target.left - container.left).roundToInt(),
+                        (target.top - container.top).roundToInt()
+                    )
+                }
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                .pointerInput(Unit) {
+                    detectTapGestures(onPress = {
+                        // Solo mientras el dedo sigue apoyado al cumplirse 1 s.
+                        val released = withTimeoutOrNull(1_000L) { tryAwaitRelease() }
+                        if (released == null) onUnlock()
+                    })
+                }
+                .semantics {
+                    contentDescription = "Pantalla bloqueada. Mantén pulsado un segundo para desbloquear"
+                    onClick(label = "Desbloquear pantalla") { onUnlock(); true }
+                }
+                .testTag("live_touch_unlock"),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Outlined.Lock, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
