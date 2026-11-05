@@ -503,11 +503,11 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private static func routeDistanceType(for activity: HKWorkoutActivityType) -> HKQuantityType? {
         let identifier: HKQuantityTypeIdentifier
         switch activity {
-        case .walking, .running, .hiking, .crossCountrySkiing:
+        case .walking, .running, .hiking:
             identifier = .distanceWalkingRunning
         case .cycling:
             identifier = .distanceCycling
-        case .downhillSkiing, .snowboarding:
+        case .downhillSkiing, .snowboarding, .crossCountrySkiing:
             identifier = .distanceDownhillSnowSports
         case .swimming:
             identifier = .distanceSwimming
