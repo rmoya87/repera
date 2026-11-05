@@ -40,11 +40,14 @@ class LiveMapHeadingVoiceContracts(unittest.TestCase):
 
     def test_ios_spoken_guidance_ducks_other_audio_and_can_play_locked(self):
         self.assertIn("speechSynthesizer.usesApplicationAudioSession = true", LIVE)
-        self.assertIn(".playback, mode: .spokenAudio", LIVE)
+        self.assertIn(".playback, mode: .voicePrompt", LIVE)
+        self.assertNotIn(".playback, mode: .spokenAudio", LIVE)
         self.assertIn("options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]", LIVE)
         self.assertIn("guard pendingGuidanceUtterances.isEmpty, guidanceAudioActive", LIVE)
         self.assertIn("try audio.setActive(true)", LIVE)
         self.assertIn("try AVAudioSession.sharedInstance().setActive(", LIVE)
+        self.assertIn("false, options: .notifyOthersOnDeactivation", LIVE)
+        self.assertIn("speechSynthesizer.stopSpeaking(at: .immediate)", LIVE)
         self.assertIn("speechSynthesizer.speak(phrase)", LIVE)
         self.assertIn("notifyDuringBackground(", LIVE)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
