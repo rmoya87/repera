@@ -4,6 +4,7 @@ import android.content.Context
 import dev.repera.domain.LiveActivityState
 import dev.repera.domain.LiveSport
 import dev.repera.domain.WorkoutLocationPin
+import dev.repera.domain.WearMeasuredEnergy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +54,55 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private var wearHeartSessionID: String? = null
     private var wearHeartBpm: Int? = null
     private var wearHeartCapturedAt = 0L
+    private var wearTotalSessionID: String? = null
+    /** Health Services CALORIES_TOTAL = active + basal, not active calories. */
+    private var wearTotalEnergyKcal: Double? = null
+    private var wearAverageHeartRateBpm: Double? = null
+
+    fun currentWearTotalEnergyKcal(): Double? =
+        wearTotalEnergyKcal?.takeIf { wearTotalSessionID == state.gpsSessionID }
+
+    fun currentWearAverageHeartRateBpm(): Double? =
+        wearAverageHeartRateBpm?.takeIf { wearTotalSessionID == state.gpsSessionID }
+
+    /**
+     * One verified wrist snapshot for the active/reviewed session.
+     * Never conflate total calories with active calories or two UUIDs.
+     * Monotonic totals survive transient gaps, while instantaneous HR expires.
+     */
+    fun acceptWearMetrics(
+        sessionID: String, bpm: Int?, capturedAt: Long,
+        totalEnergyKcal: Double?, averageHeartRateBpm: Double?
+    ): Boolean {
+        val now = System.currentTimeMillis()
+        if (state.gpsSessionID != sessionID ||
+            state.phase !in setOf(LiveActivityState.Phase.RECORDING,
+                LiveActivityState.Phase.PAUSED, LiveActivityState.Phase.REVIEW) ||
+            capturedAt !in (now - 25_000L)..(now + 5_000L)) return false
+        var changed = false
+        if (bpm != null && state.phase != LiveActivityState.Phase.REVIEW) {
+            changed = acceptWearHeartRate(sessionID, bpm, capturedAt) || changed
+        }
+        val validTotal = WearMeasuredEnergy.reconcileTotal(
+            if (wearTotalSessionID == sessionID) wearTotalEnergyKcal else null,
+            totalEnergyKcal
+        )
+        if (validTotal != null && (wearTotalSessionID != sessionID ||
+                validTotal != wearTotalEnergyKcal)) {
+            wearTotalSessionID = sessionID
+            wearTotalEnergyKcal = validTotal
+            changed = true
+        }
+        val validAverage = averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }
+        if (validAverage != null && (wearTotalSessionID == null ||
+                wearTotalSessionID == sessionID)) {
+            wearTotalSessionID = sessionID
+            wearAverageHeartRateBpm = validAverage
+            changed = true
+        }
+        if (changed) revisions.value += 1L
+        return changed
+    }
 
     fun acceptWearHeartRate(sessionID: String, bpm: Int, capturedAt: Long): Boolean {
         val now = System.currentTimeMillis()
@@ -177,6 +227,11 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     fun start() {
         if (recoveryBlocked || state.phase != LiveActivityState.Phase.IDLE) return
         latestKilometerReport=null
+        wearTotalSessionID = null
+        wearTotalEnergyKcal = null
+        wearAverageHeartRateBpm = null
+        wearHeartSessionID = null
+        wearHeartBpm = null
         state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
         runCatching { startPinFile.delete() }
         // Para indoor solo una posición inicial; nunca acumular routePoints.
@@ -231,7 +286,10 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { synchronized(store) { store.clear() } } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();runCatching { startPinFile.delete() };recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
+        voice.stop();location.stop(state.gpsSessionID);state.discard();
+        wearHeartSessionID = null; wearHeartBpm = null
+        wearTotalSessionID = null; wearTotalEnergyKcal = null; wearAverageHeartRateBpm = null
+        runCatching { startPinFile.delete() };recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
         val now=System.currentTimeMillis()

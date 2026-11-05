@@ -825,39 +825,22 @@ final class WatchSessionHub: NSObject {
         saveHubPrefs()
     }
 
-    /// Play de actividad desde el hub: preferir iPhone; si no, grabar en el reloj.
-    /// - Returns: `true` si el Watch es dueño de la grabación local.
+    /// Al pulsar Play desde el Watch, el reloj es dueño de HealthKit y los
+    /// sensores. No abrir una segunda sesión sin sensores en el iPhone:
+    /// esa ruta guardaba «Repera / 0 kcal» y perdía la distancia/ritmo.
+    /// El iPhone puede seguir espejando el HKWorkoutSession nativo.
     @discardableResult
     func playHubSport(_ sport: WatchLiveSport) -> Bool {
         rememberHubSport(sport)
-        // Nueva elección del usuario: dejar de ignorar snapshots companion.
-        suppressCompanionLive = false
+        cancelCompanionStartTimeout()
         pendingCompanionSport = nil
-        if liveActivity?.phase == .review {
-            liveActivity = nil
-        }
-        companionStartTimedOut = false
         abandonedCompanionStartAt = nil
-        if connectivity.sendStartLive(sportID: sport.rawValue, onResult: { [weak self] ok in
-            Task { @MainActor in
-                guard let self, self.pendingCompanionSport == sport else { return }
-                if ok {
-                    // iPhone es dueño: esperar liveActivity (no grabar en local).
-                    return
-                }
-                self.cancelCompanionStartTimeout()
-                self.pendingCompanionSport = nil
-                // Sin iPhone / entreno programado activo → grabar en el reloj.
-                self.startWatchOwnedLive(sport: sport)
-            }
-        }) {
-            // Mensaje enviado: UI companion en cuanto llegue el snapshot.
-            pendingCompanionSport = sport
-            scheduleCompanionStartTimeout(for: sport)
+        if liveActivity?.phase == .review { liveActivity = nil }
+        guard liveActivity == nil, watchLiveSport == nil, !hasWorkoutInProgress else {
             return false
         }
         startWatchOwnedLive(sport: sport)
-        return true
+        return watchLiveSport == sport
     }
 
     private func scheduleCompanionStartTimeout(for sport: WatchLiveSport) {
@@ -2489,6 +2472,9 @@ extension WatchSessionHub: CLLocationManagerDelegate {
             // Misma geometría → Salud (Fitness mapa); solo el Watch puede
             // escribir HKWorkoutRoute sobre su propio HKWorkout.
             if !accepted.isEmpty {
+                // Mismos metros GPS utilizados en Repera: al cerrar, HealthKit
+                // los añade SOLO si la distancia nativa del reloj está ausente.
+                self.health.updateRecordedRouteDistance(self.watchLiveDistanceMeters)
                 self.health.appendRouteLocations(accepted)
             }
         }

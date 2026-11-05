@@ -27,12 +27,14 @@ internal class WearHealthService:Service() {
     private var lastHeartSentAt = 0L
     private var lastHeartSentSession: String? = null
     private var lastHeartSentBpm: Int? = null
+    private var lastTotalSentKcal: Double? = null
     private var notifiedText:String?=null
     private var notifiedAt=0L
     private var notifyJob:Job?=null
     data class Snapshot(
         val sessionId:String?, val heart:Int?, val energy:Double?,
         val distanceMeters: Double?,
+        val averageHeartRateBpm: Double?,
         val recording:Boolean, val paused:Boolean, val problem:String?,
         val heartAtElapsed:Long
     )
@@ -72,7 +74,7 @@ internal class WearHealthService:Service() {
             cache.getString("watchOwnedLiveSessionId", null) == id
     private fun snapshot() = Snapshot(
         owner, sensors.heartRateBpm, sensors.energyKcal, sensors.distanceMeters,
-        sensors.recording, sensors.paused, status ?: sensors.problem, sensors.heartSampleAtElapsed
+        sensors.averageHeartRateBpm, sensors.recording, sensors.paused, status ?: sensors.problem, sensors.heartSampleAtElapsed
     )
     private fun publish() {
         observer?.invoke(snapshot())
@@ -111,26 +113,35 @@ internal class WearHealthService:Service() {
         runCatching {getSystemService(NotificationManager::class.java).notify(NOTIFICATION,notification(text))}
     }
     /**
-     * Send actual Health Services samples to the phone-owned Comenzar session.
-     * This runs in the foreground sensor service even if WearMainActivity is hidden.
+     * Send verified wrist HR, average HR and TOTAL calories to the phone.
+     * Health Services CALORIES_TOTAL includes basal energy, never active-only.
+     * A total-calorie update must be sent even when the HR sensor is silent.
+     * Runs in the foreground service even with the phone/watch screen hidden.
      */
     private fun publishCompanionHeartRate() {
         val id = owner ?: return
         if (cache.getString("companionLiveSessionId", null) != id) return
-        val bpm = sensors.freshHeartRateBpm?.takeIf { it in 25..250 } ?: return
+        val bpm = sensors.freshHeartRateBpm?.takeIf { it in 25..250 }
+        val totalKcal = sensors.energyKcal?.takeIf { it.isFinite() && it > 0 }
+        if (bpm == null && totalKcal == null) return
         val now = System.currentTimeMillis()
         if (lastHeartSentSession == id) {
             val elapsed = now - lastHeartSentAt
-            if (elapsed < 3_000L || (lastHeartSentBpm == bpm && elapsed < 5_000L)) return
+            val samePulse = lastHeartSentBpm == bpm
+            val sameEnergy = totalKcal == lastTotalSentKcal
+            if (elapsed < 3_000L || (samePulse && sameEnergy && elapsed < 5_000L)) return
         }
         lastHeartSentSession = id
         lastHeartSentBpm = bpm
+        lastTotalSentKcal = totalKcal
         lastHeartSentAt = now
-        val data = JSONObject()
-            .put("sessionId", id)
-            .put("bpm", bpm)
-            .put("capturedAt", now)
-            .toString().toByteArray(Charsets.UTF_8)
+        val payload = JSONObject().put("sessionId", id).put("capturedAt", now)
+        bpm?.let { payload.put("bpm", it) }
+        totalKcal?.let { payload.put("totalEnergyKcal", it) }
+        sensors.averageHeartRateBpm
+            ?.takeIf { it.isFinite() && it in 25.0..250.0 }
+            ?.let { payload.put("averageHeartRateBpm", it) }
+        val data = payload.toString().toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
             nodes.forEach { node ->
                 Wearable.getMessageClient(this)
@@ -169,13 +180,20 @@ internal class WearHealthService:Service() {
         // The promotion above had no owner yet: repost once so the Ongoing Activity is attached.
         notifiedText=null;notifiedAt=0L;refreshNotification()
         val token=revision
-        // Phone-owned activity (Comenzar): live HR only; the phone owns the workout record.
+        // Phone owns Health Connect/route; Wear owns the physiological exercise.
+        // ExerciseClient does not itself write an ExerciseSessionRecord to HC.
         val companion = cache.getString("companionLiveSessionId",null)==id
         val sportId = intent?.getStringExtra("sportId")
         scope.launch {
             val result=runCatching {
-                if(companion) sensors.startMeasure(id) {token==revision && isCurrent(id)}
-                else sensors.start(id, sportId = sportId) {token==revision && isCurrent(id)}
+                // ExerciseClient measures HR + actual total kcal. MeasureClient
+                // remains a degraded HR-only fallback on unsupported devices.
+                sensors.start(id, sportId = sportId, companion = companion) {
+                    token == revision && isCurrent(id)
+                }
+                if (companion && !sensors.recording && !sensors.ended) {
+                    sensors.startMeasure(id) { token == revision && isCurrent(id) }
+                }
             }
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.

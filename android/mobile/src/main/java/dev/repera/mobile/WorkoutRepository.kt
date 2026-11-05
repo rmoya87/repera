@@ -7,6 +7,7 @@ import dev.repera.domain.LiveSport
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 import dev.repera.domain.SessionReview
+import dev.repera.domain.WearMeasuredEnergy
 import dev.repera.mobile.analytics.ReperaAnalytics
 import org.json.JSONArray
 import org.json.JSONObject
@@ -168,7 +169,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         distanceMeters: Double? = null,
         locationPin: org.json.JSONObject? = null,
         averageHeartRateBpm: Double? = null,
-        activeEnergyKcal: Double? = null,
+        totalEnergyKcal: Double? = null,
         routePoints: org.json.JSONArray? = null
     ): String {
         require(id.isNotBlank())
@@ -178,6 +179,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
         val archive = state.getJSONArray("workouts")
         if ((0 until archive.length()).any { archive.getJSONObject(it).optString("id") == id }) {
+            // Reintento live-save: conciliar valores verificados sin crear otra sesión.
+            mergeWearMeasuredMetrics(id, totalEnergyKcal, averageHeartRateBpm)
             // Reintento live-save: adjuntar ruta si llegó después y aún no hay track.
             if (routePoints != null && routePoints.length() >= 2) {
                 val existing = (0 until archive.length())
@@ -225,10 +228,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         locationPin?.let { applyWearStartPin(session, it) }
         averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
-            session.put("appleAverageHeartRateBpm", it)
+            session.put("wearAverageHeartRateBpm", it)
         }
-        activeEnergyKcal?.takeIf { it.isFinite() && it >= 0 }?.let {
-            session.put("appleActiveEnergyKcal", it)
+        // Wear Health Services reports TOTAL calories (active + basal).
+        // Do not call these active or overwrite true Health Connect active kcal.
+        totalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+            session.put("wearTotalEnergyKcal", it)
         }
         archive.put(session)
         save(state)
@@ -240,6 +245,37 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return id
     }
 
+    /**
+     * Delayed or repeated physiological packets update only the exact archived
+     * workout of this account. They never overwrite Health Connect active
+     * calories, route, type or manual duration and never create another workout.
+     */
+    @Synchronized fun mergeWearMeasuredMetrics(
+        sessionId: String, totalEnergyKcal: Double?, averageHeartRateBpm: Double?
+    ): Boolean {
+        if (sessionId.isBlank() || !stillAuthorized()) return false
+        val state = loadOrNull() ?: return false
+        val archive = state.optJSONArray("workouts") ?: return false
+        val session = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == sessionId && it.optString("phase") == "finished" }
+            ?: return false
+        var changed = false
+        val previousTotal = session.optDouble("wearTotalEnergyKcal", Double.NaN)
+        val mergedTotal = WearMeasuredEnergy.reconcileTotal(previousTotal, totalEnergyKcal)
+        if (mergedTotal != null && mergedTotal != WearMeasuredEnergy.verifiedTotal(previousTotal)) {
+            session.put("wearTotalEnergyKcal", mergedTotal)
+            changed = true
+        }
+        averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let { average ->
+            if (session.optDouble("wearAverageHeartRateBpm", Double.NaN) != average) {
+                session.put("wearAverageHeartRateBpm", average)
+                changed = true
+            }
+        }
+        if (changed) save(state)
+        return changed
+    }
+
     @Synchronized fun saveLiveActivity(
         snapshot: dev.repera.domain.LiveActivityState.Snapshot,
         finishedMillis: Long,
@@ -247,7 +283,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         title: String,
         notes: String,
         activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
-        locationPin: dev.repera.domain.WorkoutLocationPin? = null
+        locationPin: dev.repera.domain.WorkoutLocationPin? = null,
+        wearTotalEnergyKcal: Double? = null,
+        wearAverageHeartRateBpm: Double? = null
     ): String {
         require(snapshot.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW)
         require(activeSeconds.isFinite() && activeSeconds >= 0)
@@ -288,6 +326,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             // recuperación podrá reconstruirla sin perder el entrenamiento.
         }
         if (sport.usesGPS) session.put("recordedDistanceMeters", snapshot.distanceMeters)
+        wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+            session.put("wearTotalEnergyKcal", it)
+        }
+        wearAverageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
+            session.put("wearAverageHeartRateBpm", it)
+        }
         if (snapshot.splitsSeconds.isNotEmpty()) session.put("liveKilometerSplitsSeconds", JSONArray(snapshot.splitsSeconds))
         activityConditions?.let { session.put("activityConditions", it.toJson()) }
         session.put("routePoints", JSONArray(snapshot.points.map { p -> JSONObject()
@@ -3683,6 +3727,29 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return null
     }
 
+    /**
+     * Physical activity classification for Health Connect: sport-specific if
+     * available, otherwise WOD/CrossFit -> HIIT instead of generic strength.
+     * Applies equally to personal plans and professional class prescriptions.
+     */
+    @Synchronized fun sessionHealthSportId(sessionId: String): String? {
+        val archive = loadOrNull()?.optJSONArray("workouts") ?: return null
+        val session = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == sessionId } ?: return null
+        val sport = session.optString("liveSportID").takeIf {
+            it.isNotBlank() && it != "null"
+        }
+        if (sport != null) return sport
+        val blocks = session.optJSONArray("routineBlocks")
+        val exercises = session.optJSONArray("exercises")
+        val hasWod = (blocks != null && (0 until blocks.length()).any {
+            blocks.optJSONObject(it)?.optString("kind") == "wod"
+        }) || (exercises != null && (0 until exercises.length()).any {
+            exercises.optJSONObject(it)?.optString("blockKind") == "wod"
+        }) || (session.optJSONArray("wodResults")?.length() ?: 0) > 0
+        return if (hasWod) LiveSport.CROSSFIT.id else null
+    }
+
     @Synchronized fun sessionTitleAndRange(sessionId: String): Triple<String, Long, Long>? {
         val state = loadOrNull() ?: return null
         val archive = state.optJSONArray("workouts") ?: return null
@@ -3699,6 +3766,21 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             return null
         }
         return null
+    }
+
+    /** Real GPS distance and measured wrist TOTAL energy, never estimations. */
+    @Synchronized fun sessionRecordedDistanceMeters(sessionId: String): Double? =
+        finishedMetric(sessionId, "recordedDistanceMeters")
+
+    @Synchronized fun sessionWearTotalEnergyKcal(sessionId: String): Double? =
+        finishedMetric(sessionId, "wearTotalEnergyKcal")
+
+    private fun finishedMetric(sessionId: String, field: String): Double? {
+        val archive = loadOrNull()?.optJSONArray("workouts") ?: return null
+        val session = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == sessionId && it.optString("phase") == "finished" }
+            ?: return null
+        return session.optDouble(field, Double.NaN).takeIf { it.isFinite() && it > 0 }
     }
 
     /** Puntos GPS grabados por Repera de una sesión (exportación a Salud,

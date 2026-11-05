@@ -6,6 +6,9 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseRoute
 import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
+import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -40,7 +43,9 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
         endEpochMs: Long,
         storedRecordId: String?,
         exerciseType: Int = ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
-        routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList()
+        routePoints: List<dev.repera.domain.WorkoutRoutePoint> = emptyList(),
+        recordedDistanceMeters: Double? = null,
+        wearTotalEnergyKcal: Double? = null
     ): String? {
         if (!stillAuthorized() || !HealthConnectReader(context).available() || endEpochMs <= startEpochMs) return null
         val client = HealthConnectClient.getOrCreate(context)
@@ -81,6 +86,10 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
                     // falta permiso.
                     attachRecordedRouteIfNeeded(client, granted, decision.recordId,
                         sessionId, routePoints, candidates)
+                    writeMeasuredSupplementIfMissing(
+                        client, granted, sessionId, start, end, exerciseType,
+                        recordedDistanceMeters, wearTotalEnergyKcal
+                    )
                     return decision.recordId
                 }
                 SessionHealthMatcher.LinkDecision.Skip -> return null
@@ -108,8 +117,93 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
                 exerciseRoute = routeFor(granted, routePoints, startEpochMs, endEpochMs)
             )
             if(!stillAuthorized()) return null
-            client.insertRecords(listOf(record)).recordIdsList.firstOrNull()
+            val saved = client.insertRecords(listOf(record)).recordIdsList.firstOrNull()
+            if (saved != null) {
+                writeMeasuredSupplementIfMissing(
+                    client, granted, sessionId, start, end, exerciseType,
+                    recordedDistanceMeters, wearTotalEnergyKcal
+                )
+            }
+            saved
         }.getOrNull()
+    }
+
+    /**
+     * ExerciseRoute is a map, not a numeric DistanceRecord. A Health Services
+     * workout can also supply measured TOTAL calories (including basal energy).
+     * Both are optional and written using separate, stable client IDs only if
+     * the requested Health Connect permissions have been granted AND we can
+     * verify no other provider has written that metric in this time window.
+     * Never create ActiveCaloriesBurnedRecord from Health Services total kcal.
+     */
+    private suspend fun writeMeasuredSupplementIfMissing(
+        client: HealthConnectClient,
+        granted: Set<String>,
+        sessionId: String,
+        start: Instant,
+        end: Instant,
+        exerciseType: Int,
+        recordedDistanceMeters: Double?,
+        wearTotalEnergyKcal: Double?
+    ) {
+        if (!stillAuthorized() || !start.isBefore(end)) return
+        val range = TimeRangeFilter.between(start, end)
+        val offset = ZoneId.systemDefault().rules.getOffset(start)
+        val endOffset = ZoneId.systemDefault().rules.getOffset(end)
+        val outdoor = exerciseType in setOf(
+            ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
+            ExerciseSessionRecord.EXERCISE_TYPE_RUNNING,
+            ExerciseSessionRecord.EXERCISE_TYPE_HIKING,
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL,
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER,
+            ExerciseSessionRecord.EXERCISE_TYPE_SKIING,
+            ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
+        )
+        val meters = recordedDistanceMeters?.takeIf { it.isFinite() && it >= 20 }
+        if (outdoor && meters != null &&
+            HealthPermission.getWritePermission(DistanceRecord::class) in granted &&
+            HealthPermission.getReadPermission(DistanceRecord::class) in granted) {
+            // Fail closed: if a read fails or ANY provider already wrote distance,
+            // writing a second distance sample could inflate user totals.
+            val existing = runCatching {
+                client.readAllRecords(DistanceRecord::class, range)
+            }.getOrNull()
+            if (existing != null && existing.isEmpty() && stillAuthorized()) {
+                runCatching {
+                    client.insertRecords(listOf(DistanceRecord(
+                        startTime = start, startZoneOffset = offset,
+                        endTime = end, endZoneOffset = endOffset,
+                        distance = Length.meters(meters),
+                        metadata = Metadata.manualEntry(
+                            clientRecordId = "repera-distance-$sessionId",
+                            clientRecordVersion = 0
+                        )
+                    )))
+                }
+            }
+        }
+        val total = wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }
+        if (total != null &&
+            HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class) in granted &&
+            HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class) in granted) {
+            val existing = runCatching {
+                client.readAllRecords(TotalCaloriesBurnedRecord::class, range)
+            }.getOrNull()
+            if (existing != null && existing.isEmpty() && stillAuthorized()) {
+                runCatching {
+                    client.insertRecords(listOf(TotalCaloriesBurnedRecord(
+                        startTime = start, startZoneOffset = offset,
+                        endTime = end, endZoneOffset = endOffset,
+                        energy = Energy.kilocalories(total),
+                        metadata = Metadata.manualEntry(
+                            clientRecordId = "repera-wear-total-$sessionId",
+                            clientRecordVersion = 0
+                        )
+                    )))
+                }
+            }
+        }
     }
 
     /** ExerciseRoute con los puntos exportables del track grabado, o null sin

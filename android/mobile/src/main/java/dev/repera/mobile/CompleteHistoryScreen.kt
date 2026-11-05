@@ -320,7 +320,7 @@ internal fun WorkoutHistoryDetailScreen(
     sport = sport,
     kcal = workout.appleActiveEnergyKcal,
     steps = movement?.steps,
-    averageHeartRateBpm = workout.appleAverageHeartRateBpm,
+    averageHeartRateBpm = workout.wearAverageHeartRateBpm ?: workout.appleAverageHeartRateBpm,
     distanceMeters = workout.recordedDistanceMeters
      ?: movement?.distanceMeters,
     paceOrSpeedLabel = SessionSummaryTilesBuilder.paceOrSpeedLabel(
@@ -348,6 +348,10 @@ internal fun WorkoutHistoryDetailScreen(
        iconTint = spec.tint
       )
      }
+    }
+    workout.wearTotalEnergyKcal?.takeIf { it.isFinite() && it > 0 }?.let {
+     Text("Calorías totales del reloj: ${it.toInt()} kcal (incluye basal)",
+      style = MaterialTheme.typography.bodyMedium)
     }
     // Misma agrupación visual que iOS (tiles + review).
     workout.review?.let { SessionReviewCard(it) }

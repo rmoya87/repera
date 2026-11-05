@@ -1559,14 +1559,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val payload = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8))
             }.getOrNull() ?: return
-            val id = payload.optString("sessionId")
-            val bpm = payload.optInt("bpm", -1)
-            val capturedAt = payload.optLong("capturedAt", 0L)
-            if (id.isBlank() || bpm !in 25..250) return
             runOnUiThread {
                 val account = profile?.uniqueId ?: return@runOnUiThread
-                LiveActivityRuntime.forAccount(this, account)
-                    .acceptWearHeartRate(id, bpm, capturedAt)
+                WearLiveMetricsReceiver.accept(this, account, payload)
             }
             return
         }
@@ -1723,8 +1718,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                                 locationPin = body.optJSONObject("locationPin"),
                                 averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
                                     .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
-                                activeEnergyKcal = body.optDouble("activeEnergyKcal")
-                                    .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
+                                totalEnergyKcal = body.optDouble("totalEnergyKcal")
+                                    .takeIf { body.has("totalEnergyKcal") && !body.isNull("totalEnergyKcal") }
+                                    ?: body.optDouble("activeEnergyKcal")
+                                        .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
                                 routePoints = body.optJSONArray("routePoints")
                             )
                             true
@@ -1744,9 +1741,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             return
         }
         if (event.path == "/repera/session-finish") {
-            val sessionId = runCatching {
-                JSONObject(String(event.data, Charsets.UTF_8)).optString("sessionId")
-            }.getOrNull().orEmpty()
+            val finishPayload = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8))
+            }.getOrNull() ?: return
+            val sessionId = finishPayload.optString("sessionId")
             if (sessionId.isBlank()) return
             runOnUiThread {
                 val signedIn = profile
@@ -1759,17 +1757,25 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val finished = withContext(Dispatchers.IO) {
                         runCatching {
                             val repo=WorkoutRepository(this@MainActivity,signedIn.uniqueId)
-                            val startPin = runCatching {
-                                JSONObject(String(event.data, Charsets.UTF_8)).optJSONObject("locationPin")
-                            }.getOrNull()
+                            val startPin = finishPayload.optJSONObject("locationPin")
                             if (startPin != null) repo.attachWearStartPin(sessionId, startPin)
-                            if(repo.active()?.id==sessionId) {
+                            val completed = if (repo.active()?.id == sessionId) {
                                 StrengthRestService.cancel(this@MainActivity)
-                                val route=locationTracker.stopRouteTracking()
-                                if(!repo.finishWearSession(sessionId)) return@runCatching false
-                                if(route.isNotEmpty()) repo.attachRoutePoints(sessionId,route)
+                                val route = locationTracker.stopRouteTracking()
+                                if (!repo.finishWearSession(sessionId)) return@runCatching false
+                                if (route.isNotEmpty()) repo.attachRoutePoints(sessionId, route)
                                 true
                             } else repo.finishWearSession(sessionId)
+                            if (completed) {
+                                repo.mergeWearMeasuredMetrics(
+                                    sessionId,
+                                    finishPayload.optDouble("totalEnergyKcal", Double.NaN)
+                                        .takeIf { it.isFinite() && it > 0 },
+                                    finishPayload.optDouble("averageHeartRateBpm", Double.NaN)
+                                        .takeIf { it.isFinite() && it in 25.0..250.0 }
+                                )
+                            }
+                            completed
                         }.getOrDefault(false)
                     }
                     if(!current()) return@launch
@@ -2363,9 +2369,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             sessionId, info.first, info.second, info.third,
                             repo.healthRecordId(sessionId),
                             HealthConnectWriter.exerciseTypeFor(
-                                repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)
+                                repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)
                             ),
-                            repo.sessionRoutePoints(sessionId)
+                            repo.sessionRoutePoints(sessionId),
+                            repo.sessionRecordedDistanceMeters(sessionId),
+                            repo.sessionWearTotalEnergyKcal(sessionId)
                         )
                         if (current() && linked != null && repo.healthRecordId(sessionId) == null) {
                             repo.setHealthRecordId(sessionId, linked)
@@ -2392,8 +2400,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val linked = HealthConnectWriter(this@MainActivity,stillAuthorized={current()})
                         .syncFinishedSession(sessionId, info.first,
                             info.second, info.third, repo.healthRecordId(sessionId),
-                            HealthConnectWriter.exerciseTypeFor(repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)),
-                            repo.sessionRoutePoints(sessionId))
+                            HealthConnectWriter.exerciseTypeFor(repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)),
+                            repo.sessionRoutePoints(sessionId),
+                            repo.sessionRecordedDistanceMeters(sessionId),
+                            repo.sessionWearTotalEnergyKcal(sessionId))
                     if (current() && linked != null && repo.healthRecordId(sessionId) == null) {
                         repo.setHealthRecordId(sessionId, linked)
                     }
@@ -3410,6 +3420,10 @@ data class StateOverview(
                             .takeIf { it.isFinite() && it > 0 },
                         appleAverageHeartRateBpm = session.optDouble("appleAverageHeartRateBpm", Double.NaN)
                             .takeIf { it.isFinite() && it > 0 },
+                        wearTotalEnergyKcal = session.optDouble("wearTotalEnergyKcal", Double.NaN)
+                            .takeIf { it.isFinite() && it > 0 },
+                        wearAverageHeartRateBpm = session.optDouble("wearAverageHeartRateBpm", Double.NaN)
+                            .takeIf { it.isFinite() && it in 25.0..250.0 },
                         userEditedDuration = session.optBoolean("userEditedDuration"),
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
@@ -3928,6 +3942,9 @@ data class WorkoutHistoryEntry(
     /** Energía / FC medidas (Health Connect → apple* keys, paridad iOS). */
     val appleActiveEnergyKcal: Double? = null,
     val appleAverageHeartRateBpm: Double? = null,
+    /** Wear sensor total calories (basal + active), never active-only. */
+    val wearTotalEnergyKcal: Double? = null,
+    val wearAverageHeartRateBpm: Double? = null,
     val userEditedDuration: Boolean = false
 ) {
     /**

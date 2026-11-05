@@ -49,8 +49,14 @@ class WearHealthSession(private val context: Context) {
         get() = heartRateBpm?.takeIf {
             android.os.SystemClock.elapsedRealtime() - lastHeartSampleAtElapsed in 0L..20_000L
         }
+    /** Health Services CALORIES_TOTAL includes basal and active energy.
+     *  Never export or label it as ActiveCaloriesBurnedRecord. */
     var energyKcal: Double? = null
         private set
+    var averageHeartRateBpm: Double? = null
+        private set
+    private var heartSum = 0.0
+    private var heartSamples = 0
     var distanceMeters: Double? = null
         private set
     var recording: Boolean = false
@@ -95,6 +101,11 @@ class WearHealthSession(private val context: Context) {
             } else if (hr != null) {
                 heartRateBpm = hr.toInt()
                 lastHeartSampleAtElapsed = android.os.SystemClock.elapsedRealtime()
+                // Approximate average of observed real HR samples, not the final
+                // instantaneous pulse relabeled as a session average.
+                heartSum += hr
+                heartSamples++
+                averageHeartRateBpm = heartSum / heartSamples
             }
             val totalKcal = update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
                 ?.takeIf { it.isFinite() && it >= 0 }
@@ -145,6 +156,7 @@ class WearHealthSession(private val context: Context) {
     suspend fun start(
         sessionId: String,
         sportId: String? = null,
+        companion: Boolean = false,
         stillAuthorized: () -> Boolean = { true }
     ) = operations.withLock {
         check(stillAuthorized()) {"La sesión cambió antes de iniciar sensores"}
@@ -166,7 +178,9 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
-        val gpsEnabled = WearHealthExerciseTypes.usesGps(sportId)
+        // Phone-owned recording uses phone GPS; avoid two independent routes.
+        // Wrist Health Services remains the physiological source of truth.
+        val gpsEnabled = !companion && WearHealthExerciseTypes.usesGps(sportId)
         val resolvedType: ExerciseType
         val metrics = if (info.exerciseTrackedStatus == ExerciseOwnership.NONE) {
             val capabilities = client.getCapabilities()
@@ -183,6 +197,9 @@ class WearHealthSession(private val context: Context) {
         heartRateBpm=null
         lastHeartSampleAtElapsed=0L
         energyKcal=null
+        averageHeartRateBpm=null
+        heartSum=0.0
+        heartSamples=0
         distanceMeters=null
         paused=false
         check(stillAuthorized()) {"La sesión cambió antes de conectar sensores"}
@@ -220,6 +237,9 @@ class WearHealthSession(private val context: Context) {
             heartRateBpm = null
             lastHeartSampleAtElapsed = 0L
             energyKcal = null
+            averageHeartRateBpm = null
+            heartSum = 0.0
+            heartSamples = 0
             paused = false
             if (DataType.HEART_RATE_BPM !in capabilities.supportedDataTypesMeasure) {
                 problem = "Este reloj no ofrece pulso en directo"
