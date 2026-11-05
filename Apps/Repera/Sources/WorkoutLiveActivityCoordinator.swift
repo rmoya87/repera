@@ -11,6 +11,7 @@ final class WorkoutLiveActivityCoordinator {
 
     private let logger = Logger(subsystem: "com.app.repera", category: "WorkoutLiveActivity")
     private var latestStates: [String: TrainingActivityAttributes.ContentState] = [:]
+    private var lastWatchCaptureAt: [String: Date] = [:]
     /// Impide que una actualización GPS/Watch encolada resucite una sesión
     /// después de finalizarla o descartarla.
     private var closedSessionIDs: Set<String> = []
@@ -54,12 +55,16 @@ final class WorkoutLiveActivityCoordinator {
     /// GPS recording, or duplicate workout are started on the phone.
     func updateWatchOwned(_ snapshot: WatchLiveActivitySnapshot) async {
         let id = "watch:" + snapshot.id.uuidString
+        guard WatchOwnedLiveDeliveryPolicy.accepts(snapshot),
+              WatchOwnedLiveDeliveryPolicy.isNewer(
+                snapshot, than: lastWatchCaptureAt[id]
+              ) else { return }
+        lastWatchCaptureAt[id] = snapshot.capturedAt
         if snapshot.phase == .review {
             await finishWatchOwned(sessionID: snapshot.id, saved: false)
             return
         }
-        let age = Date().timeIntervalSince(snapshot.capturedAt)
-        guard age >= -5, age <= 90, !closedSessionIDs.contains(id) else { return }
+        guard !closedSessionIDs.contains(id) else { return }
         let sport = snapshot.sportID.flatMap(LiveSport.init(rawValue:))
         let isGPS = sport?.usesGPS ?? false
         let elapsed = max(0, Int(snapshot.elapsedSeconds.rounded(.down)))
@@ -212,6 +217,9 @@ final class WorkoutLiveActivityCoordinator {
             latestStates.removeValue(forKey: activity.attributes.sessionID)
         }
 
+        // An awaited ActivityKit operation may interleave with a Watch finish
+        // or a newer snapshot; neither should resurrect an older state.
+        guard !closedSessionIDs.contains(id), latestStates[id] == state else { return }
         if let activity = Activity<TrainingActivityAttributes>.activities.first(where: {
             $0.attributes.sessionID == id
         }) {
