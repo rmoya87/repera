@@ -25,7 +25,8 @@ object VerifiedSessionReviewEngine {
         val weight: Double,
         val referenceCount: Int,
         val explanation: String,
-        val tier: Int
+        val tier: Int,
+        val ratio: Double
     )
 
     fun review(
@@ -74,6 +75,8 @@ object VerifiedSessionReviewEngine {
         val totalWeight = eligible.sumOf { it.weight }
         if (totalWeight <= 0) return null
         val score = min(10, max(1, (weighted / totalWeight).roundToInt()))
+        val weightedRatio = eligible.sumOf { it.ratio * it.weight } / totalWeight
+        val relativeChange = ((weightedRatio - 1) * 100).roundToInt()
 
         fun average(values: List<Evidence>): Int? {
             if (values.isEmpty()) return null
@@ -137,7 +140,9 @@ object VerifiedSessionReviewEngine {
             scoreBasis = ScoreBasis.PERSONAL_HISTORY,
             indicators = indicators,
             evidenceCoverage = coverage,
-            confidenceLabel = confidence
+            confidenceLabel = confidence,
+            relativeChangePercent = relativeChange,
+            referenceDays = minReferences
         )
     }
 
@@ -267,7 +272,8 @@ object VerifiedSessionReviewEngine {
             weight = if (tier == 1) 5.0 else 3.0,
             referenceCount = days.size,
             explanation = "$prefix · ${entry.exercise.name}: ${signedChange(ratio)} respecto a ${days.size} días anteriores",
-            tier = tier
+            tier = tier,
+            ratio = ratio
         )
     }
 
@@ -310,7 +316,8 @@ object VerifiedSessionReviewEngine {
             score = points(ratio), weight = minutes,
             referenceCount = refs.size,
             explanation = "Nivel 1 · ${currentBlock.title}: ${signedChange(ratio)} frente a ${refs.size} marcas idénticas",
-            tier = 1
+            tier = 1,
+            ratio = ratio
         )
     }
 
@@ -367,7 +374,8 @@ object VerifiedSessionReviewEngine {
             weight = max(1.0, min(12.0, minutes)) * 0.5,
             referenceCount = priorDays.size,
             explanation = "Nivel 3 · estímulo comparable · ${signedChange(ratio)} de densidad de reps, ${priorDays.size} días calibrados (mismos movimientos y cargas)",
-            tier = 3
+            tier = 3,
+            ratio = ratio
         )
     }
 

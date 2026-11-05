@@ -19,13 +19,21 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn('confidence = "Media · historial personal"', swift)
         self.assertIn('else -> "Media · historial personal"', kotlin)
         self.assertIn('distinctDays.count >= 5 ? "Alta" : "Media · historial personal"', swift)
-        self.assertIn('sessionReviewFormulaVersion = 13', read("Apps/Repera/Sources/ReperaStore.swift"))
+        self.assertIn('sessionReviewFormulaVersion = 14', read("Apps/Repera/Sources/ReperaStore.swift"))
 
     def test_ios_card_uses_latest_session_not_just_last_scored(self):
         ui = read("Apps/Repera/Sources/StatsView.swift")
+        summary = ui.split('private var scoreSummary: some View', 1)[1]
         self.assertIn('private var latestActivity: RecentActivity?', ui)
         self.assertIn('externalActivities.max { $0.end < $1.end }', ui)
-        self.assertIn('"Entrenos registrados",', ui.split('private var scoreSummary: some View', 1)[1])
+        self.assertIn('Text("Actividad")', summary)
+        self.assertIn('scoreMetric("Rendimiento"', summary)
+        self.assertIn('scoreMetric("Cobertura"', summary)
+        self.assertIn('scoreMetric("Referencias"', summary)
+        self.assertNotIn('"Última nota verificada"', summary)
+        self.assertNotIn('"Mejor nota"', summary)
+        self.assertNotIn('"Entrenos registrados"', summary)
+        self.assertIn('relativeChangePercent', read("Packages/ReperaDomain/Sources/ReperaDomain/SessionReview.swift"))
         self.assertIn('range.contains(finishedAt, weekStartsOnMonday: weekStartsOnMonday)', ui)
         self.assertIn('HealthMuscleMapper.uniqueExternalActivities(', ui)
 
@@ -33,8 +41,12 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         tab = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
         card = read("android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt")
         self.assertIn('latestActivity = latestActivityTitle', tab)
-        self.assertIn('recordedSessions = overview?.dayWorkoutCounts', tab)
-        self.assertIn('TrendScoreMetric("Entrenos registrados"', card)
+        self.assertIn('effort = if (pro) overview?.sessionScoreEffortByRange', tab)
+        self.assertIn('Text("Actividad"', card)
+        self.assertIn('TrendScoreMetric(\n                            "Rendimiento"', card)
+        self.assertIn('TrendScoreMetric(\n                            "Cobertura"', card)
+        self.assertIn('TrendScoreMetric(\n                            "Referencias"', card)
+        self.assertNotIn('Última nota verificada', card)
         self.assertIn('dropNativeOverlaps(it, localStats)', read("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt"))
 
     def test_historical_location_cannot_be_replaced_by_current_phone(self):
@@ -70,19 +82,26 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn("ScoreBasis.PERSONAL_HISTORY", android)
         self.assertIn("SevenRecentWorkoutDurationChart(recentWorkouts", plot)
         self.assertIn("workout.minutes", plot)
-        self.assertIn("Sin nota comparable", plot)
+        chart = plot.split("private fun SevenRecentWorkoutDurationChart(", 1)[1]
+        self.assertNotIn('"Últimos ${recent.size} entrenos"', chart)
+        self.assertNotIn("Duración · minutos", chart)
+        self.assertNotIn("Sin nota comparable", chart)
+        self.assertNotIn("Cada barra representa", chart)
         # Cada sesión ocupa una posición; no se interpolan días sin sesión.
-        self.assertNotIn("ChronoUnit.DAYS", plot.split("private fun SevenRecentWorkoutDurationChart(", 1)[1])
+        self.assertNotIn("ChronoUnit.DAYS", chart)
 
     def test_daily_training_not_confused_with_fake_weight(self):
         ios = read("Apps/Repera/Sources/StatsView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
         self.assertIn('private var trainingSessionsToday: Int', ios)
         self.assertIn('La carga en kg requiere series y pesos registrados', ios)
-        self.assertIn('activitiesToday = overview?.dayWorkoutCounts', android)
-        self.assertIn('val todaySummary =', android)
-        self.assertIn('todayPrs', android)
-        self.assertIn('hubDailyVolumeKg.lastOrNull()', android)
+        self.assertNotIn('Hoy \\(trainingSessionsToday) ses.', ios)
+        self.assertNotIn('strengthTodaySummary', ios)
+        self.assertIn('activitiesToday = realWorkoutsToday', android)
+        self.assertNotIn('val todaySummary =', android)
+        self.assertNotIn('todayPrs', android)
+        self.assertIn('" kg / 7 d"', android)
+        self.assertNotIn('"Hoy " + realWorkoutsToday', android)
 
 
 if __name__ == "__main__":

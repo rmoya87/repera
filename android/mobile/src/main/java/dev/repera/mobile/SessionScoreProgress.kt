@@ -9,6 +9,13 @@ import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/** Glance de esfuerzo de la última sesión verificada del periodo. */
+internal data class SessionScoreEffortGlance(
+    val relativeChangePercent: Int?,
+    val coveragePercent: Int?,
+    val referenceDays: Int?
+)
+
 /** Verified 1–10 personal-performance evolution for logged training and GPS sports. */
 internal object SessionScoreProgress {
     private data class Entry(val json: JSONObject, val day: LocalDate, val finished: Instant)
@@ -69,7 +76,79 @@ internal object SessionScoreProgress {
             }.maxByOrNull { it.first }?.second
     }
 
-    private fun gpsScore(session: Entry, all: List<Entry>, zone: ZoneId): Double? {
+    /** Esfuerzo de la última sesión con nota personal en el periodo. */
+    fun latestEffort(
+        state: JSONObject, range: ProgressTimeRange, monday: Boolean,
+        now: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()
+    ): SessionScoreEffortGlance? {
+        val archive = state.optJSONArray("workouts") ?: return null
+        val sessions = (0 until archive.length()).mapNotNull { i ->
+            val workout = archive.optJSONObject(i) ?: return@mapNotNull null
+            if (workout.optJSONObject("timerDetails") != null) return@mapNotNull null
+            val end = runCatching { Instant.parse(workout.getString("finishedAt")) }.getOrNull()
+                ?: return@mapNotNull null
+            Entry(workout, end.atZone(zone).toLocalDate(), end)
+        }
+        data class Rated(val finished: Instant, val entry: Entry, val review: JSONObject?, val score: Double)
+        val latest = sessions.filter { range.contains(it.day, now, monday) }
+            .mapNotNull { entry ->
+                val review = entry.json.optJSONObject("sessionReview")
+                if (review?.optString("scoreBasis") == "personalHistory") {
+                    val score = review.optDouble("overallScore")
+                        .takeIf { it.isFinite() && it in 1.0..10.0 } ?: return@mapNotNull null
+                    Rated(entry.finished, entry, review, score)
+                } else {
+                    val score = gpsScore(entry, sessions, zone) ?: return@mapNotNull null
+                    Rated(entry.finished, entry, null, score)
+                }
+            }.maxByOrNull { it.finished } ?: return null
+
+        val live = latest.entry.json.optString("liveSportID").isNotBlank() &&
+            latest.entry.json.optString("liveSportID") != "null"
+        val review = latest.review
+        if (review != null) {
+            val relative = when {
+                review.has("relativeChangePercent") && !review.isNull("relativeChangePercent") ->
+                    review.getInt("relativeChangePercent")
+                else -> inferredRelativeChange(latest.score.roundToInt(), live)
+            }
+            val coverage = when {
+                review.has("evidenceCoverage") && !review.isNull("evidenceCoverage") ->
+                    (review.getDouble("evidenceCoverage") * 100).roundToInt()
+                live -> 100
+                else -> null
+            }
+            val references = when {
+                review.has("referenceDays") && !review.isNull("referenceDays") ->
+                    review.getInt("referenceDays").takeIf { it > 0 }
+                else -> {
+                    val indicators = review.optJSONArray("indicators")
+                    if (indicators == null || indicators.length() == 0) null
+                    else (0 until indicators.length()).mapNotNull { i ->
+                        val ind = indicators.optJSONObject(i) ?: return@mapNotNull null
+                        if (!ind.has("score") || ind.isNull("score")) return@mapNotNull null
+                        ind.optInt("referenceSessions").takeIf { it > 0 }
+                    }.minOrNull()
+                }
+            } ?: if (live) gpsReferenceDays(latest.entry, sessions, zone) else null
+            return SessionScoreEffortGlance(relative, coverage, references)
+        }
+        val gps = gpsEffort(latest.entry, sessions, zone) ?: return SessionScoreEffortGlance(
+            inferredRelativeChange(latest.score.roundToInt(), live = true),
+            100,
+            null
+        )
+        return gps
+    }
+
+    private fun inferredRelativeChange(score: Int, liveSport: Boolean): Int =
+        if (liveSport) ((score - 7) / 12.0 * 100).roundToInt()
+        else {
+            val ratio = kotlin.math.exp((score - 7) / 11.0)
+            ((ratio - 1) * 100).roundToInt()
+        }
+
+    private fun gpsComparable(session: Entry, all: List<Entry>, zone: ZoneId): List<Entry>? {
         val current = session.json
         val sport = current.optString("liveSportID").takeIf { it.isNotBlank() && it != "null" }
             ?: return null
@@ -86,6 +165,39 @@ internal object SessionScoreProgress {
                 abs(meters - distance) / distance <= 0.20
         }
         if (comparable.map { it.finished.atZone(zone).toLocalDate() }.distinct().size < 2) return null
+        return comparable
+    }
+
+    private fun gpsReferenceDays(session: Entry, all: List<Entry>, zone: ZoneId): Int? =
+        gpsComparable(session, all, zone)
+            ?.map { it.finished.atZone(zone).toLocalDate() }
+            ?.distinct()
+            ?.size
+
+    private fun gpsEffort(
+        session: Entry, all: List<Entry>, zone: ZoneId
+    ): SessionScoreEffortGlance? {
+        val comparable = gpsComparable(session, all, zone) ?: return null
+        val distance = session.json.optDouble("recordedDistanceMeters")
+        val seconds = session.json.optDouble("activeDurationSeconds")
+        val speeds = comparable.map {
+            it.json.optDouble("recordedDistanceMeters") / it.json.optDouble("activeDurationSeconds")
+        }.sorted()
+        val baseline = speeds[speeds.size / 2]
+        if (baseline <= 0) return null
+        val relativePace = (distance / seconds) / baseline
+        val days = comparable.map { it.finished.atZone(zone).toLocalDate() }.distinct().size
+        return SessionScoreEffortGlance(
+            relativeChangePercent = ((relativePace - 1) * 100).roundToInt(),
+            coveragePercent = 100,
+            referenceDays = days
+        )
+    }
+
+    private fun gpsScore(session: Entry, all: List<Entry>, zone: ZoneId): Double? {
+        val comparable = gpsComparable(session, all, zone) ?: return null
+        val distance = session.json.optDouble("recordedDistanceMeters")
+        val seconds = session.json.optDouble("activeDurationSeconds")
         val speeds = comparable.map {
             it.json.optDouble("recordedDistanceMeters") / it.json.optDouble("activeDurationSeconds")
         }.sorted()

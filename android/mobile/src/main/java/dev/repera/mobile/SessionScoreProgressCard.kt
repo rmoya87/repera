@@ -16,8 +16,6 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.*
 import java.time.LocalDate
-import java.time.Instant
-import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -40,7 +38,7 @@ internal fun SessionScoreProgressCard(
     today: LocalDate = LocalDate.now(),
     confidenceLabel: String? = null,
     latestActivity: String? = null,
-    recordedSessions: Int = 0,
+    effort: SessionScoreEffortGlance? = null,
     recentWorkouts: List<RecentWorkoutPlot> = emptyList()
 ) {
     val values = points.sortedBy { it.day }
@@ -72,7 +70,7 @@ internal fun SessionScoreProgressCard(
             ) {
                 if (!preview && latestActivity != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("Última actividad registrada",
+                        Text("Actividad",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(latestActivity,
@@ -91,12 +89,23 @@ internal fun SessionScoreProgressCard(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(9.dp)
                     ) {
-                        TrendScoreMetric("Última nota verificada",
-                            values.lastOrNull()?.let { "${it.value.roundToInt()}/10" } ?: "—")
-                        TrendScoreMetric("Mejor nota",
-                            values.maxOfOrNull { it.value }?.let { "${it.roundToInt()}/10" } ?: "—")
-                        TrendScoreMetric("Días evaluados", "${values.size}")
-                        if (!preview) TrendScoreMetric("Entrenos registrados", recordedSessions.toString())
+                        val glance = if (preview) {
+                            SessionScoreEffortGlance(5, 80, 4)
+                        } else effort
+                        TrendScoreMetric(
+                            "Rendimiento",
+                            glance?.relativeChangePercent?.let { pct ->
+                                if (pct > 0) "+$pct %" else "$pct %"
+                            } ?: "—"
+                        )
+                        TrendScoreMetric(
+                            "Cobertura",
+                            glance?.coveragePercent?.let { "$it %" } ?: "—"
+                        )
+                        TrendScoreMetric(
+                            "Referencias",
+                            glance?.referenceDays?.takeIf { it > 0 }?.toString() ?: "—"
+                        )
                     }
                     Box(
                         Modifier.size(112.dp).semantics {
@@ -274,7 +283,7 @@ private fun TrendScoreMetric(title: String, value: String) {
 }
 
 /** Siete sesiones (no siete días): sin huecos por descanso ni puntuaciones inventadas.
- * La altura es duración en minutos y la etiqueta de nota es secundaria. */
+ * La altura es duración en minutos; sin títulos ni pies de texto alrededor. */
 @Composable
 private fun SevenRecentWorkoutDurationChart(
     recent: List<RecentWorkoutPlot>,
@@ -282,23 +291,12 @@ private fun SevenRecentWorkoutDurationChart(
     rule: Color
 ) {
     var selectedIndex by remember(recent) { mutableIntStateOf(recent.lastIndex) }
-    val chosen = recent[selectedIndex.coerceIn(0, recent.lastIndex)]
     val peak = (recent.mapNotNull { it.minutes }.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
-    val time = Instant.ofEpochMilli(chosen.finishedMillis)
-        .atZone(ZoneId.systemDefault()).toLocalDate()
-        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES")))
-    val details = (chosen.minutes?.let { "${it.roundToInt()} min" } ?: "duración sin dato") +
-        (chosen.verifiedScore?.let { " · Nota verificada ${it}/10" } ?: " · Sin nota comparable")
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Últimos ${recent.size} entrenos", style = MaterialTheme.typography.labelMedium)
-            Text("Duración · minutos", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
         Canvas(
             Modifier.fillMaxWidth().height(180.dp).testTag("recent_workouts_plot")
                 .semantics {
-                    contentDescription = "Últimos ${recent.size} entrenos, duración en minutos; la nota se indica por separado"
+                    contentDescription = "Últimos ${recent.size} entrenos por duración"
                     customActions = listOf(
                         CustomAccessibilityAction("Entreno anterior") {
                             selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
@@ -340,26 +338,27 @@ private fun SevenRecentWorkoutDurationChart(
                         center = Offset(centerX, bottom))
                 }
                 if (selectedIndex == index) {
-                    drawLine(rule.copy(alpha = 0.65f), Offset(centerX, 0f),
-                        Offset(centerX, size.height), 1.dp.toPx(),
+                    drawLine(
+                        rule.copy(alpha = 0.65f),
+                        Offset(centerX, 0f),
+                        Offset(centerX, size.height),
+                        1.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(
                             floatArrayOf(3.dp.toPx(), 4.dp.toPx())
                         )
+                    )
                 }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             recent.indices.forEach { index ->
-                Text((index + 1).toString(), style = MaterialTheme.typography.labelSmall,
+                Text(
+                    (index + 1).toString(),
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (index == selectedIndex) accent
-                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-        Text(chosen.title, style = MaterialTheme.typography.labelMedium)
-        Text(time + " · " + details, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Cada barra representa un entrenamiento real; los minutos no son la nota de esfuerzo.",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

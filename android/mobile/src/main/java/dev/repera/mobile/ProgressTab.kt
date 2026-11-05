@@ -234,11 +234,6 @@ internal fun ProgressTab(
     }
     val realWorkoutsToday = ((overview?.dayWorkoutCounts?.get(today) ?: 0) -
         (timerCountsByDay[today] ?: 0)).coerceAtLeast(0)
-    val realWorkoutsInRange = overview?.dayWorkoutCounts.orEmpty()
-        .filterKeys { rangeEnum.contains(it, today, monday) }
-        .entries.sumOf { (day, count) ->
-            (count - (timerCountsByDay[day] ?: 0)).coerceAtLeast(0)
-        }
     // Series reales de HC (siempre en overview); las teasers gratis van aparte en preparedCharts.
     val realHeartCharts = overview?.chartsByRange?.get(ProgressTimeRange.WEEK.wire)
     val heartWeekPoints = realHeartCharts?.heartRate.orEmpty().filter {
@@ -347,7 +342,7 @@ internal fun ProgressTab(
                                     monday = monday,
                                     confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null,
                                     latestActivity = latestActivityTitle,
-                                    recordedSessions = realWorkoutsInRange,
+                                    effort = if (pro) overview?.sessionScoreEffortByRange?.get(selectedRange) else null,
                                     recentWorkouts = recentWorkoutBars
                                 )
                             },
@@ -458,15 +453,6 @@ internal fun ProgressTab(
                     item {
                         val period = "últimos 7 días"
                         val strengthBars = strengthDailyBarFractions(snapshot.hubDailyVolumeKg)
-                        val todayPrs = overview?.completeHistory.orEmpty().sumOf { entry ->
-                            val day = entry.finishedAtIso?.let {
-                                runCatching { java.time.Instant.parse(it) }.getOrNull()
-                            }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
-                            if (day == today) overview?.prCountBySessionId?.get(entry.id) ?: 0 else 0
-                        }
-                        val todaySummary = "Hoy " + realWorkoutsToday +
-                            " ses. · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
-                            " kg · " + todayPrs + " PR"
                         ProgressSaludInsightCard(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
@@ -480,9 +466,7 @@ internal fun ProgressTab(
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
                             heroCaption = when {
                                 snapshot.summary.volumeKg > 0 ->
-                                    snapshot.summary.volumeKg.toInt().toString() + " kg / 7 d\n" +
-                                        todaySummary
-                                realWorkoutsToday > 0 -> todaySummary
+                                    snapshot.summary.volumeKg.toInt().toString() + " kg / 7 d"
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
                             },
@@ -929,27 +913,49 @@ internal fun ProgressTab(
                 }
                 if (improved > 0) {
                     item {
+                        // Mismo héroe grande que «Este mes · Resumen por actividad».
+                        val heroStyle = MaterialTheme.typography.displayLarge.copy(fontSize = 48.sp)
                         ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(
                                     Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.Top
                                 ) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Outlined.FitnessCenter, null, tint = ProgressCategory.STRENGTH.accent)
+                                    Row(
+                                        Modifier.weight(1f),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.FitnessCenter,
+                                            null,
+                                            tint = ProgressCategory.STRENGTH.accent,
+                                            modifier = Modifier.padding(top = 2.dp).size(22.dp)
+                                        )
                                         Text(
                                             "Progresión en ejercicios",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = ProgressCategory.STRENGTH.accent
+                                            style = MaterialTheme.typography.titleLarge,
+                                            color = ProgressCategory.STRENGTH.accent,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                                         )
                                     }
-                                    Text(
-                                        "$improved al alza",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                        color = ProgressCategory.STRENGTH.accent
-                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            "$improved",
+                                            style = heroStyle,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                        Text(
+                                            "al alza",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                    }
                                 }
                                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                     progressRows.forEach { (id, summary) ->

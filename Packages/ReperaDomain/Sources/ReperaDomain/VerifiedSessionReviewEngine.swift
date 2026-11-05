@@ -14,6 +14,8 @@ public enum VerifiedSessionReviewEngine {
         let referenceCount: Int
         let explanation: String
         let tier: Int
+        /// Ratio actual/mediana personal (>1 por encima).
+        let ratio: Double
     }
 
     public static func review(
@@ -67,6 +69,8 @@ public enum VerifiedSessionReviewEngine {
         let totalWeight = eligible.reduce(0.0) { $0 + $1.weight }
         guard totalWeight > 0 else { return nil }
         let score = min(10, max(1, Int((weighted / totalWeight).rounded())))
+        let weightedRatio = eligible.reduce(0.0) { $0 + $1.ratio * $1.weight } / totalWeight
+        let relativeChange = Int(((weightedRatio - 1) * 100).rounded())
 
         func average(_ values: [Evidence]) -> Int? {
             guard !values.isEmpty else { return nil }
@@ -138,7 +142,9 @@ public enum VerifiedSessionReviewEngine {
             scoreBasis: .personalHistory,
             indicators: indicators,
             evidenceCoverage: coverage,
-            confidenceLabel: confidence
+            confidenceLabel: confidence,
+            relativeChangePercent: relativeChange,
+            referenceDays: minReferences
         )
     }
 
@@ -183,6 +189,7 @@ public enum VerifiedSessionReviewEngine {
         // 7/10 means maintaining the comparable personal median. No attempt
         // is made to infer athlete health, effort or fitness from route length.
         let score = min(10, max(1, Int((7 + (relativePace - 1) * 12).rounded())))
+        let relativeChange = Int(((relativePace - 1) * 100).rounded())
         return SessionReview(
             overallScore: score,
             headline: "Rendimiento personal · \(score)/10",
@@ -191,7 +198,9 @@ public enum VerifiedSessionReviewEngine {
             keepTips: ["Solo se comparan intentos del mismo deporte."],
             scoreBasis: .personalHistory,
             evidenceCoverage: 1,
-            confidenceLabel: distinctDays.count >= 5 ? "Alta" : "Media · historial personal"
+            confidenceLabel: distinctDays.count >= 5 ? "Alta" : "Media · historial personal",
+            relativeChangePercent: relativeChange,
+            referenceDays: distinctDays.count
         )
     }
 
@@ -317,7 +326,8 @@ public enum VerifiedSessionReviewEngine {
             weight: tier == 1 ? 5 : 3,
             referenceCount: days.count,
             explanation: "\(prefix) · \(entry.exercise.name): \(signedChange(ratio)) respecto a \(days.count) días anteriores",
-            tier: tier
+            tier: tier,
+            ratio: ratio
         )
     }
 
@@ -362,7 +372,8 @@ public enum VerifiedSessionReviewEngine {
             score: points(ratio: ratio), weight: minutes,
             referenceCount: refs.count,
             explanation: "Nivel 1 · \(currentBlock.title): \(signedChange(ratio)) frente a \(refs.count) marcas idénticas",
-            tier: 1
+            tier: 1,
+            ratio: ratio
         )
     }
 
@@ -417,7 +428,8 @@ public enum VerifiedSessionReviewEngine {
             weight: max(1, min(12, minutes)) * 0.5,
             referenceCount: priorDays.count,
             explanation: "Nivel 3 · estímulo comparable · \(signedChange(ratio)) de densidad de reps, \(priorDays.count) días calibrados (mismos movimientos y cargas)",
-            tier: 3
+            tier: 3,
+            ratio: ratio
         )
     }
 

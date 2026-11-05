@@ -190,6 +190,10 @@ public struct SessionReview: Codable, Sendable, Hashable {
     /// Peso de bloques con historial comparable sobre todos los bloques evaluables.
     public var evidenceCoverage: Double?
     public var confidenceLabel: String?
+    /// Cambio % vs mediana personal (positivo = por encima). Defiende la nota.
+    public var relativeChangePercent: Int?
+    /// Días previos usados como referencia (mínimo entre evidencias elegibles).
+    public var referenceDays: Int?
 
     public init(
         overallScore: Int,
@@ -204,7 +208,9 @@ public struct SessionReview: Codable, Sendable, Hashable {
         scoreBasis: ScoreBasis? = nil,
         indicators: [ReviewIndicator] = [],
         evidenceCoverage: Double? = nil,
-        confidenceLabel: String? = nil
+        confidenceLabel: String? = nil,
+        relativeChangePercent: Int? = nil,
+        referenceDays: Int? = nil
     ) {
         self.overallScore = min(10, max(1, overallScore))
         self.level = level
@@ -219,6 +225,8 @@ public struct SessionReview: Codable, Sendable, Hashable {
         self.indicators = indicators
         self.evidenceCoverage = evidenceCoverage
         self.confidenceLabel = confidenceLabel
+        self.relativeChangePercent = relativeChangePercent
+        self.referenceDays = referenceDays
     }
 
     public var levelLabel: String? { level?.label }
@@ -241,6 +249,7 @@ public struct SessionReview: Codable, Sendable, Hashable {
         case overallScore, level, headline, vsHistorySummary, vsStandardSummary
         case keepTips, improveTips, movements, wodTemplateId, scoreBasis
         case indicators, evidenceCoverage, confidenceLabel
+        case relativeChangePercent, referenceDays
     }
 
     public init(from decoder: Decoder) throws {
@@ -258,5 +267,7 @@ public struct SessionReview: Codable, Sendable, Hashable {
         indicators = try c.decodeIfPresent([ReviewIndicator].self, forKey: .indicators) ?? []
         evidenceCoverage = try c.decodeIfPresent(Double.self, forKey: .evidenceCoverage)
         confidenceLabel = try c.decodeIfPresent(String.self, forKey: .confidenceLabel)
+        relativeChangePercent = try c.decodeIfPresent(Int.self, forKey: .relativeChangePercent)
+        referenceDays = try c.decodeIfPresent(Int.self, forKey: .referenceDays)
     }
 }

@@ -178,7 +178,11 @@ data class SessionReview private constructor(
     val scoreBasis: ScoreBasis? = null,
     val indicators: List<ReviewIndicator> = emptyList(),
     val evidenceCoverage: Double? = null,
-    val confidenceLabel: String? = null
+    val confidenceLabel: String? = null,
+    /** Cambio % vs mediana personal (positivo = por encima). */
+    val relativeChangePercent: Int? = null,
+    /** Días previos usados como referencia. */
+    val referenceDays: Int? = null
 ) {
     val levelLabel: String? get() = level?.label
     val scoreLabel: String get() = "$overallScore/10"
@@ -197,11 +201,14 @@ data class SessionReview private constructor(
             scoreBasis: ScoreBasis? = null,
             indicators: List<ReviewIndicator> = emptyList(),
             evidenceCoverage: Double? = null,
-            confidenceLabel: String? = null
+            confidenceLabel: String? = null,
+            relativeChangePercent: Int? = null,
+            referenceDays: Int? = null
         ) = SessionReview(
             overallScore.coerceIn(1, 10), level, headline, vsHistorySummary,
             vsStandardSummary, keepTips, improveTips, movements, wodTemplateId,
-            scoreBasis, indicators, evidenceCoverage, confidenceLabel)
+            scoreBasis, indicators, evidenceCoverage, confidenceLabel,
+            relativeChangePercent, referenceDays)
     }
 }
 

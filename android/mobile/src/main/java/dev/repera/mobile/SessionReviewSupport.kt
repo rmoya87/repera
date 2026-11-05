@@ -13,7 +13,7 @@ import org.json.JSONObject
  */
 object SessionReviewSupport {
     /** Versión de la fórmula de Resultado; al subir, se recalculan todas las notas. */
-    const val FORMULA_VERSION = 11
+    const val FORMULA_VERSION = 14
     const val PREFS_VERSION_KEY = "sessionReviewFormulaVersion"
     const val PREFS_PENDING_KEY = "pendingReviewSessionId"
 

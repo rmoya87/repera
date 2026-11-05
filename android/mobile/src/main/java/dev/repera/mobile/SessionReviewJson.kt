@@ -70,6 +70,8 @@ object SessionReviewJson {
         })
         review.evidenceCoverage?.let { obj.put("evidenceCoverage", it) }
         review.confidenceLabel?.let { obj.put("confidenceLabel", it) }
+        review.relativeChangePercent?.let { obj.put("relativeChangePercent", it) }
+        review.referenceDays?.let { obj.put("referenceDays", it) }
         return obj
     }
 
@@ -120,7 +122,11 @@ object SessionReviewJson {
             },
             evidenceCoverage = if (obj.has("evidenceCoverage") && !obj.isNull("evidenceCoverage"))
                 obj.getDouble("evidenceCoverage") else null,
-            confidenceLabel = obj.optString("confidenceLabel").takeIf { it.isNotBlank() }
+            confidenceLabel = obj.optString("confidenceLabel").takeIf { it.isNotBlank() },
+            relativeChangePercent = if (obj.has("relativeChangePercent") && !obj.isNull("relativeChangePercent"))
+                obj.getInt("relativeChangePercent") else null,
+            referenceDays = if (obj.has("referenceDays") && !obj.isNull("referenceDays"))
+                obj.getInt("referenceDays") else null
         )
     }.getOrNull()
 

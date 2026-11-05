@@ -611,8 +611,8 @@ struct StatsView: View {
                 value: prCount > 0 ? "\(prCount)" : "—",
                 unit: prCount > 0 ? "PR" : nil,
                 caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg / 7 d\n\(strengthTodaySummary)"
-                    : strengthTodaySummary,
+                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg / 7 d"
+                    : nil,
                 valuePointSize: 64,
                 chartHeight: 118,
                 chartBesideTitle: true
@@ -742,23 +742,6 @@ struct StatsView: View {
             health.recentExternalActivities, workouts: store.state.workouts
         ).filter { Calendar.current.isDate($0.end, inSameDayAs: today) }.count
         return logged + external
-    }
-
-    /// Las marcas de hoy son PR realmente superados, no el primer registro
-    /// de cada ejercicio ni los mejores pesos históricos sin cambio.
-    private var personalRecordsToday: Int {
-        let counts = store.cachedPersonalRecordCountsBySession()
-        let today = Date()
-        return store.state.workouts.reduce(0) { total, session in
-            guard let ended = session.finishedAt,
-                  Calendar.current.isDate(ended, inSameDayAs: today) else { return total }
-            return total + (counts[session.id] ?? 0)
-        }
-    }
-
-    private var strengthTodaySummary: String {
-        let kilos = Int((strengthDailyVolumeLast7.last ?? 0).rounded())
-        return "Hoy \(trainingSessionsToday) ses. · \(kilos) kg · \(personalRecordsToday) PR"
     }
 
     private var strengthInsightCopy: String {
@@ -1075,31 +1058,58 @@ struct StatsView: View {
         }
         .buttonStyle(.plain)
         if improved > 0 {
-            // Título a la izquierda, «N al alza» a la derecha; sin héroe grande ni narrativa larga.
-            ProgressInsightCard(
-                title: "Progresión en ejercicios",
-                systemImage: "arrow.up.right",
-                narrative: "",
-                tint: ProgressCategory.strength.accent,
-                trailingText: "\(improved) al alza"
-            ) {
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(exerciseProgressDeltas.prefix(5).enumerated()), id: \.element.id) { _, row in
-                        let pct = Int(((row.ratio - 1) * 100).rounded())
-                        HStack {
-                            Text(row.name)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(OG.label)
-                                .lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text("+\(pct)%")
-                                .font(.subheadline.weight(.semibold))
+            // Mismo patrón de héroe grande que «Este mes · Resumen por actividad».
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.title3.weight(.semibold))
                                 .foregroundStyle(ProgressCategory.strength.accent)
+                                .symbolRenderingMode(.hierarchical)
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
+                                .accessibilityHidden(true)
+                            Text("Progresión en ejercicios")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(ProgressCategory.strength.accent)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("\(improved)")
+                                .ogFont(52, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                                .monospacedDigit()
+                                .foregroundStyle(OG.label)
+                                .minimumScaleFactor(0.55)
+                                .lineLimit(1)
+                            Text("al alza")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label2)
+                                .lineLimit(1)
                         }
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Progresión en ejercicios, \(improved) al alza")
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(Array(exerciseProgressDeltas.prefix(5).enumerated()), id: \.element.id) { _, row in
+                            let pct = Int(((row.ratio - 1) * 100).rounded())
+                            HStack {
+                                Text(row.name)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(OG.label)
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text("+\(pct)%")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(ProgressCategory.strength.accent)
+                            }
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Mejoras de e1RM por ejercicio")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Mejoras de e1RM por ejercicio")
             }
         }
         sportsMonthSummaryCard
@@ -2240,96 +2250,90 @@ private struct ProgressSessionScoreChartCard: View {
                 height: 205, yRange: 0.0...10.0
             )
         } else {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Últimos \(recent.count) entrenos")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                    Spacer()
-                    Text("Duración · minutos")
-                        .font(.caption2)
-                        .foregroundStyle(OG.label2)
-                }
-                Chart {
-                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
-                        if let minutes = item.durationMinutes {
-                            BarMark(
-                                x: .value("Entreno", index + 1),
-                                y: .value("Duración", minutes),
-                                width: .ratio(0.64)
-                            )
-                            .foregroundStyle(OG.accent)
-                            .cornerRadius(4)
-                            .accessibilityLabel("\(item.title), \(Int(minutes.rounded())) minutos")
-                            .annotation(position: .top, spacing: 2) {
-                                if let score = item.verifiedScore {
-                                    Text("\(score)/10")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(OG.label)
-                                }
+            Chart {
+                ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
+                    if let minutes = item.durationMinutes {
+                        BarMark(
+                            x: .value("Entreno", index + 1),
+                            y: .value("Duración", minutes),
+                            width: .ratio(0.64)
+                        )
+                        .foregroundStyle(OG.accent)
+                        .cornerRadius(4)
+                        .accessibilityLabel("\(item.title), \(Int(minutes.rounded())) minutos")
+                        .annotation(position: .top, spacing: 2) {
+                            if let score = item.verifiedScore {
+                                Text("\(score)/10")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(OG.label)
                             }
-                        } else {
-                            PointMark(
-                                x: .value("Entreno", index + 1),
-                                y: .value("Duración sin dato", 0)
-                            )
-                            .symbolSize(40)
-                            .foregroundStyle(OG.label3)
                         }
+                    } else {
+                        PointMark(
+                            x: .value("Entreno", index + 1),
+                            y: .value("Duración sin dato", 0)
+                        )
+                        .symbolSize(40)
+                        .foregroundStyle(OG.label3)
                     }
                 }
-                .chartXSelection(value: $selectedRecentWorkoutIndex)
-                .chartXScale(domain: 0...max(2, recent.count + 1))
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
-                        AxisValueLabel()
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks(values: Array(1...recent.count))
-                }
-                .frame(height: 180)
-                let index = (selectedRecentWorkoutIndex ?? recent.count) - 1
-                let chosen = recent.indices.contains(index) ? recent[index] : recent[recent.count - 1]
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(chosen.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                        .lineLimit(2)
-                    Text(
-                        "\(chosen.finishedAt.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale))) · " +
-                        (chosen.durationMinutes.map { "\(Int($0.rounded())) min" } ?? "duración sin dato") +
-                        (chosen.verifiedScore.map { " · Nota verificada \($0)/10" } ?? " · Sin nota comparable")
-                    )
-                    .font(.caption2)
-                    .foregroundStyle(OG.label2)
-                }
-                Text("Cada barra es un entrenamiento real. Su altura refleja minutos, no una nota de esfuerzo.")
-                    .font(.caption2)
-                    .foregroundStyle(OG.label3)
             }
+            .chartXSelection(value: $selectedRecentWorkoutIndex)
+            .chartXScale(domain: 0...max(2, recent.count + 1))
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
+                    AxisValueLabel()
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: Array(1...recent.count))
+            }
+            .frame(height: 180)
+            .accessibilityLabel("Últimos \(recent.count) entrenos por duración")
         }
-    }
-
-    private var registeredSessionsInRange: Int {
-        workouts.filter {
-            guard let finished = $0.finishedAt, $0.timerDetails == nil else { return false }
-            return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
-        }.count + externalActivities.filter {
-            range.contains($0.end, weekStartsOnMonday: weekStartsOnMonday)
-        }.count
     }
 
     private var latestConfidenceLabel: String? {
-        let rated = workouts.filter {
-            guard let finished = $0.finishedAt, $0.sessionReview?.scoreBasis == .personalHistory else { return false }
+        latestVerifiedReviewSession?.sessionReview?.confidenceLabel
+    }
+
+    /// Última sesión del periodo con nota personal verificada (defiende el anillo).
+    private var latestVerifiedReviewSession: WorkoutSession? {
+        workouts.filter {
+            guard let finished = $0.finishedAt, $0.timerDetails == nil,
+                  $0.sessionReview?.scoreBasis == .personalHistory else { return false }
             return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
-        }
-        guard let latest = rated.max(by: {
+        }.max(by: {
             ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
-        }) else { return nil }
-        return latest.sessionReview?.confidenceLabel
+        })
+    }
+
+    private var latestEffortGlance: (relative: String, coverage: String, references: String) {
+        if isTeaserPreview {
+            return ("+5 %", "80 %", "4")
+        }
+        guard let review = latestVerifiedReviewSession?.sessionReview else {
+            return ("—", "—", "—")
+        }
+        let relative: String = {
+            guard let pct = review.relativeChangePercent else { return "—" }
+            return pct > 0 ? "+\(pct) %" : "\(pct) %"
+        }()
+        let coverage: String = {
+            guard let raw = review.evidenceCoverage else { return "—" }
+            return "\(Int((raw * 100).rounded())) %"
+        }()
+        let references: String = {
+            if let days = review.referenceDays, days > 0 { return "\(days)" }
+            let fromIndicators = review.indicators
+                .filter { $0.score != nil }
+                .map(\.referenceSessions)
+                .filter { $0 > 0 }
+                .min()
+            return fromIndicators.map(String.init) ?? "—"
+        }()
+        return (relative, coverage, references)
     }
 
     @ViewBuilder
@@ -2337,10 +2341,11 @@ private struct ProgressSessionScoreChartCard: View {
         let values = points
         let average = values.isEmpty ? nil :
             Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
+        let effort = latestEffortGlance
         VStack(alignment: .leading, spacing: 12) {
             if !isTeaserPreview, let latest = latestActivity {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Última actividad registrada")
+                    Text("Actividad")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(OG.label2)
                     Text(latest.title)
@@ -2360,23 +2365,14 @@ private struct ProgressSessionScoreChartCard: View {
                     }
                     .font(.caption2)
                     .foregroundStyle(OG.label2)
-                    if !latest.hasVerifiedScore {
-                        Text("Registrada en tu histórico · sin nota comparable todavía")
-                            .font(.caption2)
-                            .foregroundStyle(OG.label2)
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 9) {
-                    scoreMetric("Última nota verificada", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
-                    scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
-                    scoreMetric("Días evaluados", value: "\(values.count)")
-                    scoreMetric(
-                        "Entrenos registrados",
-                        value: isTeaserPreview ? "—" : "\(registeredSessionsInRange)"
-                    )
+                    scoreMetric("Rendimiento", value: effort.relative)
+                    scoreMetric("Cobertura", value: effort.coverage)
+                    scoreMetric("Referencias", value: effort.references)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
