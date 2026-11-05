@@ -4058,7 +4058,10 @@ struct LiveActivityView: View {
                 session.routineId = routine.id
                 session.exercises = prescribed.exercises
                 session.routineBlocks = prescribed.routineBlocks
-                session.phase = .ready
+                // A finished recording remains FINISHED even while the
+                // athlete still needs to enter/confirm prescribed results.
+                // .ready with finishedAt made Home and review flows disagree.
+                session.phase = .finished
                 session.awaitingResultEntry = true
             }
             if editAfterSave {
