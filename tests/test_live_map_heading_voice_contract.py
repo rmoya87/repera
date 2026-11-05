@@ -49,6 +49,8 @@ class LiveMapHeadingVoiceContracts(unittest.TestCase):
         self.assertIn("false, options: .notifyOthersOnDeactivation", LIVE)
         self.assertIn("speechSynthesizer.stopSpeaking(at: .immediate)", LIVE)
         self.assertIn("speechSynthesizer.speak(phrase)", LIVE)
+        self.assertIn("LiveNavigationAudioLease.shared.setActive(true)", LIVE)
+        self.assertIn("LiveNavigationAudioLease.shared.setActive(false)", LIVE)
         self.assertIn("notifyDuringBackground(", LIVE)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", LIVE)
         self.assertIn("if modes.contains(\"location\")", TRACKER)
