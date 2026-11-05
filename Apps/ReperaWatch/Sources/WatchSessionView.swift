@@ -1,3 +1,4 @@
+import Foundation
 import ReperaDomain
 import SwiftUI
 import WatchKit
@@ -1682,6 +1683,7 @@ private struct WatchActivityCancelOverlay: View {
 private struct WatchLiveNavigationPage: View {
     let instruction: String
     let distanceMeters: Int?
+    @State private var alreadyWarnedAboutThisTurn = false
 
     private var symbol: String {
         if instruction.localizedStandardContains("izquierda") { return "arrow.turn.up.left" }
@@ -1725,6 +1727,18 @@ private struct WatchLiveNavigationPage: View {
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
+        .onChange(of: instruction) { _, _ in
+            alreadyWarnedAboutThisTurn = false
+        }
+        .onChange(of: distanceMeters) { previous, current in
+            guard let current else { return }
+            if current > 150 { alreadyWarnedAboutThisTurn = false }
+            if let previous, previous > 100, current <= 100,
+               !alreadyWarnedAboutThisTurn {
+                alreadyWarnedAboutThisTurn = true
+                WKInterfaceDevice.current().play(.directionUp)
+            }
+        }
     }
 }
 
