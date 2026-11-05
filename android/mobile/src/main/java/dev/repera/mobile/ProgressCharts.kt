@@ -502,29 +502,27 @@ internal fun DayPointLineChart(
                             else inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
                         drawLine(line.copy(alpha=0.12f),Offset(gridX,0f),Offset(gridX,size.height),0.5.dp.toPx())
                     }
-                    // Separar días sin dato, nunca interpolar a través del vacío.
-                    val curves = observedSegments(points) { i -> ReadinessCurve.Point(x(i), y(points[i].value)) }
-                    // Gradient is anchored to the score axis, not sample order.
+                    // Solo días con nota: trazo continuo entre puntos observados
+                    // (sin romper la línea por huecos de calendario).
+                    val group = points.indices.map { i -> ReadinessCurve.Point(x(i), y(points[i].value)) }
                     val brush=androidx.compose.ui.graphics.Brush.verticalGradient(
                         0f to line,0.16f to line,
                         0.28f to Color(0xFFFFD60A),0.40f to Color(0xFFFFD60A),
                         0.60f to Color(0xFFFF453A),1f to Color(0xFFFF453A),
                         startY=y(10.0),endY=y(0.0))
                     clipRect {
-                        curves.forEach { group ->
-                            val curve = Path()
-                            curve.moveTo(group.first().x, group.first().y)
-                            ReadinessCurve.segments(group).forEach { c ->
-                                curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)
-                            }
-                            if (group.size > 1) {
-                                drawPath(curve,brush=if(readinessGradient) brush else androidx.compose.ui.graphics.SolidColor(line),style=Stroke(width=3.dp.toPx(),
-                                    cap=androidx.compose.ui.graphics.StrokeCap.Round,
-                                    join=androidx.compose.ui.graphics.StrokeJoin.Round))
-                            }
-                            group.forEach { point ->
-                                drawCircle(color = line, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
-                            }
+                        val curve = Path()
+                        curve.moveTo(group.first().x, group.first().y)
+                        ReadinessCurve.segments(group).forEach { c ->
+                            curve.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)
+                        }
+                        if (group.size > 1) {
+                            drawPath(curve,brush=if(readinessGradient) brush else androidx.compose.ui.graphics.SolidColor(line),style=Stroke(width=3.dp.toPx(),
+                                cap=androidx.compose.ui.graphics.StrokeCap.Round,
+                                join=androidx.compose.ui.graphics.StrokeJoin.Round))
+                        }
+                        group.forEach { point ->
+                            drawCircle(color = line, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
                         }
                     }
                 } else if(weightStyle) {

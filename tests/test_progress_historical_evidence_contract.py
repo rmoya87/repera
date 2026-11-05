@@ -28,8 +28,8 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn('externalActivities.max { $0.end < $1.end }', ui)
         self.assertIn('Text("Actividad")', summary)
         self.assertIn('scoreMetric("Rendimiento"', summary)
-        self.assertIn('scoreMetric("Cobertura"', summary)
         self.assertIn('scoreMetric("Referencias"', summary)
+        self.assertNotIn('scoreMetric("Cobertura"', summary)
         self.assertNotIn('"Última nota verificada"', summary)
         self.assertNotIn('"Mejor nota"', summary)
         self.assertNotIn('"Entrenos registrados"', summary)
@@ -44,8 +44,8 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn('effort = if (pro) overview?.sessionScoreEffortByRange', tab)
         self.assertIn('Text("Actividad"', card)
         self.assertIn('TrendScoreMetric(\n                            "Rendimiento"', card)
-        self.assertIn('TrendScoreMetric(\n                            "Cobertura"', card)
         self.assertIn('TrendScoreMetric(\n                            "Referencias"', card)
+        self.assertNotIn('TrendScoreMetric(\n                            "Cobertura"', card)
         self.assertNotIn('Última nota verificada', card)
         self.assertIn('dropNativeOverlaps(it, localStats)', read("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt"))
 
@@ -62,31 +62,32 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
     def test_sleep_fills_plot_and_shows_hour_guides(self):
         ios = read("Apps/Repera/Sources/HealthRecovery.swift")
         sleep = ios.split('private func sleepNightCard(', 1)[1].split('private func phaseDistributionBar(', 1)[0]
-        self.assertIn('startPadding: 0, endPadding: 0', sleep)
-        self.assertIn('RuleMark(y: .value("Referencia en horas"', sleep)
-        self.assertNotIn('.padding(10)', sleep)
+        self.assertIn('startPadding: 8, endPadding: 8', sleep)
+        self.assertIn('Text("\\(Int(hour)) h")', sleep)
+        self.assertIn('selected.hours)) h · \\(selected.date.formatted', sleep)
+        self.assertNotIn('.chartYAxis(.hidden)', sleep)
+        self.assertNotIn('.chartXAxis(.hidden)', sleep)
         android = read("android/mobile/src/main/java/dev/repera/mobile/RecoverySleepChart.kt")
         self.assertIn('PathEffect.dashPathEffect(', android)
         self.assertIn('hour.toString() + " h"', android)
         self.assertIn('Offset(0f, lineY), Offset(size.width, lineY)', android)
+        self.assertIn('h · ${', android)
 
-    def test_plot_last_seven_sessions_not_last_seven_calendar_days(self):
+    def test_plot_last_seven_scored_sessions_on_0_10_axis(self):
         ios = read("Apps/Repera/Sources/StatsView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
         plot = read("android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt")
         self.assertIn(".prefix(7).reversed()", ios)
-        self.assertIn("private var recentWorkouts: [RecentWorkoutBar]", ios)
-        self.assertIn('y: .value("Duración", minutes)', ios)
-        self.assertIn("if let score = item.verifiedScore", ios)
+        self.assertIn("private var recentScoredWorkouts: [RecentScoredWorkout]", ios)
+        self.assertIn('y: .value("Puntuación", Double(item.verifiedScore))', ios)
+        self.assertIn(".chartYScale(domain: 0.0...10.0)", ios.split("private var sevenWorkoutChart", 1)[1])
         self.assertIn(".take(7).reversed()", android)
         self.assertIn("ScoreBasis.PERSONAL_HISTORY", android)
-        self.assertIn("SevenRecentWorkoutDurationChart(recentWorkouts", plot)
-        self.assertIn("workout.minutes", plot)
-        chart = plot.split("private fun SevenRecentWorkoutDurationChart(", 1)[1]
-        self.assertNotIn('"Últimos ${recent.size} entrenos"', chart)
+        self.assertIn("SevenRecentWorkoutScoreChart(", plot)
+        chart = plot.split("private fun SevenRecentWorkoutScoreChart(", 1)[1]
+        self.assertIn("0 a 10", chart)
         self.assertNotIn("Duración · minutos", chart)
         self.assertNotIn("Sin nota comparable", chart)
-        self.assertNotIn("Cada barra representa", chart)
         # Cada sesión ocupa una posición; no se interpolan días sin sesión.
         self.assertNotIn("ChronoUnit.DAYS", chart)
 
@@ -102,6 +103,28 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertNotIn('todayPrs', android)
         self.assertIn('" kg / 7 d"', android)
         self.assertNotIn('"Hoy " + realWorkoutsToday', android)
+
+    def test_heart_zones_fallback_to_samples_when_zone_group_missing(self):
+        store = read("Apps/Repera/Sources/HealthKitStore.swift")
+        self.assertIn("estimatedHeartZonesFromSamples", store)
+        self.assertIn("Estimado desde tu frecuencia cardíaca", store)
+        self.assertNotIn("guard #available(iOS 27, *) else { return nil }", store.split("func heartZones(for session", 1)[1].split("func overlappingWorkoutWithZones", 1)[0])
+
+    def test_cardio_selection_shows_min_avg_max(self):
+        ios = read("Apps/Repera/Sources/ProgressTrendCards.swift")
+        android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressCardioPlot.kt")
+        self.assertIn("minBpm.rounded())) · \\(Int(selectedPoint.avgBpm.rounded())) · \\(Int(selectedPoint.maxBpm.rounded())) lpm", ios)
+        self.assertIn('Math.round(p.minBpm)+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm"', android)
+
+    def test_recovery_evolution_keeps_continuous_scored_days(self):
+        ios = read("Apps/Repera/Sources/HealthRecovery.swift")
+        android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressCharts.kt")
+        prep = ios.split("private func prepareTrainingRecovery()", 1)[1].split("private var hasCycleData", 1)[0]
+        self.assertIn("segment: 0", prep)
+        self.assertNotIn("segment += 1", prep)
+        readiness = android.split("if(readinessStyle) {", 1)[1].split("} else if(weightStyle)", 1)[0]
+        self.assertIn("Solo días con nota: trazo continuo", readiness)
+        self.assertNotIn("observedSegments(points)", readiness)
 
 
 if __name__ == "__main__":

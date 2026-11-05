@@ -314,18 +314,16 @@ struct ProgressCardioChartCard: View {
 
                             }
                             if let selectedPoint {
-                                PointMark(
-                                    x: .value("Día seleccionado", selectedPoint.date),
-                                    y: .value("lpm", selectedPoint.avgBpm)
-                                )
-                                .symbolSize(0)
-                                .annotation(position: .top, spacing: 6) {
-                                    Text("\(Int(selectedPoint.avgBpm.rounded())) lpm")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(OG.label)
-                                        .padding(5)
-                                        .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                }
+                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    .annotation(position: .top, spacing: 6) {
+                                        Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .padding(5)
+                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                    }
                             }
                         }
                         .chartForegroundStyleScale([
@@ -527,7 +525,7 @@ struct ProgressCaloriesChartCard: View {
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                                     .annotation(position: .top, alignment: .center) {
-                                        Text("\(Int(selectedPoint.value.rounded())) kcal")
+                                        Text("\(Int(selectedPoint.value.rounded())) kcal · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(OG.label)
                                             .padding(5)
@@ -787,7 +785,7 @@ struct ProgressWeightChartCard: View {
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                                     .annotation(position: .top, alignment: .center) {
-                                        Text("\(ReperaNumberFormat.decimal(selectedPoint.weightKg)) kg")
+                                        Text("\(ReperaNumberFormat.decimal(selectedPoint.weightKg)) kg · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(OG.label)
                                             .padding(5)

@@ -629,8 +629,8 @@ struct HealthRecoveryProgressView: View {
             // no exigir una noche de sueño para enumerar los días candidatos.
             let days = Set(nights.map { calendar.startOfDay(for: $0.date) }
                 + vitalHistory.map { calendar.startOfDay(for: $0.date) })
-            var previousScoredDay: Date?
-            var segment = 0
+            // Solo días con nota; un único tramo para que la línea sea siempre continua
+            // (sin romper el trazo por huecos de calendario).
             let points: [TrainingRecoveryPoint] = days.sorted().compactMap { day in
                 guard selectedRange.contains(day, now: now, weekStartsOnMonday: mondayFirst),
                       let morning = calendar.date(
@@ -642,12 +642,7 @@ struct HealthRecoveryProgressView: View {
                         workouts: workouts, vitalHistory: vitalHistory,
                         observedActivities: external
                       ) else { return nil }
-                if let previousScoredDay,
-                   (calendar.dateComponents([.day], from: previousScoredDay, to: day).day ?? 0) > 1 {
-                    segment += 1
-                }
-                previousScoredDay = day
-                return TrainingRecoveryPoint(date: day, score: value.score, segment: segment)
+                return TrainingRecoveryPoint(date: day, score: value.score, segment: 0)
             }
             let todayNight = nights.last {
                 calendar.isDate($0.date, inSameDayAs: now)
@@ -1497,17 +1492,6 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
 
                 Chart {
-                    // Guías discretas y legibles, sin desplazar las mediciones.
-                    ForEach(Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)), id: \.self) { hour in
-                        RuleMark(y: .value("Referencia en horas", Double(hour)))
-                            .foregroundStyle(Color.white.opacity(0.25))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
-                            .annotation(position: .trailing) {
-                                Text("\(hour) h")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundStyle(.white.opacity(0.75))
-                            }
-                    }
                     ForEach(orderedNights) { night in
                         AreaMark(
                             x: .value("Día", night.date),
@@ -1539,7 +1523,7 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(NightSky.glow)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                             .annotation(position: .top) {
-                                Text("\(ReperaNumberFormat.decimal(selected.hours)) h")
+                                Text("\(ReperaNumberFormat.decimal(selected.hours)) h · \(selected.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.white)
                                     .padding(5)
@@ -1550,28 +1534,48 @@ struct HealthRecoveryProgressView: View {
                 .chartXSelection(value: $selectedSleepDate)
                 .chartXScale(
                     domain: xStart...(xEnd > xStart ? xEnd : xStart.addingTimeInterval(86_400)),
-                    range: .plotDimension(startPadding: 0, endPadding: 0)
+                    range: .plotDimension(startPadding: 8, endPadding: 8)
                 )
                 .chartYScale(domain: yLo...yHi)
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: min(5, max(2, orderedNights.count)))) { _ in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
+                            .foregroundStyle(Color.white.opacity(0.18))
+                        AxisValueLabel(
+                            format: Date.FormatStyle()
+                                .day()
+                                .month(.abbreviated)
+                                .locale(SpanishDate.appLocale)
+                        )
+                        .foregroundStyle(Color.white.opacity(0.78))
+                        .font(.system(size: 10, weight: .medium))
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(
+                        position: .leading,
+                        values: Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)).map(Double.init)
+                    ) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4]))
+                            .foregroundStyle(Color.white.opacity(0.25))
+                        AxisValueLabel {
+                            if let hour = value.as(Double.self) {
+                                Text("\(Int(hour)) h")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.white.opacity(0.78))
+                            }
+                        }
+                    }
+                }
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 6)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")
-
-                if orderedNights.count > 1 {
-                    HStack {
-                        Text(xStart.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
-                        Spacer()
-                        Text(xEnd.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))
-                    }
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(OG.label3)
-                }
             }
         }
     }

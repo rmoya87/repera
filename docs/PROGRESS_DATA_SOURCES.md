@@ -1,6 +1,6 @@
 # Progreso y preparación: fuentes verificadas
 
-Última actualización: 2026-11-05 (Entreno esfuerzo: Rendimiento/Cobertura/Referencias).
+Última actualización: 2026-11-05 (Entreno: nota 0–10; sin Cobertura; zonas FC por muestras).
 
 ## Organización del hub (chips, 04/11/2026)
 
@@ -47,7 +47,11 @@ Solo se muestran valoraciones verificadas `scoreBasis == personalHistory`, calcu
 - Fuerza y WOD: mediana de hasta cinco días personales comparables en los últimos 180 días; se exigen al menos **2 días anteriores** en el mismo ejercicio y contexto (o equivalencias conservadoras), y **≥60% de cobertura** de las unidades de rendimiento prescritas. Un estímulo WOD calibrado de otra sesión compatible exige **3 días anteriores**. La nota usa `clamp(round(7 + 11 × ln(actual/referencia)), 1, 10)` con pesos por nivel de evidencia.
 - Salidas GPS desde Comenzar: distancia real de al menos 500 m, tiempo activo y **2 días anteriores** del mismo deporte y distancia comparable (±20%, dentro de los 180 días previos). La mediana personal sirve de referencia.
 - Sin referencias suficientes: **sin nota**, no un cero ni una estimación. Se muestra «Repera está aprendiendo de ti» con los mínimos de **2/3 días comparables**, según el tipo de evaluación.
-- En **Progreso → Entreno**, la tarjeta presenta primero **Actividad** (última terminada entre Repera y Salud/Health Connect: título, duración y FC/kcal reales cuando están disponibles), aunque carezca de nota; después la columna de esfuerzo de la **última sesión con nota verificada**: **Rendimiento** (`±N %` vs mediana personal), **Cobertura** (`N %`) y **Referencias** (días previos). El anillo es la **media** de notas del periodo; la barra de **confianza** es del último entreno evaluable. Sin textos explicativos bajo esas métricas.
+- En **Progreso → Entreno**, la tarjeta presenta primero **Actividad** (última terminada entre Repera y Salud/Health Connect: título, duración y FC/kcal reales cuando están disponibles), aunque carezca de nota; después la columna de esfuerzo de la **última sesión con nota verificada**: **Rendimiento** (`±N %` vs mediana personal) y **Referencias** (días previos). El anillo es la **media** de notas del periodo; la barra de **confianza** es del último entreno evaluable. La gráfica inferior muestra hasta **7 sesiones con nota** en eje **0–10** (no duración en minutos). Sin textos explicativos bajo esas métricas.
+- **Zonas cardíacas (iOS):** si Apple no expone `zoneGroup` del HKWorkout, se estiman tiempos por zona a partir de las **muestras reales de FC** del intervalo del entreno (umbrales 60/70/80/90 % FCmáx, misma regla que Comenzar). Sin muestras de pulso no se inventan zonas.
+- **Recuperación → Evolución:** solo días con nota de preparación; la línea une esos puntos de forma continua (sin cortar el trazo por huecos de calendario).
+- **Sueño:** eje Y con horas (`N h`) y eje X con fechas; al seleccionar una noche se muestra `horas · fecha`.
+- **FC / kcal / peso:** la selección muestra el valor del día (FC = mín · media · máx).
 - La etiqueta histórica «En construcción» no es un nivel de confianza: si la sesión ya tiene nota verificada, se visualiza **Media** (dos a cuatro referencias exactas, sin umbral de Alta); **Alta** exige al menos cinco referencias exactas y cobertura ≥80%. Los valores guardados se recalculan con la revisión de fórmula; ambas interfaces tratan el legado de forma coherente. En el detalle post-entreno, los KPI **Evolución personal, Rendimiento y Cobertura** aparecen a la izquierda del anillo global. **Rendimiento** es un nombre transversal para resultados de fuerza, WOD o actividad deportiva comparable, no una nota de WOD impuesta a otras sesiones. La confianza se presenta con cuatro niveles (*Aprendiendo, Baja, Media, Alta*), destacando el nivel real. No hay control «Ver cómo se calcula» ni nota ilustrativa. Un temporizador sin rendimiento comparable **no recibe puntuación inventada**.
 - La gráfica agrupa por fecha los entrenamientos puntuados (media redondeada si hay varios) y separa tramos sin valores. No interpola días sin nota ni los rellena con 0.
 

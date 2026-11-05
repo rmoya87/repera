@@ -228,8 +228,9 @@ final class HealthKitStore {
         }
     }
 
-    /// Workout zones come from the actual saved HKWorkout, not estimated from
-    /// age or a generic heart-rate maximum. Only durations observed by Health.
+    /// Prefer Apple workout zone groups when the SDK exposes them; otherwise
+    /// derive zone time from real HR samples in the workout window (never invent
+    /// a session without pulse evidence).
     struct WorkoutHeartZones: Sendable, Equatable {
         struct Zone: Identifiable, Sendable, Equatable {
             let index: Int
@@ -1288,25 +1289,35 @@ final class HealthKitStore {
         return extras.hasVisualContent || extras.activeEnergyKcal != nil ? extras : nil
     }
 
-    /// Use workout-specific Apple zone boundaries and durations, including
-    /// user-defined zones. Nil when there is no actual linked Apple workout.
+    /// Prefer Apple `zoneGroup` when available; otherwise bucket real HR samples
+    /// from the session window into the same 60/70/80/90 % zones used in Comenzar.
     func heartZones(for session: WorkoutSession) async -> WorkoutHeartZones? {
-        // `HKWorkout.zoneGroup(for:)` es iOS 27+; en 26 no hay zonas de workout.
-        guard #available(iOS 27, *) else { return nil }
         guard isAvailable,
-              let heartType = HKObjectType.quantityType(forIdentifier: .heartRate),
               let start = session.startedAt, let finished = session.finishedAt,
               finished > start
         else { return nil }
+        if #available(iOS 27, *),
+           let apple = await appleWorkoutHeartZones(for: session, from: start, to: finished) {
+            return apple
+        }
+        return await estimatedHeartZonesFromSamples(
+            title: session.title, from: start, to: finished
+        )
+    }
+
+    @available(iOS 27, *)
+    private func appleWorkoutHeartZones(
+        for session: WorkoutSession, from start: Date, to finished: Date
+    ) async -> WorkoutHeartZones? {
+        guard let heartType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+            return nil
+        }
         let linked: HKWorkout?
         if let id = session.healthKitWorkoutUUID {
             linked = await fetchWorkout(uuid: id)
         } else {
             linked = nil
         }
-        // A Repera-authored workout may have no recorded HR zone samples.
-        // Look for a separate Apple Watch workout only if it has real zone
-        // evidence and an unambiguous overlap with this completed session.
         let workout: HKWorkout?
         if let linked, linked.zoneGroup(for: heartType) != nil {
             workout = linked
@@ -1314,14 +1325,10 @@ final class HealthKitStore {
                   let uuid = verified.workoutUUID,
                   let watch = await fetchWorkout(uuid: uuid),
                   watch.zoneGroup(for: heartType) != nil {
-            // El iPhone pudo escribir un HKWorkout sin zonas; preferir el
-            // registro REAL del mismo entrenamiento en Watch, por ID.
             workout = watch
         } else if session.healthKitWorkoutUUID == nil {
-            // Solo sesiones sin identidad persistida usan búsqueda temporal.
             workout = await overlappingWorkoutWithZones(from: start, to: finished)
         } else {
-            // Hora editada: no asociar zonas de otro entreno por solape.
             workout = nil
         }
         guard let workout, let group = workout.zoneGroup(for: heartType) else { return nil }
@@ -1345,8 +1352,6 @@ final class HealthKitStore {
         case .app: source = "Zonas definidas para este entreno"
         @unknown default: source = "Zonas registradas en Apple Salud"
         }
-        // 0...10 indicates cardiac intensity/load, NEVER performance quality.
-        // Suppress it when HealthKit tracked less than 60% of the workout.
         let intensity: Int? = coveredFraction >= 0.60 && zones.count >= 3
             ? min(10, max(0, Int((zones.reduce(0) { sum, zone in
                 sum + zone.seconds * Double(zone.index) / Double(max(1, zones.count))
@@ -1355,6 +1360,58 @@ final class HealthKitStore {
         return WorkoutHeartZones(
             title: session.title, zones: zones, source: source,
             coveredFraction: coveredFraction, intensityLoad: intensity
+        )
+    }
+
+    /// Zonas a partir de muestras reales de FC (mismo umbral % FCmáx que Comenzar).
+    private func estimatedHeartZonesFromSamples(
+        title: String, from start: Date, to end: Date, maxBpm: Double = 190
+    ) async -> WorkoutHeartZones? {
+        let samples = await heartRateSeries(from: start, to: end)
+            .filter { (25...250).contains($0.bpm) }
+        guard samples.count >= 3 else { return nil }
+        let maxHR = maxBpm.isFinite && maxBpm > 0 ? maxBpm : 190
+        let thresholds = [0.60, 0.70, 0.80, 0.90, 1.50].map { $0 * maxHR }
+        var seconds = Array(repeating: 0.0, count: 5)
+        for index in samples.indices {
+            let sample = samples[index]
+            let nextDate = index + 1 < samples.count ? samples[index + 1].date : end
+            let duration = min(120, max(0, nextDate.timeIntervalSince(sample.date)))
+            guard duration > 0 else { continue }
+            let zoneIndex: Int = {
+                if sample.bpm < thresholds[0] { return 0 }
+                if sample.bpm < thresholds[1] { return 1 }
+                if sample.bpm < thresholds[2] { return 2 }
+                if sample.bpm < thresholds[3] { return 3 }
+                return 4
+            }()
+            seconds[zoneIndex] += duration
+        }
+        let total = seconds.reduce(0, +)
+        guard total >= 60 else { return nil }
+        let full = max(60, end.timeIntervalSince(start))
+        let coveredFraction = min(1, total / full)
+        let floorBounds: [Double?] = [nil, thresholds[0], thresholds[1], thresholds[2], thresholds[3]]
+        let ceilBounds: [Double?] = [thresholds[0], thresholds[1], thresholds[2], thresholds[3], nil]
+        let zones: [WorkoutHeartZones.Zone] = seconds.enumerated().map { offset, value in
+            WorkoutHeartZones.Zone(
+                index: offset + 1,
+                seconds: value,
+                minimumBpm: floorBounds[offset],
+                maximumBpm: ceilBounds[offset]
+            )
+        }
+        let intensity: Int? = coveredFraction >= 0.60 && zones.count >= 3
+            ? min(10, max(0, Int((seconds.enumerated().reduce(0.0) { partial, item in
+                partial + item.element * Double(item.offset + 1) / Double(zones.count)
+            } / total * 10).rounded())))
+            : nil
+        return WorkoutHeartZones(
+            title: title,
+            zones: zones,
+            source: "Estimado desde tu frecuencia cardíaca",
+            coveredFraction: coveredFraction,
+            intensityLoad: intensity
         )
     }
 

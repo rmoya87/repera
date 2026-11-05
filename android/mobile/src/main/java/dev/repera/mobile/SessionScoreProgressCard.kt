@@ -99,10 +99,6 @@ internal fun SessionScoreProgressCard(
                             } ?: "—"
                         )
                         TrendScoreMetric(
-                            "Cobertura",
-                            glance?.coveragePercent?.let { "$it %" } ?: "—"
-                        )
-                        TrendScoreMetric(
                             "Referencias",
                             glance?.referenceDays?.takeIf { it > 0 }?.toString() ?: "—"
                         )
@@ -146,8 +142,12 @@ internal fun SessionScoreProgressCard(
                     compactInProgress = true,
                     showSelectedLevelInCaption = true
                 )
-                if (!preview && recentWorkouts.isNotEmpty()) {
-                    SevenRecentWorkoutDurationChart(recentWorkouts, accent, rule)
+                if (!preview && recentWorkouts.any { it.verifiedScore != null }) {
+                    SevenRecentWorkoutScoreChart(
+                        recentWorkouts.filter { it.verifiedScore != null },
+                        accent,
+                        rule
+                    )
                 } else if (values.isEmpty()) {
                     EmptyHealthChart(
                         "Repera está aprendiendo de ti. Necesita 2 días previos comparables y un 60% del rendimiento registrado con referencias.",
@@ -282,66 +282,79 @@ private fun TrendScoreMetric(title: String, value: String) {
     }
 }
 
-/** Siete sesiones (no siete días): sin huecos por descanso ni puntuaciones inventadas.
- * La altura es duración en minutos; sin títulos ni pies de texto alrededor. */
+/** Últimas sesiones con nota verificada; eje Y fijo 0–10. Sin inventar puntuaciones. */
 @Composable
-private fun SevenRecentWorkoutDurationChart(
+private fun SevenRecentWorkoutScoreChart(
     recent: List<RecentWorkoutPlot>,
     accent: Color,
     rule: Color
 ) {
+    if (recent.isEmpty()) return
     var selectedIndex by remember(recent) { mutableIntStateOf(recent.lastIndex) }
-    val peak = (recent.mapNotNull { it.minutes }.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Canvas(
-            Modifier.fillMaxWidth().height(180.dp).testTag("recent_workouts_plot")
-                .semantics {
-                    contentDescription = "Últimos ${recent.size} entrenos por duración"
-                    customActions = listOf(
-                        CustomAccessibilityAction("Entreno anterior") {
-                            selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
-                        },
-                        CustomAccessibilityAction("Entreno siguiente") {
-                            selectedIndex = (selectedIndex + 1).coerceAtMost(recent.lastIndex); true
-                        }
-                    )
+        Row(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.width(28.dp).height(180.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf("10", "5", "0").forEach {
+                    Text(it, style = MaterialTheme.typography.labelSmall)
                 }
-                .pointerInput(recent) {
-                    detectTapGestures { offset ->
-                        selectedIndex = ((offset.x / size.width.coerceAtLeast(1).toFloat()) * recent.size)
-                            .toInt().coerceIn(0, recent.lastIndex)
-                    }
-                }
-        ) {
-            val band = size.width / recent.size
-            val barWidth = band * 0.62f
-            val bottom = size.height - 7.dp.toPx()
-            listOf(0f, 0.5f, 1f).forEach { fraction ->
-                val y = bottom * (1 - fraction)
-                drawLine(rule.copy(alpha = 0.16f), Offset(0f, y),
-                    Offset(size.width, y), 0.6.dp.toPx())
             }
-            recent.forEachIndexed { index, workout ->
-                val centerX = band * (index + 0.5f)
-                val minutes = workout.minutes
-                if (minutes != null && minutes > 0) {
-                    val h = ((minutes / peak).toFloat() * bottom).coerceAtLeast(2.dp.toPx())
-                    drawRoundRect(
-                        color = if (selectedIndex == index) accent else accent.copy(alpha = 0.70f),
-                        topLeft = Offset(centerX - barWidth / 2, bottom - h),
-                        size = androidx.compose.ui.geometry.Size(barWidth, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
-                    )
-                } else {
-                    // Un punto neutro indica sesión registrada sin duración; NO 0 minutos.
-                    drawCircle(rule.copy(alpha = 0.7f), radius = 3.dp.toPx(),
-                        center = Offset(centerX, bottom))
+            Canvas(
+                Modifier.weight(1f).height(180.dp).testTag("recent_workouts_plot")
+                    .semantics {
+                        contentDescription = "Últimos ${recent.size} entrenos puntuados de 0 a 10"
+                        customActions = listOf(
+                            CustomAccessibilityAction("Entreno anterior") {
+                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
+                            },
+                            CustomAccessibilityAction("Entreno siguiente") {
+                                selectedIndex = (selectedIndex + 1).coerceAtMost(recent.lastIndex); true
+                            }
+                        )
+                    }
+                    .pointerInput(recent) {
+                        detectTapGestures { offset ->
+                            selectedIndex = ((offset.x / size.width.coerceAtLeast(1).toFloat()) * recent.size)
+                                .toInt().coerceIn(0, recent.lastIndex)
+                        }
+                    }
+            ) {
+                fun x(index: Int) = size.width * (index + 0.5f) / recent.size
+                fun y(score: Int) = size.height - (score / 10f) * size.height
+                listOf(0f, 0.5f, 1f).forEach { fraction ->
+                    val y = size.height * (1 - fraction)
+                    drawLine(rule.copy(alpha = 0.16f), Offset(0f, y),
+                        Offset(size.width, y), 0.6.dp.toPx())
                 }
-                if (selectedIndex == index) {
+                val positions = recent.mapIndexed { index, workout ->
+                    ReadinessCurve.Point(x(index), y(workout.verifiedScore ?: 0))
+                }
+                if (positions.size > 1) {
+                    val path = Path()
+                    path.moveTo(positions.first().x, positions.first().y)
+                    ReadinessCurve.segments(positions).forEach { c ->
+                        path.cubicTo(
+                            c.control1.x, c.control1.y,
+                            c.control2.x, c.control2.y,
+                            c.end.x, c.end.y
+                        )
+                    }
+                    drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+                }
+                positions.forEachIndexed { index, point ->
+                    drawCircle(
+                        if (index == selectedIndex) accent else accent.copy(alpha = 0.85f),
+                        radius = 3.dp.toPx(),
+                        center = Offset(point.x, point.y)
+                    )
+                }
+                selectedIndex.takeIf { it in recent.indices }?.let { index ->
                     drawLine(
                         rule.copy(alpha = 0.65f),
-                        Offset(centerX, 0f),
-                        Offset(centerX, size.height),
+                        Offset(x(index), 0f),
+                        Offset(x(index), size.height),
                         1.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(
                             floatArrayOf(3.dp.toPx(), 4.dp.toPx())
@@ -349,6 +362,14 @@ private fun SevenRecentWorkoutDurationChart(
                     )
                 }
             }
+        }
+        selectedIndex.takeIf { it in recent.indices }?.let { index ->
+            val score = recent[index].verifiedScore ?: return@let
+            Text(
+                "$score/10 · ${recent[index].title}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             recent.indices.forEach { index ->

@@ -2205,83 +2205,76 @@ private struct ProgressSessionScoreChartCard: View {
         )
     }
 
-    /// Seven actual finished workouts regardless of how many calendar days
-    /// they span. One data point per session, never per-day aggregates.
-    private struct RecentWorkoutBar: Identifiable {
+    /// Últimas sesiones con nota personal verificada (eje 0–10).
+    /// Una marca por entreno puntuado; no agrega por día ni inventa notas.
+    private struct RecentScoredWorkout: Identifiable {
         let id: String
         let title: String
         let finishedAt: Date
-        let durationMinutes: Double?
-        let verifiedScore: Int?
+        let verifiedScore: Int
     }
 
-    private var recentWorkouts: [RecentWorkoutBar] {
-        let logged: [RecentWorkoutBar] = workouts.compactMap { session in
-            guard let ended = session.finishedAt, session.timerDetails == nil else { return nil }
-            let duration = session.durationMinutes
-            let score = session.sessionReview.flatMap { review -> Int? in
-                guard review.scoreBasis == .personalHistory else { return nil }
-                return review.overallScore
-            }
-            return RecentWorkoutBar(
-                id: session.id.uuidString, title: session.title, finishedAt: ended,
-                durationMinutes: duration > 0 ? duration : nil,
-                verifiedScore: score
+    private var recentScoredWorkouts: [RecentScoredWorkout] {
+        let logged: [RecentScoredWorkout] = workouts.compactMap { session in
+            guard let ended = session.finishedAt, session.timerDetails == nil,
+                  let review = session.sessionReview,
+                  review.scoreBasis == .personalHistory else { return nil }
+            return RecentScoredWorkout(
+                id: session.id.uuidString,
+                title: session.title,
+                finishedAt: ended,
+                verifiedScore: review.overallScore
             )
         }
-        let imported: [RecentWorkoutBar] = externalActivities.map { item in
-            RecentWorkoutBar(
-                id: item.id.uuidString, title: item.title, finishedAt: item.end,
-                durationMinutes: item.durationMinutes > 0 ? item.durationMinutes : nil,
-                verifiedScore: nil
-            )
-        }
-        return Array((logged + imported).sorted {
-            $0.finishedAt > $1.finishedAt
-        }.prefix(7).reversed())
+        return Array(logged.sorted { $0.finishedAt > $1.finishedAt }.prefix(7).reversed())
     }
 
     @ViewBuilder
     private var sevenWorkoutChart: some View {
-        let recent = recentWorkouts
+        let recent = recentScoredWorkouts
         if recent.isEmpty {
             ProgressEmptyChart(
-                message: "Cuando termines una actividad aparecerá aquí, aunque aún no tenga nota.",
+                message: "Cuando tengas notas verificadas de entrenos aparecerán aquí (0–10).",
                 height: 205, yRange: 0.0...10.0
             )
         } else {
             Chart {
                 ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
-                    if let minutes = item.durationMinutes {
-                        BarMark(
-                            x: .value("Entreno", index + 1),
-                            y: .value("Duración", minutes),
-                            width: .ratio(0.64)
-                        )
-                        .foregroundStyle(OG.accent)
-                        .cornerRadius(4)
-                        .accessibilityLabel("\(item.title), \(Int(minutes.rounded())) minutos")
-                        .annotation(position: .top, spacing: 2) {
-                            if let score = item.verifiedScore {
-                                Text("\(score)/10")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                            }
+                    LineMark(
+                        x: .value("Entreno", index + 1),
+                        y: .value("Puntuación", Double(item.verifiedScore))
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .foregroundStyle(OG.accent)
+                    PointMark(
+                        x: .value("Entreno", index + 1),
+                        y: .value("Puntuación", Double(item.verifiedScore))
+                    )
+                    .symbolSize(28)
+                    .foregroundStyle(OG.accent)
+                    .accessibilityLabel("\(item.title), \(item.verifiedScore) de 10")
+                }
+                if let selectedRecentWorkoutIndex,
+                   recent.indices.contains(selectedRecentWorkoutIndex - 1) {
+                    let item = recent[selectedRecentWorkoutIndex - 1]
+                    RuleMark(x: .value("Entreno seleccionado", selectedRecentWorkoutIndex))
+                        .foregroundStyle(OG.label2)
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                        .annotation(position: .top) {
+                            Text("\(item.verifiedScore)/10 · \(item.finishedAt.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                                .padding(5)
+                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
                         }
-                    } else {
-                        PointMark(
-                            x: .value("Entreno", index + 1),
-                            y: .value("Duración sin dato", 0)
-                        )
-                        .symbolSize(40)
-                        .foregroundStyle(OG.label3)
-                    }
                 }
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
             .chartXScale(domain: 0...max(2, recent.count + 1))
+            .chartYScale(domain: 0.0...10.0)
             .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
+                AxisMarks(position: .leading, values: [0.0, 5.0, 10.0]) {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
                     AxisValueLabel()
                 }
@@ -2290,7 +2283,7 @@ private struct ProgressSessionScoreChartCard: View {
                 AxisMarks(values: Array(1...recent.count))
             }
             .frame(height: 180)
-            .accessibilityLabel("Últimos \(recent.count) entrenos por duración")
+            .accessibilityLabel("Últimos \(recent.count) entrenos puntuados de 0 a 10")
         }
     }
 
@@ -2371,7 +2364,6 @@ private struct ProgressSessionScoreChartCard: View {
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 9) {
                     scoreMetric("Rendimiento", value: effort.relative)
-                    scoreMetric("Cobertura", value: effort.coverage)
                     scoreMetric("Referencias", value: effort.references)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

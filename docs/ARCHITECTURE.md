@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-04 (hub Progreso; catálogo remoto = autoridad viva).
+Última actualización: 2026-11-05 (hub Progreso: nota 0–10, zonas FC por muestras).
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -12,7 +12,7 @@ Las cuadrículas `StatsView.freeTilesGrid` y `StatsView.tilesGrid` utilizan el �
 
 ## Confianza segmentada en Progreso → Entrenamiento (2026-11-03)
 
-`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 1,5:1:1:1 con altura destacada 18 frente a 13. Los segmentos son cápsulas redondeadas sin texto interno; el encabezado muestra siempre el nivel. Los resúmenes post-sesión usan el mismo componente sin limitar su ancho. La vista gratuita usa idéntica composición en la tarjeta de ejemplo, con nivel «Media» explícitamente ilustrativo; Pro utiliza datos reales. `tests/test_progress_confidence_contract.py` protege estos invariantes de presentación.
+`Apps/Repera/Sources/SessionReviewViews.swift` y `android/mobile/.../SessionReviewCard.kt` comparten un patrón semántico de cuatro niveles sin alterar el motor de evaluación. `StatsView.ProgressSessionScoreChartCard` y `SessionScoreProgressCard` activan `compactInProgress` y `showSelectedLevelInCaption`: el título muestra la confianza efectiva; el componente dimensiona su propio indicador al 50 % del ancho interior medido, y reparte las cuatro zonas en proporción 1,5:1:1:1 con altura destacada 18 frente a 13. Los segmentos son cápsulas redondeadas sin texto interno; el encabezado muestra siempre el nivel. La columna de esfuerzo muestra **Rendimiento / Referencias** (sin Cobertura) y la gráfica inferior usa notas **0–10** de hasta 7 sesiones puntuadas. Los resúmenes post-sesión usan el mismo componente de confianza sin limitar su ancho. La vista gratuita usa idéntica composición en la tarjeta de ejemplo, con nivel «Media» explícitamente ilustrativo; Pro utiliza datos reales. `tests/test_progress_confidence_contract.py` y `tests/test_progress_historical_evidence_contract.py` protegen estos invariantes.
 
 ## Pulso en vivo y zonas de Comenzar, iOS / Android (2026-11-03)
 

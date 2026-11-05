@@ -45,7 +45,14 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
   if(points.isEmpty()) {
    EmptyHealthChart("Sin ritmo cardíaco de Salud en ${charts.range.title.lowercase()}.",60.0,160.0,190.dp)
   } else {
-   selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].avgBpm)+" lpm",style=MaterialTheme.typography.labelSmall)}
+   selected?.let {
+    val p=points[it]
+    Text(
+     p.day.format(reperaDayFormatter)+": "+
+      Math.round(p.minBpm)+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm",
+     style=MaterialTheme.typography.labelSmall
+    )
+   }
    Row(Modifier.fillMaxWidth()) {
     Column(Modifier.width(36.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
      listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))}

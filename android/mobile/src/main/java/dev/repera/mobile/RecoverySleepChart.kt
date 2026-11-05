@@ -124,7 +124,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     textSize = 10.sp.toPx()
                     textAlign = android.graphics.Paint.Align.RIGHT
                 }
-                for (hour in ceil(low).toInt()..floor(high).toInt() step 2) {
+                for (hour in ceil(yLo).toInt()..floor(yHi).toInt() step 2) {
                     val lineY = y(hour.toDouble())
                     drawLine(
                         Color.White.copy(alpha = 0.25f),
@@ -157,7 +157,11 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                         1.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
                     )
-                    val tip = "${formatWeight(ordered[i].hours)} h"
+                    val tip = "${formatWeight(ordered[i].hours)} h · ${
+                        ordered[i].day.format(
+                            java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES"))
+                        )
+                    }"
                     val textPaint = android.graphics.Paint().apply {
                         isAntiAlias = true
                         color = android.graphics.Color.WHITE
