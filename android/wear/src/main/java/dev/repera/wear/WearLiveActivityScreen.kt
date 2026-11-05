@@ -192,8 +192,6 @@ private fun WearLiveNavigationPage(live: JSONObject) {
         Text(instruction, style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center, maxLines = 3,
             overflow = TextOverflow.Ellipsis)
-        Text("Desliza para ver métricas", color = WearOg.label2,
-            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
     }
 }
 
