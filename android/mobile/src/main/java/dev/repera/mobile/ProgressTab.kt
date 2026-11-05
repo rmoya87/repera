@@ -108,7 +108,16 @@ internal fun ProgressTab(
         } ?: Long.MIN_VALUE
         if (external != null && external.endMillis > localEnd) {
             external.title + " · " + external.minutes.toInt() + " min"
-        } else local?.let { it.title + " · " + it.displayDurationMinutes().toInt() + " min" }
+        } else local?.let { workout ->
+            val sensorFacts = listOfNotNull(
+                workout.appleActiveEnergyKcal?.takeIf { it > 0 }
+                    ?.let { it.toInt().toString() + " kcal" },
+                workout.appleAverageHeartRateBpm?.takeIf { it > 0 }
+                    ?.let { it.toInt().toString() + " lpm" }
+            )
+            workout.title + " · " + workout.displayDurationMinutes().toInt() + " min" +
+                (if (sensorFacts.isEmpty()) "" else " · " + sensorFacts.joinToString(" · "))
+        }
     }
     val subscriptions = LocalSubscriptions.current
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
