@@ -49,6 +49,66 @@ final class WorkoutLiveActivityCoordinator {
         await upsert(id: key, isPlanned: false, state: state)
     }
 
+    /// Apple Watch owns the actual HealthKit workout. This is only a local
+    /// iPhone lock-screen/Dynamic Island mirror of that same UUID; no sensors,
+    /// GPS recording, or duplicate workout are started on the phone.
+    func updateWatchOwned(_ snapshot: WatchLiveActivitySnapshot) async {
+        let id = "watch:" + snapshot.id.uuidString
+        if snapshot.phase == .review {
+            await finishWatchOwned(sessionID: snapshot.id, saved: false)
+            return
+        }
+        let age = Date().timeIntervalSince(snapshot.capturedAt)
+        guard age >= -5, age <= 90, !closedSessionIDs.contains(id) else { return }
+        let sport = snapshot.sportID.flatMap(LiveSport.init(rawValue:))
+        let isGPS = sport?.usesGPS ?? false
+        let elapsed = max(0, Int(snapshot.elapsedSeconds.rounded(.down)))
+        let pace: String
+        if let speed = snapshot.averageSpeedKmh, speed.isFinite, speed > 0.1 {
+            if sport?.displaysSpeed == true {
+                pace = String(format: "%.1f", speed)
+            } else {
+                let seconds = min(3599, Int(3600 / speed))
+                pace = String(format: "%d:%02d", seconds / 60, seconds % 60)
+            }
+        } else {
+            pace = sport?.displaysSpeed == true ? "—" : "—:—"
+        }
+        let phase: TrainingActivityAttributes.ContentState.Phase =
+            snapshot.phase == .paused ? .paused : .running
+        let state = TrainingActivityAttributes.ContentState(
+            phase: phase, title: snapshot.sportTitle,
+            symbol: sport?.symbol ?? "figure.run",
+            subtitle: "Registrando en Apple Watch",
+            timerAnchor: snapshot.capturedAt.addingTimeInterval(-TimeInterval(elapsed)),
+            elapsedSeconds: elapsed,
+            primaryValue: isGPS ? pace : "—",
+            primaryLabel: isGPS
+                ? (sport?.displaysSpeed == true ? "Veloc. media" : "Ritmo medio")
+                : "FC (ppm)",
+            secondaryValue: isGPS
+                ? String(format: "%.2f", max(0, snapshot.distanceMeters) / 1000)
+                : "—",
+            secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
+        )
+        await upsert(id: id, isPlanned: false, state: state)
+    }
+
+    /// Terminal events close the exact Watch UUID. A delayed recording
+    /// transfer must never resurrect it. The phone's Home gets the workout
+    /// independently from sendFinished/transferUserInfo.
+    func finishWatchOwned(sessionID: UUID, saved: Bool) async {
+        let id = "watch:" + sessionID.uuidString
+        closedSessionIDs.insert(id)
+        if saved, var state = latestStates[id] {
+            state.phase = .completed
+            state.subtitle = "Entrenamiento guardado"
+            await finish(id: id, state: state, dismissal: .after(Date().addingTimeInterval(20)))
+        } else {
+            await finish(id: id, state: nil, dismissal: .immediate)
+        }
+    }
+
     /// Todos los planes (incluidos OCR, entrenador personal y Apple Watch)
     /// comparten la misma ActivityKit, nunca dependen de WorkoutView visible.
     func updatePlanned(_ session: WorkoutSession?) async {
@@ -168,7 +228,18 @@ final class WorkoutLiveActivityCoordinator {
             )
             LiveActivityPushTokenStore.startObservingIfNeeded()
         } catch {
-            logger.error("Training Live Activity: \(String(describing: error), privacy: .public)")
+            // Local-only activities do not require an APNs push token. If the
+            // remote-update variant is rejected by provisioning, still show
+            // the local ActivityKit notification while this app can start it.
+            do {
+                _ = try Activity.request(
+                    attributes: TrainingActivityAttributes(sessionID: id, isPlanned: isPlanned),
+                    content: ActivityContent(state: state, staleDate: nil),
+                    pushType: nil
+                )
+            } catch {
+                logger.error("Training Live Activity: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 
