@@ -1440,11 +1440,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada))}
     }
     if (touchLockAvailable) {
-        Box(
-            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 16.dp)
-                .onGloballyPositioned { lockTarget = it.boundsInRoot() }
+        Row(
+            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
+            Box(Modifier.onGloballyPositioned { lockTarget = it.boundsInRoot() }) {
+                LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
+            }
+            LiveMapCircleFab(
+                if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
+                if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
+            ) { runtime.toggleSpokenGuidance() }
         }
     }
     if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
