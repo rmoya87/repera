@@ -78,7 +78,9 @@ struct ProgressHeartZonesCard: View {
                         ZoneSlice(index: $0.index, seconds: $0.seconds)
                     },
                     intensity: zones.intensityLoad,
-                    coverage: "\(zones.source) · \(Int((zones.coveredFraction * 100).rounded()))% del tiempo cubierto",
+                    coverage: zones.source.hasPrefix("Estimado")
+                        ? nil
+                        : "\(zones.source) · \(Int((zones.coveredFraction * 100).rounded()))% del tiempo cubierto",
                     isExample: false
                 )
             } else {
@@ -272,115 +274,116 @@ struct ProgressCardioChartCard: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(OG.label2)
                         .accessibilityLabel("Ejemplo, datos ficticios")
-                } else if let stats = periodStats {
-                    Text("Media \(Int(stats.avg.rounded())) lpm")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
                 }
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
-                        // Fuera del Chart: el clip del plot no puede ocultar mín·media·máx.
-                        if let selectedPoint {
-                            Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .accessibilityLabel("Selección: mínima \(Int(selectedPoint.minBpm.rounded())), media \(Int(selectedPoint.avgBpm.rounded())), máxima \(Int(selectedPoint.maxBpm.rounded())) pulsaciones")
-                        }
-                        Chart {
-                            ForEach(points) { point in
-                                LineMark(
-                                    x: .value("Día", point.date),
-                                    y: .value("lpm", point.minBpm),
-                                    series: .value("Serie", "Mín")
-                                )
-                                .foregroundStyle(Self.minTint)
-                                .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(lineInterpolation)
+                        ZStack(alignment: .top) {
+                            Chart {
+                                ForEach(points) { point in
+                                    LineMark(
+                                        x: .value("Día", point.date),
+                                        y: .value("lpm", point.minBpm),
+                                        series: .value("Serie", "Mín")
+                                    )
+                                    .foregroundStyle(Self.minTint)
+                                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(lineInterpolation)
 
-                                LineMark(
-                                    x: .value("Día", point.date),
-                                    y: .value("lpm", point.avgBpm),
-                                    series: .value("Serie", "Media")
-                                )
-                                .foregroundStyle(Self.avgTint)
-                                .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(lineInterpolation)
+                                    LineMark(
+                                        x: .value("Día", point.date),
+                                        y: .value("lpm", point.avgBpm),
+                                        series: .value("Serie", "Media")
+                                    )
+                                    .foregroundStyle(Self.avgTint)
+                                    .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(lineInterpolation)
 
-                                LineMark(
-                                    x: .value("Día", point.date),
-                                    y: .value("lpm", point.maxBpm),
-                                    series: .value("Serie", "Máx")
-                                )
-                                .foregroundStyle(Self.maxTint)
-                                .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                .interpolationMethod(lineInterpolation)
+                                    LineMark(
+                                        x: .value("Día", point.date),
+                                        y: .value("lpm", point.maxBpm),
+                                        series: .value("Serie", "Máx")
+                                    )
+                                    .foregroundStyle(Self.maxTint)
+                                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+                                    .interpolationMethod(lineInterpolation)
 
+                                }
+                                if let selectedPoint {
+                                    RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                        .foregroundStyle(OG.label2)
+                                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                    PointMark(
+                                        x: .value("Día seleccionado", selectedPoint.date),
+                                        y: .value("lpm", selectedPoint.minBpm)
+                                    )
+                                    .foregroundStyle(Self.minTint)
+                                    .symbolSize(36)
+                                    PointMark(
+                                        x: .value("Día seleccionado", selectedPoint.date),
+                                        y: .value("lpm", selectedPoint.avgBpm)
+                                    )
+                                    .foregroundStyle(Self.avgTint)
+                                    .symbolSize(44)
+                                    PointMark(
+                                        x: .value("Día seleccionado", selectedPoint.date),
+                                        y: .value("lpm", selectedPoint.maxBpm)
+                                    )
+                                    .foregroundStyle(Self.maxTint)
+                                    .symbolSize(36)
+                                }
                             }
-                            if let selectedPoint {
-                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
-                                    .foregroundStyle(OG.label2)
-                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                PointMark(
-                                    x: .value("Día seleccionado", selectedPoint.date),
-                                    y: .value("lpm", selectedPoint.minBpm)
-                                )
-                                .foregroundStyle(Self.minTint)
-                                .symbolSize(36)
-                                PointMark(
-                                    x: .value("Día seleccionado", selectedPoint.date),
-                                    y: .value("lpm", selectedPoint.avgBpm)
-                                )
-                                .foregroundStyle(Self.avgTint)
-                                .symbolSize(44)
-                                PointMark(
-                                    x: .value("Día seleccionado", selectedPoint.date),
-                                    y: .value("lpm", selectedPoint.maxBpm)
-                                )
-                                .foregroundStyle(Self.maxTint)
-                                .symbolSize(36)
+                            .chartForegroundStyleScale([
+                                "Mín": Self.minTint,
+                                "Media": Self.avgTint,
+                                "Máx": Self.maxTint
+                            ])
+                            .chartXScale(domain: xDomain)
+                            .chartXSelection(value: $selectedDate)
+                            .chartYScale(domain: yDomain)
+                            .chartPlotStyle { $0.clipped() }
+                            .chartXAxis {
+                                AxisMarks(values: axisValues) { _ in
+                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                        .foregroundStyle(OG.surface3)
+                                    AxisValueLabel(
+                                        format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
+                                        collisionResolution: .greedy
+                                    )
+                                    .foregroundStyle(OG.label3)
+                                    .font(.system(size: 10))
+                                }
                             }
-                        }
-                        .chartForegroundStyleScale([
-                            "Mín": Self.minTint,
-                            "Media": Self.avgTint,
-                            "Máx": Self.maxTint
-                        ])
-                        .chartXScale(domain: xDomain)
-                        .chartXSelection(value: $selectedDate)
-                        .chartYScale(domain: yDomain)
-                        .chartPlotStyle { $0.clipped() }
-                        .chartXAxis {
-                            AxisMarks(values: axisValues) { _ in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(OG.surface3)
-                                AxisValueLabel(
-                                    format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
-                                    collisionResolution: .greedy
-                                )
-                                .foregroundStyle(OG.label3)
-                                .font(.system(size: 10))
-                            }
-                        }
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(OG.surface3)
-                                AxisValueLabel {
-                                    if let v = value.as(Double.self) {
-                                        Text("\(Int(v.rounded()))")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(OG.label3)
+                            .chartYAxis {
+                                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
+                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                        .foregroundStyle(OG.surface3)
+                                    AxisValueLabel {
+                                        if let v = value.as(Double.self) {
+                                            Text("\(Int(v.rounded()))")
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(OG.label3)
+                                        }
                                     }
                                 }
                             }
+                            .chartLegend(.hidden)
+                            .frame(height: 190)
+                            .frame(maxWidth: .infinity)
+
+                            if let selectedPoint {
+                                Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(OG.surface.opacity(0.94), in: Capsule())
+                                    .padding(.top, 6)
+                                    .allowsHitTesting(false)
+                                    .accessibilityLabel("Selección: mínima \(Int(selectedPoint.minBpm.rounded())), media \(Int(selectedPoint.avgBpm.rounded())), máxima \(Int(selectedPoint.maxBpm.rounded())) pulsaciones")
+                            }
                         }
-                        .chartLegend(.hidden)
-                        .frame(height: 190)
-                        .frame(maxWidth: .infinity)
 
                         if let stats = periodStats {
                             HStack(spacing: 8) {

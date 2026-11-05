@@ -1,11 +1,14 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -45,34 +48,45 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
   if(points.isEmpty()) {
    EmptyHealthChart("Sin ritmo cardíaco de Salud en ${charts.range.title.lowercase()}.",60.0,160.0,190.dp)
   } else {
-   selected?.let {
-    val p=points[it]
-    Text(
-     p.day.format(reperaDayFormatter)+": "+
-      Math.round(p.minBpm)+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm",
-     style=MaterialTheme.typography.labelSmall
-    )
-   }
-   Row(Modifier.fillMaxWidth()) {
-    Column(Modifier.width(36.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
-     listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))}
-    }
-    Canvas(Modifier.weight(1f).height(190.dp).testTag("cardio_observed_plot")
-     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
-     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
-     fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
-     fun y(value:Double)=size.height-((value-low)/(high-low)*size.height).toFloat()
-     clipRect {
-      listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(0f,f*size.height),Offset(size.width,f*size.height),0.5.dp.toPx())}
-      ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
-      listOf<(HeartRatePlotPoint)->Double>({it.minBpm},{it.avgBpm},{it.maxBpm}).forEachIndexed {series,value ->
-       val positions=points.indices.map {ReadinessCurve.Point(x(it),y(value(points[it])))}
-       val path=Path();path.moveTo(positions.first().x,positions.first().y)
-       ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
-       drawPath(path,colors[series],style=Stroke((if(series==1) 2.25f else 1.75f).dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
-      }
-      selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
+   Box(Modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth()) {
+     Column(Modifier.width(36.dp).height(190.dp),verticalArrangement=Arrangement.SpaceBetween) {
+      listOf(high,(low+high)/2,low).forEach {Text(Math.round(it).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))}
      }
+     Canvas(Modifier.weight(1f).height(190.dp).testTag("cardio_observed_plot")
+      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
+      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
+      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
+      fun y(value:Double)=size.height-((value-low)/(high-low)*size.height).toFloat()
+      clipRect {
+       listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(0f,f*size.height),Offset(size.width,f*size.height),0.5.dp.toPx())}
+       ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
+       listOf<(HeartRatePlotPoint)->Double>({it.minBpm},{it.avgBpm},{it.maxBpm}).forEachIndexed {series,value ->
+        val positions=points.indices.map {ReadinessCurve.Point(x(it),y(value(points[it])))}
+        val path=Path();path.moveTo(positions.first().x,positions.first().y)
+        ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+        drawPath(path,colors[series],style=Stroke((if(series==1) 2.25f else 1.75f).dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
+       }
+       selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
+      }
+     }
+    }
+    selected?.let {
+     val p=points[it]
+     Text(
+      Math.round(p.minBpm).toString()+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm · "+
+       p.day.format(reperaDayFormatter),
+      style=MaterialTheme.typography.labelSmall,
+      color=MaterialTheme.colorScheme.onSurface,
+      modifier=Modifier
+       .align(Alignment.TopCenter)
+       .padding(top=6.dp)
+       .background(
+        MaterialTheme.colorScheme.surface.copy(alpha=0.94f),
+        RoundedCornerShape(50)
+       )
+       .padding(horizontal=8.dp, vertical=5.dp)
+     )
     }
    }
    ProgressPlotDateLabels(ticks,domain,charts)

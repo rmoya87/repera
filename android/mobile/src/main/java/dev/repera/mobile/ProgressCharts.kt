@@ -59,22 +59,9 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
 
 @Composable internal fun ProgressCardioCard(charts:ProgressPreparedCharts,preview:Boolean) {
  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-   ReperaSectionTitle(
-    if (preview) "Frecuencia cardíaca · ejemplo" else "Frecuencia cardíaca",
-    modifier = Modifier.weight(1f, fill = false)
-   )
-   if (!preview && charts.heartRate.isNotEmpty()) {
-    Text(
-     "Media ${Math.round(charts.heartRate.map { it.avgBpm }.average())} lpm",
-     style = MaterialTheme.typography.labelMedium,
-     color = MaterialTheme.colorScheme.onSurfaceVariant,
-     maxLines = 1,
-     softWrap = false,
-     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-    )
-   }
-  }
+  ReperaSectionTitle(
+   if (preview) "Frecuencia cardíaca · ejemplo" else "Frecuencia cardíaca"
+  )
   ReperaCard(Modifier.fillMaxWidth().testTag("progress_cardio_card")) {
    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
     ProgressCardioPlot(charts,preview)

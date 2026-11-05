@@ -115,9 +115,18 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressCardioPlot.kt")
         cardio = ios.split("struct ProgressCardioChartCard", 1)[1].split("struct ProgressCaloriesChartCard", 1)[0]
         self.assertIn("minBpm.rounded())) · \\(Int(selectedPoint.avgBpm.rounded())) · \\(Int(selectedPoint.maxBpm.rounded())) lpm", cardio)
-        # Label fuera del Chart para no perderse con el clip del plot.
-        self.assertLess(cardio.find("if let selectedPoint {"), cardio.find("Chart {"))
-        self.assertIn('Math.round(p.minBpm)+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm"', android)
+        # Overlay: no desplaza la gráfica; sin «Media» duplicada junto al título.
+        self.assertIn("ZStack(alignment: .top)", cardio)
+        self.assertNotIn('Text("Media \\(Int(stats.avg.rounded())) lpm")', cardio)
+        self.assertIn("Alignment.TopCenter", android)
+        self.assertNotIn('Media ${Math.round', read("android/mobile/src/main/java/dev/repera/mobile/ProgressCharts.kt"))
+
+    def test_estimated_heart_zones_hide_source_caption(self):
+        zones = read("Apps/Repera/Sources/ProgressTrendCards.swift").split(
+            "struct ProgressHeartZonesCard", 1
+        )[1].split("struct ProgressCardioChartCard", 1)[0]
+        self.assertIn('zones.source.hasPrefix("Estimado")', zones)
+        self.assertIn("? nil", zones)
 
     def test_score_chart_uses_full_width_domain(self):
         ios = read("Apps/Repera/Sources/StatsView.swift")
