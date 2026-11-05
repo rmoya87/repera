@@ -149,7 +149,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             ) { this },
             freeUsage = FreeUsageStore.forAccount(java.io.File(filesDir, "monetization")),
             verifyClient = PlayPurchaseVerifyClient(),
-            accessTokenProvider = { verifiedSupabase?.accessToken }
+            accessTokenProvider = { verifiedSupabase?.accessToken },
+            appContext = applicationContext
         )
     }
     /** Durable A-B-A identity guard for asynchronous account work. */

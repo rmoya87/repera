@@ -30,13 +30,14 @@ struct PaywallView: View {
     /// Comparativa real: una única sección, sin ventajas duplicadas.
     private var comparisonRows: [(label: String, free: String, pro: String)] {
         [
-            ("Mapa", "2D", "2D + 3D"),
-            ("Progreso", "Últimos 7 días", "Todos los periodos"),
+            ("Mapa GPS", "2D", "2D + 3D"),
+            ("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
             ("Por ejercicio", "Última + récord", "Historial completo"),
+            ("Comparativas WOD", "No", "Sí"),
+            ("Progresión de carga", "Básica", "Avanzada"),
             ("Rutinas / favoritos", "\(FreePlanLimits.maxLibraryRoutines) / \(FreePlanLimits.maxFavoriteItems)", "Sin límites"),
             ("Ejercicios propios", "\(FreePlanLimits.maxCustomExercises)", "Sin límites"),
-            ("Escáner WOD", "\(FreePlanLimits.maxBoardScansPerMonth)/mes", "Ilimitado"),
-            ("Análisis y WOD", "Básico", "Avanzado")
+            ("Escáner WOD", "\(FreePlanLimits.maxBoardScansPerMonth)/mes", "Ilimitado")
         ]
     }
 

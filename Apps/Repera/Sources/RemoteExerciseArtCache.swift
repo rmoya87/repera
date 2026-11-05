@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 /// Rutas y prefetch de JPG públicos de Storage (`exercise-art`) → Application Support.
 /// Enum (no actor de tipado) para que SourceKit/ExerciseArt resuelvan el símbolo con fiabilidad.
@@ -17,15 +16,6 @@ enum RemoteExerciseArtCache {
 
     nonisolated static func hasCachedFile(for stem: String) -> Bool {
         FileManager.default.fileExists(atPath: localFileURL(for: stem).path)
-    }
-
-    nonisolated private static func bundleContains(stem: String) -> Bool {
-        if UIImage(named: stem) != nil { return true }
-        let bundle = Bundle.main
-        if bundle.url(forResource: stem, withExtension: "jpg", subdirectory: "ExerciseArt") != nil {
-            return true
-        }
-        return bundle.url(forResource: stem, withExtension: "jpg") != nil
     }
 
     static var shared: Prefetcher { Prefetcher.shared }
@@ -47,7 +37,8 @@ enum RemoteExerciseArtCache {
         func prefetch(stems: [String], supabaseURL: URL) async {
             let unique = Array(Set(stems.filter { !$0.isEmpty })).sorted()
             for stem in unique {
-                if RemoteExerciseArtCache.bundleContains(stem: stem) { continue }
+                // Siempre preferir Supabase OTA: descargar aunque exista en el bundle
+                // (el binario no debe bloquear miniaturas actualizadas en Storage).
                 if RemoteExerciseArtCache.hasCachedFile(for: stem) { continue }
                 guard !inFlight.contains(stem) else { continue }
                 inFlight.insert(stem)

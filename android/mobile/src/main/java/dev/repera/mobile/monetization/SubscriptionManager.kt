@@ -1,9 +1,11 @@
 package dev.repera.mobile.monetization
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.repera.domain.ProgressTimeRange
+import org.json.JSONObject
 import dev.repera.domain.monetization.CommercialSnapshot
 import dev.repera.domain.monetization.FeatureAccessDecision
 import dev.repera.domain.monetization.FeatureAccessPolicy
@@ -23,8 +25,14 @@ class SubscriptionManager(
     private var provider: EntitlementProvider = UnconfiguredEntitlementProvider(),
     val freeUsage: FreeUsageStore,
     private val verifyClient: PlayPurchaseVerifyClient? = null,
-    private val accessTokenProvider: () -> String? = { null }
+    private val accessTokenProvider: () -> String? = { null },
+    appContext: Context? = null
 ) {
+    companion object {
+        const val VERIFIED_PRO_CACHE_KEY = "repera.commercial.verifiedPro.v1"
+    }
+
+    private val prefs = appContext?.getSharedPreferences("repera_commercial", Context.MODE_PRIVATE)
     var snapshot by mutableStateOf(CommercialSnapshot())
         private set
     /** Snapshot de Billing/verify antes del override debug. */
@@ -87,6 +95,7 @@ class SubscriptionManager(
         }
         didStart = true
         freeUsage.load()
+        loadPersistedVerifiedPro()?.let { applySnapshot(it) }
         refresh()
     }
 
@@ -171,6 +180,7 @@ class SubscriptionManager(
             var next = mergedVerifiedCache(provider.purchase(productID), previous)
             next = verifyPendingIfNeeded(next, previous)
             applySnapshot(next)
+            persistVerifiedPro(snapshot)
             if (snapshot.grantsProAccess) {
                 if (snapshot.status == SubscriptionStatus.TRIAL) {
                     MonetizationAnalytics.track(
@@ -215,6 +225,7 @@ class SubscriptionManager(
             var next = mergedVerifiedCache(provider.restore(), previous)
             next = verifyPendingIfNeeded(next, previous)
             applySnapshot(next)
+            persistVerifiedPro(snapshot)
             if (snapshot.grantsProAccess) {
                 MonetizationAnalytics.track(
                     MonetizationAnalytics.Event.SUBSCRIPTION_RESTORED, context = paywall.context
@@ -271,8 +282,32 @@ class SubscriptionManager(
                     lastVerifiedProStatus = next.status,
                     lastVerifiedProAt = System.currentTimeMillis()
                 )
+            } else if (next.status == SubscriptionStatus.FREE) {
+                val persisted = loadPersistedVerifiedPro()
+                val cachedStatus = previous.lastVerifiedProStatus ?: persisted?.lastVerifiedProStatus
+                val cachedAt = previous.lastVerifiedProAt ?: persisted?.lastVerifiedProAt
+                val expiration = next.expirationDate
+                    ?: previous.expirationDate
+                    ?: persisted?.expirationDate
+                if (cachedStatus != null && cachedStatus.grantsProAccess) {
+                    val hold = CommercialSnapshot(
+                        status = SubscriptionStatus.UNKNOWN,
+                        lastVerifiedProStatus = cachedStatus,
+                        lastVerifiedProAt = cachedAt ?: System.currentTimeMillis(),
+                        expirationDate = expiration,
+                        activeProductID = next.activeProductID
+                            ?: previous.activeProductID
+                            ?: persisted?.activeProductID,
+                        isConfigured = true,
+                        lastRefreshFailedOffline = true
+                    )
+                    if (hold.grantsProAccess) {
+                        next = hold
+                    }
+                }
             }
             applySnapshot(next)
+            persistVerifiedPro(snapshot)
         } finally {
             isRefreshing = false
         }
@@ -354,5 +389,40 @@ class SubscriptionManager(
             )
         }
         return next
+    }
+
+    private fun loadPersistedVerifiedPro(): CommercialSnapshot? {
+        val raw = prefs?.getString(VERIFIED_PRO_CACHE_KEY, null) ?: return null
+        return runCatching {
+            val json = JSONObject(raw)
+            val status = SubscriptionStatus.fromWire(json.getString("statusRaw"))
+            if (!status.grantsProAccess) return null
+            val snap = CommercialSnapshot(
+                status = SubscriptionStatus.UNKNOWN,
+                lastVerifiedProStatus = status,
+                lastVerifiedProAt = json.optLong("lastVerifiedProAt").takeIf { it > 0L },
+                expirationDate = json.optLong("expirationDate").takeIf { it > 0L },
+                activeProductID = json.optString("activeProductID").takeIf { it.isNotBlank() },
+                isConfigured = true,
+                lastRefreshFailedOffline = true
+            )
+            if (snap.grantsProAccess) snap else null
+        }.getOrNull()
+    }
+
+    private fun persistVerifiedPro(snap: CommercialSnapshot) {
+        val store = prefs ?: return
+        val verified = snap.lastVerifiedProStatus
+            ?: snap.status.takeIf { it.grantsProAccess }
+        if (snap.grantsProAccess && verified != null && verified.grantsProAccess) {
+            val payload = JSONObject()
+                .put("statusRaw", verified.wire)
+                .put("lastVerifiedProAt", snap.lastVerifiedProAt ?: System.currentTimeMillis())
+            snap.expirationDate?.let { payload.put("expirationDate", it) }
+            snap.activeProductID?.let { payload.put("activeProductID", it) }
+            store.edit().putString(VERIFIED_PRO_CACHE_KEY, payload.toString()).apply()
+        } else if (snap.status == SubscriptionStatus.EXPIRED || snap.status == SubscriptionStatus.REVOKED) {
+            store.edit().remove(VERIFIED_PRO_CACHE_KEY).apply()
+        }
     }
 }

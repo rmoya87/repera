@@ -16,8 +16,12 @@ class DayChartPositionsTest {
  @Test fun caloriesDomainUsesPeriodAndPreviewPadding() {
   val day=LocalDate.of(2026,10,27)
   val days=listOf(day.minusDays(6),day)
-  val real=ProgressPlotAxis.domain(days,dev.repera.domain.ProgressTimeRange.WEEK,true,day,false)
-  // Semana = ventana móvil (hoy − 6), no lun–dom de calendario.
+  val sparse=ProgressPlotAxis.domain(days,dev.repera.domain.ProgressTimeRange.WEEK,true,day,false)
+  // Pocos puntos: dominio acotado a datos (paridad ProgressChartAxis iOS).
+  assertEquals(days.first().toEpochDay()-0.5,sparse.first,0.001)
+  assertEquals(day.toEpochDay()+0.5,sparse.second,0.001)
+  val fullDays=(0..6).map { day.minusDays((6-it).toLong()) }
+  val real=ProgressPlotAxis.domain(fullDays,dev.repera.domain.ProgressTimeRange.WEEK,true,day,false)
   assertEquals(LocalDate.of(2026,10,21).toEpochDay().toDouble(),real.first,0.001)
   assertEquals(day.toEpochDay().toDouble(),real.second,0.001)
   val teaser=ProgressPlotAxis.domain(days,dev.repera.domain.ProgressTimeRange.WEEK,true,day,true)

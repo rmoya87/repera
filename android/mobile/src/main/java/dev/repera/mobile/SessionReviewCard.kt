@@ -132,17 +132,23 @@ internal fun TrainingScoreConfidenceBar(
         "en construcción" in normalized -> TrainingConfidence.MEDIUM
         "media" in normalized -> TrainingConfidence.MEDIUM
         "baja" in normalized -> TrainingConfidence.LOW
+        "construcción" in normalized || "construccion" in normalized -> TrainingConfidence.MEDIUM
         else -> TrainingConfidence.LEARNING
+    }
+    val levelTitle = if ("construcción" in normalized || "construccion" in normalized) {
+        "En construcción"
+    } else {
+        current.title
     }
     val colors = MaterialTheme.colorScheme
     Column(
         Modifier.fillMaxWidth().semantics {
-            contentDescription = "Confianza: ${current.title}"
+            contentDescription = "Confianza: $levelTitle"
         },
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            if (showSelectedLevelInCaption) "$caption · ${current.title}" else caption,
+            if (showSelectedLevelInCaption) "$caption · $levelTitle" else caption,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = colors.onSurfaceVariant

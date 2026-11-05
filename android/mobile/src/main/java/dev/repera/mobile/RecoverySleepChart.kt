@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -12,10 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.Dp
@@ -29,10 +33,9 @@ internal fun sleepChartHeightDp(columnWidthDp: Float, expanded: Boolean) =
     if (expanded) maxOf(220f, columnWidthDp - 150f) else 220f
 
 internal fun sleepChartBounds(nights: List<RecoverySleepNight>): Pair<Double, Double> {
-    val low = maxOf(3.0, kotlin.math.floor((nights.minOfOrNull { it.hours } ?: 5.0) - 0.5))
-    val high = minOf(12.0, kotlin.math.ceil((nights.maxOfOrNull { it.hours } ?: 8.0) + 0.5))
-    return if (high > low) low to high
-    else ((nights.minOfOrNull { it.hours } ?: 0.0) - 0.6) to ((nights.maxOfOrNull { it.hours } ?: 0.0) + 0.7)
+    val yLo = 0.0
+    val yHi = minOf(12.0, kotlin.math.ceil((nights.maxOfOrNull { it.hours } ?: 8.0) + 0.5))
+    return yLo to yHi
 }
 
 /** Horas por noche: área + línea con degradado (paridad iOS Sueño). */
@@ -40,11 +43,15 @@ internal fun sleepChartBounds(nights: List<RecoverySleepNight>): Pair<Double, Do
 internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
     if (nights.isEmpty()) return
     val ordered = nights.sortedBy { it.day }
-    val (low, high) = sleepChartBounds(ordered)
+    val (yLo, yHi) = sleepChartBounds(ordered)
     var selected by remember(ordered) { mutableStateOf<Int?>(null) }
-    val ink = Color(0.07f, 0.10f, 0.22f)
-    val mid = Color(0.32f, 0.42f, 0.78f)
-    val glow = Color(0.55f, 0.68f, 0.95f)
+    val dark = isSystemInDarkTheme()
+    val ink = if (dark) Color(0.14f, 0.18f, 0.36f) else Color(0.07f, 0.10f, 0.22f)
+    val mid = if (dark) Color(0.42f, 0.52f, 0.88f) else Color(0.32f, 0.42f, 0.78f)
+    val glow = if (dark) Color(0.68f, 0.78f, 1.0f) else Color(0.55f, 0.68f, 0.95f)
+    val tooltipBg = if (dark) Color(0.24f, 0.32f, 0.62f) else Color(0.12f, 0.16f, 0.30f)
+    val density = LocalDensity.current
+    val labelStyle = MaterialTheme.typography.labelMedium
     fun nearest(fraction: Float): Int {
         val start = ordered.first().day.toEpochDay()
         val span = (ordered.last().day.toEpochDay() - start).coerceAtLeast(1)
@@ -58,12 +65,6 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        selected?.let {
-            Text(
-                "${ordered[it].day.format(reperaDayFormatter)} · ${formatWeight(ordered[it].hours)} h",
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
         Canvas(
             Modifier
                 .fillMaxWidth()
@@ -99,7 +100,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                 if (span == 0L) size.width / 2f
                 else (ordered[i].day.toEpochDay() - start).toFloat() / span * size.width
             fun y(value: Double) =
-                size.height - ((value - low) / (high - low) * size.height).toFloat()
+                size.height - ((value - yLo) / (yHi - yLo).coerceAtLeast(0.01) * size.height).toFloat()
             val points = ordered.indices.map { ReadinessCurve.Point(x(it), y(ordered[it].hours)) }
             val curve = Path()
             curve.moveTo(points.first().x, points.first().y)
@@ -115,7 +116,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
             clipRect {
                 drawPath(
                     area,
-                    Brush.verticalGradient(listOf(mid.copy(alpha = 0.5f), ink.copy(alpha = 0.15f)))
+                    Brush.verticalGradient(listOf(mid.copy(alpha = 0.65f), ink))
                 )
                 // Cuadrícula sutil de horas, sin márgenes interiores en la curva.
                 val hoursInk = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -156,6 +157,36 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                         1.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
                     )
+                    val tip = "${formatWeight(ordered[i].hours)} h"
+                    val textPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        color = android.graphics.Color.WHITE
+                        textSize = with(density) { labelStyle.fontSize.toPx() }
+                        typeface = android.graphics.Typeface.create(
+                            android.graphics.Typeface.DEFAULT,
+                            android.graphics.Typeface.BOLD
+                        )
+                    }
+                    val pad = 5.dp.toPx()
+                    val textW = textPaint.measureText(tip)
+                    val boxW = textW + pad * 2
+                    val boxH = textPaint.textSize + pad * 1.4f
+                    val px = x(i).coerceIn(boxW / 2f, size.width - boxW / 2f)
+                    val py = (y(ordered[i].hours) - boxH - 8.dp.toPx()).coerceAtLeast(4.dp.toPx())
+                    drawRoundRect(
+                        color = tooltipBg,
+                        topLeft = Offset(px - boxW / 2f, py),
+                        size = Size(boxW, boxH),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                    )
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawText(
+                            tip,
+                            px - textW / 2f,
+                            py + boxH - pad,
+                            textPaint
+                        )
+                    }
                 }
             }
         }

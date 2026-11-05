@@ -44,9 +44,12 @@ No hay SDK de terceros de suscripciones. iOS usa StoreKit 2; Android usa Play Bi
 | Rutinas biblioteca sin estrella | **3** | ilimitadas |
 | Ejercicios `isCustom` | máx. **5** | ilimitados |
 | Escáner pizarra | **4**/mes UTC | ilimitados |
-| Progreso | **Últimos 7 días** + teaser | periodos + largo plazo |
+| Progreso | **Últimos 7 días** + teaser | mes + a largo plazo |
+| Comparativas WOD / progresión de carga | básicas / no | avanzadas / sí |
 
 Al perder Pro no se borran datos; solo se bloquea crear por encima del límite.
+
+La tabla del paywall (`PaywallView` / `PaywallScreen`) refleja estas filas (Mapa GPS, Progreso, Por ejercicio, Comparativas WOD, Progresión de carga, rutinas/favoritos, ejercicios propios, escáner).
 
 ## 3. Identificadores comerciales
 
@@ -81,7 +84,7 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 
 Si el refresh falla, se conserva un Pro **previamente verificado** un tiempo limitado (`lastVerifiedPro*`). Sin snapshot verificado → Gratis (fail-closed).
 
-iOS persiste el último Pro StoreKit verificado en `UserDefaults` (`repera.commercial.verifiedPro.v1`) para rehidratar al arranque antes del refresh. Si StoreKit responde vacío pero la caducidad verificada sigue en el futuro, no se degrada a Gratis de inmediato.
+iOS y Android persisten el último Pro verificado (`repera.commercial.verifiedPro.v1`) y lo rehidratan al arranque antes del refresh. Un `.free`/lista vacía **transitorio** (p. ej. tras actualizar la app) **no borra** la caché ni degrada a Gratis mientras la caducidad futura o la gracia offline (7 días) sigan válidas. Solo se limpia la caché con **caducada / revocada** confirmada.
 
 ## 8. Pro patrocinado (Center / B2B)
 

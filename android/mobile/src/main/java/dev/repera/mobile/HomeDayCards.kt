@@ -370,22 +370,58 @@ internal fun HomeEmptyDayCard(day: LocalDate) {
 
 /** Persistencia de Descartar|Revisar en Inicio: no borra el entreno, solo oculta la fila. */
 internal object HomeReviewActionDismissals {
-    private const val PREFS = "repera.home.dismissedReviewActions"
-    private const val KEY = "ids"
+    private const val LEGACY_GLOBAL = "repera.home.dismissedReviewActions"
+    private const val LEGACY_KEY = "ids"
+    private const val LOCAL_FALLBACK = "repera.home.dismissedReviewActions.v2.local"
+    private const val V2_BASE = "repera.home.dismissedReviewActions.v2"
 
-    fun prefsName(accountId: String): String =
-        if (accountId.isBlank()) PREFS else "$PREFS.$accountId"
+    private fun v2PrefsName(accountId: String): String =
+        if (accountId.isBlank()) LOCAL_FALLBACK else "$V2_BASE.$accountId"
 
     fun load(context: Context, accountId: String = ""): Set<String> {
-        val prefs = context.getSharedPreferences(prefsName(accountId), Context.MODE_PRIVATE)
-        // Copia nueva: putStringSet de Android falla si se muta el Set original.
-        return HashSet(prefs.getStringSet(KEY, emptySet()) ?: emptySet())
+        val merged = LinkedHashSet<String>()
+        val v2Name = v2PrefsName(accountId)
+        val v2 = context.getSharedPreferences(v2Name, Context.MODE_PRIVATE)
+        merged.addAll(v2.getStringSet(LEGACY_KEY, emptySet()) ?: emptySet())
+
+        // Legacy global (sin cuenta) antes de borrarlo.
+        val legacyGlobal = context.getSharedPreferences(LEGACY_GLOBAL, Context.MODE_PRIVATE)
+        val legacyIds = legacyGlobal.getStringSet(LEGACY_KEY, emptySet()).orEmpty()
+        if (legacyIds.isNotEmpty()) {
+            merged.addAll(legacyIds)
+            legacyGlobal.edit().remove(LEGACY_KEY).apply()
+        }
+        // Legacy por cuenta (nombre antiguo).
+        if (accountId.isNotBlank()) {
+            val legacyScoped = context.getSharedPreferences(
+                "$LEGACY_GLOBAL.$accountId",
+                Context.MODE_PRIVATE
+            )
+            val scopedIds = legacyScoped.getStringSet(LEGACY_KEY, emptySet()).orEmpty()
+            if (scopedIds.isNotEmpty()) {
+                merged.addAll(scopedIds)
+                legacyScoped.edit().clear().apply()
+            }
+        }
+        // Fallback local al enlazar cuenta en el mismo dispositivo.
+        if (accountId.isNotBlank()) {
+            val local = context.getSharedPreferences(LOCAL_FALLBACK, Context.MODE_PRIVATE)
+            val localIds = local.getStringSet(LEGACY_KEY, emptySet()).orEmpty()
+            if (localIds.isNotEmpty()) {
+                merged.addAll(localIds)
+                local.edit().clear().apply()
+            }
+        }
+        if (merged.isNotEmpty() && merged != v2.getStringSet(LEGACY_KEY, emptySet())) {
+            v2.edit().putStringSet(LEGACY_KEY, HashSet(merged)).apply()
+        }
+        return HashSet(merged)
     }
 
     fun save(context: Context, ids: Set<String>, accountId: String = "") {
-        context.getSharedPreferences(prefsName(accountId), Context.MODE_PRIVATE)
+        context.getSharedPreferences(v2PrefsName(accountId), Context.MODE_PRIVATE)
             .edit()
-            .putStringSet(KEY, HashSet(ids))
+            .putStringSet(LEGACY_KEY, HashSet(ids))
             .apply()
     }
 }

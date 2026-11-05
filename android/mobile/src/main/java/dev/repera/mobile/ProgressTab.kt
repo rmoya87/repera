@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import kotlin.math.roundToInt
 import dev.repera.domain.HeartRatePlotPoint
@@ -93,6 +94,8 @@ internal fun ProgressTab(
     onOpenExercise:(String)->Unit = {},
     onOpenSports:()->Unit = {},
     onProgressRangeChange:(String)->Unit = {},
+    requestedCategory: String? = null,
+    onRequestedCategoryConsumed: () -> Unit = {},
     modifier: Modifier = Modifier,
     accountId: String = ""
 ) {
@@ -152,6 +155,12 @@ internal fun ProgressTab(
     }
     val subscriptions = LocalSubscriptions.current
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
+    LaunchedEffect(requestedCategory) {
+        requestedCategory?.let { wire ->
+            ProgressCategory.entries.firstOrNull { it.name == wire }?.let { category = it.name }
+            onRequestedCategoryConsumed()
+        }
+    }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
         ?: ProgressCategory.TRAINING
     LaunchedEffect(selectedCategory) {
@@ -767,25 +776,24 @@ internal fun ProgressTab(
                     }
                     val avgHours = monthNights.takeIf { it.isNotEmpty() }?.map { it.hours }?.average()
                     val nights = monthNights.size
+                    val weeklyRows = recoveryMonthWeeklyRows(monthNights, today, monday)
                     ProgressMonthSummaryCard(
                         title = "Descanso del mes",
                         icon = Icons.Outlined.DarkMode,
                         tint = ProgressCategory.RECOVERY.accent,
-                        narrative = if (nights > 0 && avgHours != null) {
-                            "Has registrado $nights noche${if (nights == 1) "" else "s"} de sueño este mes · media ${String.format(java.util.Locale("es", "ES"), "%.1f", avgHours)} h."
-                        } else {
+                        narrative = if (nights > 0) "" else {
                             "Cuando Salud registre sueño este mes, verás aquí el resumen de descanso."
                         },
                         heroValue = avgHours?.let {
                             String.format(java.util.Locale("es", "ES"), "%.1f", it)
                         } ?: "—",
-                        heroCaption = if (nights > 0) "$nights noches" else "sin noches aún",
-                        heroUnit = if (avgHours != null) "h" else null
+                        heroCaption = if (nights > 0) "media del mes" else "sin noches aún",
+                        heroUnit = if (avgHours != null) "h" else null,
+                        monthWeeklyRows = weeklyRows
                     )
                 }
             }
             ProgressCategory.SPORTS -> {
-                val period = "últimos 7 días"
                 val zone = java.time.ZoneId.systemDefault()
                 fun liveSessionDay(session: dev.repera.domain.LiveSportHistory.LiveSession): LocalDate? {
                     val millis = session.finishedEpochMillis ?: session.startedEpochMillis ?: return null
@@ -837,18 +845,14 @@ internal fun ProgressTab(
                 )
                 item { ReperaSectionTitle("Deportes") }
                 item {
-                    ProgressSaludInsightCard(
-                        title = "Actividad deportiva",
-                        icon = Icons.Outlined.Flag,
-                        tint = ProgressCategory.SPORTS.accent,
-                        narrative = sportsHubNarrative(sportCount, improved, planned, period),
-                        heroValue = if (sportCount > 0) "$sportCount" else "—",
-                        heroUnit = if (sportCount > 0) "salidas" else null,
-                        heroCaption = if (sportCount > 0) {
-                            "${compactActiveDuration(sportMins)} · $period"
+                    SportsActivityDualHeroCard(
+                        sportCount = sportCount,
+                        hoursText = if (sportCount > 0) {
+                            compactActiveDuration(sportMins)
                         } else {
-                            "sin salidas En vivo en $period"
-                        }
+                            "—"
+                        },
+                        tint = ProgressCategory.SPORTS.accent
                     )
                 }
                 item {
@@ -947,23 +951,25 @@ internal fun ProgressTab(
                                         color = ProgressCategory.STRENGTH.accent
                                     )
                                 }
-                                progressRows.forEach { (id, summary) ->
-                                    val name = overview?.exerciseEntries?.firstOrNull { it.id == id }?.name
-                                        ?: id
-                                    val e1 = summary.estimatedOneRM?.toInt()
-                                    Row(Modifier.fillMaxWidth()) {
-                                        Text(
-                                            name,
-                                            modifier = Modifier.weight(1f),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            e1?.let { "e1RM $it kg" } ?: "—",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = ProgressCategory.STRENGTH.accent,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                                        )
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    progressRows.forEach { (id, summary) ->
+                                        val name = overview?.exerciseEntries?.firstOrNull { it.id == id }?.name
+                                            ?: id
+                                        val e1 = summary.estimatedOneRM?.toInt()
+                                        Row(Modifier.fillMaxWidth()) {
+                                            Text(
+                                                name,
+                                                modifier = Modifier.weight(1f),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                maxLines = 1
+                                            )
+                                            Text(
+                                                e1?.let { "e1RM $it kg" } ?: "—",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = ProgressCategory.STRENGTH.accent,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -973,28 +979,18 @@ internal fun ProgressTab(
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ReperaSectionTitle("Este mes")
-                        ProgressSaludInsightCard(
-                            title = "Resumen por actividad",
-                            icon = Icons.Outlined.Flag,
-                            tint = ProgressCategory.SPORTS.accent,
-                            narrative = if (monthHighlights.isEmpty()) {
+                        val highlightSessions = monthHighlights.sumOf { it.sessionCount }
+                        val salidaCount = maxOf(monthSportCount, highlightSessions)
+                        val hasMonthData = monthSportCount > 0 || monthHighlights.isNotEmpty()
+                        SportsMonthSummaryHeroCard(
+                            sportCount = if (hasMonthData) salidaCount else 0,
+                            hoursText = if (hasMonthData) compactActiveDuration(monthSportMins) else "—",
+                            emptyNarrative = if (!hasMonthData) {
                                 "Cuando registres salidas o actividades este mes, verás aquí el resumen."
                             } else {
-                                ""
+                                null
                             },
-                            heroValue = when {
-                                monthSportCount > 0 -> "$monthSportCount"
-                                monthHighlights.isNotEmpty() -> "${monthHighlights.size}"
-                                else -> "—"
-                            },
-                            heroUnit = null,
-                            heroCaption = null,
-                            stackedMetaTop = compactActiveDuration(monthSportMins),
-                            stackedMetaBottom = when {
-                                monthSportCount > 0 -> "salidas"
-                                monthHighlights.isNotEmpty() -> "activ."
-                                else -> null
-                            }
+                            tint = ProgressCategory.SPORTS.accent
                         )
                         monthHighlights.take(6).forEach { row ->
                             ReperaCard(modifier = Modifier.fillMaxWidth()) {
@@ -1121,10 +1117,41 @@ private fun fitnessDailyBarFractions(
         .takeWhile { !it.isAfter(today) }
         .map { byDay[it] ?: 0.0 }
         .toList()
-    val peak = values.maxOrNull()?.takeIf { it > 0 } ?: return emptyList()
+    val active = values.filter { it > 0 }
+    if (active.isEmpty()) return emptyList()
+    val sorted = active.sorted()
+    val p90Index = minOf(sorted.lastIndex, ((sorted.size - 1) * 0.9).toInt())
+    val scale = maxOf(sorted[p90Index], 1.0)
     return values.map { m ->
-        if (m > 0) (m / peak).toFloat().coerceIn(0.12f, 1f) else 0.08f
+        if (m <= 0) 0.08f
+        else maxOf(0.18f, minOf(1f, (m / scale).toFloat()))
     }
+}
+
+private fun recoveryMonthWeeklyRows(
+    nights: List<dev.repera.domain.RecoverySleepNight>,
+    today: LocalDate,
+    monday: Boolean
+): List<Triple<String, String, Int>> {
+    if (nights.isEmpty()) return emptyList()
+    val monthStart = ProgressTimeRange.MONTH.startDate(today, monday) ?: return emptyList()
+    val rows = mutableListOf<Triple<String, String, Int>>()
+    var cursor = monthStart
+    var weekIndex = 1
+    while (!cursor.isAfter(today) && weekIndex <= 6) {
+        val weekEnd = minOf(cursor.plusDays(6), today)
+        val inWeek = nights.filter { !it.day.isBefore(cursor) && !it.day.isAfter(weekEnd) }
+        val avg = if (inWeek.isEmpty()) {
+            "—"
+        } else {
+            val h = inWeek.map { it.hours }.average()
+            "${String.format(java.util.Locale("es", "ES"), "%.1f", h)} h"
+        }
+        rows.add(Triple("Sem $weekIndex", avg, inWeek.size))
+        cursor = cursor.plusDays(7)
+        weekIndex++
+    }
+    return rows
 }
 
 private fun heartWeeklyAverageBpm(points: List<HeartRatePlotPoint>): Int? {
@@ -1140,18 +1167,6 @@ private fun heartWeeklyAverageBpm(points: List<HeartRatePlotPoint>): Int? {
 /** Alias de fracciones de altura a partir de rangos min–máx (Cardio del mes). */
 private fun heartMonthBarFractions(points: List<HeartRatePlotPoint>): List<Float> =
     heartDailyBarFractions(points)
-
-private fun sportsHubNarrative(sportCount: Int, improved: Int, planned: Int, period: String): String {
-    if (sportCount == 0 && improved == 0 && planned == 0) {
-        return "Aquí verás salidas En vivo, entrenos del plan y ejercicios que mejoran en $period."
-    }
-    val parts = buildList {
-        if (sportCount > 0) add("$sportCount salida${if (sportCount == 1) "" else "s"} En vivo")
-        if (planned > 0) add("$planned del plan")
-        if (improved > 0) add("$improved ejercicio${if (improved == 1) "" else "s"} con historial")
-    }
-    return parts.joinToString(" · ") + " · $period."
-}
 
 /** Altura relativa de rango FC (compat). Preferir `heartDailyBarRanges` para barras levitando. */
 private fun heartDailyBarFractions(points: List<HeartRatePlotPoint>): List<Float> =
@@ -1506,7 +1521,8 @@ private fun ProgressMonthSummaryCard(
     barRanges: List<Pair<Float, Float>> = emptyList(),
     elevateChart: Boolean = false,
     chartBesideTitle: Boolean = false,
-    chartStyle: ProgressMiniChartStyle = ProgressMiniChartStyle.FILL
+    chartStyle: ProgressMiniChartStyle = ProgressMiniChartStyle.FILL,
+    monthWeeklyRows: List<Triple<String, String, Int>> = emptyList()
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ReperaSectionTitle("Este mes")
@@ -1522,12 +1538,160 @@ private fun ProgressMonthSummaryCard(
             barRanges = barRanges,
             elevateChart = elevateChart,
             chartBesideTitle = chartBesideTitle,
-            chartStyle = chartStyle
+            chartStyle = chartStyle,
+            monthWeeklyRows = monthWeeklyRows
         )
     }
 }
 
 private enum class ProgressMiniChartStyle { FILL, RANGE, AREA }
+
+/** Icono + título izq.; conteo + tiempo/salidas der. (misma fila, alto compacto). */
+@Composable
+private fun SportsMonthSummaryHeroCard(
+    sportCount: Int,
+    hoursText: String,
+    emptyNarrative: String?,
+    tint: Color
+) {
+    val countText = if (sportCount > 0) "$sportCount" else "—"
+    val heroStyle = MaterialTheme.typography.displayLarge.copy(fontSize = 48.sp)
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        Icons.Outlined.Flag,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .size(22.dp)
+                    )
+                    Text(
+                        "Resumen por actividad",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = tint,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        countText,
+                        style = heroStyle,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Column {
+                        Text(
+                            hoursText,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                        Text(
+                            "salidas",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+            if (emptyNarrative != null) {
+                Text(
+                    emptyNarrative,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/** Icono + título izq.; conteo + tiempo/«salidas» der. (misma fila, alto compacto). */
+@Composable
+private fun SportsActivityDualHeroCard(
+    sportCount: Int,
+    hoursText: String,
+    tint: Color
+) {
+    val countText = if (sportCount > 0) "$sportCount" else "—"
+    val heroStyle = MaterialTheme.typography.displayLarge.copy(fontSize = 48.sp)
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Row(
+                Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    Icons.Outlined.Flag,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(22.dp)
+                )
+                Text(
+                    "Actividad deportiva",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = tint,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    countText,
+                    style = heroStyle,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Column {
+                    Text(
+                        hoursText,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                    Text(
+                        "salidas",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun ProgressSaludInsightCard(
@@ -1544,7 +1708,11 @@ private fun ProgressSaludInsightCard(
     chartBesideTitle: Boolean = false,
     stackedMetaTop: String? = null,
     stackedMetaBottom: String? = null,
-    chartStyle: ProgressMiniChartStyle = ProgressMiniChartStyle.FILL
+    chartStyle: ProgressMiniChartStyle = ProgressMiniChartStyle.FILL,
+    trailingText: String? = null,
+    heroTrailingHours: String? = null,
+    largeHero: Boolean = false,
+    monthWeeklyRows: List<Triple<String, String, Int>> = emptyList()
 ) {
     val barHeight = when {
         chartBesideTitle -> 118.dp
@@ -1553,8 +1721,10 @@ private fun ProgressSaludInsightCard(
     }
     val barWidth = if (elevateChart || chartBesideTitle) 152.dp else 120.dp
     val alignChartBottom = chartStyle != ProgressMiniChartStyle.RANGE
+    val heroStyle = if (largeHero) MaterialTheme.typography.displayLarge
+    else MaterialTheme.typography.displayMedium
     ReperaCard(modifier = Modifier.fillMaxWidth()) {
-        if (elevateChart && barFractions.isNotEmpty() && narrative.isEmpty()) {
+        if (elevateChart && narrative.isEmpty() && (barFractions.isNotEmpty() || chartBesideTitle)) {
             if (chartBesideTitle) {
                 Row(
                     Modifier.padding(16.dp).fillMaxWidth().height(IntrinsicSize.Min),
@@ -1565,22 +1735,16 @@ private fun ProgressSaludInsightCard(
                         Modifier.weight(1f).fillMaxHeight(),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(icon, contentDescription = null, tint = tint)
-                            Text(
-                                title,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = tint,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                            )
-                        }
+                        ProgressSaludInsightHeader(
+                            title = title,
+                            icon = icon,
+                            tint = tint,
+                            trailingText = trailingText
+                        )
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 heroValue,
-                                style = MaterialTheme.typography.displayLarge,
+                                style = heroStyle,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                 maxLines = 1
                             )
@@ -1602,14 +1766,16 @@ private fun ProgressSaludInsightCard(
                             )
                         }
                     }
-                    ProgressMiniChart(
-                        fractions = barFractions,
+                    ProgressSaludInsightTrailingColumn(
+                        barFractions = barFractions,
+                        barRanges = barRanges,
                         tint = tint,
-                        style = chartStyle,
-                        ranges = barRanges,
-                        modifier = Modifier
-                            .width(barWidth)
-                            .height(barHeight)
+                        chartStyle = chartStyle,
+                        barWidth = barWidth,
+                        barHeight = barHeight,
+                        heroTrailingHours = heroTrailingHours,
+                        hoursTint = tint,
+                        monthWeeklyRows = monthWeeklyRows
                     )
                 }
             } else {
@@ -1693,8 +1859,35 @@ private fun ProgressSaludInsightCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    if (stackedMetaBottom != null && stackedMetaTop != null) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    if (monthWeeklyRows.isNotEmpty()) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    heroValue,
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                                if (heroUnit != null) {
+                                    Text(
+                                        " $heroUnit",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+                                }
+                            }
+                            heroCaption?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        RecoveryMonthWeeklyTable(monthWeeklyRows)
+                    } else if (stackedMetaBottom != null && stackedMetaTop != null) {
                         Row(
                             Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1756,6 +1949,141 @@ private fun ProgressSaludInsightCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressSaludInsightHeader(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    trailingText: String? = null
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        if (title.isNotEmpty()) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = tint,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+        trailingText?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = tint,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProgressSaludInsightTrailingColumn(
+    barFractions: List<Float>,
+    barRanges: List<Pair<Float, Float>>,
+    tint: Color,
+    chartStyle: ProgressMiniChartStyle,
+    barWidth: androidx.compose.ui.unit.Dp,
+    barHeight: androidx.compose.ui.unit.Dp,
+    heroTrailingHours: String?,
+    hoursTint: Color,
+    monthWeeklyRows: List<Triple<String, String, Int>>
+) {
+    when {
+        barFractions.isNotEmpty() -> ProgressMiniChart(
+            fractions = barFractions,
+            tint = tint,
+            style = chartStyle,
+            ranges = barRanges,
+            modifier = Modifier.width(barWidth).height(barHeight)
+        )
+        heroTrailingHours != null -> Column(
+            Modifier
+                .width(barWidth)
+                .height(barHeight)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(
+                heroTrailingHours,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                color = hoursTint
+            )
+            Text(
+                "horas",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        monthWeeklyRows.isNotEmpty() -> RecoveryMonthWeeklyTable(
+            monthWeeklyRows,
+            modifier = Modifier.widthIn(min = barWidth)
+        )
+    }
+}
+
+@Composable
+private fun RecoveryMonthWeeklyTable(
+    rows: List<Triple<String, String, Int>>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                "Semana",
+                Modifier.width(52.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Media",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End
+            )
+            Text(
+                "Noches",
+                Modifier.width(44.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End
+            )
+        }
+        rows.forEach { (label, avg, nights) ->
+            Row(Modifier.fillMaxWidth()) {
+                Text(label, Modifier.width(52.dp), style = MaterialTheme.typography.labelMedium)
+                Text(
+                    avg,
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
+                Text(
+                    "$nights",
+                    Modifier.width(44.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
             }
         }
     }
@@ -2198,7 +2526,7 @@ internal fun HeartZonesDemoCard() {
                         Text(
                             "${(zone.pct * 100).toInt()}%",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
+                            color = Color.Black
                         )
                     }
                 }

@@ -411,6 +411,7 @@ fun ReperaMobileScreen(
             )
         }
         var libraryModeRequest by rememberSaveable {mutableStateOf<String?>(null)}
+        var progressCategoryRequest by rememberSaveable { mutableStateOf<String?>(null) }
         // Favoritos → Comenzar: deporte a preseleccionar al abrir en-vivo.
         var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
         val backStackEntry by navController.currentBackStackEntryAsState()
@@ -728,7 +729,10 @@ fun ReperaMobileScreen(
                 composable("inicio") {
                     HomeTab(
                         onOpenSettings=openSettings,
-                        onOpenRecoverySettings=openSettings,
+                        onOpenProgressRecovery = {
+                            progressCategoryRequest = ProgressCategory.RECOVERY.name
+                            navigateTab("progreso")
+                        },
                         professionalSessions=centerSnapshot?.trainingSessions.orEmpty(),
                         centerSnapshot = centerSnapshot,
                         centerSubmitting = centerSubmitting,
@@ -1248,6 +1252,8 @@ fun ReperaMobileScreen(
                 }
                 composable("progreso") {
                     ProgressTab(
+                        requestedCategory = progressCategoryRequest,
+                        onRequestedCategoryConsumed = { progressCategoryRequest = null },
                         onOpenExercise = { idOrName ->
                             val entries = overview?.exerciseEntries.orEmpty()
                             val resolved = entries.firstOrNull { it.id == idOrName }

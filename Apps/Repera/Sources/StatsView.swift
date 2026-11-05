@@ -76,6 +76,11 @@ struct StatsView: View {
                     "feature_area": "progress", "section_name": selected.rawValue
                 ])
             }
+            .onReceive(NotificationCenter.default.publisher(
+                for: Notification.Name("repera.openProgressRecovery")
+            )) { _ in
+                category = .recovery
+            }
             .task {
                 applyHubRangePolicy()
                 schedulePrepare(reason: "initial")
@@ -418,7 +423,8 @@ struct StatsView: View {
         }
         for workout in workouts {
             let day = cal.startOfDay(for: workout.startedAt ?? workout.finishedAt ?? now)
-            byDay[day, default: 0] += max(0, workout.durationMinutes)
+            // Reloj de pared (no duración Salud/Watch outlier) para barras de estímulo.
+            byDay[day, default: 0] += max(0, workout.displayDurationMinutes)
         }
         for sample in external {
             let day = cal.startOfDay(for: sample.date)
@@ -435,9 +441,15 @@ struct StatsView: View {
     }
 
     private func minuteBarSamples(_ minutes: [Double]) -> [ClosedRange<Double>] {
-        guard let peak = minutes.max(), peak > 0 else { return [] }
+        let active = minutes.filter { $0 > 0 }
+        guard !active.isEmpty else { return [] }
+        // Escala por percentil alto (no el pico outlier) para que varios días se vean.
+        let sorted = active.sorted()
+        let p90Index = min(sorted.count - 1, Int(Double(sorted.count - 1) * 0.9))
+        let scale = max(sorted[p90Index], 1)
         return minutes.map { m in
-            let hi = m > 0 ? max(0.12, min(1.0, m / peak)) : 0.08
+            if m <= 0 { return 0...0.08 }
+            let hi = max(0.18, min(1.0, m / scale))
             return 0...hi
         }
     }
@@ -965,28 +977,49 @@ struct StatsView: View {
                 .rounded()
         )
         OGCardSectionTitle(title: "Deportes")
-        ProgressInsightCard(
-            title: "Actividad deportiva",
-            systemImage: ProgressCategory.sports.systemImage,
-            narrative: sportsHubNarrative(
-                sportCount: sportCount,
-                improved: improved,
-                planned: planned
-            ),
-            tint: ProgressCategory.sports.accent
-        ) {
-            ProgressHeroMetricRow(
-                value: sportCount > 0 ? "\(sportCount)" : "—",
-                unit: sportCount > 0 ? "salidas" : nil,
-                caption: sportCount > 0
-                    ? "\(Self.compactActiveDuration(sportMins)) · \(hubPeriodCaption)"
-                    : "sin salidas En vivo en \(hubPeriodCaption)"
-            ) {
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(ProgressCategory.sports.accent.opacity(0.9))
-                    .accessibilityHidden(true)
+        OGCard {
+            // Icono alineado a la 1.ª línea del título; datos a la derecha.
+            HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: ProgressCategory.sports.systemImage)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(ProgressCategory.sports.accent)
+                        .symbolRenderingMode(.hierarchical)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
+                        .accessibilityHidden(true)
+                    Text("Actividad deportiva")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(ProgressCategory.sports.accent)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(alignment: .center, spacing: 10) {
+                    Text(sportCount > 0 ? "\(sportCount)" : "—")
+                        .ogFont(52, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                        .monospacedDigit()
+                        .foregroundStyle(OG.label)
+                        .minimumScaleFactor(0.55)
+                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(sportCount > 0 ? Self.compactActiveDuration(sportMins) : "—")
+                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Text("salidas")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(1)
+                    }
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                sportCount > 0
+                    ? "Actividad deportiva, \(sportCount) salidas, \(Self.compactActiveDuration(sportMins))"
+                    : "Actividad deportiva sin salidas En vivo"
+            )
         }
         LazyVGrid(
             columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
@@ -1000,16 +1033,6 @@ struct StatsView: View {
             ProgressMetricGlanceCard(
                 title: "Del plan",
                 value: planned > 0 ? "\(planned)" : "—",
-                tint: ProgressCategory.sports.accent
-            )
-            ProgressMetricGlanceCard(
-                title: "Tiempo En vivo",
-                value: Self.compactActiveDuration(sportMins),
-                tint: ProgressCategory.sports.accent
-            )
-            ProgressMetricGlanceCard(
-                title: "Periodo",
-                value: "7 d",
                 tint: ProgressCategory.sports.accent
             )
         }
@@ -1060,7 +1083,7 @@ struct StatsView: View {
                 tint: ProgressCategory.strength.accent,
                 trailingText: "\(improved) al alza"
             ) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 14) {
                     ForEach(Array(exerciseProgressDeltas.prefix(5).enumerated()), id: \.element.id) { _, row in
                         let pct = Int(((row.ratio - 1) * 100).rounded())
                         HStack {
@@ -1080,23 +1103,6 @@ struct StatsView: View {
             }
         }
         sportsMonthSummaryCard
-    }
-
-    private func sportsHubNarrative(sportCount: Int, improved: Int, planned: Int) -> String {
-        if sportCount == 0 && improved == 0 && planned == 0 {
-            return "Aquí verás salidas En vivo, entrenos del plan y ejercicios que mejoran en \(hubPeriodCaption)."
-        }
-        var parts: [String] = []
-        if sportCount > 0 {
-            parts.append("\(sportCount) salida\(sportCount == 1 ? "" : "s") En vivo")
-        }
-        if planned > 0 {
-            parts.append("\(planned) del plan")
-        }
-        if improved > 0 {
-            parts.append("\(improved) ejercicio\(improved == 1 ? "" : "s") al alza")
-        }
-        return parts.joined(separator: " · ") + " · \(hubPeriodCaption)."
     }
 
     /// Bloque «Este mes» estilo Apple Salud: cierre narrativo aunque el hub mire 7 días.
@@ -1212,22 +1218,79 @@ struct StatsView: View {
             guard !nights.isEmpty else { return nil }
             return nights.map(\.hours).reduce(0, +) / Double(nights.count)
         }()
+        let weeklyRows: [(label: String, avg: String, nights: Int)] = {
+            guard let monthStart = ProgressTimeRange.month.startDate(
+                now: now, weekStartsOnMonday: mondayFirst
+            ) else { return [] }
+            var rows: [(String, String, Int)] = []
+            var cursor = monthStart
+            var weekIndex = 1
+            while cursor <= now, weekIndex <= 6 {
+                let weekEnd = min(
+                    cal.date(byAdding: .day, value: 6, to: cursor) ?? cursor,
+                    cal.startOfDay(for: now)
+                )
+                let inWeek = nights.filter { $0.date >= cursor && $0.date <= weekEnd }
+                let avg: String = {
+                    guard !inWeek.isEmpty else { return "—" }
+                    let h = inWeek.map(\.hours).reduce(0, +) / Double(inWeek.count)
+                    return "\(ReperaNumberFormat.decimal(h)) h"
+                }()
+                rows.append(("Sem \(weekIndex)", avg, inWeek.count))
+                guard let next = cal.date(byAdding: .day, value: 7, to: cursor) else { break }
+                cursor = next
+                weekIndex += 1
+            }
+            return rows
+        }()
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Este mes")
             ProgressInsightCard(
                 title: "Descanso del mes",
                 systemImage: ProgressCategory.recovery.systemImage,
-                narrative: avgHours.map {
-                    "Has registrado \(nights.count) noche\(nights.count == 1 ? "" : "s") de sueño este mes · media \(ReperaNumberFormat.decimal($0)) h."
-                } ?? "Cuando Salud registre sueño este mes, verás aquí el resumen de descanso.",
+                narrative: nights.isEmpty
+                    ? "Cuando Salud registre sueño este mes, verás aquí el resumen de descanso."
+                    : "",
                 tint: ProgressCategory.recovery.accent
             ) {
-                ProgressHeroMetricRow(
-                    value: avgHours.map { ReperaNumberFormat.decimal($0) } ?? "—",
-                    unit: avgHours == nil ? nil : "h",
-                    caption: nights.isEmpty ? "sin noches aún" : "\(nights.count) noches"
-                ) {
-                    EmptyView()
+                HStack(alignment: .top, spacing: 14) {
+                    ProgressHeroMetricRow(
+                        value: avgHours.map { ReperaNumberFormat.decimal($0) } ?? "—",
+                        unit: avgHours == nil ? nil : "h",
+                        caption: nights.isEmpty ? "sin noches aún" : "media del mes"
+                    ) {
+                        EmptyView()
+                    }
+                    if !weeklyRows.isEmpty {
+                        VStack(alignment: .trailing, spacing: 6) {
+                            HStack {
+                                Text("Semana")
+                                    .frame(width: 52, alignment: .leading)
+                                Text("Media")
+                                    .frame(width: 48, alignment: .trailing)
+                                Text("Noches")
+                                    .frame(width: 44, alignment: .trailing)
+                            }
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(OG.label3)
+                            ForEach(Array(weeklyRows.enumerated()), id: \.offset) { _, row in
+                                HStack {
+                                    Text(row.label)
+                                        .frame(width: 52, alignment: .leading)
+                                    Text(row.avg)
+                                        .frame(width: 48, alignment: .trailing)
+                                        .monospacedDigit()
+                                    Text("\(row.nights)")
+                                        .frame(width: 44, alignment: .trailing)
+                                        .monospacedDigit()
+                                }
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(OG.label2)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Media y noches registradas por semana")
+                    }
                 }
             }
         }
@@ -1238,59 +1301,89 @@ struct StatsView: View {
         let sessions = calendarMonthSportSessions
         let minutes = Int(sessions.reduce(0.0) { $0 + max(0, $1.durationMinutes) }.rounded())
         let highlights = monthActivityHighlights
+        let salidaCount = max(sessions.count, highlights.isEmpty ? 0 : highlights.reduce(0) { $0 + $1.sessionCount })
+        let hasData = !sessions.isEmpty || !highlights.isEmpty
         VStack(alignment: .leading, spacing: 8) {
             OGCardSectionTitle(title: "Este mes")
-            ProgressInsightCard(
-                title: "Resumen por actividad",
-                systemImage: ProgressCategory.sports.systemImage,
-                narrative: highlights.isEmpty
-                    ? "Cuando registres salidas o actividades este mes, verás aquí el resumen."
-                    : "",
-                tint: ProgressCategory.sports.accent
-            ) {
-                let countValue = sessions.isEmpty && highlights.isEmpty
-                    ? "—"
-                    : "\(max(sessions.count, highlights.count))"
-                let metaBottom = sessions.isEmpty
-                    ? (highlights.isEmpty ? nil : "activ.")
-                    : "salidas"
-                ProgressHeroMetricRow(
-                    value: countValue,
-                    valuePointSize: 56,
-                    stackedMeta: metaBottom.map {
-                        (top: Self.compactActiveDuration(minutes), bottom: $0)
-                    }
-                ) {
-                    EmptyView()
-                }
-                if !highlights.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(highlights.prefix(6)) { row in
-                            HStack(alignment: .center, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(row.title)
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(OG.label)
-                                        .lineLimit(2)
-                                    Text("\(row.sessionCount)× · \(row.bestLine)")
-                                        .font(.caption.weight(.medium))
-                                        .foregroundStyle(OG.label3)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.85)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                Text(row.primaryValue)
-                                    .ogFont(28, weight: .bold, design: .rounded, relativeTo: .title)
-                                    .monospacedDigit()
-                                    .foregroundStyle(OG.label)
+            OGCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Image(systemName: ProgressCategory.sports.systemImage)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(ProgressCategory.sports.accent)
+                                .symbolRenderingMode(.hierarchical)
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
+                                .accessibilityHidden(true)
+                            Text("Resumen por actividad")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(ProgressCategory.sports.accent)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        HStack(alignment: .center, spacing: 10) {
+                            Text(hasData ? "\(salidaCount)" : "—")
+                                .ogFont(52, weight: .bold, design: .rounded, relativeTo: .largeTitle)
+                                .monospacedDigit()
+                                .foregroundStyle(OG.label)
+                                .minimumScaleFactor(0.55)
+                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(hasData ? Self.compactActiveDuration(minutes) : "—")
+                                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(OG.label2)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.6)
-                                    .multilineTextAlignment(.trailing)
+                                    .minimumScaleFactor(0.8)
+                                Text("salidas")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(OG.label2)
+                                    .lineLimit(1)
                             }
                         }
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Resumen de actividades del mes")
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(
+                        hasData
+                            ? "Resumen por actividad, \(salidaCount) salidas, \(Self.compactActiveDuration(minutes))"
+                            : "Resumen por actividad sin datos"
+                    )
+
+                    if highlights.isEmpty && sessions.isEmpty {
+                        Text("Cuando registres salidas o actividades este mes, verás aquí el resumen.")
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
+                    }
+
+                    if !highlights.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(highlights.prefix(6)) { row in
+                                HStack(alignment: .center, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(row.title)
+                                            .font(.body.weight(.semibold))
+                                            .foregroundStyle(OG.label)
+                                            .lineLimit(2)
+                                        Text("\(row.sessionCount)× · \(row.bestLine)")
+                                            .font(.caption.weight(.medium))
+                                            .foregroundStyle(OG.label3)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.85)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(row.primaryValue)
+                                        .ogFont(28, weight: .bold, design: .rounded, relativeTo: .title)
+                                        .monospacedDigit()
+                                        .foregroundStyle(OG.label)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                        .multilineTextAlignment(.trailing)
+                                }
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Resumen de actividades del mes")
+                    }
                 }
             }
         }

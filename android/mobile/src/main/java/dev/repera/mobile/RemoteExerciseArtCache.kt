@@ -40,7 +40,6 @@ internal object RemoteExerciseArtCache {
             }
         }
         for (stem in stems.sorted()) {
-            if (ExerciseArtImages.availableStems(context).contains(stem)) continue
             if (hasFile(context, stem)) continue
             download(context, stem)
         }

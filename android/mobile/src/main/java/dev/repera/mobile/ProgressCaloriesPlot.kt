@@ -22,10 +22,30 @@ import kotlin.math.abs
 /** ProgressChartAxis calendar-day equivalent (half-day padding for single/teaser). */
 internal object ProgressPlotAxis {
  fun domain(days:List<LocalDate>,range:ProgressTimeRange,monday:Boolean,today:LocalDate,preview:Boolean):Pair<Double,Double> {
-  val start=(if(preview) days.minOrNull() else range.startDate(today,monday)) ?: days.minOrNull() ?: today
-  val end=if(preview) days.maxOrNull() ?: today else today
-  val pad=if(preview || start==end || days.size<=1) 0.5 else 0.0
-  return start.toEpochDay()-pad to end.toEpochDay()+pad
+  val pad=0.5
+  if (preview) {
+   val start=days.minOrNull() ?: today
+   val end=days.maxOrNull() ?: today
+   return start.toEpochDay()-pad to end.toEpochDay()+pad
+  }
+  val expectedDays=when(range) {
+   ProgressTimeRange.TODAY -> 1
+   ProgressTimeRange.WEEK -> 7
+   ProgressTimeRange.MONTH -> 28
+   ProgressTimeRange.DAYS90 -> 90
+   ProgressTimeRange.DAYS180 -> 180
+   ProgressTimeRange.DAYS360 -> 360
+  }
+  if (days.size < expectedDays) {
+   val start=days.minOrNull() ?: today
+   val end=days.maxOrNull() ?: today
+   if (start==end) return start.toEpochDay()-pad to end.toEpochDay()+pad
+   return start.toEpochDay()-pad to end.toEpochDay()+pad
+  }
+  val start=range.startDate(today,monday) ?: days.minOrNull() ?: today
+  val end=today
+  val edgePad=if(start==end || days.size<=1) pad else 0.0
+  return start.toEpochDay()-edgePad to end.toEpochDay()+edgePad
  }
  fun fraction(day:LocalDate,domain:Pair<Double,Double>):Float =((day.toEpochDay()-domain.first)/(domain.second-domain.first).coerceAtLeast(1.0)).toFloat()
  /** Eje de semana/hoy = todos los días de la ventana (huecos honestos), no solo días con kcal. */

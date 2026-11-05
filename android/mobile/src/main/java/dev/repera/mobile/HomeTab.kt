@@ -172,7 +172,7 @@ internal fun HomeTab(
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
     onOpenHistory:()->Unit = {},
-    onOpenRecoverySettings:()->Unit = {},
+    onOpenProgressRecovery: () -> Unit = {},
     onOpenSettings:()->Unit = {},
     dayHealthProvider:suspend (java.time.LocalDate)->TodayHealth? = {null}
 ) {
@@ -344,8 +344,9 @@ internal fun HomeTab(
                         )
                     }
                     dayWorkouts.forEach { workout ->
-                        val showActions =
-                            workout.timerDetails == null && workout.id !in dismissedReviewIds
+                        val showActions = isToday &&
+                            workout.awaitingResultEntry &&
+                            workout.id !in dismissedReviewIds
                         HomeSwipeRevealCard(
                             key = workout.id,
                             busy = busy,
@@ -605,7 +606,7 @@ internal fun HomeTab(
                                 }
                                 model.sleepIndexOutOf10?.let { Text("Índice de sueño: $it/10") }
                                 model.cycleLabel?.let { Text(it) }
-                                TextButton(onClick = onOpenRecoverySettings) {
+                                TextButton(onClick = onOpenProgressRecovery) {
                                     Text(stringResource(R.string.home_tab_ver_salud_y_recuperacion))
                                 }
                             }

@@ -249,15 +249,18 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 private fun PaywallComparison() {
     val limits = dev.repera.domain.monetization.FreePlanLimits
     val rows = listOf(
-        // Paridad PaywallView.swift: («Mapa», «2D», «2D + 3D»).
-        Triple("Mapa", "2D", "2D + 3D"),
-        Triple("Progreso", "Últimos 7 días", "Todos los periodos"),
+        Triple("Mapa GPS", "2D", "2D + 3D"),
+        Triple("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
-        Triple("Rutinas / favoritos",
-            "${limits.MAX_LIBRARY_ROUTINES} / ${limits.MAX_FAVORITE_ITEMS}", "Sin límites"),
+        Triple("Comparativas WOD", "No", "Sí"),
+        Triple("Progresión de carga", "Básica", "Avanzada"),
+        Triple(
+            "Rutinas / favoritos",
+            "${limits.MAX_LIBRARY_ROUTINES} / ${limits.MAX_FAVORITE_ITEMS}",
+            "Sin límites"
+        ),
         Triple("Ejercicios propios", "${limits.MAX_CUSTOM_EXERCISES}", "Sin límites"),
-        Triple("Escáner WOD", "${limits.MAX_BOARD_SCANS_PER_MONTH}/mes", "Ilimitado"),
-        Triple("Análisis y WOD", "Básico", "Avanzado")
+        Triple("Escáner WOD", "${limits.MAX_BOARD_SCANS_PER_MONTH}/mes", "Ilimitado")
     )
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         PaywallSectionHeading("GRATIS VS PRO")

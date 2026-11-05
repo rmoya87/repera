@@ -333,8 +333,13 @@ struct HomeView: View {
                                 .padding(.horizontal, OG.pad)
                         }
                         if calendar.isDateInToday(selectedDay) {
-                            RecoveryHomeCard()
-                                .padding(.horizontal, OG.pad)
+                            RecoveryHomeCard(onOpenRecovery: {
+                                NotificationCenter.default.post(
+                                    name: Notification.Name("repera.openProgressRecovery"),
+                                    object: nil
+                                )
+                            })
+                            .padding(.horizontal, OG.pad)
                         }
                     }
                     .padding(.top, 12)
@@ -1256,20 +1261,7 @@ struct HomeView: View {
                     _ = store.controlWatchTimer(command)
                 }
             }
-            ForEach(store.state.workouts.filter {
-                $0.awaitingResultEntry && $0.startedAt.map {
-                    Calendar.current.isDate($0, inSameDayAs: selectedDay)
-                } == true
-            }) { pending in
-                Button {
-                    editOwnCompletedWorkout(pending)
-                } label: {
-                    Label("Completar entreno pendiente", systemImage: "pencil")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.bordered)
-                .tint(OG.accent)
-            }
+            // La card del día ya ofrece Revisar/Descartar para pendientes de Watch.
             ForEach(workouts) { session in
                 dayWorkoutCard(session)
             }
@@ -1687,9 +1679,13 @@ struct HomeView: View {
         )
     }
 
-    /// Acciones dentro de la card guardada: Descartar (oculta, no borra) | Revisar (editar).
+    /// Solo Watch pendiente de resultado, en el día de hoy, y si aún no se descartó/revisó.
     private func showsHomeReviewActions(for session: WorkoutSession) -> Bool {
-        session.timerDetails == nil && !dismissedHomeReviewActions.contains(session.id)
+        guard session.timerDetails == nil else { return false }
+        guard calendar.isDateInToday(selectedDay) else { return false }
+        guard !dismissedHomeReviewActions.contains(session.id) else { return false }
+        return session.awaitingResultEntry
+            || session.appleHealthProvenance == "watchHealthKitPending"
     }
 
     private static let homeReviewFooterHeight: CGFloat = 52
@@ -2461,18 +2457,30 @@ private enum HomeReviewActionDismissals {
 
     static func load() -> Set<UUID> {
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: legacyGlobalKey)
+        var merged = Set((defaults.stringArray(forKey: key) ?? []).compactMap(UUID.init(uuidString:)))
+
+        // Migrar legacy global ANTES de borrarlo (updates no deben re-pedir Revisar).
+        if let legacy = defaults.stringArray(forKey: legacyGlobalKey), !legacy.isEmpty {
+            merged.formUnion(legacy.compactMap(UUID.init(uuidString:)))
+            defaults.removeObject(forKey: legacyGlobalKey)
+        }
+
         // Si acaba de haber cuenta, fusionar el fallback local (mismo dispositivo).
-        if let scoped = AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2"),
-           let local = defaults.stringArray(forKey: localFallbackKey), !local.isEmpty {
-            var merged = Set((defaults.stringArray(forKey: scoped) ?? []).compactMap(UUID.init(uuidString:)))
-            merged.formUnion(local.compactMap(UUID.init(uuidString:)))
+        if let scoped = AccountScopedDefaults.key("repera.home.dismissedReviewActions.v2") {
+            if let local = defaults.stringArray(forKey: localFallbackKey), !local.isEmpty {
+                merged.formUnion(local.compactMap(UUID.init(uuidString:)))
+                defaults.removeObject(forKey: localFallbackKey)
+            }
+            // También fusionar lo ya leído bajo la clave actual (local o scoped).
+            merged.formUnion((defaults.stringArray(forKey: scoped) ?? []).compactMap(UUID.init(uuidString:)))
             defaults.set(merged.map(\.uuidString).sorted(), forKey: scoped)
-            defaults.removeObject(forKey: localFallbackKey)
             return merged
         }
-        let raw = defaults.stringArray(forKey: key) ?? []
-        return Set(raw.compactMap(UUID.init(uuidString:)))
+
+        if !merged.isEmpty {
+            defaults.set(merged.map(\.uuidString).sorted(), forKey: key)
+        }
+        return merged
     }
 
     static func save(_ ids: Set<UUID>) {

@@ -1,6 +1,6 @@
 # Catálogo remoto incremental de ejercicios
 
-Última actualización: 2026-11-04. **Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap. Payload canónico ampliado (`skill_level`, `movement_pattern`, `alternatives`, `art_keys`) + bucket Storage `exercise-art`. Merge en `RemoteExerciseCatalogMerge`. Sync invisible (BGAppRefresh / WorkManager). **`mobile_art_keys` en las 476 fichas activas** (`292000` backfill + `290000` E/F/G); textos ES/HL (`213000`/`215500`); Aducción→Piernas (`291000`). Proyecto `uvzgujlrqohreoucirms`. Enriquecimiento: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).
+Última actualización: 2026-11-04 (prefetch OTA aunque exista en binario; UI prioriza remoto). **Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap. Payload canónico ampliado (`skill_level`, `movement_pattern`, `alternatives`, `art_keys`) + bucket Storage `exercise-art`. Merge en `RemoteExerciseCatalogMerge`. Sync invisible (BGAppRefresh / WorkManager). **`mobile_art_keys` en las 476 fichas activas** (`292000` backfill + `290000` E/F/G); textos ES/HL (`213000`/`215500`); Aducción→Piernas (`291000`). Proyecto `uvzgujlrqohreoucirms`. Enriquecimiento: [CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md).
 
 ## Contrato de autoridad
 
@@ -23,7 +23,7 @@ Campos canónicos en el feed (arrays/textos estables en SQL; la app transforma a
 
 Publicados no vacíos **pisan** el seed; `null`/vacío no borra. Altas nuevas → UUID estable + caché offline. Logging (kg×reps…) sigue **derivado** en la app a partir de nombre/equipo.
 
-**Arte remoto:** bucket público `exercise-art` (`{stem}.jpg`). Apps prefetch a disco (`ExerciseArtRemote` / `exercise-art-remote`) tras sync; binario tiene prioridad si el stem ya existe empaquetado.
+**Arte remoto:** bucket público `exercise-art` (`{stem}.jpg`). Apps prefetch a disco (`ExerciseArtRemote` / `exercise-art-remote`) tras sync **aunque el stem exista en el binario** (OTA no queda bloqueada). En listas/thumbs la UI **prioriza el JPG remoto en disco** frente al empaquetado.
 
 Publicar **no** exige App Store. Subir JPG nuevos al bucket + `mobile_art_keys` en SQL basta para arte de altas nuevas (tras aplicar la migración). CMS: fuera de alcance.
 

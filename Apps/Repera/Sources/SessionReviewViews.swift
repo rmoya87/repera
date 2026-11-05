@@ -159,13 +159,23 @@ struct TrainingScoreConfidenceBar: View {
         if text.contains("en construcción") { return .medium }
         if text.contains("media") { return .medium }
         if text.contains("baja") { return .low }
+        // «En construcción» ya tiene historial personal: no es el vacío «Aprendiendo».
+        if text.contains("construcción") || text.contains("construccion") { return .medium }
         return .learning
+    }
+
+    private var levelTitle: String {
+        let text = (label ?? "").lowercased()
+        if text.contains("construcción") || text.contains("construccion") {
+            return "En construcción"
+        }
+        return currentLevel.title
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(showSelectedLevelInCaption
-                 ? "\(caption) · \(currentLevel.title)" : caption)
+                 ? "\(caption) · \(levelTitle)" : caption)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(OG.label2)
             GeometryReader { geometry in

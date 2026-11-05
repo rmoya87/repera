@@ -305,18 +305,32 @@ final class SubscriptionManager {
         } else if next.grantsProAccess {
             next.lastVerifiedProStatus = next.status
             next.lastVerifiedProAt = Date()
-        } else if next.status == .free,
-                  let cached = previous.lastVerifiedProStatus ?? loadPersistedVerifiedPro()?.lastVerifiedProStatus,
-                  cached.grantsProAccess,
-                  let expiration = next.expirationDate ?? previous.expirationDate ?? loadPersistedVerifiedPro()?.expirationDate,
-                  expiration > Date() {
-            // StoreKit a veces responde vacío un instante; si la caducidad
-            // verificada sigue en el futuro, no degradar a Gratis todavía.
-            next.status = .unknown
-            next.lastVerifiedProStatus = cached
-            next.lastVerifiedProAt = previous.lastVerifiedProAt ?? Date()
-            next.expirationDate = expiration
-            next.lastRefreshFailedOffline = true
+        } else if next.status == .free {
+            // StoreKit a veces responde vacío en updates/arranque. Conservar
+            // Pro verificado mientras caducidad futura o gracia offline (7 d).
+            let persisted = loadPersistedVerifiedPro()
+            let cachedStatus = previous.lastVerifiedProStatus
+                ?? persisted?.lastVerifiedProStatus
+            let cachedAt = previous.lastVerifiedProAt ?? persisted?.lastVerifiedProAt
+            let expiration = next.expirationDate
+                ?? previous.expirationDate
+                ?? persisted?.expirationDate
+            if let cachedStatus, cachedStatus.grantsProAccess {
+                let hold = CommercialSnapshot(
+                    status: .unknown,
+                    lastVerifiedProStatus: cachedStatus,
+                    lastVerifiedProAt: cachedAt ?? Date(),
+                    expirationDate: expiration,
+                    activeProductID: next.activeProductID
+                        ?? previous.activeProductID
+                        ?? persisted?.activeProductID,
+                    isConfigured: true,
+                    lastRefreshFailedOffline: true
+                )
+                if hold.grantsProAccess {
+                    next = hold
+                }
+            }
         }
         applySnapshot(next)
         persistVerifiedPro(snapshot)
@@ -361,8 +375,9 @@ final class SubscriptionManager {
             if let data = try? JSONEncoder().encode(payload) {
                 UserDefaults.standard.set(data, forKey: Self.verifiedProCacheKey)
             }
-        } else if snap.status == .expired || snap.status == .revoked || snap.status == .free {
-            // Solo borrar caché con denegación confirmada (no unknown).
+        } else if snap.status == .expired || snap.status == .revoked {
+            // Solo borrar caché con caducidad/revocación confirmada.
+            // Un `.free` transitorio no debe wipear Pro al actualizar la app.
             UserDefaults.standard.removeObject(forKey: Self.verifiedProCacheKey)
         }
     }

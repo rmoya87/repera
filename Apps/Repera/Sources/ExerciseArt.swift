@@ -171,7 +171,12 @@ enum ExerciseArt {
     }
 
     nonisolated private static func loadAndDownscale(named name: String, maxPixel: Int) -> UIImage? {
-        // Preferir JPG pregenerado en `ExerciseArt/thumbs/` (192px) → carga de lista rápida.
+        // Remoto Supabase primero (miniatura descargada), luego thumbs/bundle.
+        let remote = ExerciseArtRemoteDisk.fileURL(for: name)
+        if FileManager.default.fileExists(atPath: remote.path),
+           let img = UIImage(contentsOfFile: remote.path) {
+            return downscale(img, maxPixel: maxPixel)
+        }
         if let pre = loadUIImageFromDisk(named: name, subdirectory: "ExerciseArt/thumbs") {
             if max(pre.size.width * pre.scale, pre.size.height * pre.scale) <= CGFloat(maxPixel) + 1 {
                 return pre
@@ -186,14 +191,13 @@ enum ExerciseArt {
         named name: String,
         subdirectory: String = "ExerciseArt"
     ) -> UIImage? {
-        if subdirectory == "ExerciseArt", let img = UIImage(named: name) { return img }
-        if subdirectory == "ExerciseArt" || subdirectory == "ExerciseArt/thumbs" {
-            let remote = ExerciseArtRemoteDisk.fileURL(for: name)
-            if FileManager.default.fileExists(atPath: remote.path),
-               let img = UIImage(contentsOfFile: remote.path) {
-                return img
-            }
+        // Preferir JPG OTA de Supabase sobre el binario empaquetado.
+        let remote = ExerciseArtRemoteDisk.fileURL(for: name)
+        if FileManager.default.fileExists(atPath: remote.path),
+           let img = UIImage(contentsOfFile: remote.path) {
+            return img
         }
+        if subdirectory == "ExerciseArt", let img = UIImage(named: name) { return img }
         let bundle = Bundle.main
         let candidates: [URL?] = [
             bundle.resourceURL?.appendingPathComponent("\(subdirectory)/\(name).jpg"),
@@ -312,8 +316,8 @@ enum ExerciseArt {
             return cached.isEmpty ? nil : cached
         }
         let base: String?
-        if let remoteHero = exercise.artKeys.first, acceptedHero(remoteHero) != nil,
-           uiImage(named: remoteHero) != nil || ExerciseArtRemoteDisk.hasFile(for: remoteHero) {
+        // artKeys de Supabase: usar el stem aunque aún no esté en disco (prefetch lo baja).
+        if let remoteHero = exercise.artKeys.first, !remoteHero.isEmpty, acceptedHero(remoteHero) != nil {
             base = remoteHero
         } else if exercise.isMobility {
             // Nunca coger arte de fuerza por parecido para un ejercicio de movilidad.
@@ -654,6 +658,12 @@ enum ExerciseArt {
         if let cached = lookup.cachedFull(named: name) { return cached }
         if lookup.isMissing(name) { return nil }
 
+        let remote = ExerciseArtRemoteDisk.fileURL(for: name)
+        if FileManager.default.fileExists(atPath: remote.path),
+           let img = UIImage(contentsOfFile: remote.path) {
+            lookup.storeFull(img, named: name)
+            return img
+        }
         if let img = UIImage(named: name) {
             lookup.storeFull(img, named: name)
             return img
@@ -666,12 +676,6 @@ enum ExerciseArt {
             }
         } else if let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
                   let img = UIImage(contentsOfFile: url.path) {
-            lookup.storeFull(img, named: name)
-            return img
-        }
-        let remote = ExerciseArtRemoteDisk.fileURL(for: name)
-        if FileManager.default.fileExists(atPath: remote.path),
-           let img = UIImage(contentsOfFile: remote.path) {
             lookup.storeFull(img, named: name)
             return img
         }

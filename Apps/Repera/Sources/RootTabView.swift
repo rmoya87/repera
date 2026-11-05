@@ -346,6 +346,11 @@ struct RootTabView: View {
                 )
             }
         }
+        .onReceive(NotificationCenter.default.publisher(
+            for: Notification.Name("repera.openProgressRecovery")
+        )) { _ in
+            tab = .stats
+        }
         .task(id: LiveActivityRecorder.shared.isActive) {
             store.refreshContinueChrome()
             guard LiveActivityRecorder.shared.isActive else { return }

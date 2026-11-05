@@ -40,8 +40,8 @@ enum ProgressCategory: String, CaseIterable, Identifiable, Hashable {
         case .strength: return Color(red: 1.0, green: 0.58, blue: 0.0)
         case .fitness: return Color(red: 0.35, green: 0.78, blue: 0.98)
         case .heart: return OG.red
-        /// Noche / descanso: azul oscuro violáceo (no verde hoja).
-        case .recovery: return Color(red: 0.29, green: 0.22, blue: 0.55)
+        /// Noche / descanso: azul violáceo más claro en modo noche.
+        case .recovery: return Color(red: 0.42, green: 0.36, blue: 0.72)
         /// Deportes: teal (no morado; el morado queda para Recuperación).
         case .sports: return Color(red: 0.10, green: 0.61, blue: 0.56)
         }
@@ -142,9 +142,11 @@ struct ProgressInsightHeader: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(tint)
                 .symbolRenderingMode(.hierarchical)
-            Text(title)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(tint)
+            if !title.isEmpty {
+                Text(title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(tint)
+            }
             Spacer(minLength: 0)
             if let trailingText {
                 Text(trailingText)

@@ -116,6 +116,13 @@ Checklist ops (referencia; no listar como deuda de código Android):
 Sin SA/config la función responde `503 { configured:false }` y la app muestra
 verificación pendiente; la caché offline solo usa snapshots ya verificados.
 
+## Persistencia local (paridad iOS, 04/11/2026)
+
+`SubscriptionManager` guarda el último Pro verificado en SharedPreferences
+(`repera.commercial.verifiedPro.v1`), lo rehidrata en `start()` y **no** lo
+borra ante un `FREE` transitorio de Play (solo `EXPIRED` / `REVOKED`). Mientras
+quede caducidad futura o gracia offline de 7 días, se mantiene Pro.
+
 ## Seguridad y paridad Apple (2026-10-28)
 
 - Play es la única fuente de producto y vencimiento. Un hint del cliente no

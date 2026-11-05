@@ -141,7 +141,8 @@ struct ProgressHeartZonesCard: View {
                             if slice.seconds > 0 {
                                 Text("\(Int((100 * fraction).rounded()))%")
                                     .font(.system(size: 10, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(.white)
+                                    // Negro: contraste sobre barras tintadas en modo noche.
+                                    .foregroundStyle(Color.black)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.5)
                                     .padding(.horizontal, 1)
@@ -313,16 +314,18 @@ struct ProgressCardioChartCard: View {
 
                             }
                             if let selectedPoint {
-                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
-                                    .foregroundStyle(OG.label2)
-                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    .annotation(position: .top, alignment: .center) {
-                                        Text("\(Int(selectedPoint.avgBpm.rounded())) lpm")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                            .padding(5)
-                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                    }
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.avgBpm)
+                                )
+                                .symbolSize(0)
+                                .annotation(position: .top, spacing: 6) {
+                                    Text("\(Int(selectedPoint.avgBpm.rounded())) lpm")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(OG.label)
+                                        .padding(5)
+                                        .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
+                                }
                             }
                         }
                         .chartForegroundStyleScale([
@@ -888,7 +891,8 @@ enum ProgressChartAxis {
         }
     }
 
-    /// Dominio X = periodo elegido; 1 punto → padding para que Chart pinte.
+    /// Dominio X = periodo elegido; con pocos días usa el span de datos a ancho completo
+    /// (evita acumular puntos a la derecha hasta tener la ventana llena).
     static func xDomain(
         points: [Date],
         range: ProgressTimeRange,
@@ -898,18 +902,33 @@ enum ProgressChartAxis {
     ) -> ClosedRange<Date> {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now)
+        let halfDay: TimeInterval = 12 * 60 * 60
         if isTeaserPreview, let first = points.min(), let last = points.max() {
-            // Ejemplos = últimos 7 días. Pueden cruzar el inicio de
-            // la semana real; añadir espacio a ambos lados del trazado.
-            let halfDay: TimeInterval = 12 * 60 * 60
             return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
         }
         let start = range.startDate(now: now, weekStartsOnMonday: weekStartsOnMonday)
             ?? points.min()
             ?? today
         let end = today
+        let expectedDays: Int = {
+            switch range {
+            case .today: return 1
+            case .week: return 7
+            case .month: return 28
+            case .days90: return 90
+            case .days180: return 180
+            case .days360: return 360
+            }
+        }()
+        // Pocos puntos: dominio acotado a datos + padding → gráfica a ancho completo.
+        if points.count < expectedDays, let first = points.min(), let last = points.max() {
+            if first == last {
+                return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
+            }
+            return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
+        }
         if start == end || points.count <= 1 {
-            return start.addingTimeInterval(-12 * 3600)...end.addingTimeInterval(12 * 3600)
+            return start.addingTimeInterval(-halfDay)...end.addingTimeInterval(halfDay)
         }
         return start...end
     }
