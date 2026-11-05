@@ -84,6 +84,7 @@ struct SessionReviewEngineTests {
         #expect(review.indicators.map(\.dimension) == ReviewDimension.allCases)
         #expect(review.indicators[0].score != nil)
         #expect(review.indicators[0].referenceSessions == 2)
+        #expect(review.confidenceLabel == "Media · historial personal")
         #expect(review.indicators[1].score == nil) // registro no es nota
         #expect(review.indicators[2].score == nil) // WOD sin referencias
         #expect(review.evidenceCoverage == 1)
