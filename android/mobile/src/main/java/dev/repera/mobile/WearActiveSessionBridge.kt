@@ -192,6 +192,7 @@ object WearActiveSessionBridge {
                 }
             )
             .put("nextTurn", runtime.upcomingTurn ?: JSONObject.NULL)
+            .put("nextTurnMeters", runtime.upcomingCue?.distanceMeters ?: JSONObject.NULL)
             .put("capturedAtMillis", System.currentTimeMillis())
             .apply {
                 runtime.liveConditions?.let { put("conditions", it.toJson()) }

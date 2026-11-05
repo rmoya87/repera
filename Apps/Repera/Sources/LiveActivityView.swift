@@ -2308,6 +2308,15 @@ private struct LiveSportPicker: View {
     }
 }
 
+/// Conserva la posición del candado cuando el resto de la sesión deja de aceptar toques.
+private struct LiveInteractionLockAnchorKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct LiveActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -2331,6 +2340,8 @@ struct LiveActivityView: View {
     @AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false
     /// In Mapa only: preserve the route view by default. Métricas stays expanded.
     @State private var mapDetailsExpanded = false
+    /// Bloqueo táctil local a Comenzar, nunca de GPS/HealthKit ni del sistema.
+    @State private var isInteractionLocked = false
     @State private var routeError: String?
     @State private var title = ""
     @State private var notes = ""
@@ -2393,6 +2404,16 @@ struct LiveActivityView: View {
                 }
             }
             .background(OG.bg)
+            .allowsHitTesting(!isInteractionLocked)
+            .overlayPreferenceValue(LiveInteractionLockAnchorKey.self) { anchor in
+                GeometryReader { geometry in
+                    if isInteractionLocked, let anchor {
+                        let rect = geometry[anchor]
+                        interactionLockButton(registerAnchor: false)
+                            .position(x: rect.midX, y: rect.midY)
+                    }
+                }
+            }
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
             .toolbar(recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
             .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
@@ -2489,6 +2510,21 @@ struct LiveActivityView: View {
         }
         .onAppear {
             if scenePhase == .active { recorder.refreshWhenActive() }
+            TimerScreenAwake.setRunning(
+                isInteractionLocked && canLockLiveScreen, for: .liveLock
+            )
+        }
+        .onDisappear {
+            TimerScreenAwake.setRunning(false, for: .liveLock)
+        }
+        .onChange(of: isInteractionLocked) { _, locked in
+            TimerScreenAwake.setRunning(locked && canLockLiveScreen, for: .liveLock)
+        }
+        .onChange(of: recorder.phase) { _, phase in
+            if phase != .recording && phase != .paused {
+                isInteractionLocked = false
+                TimerScreenAwake.setRunning(false, for: .liveLock)
+            }
         }
         .onChange(of: navigation3DAllowed) { _, allowed in
             // Al perder Pro, volver a 2D también durante una sesión activa;
@@ -2919,6 +2955,9 @@ struct LiveActivityView: View {
                         showingMetrics = true
                     }
                 }
+                if canLockLiveScreen {
+                    interactionLockButton()
+                }
                 if showGuidanceToggle {
                     mapCircleButton(
                         guidanceSymbol,
@@ -3135,6 +3174,52 @@ struct LiveActivityView: View {
     /// Un solo control silencia los avisos de fase, parciales y giros.
     private var showGuidanceToggle: Bool {
         recorder.phase != .review
+    }
+
+    private var canLockLiveScreen: Bool {
+        recorder.phase == .recording || recorder.phase == .paused
+    }
+
+    /// En modo bloqueado la vista sigue actualizándose; solo este símbolo
+    /// queda accesible por encima de la capa que anula el resto de los gestos.
+    private func interactionLockButton(registerAnchor: Bool = true) -> some View {
+        Group {
+            if isInteractionLocked {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .frame(width: 44, height: 44)
+                    .glassEffect(.regular, in: .circle)
+                    .contentShape(Circle())
+                    .onLongPressGesture(minimumDuration: 1) {
+                        isInteractionLocked = false
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    }
+                    .accessibilityLabel("Pantalla bloqueada")
+                    .accessibilityHint("Mantén pulsado un segundo para desbloquear")
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction(named: "Desbloquear pantalla") {
+                        isInteractionLocked = false
+                    }
+            } else {
+                Button {
+                    isInteractionLocked = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Image(systemName: "lock.open")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .frame(width: 44, height: 44)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Bloquear pantalla")
+                .accessibilityHint("Bloquea los toques, mantiene visibles las métricas y el mapa")
+            }
+        }
+        .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
+            registerAnchor ? $0 : nil
+        }
     }
 
     private var guidanceSymbol: String {
@@ -3427,6 +3512,9 @@ struct LiveActivityView: View {
                 metricsCircleButton("applewatch", label: "Enviar objetivo a Entreno de Apple Watch") {
                     appleWorkoutExport = true
                 }
+            }
+            if canLockLiveScreen {
+                interactionLockButton()
             }
             if showGuidanceToggle {
                 metricsCircleButton(

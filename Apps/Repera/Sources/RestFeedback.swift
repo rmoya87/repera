@@ -14,6 +14,7 @@ enum TimerScreenAwake {
         case standalone
         case workout
         case rest
+        case liveLock
     }
 
     private static var runningSources = Set<Source>()

@@ -156,7 +156,12 @@ class WatchHubContractTests(unittest.TestCase):
         live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         planned = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
         self.assertIn("rememberPagerState(initialPage = 0, pageCount = { 2 })", live)
-        self.assertIn("page == 0 -> WearLiveMetricsPage", live)
+        # Con guía disponible, la primera horizontal contiene páginas verticales
+        # Navegación → Métricas; el segundo desplazamiento horizontal sigue en controles.
+        self.assertIn("page == 0 -> {", live)
+        self.assertIn("VerticalPager(state = verticalPages", live)
+        self.assertIn("WearLiveNavigationPage(live)", live)
+        self.assertIn("WearLiveMetricsPage(live = live", live)
         self.assertIn("val runningPlan = state.session?.phase == \"counting\"", planned)
         self.assertIn("HorizontalPager(state = pager", planned)
         self.assertIn("if (page == 0) {", planned)

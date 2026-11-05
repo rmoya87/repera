@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -33,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,8 +67,8 @@ import dev.repera.domain.ReperaNumberFormat
 import org.json.JSONObject
 
 /**
- * Companion Comenzar: página 0 = métricas; deslizar de derecha a izquierda
- * abre página 1 de Pausar / Finalizar. Confirmación de fin = modal encima.
+ * Companion Comenzar: con ruta, desplazamiento vertical Navegación → Métricas.
+ * Horizontal siempre conserva Métricas/Navegación → Pausa/Finalizar.
  */
 @Composable
 internal fun WearLiveActivityScreen(
@@ -78,6 +82,31 @@ internal fun WearLiveActivityScreen(
 ) {
     val phase = live.optString("phase")
     val sport = LiveSport.byId(live.optString("sportId"))
+    val hasGuidance = phase != "review" &&
+        !live.isNull("nextTurn") && live.optString("nextTurn").isNotBlank()
+    val liveSessionId = live.optString("sessionId")
+    val haptic = LocalHapticFeedback.current
+    val currentTurn = live.optString("nextTurn")
+    val turnMeters = live.optInt("nextTurnMeters", -1).takeIf {
+        !live.isNull("nextTurnMeters") && it >= 0
+    }
+    var previousTurnMeters by remember(liveSessionId, currentTurn) { mutableStateOf<Int?>(null) }
+    var turnHapticSent by remember(liveSessionId, currentTurn) { mutableStateOf(false) }
+    LaunchedEffect(turnMeters, liveSessionId, currentTurn) {
+        if (hasGuidance && turnMeters != null) {
+            if (turnMeters > 150) turnHapticSent = false
+            if (previousTurnMeters != null && previousTurnMeters!! > 100 &&
+                turnMeters <= 100 && !turnHapticSent) {
+                turnHapticSent = true
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+        previousTurnMeters = turnMeters
+    }
+    var metricsWereAlreadyVisible by remember(liveSessionId) { mutableStateOf(!hasGuidance) }
+    LaunchedEffect(hasGuidance, liveSessionId) {
+        if (!hasGuidance) metricsWereAlreadyVisible = true
+    }
     // Mantener dos páginas también al entrar en revisión evita un índice inválido.
     val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
     var confirmFinish by remember(live.optString("sessionId")) { mutableStateOf(false) }
@@ -89,7 +118,27 @@ internal fun WearLiveActivityScreen(
         ) { page ->
             when {
                 phase == "review" -> WearLiveReviewPage(onDismissLiveToHome)
-                page == 0 -> WearLiveMetricsPage(live = live, sport = sport, health = health, notice = notice)
+                page == 0 -> {
+                    if (hasGuidance) {
+                        key(liveSessionId) {
+                            val verticalPages = rememberPagerState(
+                                initialPage = if (metricsWereAlreadyVisible) 1 else 0,
+                                pageCount = { 2 }
+                            )
+                            VerticalPager(state = verticalPages, modifier = Modifier.fillMaxSize()) { verticalPage ->
+                                if (verticalPage == 0) {
+                                    WearLiveNavigationPage(live)
+                                } else {
+                                    WearLiveMetricsPage(
+                                        live = live, sport = sport, health = health, notice = notice
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        WearLiveMetricsPage(live = live, sport = sport, health = health, notice = notice)
+                    }
+                }
                 else -> WearLiveControlsPage(
                     phase = phase,
                     notice = notice,
@@ -111,6 +160,44 @@ internal fun WearLiveActivityScreen(
                 }
             )
         }
+    }
+}
+
+/** La navegación se puede consultar sin desplazar por una lista de métricas. */
+@Composable
+private fun WearLiveNavigationPage(live: JSONObject) {
+    val instruction = live.optString("nextTurn")
+    val direction = when {
+        instruction.contains("izquierda", ignoreCase = true) -> "↰"
+        instruction.contains("derecha", ignoreCase = true) -> "↱"
+        instruction.contains("vuelta", ignoreCase = true) -> "↶"
+        else -> "↑"
+    }
+    val meters = if (live.isNull("nextTurnMeters")) null else live.optInt("nextTurnMeters", -1)
+        .takeIf { it >= 0 }
+    val distance = meters?.let {
+        if (it >= 1000) String.format(java.util.Locale.ROOT, "%.1f km", it / 1000.0)
+        else "$it m"
+    }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 6.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(distance, instruction).joinToString(", ")
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceEvenly
+    ) {
+        Text(direction, color = WearOg.accent,
+            style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Center)
+        distance?.let {
+            Text(it, color = WearOg.accent,
+                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center, maxLines = 1)
+        }
+        Text(instruction, style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center, maxLines = 3,
+            overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -229,21 +316,6 @@ private fun WearLiveMetricsPage(
                 value = String.format("%.0f", displayedEnergyKcal(health?.second)),
                 prominent = !usesGps
             )
-        }
-
-        if (!live.isNull("nextTurn") && phase != "review") {
-            item {
-                Text(
-                    live.optString("nextTurn"),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                        .padding(7.dp)
-                )
-            }
         }
 
         live.optJSONObject("conditions")?.let { conditions ->
