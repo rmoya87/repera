@@ -84,12 +84,12 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     )
                 }
                 .pointerInput(ordered) {
-                    detectTapGestures { selected = nearest(it.x / size.width.coerceAtLeast(1f)) }
+                    detectTapGestures { selected = nearest(it.x / size.width.coerceAtLeast(1).toFloat()) }
                 }
                 .pointerInput(ordered) {
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        selected = nearest(change.position.x / size.width.coerceAtLeast(1f))
+                        selected = nearest(change.position.x / size.width.coerceAtLeast(1).toFloat())
                     }
                 }
         ) {
