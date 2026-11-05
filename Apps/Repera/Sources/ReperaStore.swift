@@ -1827,6 +1827,19 @@ final class ReperaStore: NSObject {
             }
             return
         }
+        // Guardar kcal auténticas recuperadas de Salud para que Inicio,
+        // Historial y detalle lean el mismo valor sin depender de abrir la ficha.
+        // Exigir coincidencia del UUID: el mero solape horario no prueba identidad.
+        if extras.energySourceIsVerified,
+           let kcal = extras.activeEnergyKcal, kcal > 0,
+           let uuid = extras.resolvedWorkoutUUID,
+           var linked = state.workouts.first(where: { $0.id == sessionId }),
+           linked.healthKitWorkoutUUID == uuid,
+           linked.appleActiveEnergyKcal != kcal {
+            linked.appleActiveEnergyKcal = kcal
+            upsertWorkout(linked)
+            persistWorkouts()
+        }
         let cardio = SessionCardioSample(
             averageHeartRateBpm: extras.averageHeartRateBpm,
             maxHeartRateBpm: extras.maxHeartRateBpm,
@@ -1852,6 +1865,10 @@ final class ReperaStore: NSObject {
             ])
         }
         var draft = session
+        if let previous = state.workouts.first(where: { $0.id == draft.id }),
+           previous.userEditedDuration {
+            draft.userEditedDuration = true
+        }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
