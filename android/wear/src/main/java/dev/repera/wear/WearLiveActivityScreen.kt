@@ -85,6 +85,24 @@ internal fun WearLiveActivityScreen(
     val hasGuidance = phase != "review" &&
         !live.isNull("nextTurn") && live.optString("nextTurn").isNotBlank()
     val liveSessionId = live.optString("sessionId")
+    val haptic = LocalHapticFeedback.current
+    val currentTurn = live.optString("nextTurn")
+    val turnMeters = live.optInt("nextTurnMeters", -1).takeIf {
+        !live.isNull("nextTurnMeters") && it >= 0
+    }
+    var previousTurnMeters by remember(liveSessionId, currentTurn) { mutableStateOf<Int?>(null) }
+    var turnHapticSent by remember(liveSessionId, currentTurn) { mutableStateOf(false) }
+    LaunchedEffect(turnMeters, liveSessionId, currentTurn) {
+        if (hasGuidance && turnMeters != null) {
+            if (turnMeters > 150) turnHapticSent = false
+            if (previousTurnMeters != null && previousTurnMeters!! > 100 &&
+                turnMeters <= 100 && !turnHapticSent) {
+                turnHapticSent = true
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        }
+        previousTurnMeters = turnMeters
+    }
     var metricsWereAlreadyVisible by remember(liveSessionId) { mutableStateOf(!hasGuidance) }
     LaunchedEffect(hasGuidance, liveSessionId) {
         if (!hasGuidance) metricsWereAlreadyVisible = true
@@ -160,18 +178,6 @@ private fun WearLiveNavigationPage(live: JSONObject) {
     val distance = meters?.let {
         if (it >= 1000) String.format(java.util.Locale.ROOT, "%.1f km", it / 1000.0)
         else "$it m"
-    }
-    val haptic = LocalHapticFeedback.current
-    var priorDistance by remember(instruction) { mutableStateOf<Int?>(null) }
-    var warned by remember(instruction) { mutableStateOf(false) }
-    LaunchedEffect(meters, instruction) {
-        if (meters != null && meters > 150) warned = false
-        if (meters != null && priorDistance != null && priorDistance!! > 100 &&
-            meters <= 100 && !warned) {
-            warned = true
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-        priorDistance = meters
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 6.dp)
