@@ -21,7 +21,9 @@ class WearHealthMetricContracts(unittest.TestCase):
     def test_phone_started_activity_uses_native_wrist_exercise(self):
         service = read("android/wear/src/main/java/dev/repera/wear/WearHealthService.kt")
         session = read("android/wear/src/main/java/dev/repera/wear/WearHealthSession.kt")
-        self.assertIn("sensors.start(id, sportId = sportId, companion = companion)", service)
+        self.assertIn("sensors.start(id, sportId = sportId, companion = true)", service)
+        self.assertIn("sensors.start(id, sportId = sportId, companion = false)", service)
+        self.assertIn("sensors.startMeasure(id)", service)
         self.assertIn("!companion && WearHealthExerciseTypes.usesGps(sportId)", session)
         self.assertIn("DataType.CALORIES_TOTAL", session)
         self.assertIn("averageHeartRateBpm", session)
