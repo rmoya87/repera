@@ -542,6 +542,7 @@ struct ReperaApp: App {
         await health.refreshToday()
         // Apple Salud puede sincronizar el HKWorkout después de WatchConnectivity.
         await store.reconcileWatchHealthMetrics()
+        await store.repairPastHealthKitExports()
         await store.syncBodyWeightWithHealth()
         AutomaticHealthWorkoutReconciler.schedule(store: store)
         LaunchWarmup.markLaunchHealthWarmFinished()

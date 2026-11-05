@@ -308,6 +308,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private val liveRetry = WearRetrySchedule()
     /** Actividad Comenzar propiedad del reloj (sin companion del teléfono). */
     private var watchOwnedLive by mutableStateOf(false)
+    /** Track GPS outdoor watch-owned → Health Connect vía live-save. */
+    private val watchOwnedRouteTracker by lazy { WearRouteTracker(this) }
     private var showOutline by mutableStateOf(false)
     private var showSetDetails by mutableStateOf(false)
     private var reviewingBlock by mutableStateOf(false)
@@ -1531,6 +1533,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sensorRevision++
         ensureHealthRecording()
         captureWatchOwnedStartLocation(id)
+        if (sport.usesGPS) watchOwnedRouteTracker.start()
         haptic(WearHaptic.CONFIRM)
         refreshWearSurfaces()
     }
@@ -1560,6 +1563,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         watchOwnedLive = true
         liveActivityJson = live
         persistWatchOwnedLive(live)
+        if (phase == "recording" &&
+            LiveSport.byId(live.optString("sportId"))?.usesGPS == true
+        ) {
+            watchOwnedRouteTracker.start()
+        }
     }
 
     private fun persistWatchOwnedLive(live: JSONObject) {
@@ -1583,6 +1591,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 liveActivityJson = JSONObject(live.toString())
                 persistWatchOwnedLive(live)
                 healthConnection?.pause(id, true)
+                // Conservar puntos ya capturados; no seguir midiendo en pausa.
+                val kept = watchOwnedRouteTracker.stop()
+                if (kept.isNotEmpty()) {
+                    val merged = live.optJSONArray("routePoints") ?: JSONArray()
+                    kept.forEach { merged.put(it) }
+                    live.put("routePoints", merged)
+                    persistWatchOwnedLive(live)
+                    liveActivityJson = JSONObject(live.toString())
+                }
                 liveNotice = null
                 haptic(WearHaptic.TOGGLE_OFF)
             }
@@ -1593,6 +1610,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 liveActivityJson = JSONObject(live.toString())
                 persistWatchOwnedLive(live)
                 healthConnection?.pause(id, false)
+                if (LiveSport.byId(live.optString("sportId"))?.usesGPS == true) {
+                    watchOwnedRouteTracker.start()
+                }
                 liveNotice = null
                 haptic(WearHaptic.TOGGLE_ON)
             }
@@ -1624,6 +1644,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             runCatching { JSONObject(it).optJSONObject("locationPin") }.getOrNull()
         } ?: live.optJSONObject("locationPin")
         healthConnection?.stop(id)
+        val tracked = watchOwnedRouteTracker.stop()
+        val priorRoute = live.optJSONArray("routePoints")
+        val routePoints = JSONArray()
+        if (priorRoute != null) {
+            for (i in 0 until priorRoute.length()) {
+                priorRoute.optJSONObject(i)?.let { routePoints.put(it) }
+            }
+        }
+        tracked.forEach { routePoints.put(it) }
         val payload = JSONObject()
             .put("id", id)
             .put("sportId", sportId)
@@ -1633,6 +1662,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             .put("activeDurationSeconds", elapsed)
             .put("distanceMeters", sensorDistance ?: JSONObject.NULL)
             .put("awaitingResultEntry", true)
+        if (routePoints.length() >= 2) payload.put("routePoints", routePoints)
         pin?.let { payload.put("locationPin", it) }
         health?.first?.takeIf { it in 25..250 }?.let {
             payload.put("averageHeartRateBpm", it.toDouble())
@@ -1664,6 +1694,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         watchOwnedLive = false
         liveActivityJson = null
         liveNotice = null
+        watchOwnedRouteTracker.stop()
         sessionCache.edit()
             .remove("watchOwnedLive")
             .remove("watchOwnedLiveSessionId")

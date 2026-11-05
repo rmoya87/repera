@@ -237,6 +237,7 @@ final class ReperaStore: NSObject {
             LaunchTiming.span("bootstrap.catalogMerge", from: t0)
             await completeInitialRemoteSync()
             await reconcileWatchHealthMetrics()
+            await repairPastHealthKitExports()
             await recalculateStoredSessionKcalIfNeeded()
             refreshSessionReviewsIfNeeded()
         }
@@ -2372,6 +2373,28 @@ final class ReperaStore: NSObject {
         if changed {
             persistWorkouts()
             await LocalStore.shared.persistAndFlush(state)
+        }
+    }
+
+    /// Repara históricos: adjunta rutas locales a workouts iPhone sin mapa en
+    /// Fitness y borra cáscaras 0 kcal cuando ya existe el workout del Watch.
+    /// Las rutas de workouts creados por watchkitapp solo las puede escribir
+    /// el Watch (nuevos outdoor); aquí no se inventan ni se reescriben.
+    func repairPastHealthKitExports() async {
+        guard isHydrated, HealthKitStore.shared.isAvailable else { return }
+        await HealthKitStore.shared.ensureWorkoutRouteAccess()
+        let finished = state.workouts.filter { $0.phase == .finished }
+        await HealthKitStore.shared.deleteOrphanPhoneShells(for: finished)
+        for session in finished.prefix(60) {
+            if Task.isCancelled { break }
+            guard session.routePoints.count >= 2,
+                  let uuid = session.healthKitWorkoutUUID
+            else { continue }
+            await HealthKitStore.shared.attachRecordedRouteIfNeeded(
+                sessionId: session.id,
+                workoutUUID: uuid,
+                points: session.routePoints
+            )
         }
     }
 

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-05 (Inicio Android swipe excluye chips; carruseles full-bleed).
+Última actualización: 2026-11-05 (Salud: rutas Watch/Wear + reparación cáscaras 0 kcal).
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -391,7 +391,7 @@ El campo histórico `supersetGroup` permanece en el formato Codable para abrir c
 - `CLBackgroundActivitySession` se activa únicamente cuando hay una sesión outdoor autorizada y el bundle declara `UIBackgroundModes/location`. Las pausas liberan los servicios y cortan la continuidad GPS; al reanudar se empieza un segmento nuevo.
 - Las muestras conservan marca temporal, coordenadas, velocidad, altitud y precisión real horizontal/vertical. El motor filtra lecturas imprecisas, saltos imposibles y jitter; no suma distancia entre huecos de más de 30 s. **Nunca reduce a 400 puntos** al guardar: la simplificación es exclusivamente visual.
 - El motor publica el mismo total de metros a «Comenzar» (parciales, ritmo, mapa, ActivityKit) y «Play» (ruta, progreso outdoor y ActivityKit); los entrenamientos indoor mantienen sus contadores de series. Los snapshots GPS locales por UUID permiten recuperar puntos ya persistidos tras una interrupción, sin inventar datos ausentes.
-- `HealthKitStore` mantiene `HKWorkoutBuilder` y `HKWorkoutRouteBuilder` por sesión; encola los `CLLocation` originales y los inserta progresivamente en Salud. Al guardar, solo finaliza/adjunta la ruta a un `HKWorkout` cuyo `ReperaSessionID` coincide exactamente. Ante permisos denegados, se conserva la ruta local y se reintenta sin duplicar entrenos. Los entrenos pertenecientes a Apple Watch se respetan como fuente de verdad.
+- `HealthKitStore` mantiene `HKWorkoutBuilder` y `HKWorkoutRouteBuilder` por sesión; encola los `CLLocation` originales y los inserta progresivamente en Salud. Al guardar, solo finaliza/adjunta la ruta a un `HKWorkout` cuyo `ReperaSessionID` coincide exactamente. Ante permisos denegados, se conserva la ruta local y se reintenta sin duplicar entrenos. Los entrenos pertenecientes a Apple Watch se respetan como fuente de verdad; si aparece una cáscara iPhone 0 kcal, se borra al preferir el Watch (`deleteExternalWorkout` / `deleteOrphanPhoneShells`). El Watch outdoor escribe la ruta con su propio `HKWorkoutRouteBuilder`.
 - **Límites Apple**: iOS puede retrasar Live Activities, no garantiza recopilación cuando se fuerza el cierre y puede finalizar el proceso. No se reconstruye un recorrido durante un periodo sin ubicación. La recuperación de una sesión restaurada exige decisión expresa de reanudar.
 
 ### Condiciones marea / nieve (31/10/2026)

@@ -82,6 +82,8 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         self.assertIn("linkedPhoneShell", health)
         self.assertIn("watchOnly: true, expectedSessionID: sessionId", health)
         self.assertIn("Antes de escribir una cáscara 0 kcal del iPhone", health)
+        self.assertIn("deleteExternalWorkout(id: owned.uuid)", health)
+        self.assertIn("deleteOrphanPhoneShells", health)
 
 
 if __name__ == "__main__":

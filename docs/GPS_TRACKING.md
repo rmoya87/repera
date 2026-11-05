@@ -7,7 +7,7 @@ no captura de nuevo la ruta ni crea un segundo workout HealthKit. Ver
 [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md)
 para alcance y pruebas de bloqueo/reconexión pendientes.
 
-Última actualización: 2026-11-04 (checkpoints de ruta en archivo protegido, envío a Salud por lotes y mapa con refresco limitado)
+Última actualización: 2026-11-05 (Watch escribe HKWorkoutRoute outdoor; reparación de cáscaras 0 kcal)
 Estado: implementación integrada en `main` (PR #75); compilación iOS/watchOS y contratos de arquitectura verificados, **validación funcional con iPhone físico pendiente**.
 
 Esta es la referencia técnica para GPS, rutas, Apple Salud, actividad en directo y entrenamientos libres/programados. La descripción de producto está en [FEATURES.md](FEATURES.md) y el contexto general en [ARCHITECTURE.md](ARCHITECTURE.md). La fuente de verdad definitiva es el código.

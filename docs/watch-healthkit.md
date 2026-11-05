@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-11-05 (kcal siempre visible + enableCollection energía/FC)
+Última actualización: 2026-11-05 (kcal visible + HKWorkoutRoute outdoor + enableCollection energía/FC/distancia)
 
 ## Hub (31/10/2026)
 
@@ -12,7 +12,7 @@ grabación local (`WatchLiveSessionView` + GPS + HK). Temporizador libre en
 
 ## Fuente de verdad
 
-- **HealthKit (en Apple Watch):** `HKWorkoutSession` + `HKLiveWorkoutBuilder` registran FC, energía activa y duración verificada. El `HKLiveWorkoutDataSource` activa explícitamente `heartRate` y `activeEnergyBurned`. La UI muestra siempre el indicador **kcal** (0 si Salud aún no ha entregado muestras); no se inventan con MET/reps. Al finalizar se rellenan UUID/kcal/FC desde el builder/`totalEnergyBurned`.
+- **HealthKit (en Apple Watch):** `HKWorkoutSession` + `HKLiveWorkoutBuilder` registran FC, energía activa y duración verificada. El `HKLiveWorkoutDataSource` activa explícitamente `heartRate` y `activeEnergyBurned` (y distancia en outdoor). Outdoor: `HKWorkoutRouteBuilder` recibe los mismos fixes GPS del hub. La UI muestra siempre el indicador **kcal** (0 si Salud aún no ha entregado muestras); no se inventan con MET/reps. Al finalizar se rellenan UUID/kcal/FC desde el builder/`totalEnergyBurned` y se cierra la ruta en Salud.
 - **Repera (en Apple Watch):** conserva la planificación original, serie/reps/carga confirmadas, rondas, score WOD, descansos, pausa y progreso. El contador de movimiento es una **sugerencia** que el atleta corrige.
 - **Repera (en iPhone):** almacena la misma ejecución, identificada por un UUID estable. No crea otro `HKWorkout` al importar una sesión terminada del Watch.
 - **Supabase:** recibe únicamente los datos de entrenamiento permitidos por `BusinessWorkoutSyncStore.privateMirrorPayload`: nunca `healthKitWorkoutUUID`, pulso, calorías HealthKit, duración Apple ni `appleHealthProvenance`. La autorización del usuario y las RLS siguen vigentes.

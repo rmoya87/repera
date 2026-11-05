@@ -168,7 +168,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         distanceMeters: Double? = null,
         locationPin: org.json.JSONObject? = null,
         averageHeartRateBpm: Double? = null,
-        activeEnergyKcal: Double? = null
+        activeEnergyKcal: Double? = null,
+        routePoints: org.json.JSONArray? = null
     ): String {
         require(id.isNotBlank())
         require(finishedAtMillis >= startedAtMillis)
@@ -177,6 +178,15 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
         val archive = state.getJSONArray("workouts")
         if ((0 until archive.length()).any { archive.getJSONObject(it).optString("id") == id }) {
+            // Reintento live-save: adjuntar ruta si llegó después y aún no hay track.
+            if (routePoints != null && routePoints.length() >= 2) {
+                val existing = (0 until archive.length())
+                    .map { archive.getJSONObject(it) }
+                    .first { it.optString("id") == id }
+                if ((existing.optJSONArray("routePoints")?.length() ?: 0) < 2) {
+                    attachRoutePoints(id, wearRoutePointsFromJson(routePoints))
+                }
+            }
             return id
         }
         val session = JSONObject()
@@ -195,6 +205,23 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .put("awaitingResultEntry", true)
         if (sport.usesGPS && distanceMeters != null && distanceMeters.isFinite() && distanceMeters > 0) {
             session.put("recordedDistanceMeters", distanceMeters)
+        }
+        if (routePoints != null && routePoints.length() >= 2) {
+            val normalized = JSONArray()
+            wearRoutePointsFromJson(routePoints).forEachIndexed { index, point ->
+                normalized.put(JSONObject()
+                    .put("id", index)
+                    .put("latitude", point.latitude)
+                    .put("longitude", point.longitude)
+                    .put("recordedAtEpochMs", point.recordedAtEpochMs)
+                    .apply {
+                        point.speedMps?.let { put("speedMps", it) }
+                        point.altitudeMeters?.let { put("altitudeMeters", it) }
+                        point.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                        point.verticalAccuracyMeters?.let { put("verticalAccuracyMeters", it) }
+                    })
+            }
+            if (normalized.length() >= 2) session.put("routePoints", normalized)
         }
         locationPin?.let { applyWearStartPin(session, it) }
         averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
@@ -2947,6 +2974,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .map { JSONObject(it.toString()) }
     }
 
+    /** IDs de entrenos terminados con track GPS local (≥2 puntos) para
+     *  reintentar exportación a Health Connect. */
+    @Synchronized fun finishedSessionIdsWithRoute(): List<String> {
+        return finishedWorkoutsSnapshot()
+            .filter { (it.optJSONArray("routePoints")?.length() ?: 0) >= 2 }
+            .mapNotNull { it.optString("id").takeIf { id -> id.isNotBlank() } }
+    }
+
     /**
      * Aplica un cambio IA consentido (port del update_workout de
      * AIChangeRequestStore.decide): título + parches de series. Las series
@@ -3691,6 +3726,37 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
         }
         return emptyList()
+    }
+
+    /** Puntos GPS del payload live-save Wear → dominio Repera. */
+    private fun wearRoutePointsFromJson(
+        routePoints: JSONArray
+    ): List<dev.repera.domain.WorkoutRoutePoint> {
+        return (0 until routePoints.length()).mapNotNull { index ->
+            val p = routePoints.optJSONObject(index) ?: return@mapNotNull null
+            val lat = p.optDouble("latitude", Double.NaN)
+            val lon = p.optDouble("longitude", Double.NaN)
+            if (!lat.isFinite() || !lon.isFinite() || lat !in -90.0..90.0 || lon !in -180.0..180.0) {
+                return@mapNotNull null
+            }
+            val at = p.optLong("recordedAtEpochMs", 0L).takeIf { it > 0 }
+                ?: return@mapNotNull null
+            dev.repera.domain.WorkoutRoutePoint(
+                id = if (p.has("id")) p.optInt("id") else index,
+                latitude = lat,
+                longitude = lon,
+                recordedAtEpochMs = at,
+                speedMps = if (p.has("speedMps")) p.optDouble("speedMps") else null,
+                altitudeMeters = if (p.has("altitudeMeters")) p.optDouble("altitudeMeters") else null,
+                horizontalAccuracyMeters = if (p.has("horizontalAccuracyMeters")) {
+                    p.optDouble("horizontalAccuracyMeters")
+                } else null,
+                verticalAccuracyMeters = if (p.has("verticalAccuracyMeters")) {
+                    p.optDouble("verticalAccuracyMeters")
+                } else null,
+                isEstimated = null
+            )
+        }
     }
 
     /** Ventana editada: la fuente Health Connect original sigue asociada por ID. */

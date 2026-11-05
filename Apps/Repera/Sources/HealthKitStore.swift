@@ -1084,9 +1084,20 @@ final class HealthKitStore {
         let statisticsKcal = type.flatMap {
             workout.statistics(for: $0)?.sumQuantity()?.doubleValue(for: .kilocalorie())
         }
-        let totalKcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+        let totalKcal = legacyTotalEnergyBurnedKcal(workout)
         return [statisticsKcal, totalKcal].compactMap { $0 }
             .first(where: { $0.isFinite && $0 > 0 })
+    }
+
+    /// Lee `totalEnergyBurned` vía KVC: la propiedad Swift está deprecada en iOS 18
+    /// a favor de `statistics(for:)`, pero tras sync Watch→iPhone a menudo solo
+    /// el total legacy trae kcal (ver lección AGENTS / contrato de reconciliación).
+    nonisolated private static func legacyTotalEnergyBurnedKcal(_ workout: HKWorkout) -> Double? {
+        guard let quantity = workout.value(forKey: "totalEnergyBurned") as? HKQuantity else {
+            return nil
+        }
+        let kcal = quantity.doubleValue(for: .kilocalorie())
+        return kcal.isFinite && kcal > 0 ? kcal : nil
     }
 
     /// Agrupar por origen Y dispositivo. Dos relojes con el mismo proveedor
@@ -1438,8 +1449,13 @@ final class HealthKitStore {
            let verified = await verifiedWatchWorkout(forReperaSession: session.id),
            let uuid = verified.workoutUUID,
            let watchWorkout = await fetchWorkout(uuid: uuid) {
+            let shellUUID = linkedPhoneShell ? workoutUUID : nil
             workout = watchWorkout
             workoutUUID = uuid
+            // Fitness no debe seguir mostrando la cáscara iPhone 0 kcal.
+            if let shellUUID, shellUUID != uuid {
+                _ = await deleteExternalWorkout(id: shellUUID)
+            }
         }
         // La identidad de un workout provisional escrito por Repera iPhone
         // NO demuestra que sea el entrenamiento grabado por Apple Watch.
@@ -1462,8 +1478,12 @@ final class HealthKitStore {
                 watchOnly: fromWatch || linkedPhoneShell,
                 expectedSessionID: session.id
             ) {
+                let shellUUID = linkedToPhonePlaceholder ? workoutUUID : nil
                 workout = verified
                 workoutUUID = verified.uuid
+                if let shellUUID, shellUUID != verified.uuid {
+                    _ = await deleteExternalWorkout(id: shellUUID)
+                }
             }
         }
         if workout == nil,
@@ -1945,6 +1965,31 @@ final class HealthKitStore {
                             ? Int(bpm.rounded()) : nil)
             }
             store.execute(q)
+        }
+    }
+
+    /// Borra cáscaras iPhone 0 kcal ya sustituidas por un HKWorkout del Watch
+    /// (mismo `ReperaSessionID` / ExternalUUID). Corrige históricos visibles
+    /// en Fitness como «Repera / 0 KCAL» junto al workout real del reloj.
+    func deleteOrphanPhoneShells(for sessions: [WorkoutSession]) async {
+        guard isAvailable, canWriteWorkouts || isAuthorized else { return }
+        for session in sessions.prefix(80) where session.phase == .finished {
+            if Task.isCancelled { break }
+            guard let shell = await existingReperaWorkout(sessionId: session.id),
+                  !Self.isWatchRecordedSource(shell.sourceRevision.source),
+                  (Self.workoutEnergyKcal(shell) ?? 0) <= 0
+            else { continue }
+            let linkedIsWatch: Bool = {
+                guard let uuid = session.healthKitWorkoutUUID else { return false }
+                return uuid != shell.uuid
+            }()
+            let verifiedWatch = await verifiedWatchWorkout(forReperaSession: session.id)
+            let hasWatch = linkedIsWatch
+                || (verifiedWatch?.workoutUUID.map { $0 != shell.uuid } ?? false)
+                || session.appleHealthProvenance == "watchHealthKit"
+                || session.appleHealthProvenance == "watchHealthKitPending"
+            guard hasWatch else { continue }
+            _ = await deleteExternalWorkout(id: shell.uuid)
         }
     }
 
@@ -2653,6 +2698,11 @@ final class HealthKitStore {
                 duration = max(1, watch.duration)
                 verifiedKcal = await externalWorkoutEnergyKcal(uuid: watch.uuid) ?? 0
                 savedUUID = watch.uuid
+                // Quitar la cáscara 0 kcal de Fitness; si no, Resumen sigue
+                // mostrando «Repera / 0 KCAL» junto al workout real del Watch.
+                if owned.uuid != watch.uuid {
+                    _ = await deleteExternalWorkout(id: owned.uuid)
+                }
             } else {
                 savedUUID = owned.uuid
                 duration = max(1, owned.duration)

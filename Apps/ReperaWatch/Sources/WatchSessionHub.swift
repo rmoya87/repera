@@ -2455,6 +2455,7 @@ extension WatchSessionHub: CLLocationManagerDelegate {
                 self.acceptStartLocation(fix)
             }
             guard self.watchLiveSport?.usesGPS == true, !self.watchLivePaused else { return }
+            var accepted: [CLLocation] = []
             for location in locations where location.horizontalAccuracy >= 0 && location.horizontalAccuracy < 50 {
                 if let last = self.watchLivePoints.last {
                     let previous = CLLocation(
@@ -2483,6 +2484,12 @@ extension WatchSessionHub: CLLocationManagerDelegate {
                     horizontalAccuracyMeters: location.horizontalAccuracy,
                     verticalAccuracyMeters: location.verticalAccuracy
                 ))
+                accepted.append(location)
+            }
+            // Misma geometría → Salud (Fitness mapa); solo el Watch puede
+            // escribir HKWorkoutRoute sobre su propio HKWorkout.
+            if !accepted.isEmpty {
+                self.health.appendRouteLocations(accepted)
             }
         }
     }

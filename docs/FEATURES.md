@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (Watch/Wear: indicador kcal siempre visible).
+Última actualización: 2026-11-05 (Fitness: ruta Watch + borrar cáscaras 0 kcal; Wear route→HC).
 
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 
@@ -590,7 +590,7 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 - El mismo `WorkoutLocationTracker` procesa el GPS de «Comenzar», actividades libres y entrenamientos outdoor desde «Play»: filtrado, distancia, velocidad, conservación de muestras, autorización y segundo plano. No hay dos odómetros.
 - En los entrenos programados outdoor, el widget también muestra ritmo o velocidad media y distancia, usando la misma fuente de «Comenzar»; la ejecución de fuerza y WOD de interior sigue mostrando ejercicios/series. La clasificación outdoor se infiere cuando no hay un deporte explícito y nunca transforma automáticamente un WOD indoor en carrera.
-- La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y `HKWorkoutRouteBuilder` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Las rutas de Apple Watch no se sobrescriben.
+- La ruta local conserva todos los puntos y precisiones GPS originales, con cortes de señal preservados. En Salud se crea un único entrenamiento por sesión, con su tipo outdoor correcto y `HKWorkoutRouteBuilder` durante la grabación. La asociación se verifica por UUID y no por mero solapamiento horario. Outdoor en **Apple Watch** escribe su propio `HKWorkoutRoute` (el iPhone no puede adjuntar ruta a un workout de `watchkitapp`). Al arrancar, `repairPastHealthKitExports` reintenta rutas de workouts iPhone y borra cáscaras 0 kcal huérfanas. Wear OS outdoor watch-owned exporta `routePoints` en live-save y el teléfono las adjunta a Health Connect si hay permiso.
 
 ## Comenzar: deportes GPS y actividad en directo
 - **Widget de actividad con guía (29/10):** la cabecera ya no impone una altura mínima que deja el título junto al borde superior y comprime las métricas inferiores; aplica 18 pt de margen superior y 16 pt inferior alrededor del título cuando hay navegación. El bloque verde se aproxima a la cabecera y reduce su altura interna 6 pt; las tres métricas permanecen centradas y conservan 21 pt de margen inferior visible. El subtítulo de actividad no se duplica por debajo de las métricas mientras se muestra una instrucción GPS. Sin cambios en tiempo, velocidad, distancia ni navegación.

@@ -184,7 +184,8 @@ class WearLiveCommandListener : WearableListenerService() {
                     averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
                         .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
                     activeEnergyKcal = body.optDouble("activeEnergyKcal")
-                        .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") }
+                        .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
+                    routePoints = body.optJSONArray("routePoints")
                 ).isNotBlank()
         }.getOrDefault(false)
         if (!saved) return
@@ -194,6 +195,31 @@ class WearLiveCommandListener : WearableListenerService() {
                 .toString().toByteArray(Charsets.UTF_8)
         )
         DriveSyncWorker.syncNow(this)
+        // Exportar ruta a Health Connect cuando haya permiso + ≥2 puntos.
+        val appContext = applicationContext
+        Thread {
+            runCatching {
+                kotlinx.coroutines.runBlocking {
+                    if (!authorized()) return@runBlocking
+                    val repo = WorkoutRepository(
+                        appContext, owner.uniqueId, stillAuthorized = authorized
+                    )
+                    val info = repo.sessionTitleAndRange(id) ?: return@runBlocking
+                    val linked = HealthConnectWriter(appContext, stillAuthorized = authorized)
+                        .syncFinishedSession(
+                            id, info.first, info.second, info.third,
+                            repo.healthRecordId(id),
+                            HealthConnectWriter.exerciseTypeFor(
+                                repo.liveSportId(id)?.let(LiveSport::byId)
+                            ),
+                            repo.sessionRoutePoints(id)
+                        )
+                    if (authorized() && linked != null && repo.healthRecordId(id) == null) {
+                        repo.setHealthRecordId(id, linked)
+                    }
+                }
+            }
+        }.start()
     }
 
     /** Adopta inmediatamente el entrenamiento autónomo del reloj.

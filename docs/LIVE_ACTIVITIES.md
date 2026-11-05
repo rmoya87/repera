@@ -8,7 +8,7 @@ Al **finalizar**, la pantalla «Guardar entreno» presenta un resumen estilo Fit
 
 El guardado llama a `ReperaStore.saveWorkout(_ :)`, creando un `WorkoutSession` con `phase = .finished`, `startedAt`, `finishedAt`, `liveSportID`, `activeDurationSeconds`, `recordedDistanceMeters` y `routePoints`. Se persiste con los mismos mecanismos local/iCloud que los entrenos habituales, incrementando `workoutsEpoch`. **Inicio agrupa los registros de Comenzar por el día local de inicio** (no por el de finalización); al guardarlos vuelve a Inicio seleccionando esa fecha. Las tarjetas permiten consultar el detalle, el mapa y la distancia. Las actividades también se encuentran en Historial y Progreso.
 
-Última actualización: 2026-11-04.
+Última actualización: 2026-11-05.
 
 ## Ubicación y recorridos
 
@@ -22,7 +22,7 @@ La biblioteca de rutas se mantiene local mediante `LiveRoutesStore`. Se importan
 
 `ReperaStore.syncWorkoutToHealth` envía el tipo de deporte y la ubicación indoor/outdoor apropiados a `HealthKitStore.finishWorkout`. Se conserva el emparejamiento por `ReperaSessionID` y la conciliación con el Watch para evitar duplicados. Las calorías y la frecuencia cardíaca **solo se presentan si Salud aporta datos auténticos**; el iPhone no genera estimaciones de sensores. Las pausas se conservan como duración activa de Repera, independientemente de la duración de pared que pueda tener un HKWorkout.
 
-El recorrido registrado se guarda en el modelo de Repera y se visualiza en su detalle. **La exportación adicional del trazado como HKWorkoutRoute de Apple Salud queda pendiente**.
+El recorrido registrado se guarda en el modelo de Repera y se visualiza en su detalle. En outdoor de iPhone se exporta como `HKWorkoutRoute` al finalizar (permiso de ruta + ≥2 puntos). En outdoor iniciado en Apple Watch, el propio Watch escribe la ruta en Salud; el iPhone no puede adjuntarla a un workout de `watchkitapp`. Al arrancar, `repairPastHealthKitExports` reintenta adjuntar rutas locales a workouts del iPhone y borra cáscaras 0 kcal huérfanas.
 
 ## Limitaciones y verificación en dispositivo
 

@@ -256,11 +256,15 @@ nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError 
 savedUUID = owned.uuid  // phone shell
 
 // ✅ GOOD — si phoneShell (Repera iPhone + 0 kcal), buscar Watch por ventana/ID
+// y BORRAR la cáscara de Salud (si no, Fitness sigue mostrando «Repera / 0 KCAL»)
 overlappingWorkout(..., watchOnly: true, expectedSessionID:)
+_ = await deleteExternalWorkout(id: owned.uuid)
+// Históricos: deleteOrphanPhoneShells + repairPastHealthKitExports al arrancar
 ```
 
 - Fitness con «Repera / 0 KCAL / FC 134» = cáscara iPhone; la FC puede venir de muestras del intervalo, no de kcal del workout.
 - No inventar kcal si Salud tiene 0 de verdad.
+- Outdoor Watch: `HKWorkoutRouteBuilder` en watchkitapp (el iPhone no puede adjuntar ruta a un workout del Watch). Wear outdoor: `routePoints` en live-save + HC `ExerciseRoute`.
 
 #### Apple — kcal Watch: no quitar `totalEnergyBurned`
 
@@ -268,8 +272,11 @@ overlappingWorkout(..., watchOnly: true, expectedSessionID:)
 // ❌ BAD — solo statistics; tras sync iPhone a menudo nil → chip «—»
 workout.statistics(for: activeEnergy)?.sumQuantity()
 
-// ✅ GOOD — statistics + totalEnergyBurned del HKWorkout (PR b3b6e06 / restauración)
-[statisticsKcal, workout.totalEnergyBurned?.…].compactMap { $0 }.first { $0 > 0 }
+// ❌ BAD — llamar la propiedad Swift (deprecada iOS 18 / watchOS 11 → warning)
+workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+
+// ✅ GOOD — statistics + totalEnergyBurned vía KVC (sin warning; PR b3b6e06)
+[statisticsKcal, workout.value(forKey: "totalEnergyBurned") as? HKQuantity].compactMap …
 ```
 
 - Tras editar horario: no poner `appleActiveEnergyKcal = nil` en el save; rehidratar y **solo sustituir si hay medición**.

@@ -549,6 +549,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         refreshHealthAccess()
         if (HealthConnectReader.hasReadablePermission(granted)) {
             loadHealthToday()
+            repairPastHealthConnectExports()
         } else {
             // No volcar denegación a `status` global (aparecía en rojo en Crear).
             todayHealth = null
@@ -1723,7 +1724,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                                 averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
                                     .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
                                 activeEnergyKcal = body.optDouble("activeEnergyKcal")
-                                    .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") }
+                                    .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") },
+                                routePoints = body.optJSONArray("routePoints")
                             )
                             true
                         }.getOrDefault(false)
@@ -1732,6 +1734,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         reloadFor(account)
                         DriveSyncWorker.syncNow(this@MainActivity)
                         if (verifiedSupabase != null) syncWorkoutMirror()
+                        refineFinishedSessionWithHealth(sessionId)
                         val ack = JSONObject().put("id", sessionId).put("saved", true)
                             .toString().toByteArray(Charsets.UTF_8)
                         wearMessages.sendMessage(event.sourceNodeId, "/repera/live-save-ack", ack)
@@ -2337,6 +2340,42 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      *  (relee FC/kcal SOLO con asociación confiable y afina la nota). Si la
      *  hoja de valoración sigue visible con esa sesión, la actualiza
      *  (presentIfPending iOS). */
+    /** Paridad iOS repairPastHealthKitExports: reintenta ExerciseRoute en
+     *  sesiones terminadas con track local y vínculo/permiso de HC. */
+    private fun repairPastHealthConnectExports() {
+        val signedIn = profile ?: return
+        val revision = centerGate.revision
+        fun current() = profile?.uniqueId == signedIn.uniqueId && centerGate.revision == revision
+        val reader = HealthConnectReader(this)
+        if (!reader.available()) return
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    if (!current() || !reader.hasPermissions()) return@runCatching
+                    val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                    val candidates = repo.finishedSessionIdsWithRoute().take(40)
+                    for (sessionId in candidates) {
+                        if (!current()) return@runCatching
+                        val info = repo.sessionTitleAndRange(sessionId) ?: continue
+                        val linked = HealthConnectWriter(
+                            this@MainActivity, stillAuthorized = { current() }
+                        ).syncFinishedSession(
+                            sessionId, info.first, info.second, info.third,
+                            repo.healthRecordId(sessionId),
+                            HealthConnectWriter.exerciseTypeFor(
+                                repo.liveSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)
+                            ),
+                            repo.sessionRoutePoints(sessionId)
+                        )
+                        if (current() && linked != null && repo.healthRecordId(sessionId) == null) {
+                            repo.setHealthRecordId(sessionId, linked)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun refineFinishedSessionWithHealth(sessionId: String, syncToHealth: Boolean = true) {
         val signedIn = profile ?: return
         val revision=centerGate.revision
@@ -2395,8 +2434,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val requested=reader.requestedPermissions()
                 val granted=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity).permissionController.getGrantedPermissions()
                 if(!current()) return@launch
-                if(granted.containsAll(requested)) loadHealthToday()
-                else {
+                if(granted.containsAll(requested)) {
+                    loadHealthToday()
+                    repairPastHealthConnectExports()
+                } else {
                     if(pendingHealthRequest.begin(owner,revision)) requestHealthPermissions.launch(requested)
                 }
             } catch(error:Exception) {

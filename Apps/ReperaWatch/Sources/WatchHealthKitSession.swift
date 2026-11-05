@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import HealthKit
 import Observation
@@ -19,6 +20,12 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private let store = HKHealthStore()
     private var workout: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    /// Ruta GPS outdoor en Salud (mismo bundle Watch). El iPhone no puede
+    /// adjuntar `HKWorkoutRoute` a un workout creado por watchkitapp.
+    private var routeBuilder: HKWorkoutRouteBuilder?
+    private var recordsRoute = false
+    private var pendingRouteLocations: [CLLocation] = []
+    private var routeInsertTask: Task<Void, Never>?
     private var workoutID: UUID?
     private var lastRecordedBlockID: UUID?
     private var pendingBlock: (id: UUID, isInterval: Bool)?
@@ -86,10 +93,16 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 self.workoutID = matches ? id : nil
                 self.hasUnlinkedRecovery = !matches
                 self.workout = recovered
+                let outdoor = recovered.workoutConfiguration.locationType == .outdoor
                 live.dataSource = Self.makeLiveDataSource(
                     store: self.store,
-                    configuration: recovered.workoutConfiguration
+                    configuration: recovered.workoutConfiguration,
+                    outdoor: outdoor
                 )
+                if outdoor {
+                    self.recordsRoute = true
+                    self.prepareRouteBuilder(from: live)
+                }
                 recovered.delegate = self
                 live.delegate = self
                 self.builder = live
@@ -161,18 +174,26 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         pulseCapturedAt = nil
         kcal = nil
         averageBpm = nil
+        recordsRoute = outdoor
+        routeBuilder = nil
+        pendingRouteLocations = []
+        routeInsertTask?.cancel()
+        routeInsertTask = nil
         onMetricsUpdated?()
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-        let read: Set<HKObjectType> = [HKObjectType.workoutType(), heart, energy]
+        var read: Set<HKObjectType> = [HKObjectType.workoutType(), heart, energy]
+        var share: Set<HKSampleType> = [HKObjectType.workoutType()]
+        if outdoor {
+            read.insert(HKSeriesType.workoutRoute())
+            share.insert(HKSeriesType.workoutRoute())
+        }
         // HealthKit operations stay on the MainActor. The authorization sheet,
         // builder collection and metadata use Apple's async APIs on watchOS 27.
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
-                try await store.requestAuthorization(
-                    toShare: [HKObjectType.workoutType()], read: read
-                )
+                try await store.requestAuthorization(toShare: share, read: read)
             } catch {
                 if self.workoutID == id { self.permissionIssue = error.localizedDescription }
                 return
@@ -187,7 +208,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
                 let liveBuilder = session.associatedWorkoutBuilder()
                 liveBuilder.dataSource = Self.makeLiveDataSource(
-                    store: self.store, configuration: config
+                    store: self.store, configuration: config, outdoor: outdoor
                 )
                 session.delegate = self
                 liveBuilder.delegate = self
@@ -211,6 +232,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     try await liveBuilder.beginCollection(at: date)
                     guard self.workoutID == id, self.builder === liveBuilder else { return }
                     self.isRecording = true
+                    if outdoor {
+                        self.prepareRouteBuilder(from: liveBuilder)
+                    }
                     if let pending = self.pendingBlock {
                         self.beginBlock(id: pending.id, isInterval: pending.isInterval)
                     }
@@ -233,10 +257,56 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     session.end()
                     self.workout = nil
                     self.builder = nil
+                    self.routeBuilder = nil
+                    self.recordsRoute = false
                     self.isRecording = false
                 }
             } catch {
                 if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+            }
+        }
+    }
+
+    /// Alimenta el `HKWorkoutRouteBuilder` con fixes GPS del hub (outdoor).
+    func appendRouteLocations(_ locations: [CLLocation]) {
+        guard recordsRoute, !finishing else { return }
+        let accepted = locations.filter {
+            $0.horizontalAccuracy >= 0 && $0.horizontalAccuracy < 50
+        }
+        guard !accepted.isEmpty else { return }
+        pendingRouteLocations.append(contentsOf: accepted)
+        scheduleRouteDrain()
+    }
+
+    private func prepareRouteBuilder(from liveBuilder: HKLiveWorkoutBuilder) {
+        if let series = liveBuilder.seriesBuilder(for: HKSeriesType.workoutRoute())
+            as? HKWorkoutRouteBuilder {
+            routeBuilder = series
+        } else {
+            routeBuilder = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+        }
+        scheduleRouteDrain()
+    }
+
+    private func scheduleRouteDrain() {
+        guard routeBuilder != nil, !pendingRouteLocations.isEmpty else { return }
+        guard routeInsertTask == nil else { return }
+        routeInsertTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.routeInsertTask = nil }
+            while !self.pendingRouteLocations.isEmpty {
+                guard let builder = self.routeBuilder else { break }
+                let batch = Array(self.pendingRouteLocations.prefix(40))
+                self.pendingRouteLocations.removeFirst(batch.count)
+                do {
+                    try await builder.insertRouteData(batch)
+                } catch {
+                    // Conservar puntos locales en el hub; no inventar ruta en Salud.
+                    break
+                }
+            }
+            if !self.pendingRouteLocations.isEmpty, self.routeBuilder != nil {
+                self.scheduleRouteDrain()
             }
         }
     }
@@ -268,6 +338,11 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workout?.end()
         workout = nil
         builder = nil
+        routeBuilder = nil
+        recordsRoute = false
+        pendingRouteLocations = []
+        routeInsertTask?.cancel()
+        routeInsertTask = nil
         workoutID = nil
         lastRecordedBlockID = nil
         pendingBlock = nil
@@ -375,9 +450,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     }
 
     /// Activa explícitamente FC y energía activa: algunos tipos (p. ej. crossTraining)
-    /// no siempre las incluyen por defecto en el data source.
+    /// no siempre las incluyen por defecto en el data source. Outdoor también
+    /// pide distancia para que Fitness muestre km junto a la ruta.
     private static func makeLiveDataSource(
-        store: HKHealthStore, configuration: HKWorkoutConfiguration
+        store: HKHealthStore, configuration: HKWorkoutConfiguration, outdoor: Bool
     ) -> HKLiveWorkoutDataSource {
         let dataSource = HKLiveWorkoutDataSource(
             healthStore: store, workoutConfiguration: configuration
@@ -387,6 +463,17 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         }
         if let energy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
             dataSource.enableCollection(for: energy, predicate: nil)
+        }
+        if outdoor {
+            let distanceIDs: [HKQuantityTypeIdentifier] = [
+                .distanceWalkingRunning, .distanceCycling, .distanceSwimming,
+                .distanceDownhillSnowSports
+            ]
+            for id in distanceIDs {
+                if let distance = HKQuantityType.quantityType(forIdentifier: id) {
+                    dataSource.enableCollection(for: distance, predicate: nil)
+                }
+            }
         }
         return dataSource
     }
@@ -426,15 +513,30 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 // A nil workout without an error is valid while the Watch is locked.
                 // Repera preserves the pending UUID and reconciles it later.
                 let saved = try await builder.finishWorkout()
+                if let insert = self.routeInsertTask { await insert.value }
+                if let saved, let route = self.routeBuilder {
+                    do {
+                        if !self.pendingRouteLocations.isEmpty {
+                            try await route.insertRouteData(self.pendingRouteLocations)
+                            self.pendingRouteLocations = []
+                        }
+                        _ = try await route.finishRoute(with: saved, metadata: nil)
+                    } catch {
+                        // Ruta local del hub se conserva; Fitness sin mapa si Salud niega.
+                    }
+                }
+                self.routeBuilder = nil
                 let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
                 let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
                 let hrUnit = HKUnit.count().unitDivided(by: .minute())
-                // Prefer the finished workout statistics; fall back to the live
-                // builder when HealthKit returns a temporarily nil workout while
-                // the Watch is locked (sensor-backed either way).
+                // Prefer finished/live statistics; then legacy totalEnergyBurned
+                // (KVC: property deprecated on watchOS 11 but still populated when
+                // statistics are empty); finally the live session accumulator.
+                let legacyTotal = (saved?.value(forKey: "totalEnergyBurned") as? HKQuantity)?
+                    .doubleValue(for: .kilocalorie())
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                     ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
-                    ?? saved?.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                    ?? legacyTotal
                     ?? self.kcal
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
@@ -459,6 +561,11 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         workout?.end()
         workout = nil
         builder = nil
+        routeBuilder = nil
+        recordsRoute = false
+        pendingRouteLocations = []
+        routeInsertTask?.cancel()
+        routeInsertTask = nil
         workoutID = nil
         lastRecordedBlockID = nil
         pendingBlock = nil
