@@ -1739,6 +1739,9 @@ struct RecoveryTrainingTip: View {
 }
 
 struct RecoveryHomeCard: View {
+    /// Abre Progreso → Recuperación (Inicio no navega a Ajustes de Salud).
+    var onOpenRecovery: () -> Void = {}
+
     @State private var recovery = HealthRecoveryStore.shared
 
     /// Mismo `moon.stars.fill` / cielo nocturno que Progreso → Sueño.
@@ -1761,9 +1764,7 @@ struct RecoveryHomeCard: View {
             if hasHomeData {
                 VStack(alignment: .leading, spacing: 8) {
                     OGCardSectionTitle(title: "Tu estado de hoy")
-                    NavigationLink {
-                        ConnectedHealthSettingsView()
-                    } label: {
+                    Button(action: onOpenRecovery) {
                         OGCard {
                             HStack(spacing: 14) {
                                 Image(systemName: "moon.stars")
@@ -1798,6 +1799,7 @@ struct RecoveryHomeCard: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint("Abre Progreso, Recuperación")
                 }
             }
         }

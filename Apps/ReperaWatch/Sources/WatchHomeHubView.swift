@@ -12,6 +12,7 @@ struct WatchHomeHubView: View {
     var onPlaySport: (WatchLiveSport) -> Void
 
     @State private var crownValue = 0.0
+    @State private var showPlanModePicker = false
     @FocusState private var crownFocused: Bool
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
@@ -34,7 +35,14 @@ struct WatchHomeHubView: View {
             // La actividad solo ocupa el área central: no puede interceptar
             // los toques de los controles fijos del borde inferior.
             Button {
-                playSelected()
+                guard let selected else { return }
+                switch selected {
+                case .plan:
+                    // watchOS deprecó contextMenu: elegir modo con diálogo visible.
+                    showPlanModePicker = true
+                case .sport:
+                    playSelected()
+                }
             } label: {
                 VStack(spacing: 6) {
                     Spacer(minLength: 0)
@@ -64,12 +72,20 @@ struct WatchHomeHubView: View {
             }
             .buttonStyle(.plain)
             .disabled(selected == nil)
-            .contextMenu {
-                if case .some(.plan(let plan)) = selected {
-                    Button("Grabar entreno", systemImage: "record.circle") {
-                        hub.selectTodayPlan(plan.id)
-                        onRecordPlan()
-                    }
+            .confirmationDialog(
+                "Iniciar plan",
+                isPresented: $showPlanModePicker,
+                titleVisibility: .visible
+            ) {
+                Button("Comenzar en vivo") {
+                    playSelected()
+                }
+                Button("Grabar entreno") {
+                    recordSelectedPlan()
+                }
+            } message: {
+                if let selected {
+                    Text(selected.title)
                 }
             }
             .accessibilityLabel(selected.map { "Comenzar \($0.title)" } ?? "Comenzar")
@@ -158,5 +174,12 @@ struct WatchHomeHubView: View {
         case .sport(let sport):
             onPlaySport(sport)
         }
+    }
+
+    private func recordSelectedPlan() {
+        guard case .some(.plan(let plan)) = selected else { return }
+        hub.setHubCarouselIndex(selectedIndex)
+        hub.selectTodayPlan(plan.id)
+        onRecordPlan()
     }
 }

@@ -8,12 +8,16 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
-    def test_apple_watch_plan_tap_starts_live_without_dialog(self):
+    def test_apple_watch_plan_tap_chooses_live_or_record_dialog(self):
         view = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
         self.assertIn("onPlayPlan: {\n                            startSelectedPlan(recordOnly: false)", view)
         self.assertIn("onRecordPlan: {\n                            startSelectedPlan(recordOnly: true)", view)
-        self.assertIn('Button("Grabar entreno", systemImage: "record.circle")', home)
+        # watchOS 7+ deprecó contextMenu: el plan elige modo con diálogo visible.
+        self.assertNotIn(".contextMenu", home)
+        self.assertIn(".confirmationDialog(", home)
+        self.assertIn('Button("Comenzar en vivo")', home)
+        self.assertIn('Button("Grabar entreno")', home)
         self.assertIn("hub.startToday()\n        guard hub.active?.phase == .ready", view)
 
     def test_apple_watch_last_value_not_ttl_hidden(self):
