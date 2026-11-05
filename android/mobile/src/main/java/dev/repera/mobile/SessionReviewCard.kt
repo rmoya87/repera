@@ -129,6 +129,7 @@ internal fun TrainingScoreConfidenceBar(
     val normalized = label.orEmpty().lowercase(java.util.Locale.ROOT)
     val current = when {
         "alta" in normalized -> TrainingConfidence.HIGH
+        "en construcción" in normalized -> TrainingConfidence.MEDIUM
         "media" in normalized -> TrainingConfidence.MEDIUM
         "baja" in normalized -> TrainingConfidence.LOW
         else -> TrainingConfidence.LEARNING

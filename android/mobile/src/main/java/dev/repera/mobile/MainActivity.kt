@@ -3613,7 +3613,11 @@ data class StateOverview(
             localStats.forEach {s -> val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
                 minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
                 countsByDay[day]=(countsByDay[day] ?: 0)+1}
-            health?.externalActivities.orEmpty().forEach {s ->val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
+            // El mismo entrenamiento Repera + Health Connect cuenta una sola vez.
+            val uniqueExternal = health?.externalActivities?.let {
+                dev.repera.domain.HealthMuscleMapper.dropNativeOverlaps(it, localStats)
+            }.orEmpty()
+            uniqueExternal.forEach {s ->val day=java.time.Instant.ofEpochMilli(s.epochMillis).atZone(zone).toLocalDate()
                 minutesByDay[day]=(minutesByDay[day] ?: 0.0)+s.durationMinutes
                 countsByDay[day]=(countsByDay[day] ?: 0)+1}
             return StateOverview(wodLibraryHistory=WodLibraryHistory.read(json),wodTemplateFavorites=WodTemplateFavorites.read(json),

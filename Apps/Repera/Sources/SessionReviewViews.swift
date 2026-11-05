@@ -154,6 +154,9 @@ struct TrainingScoreConfidenceBar: View {
     private var currentLevel: Level {
         let text = (label ?? "").lowercased()
         if text.contains("alta") { return .high }
+        // Una puntuación verificada antigua puede llevar todavía esta etiqueta
+        // en disco hasta su migración. No es un quinto nivel de confianza.
+        if text.contains("en construcción") { return .medium }
         if text.contains("media") { return .medium }
         if text.contains("baja") { return .low }
         return .learning
