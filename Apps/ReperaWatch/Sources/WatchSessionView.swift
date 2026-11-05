@@ -258,7 +258,13 @@ struct WatchSessionView: View {
     /// Companion screen: iPhone owns GPS/HealthKit. Título = navigationTitle (deporte).
     private func liveActivityView(_ live: WatchLiveActivitySnapshot) -> some View {
         WatchSwipeControlSurface {
-        ScrollView {
+            TabView {
+                if let turn = live.nextTurn, !turn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   live.phase != .review {
+                    WatchLiveNavigationPage(instruction: turn, distanceMeters: live.nextTurnMeters)
+                        .tag(0)
+                }
+                ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 if live.phase == .paused {
                     Text("En pausa")
@@ -306,16 +312,6 @@ struct WatchSessionView: View {
                     )
                 }
 
-                if let turn = live.nextTurn, live.phase != .review {
-                    Label(turn, systemImage: "arrow.turn.up.right")
-                        .font(.caption2)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(7)
-                        .background(.white.opacity(0.08),
-                                    in: RoundedRectangle(cornerRadius: 10))
-                }
-
                 if let warning = hub.healthWarning {
                     Text(warning).font(.caption2).foregroundStyle(.orange)
                 }
@@ -342,7 +338,10 @@ struct WatchSessionView: View {
                 }
             }
             .padding(.horizontal, 6)
-        }
+                }
+                .tag(1)
+            }
+            .tabViewStyle(.verticalPage)
         } controls: {
             if live.phase != .review {
                 WatchControlActionButton(
@@ -1677,6 +1676,57 @@ private struct WatchActivityCancelOverlay: View {
     }
 }
 
+
+/// Indicaciones como primera pantalla del Watch cuando existe una ruta real.
+/// El gesto vertical pasa a Métricas; el lateral sigue reservado a controles.
+private struct WatchLiveNavigationPage: View {
+    let instruction: String
+    let distanceMeters: Int?
+
+    private var symbol: String {
+        if instruction.localizedStandardContains("izquierda") { return "arrow.turn.up.left" }
+        if instruction.localizedStandardContains("derecha") { return "arrow.turn.up.right" }
+        if instruction.localizedStandardContains("vuelta") { return "arrow.uturn.backward" }
+        return "arrow.up"
+    }
+
+    private var distanceLabel: String? {
+        guard let distanceMeters else { return nil }
+        return distanceMeters >= 1_000
+            ? String(format: "%.1f km", Double(distanceMeters) / 1_000)
+            : "\(max(0, distanceMeters)) m"
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
+            Image(systemName: symbol)
+                .font(.system(size: 49, weight: .bold))
+                .foregroundStyle(WatchTheme.accent)
+                .accessibilityHidden(true)
+            if let distanceLabel {
+                Text(distanceLabel)
+                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                    .foregroundStyle(WatchTheme.accent)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.65)
+                    .lineLimit(1)
+            }
+            Text(instruction)
+                .font(.headline.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 0)
+            Text("Desliza para ver métricas")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+}
 
 /// El gesto de derecha a izquierda abre las acciones; izquierda a derecha vuelve
 /// a la sesión. Las series avanzan con el botón «Siguiente», sin competir por el gesto.
