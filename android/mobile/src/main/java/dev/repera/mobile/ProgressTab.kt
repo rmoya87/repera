@@ -393,6 +393,15 @@ internal fun ProgressTab(
                     item {
                         val period = "últimos 7 días"
                         val strengthBars = strengthDailyBarFractions(snapshot.hubDailyVolumeKg)
+                        val todayPrs = overview?.completeHistory.orEmpty().sumOf { entry ->
+                            val day = entry.finishedAtIso?.let {
+                                runCatching { java.time.Instant.parse(it) }.getOrNull()
+                            }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+                            if (day == today) overview?.prCountBySessionId?.get(entry.id) ?: 0 else 0
+                        }
+                        val todaySummary = (overview?.dayWorkoutCounts?.get(today) ?: 0).toString() +
+                            " sesiones · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
+                            " kg · " + todayPrs + " PR hoy
                         ProgressSaludInsightCard(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
@@ -407,10 +416,8 @@ internal fun ProgressTab(
                             heroCaption = when {
                                 snapshot.summary.volumeKg > 0 ->
                                     snapshot.summary.volumeKg.toInt().toString() + " kg · " + period +
-                                        " · " + (overview?.dayWorkoutCounts?.get(today) ?: 0) + " hoy"
-                                (overview?.dayWorkoutCounts?.get(today) ?: 0) > 0 ->
-                                    (overview?.dayWorkoutCounts?.get(today) ?: 0).toString() +
-                                        " actividades hoy · sin kg confirmados"
+                                        " · " + todaySummary
+                                (overview?.dayWorkoutCounts?.get(today) ?: 0) > 0 -> todaySummary
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
                             },
