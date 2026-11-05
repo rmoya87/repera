@@ -89,6 +89,30 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("persistWorkouts()", store)
         self.assertIn("announceFreshWatchWorkout(", store)
 
+    def test_watch_health_enrichment_is_durable_before_ack(self):
+        store = source(PHONE_STORE)
+        # An in-flight HealthKit revision must never leave a successful Watch
+        # transfer unacknowledged only because the archived workout changed.
+        self.assertIn("if latest != snapshot.workouts.first(where:", store)
+        self.assertIn("await LocalStore.shared.persistAndFlush(self.state)", store)
+        self.assertIn("self.lastWatchAcknowledgedSession = session.id", store)
+
+    def test_phone_does_not_discard_gps_before_durable_save(self):
+        free = source(FREE)
+        save = free.split("private func saveRecordedActivity()", 1)[1].split(
+            "private var routeSheet", 1
+        )[0]
+        self.assertLess(
+            save.index("store.saveWorkout(session)"),
+            save.index("await LocalStore.shared.persistAndFlush(store.state)")
+        )
+        self.assertLess(
+            save.index("guard LocalStore.shared.lastPersistenceError == nil"),
+            save.index("recorder.discard(saved: true)")
+        )
+        self.assertIn("isSavingRecordedActivity = false", save)
+        self.assertIn("saveError =", save)
+
     def test_home_immediately_rebuilds_and_selects_saved_day(self):
         home = source(HOME)
         free = source(FREE)
