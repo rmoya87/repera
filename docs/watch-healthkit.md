@@ -6,8 +6,10 @@
 
 `WatchHomeHubView` es la raíz cuando no hay sesión activa: plan efectivo del iPhone
 (`effectiveWatchPlan`: hoy \| atrasado reciente), recientes y catálogo Comenzar.
-Play del plan → flujo fuerza/WOD. Play de deporte → `startLive` al iPhone o
-grabación local (`WatchLiveSessionView` + GPS + HK). Temporizador libre en
+Play del plan → flujo fuerza/WOD. Play de deporte **desde el Watch** →
+grabación nativa del propio reloj (`WatchLiveSessionView` + GPS + HK).
+Si se inicia **desde el iPhone**, el teléfono sigue siendo dueño del registro
+y el Watch puede aportar pulsaciones de forma complementaria. Temporizador libre en
 `WatchStandaloneTimerView`. Mute sincroniza `spokenGuidance` del iPhone.
 
 ## Fuente de verdad
@@ -42,6 +44,63 @@ No se infiere la concesión de permisos de una lista de muestras vacía. Una lec
 La extensión `ReperaWatchWidget` utiliza la estructura nativa de WidgetKit: `ReperaWatchWidget: Widget` devuelve `StaticConfiguration` desde `body: some WidgetConfiguration`, mientras que `ReperaWatchWidgetBundle: WidgetBundle` devuelve `ReperaWatchWidget()` desde `body: some Widget`. Nunca colocar `StaticConfiguration` directamente en el cuerpo de un `WidgetBundle`, porque `WidgetBundleBuilder.buildExpression` solo acepta tipos `Widget` y Swift devuelve `No exact matches in call to static method 'buildExpression'`.
 
 Complicación = **icono de la app** (mascota). Watch: `ReperaIcon`/`repera_logo.png` + `.fullColor` + `contentMarginsDisabled` (sin SF Symbol). Wear: `ic_repera_logo` a color (`SMALL_IMAGE`/`PHOTO_IMAGE`) y `ic_repera_logo_mono` en huecos monocromos; sin esto la esfera queda vacía. **Launcher Wear** (menú de apps): `android:icon`/`roundIcon` = `@mipmap/ic_launcher(_round)` (mismo que el móvil); sin esto el cajón muestra el icono genérico/vacío.
+
+## Registro de caminata, deportes outdoor y clases (incidencia 05/11/2026)
+
+**Origen y propiedad.** Cuando el usuario pulsa Play en el Watch, el reloj debe
+crear y guardar el único `HKWorkout`: no delegar su inicio al iPhone, donde
+el workout podía finalizar como una cáscara sin sensores mientras la sesión
+de muñeca se descartaba. El mirroring nativo de HealthKit comunica el estado
+al iPhone y `WCSession` aporta los resultados a Repera. Si la sesión nace
+en el iPhone, el iPhone conserva el registro; no escribir un segundo workout
+de Watch en Salud.
+
+**Tipo.** El catálogo nativo traduce `walking` a `.walking`, `hiking`
+a `.hiking`, carrera a `.running`, bici a `.cycling`,
+CrossFit/HYROX a `.crossTraining`, fuerza a
+`.traditionalStrengthTraining`. La rutina o clase programada usa su deporte
+real si tiene un `liveSportID`; si no, WOD → CrossTraining y fuerza →
+Strength Training. Nunca decidir el deporte solo por el nombre editable.
+
+**Distancia y ritmo.** `HKWorkoutRoute` da el mapa pero **no garantiza**
+los kilómetros del resumen de Fitness. Antes de cerrar el builder, Repera
+añade una muestra de distancia basada en sus fixes GPS reales **solo si**
+HealthKit no registró ya distancia numérica. La muestra se escribe en el
+identificador correcto (andar/correr, ciclismo, nieve o natación) para que
+Fitness pueda calcular el ritmo/velocidad cuando el sistema lo admita.
+No sumar dos veces la distancia ni calcular ritmo con GPS vacío.
+
+**Energía y FC.** Las kcal y la FC provienen del builder / sensores de
+HealthKit. Si un acumulado provisional es 0, buscar una medición positiva
+real en el resultado final, el valor legacy o el acumulador en vivo. No
+convertir 0 en kcal inventadas por MET, distancia, pulso o duración.
+La energía total/ritmo mostrado y el icono del origen son presentaciones
+gestionadas por Apple; una corrección del bundle no puede forzar su aspecto
+en Fitness. Los iconos AppIcon de iPhone y Watch están registrados en
+`project.yml`, y la identidad real debe validarse en una compilación firmada.
+
+**Limitación de históricos.** Los `HKWorkout` ya guardados no adquieren
+retroactivamente kcal o distancia que nunca se almacenó. No sobrescribir
+muestras históricas ni cambiar su tipo a ciegas; solo reconciliar datos
+existentes bajo el UUID verificado.
+
+**Prueba de aceptación en dispositivos reales:**
+1. Iniciar caminata de 10+ min desde Repera Watch con iPhone conectado;
+   confirmar `walking`, una sola actividad, icono/origen, HR, kcal activas,
+   ruta y km/ritmo en Fitness. Repetir desconectado.
+2. Iniciar una caminata desde iPhone con GPS e incluir metros; comprobar
+   distancia y ausencia de workout duplicado.
+3. Probar carrera, bici, senderismo, fuerza, CrossFit/HYROX y clase
+   planificada: tipo esperado, tiempos, FC y energía real disponible.
+4. Denegar permisos de distancia/energía, reautorizar desde Salud,
+   pausar/reanudar, pantalla bloqueada, cancelar y reconectar Watch.
+5. Revisar en Xcode/TestFlight real que AppIcon se empaqueta en ambos targets.
+   Si Fitness sigue usando placeholder, investigar la caché de iconos/instalación
+   y la identidad firmada, sin prometer una API que fuerce su presentación.
+
+Contratos estáticos: `tests/test_healthkit_activity_export_contract.py`.
+La comprobación de sensores, permisos y presentación de Fitness requiere
+iPhone y Apple Watch físicos.
 
 ## Pruebas antes de publicar
 
