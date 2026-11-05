@@ -2337,10 +2337,17 @@ final class ReperaStore: NSObject {
                 await LocalStore.shared.persistAndFlush(snapshot)
                 // The acknowledgment means the phone has persisted it, NOT that
                 // Supabase has completed or that the Health sample is yet visible.
-                guard LocalStore.shared.lastPersistenceError == nil,
-                      self.state.workouts.first(where: { $0.id == session.id }) ==
-                      snapshot.workouts.first(where: { $0.id == session.id })
-                else { return }
+                guard LocalStore.shared.lastPersistenceError == nil else { return }
+                // HealthKit can deliver a richer revision while the first disk
+                // flush awaits its actor. Flush the current newer version before
+                // ACK instead of dropping the ACK and leaving Watch retrying.
+                guard let latest = self.state.workouts.first(where: {
+                    $0.id == session.id && $0.phase == .finished
+                }) else { return }
+                if latest != snapshot.workouts.first(where: { $0.id == session.id }) {
+                    await LocalStore.shared.persistAndFlush(self.state)
+                    guard LocalStore.shared.lastPersistenceError == nil else { return }
+                }
                 if firstArrival && session.timerDetails == nil {
                     if self.state.workouts.first(where: { $0.id == session.id })?.awaitingResultEntry == true {
                         WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
