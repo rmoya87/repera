@@ -22,6 +22,8 @@ struct WatchSessionView: View {
     @State private var cancelConfirmationError: String?
     /// Plan pendiente del selector guiado/libre (overlay a nivel de sesión).
     @State private var pendingPlanStart: WorkoutSession?
+    /// La llegada tardía de una indicación nunca interrumpe a quien está viendo métricas.
+    @State private var selectedCompanionLivePage = 0
 
     private var accent: Color { WatchTheme.accent }
 
@@ -258,10 +260,14 @@ struct WatchSessionView: View {
 
     /// Companion screen: iPhone owns GPS/HealthKit. Título = navigationTitle (deporte).
     private func liveActivityView(_ live: WatchLiveActivitySnapshot) -> some View {
-        WatchSwipeControlSurface {
-            TabView {
-                if let turn = live.nextTurn, !turn.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                   live.phase != .review {
+        let hasGuidance = live.phase != .review &&
+            live.nextTurn?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        return WatchSwipeControlSurface {
+            TabView(selection: Binding(
+                get: { hasGuidance ? selectedCompanionLivePage : 1 },
+                set: { selectedCompanionLivePage = $0 }
+            )) {
+                if hasGuidance, let turn = live.nextTurn {
                     WatchLiveNavigationPage(instruction: turn, distanceMeters: live.nextTurnMeters)
                         .tag(0)
                 }
@@ -343,6 +349,12 @@ struct WatchSessionView: View {
                 .tag(1)
             }
             .tabViewStyle(.verticalPage)
+            .task(id: live.id) {
+                selectedCompanionLivePage = hasGuidance ? 0 : 1
+            }
+            .onChange(of: hasGuidance) { _, available in
+                if !available { selectedCompanionLivePage = 1 }
+            }
         } controls: {
             if live.phase != .review {
                 WatchControlActionButton(
