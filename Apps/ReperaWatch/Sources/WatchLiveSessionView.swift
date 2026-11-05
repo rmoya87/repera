@@ -50,16 +50,18 @@ struct WatchLiveSessionView: View {
                             }
                         }
                     }
-                    if let bpm = hub.heartRateBpm {
-                        if isLuminanceReduced {
-                            WatchLiveMetricRow(label: "FC", value: "\(bpm)")
-                        } else {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("FC")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                WatchHeartRateZoneBar(bpm: bpm, prominent: !sport.usesGPS)
-                            }
+                    if isLuminanceReduced {
+                        WatchLiveMetricRow(
+                            label: hub.heartRateBpm != nil && !hub.heartRateIsFresh ? "Últ. FC" : "FC",
+                            value: hub.heartRateBpm.map(String.init) ?? "—"
+                        )
+                    } else {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(hub.heartRateBpm == nil ? "FC · esperando" :
+                                 (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !sport.usesGPS)
                         }
                     }
                     if !isLuminanceReduced {
@@ -212,11 +214,9 @@ struct WatchHeartRateZoneBar: View {
         return 5
     }
 
-    @ViewBuilder
     var body: some View {
-        if let bpm, let zone {
         HStack(spacing: 7) {
-            Text(String(bpm))
+            Text(bpm.map(String.init) ?? "—")
                 .font(.system(size: prominent ? 28 : 19, weight: .bold).monospacedDigit())
                 .frame(minWidth: prominent ? 50 : 34, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
@@ -224,19 +224,22 @@ struct WatchHeartRateZoneBar: View {
                     ForEach(1...5, id: \.self) { level in
                         Capsule()
                             .fill(colors[level - 1])
-                            .opacity(zone == level ? 1 : 0.28)
+                            .opacity(zone == level ? 1 : 0.16)
                             .frame(height: zone == level ? 12 : 8)
                     }
                 }
-                Text("Zona \(zone)/5")
+                Text(zone.map { "Zona \($0)/5" } ?? "Esperando pulso")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
-        }
+        .accessibilityLabel(
+            (bpm != nil && zone != nil)
+                ? "Frecuencia cardíaca \(bpm!) pulsaciones, zona \(zone!) de 5"
+                : "Esperando la primera lectura de frecuencia cardíaca"
+        )
     }
 }
 

@@ -8,6 +8,7 @@ struct WatchHomeHubView: View {
     @Environment(WatchSessionHub.self) private var hub
     @Binding var showTimer: Bool
     var onPlayPlan: () -> Void
+    var onRecordPlan: () -> Void
     var onPlaySport: (WatchLiveSport) -> Void
 
     @State private var crownValue = 0.0
@@ -63,6 +64,14 @@ struct WatchHomeHubView: View {
             }
             .buttonStyle(.plain)
             .disabled(selected == nil)
+            .contextMenu {
+                if case .some(.plan(let plan)) = selected {
+                    Button("Grabar entreno", systemImage: "record.circle") {
+                        hub.selectTodayPlan(plan.id)
+                        onRecordPlan()
+                    }
+                }
+            }
             .accessibilityLabel(selected.map { "Comenzar \($0.title)" } ?? "Comenzar")
             // Zona reservada para dos botones de 44 pt y el bisel redondeado.
             .padding(.bottom, 58)

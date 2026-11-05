@@ -61,7 +61,7 @@ internal class WearHealthService:Service() {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
     private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
-    private fun snapshot()=Snapshot(owner,sensors.freshHeartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
+    private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()

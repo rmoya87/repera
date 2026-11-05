@@ -1491,22 +1491,43 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      */
     private fun startTodayPlan(startIndex: Int = 0, selectedPlan: JSONObject? = null) {
         if(visibleSession!=null || runCatching {pendingFinish.sessionId()!=null}.getOrDefault(true)) {
-            sendStatus="Hay una sesión activa o pendiente de terminar";return
+            hubNotice = "Hay una sesión activa o pendiente de terminar"
+            sendStatus = hubNotice
+            return
         }
-        val prescription = selectedPlan ?: todayPlanJson ?: return
+        val prescription = selectedPlan ?: todayPlanJson ?: run {
+            hubNotice = "No hay plan descargado. Sincronízalo con el teléfono."
+            return
+        }
         val begun=runCatching {dev.repera.domain.WatchPlanExecution.begin(prescription)}.getOrElse {
-            sendStatus="No se pudo iniciar el plan: ${it.localizedMessage}";return
+            hubNotice="No se pudo iniciar el plan: ${it.localizedMessage}"
+            sendStatus=hubNotice
+            return
         }
-        // Apple startToday + selectBlock(startingAt:): jump without completing skipped work.
-        val plan=if(startIndex>0) dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
-        val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrNull()
-            ?: return
+        // Select the requested block, then start counting on the very first tap.
+        // The ready gate is reserved for later block navigation, as on Apple Watch.
+        val ready = if(startIndex>0)
+            dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
+        val plan = dev.repera.domain.WatchPlanExecution.play(ready) ?: run {
+            hubNotice = "No hay un bloque válido para iniciar"
+            return
+        }
+        val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrElse {
+            hubNotice = "El plan no se puede abrir en el reloj: ${it.localizedMessage}"
+            sendStatus = hubNotice
+            return
+        }
         if(!sessionCache.edit().putString("snapshot",plan.toString()).putBoolean("watchStarted",true)
                 .remove("todayPlan").remove("todayPlanAt").remove("inputDraft").remove("restState").commit()) {
-            sendStatus="No se pudo guardar el inicio en el reloj";return
+            hubNotice="No se pudo guardar el inicio en el reloj"
+            sendStatus=hubNotice
+            return
         }
+        hubNotice = null
+        sendStatus = null
         sensorRevision++
         sessionPaused=false
+        pauseSensorsIntent = null
         restJob?.cancel();restClock.clear();restRemaining=0
         wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         finishedSummary=null
@@ -1519,7 +1540,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         repCounter.reset()
         todayPlanJson = null
         refreshWearSurfaces()
-        resetElapsedClock()
+        startElapsedClock()
+        if (summary.wodFormatLabel != null) controlLocalWodTimer("start")
         ensureHealthRecording()
         // No abrir dos diálogos de permisos simultáneamente: esperar el de sensores.
         if (WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all { permission ->
@@ -1537,11 +1559,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 )
             }
         }
-        // begin() leaves phase=ready (Apple startOnPhone). Stay ready until Play.
-        pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
-        sessionPaused = true
-        restClock.pause(SystemClock.elapsedRealtime())
-        persistRest()
+        // The workout is already counting. No synthetic paused state or
+        // sensor pause request should follow a successful start tap.
     }
 
     /** Captura una coordenada al inicio de una sesión autónoma del reloj.
@@ -2393,7 +2412,6 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun ensureHealthRecording() {
-        health=null
         val permissions=WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT)
         val granted=permissions.all {permission ->androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED}
         if (granted) {

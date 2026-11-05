@@ -12,8 +12,9 @@ struct WatchSessionView: View {
     @State private var spokenDraft = ""
     @State private var editingRepsWithCrown = false
     @FocusState private var repsCrownFocused: Bool
-    private enum WatchTrainingPrompt { case start, finish, discard }
+    private enum WatchTrainingPrompt { case finish, discard }
     @State private var trainingPrompt: WatchTrainingPrompt?
+    @State private var startErrorMessage: String?
     @State private var showTimer = false
     @State private var timerPageTitle = "Temporizador"
     @State private var showCancelConfirmation = false
@@ -58,8 +59,10 @@ struct WatchSessionView: View {
                     WatchHomeHubView(
                         showTimer: $showTimer,
                         onPlayPlan: {
-                            // Elegir el modo antes de crear la sesión y abrir HealthKit.
-                            trainingPrompt = .start
+                            startSelectedPlan(recordOnly: false)
+                        },
+                        onRecordPlan: {
+                            startSelectedPlan(recordOnly: true)
                         },
                         onPlaySport: { sport in
                             _ = hub.playHubSport(sport)
@@ -101,10 +104,7 @@ struct WatchSessionView: View {
                 ),
                 titleVisibility: .visible
             ) {
-                if trainingPrompt == .start {
-                    Button("Comenzar en vivo") { startSelectedPlan(recordOnly: false) }
-                    Button("Grabar entreno") { startSelectedPlan(recordOnly: true) }
-                } else if trainingPrompt == .finish {
+                if trainingPrompt == .finish {
                     Button("Finalizar") {
                         trainingPrompt = nil
                         if hub.isRecordingPlannedWorkout {
@@ -121,6 +121,14 @@ struct WatchSessionView: View {
                 }
                 Button("Cancelar", role: .cancel) { trainingPrompt = nil }
             }
+        }
+        .alert("No se pudo iniciar", isPresented: Binding(
+            get: { startErrorMessage != nil },
+            set: { if !$0 { startErrorMessage = nil } }
+        )) {
+            Button("Aceptar", role: .cancel) { startErrorMessage = nil }
+        } message: {
+            Text(startErrorMessage ?? "No se pudo abrir el entreno.")
         }
         .tint(accent)
         .overlay {
@@ -152,7 +160,6 @@ struct WatchSessionView: View {
 
     private var trainingPromptTitle: String {
         switch trainingPrompt {
-        case .start: return "Iniciar entreno"
         case .finish: return "¿Finalizar entrenamiento?"
         case .discard: return "¿Descartar entrenamiento?"
         case nil: return ""
@@ -163,9 +170,15 @@ struct WatchSessionView: View {
     /// Los bloques posteriores usan «Iniciar» sin volver a abrir este diálogo.
     private func startSelectedPlan(recordOnly: Bool) {
         trainingPrompt = nil
-        guard hub.active == nil else { return }
+        guard hub.active == nil else {
+            startErrorMessage = "Hay otro entrenamiento activo. Finalízalo antes de iniciar uno nuevo."
+            return
+        }
         hub.startToday()
-        guard hub.active?.phase == .ready else { return }
+        guard hub.active?.phase == .ready else {
+            startErrorMessage = "El reloj no pudo abrir el plan. Comprueba la sincronización o una sesión de Salud pendiente."
+            return
+        }
         if recordOnly {
             hub.startPlanRecording()
         } else {
@@ -261,13 +274,12 @@ struct WatchSessionView: View {
                         WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
                     }
                     }
-                    if let bpm = hub.heartRateBpm {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("FC")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            WatchHeartRateZoneBar(bpm: bpm, prominent: !outdoor)
-                        }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(hub.heartRateBpm == nil ? "FC · esperando" :
+                             (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !outdoor)
                     }
                     WatchLiveMetricRow(
                         label: "kcal",
@@ -548,14 +560,18 @@ struct WatchSessionView: View {
                         .monospacedDigit()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if let bpm = hub.heartRateBpm {
-                    if isLuminanceReduced {
-                        WatchLiveMetricRow(label: "FC", value: "\(bpm)", prominent: true)
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("FC").font(.caption2).foregroundStyle(.secondary)
-                            WatchHeartRateZoneBar(bpm: bpm, prominent: true)
-                        }
+                if isLuminanceReduced {
+                    WatchLiveMetricRow(
+                        label: hub.heartRateBpm != nil && !hub.heartRateIsFresh ? "Últ. FC" : "FC",
+                        value: hub.heartRateBpm.map(String.init) ?? "—",
+                        prominent: true
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(hub.heartRateBpm == nil ? "FC · esperando" :
+                             (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
+                            .font(.caption2).foregroundStyle(.secondary)
+                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: true)
                     }
                 }
                 if !isLuminanceReduced {

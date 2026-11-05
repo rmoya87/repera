@@ -216,12 +216,11 @@ private fun WearLiveMetricsPage(
             }
         }
 
-        health?.first?.takeIf { it in 25..250 }?.let { bpm ->
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("FC", color = WearOg.label2, style = MaterialTheme.typography.labelSmall)
-                    WearHeartRateZoneBar(bpm = bpm, prominent = !usesGps)
-                }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("FC · última lectura", color = WearOg.label2,
+                    style = MaterialTheme.typography.labelSmall)
+                WearHeartRateZoneBar(bpm = health?.first, prominent = !usesGps)
             }
         }
         item {
@@ -433,7 +432,10 @@ internal fun WearHeartRateZoneBar(
     val configuredMax = context.getSharedPreferences("repera.wear.session",
         android.content.Context.MODE_PRIVATE).getInt("maxHeartRateBpm", 190)
     val effectiveMax = if (estimatedMaxBpm == 190.0) configuredMax.toDouble() else estimatedMaxBpm
-    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, effectiveMax) ?: return
+    val zone = dev.repera.domain.LiveHeartRateZones.zone(bpm, effectiveMax)
+    val description = if (zone != null && bpm != null) {
+        "Última lectura: frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
+    } else "Esperando la primera lectura de frecuencia cardíaca"
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
@@ -441,14 +443,12 @@ internal fun WearHeartRateZoneBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clearAndSetSemantics {
-                contentDescription = "Frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
-            },
+            .clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            bpm.toString(),
+            bpm?.toString() ?: "—",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = if (prominent) 27.sp else MaterialTheme.typography.titleMedium.fontSize
@@ -473,7 +473,7 @@ internal fun WearHeartRateZoneBar(
                 }
             }
             Text(
-                "Zona $zone/5",
+                zone?.let { "Zona $it/5" } ?: "Esperando pulso",
                 style = MaterialTheme.typography.labelSmall,
                 color = WearOg.label2,
                 maxLines = 1

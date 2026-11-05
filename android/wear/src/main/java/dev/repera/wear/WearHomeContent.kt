@@ -1080,8 +1080,11 @@ private fun TransformingLazyColumnScope.runningItems(
                 "Tiempo del bloque" else "Tiempo transcurrido"
         )
     }
-    state.health?.let { (bpm, kcal) ->
-        item { WearHealthRow(bpm, kcal) }
+    item {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            WearHealthRow(state.health?.first, state.health?.second)
+            WearHeartRateZoneBar(bpm = state.health?.first)
+        }
     }
     if (session.wodFormatLabel != null) {
         wodRunningBody(session, state, callbacks)

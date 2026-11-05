@@ -237,11 +237,12 @@ final class WatchSessionHub: NSObject {
         }
         return workingReps
     }
-    var heartRateBpm: Int? {
-        guard let bpm = health.pulseBpm,
-              let measuredAt = health.pulseCapturedAt,
-              (0...20).contains(Date().timeIntervalSince(measuredAt)) else { return nil }
-        return bpm
+    /// Last real sample for this workout. Missing new sensor samples must not
+    /// collapse the card or replace a previously measured zone with a guess.
+    var heartRateBpm: Int? { health.pulseBpm }
+    var heartRateIsFresh: Bool {
+        guard let measuredAt = health.pulseCapturedAt else { return false }
+        return (0...20).contains(Date().timeIntervalSince(measuredAt))
     }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { liveRecoveryNotice ?? health.permissionIssue }
