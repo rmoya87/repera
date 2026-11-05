@@ -182,9 +182,10 @@ private final class RestToneAudioEngine: @unchecked Sendable {
         return currentToneID == id
     }
 
-    /// Solo se invoca desde `queue`. No cerrar la sesión de una locución GPS.
+    /// Solo se invoca desde `queue`. No cerrar la sesión de navegación
+    /// .voicePrompt; sus avisos liberan el audio al acabar todas las frases.
     private func deactivateWhenIdle(_ session: AVAudioSession, id: UUID) {
-        guard isCurrent(id), session.mode != .spokenAudio else { return }
+        guard isCurrent(id), session.mode != .voicePrompt else { return }
         try? session.setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
