@@ -921,4 +921,52 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertTrue(roundtrip.exercises.allSatisfy { $0.loggedSets.isEmpty })
     }
 
+    func testManualDurationOverrideSurvivesHealthKitSyncAndJSONRoundTrip() throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        var watch = WorkoutSession(
+            title: "CrossFit", exercises: [], phase: .finished,
+            startedAt: start, finishedAt: start.addingTimeInterval(45 * 60),
+            appleActiveEnergyKcal: 320, appleAverageHeartRateBpm: 136,
+            appleHealthProvenance: "watchHealthKit",
+            appleDurationSeconds: 45 * 60, healthKitWorkoutUUID: UUID()
+        )
+        XCTAssertEqual(watch.durationMinutes, 45)
+        watch.finishedAt = start.addingTimeInterval(60 * 60)
+        watch.userEditedDuration = true
+        XCTAssertEqual(watch.durationMinutes, 60)
+        XCTAssertEqual(watch.displayDurationMinutes, 60)
+        XCTAssertEqual(watch.appleDurationSeconds, 45 * 60)
+        XCTAssertEqual(watch.appleActiveEnergyKcal, 320)
+        let stored = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(watch)
+        )
+        XCTAssertTrue(stored.userEditedDuration)
+        XCTAssertEqual(stored.durationMinutes, 60)
+        XCTAssertEqual(stored.appleDurationSeconds, 45 * 60)
+        XCTAssertEqual(stored.healthKitWorkoutUUID, watch.healthKitWorkoutUUID)
+        let edited = CompletedWorkoutEditing.applying(
+            Routine(title: "CrossFit"), to: stored, catalog: []
+        )
+        XCTAssertTrue(edited.userEditedDuration)
+        XCTAssertEqual(edited.durationMinutes, 60)
+    }
+
+    func testPlannedDurationIsPersistedAndDoesNotCreateMeasuredWorkout() throws {
+        let scheduled = Routine(
+            title: "Clase de fuerza", scheduledDate: Date(timeIntervalSince1970: 1_790_000_000),
+            scheduledTimeMinutes: 420, plannedDurationMinutes: 60
+        )
+        let roundtrip = try JSONDecoder().decode(
+            Routine.self, from: JSONEncoder().encode(scheduled)
+        )
+        XCTAssertEqual(roundtrip.plannedDurationMinutes, 60)
+        XCTAssertEqual(roundtrip.scheduledTimeMinutes, 420)
+        XCTAssertEqual(roundtrip.scheduledDate, scheduled.scheduledDate)
+        let historical = Routine(title: "Sin duración prevista")
+        let legacy = try JSONDecoder().decode(
+            Routine.self, from: JSONEncoder().encode(historical)
+        )
+        XCTAssertNil(legacy.plannedDurationMinutes)
+    }
+
 }
