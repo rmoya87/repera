@@ -25,7 +25,7 @@ Hub de pocos toques en Apple Watch y Wear OS inspirado en Deportes de Apple Watc
 
 - Si el teléfono inicia Comenzar → el reloj muestra el companion existente.
 - Si el hub hace Play de un deporte con teléfono reachable → `startLive` en el teléfono.
-- Si no hay teléfono → grabación autónoma en reloj (HK + GPS outdoor) y consolidate al finalizar.
+- Si no hay teléfono / ACK negativo / timeout → grabación autónoma en reloj (HK / Health Services; GPS outdoor cuando aplica) y consolidate al finalizar (`/repera/live-save` en Wear).
 
 ## Sync
 

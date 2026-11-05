@@ -986,6 +986,12 @@ final class ReperaStore: NSObject {
         if let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:)) {
             return sport.healthType
         }
+        let hasWOD = session.routineBlocks?.contains(where: { $0.kind == .wod }) == true
+            || session.exercises.contains(where: { $0.blockKind == .wod })
+            || !session.wodResults.isEmpty
+        // Paridad con Watch: plan/sesión con WOD → crossTraining (CrossFit),
+        // no fuerza genérica.
+        if hasWOD { return .crossTraining }
         guard WorkoutLocationTracker.shouldTrackRoute(for: session) else {
             return .traditionalStrengthTraining
         }

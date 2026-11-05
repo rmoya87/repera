@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-10-31 (`ReperaIcon` = solo `repera.png`, sin @2x/@3x huérfanos)
+Última actualización: 2026-11-05 (tipos HK Comenzar Watch = iPhone)
 
 ## Hub (31/10/2026)
 
@@ -22,7 +22,7 @@ grabación local (`WatchLiveSessionView` + GPS + HK). Temporizador libre en
 
 1. Al conectarse, el iPhone envía la rutina programada o una prescripción estructurada del entrenador, con día de calendario. El Watch la guarda. Nunca trata el contexto antiguo de otro día como entrenamiento de hoy.
 2. El botón **Iniciar** crea un UUID nuevo de ejecución; conserva el UUID de la prescripción como `routineId`. HealthKit pide permisos para leer FC/energía y compartir entrenamientos.
-3. Tras solicitar autorización con la API asíncrona de HealthKit, watchOS inicia un `HKWorkoutSession` con actividad `functionalStrengthTraining`, `highIntensityIntervalTraining` o `crossTraining` según los bloques y un `HKLiveWorkoutBuilder`. Usa `beginCollection(at:)` y `addMetadata(_:)` con `async/await`; se habilita `workout-processing` para continuar con la muñeca baja. Un problema de permisos no produce kcal ni FC inventadas.
+3. Tras solicitar autorización con la API asíncrona de HealthKit, watchOS inicia un `HKWorkoutSession` y un `HKLiveWorkoutBuilder`. **Comenzar** usa la misma tabla que iPhone (`LiveSport.healthType` / `WatchLiveSport.healthKitActivityType`) para las 53 actividades. Un **plan** con bloque WOD → `crossTraining`; solo fuerza → `traditionalStrengthTraining`. Los entrenos ya guardados en Salud conservan su tipo histórico; Repera no reescribe `HKWorkout` antiguos y Progreso sigue deduplicando con alias legacy. Usa `beginCollection(at:)` y `addMetadata(_:)` con `async/await`; se habilita `workout-processing` para continuar con la muñeca baja. Un problema de permisos no produce kcal ni FC inventadas.
 4. Las actividades de HealthKit se separan por bloques, sin crear un nuevo workout por ejercicio. La petición de pausa con los dos botones físicos del reloj pausa también el temporizador Repera. Las series se confirman con reps y carga reales. En AMRAP se confirma rondas + reps; en For Time, tiempo; EMOM y Tabata tienen intervalos y descansos y no crean series ficticias.
 5. Al finalizar, Repera guarda primero el trabajo confirmado en disco, incluso sin conexión. HealthKit detiene su sesión, cierra la colección y guarda un `HKWorkout`. El resumen se enriquece con el UUID, la energía, la FC y la duración **solo cuando Salud los proporciona**. El tile **Tiempo** del resumen formatea `h:mm:ss` a partir de 60 min (nunca minutos totales tipo «5865:52») y elige la duración HK/pared plausible (≤ 12 h).
 6. `HKMetadataKeyExternalUUID` enlaza el sample de Salud con la ejecución de Repera. Esto permite recuperarlo cuando `finishWorkout` devuelve un `HKWorkout` nil porque el reloj está bloqueado.

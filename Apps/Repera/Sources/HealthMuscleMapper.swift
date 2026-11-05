@@ -29,7 +29,7 @@ enum HealthMuscleMapper {
                 guard let key = workout.liveSportID,
                       let sport = LiveSport(rawValue: key),
                       let start = workout.startedAt,
-                      sport.healthType == activity.activityType
+                      matchesRecordedHealthType(activity.activityType, sport: sport)
                 else { return false }
                 let duration = workout.activeDurationSeconds.map { $0 / 60 }
                     ?? workout.durationMinutes
@@ -37,6 +37,37 @@ enum HealthMuscleMapper {
                     && abs(duration - activity.durationMinutes) < 3
             }
             return !overlapsNative
+        }
+    }
+
+    /// Tras alinear Watch↔iPhone (2026-11-05), los HKWorkout antiguos del
+    /// reloj conservan el tipo previo (p. ej. CrossFit como HIIT). Aceptarlos
+    /// evita duplicar minutos/músculo cuando falta `healthKitWorkoutUUID`.
+    private static func matchesRecordedHealthType(
+        _ activityType: HKWorkoutActivityType, sport: LiveSport
+    ) -> Bool {
+        if sport.healthType == activityType { return true }
+        switch sport {
+        case .crossfit, .hyrox:
+            return activityType == .highIntensityIntervalTraining
+        case .kayaking, .canoeing:
+            return activityType == .rowing
+        case .pilates, .mobility:
+            return activityType == .yoga
+        case .functionalStrength, .coreTraining:
+            return activityType == .traditionalStrengthTraining
+        case .badminton, .pickleball, .squash:
+            return activityType == .tennis
+        case .boxing, .kickboxing, .wrestling:
+            return activityType == .martialArts
+        case .crossCountrySkiing:
+            return activityType == .downhillSkiing
+        case .americanFootball, .baseball, .climbing, .golf, .hockey,
+             .iceSkating, .kitesurfing, .lacrosse, .rugby, .sailing,
+             .skateboarding, .softball, .surfing, .volleyball, .windsurfing:
+            return activityType == .other
+        default:
+            return false
         }
     }
 

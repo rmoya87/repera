@@ -5,13 +5,14 @@ import android.os.Looper
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.google.android.gms.wearable.Wearable
+import dev.repera.domain.LiveSport
 import dev.repera.mobile.analytics.ReperaAnalytics
 import org.json.JSONObject
 
 /**
  * Receives the few watch controls that must work when MainActivity is stopped
- * (screen locked, phone in pocket). The foreground LiveActivityService remains
- * the actual location recorder; the watch is never a second GPS owner.
+ * (screen locked, phone in pocket). En companion phone-owned, LiveActivityService
+ * sigue siendo el GPS; en live-save watch-owned el reloj ya cerró su propio registro.
  *
  * The authenticated account is recovered exclusively from encrypted device
  * storage and every command is checked against the ACTIVE workout UUID.
@@ -38,6 +39,10 @@ class WearLiveCommandListener : WearableListenerService() {
         }
         if (event.path == "/repera/timer-save") {
             if (!WearUiPresence.active) handleTimerSave(event)
+            return
+        }
+        if (event.path == "/repera/live-save") {
+            if (!WearUiPresence.active) handleLiveSave(event)
             return
         }
         if (event.path in setOf("/repera/log-set", "/repera/session-finish")) {
@@ -142,6 +147,51 @@ class WearLiveCommandListener : WearableListenerService() {
             .toString().toByteArray(Charsets.UTF_8)
         Wearable.getMessageClient(this).sendMessage(
             event.sourceNodeId, "/repera/timer-save-ack", ack
+        )
+        DriveSyncWorker.syncNow(this)
+    }
+
+    /** Actividad Comenzar terminada en el reloj (offline o sin companion). */
+    private fun handleLiveSave(event: MessageEvent) {
+        val store = SessionStore(this)
+        val owner = store.load() ?: return
+        val revision = store.identityRevision()
+        val body = runCatching {
+            JSONObject(String(event.data, Charsets.UTF_8))
+        }.getOrNull() ?: return
+        val id = body.optString("id").takeIf {
+            runCatching { java.util.UUID.fromString(it) }.isSuccess
+        } ?: return
+        val sportId = body.optString("sportId")
+        if (sportId.isBlank() || LiveSport.byId(sportId) == null) return
+        val authorized = {
+            store.identityRevision() == revision &&
+                store.load()?.uniqueId == owner.uniqueId &&
+                store.load()?.userId == owner.userId
+        }
+        val saved = runCatching {
+            authorized() && WorkoutRepository(this, owner.uniqueId, stillAuthorized = authorized)
+                .saveWearOwnedLiveActivity(
+                    id = id,
+                    sportId = sportId,
+                    title = body.optString("title"),
+                    startedAtMillis = body.optLong("startedAtMillis"),
+                    finishedAtMillis = body.optLong("finishedAtMillis"),
+                    activeSeconds = body.optDouble("activeDurationSeconds", 0.0),
+                    distanceMeters = body.optDouble("distanceMeters")
+                        .takeIf { body.has("distanceMeters") && !body.isNull("distanceMeters") },
+                    locationPin = body.optJSONObject("locationPin"),
+                    averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
+                        .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
+                    activeEnergyKcal = body.optDouble("activeEnergyKcal")
+                        .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") }
+                ).isNotBlank()
+        }.getOrDefault(false)
+        if (!saved) return
+        Wearable.getMessageClient(this).sendMessage(
+            event.sourceNodeId, "/repera/live-save-ack",
+            JSONObject().put("id", id).put("saved", true)
+                .toString().toByteArray(Charsets.UTF_8)
         )
         DriveSyncWorker.syncNow(this)
     }

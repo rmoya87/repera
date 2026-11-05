@@ -123,15 +123,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         )
     }
 
-    func start(id: UUID, at date: Date, includesWOD: Bool, includesStrength: Bool) {
-        let type: HKWorkoutActivityType
-        if includesWOD && includesStrength {
-            type = .crossTraining
-        } else if includesWOD {
-            type = .highIntensityIntervalTraining
-        } else {
-            type = .functionalStrengthTraining
-        }
+    func start(id: UUID, at date: Date, includesWOD: Bool, includesStrength _: Bool) {
+        // Paridad con Comenzar iPhone: WOD/CrossFit → crossTraining;
+        // fuerza indoor → traditionalStrengthTraining (no HIIT ni solo
+        // functionalStrength, que divergían del teléfono).
+        let type: HKWorkoutActivityType = includesWOD
+            ? .crossTraining
+            : .traditionalStrengthTraining
         startConfigured(id: id, at: date, activityType: type, outdoor: false)
     }
 
@@ -395,12 +393,10 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
                 let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
                 let hrUnit = HKUnit.count().unitDivided(by: .minute())
-                // A workout may report measured energy as a total even when its
-                // per-type statistics have not been populated yet on iPhone.
-                // The live builder is also sensor-backed when HealthKit returns
-                // a temporarily nil workout while the Watch is locked.
+                // Prefer the finished workout statistics; fall back to the live
+                // builder when HealthKit returns a temporarily nil workout while
+                // the Watch is locked (sensor-backed either way).
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
-                    ?? saved?.totalEnergyBurned?.doubleValue(for: .kilocalorie())
                     ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)

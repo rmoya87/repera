@@ -1070,22 +1070,20 @@ final class HealthKitStore {
         // Un HKWorkout capturado por una sesión real de Repera Watch tiene
         // sensores auténticos y debe ser fuente de verdad, no una estimación
         // escrita por el iPhone. Las kcal antiguas del iPhone siguen excluidas.
-        let bundle = source.bundleIdentifier.lowercased()
         if isWatchRecordedSource(source) { return false }
         return source.bundleIdentifier == Bundle.main.bundleIdentifier
             || source.name.localizedCaseInsensitiveContains("repera")
     }
 
-    /// Fuente de verdad del HKWorkout: estadística de energía o total de Salud.
+    /// Fuente de verdad del HKWorkout: estadística de energía activa de Salud.
     /// No calcula calorías a partir de duración, pulso ni intensidad.
     nonisolated private static func workoutEnergyKcal(_ workout: HKWorkout) -> Double? {
-        let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
-        let statisticsKcal = type.flatMap {
-            workout.statistics(for: $0)?.sumQuantity()?.doubleValue(for: .kilocalorie())
-        }
-        let totalKcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
-        return [statisticsKcal, totalKcal].compactMap { $0 }
-            .first(where: { $0.isFinite && $0 > 0 })
+        guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
+              let kcal = workout.statistics(for: type)?
+                .sumQuantity()?.doubleValue(for: .kilocalorie()),
+              kcal.isFinite, kcal > 0
+        else { return nil }
+        return kcal
     }
 
     /// Agrupar por origen Y dispositivo. Dos relojes con el mismo proveedor
@@ -1223,10 +1221,12 @@ final class HealthKitStore {
     ) async -> (steps: Int?, distanceMeters: Double?,
                 distanceLabel: String?, fromTimeWindow: Bool) {
         let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)
-        let steps = if let stepType {
+        let steps: Double? = if let stepType {
             await revisedWorkoutQuantity(stepType, workout: workout,
                 newStart: start, newEnd: end, original: original.steps.map { Double($0) })
-        } else { nil }
+        } else {
+            nil
+        }
         let distanceIdentifier: HKQuantityTypeIdentifier
         switch original.distanceLabel {
         case "Distancia bici": distanceIdentifier = .distanceCycling
@@ -1241,10 +1241,12 @@ final class HealthKitStore {
             }
         }
         let type = HKQuantityType.quantityType(forIdentifier: distanceIdentifier)
-        let meters = if let type {
+        let meters: Double? = if let type {
             await revisedWorkoutQuantity(type, workout: workout,
                 newStart: start, newEnd: end, original: original.distanceMeters)
-        } else { nil }
+        } else {
+            nil
+        }
         return (
             steps: steps.map { Int($0.rounded()) },
             distanceMeters: meters,
@@ -2751,8 +2753,10 @@ final class HealthKitStore {
     /// Detecta `HKWorkout` en franja similar o suma energía activa del intervalo (puede ser ambiente).
     private func resolveAppleMetrics(from start: Date, to end: Date) async -> AppleMetrics {
         if let workout = await overlappingWorkout(from: start, to: end) {
-            var kcal: Double = 0
-            kcal = Self.workoutEnergyKcal(workout) else {
+            let kcal: Double
+            if let energy = Self.workoutEnergyKcal(workout) {
+                kcal = energy
+            } else {
                 kcal = await activeEnergy(from: workout.startDate, to: workout.endDate)
             }
             return AppleMetrics(

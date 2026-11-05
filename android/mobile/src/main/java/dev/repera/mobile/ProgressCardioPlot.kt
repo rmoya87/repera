@@ -83,7 +83,7 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
     }
     selected?.let {
      val p=points[it]
-     val px = ProgressPlotAxis.fraction(p.day, domain) * maxWidth
+     val px = maxWidth * ProgressPlotAxis.fraction(p.day, domain)
      val py = with(LocalDensity.current) {
       progressChartPlotY(p.avgBpm, low, high, 190.dp.toPx(), topPadPx).toDp()
      }

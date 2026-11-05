@@ -186,27 +186,55 @@ enum WatchLiveSport: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Misma tabla que `LiveSport.healthType` en iPhone: Comenzar CrossFit
+    /// desde reloj o teléfono debe crear el mismo `HKWorkoutActivityType`.
     var healthKitActivityType: HKWorkoutActivityType {
         switch self {
         case .running, .trail: .running
+        case .cycling, .mountainBike, .gravel: .cycling
         case .walking: .walking
         case .hiking: .hiking
-        case .cycling, .mountainBike, .gravel: .cycling
-        case .swimming: .swimming
-        case .rowing, .kayaking, .canoeing: .rowing
-        case .yoga, .pilates, .mobility: .yoga
-        case .hiit, .hyrox, .crossfit: .highIntensityIntervalTraining
-        case .strength, .functionalStrength, .coreTraining: .traditionalStrengthTraining
+        case .crossfit, .hyrox: .crossTraining
+        case .strength: .traditionalStrengthTraining
+        case .functionalStrength: .functionalStrengthTraining
+        case .coreTraining: .coreTraining
         case .elliptical: .elliptical
         case .stairClimbing: .stairClimbing
+        case .hiit: .highIntensityIntervalTraining
+        case .tennis, .padel: .tennis
+        case .badminton: .badminton
+        case .pickleball: .pickleball
+        case .squash: .squash
+        case .surfing: .surfingSports
+        case .windsurfing, .kitesurfing: .surfingSports
+        case .swimming: .swimming
+        case .kayaking, .canoeing: .paddleSports
+        case .rowing: .rowing
+        case .sailing: .sailing
+        case .golf: .golf
+        case .skiing: .downhillSkiing
+        case .iceSkating, .skateboarding: .skatingSports
+        case .snowboarding: .snowboarding
+        case .crossCountrySkiing: .crossCountrySkiing
         case .soccer: .soccer
         case .basketball: .basketball
-        case .tennis, .padel, .badminton, .pickleball, .squash: .tennis
-        case .boxing, .kickboxing, .martialArts, .wrestling: .martialArts
-        case .skiing, .crossCountrySkiing: .downhillSkiing
-        case .snowboarding: .snowboarding
+        case .volleyball: .volleyball
+        case .americanFootball: .americanFootball
+        case .baseball: .baseball
+        case .softball: .softball
+        case .hockey: .hockey
+        case .lacrosse: .lacrosse
+        case .rugby: .rugby
+        case .boxing: .boxing
+        case .kickboxing: .kickboxing
+        case .martialArts: .martialArts
+        case .wrestling: .wrestling
+        case .climbing: .climbing
         case .dance: .cardioDance
-        default: .other
+        case .pilates: .pilates
+        case .yoga: .yoga
+        case .mobility: .flexibility
+        case .other: .other
         }
     }
 }

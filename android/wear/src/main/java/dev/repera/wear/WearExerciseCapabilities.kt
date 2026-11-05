@@ -9,14 +9,22 @@ internal object WearExerciseCapabilities {
     fun strengthMetrics(capabilities:ExerciseCapabilities):Set<DataType<*,*>> =
         metricsFor(capabilities, ExerciseType.STRENGTH_TRAINING)
 
-    fun metricsFor(capabilities: ExerciseCapabilities, type: ExerciseType): Set<DataType<*, *>> {
+    fun metricsFor(
+        capabilities: ExerciseCapabilities,
+        type: ExerciseType,
+        includeDistance: Boolean = false
+    ): Set<DataType<*, *>> {
         check(type in capabilities.supportedExerciseTypes) {
             "Este reloj no permite medir este deporte con Health Services."
         }
         val supported = capabilities.getExerciseTypeCapabilities(type).supportedDataTypes
-        return setOf<DataType<*, *>>(DataType.HEART_RATE_BPM, DataType.CALORIES_TOTAL)
-            .intersect(supported).also {
-                check(it.isNotEmpty()) { "El reloj no ofrece pulso ni energía para este deporte." }
-            }
+        val wanted = buildSet {
+            add(DataType.HEART_RATE_BPM)
+            add(DataType.CALORIES_TOTAL)
+            if (includeDistance) add(DataType.DISTANCE_TOTAL)
+        }
+        return wanted.intersect(supported).also {
+            check(it.isNotEmpty()) { "El reloj no ofrece pulso ni energía para este deporte." }
+        }
     }
 }

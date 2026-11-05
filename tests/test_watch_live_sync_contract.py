@@ -93,6 +93,23 @@ class WatchLiveSyncContractTests(unittest.TestCase):
         self.assertIn("receivePhoneTerminal", wear)
         self.assertIn("persistElapsedClock()", wear)
 
+    def test_wear_play_sport_falls_back_to_watch_owned_live(self):
+        wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        listener = read("android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt")
+        repo = read("android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt")
+        self.assertIn("private fun startWatchOwnedLive(sportId: String)", wear)
+        self.assertIn("startWatchOwnedLive(sport)", wear)
+        self.assertIn('"/repera/live-save"', wear)
+        self.assertIn("fun saveWearOwnedLiveActivity(", repo)
+        self.assertIn('"/repera/live-save"', listener)
+        self.assertIn("handleLiveSave(event)", listener)
+        # No bloquear el hub con «móvil desconectado» al iniciar deporte.
+        start = wear.split("private fun requestLiveStart(sportId: String)", 1)[1].split(
+            "private fun receiveLiveStartAck", 1
+        )[0]
+        self.assertNotIn("wear_live_start_disconnected", start)
+        self.assertIn("startWatchOwnedLive(sport)", start)
+
     def test_wear_controls_are_received_without_main_activity(self):
         manifest = read("android/mobile/src/main/AndroidManifest.xml")
         listener = read("android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt")

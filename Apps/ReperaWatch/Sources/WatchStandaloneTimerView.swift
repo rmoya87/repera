@@ -292,18 +292,17 @@ struct WatchStandaloneTimerView: View {
                 .padding(.horizontal, 12)
             } else {
                 VStack(spacing: 9) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    VStack(spacing: 2) {
                         if modeRaw == "intervals" {
                             Text("\(roundIndex)")
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .font(.system(size: 22, weight: .heavy, design: .rounded))
                                 .foregroundStyle(timerRoundGreen)
                                 .monospacedDigit()
                                 .accessibilityLabel("Ronda \(roundIndex) de \(rounds)")
-                                .layoutPriority(1)
                         }
                         Text(clockText)
                             .font(.system(
-                                size: modeRaw == "intervals" ? 33 : 48,
+                                size: modeRaw == "intervals" ? 44 : 48,
                                 weight: .heavy, design: .monospaced
                             ))
                             .foregroundStyle(timerRed)
@@ -312,10 +311,10 @@ struct WatchStandaloneTimerView: View {
                             .minimumScaleFactor(0.55)
                             .shadow(color: timerRed.opacity(0.5), radius: 5)
                             .accessibilityLabel("Tiempo \(clockText)")
-                            .layoutPriority(1)
+                            .frame(maxWidth: .infinity)
                         if modeRaw == "intervals" {
                             Text(inWork ? "TRABAJAR" : "DESCANSAR")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(accent)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)

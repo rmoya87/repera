@@ -447,23 +447,24 @@ internal fun WearTimerRunScreen(
                         verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
                     ) {
                         if (draft.modeRaw == "intervals") {
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
                                     roundNumber.toString(),
                                     color = WearTimerRoundGreen,
                                     style = MaterialTheme.typography.titleLarge.copy(
-                                        fontSize = 26.sp, fontWeight = FontWeight.Bold
+                                        fontSize = 22.sp, fontWeight = FontWeight.Bold
                                     ),
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    textAlign = TextAlign.Center
                                 )
                                 BasicText(
                                     text = wearClockLabel(display),
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .fillMaxWidth()
                                         .semantics {
                                             contentDescription = "Tiempo " + wearClockLabel(display)
                                         },
@@ -476,16 +477,17 @@ internal fun WearTimerRunScreen(
                                     softWrap = false,
                                     overflow = TextOverflow.Clip,
                                     autoSize = TextAutoSize.StepBased(
-                                        minFontSize = 21.sp, maxFontSize = 37.sp, stepSize = 1.sp
+                                        minFontSize = 28.sp, maxFontSize = 48.sp, stepSize = 1.sp
                                     )
                                 )
                                 Text(
                                     if (resting) "DESCANSAR" else "TRABAJAR",
                                     color = WearOg.accent,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 9.sp, fontWeight = FontWeight.SemiBold
+                                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold
                                     ),
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    textAlign = TextAlign.Center
                                 )
                             }
                         } else {

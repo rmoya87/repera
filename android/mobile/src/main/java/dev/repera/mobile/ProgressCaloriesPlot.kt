@@ -123,7 +123,7 @@ internal object ProgressPlotAxis {
      }
     }
     selected?.let { i ->
-     val px = ProgressPlotAxis.fraction(points[i].day, domain) * maxWidth
+     val px = maxWidth * ProgressPlotAxis.fraction(points[i].day, domain)
      val py = with(LocalDensity.current) {
       progressChartPlotY(points[i].value, 0.0, maximum, 210.dp.toPx(), topPadPx).toDp()
      }

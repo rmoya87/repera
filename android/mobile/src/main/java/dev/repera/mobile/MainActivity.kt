@@ -1697,6 +1697,49 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             }
             return
         }
+        if (event.path == "/repera/live-save") {
+            val body = runCatching { JSONObject(String(event.data, Charsets.UTF_8)) }
+                .getOrNull() ?: return
+            val sessionId = body.optString("id").takeIf {
+                runCatching { java.util.UUID.fromString(it) }.isSuccess
+            } ?: return
+            val sportId = body.optString("sportId")
+            if (sportId.isBlank() || dev.repera.domain.LiveSport.byId(sportId) == null) return
+            runOnUiThread {
+                val account = profile?.uniqueId ?: return@runOnUiThread
+                lifecycleScope.launch {
+                    val ok = withContext(Dispatchers.IO) {
+                        runCatching {
+                            WorkoutRepository(this@MainActivity, account).saveWearOwnedLiveActivity(
+                                id = sessionId,
+                                sportId = sportId,
+                                title = body.optString("title"),
+                                startedAtMillis = body.optLong("startedAtMillis"),
+                                finishedAtMillis = body.optLong("finishedAtMillis"),
+                                activeSeconds = body.optDouble("activeDurationSeconds", 0.0),
+                                distanceMeters = body.optDouble("distanceMeters")
+                                    .takeIf { body.has("distanceMeters") && !body.isNull("distanceMeters") },
+                                locationPin = body.optJSONObject("locationPin"),
+                                averageHeartRateBpm = body.optDouble("averageHeartRateBpm")
+                                    .takeIf { body.has("averageHeartRateBpm") && !body.isNull("averageHeartRateBpm") },
+                                activeEnergyKcal = body.optDouble("activeEnergyKcal")
+                                    .takeIf { body.has("activeEnergyKcal") && !body.isNull("activeEnergyKcal") }
+                            )
+                            true
+                        }.getOrDefault(false)
+                    }
+                    if (ok && profile?.uniqueId == account) {
+                        reloadFor(account)
+                        DriveSyncWorker.syncNow(this@MainActivity)
+                        if (verifiedSupabase != null) syncWorkoutMirror()
+                        val ack = JSONObject().put("id", sessionId).put("saved", true)
+                            .toString().toByteArray(Charsets.UTF_8)
+                        wearMessages.sendMessage(event.sourceNodeId, "/repera/live-save-ack", ack)
+                    }
+                }
+            }
+            return
+        }
         if (event.path == "/repera/session-finish") {
             val sessionId = runCatching {
                 JSONObject(String(event.data, Charsets.UTF_8)).optString("sessionId")

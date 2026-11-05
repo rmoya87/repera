@@ -248,6 +248,21 @@ nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError 
 
 - `startToday()` / live indoor piden un pin con `requestLocation()`; el delegate debe responder al fallo o el Watch cierra al pulsar Entreno guiado/libre.
 
+#### Apple Watch — tipos HealthKit de Comenzar = iPhone
+
+```swift
+// ❌ BAD — Watch mapeaba CrossFit/HYROX a HIIT; iPhone usa crossTraining
+case .hiit, .hyrox, .crossfit: .highIntensityIntervalTraining
+
+// ✅ GOOD — misma tabla que LiveSport.healthType en iPhone (53 deportes)
+case .crossfit, .hyrox: .crossTraining
+case .hiit: .highIntensityIntervalTraining
+```
+
+- Plan Watch/iPhone con WOD → `crossTraining`; solo fuerza → `traditionalStrengthTraining`.
+- Alinear tipos **no reescribe** `HKWorkout` históricos; `HealthMuscleMapper.matchesRecordedHealthType` acepta alias legacy al deduplicar.
+- Contrato: `tests/test_watch_hub_contract.py::test_watch_crossfit_healthkit_type_matches_iphone`.
+
 #### Apple — Live Activities / intents
 
 - `LiveActivityIntent` solo **encola** (`UserDefaults` + notificación); la app aplica tras hidratar identidad.

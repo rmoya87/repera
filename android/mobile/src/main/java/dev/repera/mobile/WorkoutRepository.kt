@@ -153,6 +153,66 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return id
     }
 
+    /**
+     * Actividad Comenzar iniciada y terminada en Wear (watch-owned).
+     * Idempotente por id; no escribe Health Connect desde aquí (el reloj ya
+     * registró Health Services). Paridad sendFinished del Apple Watch.
+     */
+    @Synchronized fun saveWearOwnedLiveActivity(
+        id: String,
+        sportId: String,
+        title: String,
+        startedAtMillis: Long,
+        finishedAtMillis: Long,
+        activeSeconds: Double,
+        distanceMeters: Double? = null,
+        locationPin: org.json.JSONObject? = null,
+        averageHeartRateBpm: Double? = null,
+        activeEnergyKcal: Double? = null
+    ): String {
+        require(id.isNotBlank())
+        require(finishedAtMillis >= startedAtMillis)
+        require(activeSeconds.isFinite() && activeSeconds >= 0)
+        val sport = dev.repera.domain.LiveSport.byId(sportId) ?: error("Deporte desconocido")
+        val state = loadOrNull() ?: error("Inicializa el almacenamiento local antes de guardar.")
+        val archive = state.getJSONArray("workouts")
+        if ((0 until archive.length()).any { archive.getJSONObject(it).optString("id") == id }) {
+            return id
+        }
+        val session = JSONObject()
+            .put("id", id)
+            .put("title", title.trim().ifBlank { sport.title })
+            .put("phase", "finished")
+            .put("startedAt", Instant.ofEpochMilli(startedAtMillis).toString())
+            .put(
+                "finishedAt",
+                Instant.ofEpochMilli(maxOf(finishedAtMillis, startedAtMillis + 1000)).toString()
+            )
+            .put("exercises", JSONArray())
+            .put("wodResults", JSONArray())
+            .put("liveSportID", sport.id)
+            .put("activeDurationSeconds", activeSeconds)
+            .put("awaitingResultEntry", true)
+        if (sport.usesGPS && distanceMeters != null && distanceMeters.isFinite() && distanceMeters > 0) {
+            session.put("recordedDistanceMeters", distanceMeters)
+        }
+        locationPin?.let { applyWearStartPin(session, it) }
+        averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }?.let {
+            session.put("appleAverageHeartRateBpm", it)
+        }
+        activeEnergyKcal?.takeIf { it.isFinite() && it >= 0 }?.let {
+            session.put("appleActiveEnergyKcal", it)
+        }
+        archive.put(session)
+        save(state)
+        emitWorkoutCompleted(
+            session,
+            sessionOrigin = "wearos",
+            completionPlatform = "wearos"
+        )
+        return id
+    }
+
     @Synchronized fun saveLiveActivity(
         snapshot: dev.repera.domain.LiveActivityState.Snapshot,
         finishedMillis: Long,

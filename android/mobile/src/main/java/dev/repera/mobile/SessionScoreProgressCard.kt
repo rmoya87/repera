@@ -253,7 +253,7 @@ internal fun SessionScoreProgressCard(
                                 }
                             }
                             selected?.let { i ->
-                                val px = ProgressPlotAxis.fraction(values[i].day, domain) * maxWidth
+                                val px = maxWidth * ProgressPlotAxis.fraction(values[i].day, domain)
                                 val py = with(LocalDensity.current) {
                                     progressChartPlotY(
                                         values[i].value, 0.0, 10.0, 205.dp.toPx(), topPadPx

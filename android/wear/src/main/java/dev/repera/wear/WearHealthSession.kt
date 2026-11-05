@@ -51,6 +51,8 @@ class WearHealthSession(private val context: Context) {
         }
     var energyKcal: Double? = null
         private set
+    var distanceMeters: Double? = null
+        private set
     var recording: Boolean = false
         private set
     var paused: Boolean = false
@@ -96,6 +98,8 @@ class WearHealthSession(private val context: Context) {
             }
             update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
                 ?.takeIf {it.isFinite() && it>=0}?.let {energyKcal=it}
+            update.latestMetrics.getData(DataType.DISTANCE_TOTAL)?.total
+                ?.takeIf { it.isFinite() && it >= 0 }?.let { distanceMeters = it }
             onUpdate?.invoke()
         }
 
@@ -125,10 +129,11 @@ class WearHealthSession(private val context: Context) {
         client.setUpdateCallback(next)
     }
 
-    /** Empieza a registrar fuerza si aún no hay ejercicio en curso. */
+    /** Empieza a registrar el deporte del reloj si aún no hay ejercicio en curso. */
     suspend fun start(
-        sessionId:String, exerciseType:ExerciseType = ExerciseType.STRENGTH_TRAINING,
-        stillAuthorized:()->Boolean={true}
+        sessionId: String,
+        sportId: String? = null,
+        stillAuthorized: () -> Boolean = { true }
     ) = operations.withLock {
         check(stillAuthorized()) {"La sesión cambió antes de iniciar sensores"}
         require(sessionId.isNotBlank())
@@ -149,17 +154,24 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
-        val metrics=if(info.exerciseTrackedStatus==ExerciseOwnership.NONE) {
-            val capabilities=client.getCapabilities()
+        val gpsEnabled = WearHealthExerciseTypes.usesGps(sportId)
+        val resolvedType: ExerciseType
+        val metrics = if (info.exerciseTrackedStatus == ExerciseOwnership.NONE) {
+            val capabilities = client.getCapabilities()
             check(stillAuthorized()) {"La sesión cambió durante la consulta de capacidades"}
-            WearExerciseCapabilities.metricsFor(capabilities,exerciseType)
-        } else emptySet()
+            resolvedType = WearHealthExerciseTypes.resolve(capabilities, sportId)
+            WearExerciseCapabilities.metricsFor(capabilities, resolvedType, includeDistance = gpsEnabled)
+        } else {
+            resolvedType = WearHealthExerciseTypes.preferred(sportId)
+            emptySet()
+        }
         terminalObserved=false
         problem=null
         // Reattach awaits fresh provider samples, never show readings retained by a previous registration.
         heartRateBpm=null
         lastHeartSampleAtElapsed=0L
         energyKcal=null
+        distanceMeters=null
         paused=false
         check(stillAuthorized()) {"La sesión cambió antes de conectar sensores"}
         registerCallback()
@@ -170,10 +182,10 @@ class WearHealthSession(private val context: Context) {
             onUpdate?.invoke()
             return@withLock
         }
-        val config = ExerciseConfig.Builder(exerciseType)
+        val config = ExerciseConfig.Builder(resolvedType)
             .setDataTypes(metrics)
             .setIsAutoPauseAndResumeEnabled(false)
-            .setIsGpsEnabled(false)
+            .setIsGpsEnabled(gpsEnabled)
             .build()
         check(stillAuthorized()) {"La sesión cambió antes de iniciar sensores"}
         check(binding.edit().putString("sessionId",sessionId).commit()) {"No se pudo guardar la identidad del registro"}

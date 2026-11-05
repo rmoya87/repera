@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.SegmentedButton
@@ -558,9 +559,9 @@ internal fun DayPointLineChart(
             }
             selected?.let { i ->
                 val px = if (readinessPreview) {
-                    (i + 1).toFloat() / 8f * maxWidth
+                    maxWidth * ((i + 1).toFloat() / 8f)
                 } else {
-                    DayChartPositions.fraction(points, i) * maxWidth
+                    maxWidth * DayChartPositions.fraction(points, i)
                 }
                 val py = with(androidx.compose.ui.platform.LocalDensity.current) {
                     progressChartPlotY(

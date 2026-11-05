@@ -216,6 +216,10 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("onClose: { showTimer = false }", watch_root)
         self.assertIn('Text(inWork ? "TRABAJAR" : "DESCANSAR")', watch)
         self.assertIn('if (resting) "DESCANSAR" else "TRABAJAR"', wear)
+        # Fase debajo del tiempo (no a la derecha); reloj centrado y grande.
+        self.assertNotIn("HStack(alignment: .firstTextBaseline, spacing: 4)", watch)
+        self.assertIn('size: modeRaw == "intervals" ? 44 : 48', watch)
+        self.assertIn("minFontSize = 28.sp, maxFontSize = 48.sp", wear)
 
     def test_watch_timer_compact_topbar_and_native_styled_vertical_actions(self):
         watch = source("Apps/ReperaWatch/Sources/WatchStandaloneTimerView.swift")
@@ -306,6 +310,52 @@ class WatchHubContractTests(unittest.TestCase):
             "android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt"
         )
         self.assertIn("effectivePlanSession", repo)
+
+    def test_watch_crossfit_healthkit_type_matches_iphone(self):
+        """Toda la tabla Comenzar Watch = iPhone; planes WOD → crossTraining."""
+        import re
+
+        phone = source("Apps/Repera/Sources/LiveActivityView.swift")
+        watch = source("Apps/ReperaWatch/Sources/WatchLiveSportCatalog.swift")
+        planned = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
+        store = source("Apps/Repera/Sources/ReperaStore.swift")
+        mapper = source("Apps/Repera/Sources/HealthMuscleMapper.swift")
+        phone_segment = phone.split("var healthType: HKWorkoutActivityType", 1)[1].split(
+            "struct LiveSavedRoute", 1
+        )[0]
+        watch_segment = watch.split(
+            "var healthKitActivityType: HKWorkoutActivityType", 1
+        )[1].split("enum WatchHubItem", 1)[0]
+
+        def mapping(segment: str) -> dict[str, str]:
+            out: dict[str, str] = {}
+            for match in re.finditer(r"case ([^:]+): \.(\w+)", segment):
+                for sport in [
+                    part.strip().lstrip(".") for part in match.group(1).split(",")
+                ]:
+                    out[sport] = match.group(2)
+            return out
+
+        phone_map = mapping(phone_segment)
+        watch_map = mapping(watch_segment)
+        self.assertEqual(phone_map, watch_map)
+        self.assertEqual(phone_map.get("crossfit"), "crossTraining")
+        self.assertEqual(phone_map.get("hyrox"), "crossTraining")
+        self.assertEqual(phone_map.get("hiit"), "highIntensityIntervalTraining")
+        start_segment = planned.split(
+            "func start(id: UUID, at date: Date, includesWOD:", 1
+        )[1].split("func startLive(", 1)[0]
+        self.assertIn(".crossTraining", start_segment)
+        self.assertIn(".traditionalStrengthTraining", start_segment)
+        self.assertNotIn(".highIntensityIntervalTraining", start_segment)
+        self.assertNotIn(".functionalStrengthTraining", start_segment)
+        health_type = store.split("private func workoutHealthType", 1)[1].split(
+            "private func beginHealthTracking", 1
+        )[0]
+        self.assertIn("if hasWOD { return .crossTraining }", health_type)
+        self.assertIn("matchesRecordedHealthType(", mapper)
+        self.assertIn("HKWorkout antiguos", mapper)
+        self.assertIn("highIntensityIntervalTraining", mapper)
 
 
 if __name__ == "__main__":

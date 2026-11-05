@@ -7,7 +7,6 @@ import android.os.*
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import org.json.JSONObject
-import androidx.health.services.client.data.ExerciseType
 import androidx.wear.ongoing.OngoingActivity
 import com.google.android.gms.wearable.Wearable
 
@@ -33,6 +32,7 @@ internal class WearHealthService:Service() {
     private var notifyJob:Job?=null
     data class Snapshot(
         val sessionId:String?, val heart:Int?, val energy:Double?,
+        val distanceMeters: Double?,
         val recording:Boolean, val paused:Boolean, val problem:String?,
         val heartAtElapsed:Long
     )
@@ -52,7 +52,9 @@ internal class WearHealthService:Service() {
     }
     private val binder=Connection()
     private val changes=SharedPreferences.OnSharedPreferenceChangeListener {_,key ->
-        if(key=="snapshot" || key=="companionLiveSessionId") owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
+        if(key=="snapshot" || key=="companionLiveSessionId" || key=="watchOwnedLiveSessionId") {
+            owner?.takeUnless {isCurrent(it)}?.let {endOwned(it)}
+        }
     }
     override fun onCreate() {
         super.onCreate()
@@ -64,8 +66,14 @@ internal class WearHealthService:Service() {
     private fun cachedId():String?=cache.getString("snapshot",null)?.let {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
-    private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
-    private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem,sensors.heartSampleAtElapsed)
+    private fun isCurrent(id: String) =
+        cachedId() == id ||
+            cache.getString("companionLiveSessionId", null) == id ||
+            cache.getString("watchOwnedLiveSessionId", null) == id
+    private fun snapshot() = Snapshot(
+        owner, sensors.heartRateBpm, sensors.energyKcal, sensors.distanceMeters,
+        sensors.recording, sensors.paused, status ?: sensors.problem, sensors.heartSampleAtElapsed
+    )
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()
@@ -163,10 +171,11 @@ internal class WearHealthService:Service() {
         val token=revision
         // Phone-owned activity (Comenzar): live HR only; the phone owns the workout record.
         val companion = cache.getString("companionLiveSessionId",null)==id
+        val sportId = intent?.getStringExtra("sportId")
         scope.launch {
             val result=runCatching {
                 if(companion) sensors.startMeasure(id) {token==revision && isCurrent(id)}
-                else sensors.start(id,ExerciseType.STRENGTH_TRAINING) {token==revision && isCurrent(id)}
+                else sensors.start(id, sportId = sportId) {token==revision && isCurrent(id)}
             }
             result.onFailure {status=it.localizedMessage ?: "No se pudo iniciar sensores"}
             // recording=false can mean a failed callback/start await, not provider termination.

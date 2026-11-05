@@ -9,6 +9,7 @@
     <string name="wear_live_start_failed">El móvil no pudo iniciar la actividad; abre Repera</string>
     <string name="wear_live_start_disconnected">Móvil desconectado; abre Repera en el teléfono</string>
     <string name="wear_live_running_on_phone">Actividad en curso en el teléfono</string>
+    <string name="wear_live_running_on_watch">Actividad en curso en el reloj</string>
     <string name="wear_live_finish_pending">Finalizando en el teléfono…</string>
     <string name="wear_live_finish_timeout">El teléfono no confirmó el fin. Inténtalo de nuevo.</string>
     <string name="wear_live_phone_disconnected">Móvil desconectado; actividad conservada</string>

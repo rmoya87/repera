@@ -24,9 +24,12 @@
 Además del companion phone-owned, el hub Deportes permite iniciar un deporte
 desde el reloj: con teléfono reachable usa `startLive` (el móvil abre Comenzar;
 si había revisión abierta se descarta; Finalizar en el reloj → revisión en el
-teléfono). Offline o con entreno programado activo graba en el reloj (HK + GPS)
-y consolida al finalizar. Spec:
+teléfono). Sin nodos Wearable, ACK negativo o timeout, Wear arranca
+`startWatchOwnedLive` (Health Services + métricas locales) y al finalizar encola
+`/repera/live-save` hasta ACK del teléfono (`saveWearOwnedLiveActivity`). Spec:
 `docs/superpowers/specs/2026-10-31-watch-wear-hub-design.md`.
+
+Última actualización: 2026-11-05.
 
 ## Límites deliberados: no declarar paridad completa
 1. El inicio autónomo desde el reloj existe en código (hub 31/10) pero **exige
