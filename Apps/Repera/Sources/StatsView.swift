@@ -1608,6 +1608,7 @@ struct StatsView: View {
         // mantiene los ejes y explica la ausencia de datos.
         ProgressSessionScoreChartCard(
             workouts: snap.filteredWorkouts,
+            historicalWorkouts: store.state.workouts,
             range: model.range,
             weekStartsOnMonday: mondayFirst
         )
@@ -2006,6 +2007,7 @@ private struct ProgressAllRecordsView: View {
 private struct ProgressSessionScoreChartCard: View {
     @State private var selectedDate: Date?
     var workouts: [WorkoutSession]
+    var historicalWorkouts: [WorkoutSession] = []
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool
     var isTeaserPreview: Bool = false
@@ -2018,11 +2020,45 @@ private struct ProgressSessionScoreChartCard: View {
     }
 
     private var latestCompletedWorkout: WorkoutSession? {
-        workouts.filter { $0.phase == .finished || $0.finishedAt != nil }
+        (historicalWorkouts.isEmpty ? workouts : historicalWorkouts)
+            .filter { $0.phase == .finished || $0.finishedAt != nil }
             .max {
                 ($0.finishedAt ?? $0.startedAt ?? .distantPast) <
                     ($1.finishedAt ?? $1.startedAt ?? .distantPast)
             }
+    }
+
+    /// Baseline without fabricated effort points. Compare only the same live
+    /// sport with two or more earlier real sessions (180-day lookback).
+    /// Duration and measured HR are independent observations, not a VO2max
+    /// estimate or a cross-sport fitness ranking.
+    private func liveSportHistoricalContext(for latest: WorkoutSession) -> String? {
+        guard let sport = latest.liveSportID,
+              let when = latest.finishedAt else { return nil }
+        let cutoff = when.addingTimeInterval(-180 * 86_400)
+        let previous = (historicalWorkouts.isEmpty ? workouts : historicalWorkouts)
+            .filter { session in
+                session.id != latest.id
+                    && session.phase == .finished
+                    && session.liveSportID == sport
+                    && session.finishedAt.map { $0 < when && $0 >= cutoff } == true
+            }
+        guard previous.count >= 2 else { return nil }
+        let durations = previous.map(\.durationMinutes).filter { $0 > 0 }.sorted()
+        var parts = ["Histórico comparable: \(previous.count) sesiones del mismo deporte"]
+        if durations.count >= 2, latest.durationMinutes > 0 {
+            let typical = Int(durations[durations.count / 2].rounded())
+            parts.append("duración habitual \(typical) min")
+        }
+        let heartRates = previous.compactMap(\.appleAverageHeartRateBpm)
+            .filter { $0 > 0 && $0.isFinite }.sorted()
+        if heartRates.count >= 2,
+           let current = latest.appleAverageHeartRateBpm,
+           current > 0, current.isFinite {
+            let typical = Int(heartRates[heartRates.count / 2].rounded())
+            parts.append("FC media \(Int(current.rounded())) frente a habitual \(typical) lpm")
+        }
+        return parts.joined(separator: " · ")
     }
 
     private var points: [ScoreDay] {
@@ -2179,6 +2215,11 @@ private struct ProgressSessionScoreChartCard: View {
                                 .foregroundStyle(OG.label2)
                             if let bpm = latest.appleAverageHeartRateBpm, bpm > 0 {
                                 Text("FC media registrada: \(Int(bpm.rounded())) lpm")
+                                    .font(.caption2)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            if let historicalContext = liveSportHistoricalContext(for: latest) {
+                                Text(historicalContext)
                                     .font(.caption2)
                                     .foregroundStyle(OG.label2)
                             }
