@@ -49,6 +49,22 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import dev.repera.domain.ProgressPreparedCharts
 
+/** Margen superior del plot para que el tick máximo no recorte el dígito. */
+internal val ProgressChartYTopPadDp = 14.dp
+
+/** Y de plot con aire arriba (paridad iOS `topLabelPadding`). */
+internal fun progressChartPlotY(
+    value: Double,
+    low: Double,
+    high: Double,
+    heightPx: Float,
+    topPadPx: Float
+): Float {
+    val span = (high - low).coerceAtLeast(1e-9)
+    val usable = (heightPx - topPadPx).coerceAtLeast(1f)
+    return topPadPx + ((high - value) / span * usable).toFloat()
+}
+
 /** Etiquetas Y encima del plot: onSurfaceVariant (secundario) a ~88 %, legible en noche. */
 internal fun progressChartYLabelPaint(
     onSurfaceVariant: Color,
@@ -84,22 +100,9 @@ internal fun ProgressChartsCard(charts: ProgressPreparedCharts,showEmpty:Boolean
 }
 @Composable internal fun ProgressCaloriesCard(charts:ProgressPreparedCharts,preview:Boolean) {
  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-   ReperaSectionTitle(
-    if (preview) "Calorías · ejemplo" else "Calorías",
-    modifier = Modifier.weight(1f, fill = false)
-   )
-   if (charts.caloriesTotal > 0) {
-    Text(
-     "${Math.round(charts.caloriesTotal)} kcal",
-     style = MaterialTheme.typography.labelMedium,
-     color = MaterialTheme.colorScheme.onSurfaceVariant,
-     maxLines = 1,
-     softWrap = false,
-     modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-    )
-   }
-  }
+  ReperaSectionTitle(
+   if (preview) "Calorías · ejemplo" else "Calorías"
+  )
   ReperaCard(Modifier.fillMaxWidth().testTag("progress_calories_card")) {
    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
     ProgressCaloriesPlot(charts,preview)
@@ -391,7 +394,6 @@ internal fun DayPointLineChart(
     val padding=if(weightStyle) maxOf(if(weightPreview) 1.6 else 1.2,(maxV-minV)*(if(weightPreview) 0.35 else 0.22)) else 0.0
     val axisMin=minV-padding
     val axisMax=maxV+padding
-    val span = (axisMax - axisMin).coerceAtLeast(1e-9)
     val plotHeight=chartHeight ?: if(weightStyle) 210.dp else if(readinessStyle) 220.dp else 100.dp
     val firstDay = points.first().day
     val midDay = DayChartPositions.midpoint(points)
@@ -410,13 +412,11 @@ internal fun DayPointLineChart(
                 androidx.compose.ui.semantics.CustomAccessibilityAction("Punto anterior") {selected = ChartSelectionStep.step(selected,-1,points.size);true},
                 androidx.compose.ui.semantics.CustomAccessibilityAction("Punto siguiente") {selected = ChartSelectionStep.step(selected,1,points.size);true})
         }) {
-        selected?.let { i ->
-            Text("${points[i].day.format(reperaDayFormatter)}: " +
-                valueFormat(points[i].value),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary)
-        }
         Column(modifier = Modifier.fillMaxWidth()) {
+            BoxWithConstraints(Modifier.fillMaxWidth().height(plotHeight)) {
+            val topPadPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                ProgressChartYTopPadDp.toPx()
+            }
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(plotHeight)
@@ -440,8 +440,7 @@ internal fun DayPointLineChart(
                     if(readinessPreview) (i+1).toFloat()/8f*size.width
                     else DayChartPositions.fraction(points,i)*size.width
                 fun y(v: Double) =
-                    size.height - ((v - axisMin) / span * size.height * 0.85f)
-                        .toFloat() - size.height * 0.075f
+                    progressChartPlotY(v, axisMin, axisMax, size.height, topPadPx)
                 val yGuidePaint = progressChartYLabelPaint(axisInk, 10.sp.toPx())
                 val guideValues = if (readinessStyle) listOf(10.0, 5.0) else listOf(axisMax, (axisMin + axisMax) / 2.0)
                 guideValues.forEach { value ->
@@ -459,7 +458,7 @@ internal fun DayPointLineChart(
                         canvas.nativeCanvas.drawText(
                             valueFormat(value),
                             4.dp.toPx(),
-                            (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                            (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
                             yGuidePaint
                         )
                     }
@@ -557,6 +556,36 @@ internal fun DayPointLineChart(
                         center = Offset(x(i), y(points[i].value)))
                 }
             }
+            selected?.let { i ->
+                val px = if (readinessPreview) {
+                    (i + 1).toFloat() / 8f * maxWidth
+                } else {
+                    DayChartPositions.fraction(points, i) * maxWidth
+                }
+                val py = with(androidx.compose.ui.platform.LocalDensity.current) {
+                    progressChartPlotY(
+                        points[i].value, axisMin, axisMax,
+                        plotHeight.toPx(), topPadPx
+                    ).toDp()
+                }
+                Text(
+                    "${points[i].day.format(reperaDayFormatter)} · ${valueFormat(points[i].value)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(
+                            x = (px - 48.dp).coerceIn(0.dp, (maxWidth - 96.dp).coerceAtLeast(0.dp)),
+                            y = (py - 22.dp).coerceAtLeast(2.dp)
+                        )
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                            androidx.compose.foundation.shape.RoundedCornerShape(50)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                )
+            }
+            } // BoxWithConstraints
             if(readinessPreview) {
                 androidx.compose.ui.layout.Layout(content={listOf("1","4","7").forEach {
                     Text(it,style=MaterialTheme.typography.labelSmall,maxLines=1,softWrap=false)
@@ -601,11 +630,11 @@ internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.com
                     "Eje vacío de ${formatWeight(high)} a ${formatWeight(low)}"
             }
     ) {
+        val topPad = ProgressChartYTopPadDp.toPx()
         val yLabelPaint = progressChartYLabelPaint(axis, 10.sp.toPx())
-        val span = (high - low).coerceAtLeast(1e-9)
         // Omite el mínimo del dominio para no chocar con el eje X.
         listOf(high, (low + high) / 2.0).forEach { value ->
-            val gy = ((high - value) / span * size.height).toFloat()
+            val gy = progressChartPlotY(value, low, high, size.height, topPad)
             drawLine(
                 axis.copy(alpha = 0.3f),
                 Offset(0f, gy),
@@ -619,7 +648,7 @@ internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.com
                 canvas.nativeCanvas.drawText(
                     formatWeight(value),
                     4.dp.toPx(),
-                    (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                    (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
                     yLabelPaint
                 )
             }

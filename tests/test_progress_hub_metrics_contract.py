@@ -185,11 +185,12 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         sports = stats.split("private var sportsCategoryContent", 1)[1].split(
             "private var longTermTrainingTeaser", 1
         )[0]
-        self.assertIn("Actividad deportiva", sports)
+        self.assertIn("Actividad\\ndeportiva", sports)
+        self.assertIn("Progresión en\\nejercicios", sports)
         self.assertIn("sportsEvolutionSparkSamples", sports)
         self.assertNotIn("exerciseProgressSparkSamples", sports)
         self.assertIn("monthActivityHighlights", sports)
-        self.assertIn("Resumen por actividad", sports)
+        self.assertIn("Resumen por\\nactividad", sports)
         self.assertIn("Ejercicios al alza", sports)
         self.assertIn("Del plan", sports)
         self.assertNotIn("últimos 3 meses", sports)
@@ -198,11 +199,12 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         self.assertNotIn("historial · mejores marcas", sports)
         self.assertNotIn("e1RM al alza en tu historial", sports)
         tab = read(ANDROID / "ProgressTab.kt")
-        self.assertIn("Actividad deportiva", tab)
+        self.assertIn("Actividad\\ndeportiva", tab)
+        self.assertIn("Progresión en\\nejercicios", tab)
         self.assertIn("ProgressMiniBarRow", tab)
         self.assertIn("sportsDailyBarFractions", tab)
         self.assertIn("monthActivityHighlights", tab)
-        self.assertIn("Resumen por actividad", tab)
+        self.assertIn("Resumen por\\nactividad", tab)
         self.assertNotIn("historial · mejores marcas", tab)
 
     def test_fitness_stimulus_uses_finished_sessions_only(self):
@@ -271,7 +273,7 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         )
         self.assertIn('title = "Media mes"', tab)
         self.assertIn("sportsEvolutionSparkSamples", stats)
-        self.assertIn("Resumen por actividad", tab)
+        self.assertIn("Resumen por\\nactividad", tab)
         self.assertIn("elevateChart", tab)
 
     def test_month_summaries_at_end_of_health_tabs(self):
@@ -288,7 +290,7 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         self.assertIn("Actividad del mes", tab)
         self.assertIn("Cardio del mes", tab)
         self.assertIn("Descanso del mes", tab)
-        self.assertIn("Resumen por actividad", tab)
+        self.assertIn("Resumen por\\nactividad", tab)
         accents = read(ANDROID / "ReperaColorScheme.kt")
         self.assertIn("0xFF4A388C", accents)
         self.assertIn("0xFF1A9B8E", accents)

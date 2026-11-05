@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-04.
+Última actualización: 2026-11-05.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -220,11 +220,33 @@ await WorkoutScheduler.shared.schedule(plan, at: when)
     Button("Entreno guiado") { play() }
 }
 
-// ✅ GOOD — overlay opaco propio (como cancelar actividad)
-.overlay { if show { WatchPlanModeOverlay(...) } }
+// ❌ BAD — overlay DENTRO de WatchHomeHubView + startToday() en el mismo toque
+// → al mutar hub.active se desmonta el hub a mitad del callback → cierre inesperado
+pendingPlan = nil; startToday(); play()
+
+// ✅ GOOD — overlay en WatchSessionView (como cancelar actividad) + botones plain/cápsula
+// + diferir el arranque un ciclo tras cerrar el overlay
+.overlay { if let plan = pendingPlanStart { WatchPlanModeOverlay(...) } }
+Task { @MainActor in await Task.yield(); startSelectedPlan(plan, ...) }
 ```
 
-- Misma regla que `WatchActivityCancelOverlay`: no depender de `.confirmationDialog` para acciones críticas del hub.
+- Misma regla que `WatchActivityCancelOverlay`: no `.confirmationDialog` ni `.borderedProminent` para acciones críticas del hub.
+
+#### Apple Watch — CLLocationManager.requestLocation (crash al iniciar plan)
+
+```swift
+// ❌ BAD — requestLocation() sin didFailWithError → abort en runtime
+locationManager.requestLocation()
+// Exception: Delegate must respond to locationManager:didFailWithError:
+
+// ✅ GOOD — implementar siempre el fallo (como WorkoutLocationTracker en iPhone)
+nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    if (error as? CLError)?.code == .locationUnknown { return }
+    Task { @MainActor in /* limpiar startLocationSessionID */ }
+}
+```
+
+- `startToday()` / live indoor piden un pin con `requestLocation()`; el delegate debe responder al fallo o el Watch cierra al pulsar Entreno guiado/libre.
 
 #### Apple — Live Activities / intents
 

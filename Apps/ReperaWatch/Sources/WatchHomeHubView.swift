@@ -7,12 +7,14 @@ import WatchKit
 struct WatchHomeHubView: View {
     @Environment(WatchSessionHub.self) private var hub
     @Binding var showTimer: Bool
-    var onPlayPlan: () -> Void
-    var onRecordPlan: () -> Void
+    /// Elige modo (guiado/libre) fuera de esta vista: el overlay vive en
+    /// `WatchSessionView` para no destruirse al mutar el hub al arrancar.
+    var onRequestPlanMode: (WorkoutSession) -> Void
     var onPlaySport: (WatchLiveSport) -> Void
+    /// True mientras el selector de modo está visible (bloquea toques del hub).
+    var planModePickerVisible: Bool = false
 
     @State private var crownValue = 0.0
-    @State private var pendingPlan: WorkoutSession?
     @FocusState private var crownFocused: Bool
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
@@ -38,9 +40,10 @@ struct WatchHomeHubView: View {
                 guard let selected else { return }
                 switch selected {
                 case .plan(let plan):
-                    // Overlay opaco propio: confirmationDialog en watchOS
-                    // no registra toques de forma fiable (Liquid Glass).
-                    pendingPlan = plan
+                    // Overlay en WatchSessionView (no aquí): si el selector
+                    // vive en el hub, al arrancar se desmonta a mitad del toque.
+                    crownFocused = false
+                    onRequestPlanMode(plan)
                 case .sport:
                     playSelected()
                 }
@@ -72,7 +75,7 @@ struct WatchHomeHubView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(selected == nil || pendingPlan != nil)
+            .disabled(selected == nil || planModePickerVisible)
             .accessibilityLabel(selected.map { "Comenzar \($0.title)" } ?? "Comenzar")
             // Zona reservada para dos botones de 44 pt y el bisel redondeado.
             .padding(.bottom, 58)
@@ -124,32 +127,6 @@ struct WatchHomeHubView: View {
         .onChange(of: items.count) { _, _ in
             syncCrown()
         }
-        .overlay {
-            if let plan = pendingPlan {
-                WatchPlanModeOverlay(
-                    planTitle: plan.title,
-                    onLive: {
-                        pendingPlan = nil
-                        startPlan(plan, recordOnly: false)
-                    },
-                    onRecord: {
-                        pendingPlan = nil
-                        startPlan(plan, recordOnly: true)
-                    },
-                    onCancel: { pendingPlan = nil }
-                )
-            }
-        }
-    }
-
-    private func startPlan(_ plan: WorkoutSession, recordOnly: Bool) {
-        hub.setHubCarouselIndex(selectedIndex)
-        hub.selectTodayPlan(plan)
-        if recordOnly {
-            onRecordPlan()
-        } else {
-            onPlayPlan()
-        }
     }
 
     private func cornerCircleButton(
@@ -180,7 +157,8 @@ struct WatchHomeHubView: View {
         hub.setHubCarouselIndex(selectedIndex)
         switch selected {
         case .plan(let plan):
-            startPlan(plan, recordOnly: false)
+            crownFocused = false
+            onRequestPlanMode(plan)
         case .sport(let sport):
             onPlaySport(sport)
         }
@@ -188,9 +166,10 @@ struct WatchHomeHubView: View {
 }
 
 /// Selector de modo al tocar un plan en el hub.
-/// Vive en este archivo (no un .swift suelto) para que un `.xcodeproj`
-/// sin regenerar no pierda el símbolo. No usar `.confirmationDialog`.
-private struct WatchPlanModeOverlay: View {
+/// Mismo patrón que `WatchActivityCancelOverlay`: fondo opaco + botones plain
+/// (no `.borderedProminent` / `.confirmationDialog`). Vive junto a
+/// `WatchHomeHubView` para no depender de un `.swift` nuevo en el pbxproj.
+struct WatchPlanModeOverlay: View {
     let planTitle: String
     var onLive: () -> Void
     var onRecord: () -> Void
@@ -208,6 +187,8 @@ private struct WatchPlanModeOverlay: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
 
                 Text(planTitle)
                     .font(.caption2)
@@ -215,32 +196,43 @@ private struct WatchPlanModeOverlay: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Button(action: onLive) {
                     Text("Entreno guiado")
-                        .font(.system(size: 15, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
+                        .font(.callout.weight(.bold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(accent)
+                .buttonStyle(.plain)
                 .foregroundStyle(.black)
+                .background(accent, in: Capsule())
+                .contentShape(Capsule())
 
                 Button(action: onRecord) {
                     Text("Entreno libre")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 40)
+                        .font(.callout.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
                 }
-                .buttonStyle(.bordered)
-                .tint(.white)
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(Color.white.opacity(0.18), in: Capsule())
+                .contentShape(Capsule())
 
-                Button("Cancelar", action: onCancel)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+                Button(action: onCancel) {
+                    Text("Cancelar")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+        .ignoresSafeArea(.container, edges: .all)
         .accessibilityElement(children: .contain)
     }
 }

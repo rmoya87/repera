@@ -19,6 +19,8 @@ struct WatchSessionView: View {
     @State private var timerPageTitle = "Temporizador"
     @State private var showCancelConfirmation = false
     @State private var cancelConfirmationError: String?
+    /// Plan pendiente del selector guiado/libre (overlay a nivel de sesión).
+    @State private var pendingPlanStart: WorkoutSession?
 
     private var accent: Color { WatchTheme.accent }
 
@@ -58,15 +60,13 @@ struct WatchSessionView: View {
                 } else {
                     WatchHomeHubView(
                         showTimer: $showTimer,
-                        onPlayPlan: {
-                            startSelectedPlan(recordOnly: false)
-                        },
-                        onRecordPlan: {
-                            startSelectedPlan(recordOnly: true)
+                        onRequestPlanMode: { plan in
+                            pendingPlanStart = plan
                         },
                         onPlaySport: { sport in
                             _ = hub.playHubSport(sport)
-                        }
+                        },
+                        planModePickerVisible: pendingPlanStart != nil
                     )
                 }
             }
@@ -132,7 +132,15 @@ struct WatchSessionView: View {
         }
         .tint(accent)
         .overlay {
-            if showCancelConfirmation {
+            if let plan = pendingPlanStart {
+                WatchPlanModeOverlay(
+                    planTitle: plan.title,
+                    onLive: { commitPendingPlanStart(plan, recordOnly: false) },
+                    onRecord: { commitPendingPlanStart(plan, recordOnly: true) },
+                    onCancel: { pendingPlanStart = nil }
+                )
+                .zIndex(100)
+            } else if showCancelConfirmation {
                 WatchActivityCancelOverlay(
                     error: cancelConfirmationError,
                     onConfirm: confirmActivityCancellation,
@@ -155,6 +163,7 @@ struct WatchSessionView: View {
             trainingPrompt = nil
             showCancelConfirmation = false
             cancelConfirmationError = nil
+            pendingPlanStart = nil
         }
     }
 
@@ -166,14 +175,25 @@ struct WatchSessionView: View {
         }
     }
 
+    /// Cierra el overlay y arranca en el siguiente ciclo de runloop para no
+    /// mutar el hub mientras SwiftUI desmonta el selector (crash en watchOS).
+    private func commitPendingPlanStart(_ plan: WorkoutSession, recordOnly: Bool) {
+        pendingPlanStart = nil
+        Task { @MainActor in
+            await Task.yield()
+            startSelectedPlan(plan, recordOnly: recordOnly)
+        }
+    }
+
     /// Una sola elección desde el carrusel inicia directamente el modo elegido.
     /// Los bloques posteriores usan «Iniciar» sin volver a abrir este diálogo.
-    private func startSelectedPlan(recordOnly: Bool) {
+    private func startSelectedPlan(_ plan: WorkoutSession, recordOnly: Bool) {
         trainingPrompt = nil
         guard hub.active == nil else {
             startErrorMessage = "Hay otro entrenamiento activo. Finalízalo antes de iniciar uno nuevo."
             return
         }
+        hub.selectTodayPlan(plan)
         guard hub.startToday(), hub.active?.phase == .ready else {
             startErrorMessage = hub.todaysWorkout == nil
                 ? "No hay plan de hoy sincronizado. Ábrelo en el iPhone y vuelve a intentar."

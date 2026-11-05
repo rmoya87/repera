@@ -1,16 +1,20 @@
 package dev.repera.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -56,7 +60,7 @@ internal object ProgressPlotAxis {
    val start = range.startDate(today, monday) ?: today
    return generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.toList()
   }
-  val step=if(granularity==ProgressSeriesGranularity.DAY && (range==ProgressTimeRange.TODAY || range==ProgressTimeRange.WEEK)) 1 else maxOf(1,days.size/6)
+  val step=if(granularity==ProgressSeriesGranularity.DAY && (range==ProgressTimeRange.WEEK || range==ProgressTimeRange.TODAY)) 1 else maxOf(1,days.size/6)
   return days.filterIndexed {i,_ ->i%step==0 || i==days.lastIndex}.distinct()
  }
  fun kcalMax(values:List<ProgressDayPoint>,preview:Boolean)=maxOf(1.0,(values.maxOfOrNull {it.value} ?: 1.0)*(if(preview) 1.28 else 1.18))
@@ -86,30 +90,56 @@ internal object ProgressPlotAxis {
   if(points.none {it.value>0}) {
    EmptyHealthChart("Sin kcal de Salud en ${charts.range.title.lowercase()}.",0.0,600.0,210.dp)
   } else {
-   selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].value)+" kcal",style=MaterialTheme.typography.labelSmall)}
-   Canvas(Modifier.fillMaxWidth().height(210.dp).testTag("calories_observed_plot")
-    .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
-    .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
-    fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
-    fun y(value:Double)=size.height-(value/maximum*size.height).toFloat()
-    val yLabelPaint=progressChartYLabelPaint(axisInk,10.sp.toPx())
-    clipRect {
-     // Omite 0 (mínimo) para no chocar con el eje X.
+   BoxWithConstraints(Modifier.fillMaxWidth().height(210.dp)) {
+    val topPadPx = with(LocalDensity.current) { ProgressChartYTopPadDp.toPx() }
+    Canvas(Modifier.fillMaxWidth().height(210.dp).testTag("calories_observed_plot")
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
+     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
+     fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
+     fun y(value:Double)=progressChartPlotY(value, 0.0, maximum, size.height, topPadPx)
+     val yLabelPaint=progressChartYLabelPaint(axisInk,10.sp.toPx())
+     clipRect {
+      ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
+      val positions=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
+      val path=Path();path.moveTo(positions.first().x,positions.first().y)
+      ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+      val area=Path().apply {addPath(path);lineTo(positions.last().x,size.height);lineTo(positions.first().x,size.height);close()}
+      drawPath(area,Brush.verticalGradient(listOf(orange.copy(alpha=0.32f),orange.copy(alpha=0.02f))))
+      drawPath(path,orange,style=Stroke(2.25.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
+     }
+     // Guías Y + selección fuera del clip para no recortar el tick máximo ni el badge.
      listOf(maximum,maximum/2).forEach {value ->
       val gy=y(value)
       drawLine(grid,Offset(0f,gy),Offset(size.width,gy),0.5.dp.toPx())
       drawContext.canvas.nativeCanvas.drawText(
-       Math.round(value).toString(),4.dp.toPx(),(gy-4.dp.toPx()).coerceAtLeast(12.dp.toPx()),yLabelPaint
+       Math.round(value).toString(),4.dp.toPx(),
+       (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
+       yLabelPaint
       )
      }
-     ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
-     val positions=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
-     val path=Path();path.moveTo(positions.first().x,positions.first().y)
-     ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
-     val area=Path().apply {addPath(path);lineTo(positions.last().x,size.height);lineTo(positions.first().x,size.height);close()}
-     drawPath(area,Brush.verticalGradient(listOf(orange.copy(alpha=0.32f),orange.copy(alpha=0.02f))))
-     drawPath(path,orange,style=Stroke(2.25.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
-     selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
+     selected?.let {i ->
+      drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))
+      drawCircle(orange, radius = 5.dp.toPx(), center = Offset(x(i), y(points[i].value)))
+     }
+    }
+    selected?.let { i ->
+     val px = ProgressPlotAxis.fraction(points[i].day, domain) * maxWidth
+     val py = with(LocalDensity.current) {
+      progressChartPlotY(points[i].value, 0.0, maximum, 210.dp.toPx(), topPadPx).toDp()
+     }
+     Text(
+      "${Math.round(points[i].value)} kcal · ${points[i].day.format(reperaDayFormatter)}",
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurface,
+      modifier = Modifier
+       .align(Alignment.TopStart)
+       .offset(
+        x = (px - 48.dp).coerceIn(0.dp, (maxWidth - 96.dp).coerceAtLeast(0.dp)),
+        y = (py - 22.dp).coerceAtLeast(2.dp)
+       )
+       .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f), RoundedCornerShape(50))
+       .padding(horizontal = 8.dp, vertical = 5.dp)
+     )
     }
    }
    ProgressPlotDateLabels(ticks,domain,charts)

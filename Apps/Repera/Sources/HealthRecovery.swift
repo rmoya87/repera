@@ -846,7 +846,7 @@ struct HealthRecoveryProgressView: View {
                     domain: 1...max(1, scores.count),
                     range: .plotDimension(startPadding: 0, endPadding: 0)
                 )
-                .chartYScale(domain: 0.0...10.0)
+                .progressChartYScale(domain: 0.0...10.0)
                 .chartPlotStyle { $0.clipped() }
                 .chartYAxis(.hidden)
                 .frame(height: readinessChartHeight)
@@ -895,7 +895,7 @@ struct HealthRecoveryProgressView: View {
                         domain: 1...max(1, hrv.count),
                         range: .plotDimension(startPadding: 0, endPadding: 0)
                     )
-                    .chartYScale(domain: 40...70)
+                    .progressChartYScale(domain: 40...70)
                     .chartYAxis(.hidden)
                     .chartPlotStyle { $0.clipped() }
                     .frame(height: physiologyChartHeight)
@@ -1026,16 +1026,35 @@ struct HealthRecoveryProgressView: View {
                         RuleMark(x: .value("Día seleccionado", selected.date))
                             .foregroundStyle(OG.label2)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            .annotation(position: .top) {
-                                Text("\(ReperaNumberFormat.decimal(selected.value, maximumFractionDigits: 0)) \(unit)")
-                                    .font(.caption.weight(.semibold))
-                                    .padding(5)
-                                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                            }
+                        PointMark(
+                            x: .value("Día seleccionado", selected.date),
+                            y: .value(title, selected.value)
+                        )
+                        .foregroundStyle(OG.accent)
+                        .symbolSize(48)
                     }
                 }
                 .chartXSelection(value: $selectedVitalDate)
-                .chartYScale(domain: yLow...yHigh)
+                .progressChartYScale(domain: yLow...yHigh)
+                .progressChartSelectionBadge(
+                    x: selectedVitalDate.flatMap { date in
+                        values.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.date
+                    },
+                    y: selectedVitalDate.flatMap { date in
+                        values.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.value
+                    },
+                    text: selectedVitalDate.flatMap { date in
+                        values.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        }).map {
+                            "\(ReperaNumberFormat.decimal($0.value, maximumFractionDigits: 0)) \(unit)"
+                        }
+                    }
+                )
                 .chartYAxis(.hidden)
                 .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 0))
                 .chartXAxis {
@@ -1449,17 +1468,35 @@ struct HealthRecoveryProgressView: View {
                     RuleMark(x: .value("Día seleccionado", selected.date))
                         .foregroundStyle(OG.label2)
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                        .annotation(position: .top) {
-                            Text("\(Int(selected.score.rounded()))/10 · \(selected.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .padding(5)
-                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                        }
+                    PointMark(
+                        x: .value("Día seleccionado", selected.date),
+                        y: .value("Recuperación", selected.score)
+                    )
+                    .foregroundStyle(OG.accent)
+                    .symbolSize(56)
                 }
                 }
                 .chartXSelection(value: $selectedRecoveryDate)
-                .chartYScale(domain: 0.0...10.0)
+                .progressChartYScale(domain: 0.0...10.0)
+                .progressChartSelectionBadge(
+                    x: selectedRecoveryDate.flatMap { date in
+                        recoveryPoints.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.date
+                    },
+                    y: selectedRecoveryDate.flatMap { date in
+                        recoveryPoints.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.score
+                    },
+                    text: selectedRecoveryDate.flatMap { date in
+                        recoveryPoints.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        }).map {
+                            "\(Int($0.score.rounded()))/10 · \($0.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                        }
+                    }
+                )
                 .chartYAxis(.hidden)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
@@ -1525,24 +1562,16 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
 
                 Chart {
-                    // Guías + horas encima del plot (sin reservar eje). Omite el
-                    // mínimo del dominio para no chocar con las fechas del eje X.
-                    ForEach(
-                        Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2))
-                            .map(Double.init)
-                            .filter { $0 > yLo + 0.01 },
-                        id: \.self
-                    ) { hour in
-                        RuleMark(y: .value("Referencia en horas", hour))
-                            .foregroundStyle(Color.white.opacity(0.25))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
-                            .annotation(position: .overlay, alignment: .leading) {
-                                Text("\(Int(hour)) h")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.white.opacity(0.78))
-                                    .padding(.leading, 6)
-                            }
-                    }
+                    // Guías Y compartidas (margen superior + tick máximo sin recorte).
+                    ProgressChartYOverlay.marks(
+                        values: Array(
+                            stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)
+                        ).map(Double.init),
+                        domainLow: yLo,
+                        format: { "\(Int($0)) h" },
+                        gridColor: Color.white.opacity(0.28),
+                        labelColor: Color.white.opacity(0.78)
+                    )
                     ForEach(orderedNights) { night in
                         AreaMark(
                             x: .value("Día", night.date),
@@ -1573,13 +1602,12 @@ struct HealthRecoveryProgressView: View {
                         RuleMark(x: .value("Día seleccionado", selected.date))
                             .foregroundStyle(NightSky.glow)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            .annotation(position: .top) {
-                                Text("\(ReperaNumberFormat.decimal(selected.hours)) h · \(selected.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(5)
-                                    .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 6))
-                            }
+                        PointMark(
+                            x: .value("Día seleccionado", selected.date),
+                            y: .value("Horas", selected.hours)
+                        )
+                        .foregroundStyle(NightSky.glow)
+                        .symbolSize(56)
                     }
                 }
                 .chartXSelection(value: $selectedSleepDate)
@@ -1588,7 +1616,28 @@ struct HealthRecoveryProgressView: View {
                     domain: xStart...(xEnd > xStart ? xEnd : xStart.addingTimeInterval(86_400)),
                     range: .plotDimension(startPadding: 0, endPadding: 0)
                 )
-                .chartYScale(domain: yLo...yHi)
+                .progressChartYScale(domain: yLo...yHi)
+                .progressChartSelectionBadge(
+                    x: selectedSleepDate.flatMap { date in
+                        orderedNights.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.date
+                    },
+                    y: selectedSleepDate.flatMap { date in
+                        orderedNights.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.hours
+                    },
+                    text: selectedSleepDate.flatMap { date in
+                        orderedNights.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        }).map {
+                            "\(ReperaNumberFormat.decimal($0.hours)) h · \($0.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                        }
+                    },
+                    foreground: .white,
+                    background: NightSky.ink
+                )
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: min(5, max(2, orderedNights.count)))) { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
@@ -1605,13 +1654,16 @@ struct HealthRecoveryProgressView: View {
                 }
                 .chartYAxis(.hidden)
                 .chartLegend(.hidden)
-                .chartPlotStyle { $0.clipped() }
+                // Solo el plot: no clipShape del Chart entero (recortaba el badge sobre la línea).
+                .chartPlotStyle { plot in
+                    plot.clipped()
+                        .background(NightSky.ink)
+                }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 6)
                 .padding(.bottom, 4)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")
             }
         }

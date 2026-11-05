@@ -99,8 +99,9 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
             fun x(i: Int) =
                 if (span == 0L) size.width / 2f
                 else (ordered[i].day.toEpochDay() - start).toFloat() / span * size.width
+            val topPadPx = ProgressChartYTopPadDp.toPx()
             fun y(value: Double) =
-                size.height - ((value - yLo) / (yHi - yLo).coerceAtLeast(0.01) * size.height).toFloat()
+                progressChartPlotY(value, yLo, yHi, size.height, topPadPx)
             val points = ordered.indices.map { ReadinessCurve.Point(x(it), y(ordered[it].hours)) }
             val curve = Path()
             curve.moveTo(points.first().x, points.first().y)
@@ -113,36 +114,12 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                 lineTo(points.first().x, size.height)
                 close()
             }
+            // Serie recortada; guías Y + badge de selección fuera del clip para no cortar el tip.
             clipRect {
                 drawPath(
                     area,
                     Brush.verticalGradient(listOf(mid.copy(alpha = 0.65f), ink))
                 )
-                // Horas encima del plot (izquierda). Omite el mínimo del dominio
-                // para no chocar con el eje X de fechas.
-                val hoursInk = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                    color = android.graphics.Color.argb(185, 235, 241, 255)
-                    textSize = 10.sp.toPx()
-                    textAlign = android.graphics.Paint.Align.LEFT
-                }
-                for (hour in ceil(yLo).toInt()..floor(yHi).toInt() step 2) {
-                    if (hour.toDouble() <= yLo + 0.01) continue
-                    val lineY = y(hour.toDouble())
-                    drawLine(
-                        Color.White.copy(alpha = 0.25f),
-                        Offset(0f, lineY), Offset(size.width, lineY),
-                        strokeWidth = 1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(
-                            floatArrayOf(2.dp.toPx(), 4.dp.toPx())
-                        )
-                    )
-                    drawContext.canvas.nativeCanvas.drawText(
-                        hour.toString() + " h",
-                        6.dp.toPx(),
-                        (lineY - 5.dp.toPx()).coerceAtLeast(12.dp.toPx()),
-                        hoursInk
-                    )
-                }
                 drawPath(
                     curve,
                     glow,
@@ -151,48 +128,72 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                 if (points.size == 1) {
                     drawCircle(glow, 3.dp.toPx(), Offset(points.first().x, points.first().y))
                 }
-                selected?.let { i ->
-                    drawLine(
-                        glow,
-                        Offset(x(i), 0f),
-                        Offset(x(i), size.height),
-                        1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
+            }
+            val hoursInk = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.argb(185, 235, 241, 255)
+                textSize = 10.sp.toPx()
+                textAlign = android.graphics.Paint.Align.LEFT
+            }
+            for (hour in ceil(yLo).toInt()..floor(yHi).toInt() step 2) {
+                if (hour.toDouble() <= yLo + 0.01) continue
+                val lineY = y(hour.toDouble())
+                drawLine(
+                    Color.White.copy(alpha = 0.25f),
+                    Offset(0f, lineY), Offset(size.width, lineY),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(2.dp.toPx(), 4.dp.toPx())
                     )
-                    val tip = "${formatWeight(ordered[i].hours)} h · ${
-                        ordered[i].day.format(
-                            java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES"))
-                        )
-                    }"
-                    val textPaint = android.graphics.Paint().apply {
-                        isAntiAlias = true
-                        color = android.graphics.Color.WHITE
-                        textSize = with(density) { labelStyle.fontSize.toPx() }
-                        typeface = android.graphics.Typeface.create(
-                            android.graphics.Typeface.DEFAULT,
-                            android.graphics.Typeface.BOLD
-                        )
-                    }
-                    val pad = 5.dp.toPx()
-                    val textW = textPaint.measureText(tip)
-                    val boxW = textW + pad * 2
-                    val boxH = textPaint.textSize + pad * 1.4f
-                    val px = x(i).coerceIn(boxW / 2f, size.width - boxW / 2f)
-                    val py = (y(ordered[i].hours) - boxH - 8.dp.toPx()).coerceAtLeast(4.dp.toPx())
-                    drawRoundRect(
-                        color = tooltipBg,
-                        topLeft = Offset(px - boxW / 2f, py),
-                        size = Size(boxW, boxH),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    hour.toString() + " h",
+                    6.dp.toPx(),
+                    (lineY + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
+                    hoursInk
+                )
+            }
+            selected?.let { i ->
+                drawLine(
+                    glow,
+                    Offset(x(i), 0f),
+                    Offset(x(i), size.height),
+                    1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
+                )
+                drawCircle(glow, 5.dp.toPx(), Offset(x(i), y(ordered[i].hours)))
+                val tip = "${formatWeight(ordered[i].hours)} h · ${
+                    ordered[i].day.format(
+                        java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES"))
                     )
-                    drawIntoCanvas { canvas ->
-                        canvas.nativeCanvas.drawText(
-                            tip,
-                            px - textW / 2f,
-                            py + boxH - pad,
-                            textPaint
-                        )
-                    }
+                }"
+                val textPaint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    color = android.graphics.Color.WHITE
+                    textSize = with(density) { labelStyle.fontSize.toPx() }
+                    typeface = android.graphics.Typeface.create(
+                        android.graphics.Typeface.DEFAULT,
+                        android.graphics.Typeface.BOLD
+                    )
+                }
+                val pad = 5.dp.toPx()
+                val textW = textPaint.measureText(tip)
+                val boxW = textW + pad * 2
+                val boxH = textPaint.textSize + pad * 1.4f
+                val px = x(i).coerceIn(boxW / 2f, size.width - boxW / 2f)
+                val py = (y(ordered[i].hours) - boxH - 8.dp.toPx()).coerceAtLeast(4.dp.toPx())
+                drawRoundRect(
+                    color = tooltipBg,
+                    topLeft = Offset(px - boxW / 2f, py),
+                    size = Size(boxW, boxH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx())
+                )
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawText(
+                        tip,
+                        px - textW / 2f,
+                        py + boxH - pad,
+                        textPaint
+                    )
                 }
             }
         }

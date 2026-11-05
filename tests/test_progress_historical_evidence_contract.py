@@ -84,7 +84,7 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn(".prefix(7).reversed()", ios)
         self.assertIn("private var recentScoredWorkouts: [RecentScoredWorkout]", ios)
         self.assertIn('y: .value("Puntuación", Double(item.verifiedScore))', ios)
-        self.assertIn(".chartYScale(domain: 0.0...10.0)", ios.split("private var sevenWorkoutChart", 1)[1])
+        self.assertIn(".progressChartYScale(domain: 0.0...10.0)", ios.split("private var sevenWorkoutChart", 1)[1])
         self.assertIn(".take(7).reversed()", android)
         self.assertIn("ScoreBasis.PERSONAL_HISTORY", android)
         self.assertIn("SevenRecentWorkoutScoreChart(", plot)
@@ -118,11 +118,11 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         ios = read("Apps/Repera/Sources/ProgressTrendCards.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressCardioPlot.kt")
         cardio = ios.split("struct ProgressCardioChartCard", 1)[1].split("struct ProgressCaloriesChartCard", 1)[0]
-        self.assertIn("minBpm.rounded())) · \\(Int(selectedPoint.avgBpm.rounded())) · \\(Int(selectedPoint.maxBpm.rounded())) lpm", cardio)
-        # Overlay: no desplaza la gráfica; sin «Media» duplicada junto al título.
-        self.assertIn("ZStack(alignment: .top)", cardio)
+        self.assertIn("minBpm.rounded())) · \\(Int($0.avgBpm.rounded())) · \\(Int($0.maxBpm.rounded())) lpm", cardio)
+        # Badge anclado al punto de la media; sin «Media» duplicada junto al título.
+        self.assertIn("progressChartSelectionBadge", cardio)
         self.assertNotIn('Text("Media \\(Int(stats.avg.rounded())) lpm")', cardio)
-        self.assertIn("Alignment.TopCenter", android)
+        self.assertIn("progressChartPlotY(p.avgBpm", android)
         self.assertNotIn('Media ${Math.round', read("android/mobile/src/main/java/dev/repera/mobile/ProgressCharts.kt"))
 
     def test_estimated_heart_zones_hide_source_caption(self):

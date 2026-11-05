@@ -1,8 +1,10 @@
 package dev.repera.mobile
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -154,92 +157,87 @@ internal fun SessionScoreProgressCard(
                         0.0, 10.0, 205.dp
                     )
                 } else {
-                    selected?.let {
-                        Text(
-                            values[it].day.format(reperaDayFormatter) + ": " +
-                                Math.round(values[it].value) + "/10",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    Row(
-                        Modifier.fillMaxWidth().semantics {
-                            contentDescription =
-                                if (preview) "Puntuaciones de ejemplo, datos ficticios"
-                                else "Puntuaciones verificadas por día"
-                            if (!preview) {
-                                customActions = listOf(
-                                    CustomAccessibilityAction("Punto anterior") {
-                                        selected = ChartSelectionStep.step(selected, -1, values.size); true
-                                    },
-                                    CustomAccessibilityAction("Punto siguiente") {
-                                        selected = ChartSelectionStep.step(selected, 1, values.size); true
-                                    }
-                                )
-                            }
-                        }
-                    ) {
-                        Canvas(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(205.dp)
-                                .testTag("session_score_plot")
-                                .pointerInput(values, domain, preview) {
-                                    if (preview) return@pointerInput
-                                    detectTapGestures { selected = nearest(it.x / size.width) }
-                                }
-                                .pointerInput(values, domain, preview) {
-                                    if (preview) return@pointerInput
-                                    detectHorizontalDragGestures { change, _ ->
-                                        change.consume()
-                                        selected = nearest(change.position.x / size.width)
-                                    }
-                                }
-                        ) {
-                            fun x(i: Int) = ProgressPlotAxis.fraction(values[i].day, domain) * size.width
-                            fun y(value: Double) = size.height - (value / 10 * size.height).toFloat()
-                            val yLabelPaint = progressChartYLabelPaint(rule, 10.dp.toPx())
-                            clipRect {
-                                listOf(10 to 0f, 5 to 0.5f).forEach { (label, f) ->
-                                    val gy = f * size.height
-                                    drawLine(grid, Offset(0f, gy), Offset(size.width, gy), 0.5.dp.toPx())
-                                    drawContext.canvas.nativeCanvas.drawText(
-                                        label.toString(),
-                                        4.dp.toPx(),
-                                        (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
-                                        yLabelPaint
+                    Column(Modifier.fillMaxWidth()) {
+                        BoxWithConstraints(
+                            Modifier.fillMaxWidth().height(205.dp).semantics {
+                                contentDescription =
+                                    if (preview) "Puntuaciones de ejemplo, datos ficticios"
+                                    else "Puntuaciones verificadas por día"
+                                if (!preview) {
+                                    customActions = listOf(
+                                        CustomAccessibilityAction("Punto anterior") {
+                                            selected = ChartSelectionStep.step(selected, -1, values.size); true
+                                        },
+                                        CustomAccessibilityAction("Punto siguiente") {
+                                            selected = ChartSelectionStep.step(selected, 1, values.size); true
+                                        }
                                     )
                                 }
-                                listOf(0f, 0.5f, 1f).forEach { f ->
-                                    drawLine(grid, Offset(f * size.width, 0f), Offset(f * size.width, size.height), 0.5.dp.toPx())
-                                }
-                                val positions = values.indices.map {
-                                    ReadinessCurve.Point(x(it), y(values[it].value))
-                                }
-                                // No unir días sin puntuación como si existieran datos.
-                                val groups = mutableListOf<MutableList<ReadinessCurve.Point>>()
-                                positions.forEachIndexed { i, point ->
-                                    if (i == 0 || java.time.temporal.ChronoUnit.DAYS
-                                            .between(values[i - 1].day, values[i].day) > 1) {
-                                        groups.add(mutableListOf())
+                            }
+                        ) {
+                            val topPadPx = with(LocalDensity.current) { ProgressChartYTopPadDp.toPx() }
+                            Canvas(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(205.dp)
+                                    .testTag("session_score_plot")
+                                    .pointerInput(values, domain, preview) {
+                                        if (preview) return@pointerInput
+                                        detectTapGestures { selected = nearest(it.x / size.width) }
                                     }
-                                    groups.last().add(point)
-                                }
-                                groups.forEach { group ->
-                                    if (group.size > 1) {
-                                        val path = Path()
-                                        path.moveTo(group.first().x, group.first().y)
-                                        ReadinessCurve.segments(group).forEach { c ->
-                                            path.cubicTo(
-                                                c.control1.x, c.control1.y,
-                                                c.control2.x, c.control2.y,
-                                                c.end.x, c.end.y
-                                            )
+                                    .pointerInput(values, domain, preview) {
+                                        if (preview) return@pointerInput
+                                        detectHorizontalDragGestures { change, _ ->
+                                            change.consume()
+                                            selected = nearest(change.position.x / size.width)
                                         }
-                                        drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
                                     }
-                                    group.forEach { point ->
-                                        drawCircle(accent, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
+                            ) {
+                                fun x(i: Int) = ProgressPlotAxis.fraction(values[i].day, domain) * size.width
+                                fun y(value: Double) = progressChartPlotY(value, 0.0, 10.0, size.height, topPadPx)
+                                val yLabelPaint = progressChartYLabelPaint(rule, 10.dp.toPx())
+                                clipRect {
+                                    listOf(0f, 0.5f, 1f).forEach { f ->
+                                        drawLine(grid, Offset(f * size.width, 0f), Offset(f * size.width, size.height), 0.5.dp.toPx())
                                     }
+                                    val positions = values.indices.map {
+                                        ReadinessCurve.Point(x(it), y(values[it].value))
+                                    }
+                                    val groups = mutableListOf<MutableList<ReadinessCurve.Point>>()
+                                    positions.forEachIndexed { i, point ->
+                                        if (i == 0 || java.time.temporal.ChronoUnit.DAYS
+                                                .between(values[i - 1].day, values[i].day) > 1) {
+                                            groups.add(mutableListOf())
+                                        }
+                                        groups.last().add(point)
+                                    }
+                                    groups.forEach { group ->
+                                        if (group.size > 1) {
+                                            val path = Path()
+                                            path.moveTo(group.first().x, group.first().y)
+                                            ReadinessCurve.segments(group).forEach { c ->
+                                                path.cubicTo(
+                                                    c.control1.x, c.control1.y,
+                                                    c.control2.x, c.control2.y,
+                                                    c.end.x, c.end.y
+                                                )
+                                            }
+                                            drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+                                        }
+                                        group.forEach { point ->
+                                            drawCircle(accent, radius = 2.5.dp.toPx(), center = Offset(point.x, point.y))
+                                        }
+                                    }
+                                }
+                                listOf(10.0, 5.0).forEach { label ->
+                                    val gy = y(label)
+                                    drawLine(grid, Offset(0f, gy), Offset(size.width, gy), 0.5.dp.toPx())
+                                    drawContext.canvas.nativeCanvas.drawText(
+                                        label.toInt().toString(),
+                                        4.dp.toPx(),
+                                        (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
+                                        yLabelPaint
+                                    )
                                 }
                                 selected?.let { i ->
                                     drawLine(
@@ -251,21 +249,46 @@ internal fun SessionScoreProgressCard(
                                             floatArrayOf(3.dp.toPx(), 4.dp.toPx())
                                         )
                                     )
+                                    drawCircle(accent, 5.dp.toPx(), Offset(x(i), y(values[i].value)))
                                 }
                             }
+                            selected?.let { i ->
+                                val px = ProgressPlotAxis.fraction(values[i].day, domain) * maxWidth
+                                val py = with(LocalDensity.current) {
+                                    progressChartPlotY(
+                                        values[i].value, 0.0, 10.0, 205.dp.toPx(), topPadPx
+                                    ).toDp()
+                                }
+                                Text(
+                                    "${Math.round(values[i].value)}/10 · ${values[i].day.format(reperaDayFormatter)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .offset(
+                                            x = (px - 48.dp).coerceIn(0.dp, (maxWidth - 96.dp).coerceAtLeast(0.dp)),
+                                            y = (py - 22.dp).coerceAtLeast(2.dp)
+                                        )
+                                        .background(
+                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                            RoundedCornerShape(50)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
                         }
-                    }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        val fmt = java.time.format.DateTimeFormatter.ofPattern(
-                            "d MMM",
-                            java.util.Locale("es", "ES")
-                        )
-                        Text(values.first().day.format(fmt), style = MaterialTheme.typography.labelSmall)
-                        if (values.size > 1) {
-                            Text(values.last().day.format(fmt), style = MaterialTheme.typography.labelSmall)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val fmt = java.time.format.DateTimeFormatter.ofPattern(
+                                "d MMM",
+                                java.util.Locale("es", "ES")
+                            )
+                            Text(values.first().day.format(fmt), style = MaterialTheme.typography.labelSmall)
+                            if (values.size > 1) {
+                                Text(values.last().day.format(fmt), style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }
@@ -320,20 +343,21 @@ private fun SevenRecentWorkoutScoreChart(
                 }
         ) {
             // Primer punto a la izquierda, último a la derecha (ancho completo).
+            val topPadPx = ProgressChartYTopPadDp.toPx()
             fun x(index: Int) =
                 if (recent.size == 1) size.width / 2f
                 else size.width * index / (recent.size - 1).toFloat()
-            fun y(score: Int) = size.height - (score / 10f) * size.height
+            fun y(score: Int) = progressChartPlotY(score.toDouble(), 0.0, 10.0, size.height, topPadPx)
             val yLabelPaint = progressChartYLabelPaint(rule, 10.dp.toPx())
             // Omite 0 para no chocar con el eje X.
-            listOf(10 to 1f, 5 to 0.5f).forEach { (label, fraction) ->
-                val gy = size.height * (1 - fraction)
+            listOf(10.0, 5.0).forEach { label ->
+                val gy = y(label.toInt())
                 drawLine(rule.copy(alpha = 0.16f), Offset(0f, gy),
                     Offset(size.width, gy), 0.6.dp.toPx())
                 drawContext.canvas.nativeCanvas.drawText(
-                    label.toString(),
+                    label.toInt().toString(),
                     4.dp.toPx(),
-                    (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                    (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
                     yLabelPaint
                 )
             }

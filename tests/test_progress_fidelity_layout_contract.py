@@ -75,9 +75,11 @@ class ProgressFidelityLayoutTests(unittest.TestCase):
         self.assertIn("goalKg: 74.0", free)
         charts = swift("ProgressTrendCards.swift")
         calories = charts.split("struct ProgressCaloriesChartCard:", 1)[1].split("struct ProgressWeightChartCard:", 1)[0]
-        self.assertIn("Ejemplo ·", calories)
+        self.assertIn('Text("Ejemplo")', calories)
+        self.assertNotIn("kcal\")", calories.split("OGCardSectionTitle", 1)[1].split("OGCard", 1)[0])
         weight = charts.split("struct ProgressWeightChartCard:", 1)[1].split("enum ProgressChartAxis", 1)[0]
-        self.assertIn("Ejemplo ·", weight)
+        self.assertIn('Text("Ejemplo")', weight)
+        self.assertNotIn("statusLine", weight)
         self.assertIn('label: "Actual"', weight)
         self.assertIn('label: "Objetivo"', weight)
         self.assertIn('label: "Δ"', weight)

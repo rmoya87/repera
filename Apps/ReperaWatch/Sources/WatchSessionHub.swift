@@ -2435,6 +2435,17 @@ extension WatchSessionHub: CLLocationManagerDelegate {
         }
     }
 
+    /// Obligatorio con `requestLocation()`: Core Location aborta el proceso si falta.
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // `.locationUnknown` es temporal; no cancelar la espera del pin.
+        if (error as? CLError)?.code == .locationUnknown { return }
+        Task { @MainActor in
+            // Sin fix GPS el entreno sigue; limpia la petición de pin inicial.
+            self.startLocationSessionID = nil
+            self.startLocationRequestedAt = nil
+        }
+    }
+
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         Task { @MainActor in
             if let fix = locations.first(where: { $0.horizontalAccuracy >= 0 }) {

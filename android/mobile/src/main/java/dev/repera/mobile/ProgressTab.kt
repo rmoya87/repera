@@ -922,7 +922,7 @@ internal fun ProgressTab(
                                             modifier = Modifier.padding(top = 2.dp).size(22.dp)
                                         )
                                         Text(
-                                            "Progresión en ejercicios",
+                                            "Progresión en\nejercicios",
                                             style = MaterialTheme.typography.titleLarge,
                                             color = ProgressCategory.STRENGTH.accent,
                                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
@@ -1567,7 +1567,7 @@ private fun SportsMonthSummaryHeroCard(
                             .size(22.dp)
                     )
                     Text(
-                        "Resumen por actividad",
+                        "Resumen por\nactividad",
                         style = MaterialTheme.typography.titleLarge,
                         color = tint,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
@@ -1642,7 +1642,7 @@ private fun SportsActivityDualHeroCard(
                         .size(22.dp)
                 )
                 Text(
-                    "Actividad deportiva",
+                    "Actividad\ndeportiva",
                     style = MaterialTheme.typography.titleLarge,
                     color = tint,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold

@@ -427,24 +427,24 @@ struct ExerciseEvolutionPanel: View {
                         RuleMark(x: .value("Fecha seleccionada", selected.date))
                             .foregroundStyle(OG.label2)
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                            .annotation(position: .top) {
-                                Text(tooltip(for: selected))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(OG.label)
-                                    .padding(5)
-                                    .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                            }
+                        PointMark(
+                            x: .value("Fecha seleccionada", selected.date),
+                            y: .value("Valor", selected.value)
+                        )
+                        .foregroundStyle(OG.blue)
+                        .symbolSize(56)
                     }
 
                     if let tested = testedOneRMKg, showsOneRMCeiling {
                         RuleMark(y: .value("Tope 1RM", tested))
                             .foregroundStyle(OG.accent.opacity(0.85))
                             .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                            .annotation(position: .top, alignment: .trailing) {
+                            .annotation(position: .overlay, alignment: .trailing) {
                                 Text("1RM \(ReperaNumberFormat.decimal(tested))")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(OG.accent)
                                     .padding(.horizontal, 4)
+                                    .offset(y: -8)
                             }
                     }
                 }
@@ -467,7 +467,24 @@ struct ExerciseEvolutionPanel: View {
                         AxisValueLabel()
                     }
                 }
-                .chartYScale(domain: chartYDomain)
+                .progressChartYScale(domain: chartYDomain)
+                .progressChartSelectionBadge(
+                    x: selectedChartDate.flatMap { date in
+                        points.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.date
+                    },
+                    y: selectedChartDate.flatMap { date in
+                        points.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        })?.value
+                    },
+                    text: selectedChartDate.flatMap { date in
+                        points.min(by: {
+                            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+                        }).map(tooltip(for:))
+                    }
+                )
                 .frame(height: 220)
 
 

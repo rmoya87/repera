@@ -5,6 +5,9 @@ import SwiftUI
 /// Guías Y dibujadas encima del plot (sin reservar columna). Omite el valor
 /// inferior del dominio para no chocar con el eje X.
 enum ProgressChartYOverlay {
+    /// Margen superior del plot para que el tick máximo no recorte el dígito.
+    static let topLabelPadding: CGFloat = 16
+
     static func ticks(low: Double, high: Double, count: Int = 3) -> [Double] {
         guard count >= 2, high > low else { return high > low ? [high] : [] }
         return (0..<count).map { i in
@@ -21,7 +24,9 @@ enum ProgressChartYOverlay {
         // label2 en noche: los números del eje deben leerse encima del plot.
         labelColor: Color = OG.label2
     ) -> some ChartContent {
-        ForEach(values.filter { $0 > domainLow + 0.01 }, id: \.self) { value in
+        let visible = values.filter { $0 > domainLow + 0.01 }
+        let topTick = visible.max()
+        ForEach(visible, id: \.self) { value in
             RuleMark(y: .value("Guía Y", value))
                 .foregroundStyle(gridColor.opacity(0.9))
                 .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
@@ -30,7 +35,66 @@ enum ProgressChartYOverlay {
                         .font(.system(size: 10).monospacedDigit())
                         .foregroundStyle(labelColor)
                         .padding(.leading, 4)
+                        // Baja un poco el máximo para no pelear con el borde.
+                        .offset(y: topTick.map { abs($0 - value) < 0.001 } == true ? 7 : 0)
                 }
+        }
+    }
+
+    /// Cápsula del valor seleccionado, anclada al punto de la línea (no fuera del plot).
+    @ViewBuilder
+    static func selectionBadge(
+        _ text: String,
+        foreground: Color = OG.label,
+        background: Color = OG.surface.opacity(0.94)
+    ) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(background, in: Capsule())
+            .allowsHitTesting(false)
+    }
+}
+
+extension View {
+    /// Dominio Y con aire arriba para las etiquetas overlay del tick máximo.
+    func progressChartYScale(domain: ClosedRange<Double>) -> some View {
+        chartYScale(
+            domain: domain,
+            range: .plotDimension(
+                startPadding: 0,
+                endPadding: ProgressChartYOverlay.topLabelPadding
+            )
+        )
+    }
+
+    /// Badge de selección posicionado sobre el valor en la línea.
+    func progressChartSelectionBadge<X: Plottable, Y: Plottable>(
+        x: X?,
+        y: Y?,
+        text: String?,
+        foreground: Color = OG.label,
+        background: Color = OG.surface.opacity(0.94)
+    ) -> some View {
+        chartOverlay { proxy in
+            GeometryReader { geo in
+                if let x, let y, let text,
+                   let px = proxy.position(forX: x),
+                   let py = proxy.position(forY: y) {
+                    ProgressChartYOverlay.selectionBadge(
+                        text,
+                        foreground: foreground,
+                        background: background
+                    )
+                    .position(
+                        x: min(max(px, 48), max(48, geo.size.width - 48)),
+                        y: min(max(py - 22, 16), max(16, geo.size.height - 16))
+                    )
+                }
+            }
+            .allowsHitTesting(false)
         }
     }
 }
@@ -53,7 +117,7 @@ struct ProgressEmptyChart: View {
                 RuleMark(y: .value("Base", yRange.lowerBound))
                     .foregroundStyle(Color.clear)
             }
-            .chartYScale(domain: yRange)
+            .progressChartYScale(domain: yRange)
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
             .frame(height: height)
@@ -309,108 +373,107 @@ struct ProgressCardioChartCard: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
-                        ZStack(alignment: .top) {
-                            Chart {
-                                ProgressChartYOverlay.marks(
-                                    values: ProgressChartYOverlay.ticks(
-                                        low: yDomain.lowerBound, high: yDomain.upperBound
-                                    ),
-                                    domainLow: yDomain.lowerBound
-                                )
-                                ForEach(points) { point in
-                                    LineMark(
-                                        x: .value("Día", point.date),
-                                        y: .value("lpm", point.minBpm),
-                                        series: .value("Serie", "Mín")
-                                    )
-                                    .foregroundStyle(Self.minTint)
-                                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                    .interpolationMethod(lineInterpolation)
-
-                                    LineMark(
-                                        x: .value("Día", point.date),
-                                        y: .value("lpm", point.avgBpm),
-                                        series: .value("Serie", "Media")
-                                    )
-                                    .foregroundStyle(Self.avgTint)
-                                    .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
-                                    .interpolationMethod(lineInterpolation)
-
-                                    LineMark(
-                                        x: .value("Día", point.date),
-                                        y: .value("lpm", point.maxBpm),
-                                        series: .value("Serie", "Máx")
-                                    )
-                                    .foregroundStyle(Self.maxTint)
-                                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
-                                    .interpolationMethod(lineInterpolation)
-
-                                }
-                                if let selectedPoint {
-                                    RuleMark(x: .value("Día seleccionado", selectedPoint.date))
-                                        .foregroundStyle(OG.label2)
-                                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    PointMark(
-                                        x: .value("Día seleccionado", selectedPoint.date),
-                                        y: .value("lpm", selectedPoint.minBpm)
-                                    )
-                                    .foregroundStyle(Self.minTint)
-                                    .symbolSize(36)
-                                    PointMark(
-                                        x: .value("Día seleccionado", selectedPoint.date),
-                                        y: .value("lpm", selectedPoint.avgBpm)
-                                    )
-                                    .foregroundStyle(Self.avgTint)
-                                    .symbolSize(44)
-                                    PointMark(
-                                        x: .value("Día seleccionado", selectedPoint.date),
-                                        y: .value("lpm", selectedPoint.maxBpm)
-                                    )
-                                    .foregroundStyle(Self.maxTint)
-                                    .symbolSize(36)
-                                }
-                            }
-                            .chartForegroundStyleScale([
-                                "Mín": Self.minTint,
-                                "Media": Self.avgTint,
-                                "Máx": Self.maxTint
-                            ])
-                            .chartXScale(
-                                domain: xDomain,
-                                range: .plotDimension(startPadding: 0, endPadding: 0)
+                        Chart {
+                            ProgressChartYOverlay.marks(
+                                values: ProgressChartYOverlay.ticks(
+                                    low: yDomain.lowerBound, high: yDomain.upperBound
+                                ),
+                                domainLow: yDomain.lowerBound
                             )
-                            .chartXSelection(value: $selectedDate)
-                            .chartYScale(domain: yDomain)
-                            .chartPlotStyle { $0.clipped() }
-                            .chartXAxis {
-                                AxisMarks(values: axisValues) { _ in
-                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                        .foregroundStyle(OG.surface3)
-                                    AxisValueLabel(
-                                        format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
-                                        collisionResolution: .greedy
-                                    )
-                                    .foregroundStyle(OG.label2)
-                                    .font(.system(size: 10))
-                                }
-                            }
-                            .chartYAxis(.hidden)
-                            .chartLegend(.hidden)
-                            .frame(height: 190)
-                            .frame(maxWidth: .infinity)
+                            ForEach(points) { point in
+                                LineMark(
+                                    x: .value("Día", point.date),
+                                    y: .value("lpm", point.minBpm),
+                                    series: .value("Serie", "Mín")
+                                )
+                                .foregroundStyle(Self.minTint)
+                                .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+                                .interpolationMethod(lineInterpolation)
 
+                                LineMark(
+                                    x: .value("Día", point.date),
+                                    y: .value("lpm", point.avgBpm),
+                                    series: .value("Serie", "Media")
+                                )
+                                .foregroundStyle(Self.avgTint)
+                                .lineStyle(StrokeStyle(lineWidth: 2.25, lineCap: .round, lineJoin: .round))
+                                .interpolationMethod(lineInterpolation)
+
+                                LineMark(
+                                    x: .value("Día", point.date),
+                                    y: .value("lpm", point.maxBpm),
+                                    series: .value("Serie", "Máx")
+                                )
+                                .foregroundStyle(Self.maxTint)
+                                .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
+                                .interpolationMethod(lineInterpolation)
+
+                            }
                             if let selectedPoint {
-                                Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(OG.label)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 5)
-                                    .background(OG.surface.opacity(0.94), in: Capsule())
-                                    .padding(.top, 6)
-                                    .allowsHitTesting(false)
-                                    .accessibilityLabel("Selección: mínima \(Int(selectedPoint.minBpm.rounded())), media \(Int(selectedPoint.avgBpm.rounded())), máxima \(Int(selectedPoint.maxBpm.rounded())) pulsaciones")
+                                RuleMark(x: .value("Día seleccionado", selectedPoint.date))
+                                    .foregroundStyle(OG.label2)
+                                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.minBpm)
+                                )
+                                .foregroundStyle(Self.minTint)
+                                .symbolSize(36)
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.avgBpm)
+                                )
+                                .foregroundStyle(Self.avgTint)
+                                .symbolSize(44)
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.maxBpm)
+                                )
+                                .foregroundStyle(Self.maxTint)
+                                .symbolSize(36)
                             }
                         }
+                        .chartForegroundStyleScale([
+                            "Mín": Self.minTint,
+                            "Media": Self.avgTint,
+                            "Máx": Self.maxTint
+                        ])
+                        .chartXScale(
+                            domain: xDomain,
+                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                        )
+                        .chartXSelection(value: $selectedDate)
+                        .progressChartYScale(domain: yDomain)
+                        .progressChartSelectionBadge(
+                            x: selectedPoint?.date,
+                            y: selectedPoint?.avgBpm,
+                            text: selectedPoint.map {
+                                "\(Int($0.minBpm.rounded())) · \(Int($0.avgBpm.rounded())) · \(Int($0.maxBpm.rounded())) lpm · \($0.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                            }
+                        )
+                        .chartPlotStyle { $0.clipped() }
+                        .chartXAxis {
+                            AxisMarks(values: axisValues) { _ in
+                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                    .foregroundStyle(OG.surface3)
+                                AxisValueLabel(
+                                    format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
+                                    collisionResolution: .greedy
+                                )
+                                .foregroundStyle(OG.label2)
+                                .font(.system(size: 10))
+                            }
+                        }
+                        .chartYAxis(.hidden)
+                        .chartLegend(.hidden)
+                        .frame(height: 190)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel(
+                            selectedPoint.map {
+                                "Selección: mínima \(Int($0.minBpm.rounded())), media \(Int($0.avgBpm.rounded())), máxima \(Int($0.maxBpm.rounded())) pulsaciones"
+                            } ?? "Frecuencia cardíaca"
+                        )
 
                         if let stats = periodStats {
                             HStack(spacing: 8) {
@@ -473,7 +536,6 @@ struct ProgressCaloriesChartCard: View {
     private var range: ProgressTimeRange { prepared.range }
     private var granularity: ProgressSeriesGranularity { prepared.granularity }
     private var weekStartsOnMonday: Bool { prepared.weekStartsOnMonday }
-    private var total: Double { prepared.caloriesTotal }
 
     private var hasData: Bool { points.contains { $0.value > 0 } }
     private var dailyAverage: Double? { prepared.caloriesDailyAverage }
@@ -522,16 +584,10 @@ struct ProgressCaloriesChartCard: View {
                 OGCardSectionTitle(title: "Calorías")
                 Spacer(minLength: 8)
                 if prepared.isTeaserPreview {
-                    Text("Ejemplo · \(Int(total.rounded())) kcal")
+                    Text("Ejemplo")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(OG.label2)
                         .accessibilityLabel("Ejemplo, datos ficticios")
-                } else if total > 0 {
-                    Text("\(Int(total.rounded())) kcal")
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
                 }
             }
             OGCard {
@@ -576,13 +632,12 @@ struct ProgressCaloriesChartCard: View {
                                 RuleMark(x: .value("Día seleccionado", selectedPoint.date))
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    .annotation(position: .top, alignment: .center) {
-                                        Text("\(Int(selectedPoint.value.rounded())) kcal · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                            .padding(5)
-                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                    }
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("kcal", selectedPoint.value)
+                                )
+                                .foregroundStyle(OG.orange)
+                                .symbolSize(56)
                             }
                         }
                         .chartXScale(
@@ -590,7 +645,14 @@ struct ProgressCaloriesChartCard: View {
                             range: .plotDimension(startPadding: 0, endPadding: 0)
                         )
                         .chartXSelection(value: $selectedDate)
-                        .chartYScale(domain: 0...yMax)
+                        .progressChartYScale(domain: 0...yMax)
+                        .progressChartSelectionBadge(
+                            x: selectedPoint?.date,
+                            y: selectedPoint?.value,
+                            text: selectedPoint.map {
+                                "\(Int($0.value.rounded())) kcal · \($0.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                            }
+                        )
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(values: axisValues) { _ in
@@ -722,20 +784,6 @@ struct ProgressWeightChartCard: View {
         return latest.weightKg - goal
     }
 
-    private var statusLine: String {
-        if let delta = deltaVsGoal, let goal = goalKg {
-            if abs(delta) < 0.3 {
-                return "En objetivo (\(ReperaNumberFormat.decimal(goal)) kg)"
-            }
-            let sign = delta > 0 ? "+" : ""
-            return "\(sign)\(ReperaNumberFormat.decimal(delta)) kg vs \(ReperaNumberFormat.decimal(goal))"
-        }
-        if let latest {
-            return "\(ReperaNumberFormat.decimal(latest.weightKg)) kg"
-        }
-        return ""
-    }
-
     private var yDomain: ClosedRange<Double> {
         var values = points.map(\.weightKg)
         if let goal = goalKg { values.append(goal) }
@@ -769,16 +817,10 @@ struct ProgressWeightChartCard: View {
                 OGCardSectionTitle(title: "Peso")
                 Spacer(minLength: 8)
                 if isTeaserPreview {
-                    Text("Ejemplo · \(statusLine)")
+                    Text("Ejemplo")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(OG.label2)
                         .accessibilityLabel("Ejemplo, datos ficticios")
-                } else if !statusLine.isEmpty {
-                    Text(statusLine)
-                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(OG.label2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
                 }
             }
             OGCard {
@@ -834,13 +876,12 @@ struct ProgressWeightChartCard: View {
                                 RuleMark(x: .value("Día seleccionado", selectedPoint.date))
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    .annotation(position: .top, alignment: .center) {
-                                        Text("\(ReperaNumberFormat.decimal(selectedPoint.weightKg)) kg · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                            .padding(5)
-                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                    }
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("kg", selectedPoint.weightKg)
+                                )
+                                .foregroundStyle(OG.accent)
+                                .symbolSize(56)
                             }
                         }
                         .chartXScale(
@@ -848,7 +889,14 @@ struct ProgressWeightChartCard: View {
                             range: .plotDimension(startPadding: 0, endPadding: 0)
                         )
                         .chartXSelection(value: $selectedDate)
-                        .chartYScale(domain: yDomain)
+                        .progressChartYScale(domain: yDomain)
+                        .progressChartSelectionBadge(
+                            x: selectedPoint?.date,
+                            y: selectedPoint?.weightKg,
+                            text: selectedPoint.map {
+                                "\(ReperaNumberFormat.decimal($0.weightKg)) kg · \($0.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                            }
+                        )
                         .chartPlotStyle { $0.clipped() }
                         .chartXAxis {
                             AxisMarks(

@@ -8,17 +8,32 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
+    def test_apple_watch_location_delegate_implements_fail(self):
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        self.assertIn("locationManager.requestLocation()", hub)
+        self.assertIn(
+            "func locationManager(_ manager: CLLocationManager, didFailWithError error: Error)",
+            hub,
+        )
+        self.assertIn("CLError)?.code == .locationUnknown", hub)
+
     def test_apple_watch_plan_tap_chooses_live_or_record_dialog(self):
         view = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
-        self.assertIn("onPlayPlan: {\n                            startSelectedPlan(recordOnly: false)", view)
-        self.assertIn("onRecordPlan: {\n                            startSelectedPlan(recordOnly: true)", view)
+        # Overlay a nivel de sesión (no dentro del hub): evita crash al desmontar.
+        self.assertIn("pendingPlanStart", view)
+        self.assertIn("commitPendingPlanStart", view)
+        self.assertIn("onRequestPlanMode:", view)
+        self.assertIn("await Task.yield()", view)
+        self.assertIn("WatchPlanModeOverlay(", view)
         # watchOS: no contextMenu ni confirmationDialog (Liquid Glass traga toques).
         self.assertNotIn(".contextMenu", home)
         self.assertNotIn(".confirmationDialog(", home)
-        self.assertIn("private struct WatchPlanModeOverlay", home)
+        self.assertIn("struct WatchPlanModeOverlay", home)
         self.assertIn("Entreno guiado", home)
         self.assertIn("Entreno libre", home)
+        self.assertIn(".buttonStyle(.plain)", home)
+        self.assertNotIn(".buttonStyle(.borderedProminent)", home)
         self.assertIn("guard hub.startToday(), hub.active?.phase == .ready", view)
 
     def test_apple_watch_last_value_not_ttl_hidden(self):

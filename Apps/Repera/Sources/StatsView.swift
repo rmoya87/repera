@@ -974,9 +974,10 @@ struct StatsView: View {
                         .symbolRenderingMode(.hierarchical)
                         .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
                         .accessibilityHidden(true)
-                    Text("Actividad deportiva")
+                    Text("Actividad\ndeportiva")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(ProgressCategory.sports.accent)
+                        .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1073,9 +1074,10 @@ struct StatsView: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
                                 .accessibilityHidden(true)
-                            Text("Progresión en ejercicios")
+                            Text("Progresión en\nejercicios")
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(ProgressCategory.strength.accent)
+                                .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1329,9 +1331,10 @@ struct StatsView: View {
                                 .symbolRenderingMode(.hierarchical)
                                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] * 0.72 }
                                 .accessibilityHidden(true)
-                            Text("Resumen por actividad")
+                            Text("Resumen por\nactividad")
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(ProgressCategory.sports.accent)
+                                .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2269,13 +2272,12 @@ private struct ProgressSessionScoreChartCard: View {
                     RuleMark(x: .value("Entreno seleccionado", selectedRecentWorkoutIndex))
                         .foregroundStyle(OG.label2)
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                        .annotation(position: .top) {
-                            Text("\(item.verifiedScore)/10 · \(item.finishedAt.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(OG.label)
-                                .padding(5)
-                                .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                        }
+                    PointMark(
+                        x: .value("Entreno seleccionado", selectedRecentWorkoutIndex),
+                        y: .value("Puntuación", Double(item.verifiedScore))
+                    )
+                    .foregroundStyle(OG.accent)
+                    .symbolSize(56)
                 }
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
@@ -2284,7 +2286,18 @@ private struct ProgressSessionScoreChartCard: View {
                 domain: 1...max(1, recent.count),
                 range: .plotDimension(startPadding: 0, endPadding: 0)
             )
-            .chartYScale(domain: 0.0...10.0)
+            .progressChartYScale(domain: 0.0...10.0)
+            .progressChartSelectionBadge(
+                x: selectedRecentWorkoutIndex.flatMap { recent.indices.contains($0 - 1) ? $0 : nil },
+                y: selectedRecentWorkoutIndex.flatMap { idx -> Double? in
+                    recent.indices.contains(idx - 1) ? Double(recent[idx - 1].verifiedScore) : nil
+                },
+                text: selectedRecentWorkoutIndex.flatMap { idx -> String? in
+                    guard recent.indices.contains(idx - 1) else { return nil }
+                    let item = recent[idx - 1]
+                    return "\(item.verifiedScore)/10 · \(item.finishedAt.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))"
+                }
+            )
             .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(values: Array(1...recent.count))
@@ -2478,13 +2491,12 @@ private struct ProgressSessionScoreChartCard: View {
                                 RuleMark(x: .value("Día seleccionado", selected.date))
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    .annotation(position: .top) {
-                                        Text("\(Int(selected.score.rounded()))/10")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                            .padding(5)
-                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                    }
+                                PointMark(
+                                    x: .value("Día seleccionado", selected.date),
+                                    y: .value("Puntuación", selected.score)
+                                )
+                                .foregroundStyle(OG.accent)
+                                .symbolSize(56)
                             }
                         }
                         .chartXSelection(value: $selectedDate)
@@ -2497,7 +2509,28 @@ private struct ProgressSessionScoreChartCard: View {
                             ),
                             range: .plotDimension(startPadding: 0, endPadding: 0)
                         )
-                        .chartYScale(domain: 0.0...10.0)
+                        .progressChartYScale(domain: 0.0...10.0)
+                        .progressChartSelectionBadge(
+                            x: {
+                                guard !isTeaserPreview, let selectedDate else { return nil as Date? }
+                                return values.min(by: {
+                                    abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+                                })?.date
+                            }(),
+                            y: {
+                                guard !isTeaserPreview, let selectedDate else { return nil as Double? }
+                                return values.min(by: {
+                                    abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+                                })?.score
+                            }(),
+                            text: {
+                                guard !isTeaserPreview, let selectedDate,
+                                      let selected = values.min(by: {
+                                          abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
+                                      }) else { return nil as String? }
+                                return "\(Int(selected.score.rounded()))/10"
+                            }()
+                        )
                         .chartPlotStyle { $0.clipped() }
                         .chartYAxis(.hidden)
                         .chartXAxis {

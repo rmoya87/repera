@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -49,22 +50,15 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
   if(points.isEmpty()) {
    EmptyHealthChart("Sin ritmo cardíaco de Salud en ${charts.range.title.lowercase()}.",60.0,160.0,190.dp)
   } else {
-   Box(Modifier.fillMaxWidth()) {
+   BoxWithConstraints(Modifier.fillMaxWidth().height(190.dp)) {
+    val topPadPx = with(LocalDensity.current) { ProgressChartYTopPadDp.toPx() }
     Canvas(Modifier.fillMaxWidth().height(190.dp).testTag("cardio_observed_plot")
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
-     fun y(value:Double)=size.height-((value-low)/(high-low)*size.height).toFloat()
+     fun y(value:Double)=progressChartPlotY(value, low, high, size.height, topPadPx)
      val yLabelPaint=progressChartYLabelPaint(axisInk,10.sp.toPx())
      clipRect {
-      // Omite el mínimo del dominio para no chocar con el eje X.
-      listOf(high,(low+high)/2).forEach {value ->
-       val gy=y(value)
-       drawLine(grid,Offset(0f,gy),Offset(size.width,gy),0.5.dp.toPx())
-       drawContext.canvas.nativeCanvas.drawText(
-        Math.round(value).toString(),4.dp.toPx(),(gy-4.dp.toPx()).coerceAtLeast(12.dp.toPx()),yLabelPaint
-       )
-      }
       ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
       listOf<(HeartRatePlotPoint)->Double>({it.minBpm},{it.avgBpm},{it.maxBpm}).forEachIndexed {series,value ->
        val positions=points.indices.map {ReadinessCurve.Point(x(it),y(value(points[it])))}
@@ -72,19 +66,38 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
        ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
        drawPath(path,colors[series],style=Stroke((if(series==1) 2.25f else 1.75f).dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
       }
-      selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
+     }
+     listOf(high,(low+high)/2).forEach {value ->
+      val gy=y(value)
+      drawLine(grid,Offset(0f,gy),Offset(size.width,gy),0.5.dp.toPx())
+      drawContext.canvas.nativeCanvas.drawText(
+       Math.round(value).toString(),4.dp.toPx(),
+       (gy + 11.dp.toPx()).coerceAtMost(size.height - 2.dp.toPx()),
+       yLabelPaint
+      )
+     }
+     selected?.let {i ->
+      drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))
+      drawCircle(colors[1], radius = 5.dp.toPx(), center = Offset(x(i), y(points[i].avgBpm)))
      }
     }
     selected?.let {
      val p=points[it]
+     val px = ProgressPlotAxis.fraction(p.day, domain) * maxWidth
+     val py = with(LocalDensity.current) {
+      progressChartPlotY(p.avgBpm, low, high, 190.dp.toPx(), topPadPx).toDp()
+     }
      Text(
       Math.round(p.minBpm).toString()+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm · "+
        p.day.format(reperaDayFormatter),
       style=MaterialTheme.typography.labelSmall,
       color=MaterialTheme.colorScheme.onSurface,
       modifier=Modifier
-       .align(Alignment.TopCenter)
-       .padding(top=6.dp)
+       .align(Alignment.TopStart)
+       .offset(
+        x = (px - 56.dp).coerceIn(0.dp, (maxWidth - 112.dp).coerceAtLeast(0.dp)),
+        y = (py - 22.dp).coerceAtLeast(2.dp)
+       )
        .background(
         MaterialTheme.colorScheme.surface.copy(alpha=0.94f),
         RoundedCornerShape(50)
