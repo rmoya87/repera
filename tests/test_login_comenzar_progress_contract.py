@@ -47,7 +47,7 @@ class LoginComenzarProgressContracts(unittest.TestCase):
         self.assertIn("_ = speakNavigation(message)", km)
         self.assertIn("content.sound = nil", source)
         self.assertIn("setCategory(", source)
-        self.assertIn(".playback, mode: .spokenAudio", source)
+        self.assertIn(".playback, mode: .voicePrompt", source)
         self.assertIn("guard spokenGuidanceEnabled, !message.isEmpty else", source)
         self.assertIn("pendingGuidanceUtterances", source)
         self.assertIn("finishGuidanceUtterance(id)", source)

@@ -42,6 +42,31 @@ enum TimerScreenAwake {
     }
 }
 
+/// Estado mínimo y sincronizado del audio de navegación. AVAudioSession
+/// pertenece a todo el proceso, incluso cuando RestFeedback reproduce desde
+/// su propia cola. No usar `session.mode` como indicador de sesión activa:
+/// el modo puede conservarse tras desactivarla.
+final class LiveNavigationAudioLease: @unchecked Sendable {
+    static let shared = LiveNavigationAudioLease()
+
+    private let lock = NSLock()
+    private var active = false
+
+    private init() {}
+
+    var isActive: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return active
+    }
+
+    func setActive(_ newValue: Bool) {
+        lock.lock()
+        active = newValue
+        lock.unlock()
+    }
+}
+
 /// Única familia de tonos para Comenzar, Temporizador y descansos.
 /// Los tres pitidos y el aviso largo comparten frecuencia y timbre.
 @MainActor
@@ -150,8 +175,12 @@ private final class RestToneAudioEngine: @unchecked Sendable {
 
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-                try session.setActive(true)
+                // Si una voz GPS ya posee la sesión compartida, no cambiar
+                // voicePrompt a .default ni reiniciar el ducking del podcast.
+                if !LiveNavigationAudioLease.shared.isActive {
+                    try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+                    try session.setActive(true)
+                }
                 guard isCurrent(id) else { return }
 
                 let player = try AVAudioPlayer(data: data)
@@ -182,9 +211,11 @@ private final class RestToneAudioEngine: @unchecked Sendable {
         return currentToneID == id
     }
 
-    /// Solo se invoca desde `queue`. No cerrar la sesión de una locución GPS.
+    /// Solo se invoca desde `queue`. No cerrar la sesión de navegación
+    /// .voicePrompt; sus avisos liberan el audio al acabar todas las frases.
+    /// La comprobación usa la concesión real, no session.mode persistente.
     private func deactivateWhenIdle(_ session: AVAudioSession, id: UUID) {
-        guard isCurrent(id), session.mode != .spokenAudio else { return }
+        guard isCurrent(id), !LiveNavigationAudioLease.shared.isActive else { return }
         try? session.setActive(false, options: .notifyOthersOnDeactivation)
     }
 }

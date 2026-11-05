@@ -1131,7 +1131,7 @@ final class LiveActivityRecorder: NSObject {
     private override init() {
         super.init()
         speechSynthesizer.delegate = self
-        // Misma sesión .playback/.spokenAudio para locuciones y para ducking
+        // Sesión .playback/.voicePrompt para locuciones y ducking
         // de música/podcasts, también al recibir GPS en bloqueo.
         speechSynthesizer.usesApplicationAudioSession = true
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
@@ -1294,11 +1294,12 @@ final class LiveActivityRecorder: NSObject {
         // didFinish puede llegar entre dos utterances. La sesión sigue activa
         // hasta que todas las locuciones pendientes hayan terminado/cancelado.
         guard pendingGuidanceUtterances.isEmpty, guidanceAudioActive else { return }
-        guidanceAudioActive = false
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false, options: .notifyOthersOnDeactivation
             )
+            guidanceAudioActive = false
+            LiveNavigationAudioLease.shared.setActive(false)
         } catch {
             NSLog("[Repera] No se pudo liberar el audio de navegación: %@", String(describing: error))
         }
@@ -1329,13 +1330,14 @@ final class LiveActivityRecorder: NSObject {
             let audio = AVAudioSession.sharedInstance()
             do {
                 try audio.setCategory(
-                    .playback, mode: .spokenAudio,
+                    .playback, mode: .voicePrompt,
                     // Navegación: bajar música durante la frase y pausar podcasts hablados.
                     // Al terminar se libera el audio para restaurar el volumen anterior.
                     options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
                 )
                 try audio.setActive(true)
                 guidanceAudioActive = true
+                LiveNavigationAudioLease.shared.setActive(true)
             } catch {
                 NSLog("[Repera] No se pudo activar audio de navegación: %@", String(describing: error))
                 return false

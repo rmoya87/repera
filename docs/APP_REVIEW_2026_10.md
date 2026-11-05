@@ -11,6 +11,9 @@ Se ha eliminado el preintersticial de permisos del onboarding. Después del inic
 ## 2.5.4 — Audio
 Se ha eliminado `audio` de `UIBackgroundModes` en el plist y en XcodeGen, conservando `location` y `fetch`. Sigue disponible el GPS en segundo plano mediante Core Location, así como las notificaciones locales de avisos cuando están autorizadas. Las locuciones de navegación son breves, no un reproductor continuo. Es obligatorio probar en iPhone real que las indicaciones y los temporizadores mantienen el comportamiento esperado con la app bloqueada; quitar `audio` puede limitar las locuciones en determinados estados de suspensión.
 
+## 05/11/2026 — locuciones breves y convivencia con música/podcasts
+La guía oral de `Comenzar` usa `AVAudioSession(category: .playback, mode: .voicePrompt)` con `.duckOthers` y `.interruptSpokenAudioAndMixWithOthers`. Son los parámetros recomendados por Apple para avisos cortos de navegación o ejercicio. Al terminar todas las frases, o al silenciar/pausar/finalizar, se libera la sesión con `.notifyOthersOnDeactivation`. `RestFeedback` debe respetar el modo `.voicePrompt` al liberar sus pitidos y no cortar una locución vigente. Se mantiene sin `UIBackgroundModes/audio`; no declarar audio continuo ficticio. Validar con Spotify/Apple Podcasts/auriculares Bluetooth y con bloqueo físico antes de enviar a App Review.
+
 ## Para enviar la compilación
 1. Regenerar el proyecto XcodeGen y compilar los targets iOS + Watch.
 2. Ejecutar pruebas de contrato Python y tests Swift y verificar la firma/entitlements del archive.
