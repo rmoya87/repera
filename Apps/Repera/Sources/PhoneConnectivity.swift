@@ -6,6 +6,9 @@ import os
 protocol PhoneConnectivityDelegate: AnyObject {
     func phoneConnectivityDidUpdateReachability(_ reachable: Bool)
     func phoneConnectivityDidReceive(session: WorkoutSession)
+    /// ActivityKit mirror for a workout actually owned by Apple Watch.
+    /// Does not start a phone HealthKit workout or a second GPS tracker.
+    func phoneConnectivityDidReceiveWatchOwnedLive(_ snapshot: WatchLiveActivitySnapshot)
     func phoneConnectivityDidReceiveTimer(_ timer: WatchTimerMirror)
     /// Watch descartó el entreno en curso: limpiar activeSession sin guardar.
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool
@@ -29,6 +32,7 @@ protocol PhoneConnectivityDelegate: AnyObject {
 }
 
 extension PhoneConnectivityDelegate {
+    func phoneConnectivityDidReceiveWatchOwnedLive(_ snapshot: WatchLiveActivitySnapshot) {}
     func phoneConnectivityDidReceiveTimer(_ timer: WatchTimerMirror) {}
     func phoneConnectivityDidReceiveLiveCommand(sessionId: UUID, command: String) async -> Bool { false }
     func phoneConnectivityDidReceiveStartLive(sportID: String) async -> Bool { false }
@@ -440,7 +444,8 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         // A watch may deliver a completed workout from a previous login days
         // later. Unscoped legacy messages remain unacknowledged, not reassigned.
         if payload["session"] != nil || payload["discarded"] != nil
-            || payload["timerMirror"] != nil {
+            || payload["timerMirror"] != nil
+            || payload["watchOwnedLiveActivity"] != nil {
             let expected = latestPayloadLock.withLock {
                 latestPayload?["ownerScope"] as? String
             }
@@ -449,6 +454,22 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
                 logger.warning("Ignoring Watch workout with missing/mismatched account scope")
                 return
             }
+        }
+        if let data = payload["watchOwnedLiveActivity"] as? Data {
+            guard WatchTransportLimits.accepts(data),
+                  let snapshot = try? JSONDecoder().decode(
+                    WatchLiveActivitySnapshot.self, from: data
+                  ) else {
+                logger.warning("Ignoring invalid Watch-owned live snapshot")
+                return
+            }
+            // A background userInfo may be delivered long after its workout
+            // finished. Do not resurrect an obsolete lock-screen activity.
+            let age = Date().timeIntervalSince(snapshot.capturedAt)
+            guard age >= -5, age <= (snapshot.phase == .review ? 3600 : 90) else {
+                return
+            }
+            delegate?.phoneConnectivityDidReceiveWatchOwnedLive(snapshot)
         }
         if let data = payload["timerMirror"] as? Data {
             guard WatchTransportLimits.accepts(data),
