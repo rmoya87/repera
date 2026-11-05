@@ -1467,6 +1467,8 @@ struct HealthRecoveryProgressView: View {
         let xStart = nights.map(\.date).min() ?? Date()
         let xEnd = nights.map(\.date).max() ?? Date()
         let orderedNights = nights.sorted { $0.date < $1.date }
+        let guideHours = stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)
+            .map(Double.init)
         return OGCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 12) {
@@ -1497,6 +1499,17 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
 
                 Chart {
+                    ForEach(guideHours, id: \.self) { hour in
+                        RuleMark(y: .value("Hora guía", hour))
+                            .foregroundStyle(NightSky.glow.opacity(0.28))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
+                            .annotation(position: .overlay, alignment: .leading) {
+                                Text("\(Int(hour)) h")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .padding(.leading, 5)
+                            }
+                    }
                     ForEach(orderedNights) { night in
                         AreaMark(
                             x: .value("Día", night.date),
@@ -1545,7 +1558,7 @@ struct HealthRecoveryProgressView: View {
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
-                .padding(10)
+                .padding(.vertical, 10)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")

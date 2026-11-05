@@ -840,7 +840,8 @@ enum SportNearbyPlaceSuggester {
         )
     }
 
-    /// Coordenada de sesión → sugerencia, o captura puntual del iPhone si no hay ruta.
+    /// Solo ubicaciones capturadas durante la sesión: nunca inferir el lugar
+    /// histórico a partir de la posición actual del teléfono.
     @MainActor
     static func suggestForSession(
         sport: LiveSport?,
@@ -850,35 +851,28 @@ enum SportNearbyPlaceSuggester {
         if let existing = existingPin, existing.hasChosenPlace { return existing }
         let sport = sport ?? .other
         let coordinate: CLLocationCoordinate2D
-        let capturedPin: WorkoutLocationPin?
         if let first = routePoints.first {
             coordinate = CLLocationCoordinate2D(latitude: first.latitude, longitude: first.longitude)
-            capturedPin = nil
         } else if let existingPin {
             coordinate = CLLocationCoordinate2D(
                 latitude: existingPin.latitude, longitude: existingPin.longitude
             )
-            capturedPin = nil
-        } else if WorkoutLocationTracker.shared.isAuthorized,
-                  let pin = await WorkoutLocationTracker.shared.capturePin() {
-            coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
-            capturedPin = pin
         } else {
-            return existingPin
+            // Si no se registró el lugar en su momento, permanece desconocido.
+            return nil
         }
         if let suggested = await suggest(
             sport: sport,
             coordinate: coordinate,
-            recordedAt: capturedPin?.recordedAt ?? existingPin?.recordedAt ?? Date()
+            recordedAt: existingPin?.recordedAt ?? routePoints.first?.recordedAt ?? Date()
         ) {
             return suggested
         }
-        if let capturedPin { return capturedPin }
         if let existingPin { return existingPin }
         return WorkoutLocationPin(
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
-            recordedAt: Date()
+            recordedAt: routePoints.first?.recordedAt ?? existingPin?.recordedAt ?? Date()
         )
     }
 }

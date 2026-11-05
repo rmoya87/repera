@@ -3617,7 +3617,9 @@ struct LiveActivityView: View {
                 routePoints: recorder.routePoints,
                 existingPin: recorder.reviewLocationPin
             )
-            if recorder.phase == .review, recorder.startedAt == activityStart {
+            if recorder.phase == .review, recorder.startedAt == activityStart,
+               let pin {
+                // No borrar el GPS inicial por un resultado de Mapas vacío.
                 recorder.applyReviewLocationPin(pin)
             }
             let suggested = await LiveActivityLocationName.suggest(

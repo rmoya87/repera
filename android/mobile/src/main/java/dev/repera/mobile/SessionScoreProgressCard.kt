@@ -67,7 +67,7 @@ internal fun SessionScoreProgressCard(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(9.dp)
                     ) {
-                        TrendScoreMetric("Última nota",
+                        TrendScoreMetric("Última nota comparable",
                             values.lastOrNull()?.let { "${it.value.roundToInt()}/10" } ?: "—")
                         TrendScoreMetric("Mejor nota",
                             values.maxOfOrNull { it.value }?.let { "${it.roundToInt()}/10" } ?: "—")

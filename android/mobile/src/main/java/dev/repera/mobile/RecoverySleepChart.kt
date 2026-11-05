@@ -114,6 +114,32 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     area,
                     Brush.verticalGradient(listOf(mid.copy(alpha = 0.5f), ink.copy(alpha = 0.15f)))
                 )
+                // Guías horizontales de horas: área y línea llegan a ambos bordes.
+                val firstHour = kotlin.math.ceil(low).toInt()
+                val lastHour = kotlin.math.floor(high).toInt()
+                for (hour in firstHour..lastHour step 2) {
+                    val guideY = y(hour.toDouble())
+                    drawLine(
+                        glow.copy(alpha = 0.3f),
+                        Offset(0f, guideY),
+                        Offset(size.width, guideY),
+                        1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(2.dp.toPx(), 4.dp.toPx())
+                        )
+                    )
+                    val labelPaint = android.graphics.Paint(
+                        android.graphics.Paint.ANTI_ALIAS_FLAG
+                    ).apply {
+                        color = android.graphics.Color.argb(195, 228, 236, 255)
+                        textSize = 10.dp.toPx()
+                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "${hour} h", 5.dp.toPx(),
+                        (guideY - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                        labelPaint
+                    )
+                }
                 drawPath(
                     curve,
                     glow,
