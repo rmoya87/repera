@@ -411,8 +411,11 @@ class HealthConnectReader(private val context: Context) {
         val from = if (editedWindow) startEpochMs else matched.startEpochMs
         val until = if (editedWindow) endEpochMs else matched.endEpochMs
         val evidence = readSessionEvidence(from, until)
+        val eligibleHeart = if (editedWindow)
+            evidence.heart.filter { it.originPackage == matched.packageName }
+        else evidence.heart
         return when (val merged = dev.repera.domain.SessionHealthMatcher
-            .mergeHeartRate(evidence.heart)) {
+            .mergeHeartRate(eligibleHeart)) {
             is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged -> merged.series
             else -> emptyList()
         }
@@ -441,8 +444,11 @@ class HealthConnectReader(private val context: Context) {
         val from = if (editedWindow) startEpochMs else matched.startEpochMs
         val until = if (editedWindow) endEpochMs else matched.endEpochMs
         val evidence = readSessionEvidence(from, until)
+        val eligibleHeart = if (editedWindow)
+            evidence.heart.filter { it.originPackage == matched.packageName }
+        else evidence.heart
         val bpm: List<Double> = when (val merged = dev.repera.domain.SessionHealthMatcher
-            .mergeHeartRate(evidence.heart)) {
+            .mergeHeartRate(eligibleHeart)) {
             is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged ->
                 merged.series.map { it.second.toDouble() }
             else -> emptyList()
