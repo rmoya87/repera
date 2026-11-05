@@ -840,7 +840,8 @@ enum SportNearbyPlaceSuggester {
         )
     }
 
-    /// Coordenada de sesión → sugerencia, o captura puntual del iPhone si no hay ruta.
+    /// Solo coordenadas grabadas durante la sesión. Nunca usar el GPS actual
+    /// para reconstruir el lugar de un entreno anterior o recién finalizado.
     @MainActor
     static func suggestForSession(
         sport: LiveSport?,
@@ -859,12 +860,9 @@ enum SportNearbyPlaceSuggester {
                 latitude: existingPin.latitude, longitude: existingPin.longitude
             )
             capturedPin = nil
-        } else if WorkoutLocationTracker.shared.isAuthorized,
-                  let pin = await WorkoutLocationTracker.shared.capturePin() {
-            coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
-            capturedPin = pin
         } else {
-            return existingPin
+            // No hay evidencia del lugar de la sesión: dejarlo sin ubicación.
+            return nil
         }
         if let suggested = await suggest(
             sport: sport,

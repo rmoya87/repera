@@ -97,6 +97,59 @@ internal fun ProgressTab(
     accountId: String = ""
 ) {
     val recent = overview?.history.orEmpty()
+    // El último entreno se elige de todo el archivo, también Health Connect.
+    val latestActivityTitle = remember(overview) {
+        val local = overview?.completeHistory.orEmpty()
+            .filter { it.timerDetails == null && it.finishedAtIso != null }
+            .maxByOrNull { it.finishedAtIso.orEmpty() }
+        val external = overview?.externalHealthHistory.orEmpty().maxByOrNull { it.endMillis }
+        val localEnd = local?.finishedAtIso?.let {
+            runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+        } ?: Long.MIN_VALUE
+        if (external != null && external.endMillis > localEnd) {
+            external.title + " · " + external.minutes.toInt() + " min"
+        } else local?.let { workout ->
+            val sensorFacts = listOfNotNull(
+                workout.appleActiveEnergyKcal?.takeIf { it > 0 }
+                    ?.let { it.toInt().toString() + " kcal" },
+                workout.appleAverageHeartRateBpm?.takeIf { it > 0 }
+                    ?.let { it.toInt().toString() + " lpm" }
+            )
+            workout.title + " · " + workout.displayDurationMinutes().toInt() + " min" +
+                (if (sensorFacts.isEmpty()) "" else " · " + sensorFacts.joinToString(" · "))
+        }
+    }
+    // 7 sesiones, no 7 fechas. El historial completo incluye planes,
+    // Comenzar, Watch y actividades que proceden de Health Connect.
+    val recentWorkoutBars = remember(overview) {
+        val local = overview?.completeHistory.orEmpty().mapNotNull { workout ->
+            if (workout.timerDetails != null) return@mapNotNull null
+            val end = workout.finishedAtIso?.let {
+                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+            } ?: return@mapNotNull null
+            RecentWorkoutPlot(
+                id = "repera-" + workout.id, title = workout.title, finishedMillis = end,
+                minutes = workout.displayDurationMinutes().takeIf { it > 0 },
+                verifiedScore = workout.review?.takeIf {
+                    it.scoreBasis == dev.repera.domain.ScoreBasis.PERSONAL_HISTORY
+                }?.overallScore
+            )
+        }
+        val imported = overview?.externalHealthHistory.orEmpty().filterNot { activity ->
+            // Salud y Repera pueden referirse a la misma grabación: no duplicar.
+            local.any { session ->
+                kotlin.math.abs(session.finishedMillis - activity.endMillis) < 90_000L &&
+                    kotlin.math.abs((session.minutes ?: 0.0) - activity.minutes) < 3.0
+            }
+        }.map { activity ->
+            RecentWorkoutPlot(
+                id = "health-" + activity.id, title = activity.title,
+                finishedMillis = activity.endMillis,
+                minutes = activity.minutes.takeIf { it > 0 }, verifiedScore = null
+            )
+        }
+        (local + imported).sortedByDescending { it.finishedMillis }.take(7).reversed()
+    }
     val subscriptions = LocalSubscriptions.current
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
@@ -160,6 +213,23 @@ internal fun ProgressTab(
         }
     }
     val rangeEnum = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange } ?: ProgressTimeRange.WEEK
+    // dayWorkoutCounts incluye temporizadores; descontarlos de la métrica
+    // de entrenamientos reales, sin perder sesiones importadas de Salud.
+    val timerCountsByDay = remember(overview) {
+        overview?.completeHistory.orEmpty().filter { it.timerDetails != null }
+            .mapNotNull { timer ->
+                timer.finishedAtIso?.let {
+                    runCatching { java.time.Instant.parse(it) }.getOrNull()
+                }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+            }.groupingBy { it }.eachCount()
+    }
+    val realWorkoutsToday = ((overview?.dayWorkoutCounts?.get(today) ?: 0) -
+        (timerCountsByDay[today] ?: 0)).coerceAtLeast(0)
+    val realWorkoutsInRange = overview?.dayWorkoutCounts.orEmpty()
+        .filterKeys { rangeEnum.contains(it, today, monday) }
+        .entries.sumOf { (day, count) ->
+            (count - (timerCountsByDay[day] ?: 0)).coerceAtLeast(0)
+        }
     // Series reales de HC (siempre en overview); las teasers gratis van aparte en preparedCharts.
     val realHeartCharts = overview?.chartsByRange?.get(ProgressTimeRange.WEEK.wire)
     val heartWeekPoints = realHeartCharts?.heartRate.orEmpty().filter {
@@ -266,7 +336,10 @@ internal fun ProgressTab(
                                     preview = !pro,
                                     range = rangeEnum,
                                     monday = monday,
-                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
+                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null,
+                                    latestActivity = latestActivityTitle,
+                                    recordedSessions = realWorkoutsInRange,
+                                    recentWorkouts = recentWorkoutBars
                                 )
                             },
                             second = {
@@ -376,19 +449,31 @@ internal fun ProgressTab(
                     item {
                         val period = "últimos 7 días"
                         val strengthBars = strengthDailyBarFractions(snapshot.hubDailyVolumeKg)
+                        val todayPrs = overview?.completeHistory.orEmpty().sumOf { entry ->
+                            val day = entry.finishedAtIso?.let {
+                                runCatching { java.time.Instant.parse(it) }.getOrNull()
+                            }?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
+                            if (day == today) overview?.prCountBySessionId?.get(entry.id) ?: 0 else 0
+                        }
+                        val todaySummary = "Hoy " + realWorkoutsToday +
+                            " ses. · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
+                            " kg · " + todayPrs + " PR"
                         ProgressSaludInsightCard(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
                             tint = ProgressCategory.STRENGTH.accent,
                             narrative = strengthInsightCopy(
                                 prCount = snapshot.records.size,
-                                volumeKg = snapshot.summary.volumeKg.toInt()
+                                volumeKg = snapshot.summary.volumeKg.toInt(),
+                                activitiesToday = realWorkoutsToday
                             ),
                             heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
                             heroCaption = when {
                                 snapshot.summary.volumeKg > 0 ->
-                                    "${snapshot.summary.volumeKg.toInt()} kg · $period"
+                                    snapshot.summary.volumeKg.toInt().toString() + " kg / 7 d\n" +
+                                        todaySummary
+                                realWorkoutsToday > 0 -> todaySummary
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
                             },
@@ -950,10 +1035,12 @@ internal fun ProgressTab(
     }
 }
 
-private fun strengthInsightCopy(prCount: Int, volumeKg: Int): String {
-    // Con dato, el héroe + caption bastan (sin «Has movido…»).
+private fun strengthInsightCopy(prCount: Int, volumeKg: Int, activitiesToday: Int = 0): String {
     if (prCount == 0 && volumeKg == 0) {
-        return "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
+        return if (activitiesToday > 0)
+            activitiesToday.toString() + " actividades registradas hoy. La carga en kg necesita " +
+                "series y pesos reales; tus sesiones sí cuentan en Progreso."
+        else "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
     }
     return ""
 }

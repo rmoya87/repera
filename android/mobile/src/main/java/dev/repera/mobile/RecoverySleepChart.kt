@@ -20,6 +20,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlin.math.ceil
+import kotlin.math.floor
 import dev.repera.domain.RecoverySleepNight
 
 internal fun sleepChartHeightDp(columnWidthDp: Float, expanded: Boolean) =
@@ -81,12 +84,12 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     )
                 }
                 .pointerInput(ordered) {
-                    detectTapGestures { selected = nearest(it.x / size.width.coerceAtLeast(1f)) }
+                    detectTapGestures { selected = nearest(it.x / size.width.coerceAtLeast(1).toFloat()) }
                 }
                 .pointerInput(ordered) {
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        selected = nearest(change.position.x / size.width.coerceAtLeast(1f))
+                        selected = nearest(change.position.x / size.width.coerceAtLeast(1).toFloat())
                     }
                 }
         ) {
@@ -114,6 +117,29 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     area,
                     Brush.verticalGradient(listOf(mid.copy(alpha = 0.5f), ink.copy(alpha = 0.15f)))
                 )
+                // Cuadrícula sutil de horas, sin márgenes interiores en la curva.
+                val hoursInk = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(185, 235, 241, 255)
+                    textSize = 10.sp.toPx()
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                }
+                for (hour in ceil(low).toInt()..floor(high).toInt() step 2) {
+                    val lineY = y(hour.toDouble())
+                    drawLine(
+                        Color.White.copy(alpha = 0.25f),
+                        Offset(0f, lineY), Offset(size.width, lineY),
+                        strokeWidth = 1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(2.dp.toPx(), 4.dp.toPx())
+                        )
+                    )
+                    drawContext.canvas.nativeCanvas.drawText(
+                        hour.toString() + " h",
+                        size.width - 8.dp.toPx(),
+                        (lineY - 5.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                        hoursInk
+                    )
+                }
                 drawPath(
                     curve,
                     glow,

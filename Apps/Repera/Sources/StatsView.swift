@@ -599,8 +599,8 @@ struct StatsView: View {
                 value: prCount > 0 ? "\(prCount)" : "—",
                 unit: prCount > 0 ? "PR" : nil,
                 caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption)"
-                    : hubPeriodCaption,
+                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg / 7 d\n\(strengthTodaySummary)"
+                    : strengthTodaySummary,
                 valuePointSize: 64,
                 chartHeight: 118,
                 chartBesideTitle: true
@@ -719,12 +719,44 @@ struct StatsView: View {
         return values
     }
 
+    /// Actividades de hoy desde Repera y Salud, sin duplicar el mismo registro.
+    private var trainingSessionsToday: Int {
+        let today = Date()
+        let logged = store.state.workouts.filter {
+            $0.finishedAt.map { Calendar.current.isDate($0, inSameDayAs: today) } == true
+                && $0.timerDetails == nil
+        }.count
+        let external = HealthMuscleMapper.uniqueExternalActivities(
+            health.recentExternalActivities, workouts: store.state.workouts
+        ).filter { Calendar.current.isDate($0.end, inSameDayAs: today) }.count
+        return logged + external
+    }
+
+    /// Las marcas de hoy son PR realmente superados, no el primer registro
+    /// de cada ejercicio ni los mejores pesos históricos sin cambio.
+    private var personalRecordsToday: Int {
+        let counts = store.cachedPersonalRecordCountsBySession()
+        let today = Date()
+        return store.state.workouts.reduce(0) { total, session in
+            guard let ended = session.finishedAt,
+                  Calendar.current.isDate(ended, inSameDayAs: today) else { return total }
+            return total + (counts[session.id] ?? 0)
+        }
+    }
+
+    private var strengthTodaySummary: String {
+        let kilos = Int((strengthDailyVolumeLast7.last ?? 0).rounded())
+        return "Hoy \(trainingSessionsToday) ses. · \(kilos) kg · \(personalRecordsToday) PR"
+    }
+
     private var strengthInsightCopy: String {
         let prCount = snap.records.count
         let volumeKg = Int(snap.summary.volumeKg.rounded())
-        // Con dato, el héroe + caption bastan (sin «Has movido…»).
         if prCount == 0 && volumeKg == 0 {
-            return "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
+            let count = trainingSessionsToday
+            return count > 0
+                ? "\(count) actividades hoy. La carga en kg requiere series y pesos registrados; tu tiempo de entrenamiento sí cuenta."
+                : "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
         }
         return ""
     }
@@ -1584,9 +1616,12 @@ struct StatsView: View {
         // La gráfica real solo incorpora notas verificadas. Si no existen,
         // mantiene los ejes y explica la ausencia de datos.
         ProgressSessionScoreChartCard(
-            workouts: snap.filteredWorkouts,
+            workouts: store.state.workouts,
             range: model.range,
-            weekStartsOnMonday: mondayFirst
+            weekStartsOnMonday: mondayFirst,
+            externalActivities: HealthMuscleMapper.uniqueExternalActivities(
+                health.recentExternalActivities, workouts: store.state.workouts
+            )
         )
     }
 
@@ -1982,10 +2017,12 @@ private struct ProgressAllRecordsView: View {
 /// heurísticas antiguas: solo `personalHistory` persistido en cada sesión.
 private struct ProgressSessionScoreChartCard: View {
     @State private var selectedDate: Date?
+    @State private var selectedRecentWorkoutIndex: Int?
     var workouts: [WorkoutSession]
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool
     var isTeaserPreview: Bool = false
+    var externalActivities: [HealthKitStore.ExternalActivity] = []
 
     private struct ScoreDay: Identifiable {
         let date: Date
@@ -2008,6 +2045,8 @@ private struct ProgressSessionScoreChartCard: View {
         }
         let rated: [(Date, Double)] = workouts.compactMap { session in
             guard let finishedAt = session.finishedAt,
+                  range.contains(finishedAt, weekStartsOnMonday: weekStartsOnMonday),
+                  session.timerDetails == nil,
                   let review = session.sessionReview,
                   review.scoreBasis == .personalHistory else { return nil }
             return (calendar.startOfDay(for: finishedAt), Double(review.overallScore))
@@ -2029,9 +2068,170 @@ private struct ProgressSessionScoreChartCard: View {
         }
     }
 
+    /// Incluye todos los entrenamientos realizados, también Comenzar y Watch
+    /// sin series ni puntuación comparable. No contabiliza temporizadores.
+    private struct RecentActivity {
+        let title: String
+        let endedAt: Date
+        let durationMinutes: Int
+        let activeEnergyKcal: Double?
+        let averageHeartRateBpm: Double?
+        let hasVerifiedScore: Bool
+    }
+
+    private var latestActivity: RecentActivity? {
+        let recorded = workouts.filter { $0.finishedAt != nil && $0.timerDetails == nil }
+            .max { ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast) }
+        let external = externalActivities.max { $0.end < $1.end }
+        if let external, external.end > (recorded?.finishedAt ?? .distantPast) {
+            return RecentActivity(
+                title: external.title, endedAt: external.end,
+                durationMinutes: Int(external.durationMinutes.rounded()),
+                activeEnergyKcal: external.activeEnergyKcal,
+                averageHeartRateBpm: nil,
+                hasVerifiedScore: false
+            )
+        }
+        guard let recorded, let endedAt = recorded.finishedAt else { return nil }
+        return RecentActivity(
+            title: recorded.title, endedAt: endedAt,
+            durationMinutes: Int(recorded.durationMinutes.rounded()),
+            activeEnergyKcal: recorded.appleActiveEnergyKcal,
+            averageHeartRateBpm: recorded.appleAverageHeartRateBpm,
+            hasVerifiedScore: recorded.sessionReview?.scoreBasis == .personalHistory
+        )
+    }
+
+    /// Seven actual finished workouts regardless of how many calendar days
+    /// they span. One data point per session, never per-day aggregates.
+    private struct RecentWorkoutBar: Identifiable {
+        let id: String
+        let title: String
+        let finishedAt: Date
+        let durationMinutes: Double?
+        let verifiedScore: Int?
+    }
+
+    private var recentWorkouts: [RecentWorkoutBar] {
+        let logged: [RecentWorkoutBar] = workouts.compactMap { session in
+            guard let ended = session.finishedAt, session.timerDetails == nil else { return nil }
+            let duration = session.durationMinutes
+            let score = session.sessionReview.flatMap { review -> Int? in
+                guard review.scoreBasis == .personalHistory else { return nil }
+                return review.overallScore
+            }
+            return RecentWorkoutBar(
+                id: session.id.uuidString, title: session.title, finishedAt: ended,
+                durationMinutes: duration > 0 ? duration : nil,
+                verifiedScore: score
+            )
+        }
+        let imported: [RecentWorkoutBar] = externalActivities.map { item in
+            RecentWorkoutBar(
+                id: item.id.uuidString, title: item.title, finishedAt: item.end,
+                durationMinutes: item.durationMinutes > 0 ? item.durationMinutes : nil,
+                verifiedScore: nil
+            )
+        }
+        return Array((logged + imported).sorted {
+            $0.finishedAt > $1.finishedAt
+        }.prefix(7).reversed())
+    }
+
+    @ViewBuilder
+    private var sevenWorkoutChart: some View {
+        let recent = recentWorkouts
+        if recent.isEmpty {
+            ProgressEmptyChart(
+                message: "Cuando termines una actividad aparecerá aquí, aunque aún no tenga nota.",
+                height: 205, yRange: 0.0...10.0
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Últimos \(recent.count) entrenos")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    Text("Duración · minutos")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label2)
+                }
+                Chart {
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
+                        if let minutes = item.durationMinutes {
+                            BarMark(
+                                x: .value("Entreno", index + 1),
+                                y: .value("Duración", minutes),
+                                width: .ratio(0.64)
+                            )
+                            .foregroundStyle(OG.accent)
+                            .cornerRadius(4)
+                            .accessibilityLabel("\(item.title), \(Int(minutes.rounded())) minutos")
+                            .annotation(position: .top, spacing: 2) {
+                                if let score = item.verifiedScore {
+                                    Text("\(score)/10")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(OG.label)
+                                }
+                            }
+                        } else {
+                            PointMark(
+                                x: .value("Entreno", index + 1),
+                                y: .value("Duración sin dato", 0)
+                            )
+                            .symbolSize(40)
+                            .foregroundStyle(OG.label3)
+                        }
+                    }
+                }
+                .chartXSelection(value: $selectedRecentWorkoutIndex)
+                .chartXScale(domain: 0...max(2, recent.count + 1))
+                .chartYAxis {
+                    AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
+                        AxisValueLabel()
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: Array(1...recent.count))
+                }
+                .frame(height: 180)
+                let index = (selectedRecentWorkoutIndex ?? recent.count) - 1
+                let chosen = recent.indices.contains(index) ? recent[index] : recent[recent.count - 1]
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(chosen.title)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                    Text(
+                        "\(chosen.finishedAt.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale))) · " +
+                        (chosen.durationMinutes.map { "\(Int($0.rounded())) min" } ?? "duración sin dato") +
+                        (chosen.verifiedScore.map { " · Nota verificada \($0)/10" } ?? " · Sin nota comparable")
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(OG.label2)
+                }
+                Text("Cada barra es un entrenamiento real. Su altura refleja minutos, no una nota de esfuerzo.")
+                    .font(.caption2)
+                    .foregroundStyle(OG.label3)
+            }
+        }
+    }
+
+    private var registeredSessionsInRange: Int {
+        workouts.filter {
+            guard let finished = $0.finishedAt, $0.timerDetails == nil else { return false }
+            return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
+        }.count + externalActivities.filter {
+            range.contains($0.end, weekStartsOnMonday: weekStartsOnMonday)
+        }.count
+    }
+
     private var latestConfidenceLabel: String? {
         let rated = workouts.filter {
-            $0.finishedAt != nil && $0.sessionReview?.scoreBasis == .personalHistory
+            guard let finished = $0.finishedAt, $0.sessionReview?.scoreBasis == .personalHistory else { return false }
+            return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
         }
         guard let latest = rated.max(by: {
             ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
@@ -2045,11 +2245,45 @@ private struct ProgressSessionScoreChartCard: View {
         let average = values.isEmpty ? nil :
             Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
         VStack(alignment: .leading, spacing: 12) {
+            if !isTeaserPreview, let latest = latestActivity {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Última actividad registrada")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(OG.label2)
+                    Text(latest.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                    Text("\(latest.endedAt.formatted(Date.FormatStyle().day().month(.abbreviated).hour().minute().locale(SpanishDate.appLocale))) · \(latest.durationMinutes) min")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label2)
+                    HStack(spacing: 8) {
+                        if let kcal = latest.activeEnergyKcal, kcal > 0 {
+                            Text("\(Int(kcal.rounded())) kcal")
+                        }
+                        if let bpm = latest.averageHeartRateBpm, bpm > 0 {
+                            Text("\(Int(bpm.rounded())) lpm")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(OG.label2)
+                    if !latest.hasVerifiedScore {
+                        Text("Registrada en tu histórico · sin nota comparable todavía")
+                            .font(.caption2)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 9) {
-                    scoreMetric("Última nota", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
+                    scoreMetric("Última nota verificada", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
                     scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
                     scoreMetric("Días evaluados", value: "\(values.count)")
+                    scoreMetric(
+                        "Entrenos registrados",
+                        value: isTeaserPreview ? "—" : "\(registeredSessionsInRange)"
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -2119,7 +2353,9 @@ private struct ProgressSessionScoreChartCard: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     scoreSummary
-                    if values.isEmpty {
+                    if !isTeaserPreview {
+                        sevenWorkoutChart
+                    } else if values.isEmpty {
                         ProgressEmptyChart(
                             message: "Repera está aprendiendo de ti. Completa al menos 2 días previos comparables y registra un 60% de rendimiento evaluable.",
                             height: 205,

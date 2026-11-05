@@ -16,10 +16,21 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.*
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** StatsView.ProgressSessionScoreChartCard geometry; prepared verified daily values unchanged. */
+/** Una barra por sesión finalizada: siempre minutos observados, nota opcional. */
+internal data class RecentWorkoutPlot(
+    val id: String,
+    val title: String,
+    val finishedMillis: Long,
+    val minutes: Double?,
+    val verifiedScore: Int?
+)
+
+/** StatsView.ProgressSessionScoreChartCard geometry; period scores remain verified. */
 @Composable
 internal fun SessionScoreProgressCard(
     points: List<ProgressDayPoint>,
@@ -27,7 +38,10 @@ internal fun SessionScoreProgressCard(
     range: ProgressTimeRange = ProgressTimeRange.WEEK,
     monday: Boolean = true,
     today: LocalDate = LocalDate.now(),
-    confidenceLabel: String? = null
+    confidenceLabel: String? = null,
+    latestActivity: String? = null,
+    recordedSessions: Int = 0,
+    recentWorkouts: List<RecentWorkoutPlot> = emptyList()
 ) {
     val values = points.sortedBy { it.day }
     val domain = ProgressPlotAxis.domain(values.map { it.day }, range, monday, today, preview)
@@ -56,6 +70,16 @@ internal fun SessionScoreProgressCard(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (!preview && latestActivity != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Última actividad registrada",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(latestActivity,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                }
                 val average = values.takeIf { it.isNotEmpty() }
                     ?.map { it.value }?.average()?.roundToInt()
                 Row(
@@ -67,11 +91,12 @@ internal fun SessionScoreProgressCard(
                         Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(9.dp)
                     ) {
-                        TrendScoreMetric("Última nota",
+                        TrendScoreMetric("Última nota verificada",
                             values.lastOrNull()?.let { "${it.value.roundToInt()}/10" } ?: "—")
                         TrendScoreMetric("Mejor nota",
                             values.maxOfOrNull { it.value }?.let { "${it.roundToInt()}/10" } ?: "—")
                         TrendScoreMetric("Días evaluados", "${values.size}")
+                        if (!preview) TrendScoreMetric("Entrenos registrados", recordedSessions.toString())
                     }
                     Box(
                         Modifier.size(112.dp).semantics {
@@ -112,7 +137,9 @@ internal fun SessionScoreProgressCard(
                     compactInProgress = true,
                     showSelectedLevelInCaption = true
                 )
-                if (values.isEmpty()) {
+                if (!preview && recentWorkouts.isNotEmpty()) {
+                    SevenRecentWorkoutDurationChart(recentWorkouts, accent, rule)
+                } else if (values.isEmpty()) {
                     EmptyHealthChart(
                         "Repera está aprendiendo de ti. Necesita 2 días previos comparables y un 60% del rendimiento registrado con referencias.",
                         0.0, 10.0, 205.dp
@@ -243,5 +270,96 @@ private fun TrendScoreMetric(title: String, value: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** Siete sesiones (no siete días): sin huecos por descanso ni puntuaciones inventadas.
+ * La altura es duración en minutos y la etiqueta de nota es secundaria. */
+@Composable
+private fun SevenRecentWorkoutDurationChart(
+    recent: List<RecentWorkoutPlot>,
+    accent: Color,
+    rule: Color
+) {
+    var selectedIndex by remember(recent) { mutableIntStateOf(recent.lastIndex) }
+    val chosen = recent[selectedIndex.coerceIn(0, recent.lastIndex)]
+    val peak = (recent.mapNotNull { it.minutes }.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
+    val time = Instant.ofEpochMilli(chosen.finishedMillis)
+        .atZone(ZoneId.systemDefault()).toLocalDate()
+        .format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES")))
+    val details = (chosen.minutes?.let { "${it.roundToInt()} min" } ?: "duración sin dato") +
+        (chosen.verifiedScore?.let { " · Nota verificada ${it}/10" } ?: " · Sin nota comparable")
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Últimos ${recent.size} entrenos", style = MaterialTheme.typography.labelMedium)
+            Text("Duración · minutos", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Canvas(
+            Modifier.fillMaxWidth().height(180.dp).testTag("recent_workouts_plot")
+                .semantics {
+                    contentDescription = "Últimos ${recent.size} entrenos, duración en minutos; la nota se indica por separado"
+                    customActions = listOf(
+                        CustomAccessibilityAction("Entreno anterior") {
+                            selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
+                        },
+                        CustomAccessibilityAction("Entreno siguiente") {
+                            selectedIndex = (selectedIndex + 1).coerceAtMost(recent.lastIndex); true
+                        }
+                    )
+                }
+                .pointerInput(recent) {
+                    detectTapGestures { offset ->
+                        selectedIndex = ((offset.x / size.width.coerceAtLeast(1).toFloat()) * recent.size)
+                            .toInt().coerceIn(0, recent.lastIndex)
+                    }
+                }
+        ) {
+            val band = size.width / recent.size
+            val barWidth = band * 0.62f
+            val bottom = size.height - 7.dp.toPx()
+            listOf(0f, 0.5f, 1f).forEach { fraction ->
+                val y = bottom * (1 - fraction)
+                drawLine(rule.copy(alpha = 0.16f), Offset(0f, y),
+                    Offset(size.width, y), 0.6.dp.toPx())
+            }
+            recent.forEachIndexed { index, workout ->
+                val centerX = band * (index + 0.5f)
+                val minutes = workout.minutes
+                if (minutes != null && minutes > 0) {
+                    val h = ((minutes / peak).toFloat() * bottom).coerceAtLeast(2.dp.toPx())
+                    drawRoundRect(
+                        color = if (selectedIndex == index) accent else accent.copy(alpha = 0.70f),
+                        topLeft = Offset(centerX - barWidth / 2, bottom - h),
+                        size = androidx.compose.ui.geometry.Size(barWidth, h),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
+                    )
+                } else {
+                    // Un punto neutro indica sesión registrada sin duración; NO 0 minutos.
+                    drawCircle(rule.copy(alpha = 0.7f), radius = 3.dp.toPx(),
+                        center = Offset(centerX, bottom))
+                }
+                if (selectedIndex == index) {
+                    drawLine(rule.copy(alpha = 0.65f), Offset(centerX, 0f),
+                        Offset(centerX, size.height), 1.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(3.dp.toPx(), 4.dp.toPx())
+                        )
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            recent.indices.forEach { index ->
+                Text((index + 1).toString(), style = MaterialTheme.typography.labelSmall,
+                    color = if (index == selectedIndex) accent
+                            else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text(chosen.title, style = MaterialTheme.typography.labelMedium)
+        Text(time + " · " + details, style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Cada barra representa un entrenamiento real; los minutos no son la nota de esfuerzo.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -352,7 +352,8 @@ internal fun FinishedWorkoutEditorScreen(
                     )
                 )
             },
-            locationPin = workout.locationPin?.takeIf { it.hasChosenPlace },
+            // Conservar también el GPS anónimo de origen al editar sesiones antiguas.
+            locationPin = workout.locationPin,
             notes = workout.notes
         )
     }

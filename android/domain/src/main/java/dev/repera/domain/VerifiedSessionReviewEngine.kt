@@ -92,7 +92,7 @@ object VerifiedSessionReviewEngine {
             weakestTier == 1 && minReferences >= 5 && coverage >= 0.80 -> "Alta"
             weakestTier == 3 -> "Baja · estímulo estimado"
             weakestTier == 2 -> "Media · distinto contexto"
-            else -> "En construcción"
+            else -> "Media · historial personal"
         }
         val coveragePercent = (coverage * 100).roundToInt()
 
