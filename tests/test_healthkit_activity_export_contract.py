@@ -71,6 +71,20 @@ class HealthKitActivityExportContractTests(unittest.TestCase):
         self.assertIn("_ = fallbackKcal", phone)
         self.assertNotIn("estimateActiveEnergyKcal(", watch)
 
+    def test_both_apple_targets_embed_a_real_app_icon(self):
+        phone_icon = source(
+            "Apps/Repera/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
+        )
+        watch_icon = source(
+            "Apps/ReperaWatch/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json"
+        )
+        project = source("project.yml")
+        self.assertIn('"filename" : "AppIcon.png"', phone_icon)
+        self.assertIn('"filename" : "AppIcon.png"', watch_icon)
+        self.assertGreaterEqual(
+            project.count("ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon"), 2
+        )
+
     def test_permissions_cover_numeric_distance_and_workout_route(self):
         watch = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
         phone = source("Apps/Repera/Sources/HealthKitStore.swift")
