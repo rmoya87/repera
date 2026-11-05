@@ -401,7 +401,7 @@ internal fun ProgressTab(
                         }
                         val todaySummary = (overview?.dayWorkoutCounts?.get(today) ?: 0).toString() +
                             " sesiones · " + (snapshot.hubDailyVolumeKg.lastOrNull()?.toInt() ?: 0) +
-                            " kg · " + todayPrs + " PR hoy
+                            " kg · " + todayPrs + " PR hoy"
                         ProgressSaludInsightCard(
                             title = stringResource(R.string.progress_tab_carga_y_marcas),
                             icon = Icons.Outlined.FitnessCenter,
