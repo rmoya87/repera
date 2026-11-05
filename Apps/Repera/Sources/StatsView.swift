@@ -2129,9 +2129,10 @@ private struct ProgressSessionScoreChartCard: View {
                     scoreMetric("Última nota verificada", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
                     scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
                     scoreMetric("Días evaluados", value: "\(values.count)")
-                    if !isTeaserPreview {
-                        scoreMetric("Entrenos registrados", value: "\(registeredSessionsInRange)")
-                    }
+                    scoreMetric(
+                        "Entrenos registrados",
+                        value: isTeaserPreview ? "—" : "\(registeredSessionsInRange)"
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
