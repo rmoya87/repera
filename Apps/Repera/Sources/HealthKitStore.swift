@@ -1434,13 +1434,17 @@ final class HealthKitStore {
         // NO demuestra que sea el entrenamiento grabado por Apple Watch.
         // Si faltó la metadata al guardar el builder, recuperar únicamente
         // un candidato de Repera Watch inequívoco sobre la hora ORIGINAL.
-        if fromWatch && (workout == nil || workout.map {
+        let linkedToPhonePlaceholder = workout.map {
             Self.isReperaSource($0.sourceRevision.source)
-        } == true) {
+        } == true
+        if (fromWatch || (session.userEditedDuration &&
+            (session.appleDurationSeconds ?? 0) > 0))
+            && (workout == nil || linkedToPhonePlaceholder) {
             let anchorStart = session.recordedStartBeforeEditing ?? start
             let anchorEnd = session.recordedEndBeforeEditing ?? end
             if let verified = await overlappingWorkout(
-                from: anchorStart, to: anchorEnd, watchOnly: true
+                from: anchorStart, to: anchorEnd,
+                watchOnly: fromWatch, expectedSessionID: session.id
             ) {
                 workout = verified
                 workoutUUID = verified.uuid
