@@ -738,6 +738,19 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
         val uri = intent?.data ?: return null
         if (uri.scheme != "repera") return null
+        if (uri.host == "review-live") {
+            val sessionID = uri.pathSegments.singleOrNull() ?: return "inicio"
+            if (runCatching { java.util.UUID.fromString(sessionID) }.isFailure) return "inicio"
+            val sessions = SessionStore(this)
+            val owner = sessions.load()?.uniqueId ?: return "inicio"
+            if (intent.getStringExtra("liveReviewOwner") != owner ||
+                intent.getStringExtra("liveReviewRevision") != sessions.identityRevision()) {
+                return "inicio"
+            }
+            // The target is a navigation request only; a stale notification
+            // never saves/discards a workout or modifies Health data.
+            return if (LiveActivityRuntime.hasPendingActivity(this, owner)) "en-vivo" else "inicio"
+        }
         if (uri.host == "complete-workout") {
             val workoutID = uri.pathSegments.singleOrNull() ?: return "inicio"
             if (runCatching { java.util.UUID.fromString(workoutID) }.isFailure) return "inicio"
@@ -1591,10 +1604,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     WearLiveCommandListener.ackLiveStart(this, node, true, null)
                     return@runOnUiThread
                 }
-                // Revisión pendiente: descartar para arrancar la nueva desde Wear.
-                if (phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) {
-                    runtime.discard()
-                }
+                // A pending review is user data, not a disposable previous session.
+                // Require explicit save or discard before starting from Wear.
                 if (runtime.state.phase != dev.repera.domain.LiveActivityState.Phase.IDLE) {
                     WearLiveCommandListener.ackLiveStart(
                         this, node, false, "Hay otra actividad pendiente en el móvil"

@@ -31,7 +31,11 @@ internal class WearHealthService:Service() {
     private var notifiedText:String?=null
     private var notifiedAt=0L
     private var notifyJob:Job?=null
-    data class Snapshot(val sessionId:String?,val heart:Int?,val energy:Double?,val recording:Boolean,val paused:Boolean,val problem:String?)
+    data class Snapshot(
+        val sessionId:String?, val heart:Int?, val energy:Double?,
+        val recording:Boolean, val paused:Boolean, val problem:String?,
+        val heartAtElapsed:Long
+    )
     inner class Connection:Binder() {
         fun observe(callback:((Snapshot)->Unit)?) {observer=callback;if(callback!=null) callback(snapshot())}
         /** A running owner needs no new startForegroundService (and no new promotion). */
@@ -61,7 +65,7 @@ internal class WearHealthService:Service() {
         runCatching {JSONObject(it).getString("id")}.getOrNull()
     }
     private fun isCurrent(id:String)=cachedId()==id || cache.getString("companionLiveSessionId",null)==id
-    private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem)
+    private fun snapshot()=Snapshot(owner,sensors.heartRateBpm,sensors.energyKcal,sensors.recording,sensors.paused,status ?: sensors.problem,sensors.heartSampleAtElapsed)
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()

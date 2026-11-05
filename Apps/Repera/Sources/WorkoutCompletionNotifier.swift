@@ -8,6 +8,7 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
     static let pendingKey = "repera.pendingCompletedWorkoutToOpen"
     static let openEvent = Notification.Name("repera.openFinishedWorkoutEditor")
     private static let prefix = "repera.completeWorkout."
+    private static let liveReviewPrefix = "repera.reviewLive."
 
     func install() {
         UNUserNotificationCenter.current().delegate = self
@@ -31,6 +32,28 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
             content.userInfo = ["workoutId": workoutID.uuidString]
             let request = UNNotificationRequest(
                 identifier: Self.prefix + workoutID.uuidString,
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            )
+            try? await center.add(request)
+        }
+    }
+
+    /// A Watch-initiated Comenzar finish stays in Review; notification never
+    /// claims the activity has been saved or alters its Health measurements.
+    func scheduleLiveReview(sessionID: UUID) {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus)
+            else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "Actividad lista para revisar"
+            content.body = "Abre Comenzar para guardar, editar o descartar la actividad."
+            content.userInfo = ["liveReviewSessionID": sessionID.uuidString]
+            content.sound = .default
+            let request = UNNotificationRequest(
+                identifier: Self.liveReviewPrefix + sessionID.uuidString,
                 content: content,
                 trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
             )
@@ -65,6 +88,14 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
                     "result": "success"
                 ])
                 NotificationCenter.default.post(name: Self.openEvent, object: id)
+            }
+        } else if let raw = response.notification.request.content.userInfo["liveReviewSessionID"] as? String,
+                  let id = UUID(uuidString: raw),
+                  response.notification.request.identifier == Self.liveReviewPrefix + id.uuidString {
+            Task { @MainActor in
+                NotificationCenter.default.post(
+                    name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+                )
             }
         } else {
             Task { @MainActor in

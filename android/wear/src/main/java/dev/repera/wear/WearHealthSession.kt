@@ -41,6 +41,7 @@ class WearHealthSession(private val context: Context) {
     var heartRateBpm: Int? = null
         private set
     private var lastHeartSampleAtElapsed = 0L
+    val heartSampleAtElapsed: Long get() = lastHeartSampleAtElapsed
     /** The last sensor value is kept for watch UI until the session ends.
      *  Only freshHeartRateBpm is eligible for transmission as a live sample.
      */

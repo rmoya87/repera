@@ -152,6 +152,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var restJob: kotlinx.coroutines.Job? = null
     private val restClock=dev.repera.domain.RestCountdown()
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
+    private var displayedHeartSampleAtElapsed = 0L
+    private var displayedHeartExpiry: kotlinx.coroutines.Job? = null
+
+    private fun clearDisplayedHeart() {
+        displayedHeartExpiry?.cancel()
+        displayedHeartExpiry = null
+        displayedHeartSampleAtElapsed = 0L
+        health = null
+    }
+
     private var healthConnection:WearHealthService.Connection?=null
     private var healthBound=false
     private var pauseSensorsIntent:dev.repera.domain.WearStartPauseIntent?=null
@@ -160,14 +170,35 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             healthConnection=binder as WearHealthService.Connection
             healthConnection?.observe {state ->runOnUiThread {
                 val current = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")
-                // Health Services may briefly detach or publish null while it
-                // reconnects. Keep this workout's last real measurement until
-                // the provider updates it, but never carry it to a new workout.
-                health = when {
-                    current.isNullOrBlank() -> null
-                    state.sessionId == current ->
-                        (state.heart ?: health?.first) to (state.energy ?: health?.second)
-                    else -> health
+                // Keep only the last authentic sample, for 60s from capture.
+                // Transient sensor gaps/binder reconnects must not clear it,
+                // but provider snapshots may not extend its age artificially.
+                if (current.isNullOrBlank()) {
+                    clearDisplayedHeart()
+                } else if (state.sessionId == current) {
+                    val captured = state.heartAtElapsed
+                    val age = android.os.SystemClock.elapsedRealtime() - captured
+                    val valid = state.heart != null && captured > 0L && age in 0L..60_000L
+                    val last = if (valid) state.heart else
+                        if (captured == 0L) health?.first else null
+                    health = last to (state.energy ?: health?.second)
+                    if (valid && captured != displayedHeartSampleAtElapsed) {
+                        displayedHeartSampleAtElapsed = captured
+                        displayedHeartExpiry?.cancel()
+                        val ownerID = current
+                        displayedHeartExpiry = lifecycleScope.launch {
+                            kotlinx.coroutines.delay(
+                                (60_001L - (android.os.SystemClock.elapsedRealtime() - captured))
+                                    .coerceAtLeast(0L)
+                            )
+                            val stillCurrent = visibleSession?.sessionId
+                                ?: liveActivityJson?.optString("sessionId")
+                            if (stillCurrent == ownerID &&
+                                displayedHeartSampleAtElapsed == captured) {
+                                health = health?.let { null to it.second }
+                            }
+                        }
+                    }
                 }
                 // Apple startToday + selectBlock pauses HealthKit; decision logic is WearStartPauseIntent (JVM-tested).
                 pauseSensorsIntent?.let {intent ->
@@ -1089,7 +1120,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         if (previous != next) {
             // A new companion workout has no heart-rate sample yet.
-            health = null
+            clearDisplayedHeart()
             sessionCache.edit().putString("companionLiveSessionId", next).apply()
             sensorRevision++
             ensureHealthRecording()
@@ -1541,7 +1572,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         sendStatus = null
         sensorRevision++
         // Different execution ID: do not show the previous session's pulse.
-        health = null
+        clearDisplayedHeart()
         sessionPaused=false
         pauseSensorsIntent = null
         restJob?.cancel();restClock.clear();restRemaining=0
@@ -2327,7 +2358,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 // Paused/rest state belongs to the old workout, never the new identity.
                 sessionPaused=false
                 skipRest()
-                health=null
+                clearDisplayedHeart()
                 sessionCache.edit().remove("restState").apply()
             }
             // Persist only a validated session; a malformed update cannot corrupt recovery.
@@ -2410,7 +2441,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         showingCachedSession = false
         skipRest()
         healthConnection?.stop(sensorSessionId)
-        health = null
+        clearDisplayedHeart()
         refreshWearSurfaces()
     }
 

@@ -50,20 +50,7 @@ struct WatchLiveSessionView: View {
                             }
                         }
                     }
-                    if isLuminanceReduced {
-                        WatchLiveMetricRow(
-                            label: hub.heartRateBpm != nil && !hub.heartRateIsFresh ? "Últ. FC" : "FC",
-                            value: hub.heartRateBpm.map(String.init) ?? "—"
-                        )
-                    } else {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(hub.heartRateBpm == nil ? "FC · esperando" :
-                                 (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !sport.usesGPS)
-                        }
-                    }
+                    WatchHeartRateZoneMetric(prominent: !sport.usesGPS)
                     if !isLuminanceReduced {
                         WatchLiveMetricRow(
                             label: "kcal",
@@ -184,6 +171,37 @@ struct WatchLiveSessionView: View {
         let s = total % 60
         if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
         return String(format: "%02d:%02d", m, s)
+    }
+}
+
+
+/// Fixed-size heart-rate area shared by planned, recording and free live workouts.
+/// No pulse before first reading or after 60s: show a dash and faint zone bars.
+struct WatchHeartRateZoneMetric: View {
+    @Environment(WatchSessionHub.self) private var hub
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+    var prominent: Bool = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
+            let bpm = hub.heartRateBpm(at: context.date)
+            let label = bpm == nil ? "FC · sin lectura"
+                : (hub.heartRateIsFresh(at: context.date) ? "FC" : "FC · última lectura")
+            if isLuminanceReduced {
+                WatchLiveMetricRow(
+                    label: bpm == nil ? "FC" : "Últ. FC",
+                    value: bpm.map(String.init) ?? "—",
+                    prominent: prominent
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    WatchHeartRateZoneBar(bpm: bpm, prominent: prominent)
+                }
+            }
+        }
     }
 }
 

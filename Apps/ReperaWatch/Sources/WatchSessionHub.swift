@@ -237,13 +237,19 @@ final class WatchSessionHub: NSObject {
         }
         return workingReps
     }
-    /// Last real sample for this workout. Missing new sensor samples must not
-    /// collapse the card or replace a previously measured zone with a guess.
-    var heartRateBpm: Int? { health.pulseBpm }
-    var heartRateIsFresh: Bool {
-        guard let measuredAt = health.pulseCapturedAt else { return false }
-        return (0...20).contains(Date().timeIntervalSince(measuredAt))
+    /// Last authentic wrist measurement, kept visible for at most 60 seconds.
+    /// The phone transport still requires a fresh (< 20s) measured sample.
+    func heartRateBpm(at date: Date = .now) -> Int? {
+        guard let bpm = health.pulseBpm, let captured = health.pulseCapturedAt,
+              (0..<60).contains(date.timeIntervalSince(captured)) else { return nil }
+        return bpm
     }
+    func heartRateIsFresh(at date: Date = .now) -> Bool {
+        guard heartRateBpm(at: date) != nil, let captured = health.pulseCapturedAt else { return false }
+        return (0...20).contains(date.timeIntervalSince(captured))
+    }
+    var heartRateBpm: Int? { heartRateBpm(at: .now) }
+    var heartRateIsFresh: Bool { heartRateIsFresh(at: .now) }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { liveRecoveryNotice ?? health.permissionIssue }
 
@@ -1026,6 +1032,9 @@ final class WatchSessionHub: NSObject {
         )
         pending.appleActiveEnergyKcal = kcalSnapshot
         pending.appleAverageHeartRateBpm = bpmSnapshot
+        // Comenzar originated on Watch also needs the editable results prompt
+        // on iPhone. This is a finished recording, never a running workout.
+        pending.awaitingResultEntry = true
         // Snapshot de WeatherKit con complementos marinos/nieve exclusivamente.
         let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending

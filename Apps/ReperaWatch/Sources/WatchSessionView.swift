@@ -274,13 +274,7 @@ struct WatchSessionView: View {
                         WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
                     }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(hub.heartRateBpm == nil ? "FC · esperando" :
-                             (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: !outdoor)
-                    }
+                    WatchHeartRateZoneMetric(prominent: !outdoor)
                     WatchLiveMetricRow(
                         label: "kcal",
                         value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
@@ -560,20 +554,7 @@ struct WatchSessionView: View {
                         .monospacedDigit()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                if isLuminanceReduced {
-                    WatchLiveMetricRow(
-                        label: hub.heartRateBpm != nil && !hub.heartRateIsFresh ? "Últ. FC" : "FC",
-                        value: hub.heartRateBpm.map(String.init) ?? "—",
-                        prominent: true
-                    )
-                } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(hub.heartRateBpm == nil ? "FC · esperando" :
-                             (hub.heartRateIsFresh ? "FC" : "FC · última lectura"))
-                            .font(.caption2).foregroundStyle(.secondary)
-                        WatchHeartRateZoneBar(bpm: hub.heartRateBpm, prominent: true)
-                    }
-                }
+                WatchHeartRateZoneMetric(prominent: true)
                 if !isLuminanceReduced {
                     WatchLiveMetricRow(
                         label: "kcal",
@@ -719,23 +700,28 @@ struct WatchSessionView: View {
                 Text("En pausa").font(.caption2.weight(.semibold)).foregroundStyle(.yellow)
             }
         }
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(hub.heartRateBpm.map(String.init) ?? "—")
-                    .font(.system(size: 23, weight: .bold).monospacedDigit())
-                    .foregroundStyle(.red)
-                Text("lpm").font(.caption2).foregroundStyle(.secondary)
+        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(hub.heartRateBpm(at: context.date).map(String.init) ?? "—")
+                        .font(.system(size: 23, weight: .bold).monospacedDigit())
+                        .foregroundStyle(.red)
+                    Text("lpm").font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(hub.measuredEnergyKcal.map { String(Int($0.rounded())) } ?? "—")
+                        .font(.system(size: 23, weight: .bold).monospacedDigit())
+                        .foregroundStyle(.orange)
+                    Text("kcal").font(.caption2).foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 0)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(hub.measuredEnergyKcal.map { String(Int($0.rounded())) } ?? "—")
-                    .font(.system(size: 23, weight: .bold).monospacedDigit())
-                    .foregroundStyle(.orange)
-                Text("kcal").font(.caption2).foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            if !isLuminanceReduced {
+                WatchHeartRateZoneBar(bpm: hub.heartRateBpm(at: context.date))
             }
         }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
         if let warning = hub.healthWarning {
             Label(warning, systemImage: "heart.slash")
                 .font(.caption2)
@@ -1299,6 +1285,12 @@ struct WatchSessionView: View {
                         statsLine(icon: "timer", label: result.format?.displayName ?? "WOD",
                                   value: result.summaryLabel)
                     }
+                }
+                if session.liveSportID != nil, session.awaitingResultEntry {
+                    Text("Actividad registrada. Revisa, añade ejercicios o modifica resultados desde el iPhone.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Button("Volver al inicio") {
                     hub.returnToHome()
