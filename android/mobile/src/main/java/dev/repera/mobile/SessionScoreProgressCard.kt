@@ -27,7 +27,8 @@ internal fun SessionScoreProgressCard(
     range: ProgressTimeRange = ProgressTimeRange.WEEK,
     monday: Boolean = true,
     today: LocalDate = LocalDate.now(),
-    confidenceLabel: String? = null
+    confidenceLabel: String? = null,
+    latestWorkoutTitle: String? = null
 ) {
     val values = points.sortedBy { it.day }
     val domain = ProgressPlotAxis.domain(values.map { it.day }, range, monday, today, preview)
@@ -56,6 +57,24 @@ internal fun SessionScoreProgressCard(
                 Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (!preview && !latestWorkoutTitle.isNullOrBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            "Última actividad registrada",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            latestWorkoutTitle,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            "La actividad cuenta aunque aún no tenga nota comparable.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 val average = values.takeIf { it.isNotEmpty() }
                     ?.map { it.value }?.average()?.roundToInt()
                 Row(
@@ -114,7 +133,7 @@ internal fun SessionScoreProgressCard(
                 )
                 if (values.isEmpty()) {
                     EmptyHealthChart(
-                        "Repera está aprendiendo de ti. Necesita 2 días previos comparables y un 60% del rendimiento registrado con referencias.",
+                        "Todavía no hay una nota comparable en este periodo. Los entrenos sí cuentan en el histórico.",
                         0.0, 10.0, 205.dp
                     )
                 } else {

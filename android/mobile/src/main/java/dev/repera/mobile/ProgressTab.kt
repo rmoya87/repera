@@ -266,7 +266,13 @@ internal fun ProgressTab(
                                     preview = !pro,
                                     range = rangeEnum,
                                     monday = monday,
-                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
+                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null,
+                                    latestWorkoutTitle = if (pro) {
+                                        overview?.completeHistory.orEmpty()
+                                            .ifEmpty { overview?.history.orEmpty() }
+                                            .filter { !it.finishedAtIso.isNullOrBlank() }
+                                            .maxByOrNull { it.finishedAtIso.orEmpty() }?.title
+                                    } else null
                                 )
                             },
                             second = {
@@ -374,23 +380,44 @@ internal fun ProgressTab(
                 if (snapshot != null) {
                     item { ReperaSectionTitle("Fuerza") }
                     item {
-                        val period = "últimos 7 días"
                         val strengthBars = strengthDailyBarFractions(snapshot.hubDailyVolumeKg)
+                        val zone = java.time.ZoneId.systemDefault()
+                        val todayKg = snapshot.hubDailyVolumeKg.lastOrNull()
+                            ?.takeIf { it.isFinite() && it > 0 } ?: 0.0
+                        val todayPR = snapshot.records.count {
+                            java.time.Instant.ofEpochMilli(it.epochMillis)
+                                .atZone(zone).toLocalDate() == today
+                        }
+                        val todaySessions = overview?.completeHistory.orEmpty()
+                            .ifEmpty { overview?.history.orEmpty() }
+                            .count { workout ->
+                                val end = workout.finishedAtIso ?: return@count false
+                                runCatching {
+                                    java.time.Instant.parse(end).atZone(zone).toLocalDate() == today
+                                }.getOrDefault(false)
+                            }
                         ProgressSaludInsightCard(
-                            title = stringResource(R.string.progress_tab_carga_y_marcas),
+                            title = "Carga y marcas hoy",
                             icon = Icons.Outlined.FitnessCenter,
                             tint = ProgressCategory.STRENGTH.accent,
                             narrative = strengthInsightCopy(
                                 prCount = snapshot.records.size,
                                 volumeKg = snapshot.summary.volumeKg.toInt()
                             ),
-                            heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
-                            heroUnit = if (snapshot.records.isEmpty()) null else "PR",
+                            heroValue = when {
+                                todayKg > 0 -> "${todayKg.toInt()}"
+                                todaySessions > 0 -> "$todaySessions"
+                                else -> "—"
+                            },
+                            heroUnit = when {
+                                todayKg > 0 -> "kg"
+                                todaySessions > 0 -> "entrenos"
+                                else -> null
+                            },
                             heroCaption = when {
-                                snapshot.summary.volumeKg > 0 ->
-                                    "${snapshot.summary.volumeKg.toInt()} kg · $period"
-                                snapshot.records.isEmpty() -> "sin marcas aún"
-                                else -> period
+                                todayKg > 0 -> "$todayPR PR hoy · $todaySessions entrenos"
+                                todaySessions > 0 -> "$todaySessions entrenos hoy · sin kilos registrados"
+                                else -> "Sin entrenos hoy · carga últimos 7 días"
                             },
                             barFractions = strengthBars,
                             elevateChart = true,
