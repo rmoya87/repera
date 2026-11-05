@@ -1187,7 +1187,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             reps = 0,
             volumeKg = 0,
             isLive = true,
-            distanceLabel = meters?.let { String.format("%.2f km", it / 1000.0) }
+            distanceLabel = meters?.let { String.format("%.2f km", it / 1000.0) },
+            kcal = health?.second?.takeIf { it.isFinite() && it >= 0 }?.toInt() ?: 0,
+            avgHr = health?.first
         )
         suppressCompanionLive = true
         liveActivityJson = null
@@ -1649,7 +1651,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             volumeKg = 0,
             isLive = true,
             distanceLabel = sensorDistance?.let { String.format("%.2f km", it / 1000.0) },
-            kcal = health?.second?.takeIf { it.isFinite() && it > 0 }?.toInt(),
+            kcal = health?.second?.takeIf { it.isFinite() && it >= 0 }?.toInt() ?: 0,
             avgHr = health?.first
         )
         clearWatchOwnedLiveState()
@@ -3079,9 +3081,9 @@ internal data class FinishedSummary(
             }
             val kcal = sequenceOf("appleActiveEnergyKcal", "activeEnergyKcal")
                 .mapNotNull { k ->
-                    if (w.has(k) && !w.isNull(k)) w.optDouble(k).takeIf { it.isFinite() && it > 0 }
+                    if (w.has(k) && !w.isNull(k)) w.optDouble(k).takeIf { it.isFinite() && it >= 0 }
                     else null
-                }.firstOrNull()?.let { kotlin.math.round(it).toInt() }
+                }.firstOrNull()?.let { kotlin.math.round(it).toInt() } ?: 0
             val avgHr = sequenceOf("appleAverageHeartRateBpm", "averageHeartRateBpm")
                 .mapNotNull { k ->
                     if (w.has(k) && !w.isNull(k)) w.optDouble(k).takeIf { it.isFinite() && it > 0 }

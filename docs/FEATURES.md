@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (Watch: indicador kcal siempre visible + enableCollection).
+Última actualización: 2026-11-05 (Watch/Wear: indicador kcal siempre visible).
 
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 

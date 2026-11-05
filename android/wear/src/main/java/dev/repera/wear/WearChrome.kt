@@ -164,6 +164,10 @@ internal fun WearPauseCircle(
     }
 }
 
+/** Indicador de UI: siempre un número (0 si Health Services aún no entregó kcal). */
+internal fun displayedEnergyKcal(kcal: Double?): Double =
+    kcal?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+
 @Composable
 internal fun WearHealthRow(bpm: Int?, kcal: Double?) {
     Row(
@@ -182,7 +186,7 @@ internal fun WearHealthRow(bpm: Int?, kcal: Double?) {
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                kcal?.takeIf { it >= 0 }?.toInt()?.toString() ?: "—",
+                displayedEnergyKcal(kcal).toInt().toString(),
                 color = WearOg.orange,
                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
                 maxLines = 1

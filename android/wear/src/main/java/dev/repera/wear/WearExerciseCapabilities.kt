@@ -18,9 +18,11 @@ internal object WearExerciseCapabilities {
             "Este reloj no permite medir este deporte con Health Services."
         }
         val supported = capabilities.getExerciseTypeCapabilities(type).supportedDataTypes
+        // Pedir TOTAL y deltas: algunos relojes solo exponen CALORIES.
         val wanted = buildSet {
             add(DataType.HEART_RATE_BPM)
             add(DataType.CALORIES_TOTAL)
+            add(DataType.CALORIES)
             if (includeDistance) add(DataType.DISTANCE_TOTAL)
         }
         return wanted.intersect(supported).also {

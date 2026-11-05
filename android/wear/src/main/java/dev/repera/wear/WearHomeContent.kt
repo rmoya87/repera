@@ -483,10 +483,10 @@ private fun TransformingLazyColumnScope.finishedItems(
     item { WearStatsLine("Tiempo", finished.durationLabel) }
     if (finished.isLive) {
         item { WearStatsLine("Distancia", finished.distanceLabel ?: "—") }
-        item { WearStatsLine("Calorías", finished.kcal?.let { "$it kcal" } ?: "—") }
+        item { WearStatsLine("Calorías", "${finished.kcal ?: 0} kcal") }
         item { WearStatsLine("FC media", finished.avgHr?.let { "$it lpm" } ?: "—") }
     } else {
-        finished.kcal?.let { item { WearStatsLine("Calorías", "${it} kcal") } }
+        item { WearStatsLine("Calorías", "${finished.kcal ?: 0} kcal") }
         finished.avgHr?.let { item { WearStatsLine("FC media", "$it lpm") } }
         item { WearStatsLine("Series", "${finished.sets}") }
         item { WearStatsLine("Repeticiones", "${finished.reps}") }

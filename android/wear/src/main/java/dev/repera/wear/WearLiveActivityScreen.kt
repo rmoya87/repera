@@ -226,7 +226,7 @@ private fun WearLiveMetricsPage(
         item {
             WearLiveMetricRow(
                 label = "kcal",
-                value = health?.second?.takeIf { it >= 0 }?.let { String.format("%.0f", it) } ?: "—",
+                value = String.format("%.0f", displayedEnergyKcal(health?.second)),
                 prominent = !usesGps
             )
         }

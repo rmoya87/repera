@@ -96,8 +96,20 @@ class WearHealthSession(private val context: Context) {
                 heartRateBpm = hr.toInt()
                 lastHeartSampleAtElapsed = android.os.SystemClock.elapsedRealtime()
             }
-            update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
-                ?.takeIf {it.isFinite() && it>=0}?.let {energyKcal=it}
+            val totalKcal = update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
+                ?.takeIf { it.isFinite() && it >= 0 }
+            if (totalKcal != null) {
+                energyKcal = totalKcal
+            } else {
+                // Fallback: acumular deltas si el reloj no publica CALORIES_TOTAL.
+                val deltas = update.latestMetrics.getData(DataType.CALORIES)
+                if (deltas.isNotEmpty()) {
+                    val added = deltas.sumOf { point ->
+                        point.value.takeIf { it.isFinite() && it >= 0 } ?: 0.0
+                    }
+                    if (added > 0) energyKcal = (energyKcal ?: 0.0) + added
+                }
+            }
             update.latestMetrics.getData(DataType.DISTANCE_TOTAL)?.total
                 ?.takeIf { it.isFinite() && it >= 0 }?.let { distanceMeters = it }
             onUpdate?.invoke()

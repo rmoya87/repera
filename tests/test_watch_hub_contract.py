@@ -377,6 +377,21 @@ class WatchHubContractTests(unittest.TestCase):
             session,
         )
 
+    def test_wear_kcal_indicator_always_visible_and_collects_energy(self):
+        chrome = source("android/wear/src/main/java/dev/repera/wear/WearChrome.kt")
+        live = source("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
+        home = source("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
+        caps = source("android/wear/src/main/java/dev/repera/wear/WearExerciseCapabilities.kt")
+        session = source("android/wear/src/main/java/dev/repera/wear/WearHealthSession.kt")
+        self.assertIn("fun displayedEnergyKcal(kcal: Double?): Double", chrome)
+        self.assertIn("displayedEnergyKcal(kcal).toInt().toString()", chrome)
+        self.assertIn("displayedEnergyKcal(health?.second)", live)
+        self.assertIn('WearStatsLine("Calorías", "${finished.kcal ?: 0} kcal")', home)
+        self.assertIn("add(DataType.CALORIES_TOTAL)", caps)
+        self.assertIn("add(DataType.CALORIES)", caps)
+        self.assertIn("DataType.CALORIES_TOTAL", session)
+        self.assertIn("DataType.CALORIES", session)
+
 
 if __name__ == "__main__":
     unittest.main()
