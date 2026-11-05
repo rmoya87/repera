@@ -1018,8 +1018,12 @@ private struct LiveSnapshot: Codable {
 @Observable
 final class LiveActivityRecorder: NSObject {
     static let shared = LiveActivityRecorder()
+    /// Wired by ReperaStore: returns true when Watch owns HealthKit for this live UUID.
+    @ObservationIgnored static var watchHandoffHandler: ((UUID, LiveSport) async -> Bool)?
 
     enum Phase: String { case idle, recording, paused, review }
+    /// When true, phone keeps GPS/UI but must not write a second HKWorkout.
+    private(set) var healthOwnedByWatch = false
     private(set) var phase: Phase = .idle
     /// Cuenta atrás visual/sonora de tres segundos antes de abrir GPS y Salud.
     private(set) var startCountdownRemaining = 0
@@ -1547,6 +1551,7 @@ final class LiveActivityRecorder: NSObject {
         liveConditions = nil
         lastConditionsFetch = .distantPast
         phase = .recording
+        healthOwnedByWatch = false
         ReperaAnalytics.track(.workoutStarted, parameters: [
             "feature_area": "live_sport",
             "workout_type": "live_sport",
@@ -1559,6 +1564,12 @@ final class LiveActivityRecorder: NSObject {
         let workoutStart = startedAt ?? Date()
         let selectedSport = sport
         Task {
+            // Prefer Watch HealthKit ownership when the paired app can start.
+            let handed = await Self.watchHandoffHandler?(sessionID, selectedSport) ?? false
+            if handed {
+                self.healthOwnedByWatch = true
+                return
+            }
             await HealthKitStore.shared.beginWorkout(
                 sessionId: sessionID, title: selectedSport.title, start: workoutStart,
                 activityType: selectedSport.healthType,
@@ -1798,7 +1809,7 @@ final class LiveActivityRecorder: NSObject {
         ensureRouteRestored()
         let cleaned = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        return WorkoutSession(
+        var session = WorkoutSession(
             id: gpsSessionID,
             title: cleaned.isEmpty ? sport.title : cleaned,
             exercises: [],
@@ -1815,6 +1826,11 @@ final class LiveActivityRecorder: NSObject {
             liveKilometerSplitsSeconds: kilometerSplits.isEmpty ? nil : kilometerSplits.map(\.seconds),
             activityConditions: liveConditions
         )
+        if healthOwnedByWatch {
+            // Phone kept GPS/UI; Watch wrote the only HKWorkout for this UUID.
+            session.appleHealthProvenance = "watchHealthKitPending"
+        }
+        return session
     }
 
     func applyReviewLocationPin(_ pin: WorkoutLocationPin?) {

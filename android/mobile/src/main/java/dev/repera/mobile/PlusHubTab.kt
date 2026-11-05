@@ -83,6 +83,8 @@ internal fun PlusHubTab(
     loadRoster: (suspend (String) -> BusinessCenterStore.ClassRoster?)? = null,
     /** Materializa la prescripción y abre preview/Play (id de rutina). */
     onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    /** Clase/cita sin bloques: Comenzar como gimnasio o HIIT según el título. */
+    onStartClassWithoutPlan: (title: String) -> Unit = {},
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
     onOpenExercise: (String) -> Unit = {},
 ) {
@@ -183,6 +185,7 @@ internal fun PlusHubTab(
             onBook = onBook,
             onRequestCancel = { pendingCancellation = it },
             onStartClassPlan = onStartClassPlan,
+            onStartClassWithoutPlan = onStartClassWithoutPlan,
             exerciseCatalog = exerciseCatalog,
             onOpenExercise = onOpenExercise,
             onClose = { detailOccurrence = null }
@@ -456,6 +459,7 @@ internal fun ClassDetailPage(
     onBook: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit,
     onRequestCancel: (BusinessCenterStore.Booking) -> Unit,
     onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    onStartClassWithoutPlan: (title: String) -> Unit = {},
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
     onOpenExercise: (String) -> Unit = {},
     onClose: () -> Unit,
@@ -512,25 +516,30 @@ internal fun ClassDetailPage(
             ) {
                 TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) }
                 Spacer(Modifier.weight(1f))
-                if (hasPlan) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .clickable(role = androidx.compose.ui.semantics.Role.Button) {
-                                onStartClassPlan(associatedSession!!)
+                // Play siempre: con plan → preview; sin bloques → Comenzar gym/HIIT.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) {
+                            if (hasPlan && associatedSession != null) {
+                                onStartClassPlan(associatedSession)
+                            } else {
+                                val training = occurrence.trainingTitle?.trim().orEmpty()
+                                val title = training.ifEmpty { occurrence.title }
+                                onStartClassWithoutPlan(title)
                             }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = stringResource(R.string.plus_start_class_plan),
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = stringResource(R.string.plus_start_class_plan),
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
             Column(

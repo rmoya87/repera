@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -111,7 +112,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     onMapRendered: (() -> Unit)? = null,
     onSavedDay: (Long) -> Unit = {},
     initialSportId: String? = null,
-    onInitialSportConsumed: () -> Unit = {}) {
+    /** Tras elegir deporte (clase sin plan): cuenta atrás automática como iOS. */
+    autoStartAfterChoose: Boolean = false,
+    onInitialSportConsumed: () -> Unit = {},
+    onAutoStartConsumed: () -> Unit = {}) {
     val context=LocalContext.current
     val scope = rememberCoroutineScope()
     val subscriptions = dev.repera.mobile.monetization.LocalSubscriptions.current
@@ -224,13 +228,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     LaunchedEffect(currentMeasuredHeading) {
         if (currentMeasuredHeading != null) lastReliableHeading = currentMeasuredHeading
     }
+    var pendingAutoStart by remember { mutableStateOf(false) }
     LaunchedEffect(initialSportId, state.phase) {
         val sportId = initialSportId ?: return@LaunchedEffect
         if (state.phase != LiveActivityState.Phase.IDLE) {
-            onInitialSportConsumed(); return@LaunchedEffect
+            onInitialSportConsumed()
+            if (autoStartAfterChoose) onAutoStartConsumed()
+            return@LaunchedEffect
         }
-        LiveSport.byId(sportId)?.let { runtime.choose(it) }
+        LiveSport.byId(sportId)?.let {
+            runtime.choose(it)
+            if (autoStartAfterChoose) pendingAutoStart = true
+        }
         onInitialSportConsumed()
+        if (autoStartAfterChoose) onAutoStartConsumed()
     }
     LaunchedEffect(state.phase) {
         while (state.phase == LiveActivityState.Phase.RECORDING ||
@@ -400,6 +411,15 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         startCountdownToken++
         startCountdown = 3
         LiveStartFeedback.tick(context, 3, sound = runtime.spokenGuidanceEnabled)
+    }
+    LaunchedEffect(pendingAutoStart, state.phase, state.sport.id) {
+        if (!pendingAutoStart) return@LaunchedEffect
+        if (state.phase != LiveActivityState.Phase.IDLE) {
+            pendingAutoStart = false
+            return@LaunchedEffect
+        }
+        pendingAutoStart = false
+        beginStartCountdown()
     }
     LaunchedEffect(startCountdownToken) {
         val token = startCountdownToken

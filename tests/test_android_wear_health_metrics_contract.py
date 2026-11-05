@@ -64,6 +64,21 @@ class WearHealthMetricContracts(unittest.TestCase):
         self.assertIn("LiveSport.HIIT, LiveSport.CROSSFIT, LiveSport.HYROX", wear)
         self.assertIn("fun sessionHealthSportId(", repo)
         self.assertIn('LiveSport.CROSSFIT.id', repo)
+        self.assertIn("FallbackActivityKind.resolving(title).liveSportId", repo)
+
+    def test_class_without_plan_falls_back_to_gym_or_hiit(self):
+        domain = read("android/domain/src/main/java/dev/repera/domain/FallbackActivityKind.kt")
+        plus = read("android/mobile/src/main/java/dev/repera/mobile/PlusHubTab.kt")
+        screen = read("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
+        wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        writer = read("android/mobile/src/main/java/dev/repera/mobile/HealthConnectWriter.kt")
+        self.assertIn("fun resolving(title: String)", domain)
+        self.assertIn('STRENGTH("strength")', domain)
+        self.assertIn('HIIT("hiit")', domain)
+        self.assertIn("onStartClassWithoutPlan", plus)
+        self.assertIn("startFallbackGymOrHIIT", screen)
+        self.assertIn("FallbackActivityKind.resolving", wear)
+        self.assertIn("LiveSport.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING", writer)
 
     def test_phone_review_saves_wrist_metrics_and_history_exposes_them(self):
         screen = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")

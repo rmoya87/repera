@@ -1,6 +1,6 @@
 # Superficies nativas del SO — fase 5 (4 nov 2026)
 
-Última actualización: 2026-11-04.
+Última actualización: 2026-11-05.
 
 Complementa `NATIVE_SYSTEM_INTEGRATION_2026_11_04.md` (fases 1–4). Distinguir **implementado / compilado / CI / hardware / backend**.
 
@@ -12,7 +12,7 @@ Complementa `NATIVE_SYSTEM_INTEGRATION_2026_11_04.md` (fases 1–4). Distinguir 
 | **Android SEND/VIEW** | Intent filters GPX + `image/*`; `SystemShareImport` → cache → rutas `en-vivo` / `escaner` | Sin sensores desde el intent |
 | **Now Playing iOS** | `RestRemoteCommandCenter` + `MPRemoteCommandCenter` en descanso (pause/resume/skip) | Solo timer UI |
 | **MediaSession Android** | `RestMediaSessionController` en `StrengthRestService` | Solo skip/countdown |
-| **Live Activity push tokens** | `Activity.request(…, pushType: .token)` + `LiveActivityPushTokenStore` | **Push remoto / push-to-start APNs** pendiente de backend + entitlement |
+| **Live Activity push tokens** | `Activity.request(…, pushType: .token)` + `LiveActivityPushTokenStore` (update + **push-to-start** Training/Rest en UserDefaults) | **Subida RPC + envío APNs ActivityKit** pendiente (RPC solo acepta `ios`/`android` alert; hace falta migración + Edge) |
 | **Focus Filter** | `ReperaFocusFilterIntent` silencia tab Center | Preferencia local |
 | **EventKit / CalendarContract** | Mirror opcional de reservas `booked` | Write-only; permiso usuario |
 | **Control Widget + Atajo «Escanear pizarra»** | `ReperaBoardScanControl` / `ReperaBoardScanIntent` → `repera://board` | No Camera Control hardware dedicado |
@@ -22,7 +22,7 @@ Complementa `NATIVE_SYSTEM_INTEGRATION_2026_11_04.md` (fases 1–4). Distinguir 
 
 ## Pendiente externo
 
-- Desplegar push ActivityKit (APNs + Edge) para updates / push-to-start sin abrir app.
+- Desplegar push ActivityKit (APNs + Edge) para updates / push-to-start sin abrir app (cliente ya registra tokens PTS).
 - Validar Share Extension y MediaSession en dispositivo real.
 - App Group `group.com.app.repera` en Apple Developer + provisioning.
 - App Functions (`androidx.appfunctions`) cuando el target lo fije el proyecto.

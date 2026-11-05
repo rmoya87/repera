@@ -53,6 +53,7 @@ import org.json.JSONObject
 import org.json.JSONArray
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
+import dev.repera.domain.FallbackActivityKind
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
 import dev.repera.domain.LiveSport
@@ -1920,13 +1921,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sendStatus = hubNotice
             return
         }
-        val prescription = selectedPlan ?: todayPlanJson ?: run {
-            hubNotice = "No hay plan descargado. Sincronízalo con el teléfono."
+        val prescription = selectedPlan ?: todayPlanJson
+        if (prescription == null) {
+            // Sin plan de hoy: Comenzar gimnasio/HIIT (paridad FallbackActivityKind Apple).
+            startWatchOwnedLive(
+                FallbackActivityKind.resolving("").liveSportId
+            )
             return
         }
         val begun=runCatching {dev.repera.domain.WatchPlanExecution.begin(prescription)}.getOrElse {
-            hubNotice="No se pudo iniciar el plan: ${it.localizedMessage}"
-            sendStatus=hubNotice
+            startWatchOwnedLive(
+                FallbackActivityKind.resolving(prescription.optString("title")).liveSportId
+            )
             return
         }
         // Select the requested block, then start counting on the very first tap.
@@ -1934,7 +1940,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val ready = if(startIndex>0)
             dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
         val plan = dev.repera.domain.WatchPlanExecution.play(ready) ?: run {
-            hubNotice = "No hay un bloque válido para iniciar"
+            startWatchOwnedLive(
+                FallbackActivityKind.resolving(prescription.optString("title")).liveSportId
+            )
             return
         }
         if (recordOnly) {

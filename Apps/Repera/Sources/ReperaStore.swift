@@ -210,6 +210,10 @@ final class ReperaStore: NSObject {
         connectivity.delegate = self
         connectivity.activate()
         isWatchReachable = WCSession.default.isReachable
+        LiveActivityRecorder.watchHandoffHandler = { [weak self] sessionID, sport in
+            guard let self else { return false }
+            return await self.handoffLiveSportToWatch(sessionID: sessionID, sport: sport)
+        }
         // Catalog merges + iCloud after hydrate — never on the LaunchScreen path.
         Task(priority: .utility) { @MainActor in
             await Task.yield()
@@ -896,11 +900,21 @@ final class ReperaStore: NSObject {
         }
         var ctrl = SessionController(session: session)
         ctrl.startOnPhone()
-        state.activeSession = ctrl.session
+        var started = ctrl.session
+        let preferWatch = connectivity.canHandoffToWatch
+        if preferWatch {
+            // Phone UI mirrors; Watch writes the only HKWorkout when handoff works.
+            started.appleHealthProvenance = "watchHealthKitPending"
+        }
+        state.activeSession = started
         persist()
         pushActiveToWatch(immediate: true)
-        beginHealthTracking(for: ctrl.session)
-        beginLocationTracking(for: ctrl.session)
+        if preferWatch {
+            requestWatchHealthOwnership(for: started)
+        } else {
+            beginHealthTracking(for: started)
+            beginLocationTracking(for: started)
+        }
         if routine.isFavorite || routine.favoriteTemplateId != nil {
             ReperaAnalytics.track(.favoriteReused, parameters: [
                 "feature_area": "training",
@@ -908,7 +922,7 @@ final class ReperaStore: NSObject {
                 "result": "success"
             ])
         }
-        emitWorkoutStartedAnalytics(ctrl.session, sessionOrigin: "ios")
+        emitWorkoutStartedAnalytics(started, sessionOrigin: "ios")
     }
 
     /// Sesión freestyle desde OCR de pizarra/TV (sin progresión).
@@ -967,18 +981,96 @@ final class ReperaStore: NSObject {
         var ctrl = SessionController(session: session)
         ctrl.startOnPhone()
         progressionReasons = [:]
-        state.activeSession = ctrl.session
+        var started = ctrl.session
+        let preferWatch = connectivity.canHandoffToWatch
+        if preferWatch {
+            started.appleHealthProvenance = "watchHealthKitPending"
+        }
+        state.activeSession = started
         persist()
         pushActiveToWatch(immediate: true)
-        beginHealthTracking(for: ctrl.session)
-        beginLocationTracking(for: ctrl.session)
+        if preferWatch {
+            requestWatchHealthOwnership(for: started)
+        } else {
+            beginHealthTracking(for: started)
+            beginLocationTracking(for: started)
+        }
         ReperaAnalytics.track(.scanSaved, parameters: [
             "feature_area": "scanner",
             "result": "success",
             "workout_type": "free"
         ])
-        emitWorkoutStartedAnalytics(ctrl.session, sessionOrigin: "ios")
+        emitWorkoutStartedAnalytics(started, sessionOrigin: "ios")
         return true
+    }
+
+    /// Comenzar started on iPhone: wake Watch to own HealthKit for the same UUID.
+    /// Returns false so the phone falls back to its builder when Watch cannot start.
+    private func handoffLiveSportToWatch(sessionID: UUID, sport: LiveSport) async -> Bool {
+        guard connectivity.canHandoffToWatch else { return false }
+        var shell = WorkoutSession(
+            id: sessionID, title: sport.title, exercises: [],
+            phase: .counting, startedAt: Date(), liveSportID: sport.rawValue
+        )
+        shell.appleHealthProvenance = "watchHealthKitPending"
+        connectivity.sendWatchHandoffStart(
+            session: shell,
+            sessionID: sessionID,
+            sportID: sport.rawValue,
+            ownerScope: currentWatchOwnerScope()
+        )
+        let woke = await HealthKitStore.shared.startWatchAppIfPossible(
+            activityType: sport.healthType,
+            locationType: sport.usesGPS ? .outdoor : .indoor
+        )
+        try? await Task.sleep(for: .seconds(woke ? 6 : 1))
+        // Only skip the phone builder when HealthKit mirroring confirms Watch owns it.
+        // Otherwise fall back so Salud always receives one workout.
+        return HealthKitStore.shared.isWatchWorkoutMirrored
+    }
+
+    /// Prefer Watch as HealthKit owner when the paired app can start.
+    /// Falls back to the phone builder after a short timeout so offline/no-Watch
+    /// athletes keep the previous behaviour without duplicate workouts.
+    private func requestWatchHealthOwnership(for session: WorkoutSession) {
+        let sessionID = session.id
+        let activityType = workoutHealthType(for: session)
+        let outdoor = WorkoutLocationTracker.shouldTrackRoute(for: session)
+        connectivity.sendWatchHandoffStart(
+            session: session,
+            sessionID: sessionID,
+            sportID: session.liveSportID,
+            ownerScope: currentWatchOwnerScope()
+        )
+        Task {
+            let woke = await HealthKitStore.shared.startWatchAppIfPossible(
+                activityType: activityType,
+                locationType: outdoor ? .outdoor : .indoor
+            )
+            // Give WatchConnectivity + mirroring a moment before phone fallback.
+            try? await Task.sleep(for: .seconds(woke ? 8 : 2))
+            guard state.activeSession?.id == sessionID,
+                  state.activeSession?.finishedAt == nil else { return }
+            if HealthKitStore.shared.isWatchWorkoutMirrored { return }
+            // Watch did not take ownership — phone records HealthKit as before.
+            if var active = state.activeSession, active.id == sessionID,
+               active.appleHealthProvenance == "watchHealthKitPending" {
+                active.appleHealthProvenance = nil
+                state.activeSession = active
+                persist()
+            }
+            guard let active = state.activeSession, active.id == sessionID else { return }
+            beginHealthTracking(for: active)
+            beginLocationTracking(for: active)
+        }
+    }
+
+    private func currentWatchOwnerScope() -> String? {
+        if AppleAuthStore.shared.isSignedIn { return AppleAuthStore.shared.userID }
+        if BusinessAuthStore.shared.isGoogleSignedIn {
+            return BusinessAuthStore.shared.boundUserForPendingDeletion?.uuidString.lowercased()
+        }
+        return nil
     }
 
     /// One classification is shared by the live HealthKit builder and its
@@ -993,20 +1085,52 @@ final class ReperaStore: NSObject {
         // Paridad con Watch: plan/sesión con WOD → crossTraining (CrossFit),
         // no fuerza genérica.
         if hasWOD { return .crossTraining }
-        guard WorkoutLocationTracker.shouldTrackRoute(for: session) else {
-            return .traditionalStrengthTraining
-        }
         let title = session.title.folding(options: .diacriticInsensitive, locale: .current).lowercased()
-        if ["bici", "cicl", "bike", "cycling", "gravel"].contains(where: title.contains) {
-            return .cycling
+        if WorkoutLocationTracker.shouldTrackRoute(for: session) {
+            if ["bici", "cicl", "bike", "cycling", "gravel"].contains(where: title.contains) {
+                return .cycling
+            }
+            if ["camin", "walk", "sender", "hiking"].contains(where: title.contains) {
+                return .walking
+            }
+            if ["carrera", "running", "trail", "correr"].contains(where: title.contains) {
+                return .running
+            }
         }
-        if ["camin", "walk", "sender", "hiking"].contains(where: title.contains) {
-            return .walking
+        // Sin plan/deporte claro: gimnasio o HIIT (nunca `.other` ambiguo).
+        switch FallbackActivityKind.resolving(title: session.title) {
+        case .hiit: return .highIntensityIntervalTraining
+        case .strength: return .traditionalStrengthTraining
         }
-        if ["carrera", "running", "trail", "correr"].contains(where: title.contains) {
-            return .running
+    }
+
+    /// Clase / cita sin bloques: registra Comenzar como gimnasio o HIIT según el título.
+    @discardableResult
+    func startFallbackGymOrHIITActivity(title: String) -> Bool {
+        guard state.activeSession == nil else {
+            HealthKitStore.shared.lastError =
+                "Ya tienes un entrenamiento en curso. Finalízalo o descártalo antes de comenzar otro."
+            return false
         }
-        return .other
+        let recorder = LiveActivityRecorder.shared
+        guard recorder.phase == .idle, !recorder.isStartCountingDown else {
+            HealthKitStore.shared.lastError =
+                "Finaliza o descarta la actividad En vivo antes de iniciar otro entrenamiento."
+            return false
+        }
+        guard !HealthKitStore.shared.isWatchWorkoutMirrored else {
+            HealthKitStore.shared.lastError =
+                "El Apple Watch ya está registrando un entrenamiento. Termínalo desde el reloj antes de iniciar otro."
+            return false
+        }
+        let kind = FallbackActivityKind.resolving(title: title)
+        let sport = LiveSport(rawValue: kind.liveSportID) ?? .strength
+        recorder.choose(sport)
+        recorder.beginStartCountdown()
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+        )
+        return true
     }
 
     private func beginHealthTracking(for session: WorkoutSession) {
@@ -2112,15 +2236,21 @@ final class ReperaStore: NSObject {
         }
     }
 
-    /// A finished Watch sport is not a planned iPhone session. End its
-    /// own ActivityKit card by UUID, without starting another HealthKit workout.
+    /// A finished Watch-owned workout (Comenzar or plan/class) ends its
+    /// `watch:UUID` ActivityKit card. Also dismiss any legacy `planned:` card.
     private func completeImportedWatchActivity(_ session: WorkoutSession) {
         Task {
-            if session.liveSportID != nil {
+            let watchOwned = session.liveSportID != nil
+                || session.appleHealthProvenance == "watchHealthKit"
+                || session.appleHealthProvenance == "watchHealthKitPending"
+            if watchOwned {
                 await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
                     sessionID: session.id, saved: true
                 )
-            } else {
+            }
+            // Plans started on Watch may have briefly opened planned: before
+            // provenance arrived; closing both IDs is idempotent.
+            if session.liveSportID == nil {
                 await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
             }
         }
@@ -2620,7 +2750,10 @@ final class ReperaStore: NSObject {
         if changed { sessionEpoch &+= 1 }
         // También recupera la Live Activity al hidratar una sesión persistida:
         // no depende de la pantalla Play ni de una transmisión al Watch.
-        if let active, active.startedAt != nil {
+        // Watch-owned plans publish via watchOwnedLiveActivity instead.
+        if let active, active.startedAt != nil,
+           active.appleHealthProvenance != "watchHealthKit",
+           active.appleHealthProvenance != "watchHealthKitPending" {
             Task {
                 await WorkoutLiveActivityCoordinator.shared.updatePlanned(active)
             }
@@ -2877,13 +3010,7 @@ final class ReperaStore: NSObject {
         let plans = effectiveWatchPlansForCarousel()
         // Apple is the local identity; Google-only athletes use the verified
         // owner binding so WatchConnectivity never becomes silently disabled.
-        let watchOwnerScope: String? = {
-            if AppleAuthStore.shared.isSignedIn { return AppleAuthStore.shared.userID }
-            if BusinessAuthStore.shared.isGoogleSignedIn {
-                return BusinessAuthStore.shared.boundUserForPendingDeletion?.uuidString.lowercased()
-            }
-            return nil
-        }()
+        let watchOwnerScope = currentWatchOwnerScope()
         connectivity.send(
             session: state.activeSession,
             today: plans.first,
@@ -4124,12 +4251,27 @@ extension ReperaStore: PhoneConnectivityDelegate {
             }
             // Do not revive an already archived workout, nor replace an
             // unrelated phone-owned workout in the Dynamic Island.
+            // The same UUID may already be activeSession after sendCurrent.
             guard !self.state.workouts.contains(where: {
                 $0.id == snapshot.id && $0.finishedAt != nil
-            }), self.state.activeSession == nil else { return }
+            }) else { return }
+            if let active = self.state.activeSession, active.id != snapshot.id {
+                return
+            }
             let phone = LiveActivityRecorder.shared
-            guard phone.phase != .recording, phone.phase != .paused,
-                  phone.phase != .review else { return }
+            // Phone-owned Comenzar keeps the island; Watch mirror must not steal it.
+            if phone.phase == .recording || phone.phase == .paused || phone.phase == .review,
+               phone.sessionID != snapshot.id {
+                return
+            }
+            // Mark the mirrored plan so publishSessionChrome skips planned: cards.
+            if snapshot.kind == .planned,
+               var active = self.state.activeSession, active.id == snapshot.id,
+               active.appleHealthProvenance != "watchHealthKit",
+               active.appleHealthProvenance != "watchHealthKitPending" {
+                active.appleHealthProvenance = "watchHealthKitPending"
+                self.state.activeSession = active
+            }
             await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
         }
     }

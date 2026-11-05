@@ -168,6 +168,7 @@ internal fun HomeTab(
     onBookClass: (BusinessCenterStore.Occurrence, BusinessCenterStore.Pass) -> Unit = { _, _ -> },
     onCancelClassBooking: (BusinessCenterStore.Booking) -> Unit = {},
     onStartClassPlan: (BusinessCenterStore.ProfessionalSession) -> Unit = {},
+    onStartClassWithoutPlan: (title: String) -> Unit = {},
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
     centerName:(String)->String = {"Centro"},
     onOpenMessages:()->Unit = {},
@@ -643,6 +644,7 @@ internal fun HomeTab(
             onBook = onBookClass,
             onRequestCancel = { pendingClassCancellation = it },
             onStartClassPlan = onStartClassPlan,
+            onStartClassWithoutPlan = onStartClassWithoutPlan,
             exerciseCatalog = exerciseCatalog,
             onOpenExercise = onOpenExercise,
             onClose = { detailOccurrence = null }

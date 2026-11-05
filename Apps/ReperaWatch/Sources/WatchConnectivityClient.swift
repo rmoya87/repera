@@ -12,6 +12,10 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidAcknowledge(sessionId: UUID, healthKitUUID: UUID?)
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
+    /// iPhone asked Watch to own HealthKit for this execution (Apple handoff).
+    func watchConnectivityDidReceiveHandoffStart(
+        session: WorkoutSession?, sessionID: UUID, sportID: String?
+    )
     func watchConnectivityDidBecomeReachable()
     func watchConnectivityDidChangeReachability(_ reachable: Bool)
     func watchConnectivityDidChangeOwnerScope(hasOwner: Bool)
@@ -21,6 +25,9 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?) {}
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
+    func watchConnectivityDidReceiveHandoffStart(
+        session: WorkoutSession?, sessionID: UUID, sportID: String?
+    ) {}
     func watchConnectivityDidBecomeReachable() {}
     func watchConnectivityDidChangeReachability(_ reachable: Bool) {}
     func watchConnectivityDidChangeOwnerScope(hasOwner: Bool) {}
@@ -631,6 +638,26 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 return
             }
             delegate?.watchConnectivityDidReceiveTimerCommand(id: id, command: command)
+            return
+        }
+        if payload["action"] as? String == "handoffStart" {
+            guard let scope = payload["ownerScope"] as? String, !scope.isEmpty,
+                  scope == currentOwnerScope,
+                  let rawID = payload["handoffSessionId"] as? String,
+                  let sessionID = UUID(uuidString: rawID) else {
+                logger.warning("Ignoring unscoped or invalid Watch handoff")
+                return
+            }
+            let sportID = payload["sportID"] as? String
+            let session: WorkoutSession?
+            if let data = boundedData(payload, "handoffSession") {
+                session = try? JSONDecoder().decode(WorkoutSession.self, from: data)
+            } else {
+                session = nil
+            }
+            delegate?.watchConnectivityDidReceiveHandoffStart(
+                session: session, sessionID: sessionID, sportID: sportID
+            )
             return
         }
         let recent = payload["recentLiveSportIDs"] as? [String] ?? []

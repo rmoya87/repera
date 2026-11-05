@@ -93,6 +93,10 @@ final class WatchSessionHub: NSObject {
     private var abandonedCompanionStartAt: Date?
     private var lastLiveStateSave = Date.distantPast
     private var lastPhoneWatchLiveUpdateAt = Date.distantPast
+    /// Handoff from iPhone Play (`startWatchApp` + WCSession) awaiting adoption.
+    private var pendingPhoneHandoff: (
+        session: WorkoutSession?, sessionID: UUID, sportID: String?
+    )?
     /// Clave antigua de UserDefaults; el estado vive en un fichero protegido.
     private let persistenceKey = "repera.watch.offlineState.v1"
     private let persistenceFile = "offlineState.v1.json"
@@ -892,9 +896,9 @@ final class WatchSessionHub: NSObject {
         ensureWatchLiveRunning(sport: sport)
     }
 
-    func ensureWatchLiveRunning(sport: WatchLiveSport) {
+    func ensureWatchLiveRunning(sport: WatchLiveSport, sessionID: UUID? = nil) {
         guard watchLiveSport == nil, !hasWorkoutInProgress, liveActivity == nil else { return }
-        let id = UUID()
+        let id = sessionID ?? UUID()
         watchLiveSessionID = id
         watchLiveSport = sport
         watchLivePaused = false
@@ -922,30 +926,145 @@ final class WatchSessionHub: NSObject {
         }
     }
 
-    /// Watch owns HealthKit and the GPS route. The phone only renders the
-    /// lightweight ActivityKit UI, keyed to the SAME workout UUID.
+    /// iPhone Play with a paired Watch: adopt the same UUID and own HealthKit.
+    @discardableResult
+    func adoptPhoneHandoff(
+        session: WorkoutSession?, sessionID: UUID, sportID: String?
+    ) -> Bool {
+        if watchLiveSessionID == sessionID || active?.id == sessionID {
+            return true
+        }
+        guard !hasWorkoutInProgress, watchLiveSport == nil, liveActivity == nil else {
+            return false
+        }
+        if let sportID, let sport = WatchLiveSport(rawValue: sportID),
+           session == nil || session?.liveSportID != nil || session?.exercises.isEmpty == true {
+            ensureWatchLiveRunning(sport: sport, sessionID: sessionID)
+            return watchLiveSessionID == sessionID
+        }
+        guard var plan = session, plan.id == sessionID else { return false }
+        // Clase/plan vacío: Comenzar gimnasio o HIIT con el mismo UUID.
+        if plan.exercises.isEmpty {
+            let kind = FallbackActivityKind.resolving(title: plan.title)
+            let sport = WatchLiveSport(rawValue: kind.liveSportID) ?? .strength
+            ensureWatchLiveRunning(sport: sport, sessionID: sessionID)
+            return watchLiveSessionID == sessionID
+        }
+        plan.appleHealthProvenance = "watchHealthKitPending"
+        if plan.startedAt == nil {
+            var ctrl = SessionController(session: plan)
+            ctrl.startOnPhone()
+            plan = ctrl.session
+            plan.appleHealthProvenance = "watchHealthKitPending"
+        }
+        var next = SessionController(session: plan)
+        controller = next
+        isRecordingPlannedWorkout = false
+        startedOnThisWatch = true
+        health.start(
+            id: plan.id, at: plan.startedAt ?? Date(),
+            includesWOD: plan.exercises.contains { $0.blockKind == .wod },
+            includesStrength: plan.exercises.contains { $0.blockKind == .strength }
+        )
+        lastFinished = nil
+        summaryDismissed = false
+        acknowledgedSessionID = nil
+        captureStartLocation(sessionID: plan.id, recordsRoute: false)
+        isPaused = false
+        reviewingBlock = false
+        restRemaining = 0
+        blockElapsed = 0
+        sessionElapsed = max(0, Int(Date().timeIntervalSince(plan.startedAt ?? Date())))
+        workingReps = 0
+        selectedSetIndex = nil
+        workingWeightKg = plan.currentExercise?.plannedSets.first?.targetWeightKg
+        resetSetDraft()
+        completedRounds = 0
+        remainingRoundReps = 0
+        lastIntervalIndex = 0
+        lastClockTick = Date()
+        startClock()
+        checkpoint(flush: true)
+        publishWatchOwnedLiveToPhone(force: true)
+        if !audioMuted {
+            WKInterfaceDevice.current().play(.start)
+        }
+        return true
+    }
+
+    /// Woken by `HKHealthStore.startWatchApp` — consume a pending phone handoff.
+    func handleWorkoutConfiguration(_ configuration: HKWorkoutConfiguration) {
+        if let pending = pendingPhoneHandoff {
+            pendingPhoneHandoff = nil
+            _ = adoptPhoneHandoff(
+                session: pending.session,
+                sessionID: pending.sessionID,
+                sportID: pending.sportID
+            )
+            return
+        }
+        // Configuration-only wake: prefer today's plan, else map activity type.
+        if startToday() { return }
+        if let sport = WatchLiveSport.allCases.first(where: {
+            $0.healthKitActivityType == configuration.activityType
+        }) {
+            ensureWatchLiveRunning(sport: sport)
+            return
+        }
+        // Sin plan ni deporte reconocido: gimnasio o HIIT (nunca quedar idle).
+        let fallback: WatchLiveSport =
+            configuration.activityType == .highIntensityIntervalTraining ? .hiit : .strength
+        ensureWatchLiveRunning(sport: fallback)
+    }
+
+    /// Watch owns HealthKit (Comenzar or plan/class). The phone only renders
+    /// the lightweight ActivityKit UI, keyed to the SAME workout UUID.
     private func publishWatchOwnedLiveToPhone(
         phase overridePhase: WatchLiveActivitySnapshot.Phase? = nil,
         force: Bool = false
     ) {
-        guard let id = watchLiveSessionID,
-              let sport = watchLiveSport, let started = watchLiveStartedAt else { return }
         let now = Date()
         if !force && now.timeIntervalSince(lastPhoneWatchLiveUpdateAt) < 12 { return }
+        if let id = watchLiveSessionID,
+           let sport = watchLiveSport, let started = watchLiveStartedAt {
+            lastPhoneWatchLiveUpdateAt = now
+            let paused = watchLivePausedAccum + (watchLivePausedAt.map {
+                max(0, now.timeIntervalSince($0))
+            } ?? 0)
+            let elapsed = max(0, now.timeIntervalSince(started) - paused)
+            let distance = max(0, watchLiveDistanceMeters)
+            let speed = sport.usesGPS && elapsed > 0 && distance > 0
+                ? distance / elapsed * 3.6 : nil
+            connectivity.sendWatchOwnedLive(WatchLiveActivitySnapshot(
+                id: id, sportTitle: sport.title,
+                phase: overridePhase ?? (watchLivePaused ? .paused : .recording),
+                elapsedSeconds: elapsed, distanceMeters: distance,
+                averageSpeedKmh: speed, nextTurn: nil,
+                nextTurnMeters: nil, capturedAt: now, sportID: sport.rawValue,
+                kind: .sport
+            ), durable: force)
+            return
+        }
+        guard startedOnThisWatch, let session = active,
+              session.startedAt != nil, session.finishedAt == nil else { return }
         lastPhoneWatchLiveUpdateAt = now
-        let paused = watchLivePausedAccum + (watchLivePausedAt.map {
-            max(0, now.timeIntervalSince($0))
-        } ?? 0)
-        let elapsed = max(0, now.timeIntervalSince(started) - paused)
-        let distance = max(0, watchLiveDistanceMeters)
-        let speed = sport.usesGPS && elapsed > 0 && distance > 0
-            ? distance / elapsed * 3.6 : nil
+        let total = session.exercises.count
+        let progress = total > 0
+            ? "\(min(total, session.currentIndex + 1))/\(total)" : "—"
+        let completedSets = session.exercises.reduce(0) { $0 + $1.loggedSets.count }
+        let exercise = session.currentExercise
         connectivity.sendWatchOwnedLive(WatchLiveActivitySnapshot(
-            id: id, sportTitle: sport.title,
-            phase: overridePhase ?? (watchLivePaused ? .paused : .recording),
-            elapsedSeconds: elapsed, distanceMeters: distance,
-            averageSpeedKmh: speed, nextTurn: nil,
-            nextTurnMeters: nil, capturedAt: now, sportID: sport.rawValue
+            id: session.id,
+            sportTitle: session.title.isEmpty ? "Entrenamiento" : session.title,
+            phase: overridePhase ?? (isPaused ? .paused : .recording),
+            elapsedSeconds: TimeInterval(max(0, sessionElapsed)),
+            distanceMeters: 0, averageSpeedKmh: nil, nextTurn: nil,
+            nextTurnMeters: nil, capturedAt: now, kind: .planned,
+            subtitle: exercise.map { $0.blockHeader ?? $0.exercise.name }
+                ?? "Entrenamiento en Apple Watch",
+            symbolName: "figure.cross.training",
+            primaryValue: progress, primaryLabel: "Ejercicio",
+            secondaryValue: String(completedSets), secondaryLabel: "Series"
         ), durable: force)
     }
 
@@ -1243,6 +1362,11 @@ final class WatchSessionHub: NSObject {
         )
         var next = SessionController(session: execution)
         next.startOnPhone()
+        var owned = next.session
+        // Mark Watch ownership before the first phone transfer so iPhone
+        // never opens a competing planned: Live Activity or HealthKit writer.
+        owned.appleHealthProvenance = "watchHealthKitPending"
+        next = SessionController(session: owned)
         controller = next
         isRecordingPlannedWorkout = false
         startedOnThisWatch = true
@@ -1270,6 +1394,7 @@ final class WatchSessionHub: NSObject {
         lastClockTick = Date()
         startClock()
         checkpoint(flush: true)
+        publishWatchOwnedLiveToPhone(force: true)
         return true
     }
 
@@ -1293,6 +1418,7 @@ final class WatchSessionHub: NSObject {
             if ctrl.session.phase == .counting && restRemaining == 0 { startMotion() }
             if startedOnThisWatch { health.resume() }
             checkpoint(flush: true)
+            publishWatchOwnedLiveToPhone(force: true)
             return
         }
         if ctrl.session.phase == .ready {
@@ -1320,6 +1446,7 @@ final class WatchSessionHub: NSObject {
             lastClockTick = Date()
             startMotion()
             checkpoint(flush: true)
+            publishWatchOwnedLiveToPhone(force: true)
         }
     }
 
@@ -1331,6 +1458,7 @@ final class WatchSessionHub: NSObject {
         stopMotion()
         if startedOnThisWatch { health.pause() }
         checkpoint(flush: true)
+        publishWatchOwnedLiveToPhone(force: true)
     }
 
     func skipRest() {
@@ -1865,6 +1993,9 @@ final class WatchSessionHub: NSObject {
     /// Cancela la sesión en curso sin guardar (iPhone terminó/descartó, o el atleta elige Descartar).
     func discardActiveSession(fromPhone: Bool = false) {
         let discardedID = active?.id ?? lastFinished?.id
+        if startedOnThisWatch {
+            publishWatchOwnedLiveToPhone(phase: .review, force: true)
+        }
         cancelPendingCheckpointSend()
         stopMotion()
         stopClock()
@@ -1989,8 +2120,9 @@ final class WatchSessionHub: NSObject {
         isRecordingPlannedWorkout = false
         // Do not label Repera's wall-clock as Apple-measured duration.
         // If the Watch is recording, HealthKit may complete while device is locked.
-        if startedOnThisWatch && health.isRecording {
+        if startedOnThisWatch {
             result.appleHealthProvenance = "watchHealthKitPending"
+            publishWatchOwnedLiveToPhone(phase: .review, force: true)
         }
         lastFinished = result
         summaryDismissed = false
@@ -2063,6 +2195,9 @@ final class WatchSessionHub: NSObject {
         sessionElapsed = step.sessionElapsed
         blockElapsed = step.blockElapsed
         restRemaining = step.restRemaining
+        if startedOnThisWatch {
+            publishWatchOwnedLiveToPhone()
+        }
 
         if step.reachedTimeCap {
             if wodUsesSeries && isIntervalClock {
@@ -2328,6 +2463,21 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         }
     }
 
+    nonisolated func watchConnectivityDidReceiveHandoffStart(
+        session: WorkoutSession?, sessionID: UUID, sportID: String?
+    ) {
+        Task { @MainActor in
+            self.pendingPhoneHandoff = (session, sessionID, sportID)
+            if !self.adoptPhoneHandoff(
+                session: session, sessionID: sessionID, sportID: sportID
+            ) {
+                // Keep pending until handleWorkoutConfiguration / next idle.
+                return
+            }
+            self.pendingPhoneHandoff = nil
+        }
+    }
+
     nonisolated func watchConnectivityDidReceive(session: WorkoutSession?) {
         Task { @MainActor in
             // An empty context is a potentially stale snapshot, not a
@@ -2335,6 +2485,17 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             guard let session else { return }
             guard self.lastFinished?.id != session.id,
                   session.phase != .finished else { return }
+            // Phone Play + Watch handoff: same UUID, Watch becomes HealthKit owner.
+            let wantsWatchOwner = session.appleHealthProvenance == "watchHealthKitPending"
+                || session.appleHealthProvenance == "watchHealthKit"
+            if wantsWatchOwner, self.active?.id != session.id, self.watchLiveSessionID != session.id,
+               !self.hasWorkoutInProgress, self.watchLiveSport == nil, self.liveActivity == nil {
+                if self.adoptPhoneHandoff(
+                    session: session, sessionID: session.id, sportID: session.liveSportID
+                ) {
+                    return
+                }
+            }
             if let current = self.controller?.session {
                 if current.id != session.id {
                     // A watch-owned workout cannot be replaced by an

@@ -1,16 +1,26 @@
+import HealthKit
 import Observation
 import SwiftUI
 import WatchKit
 import WidgetKit
 
-/// watchOS notifies this delegate when a crash interrupted a native workout.
+/// watchOS notifies this delegate when a crash interrupted a native workout,
+/// and when iPhone calls `startWatchApp(toHandle:)`.
 @Observable
 @MainActor
 final class ReperaWatchRecoveryDelegate: NSObject, WKApplicationDelegate {
     var recoveryRequested = false
+    var pendingWorkoutConfiguration: HKWorkoutConfiguration?
+    /// Bumps when iPhone wakes the Watch via `startWatchApp` (config is not Equatable).
+    var pendingWorkoutConfigurationEpoch = 0
 
     func handleActiveWorkoutRecovery() {
         recoveryRequested = true
+    }
+
+    func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
+        pendingWorkoutConfiguration = workoutConfiguration
+        pendingWorkoutConfigurationEpoch &+= 1
     }
 }
 
@@ -34,9 +44,18 @@ struct ReperaWatchApp: App {
                     WidgetCenter.shared.reloadAllTimelines()
                     hub.publishComplicationSnapshot(force: true)
                     if appDelegate.recoveryRequested { hub.recoverHealthSession() }
+                    if let config = appDelegate.pendingWorkoutConfiguration {
+                        appDelegate.pendingWorkoutConfiguration = nil
+                        hub.handleWorkoutConfiguration(config)
+                    }
                 }
                 .onChange(of: appDelegate.recoveryRequested) { _, wantsRecovery in
                     if wantsRecovery { hub.recoverHealthSession() }
+                }
+                .onChange(of: appDelegate.pendingWorkoutConfigurationEpoch) { _, _ in
+                    guard let config = appDelegate.pendingWorkoutConfiguration else { return }
+                    appDelegate.pendingWorkoutConfiguration = nil
+                    hub.handleWorkoutConfiguration(config)
                 }
                 .onChange(of: hub.active?.id) { _, _ in hub.publishComplicationSnapshot(force: true) }
                 .onChange(of: hub.presentedSummary?.id) { _, _ in hub.publishComplicationSnapshot(force: true) }

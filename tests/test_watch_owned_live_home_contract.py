@@ -59,12 +59,38 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("func updateWatchOwned(", coordinator)
         self.assertIn("func finishWatchOwned(sessionID: UUID, saved: Bool)", coordinator)
         self.assertIn("phoneConnectivityDidReceiveWatchOwnedLive(", store)
-        self.assertIn("state.activeSession == nil", store)
+        self.assertIn("active.id != snapshot.id", store)
         self.assertIn("updateWatchOwned(snapshot)", store)
+        self.assertIn("case .planned:", coordinator)
         self.assertIn('sessionID.hasPrefix("watch:")', widget)
         self.assertIn('"Control desde Apple Watch"', widget)
         self.assertIn('"repera://today"', widget)
         self.assertIn("pushType: nil", coordinator)
+
+    def test_watch_owned_planned_live_and_phone_handoff(self):
+        hub = source(WATCH_HUB)
+        phone = source(PHONE_TRANSPORT)
+        store = source(PHONE_STORE)
+        watch_app = source("Apps/ReperaWatch/Sources/ReperaWatchApp.swift")
+        push = source("Apps/Repera/Sources/LiveActivityPushTokenStore.swift")
+        self.assertIn("kind: .planned", hub)
+        self.assertIn("func adoptPhoneHandoff(", hub)
+        self.assertIn("func handleWorkoutConfiguration(", hub)
+        # WKApplicationDelegate: SDK renombró handleWorkoutConfiguration → handle(_:)
+        self.assertIn(
+            "func handle(_ workoutConfiguration: HKWorkoutConfiguration)",
+            watch_app,
+        )
+        self.assertNotIn("func handleWorkoutConfiguration(", watch_app)
+        self.assertIn('payload["action"] as? String == "handoffStart"',
+                      source(WATCH_TRANSPORT))
+        self.assertIn("func sendWatchHandoffStart(", phone)
+        self.assertIn("var canHandoffToWatch: Bool", phone)
+        self.assertIn("func requestWatchHealthOwnership(", store)
+        self.assertIn("startWatchAppIfPossible(", store)
+        self.assertIn("pushToStartTokenKey", push)
+        self.assertIn("pushToStartTokenUpdates", push)
+        self.assertIn("RestActivityAttributes", push)
 
     def test_watch_finish_is_sent_before_healthkit_async_result(self):
         hub = source(WATCH_HUB)

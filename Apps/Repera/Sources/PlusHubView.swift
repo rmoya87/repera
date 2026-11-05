@@ -1037,18 +1037,16 @@ struct ClassOccurrenceDetailPage: View {
             ExerciseDetailView(exerciseId: exerciseId)
         }
         .toolbar {
-            if planRoutine != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        beginClassPlan()
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                    .accessibilityLabel("Comenzar entreno")
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    beginClassPlan()
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 15, weight: .semibold))
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .accessibilityLabel("Comenzar entreno")
             }
         }
         .alert("No se ha podido iniciar el entreno", isPresented: Binding(
@@ -1074,14 +1072,23 @@ struct ClassOccurrenceDetailPage: View {
     }
 
     private func beginClassPlan() {
-        guard let plan = planRoutine else { return }
         ReperaAnalytics.track(.classPlanOpened, parameters: [
             "feature_area": "center",
             "service_kind": occurrence.kind == "appointment" ? "appointment" : "class",
             "result": "success"
         ])
-        let saved = store.ensureProfessionalRoutineInLibrary(plan)
-        onStartRoutine(saved)
+        if let plan = planRoutine {
+            let saved = store.ensureProfessionalRoutineInLibrary(plan)
+            onStartRoutine(saved)
+            return
+        }
+        // Sin bloques prescritos: Comenzar como gimnasio o HIIT según el título.
+        let training = occurrence.trainingTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = training.isEmpty ? occurrence.title : training
+        if !store.startFallbackGymOrHIITActivity(title: title) {
+            startFailureMessage = HealthKitStore.shared.lastError
+                ?? "No se pudo iniciar el registro de la clase."
+        }
     }
 
     private static func parseDayKey(_ key: String) -> Date? {

@@ -1,5 +1,7 @@
 package dev.repera.mobile
 
+import dev.repera.domain.FallbackActivityKind
+import dev.repera.domain.LiveActivityState
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.analytics.ReperaAnalytics
 import android.net.Uri
@@ -414,6 +416,8 @@ fun ReperaMobileScreen(
         var progressCategoryRequest by rememberSaveable { mutableStateOf<String?>(null) }
         // Favoritos → Comenzar: deporte a preseleccionar al abrir en-vivo.
         var pendingLiveSportId by rememberSaveable { mutableStateOf<String?>(null) }
+        // Clase sin plan: cuenta atrás automática (paridad startFallbackGymOrHIITActivity iOS).
+        var pendingLiveAutoStart by rememberSaveable { mutableStateOf(false) }
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: "inicio"
         // Category is a stable identifier, never a URL, user title or session UUID.
@@ -475,6 +479,15 @@ fun ReperaMobileScreen(
                 launchSingleTop = true
                 restoreState = true
             }
+        }
+        fun startFallbackGymOrHIIT(title: String) {
+            if (activeWorkout != null) return
+            val runtime = LiveActivityRuntime.forAccount(activityContext, accountId)
+            if (runtime.state.phase != LiveActivityState.Phase.IDLE) return
+            val sportId = FallbackActivityKind.resolving(title).liveSportId
+            pendingLiveSportId = sportId
+            pendingLiveAutoStart = true
+            navigateTab("en-vivo")
         }
         // Si se revoca la última vinculación mientras estaba en «+», volver a Inicio.
         LaunchedEffect(hasLinkedCenter, currentRoute) {
@@ -742,9 +755,14 @@ fun ReperaMobileScreen(
                         onBookClass = onCenterBook,
                         onCancelClassBooking = onCenterCancel,
                         onStartClassPlan = classPlan@{ session ->
-                            val id = onMaterializeProfessionalRoutine(session) ?: return@classPlan
-                            navController.navigate("preview/" + Uri.encode(id))
+                            val id = onMaterializeProfessionalRoutine(session)
+                            if (id != null) {
+                                navController.navigate("preview/" + Uri.encode(id))
+                                return@classPlan
+                            }
+                            startFallbackGymOrHIIT(session.title)
                         },
+                        onStartClassWithoutPlan = { title -> startFallbackGymOrHIIT(title) },
                         exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
@@ -1205,9 +1223,14 @@ fun ReperaMobileScreen(
                         onCancel = onCenterCancel,
                         loadRoster = onLoadClassRoster,
                         onStartClassPlan = classPlan@{ session ->
-                            val id = onMaterializeProfessionalRoutine(session) ?: return@classPlan
-                            navController.navigate("preview/" + Uri.encode(id))
+                            val id = onMaterializeProfessionalRoutine(session)
+                            if (id != null) {
+                                navController.navigate("preview/" + Uri.encode(id))
+                                return@classPlan
+                            }
+                            startFallbackGymOrHIIT(session.title)
                         },
+                        onStartClassWithoutPlan = { title -> startFallbackGymOrHIIT(title) },
                         exerciseCatalog = overview?.exerciseEntries.orEmpty(),
                         onOpenExercise = { exerciseId ->
                             navController.navigate("ejercicio/$exerciseId")
@@ -1226,7 +1249,9 @@ fun ReperaMobileScreen(
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ showCenter = true }) else null,
                         initialSportId = pendingLiveSportId,
-                        onInitialSportConsumed = { pendingLiveSportId = null })
+                        autoStartAfterChoose = pendingLiveAutoStart,
+                        onInitialSportConsumed = { pendingLiveSportId = null },
+                        onAutoStartConsumed = { pendingLiveAutoStart = false })
                 }
                 composable("center") {
                     CenterTab(

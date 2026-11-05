@@ -14,6 +14,25 @@ class HealthConnectWriterTypeTest {
         assertEquals(ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL, HealthConnectWriter.exerciseTypeFor(LiveSport.ELLIPTICAL))
     }
     @Test fun everyCatalogSportMapsToAKnownType() {
-        for (s in LiveSport.entries) assertTrue(s.id, HealthConnectWriter.exerciseTypeFor(s) != ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING || s == LiveSport.STRENGTH)
+        for (s in LiveSport.entries) {
+            val type = HealthConnectWriter.exerciseTypeFor(s)
+            // OTHER se exporta como fuerza (FallbackActivityKind), no OTHER_WORKOUT.
+            if (s == LiveSport.STRENGTH || s == LiveSport.OTHER) {
+                assertEquals(s.id, ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, type)
+            } else {
+                assertTrue(s.id, type != ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING)
+            }
+        }
+    }
+
+    @Test fun titleFallbackResolvesHiitAndStrength() {
+        assertEquals(
+            ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING,
+            HealthConnectWriter.exerciseTypeFor(null, "HIIT 30'")
+        )
+        assertEquals(
+            ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING,
+            HealthConnectWriter.exerciseTypeFor(LiveSport.OTHER, "Clase de las 18:00")
+        )
     }
 }

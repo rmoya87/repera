@@ -207,7 +207,8 @@ class WearLiveCommandListener : WearableListenerService() {
                             id, info.first, info.second, info.third,
                             repo.healthRecordId(id),
                             HealthConnectWriter.exerciseTypeFor(
-                                repo.sessionHealthSportId(id)?.let(LiveSport::byId)
+                                repo.sessionHealthSportId(id)?.let(LiveSport::byId),
+                                info.first
                             ),
                             repo.sessionRoutePoints(id),
                             repo.sessionRecordedDistanceMeters(id),

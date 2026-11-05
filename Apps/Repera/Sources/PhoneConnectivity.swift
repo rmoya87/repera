@@ -138,6 +138,52 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         publishLatestContext()
     }
 
+    /// True when a paired Watch app can take HealthKit ownership (Apple handoff).
+    /// Requires reachability so the phone does not fall back to a second builder
+    /// while a delayed `transferUserInfo` later starts Watch HealthKit offline.
+    var canHandoffToWatch: Bool {
+        guard WCSession.isSupported() else { return false }
+        let wc = WCSession.default
+        return wc.activationState == .activated
+            && wc.isPaired
+            && wc.isWatchAppInstalled
+            && wc.isReachable
+    }
+
+    /// Ask Watch to own this execution (same UUID). Durable + reachable.
+    /// Does not start phone HealthKit; Watch starts HKWorkoutSession itself.
+    func sendWatchHandoffStart(
+        session: WorkoutSession?,
+        sessionID: UUID,
+        sportID: String?,
+        ownerScope: String?
+    ) {
+        guard WCSession.isSupported(),
+              let owner = ownerScope, !owner.isEmpty else { return }
+        var payload: [String: Any] = [
+            "action": "handoffStart",
+            "ownerScope": owner,
+            "handoffSessionId": sessionID.uuidString
+        ]
+        if let sportID, !sportID.isEmpty {
+            payload["sportID"] = sportID
+        }
+        if let session, let data = try? JSONEncoder().encode(session),
+           WatchTransportLimits.accepts(data) {
+            payload["handoffSession"] = data
+        }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        wc.transferUserInfo(payload)
+        if wc.isReachable {
+            wc.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                self?.logger.debug(
+                    "Watch handoff deferred: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
+
     /// A missing active snapshot is NOT an instruction to discard a watch-owned
     /// workout. A terminal command is scoped to the exact session UUID.
     func sendTerminalEvent(sessionID: UUID, saved: Bool) {

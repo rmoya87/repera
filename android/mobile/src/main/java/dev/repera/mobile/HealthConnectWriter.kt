@@ -322,8 +322,26 @@ class HealthConnectWriter(private val context: Context,private val stillAuthoriz
                 dev.repera.domain.LiveSport.PILATES -> ExerciseSessionRecord.EXERCISE_TYPE_PILATES
                 dev.repera.domain.LiveSport.YOGA -> ExerciseSessionRecord.EXERCISE_TYPE_YOGA
                 dev.repera.domain.LiveSport.MOBILITY -> ExerciseSessionRecord.EXERCISE_TYPE_STRETCHING
-                dev.repera.domain.LiveSport.LACROSSE, dev.repera.domain.LiveSport.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+                // Lacrosse: sin tipo HC propio. OTHER nunca se exporta ambiguo —
+                // FallbackActivityKind ya lo resuelve a strength/HIIT antes de llegar aquí.
+                dev.repera.domain.LiveSport.LACROSSE -> ExerciseSessionRecord.EXERCISE_TYPE_OTHER_WORKOUT
+                dev.repera.domain.LiveSport.OTHER -> ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING
             }
+        }
+
+        /**
+         * Resuelve deporte + título (clase sin plan / «Otra») a un tipo HC concreto.
+         * Paridad iOS `workoutHealthType` + `FallbackActivityKind`.
+         */
+        fun exerciseTypeFor(sport: dev.repera.domain.LiveSport?, title: String?): Int {
+            val resolved = when {
+                sport != null && sport != dev.repera.domain.LiveSport.OTHER -> sport
+                else -> {
+                    val id = dev.repera.domain.FallbackActivityKind.resolving(title.orEmpty()).liveSportId
+                    dev.repera.domain.LiveSport.byId(id) ?: dev.repera.domain.LiveSport.STRENGTH
+                }
+            }
+            return exerciseTypeFor(resolved)
         }
     }
 }

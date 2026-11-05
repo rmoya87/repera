@@ -180,18 +180,16 @@ struct BusinessProfessionalSessionDetailView: View {
             ExerciseDetailView(exerciseId: exerciseId)
         }
         .toolbar {
-            if planRoutine != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        beginPlan()
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                    .accessibilityLabel("Comenzar")
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    beginPlan()
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 15, weight: .semibold))
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .accessibilityLabel("Comenzar")
             }
         }
         .alert("No se ha podido iniciar el entreno", isPresented: Binding(
@@ -205,11 +203,14 @@ struct BusinessProfessionalSessionDetailView: View {
     }
 
     private func beginPlan() {
-        guard let plan = planRoutine else {
-            startFailureMessage = "Este entreno no tiene bloques para ejecutar."
+        if let plan = planRoutine {
+            onStartRoutine(store.ensureProfessionalRoutineInLibrary(plan))
             return
         }
-        onStartRoutine(store.ensureProfessionalRoutineInLibrary(plan))
+        if !store.startFallbackGymOrHIITActivity(title: session.title) {
+            startFailureMessage = HealthKitStore.shared.lastError
+                ?? "No se pudo iniciar el registro sin plan."
+        }
     }
 }
 
@@ -311,19 +312,23 @@ struct BusinessBookedOccurrenceDetailView: View {
             ExerciseDetailView(exerciseId: exerciseId)
         }
         .toolbar {
-            if planRoutine != nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        guard let plan = planRoutine else { return }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if let plan = planRoutine {
                         onStartRoutine(store.ensureProfessionalRoutineInLibrary(plan))
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 15, weight: .semibold))
+                    } else {
+                        let training = occurrence.trainingTitle?
+                            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        let title = training.isEmpty ? occurrence.title : training
+                        _ = store.startFallbackGymOrHIITActivity(title: title)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                    .accessibilityLabel("Comenzar")
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 15, weight: .semibold))
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(OG.accent)
+                .accessibilityLabel("Comenzar")
             }
         }
         .confirmationDialog("¿Cancelar esta reserva?", isPresented: $confirmCancellation) {

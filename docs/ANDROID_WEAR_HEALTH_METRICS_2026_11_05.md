@@ -1,14 +1,28 @@
 # Android y Wear OS — reconciliación de entrenamientos y Health Connect
 
-**Fecha:** 2026-11-05  
+**Fecha:** 2026-11-05 (fallback clase sin plan → gimnasio/HIIT; matriz de dueños)  
 **Motivo:** registro de caminatas con GPS pero energía/ritmo ausentes y divergencia móvil–reloj.
 
 ## Propietarios y origen de cada medición
 
+Los tres tipos (plan programado, Comenzar, clase/Center) entran en el mismo
+modelo; la diferencia respecto a Apple es el dueño cuando el **teléfono**
+inicia con Wear alcanzable (Android conserva GPS en el móvil; Apple hace
+handoff `HKWorkout` al Watch).
+
+| Tipo | Desde Wear | Desde Android (Wear alcanzable) |
+|---|---|---|
+| Entreno programado (plan del día / rutina) | Wear dueño (`ExerciseClient` + UUID) | Teléfono dueño de la sesión; Wear companion FC/kcal |
+| Comenzar (deporte libre) | Wear dueño + `watchOwned` | Teléfono dueño GPS/tiempos; Wear companion |
+| Clase (Center / reserva con plan) | Si llega como plan de hoy → igual que programado | Play con plan → preview/sesión móvil; Wear espeja |
+| Clase / cita **sin plan** | `FallbackActivityKind` → Comenzar fuerza o HIIT en Wear | Play → Comenzar fuerza o HIIT (`startFallbackGymOrHIIT`) |
+
 - Actividad iniciada **en Wear OS**: Repera Watch registra deporte y sensores con
   Health Services `ExerciseClient`, GPS y pausas en el reloj. El teléfono recibe
   la sesión final mediante UUID y la guarda en el historial local; no inicia
-  otra grabación para la misma ejecución.
+  otra grabación para la misma ejecución. Sin plan descargable, Wear arranca
+  Comenzar con `FallbackActivityKind` (gimnasio / HIIT según título), nunca idle
+  ni tipo HC «other» ambiguo.
 - Actividad iniciada **en Android**: el teléfono registra GPS/recorrido/tiempos
   con `LiveActivityRuntime`. Wear OS usa `ExerciseClient` como fuente de
   pulso y energía; no utiliza GPS en paralelo en este modo. Si el reloj no
@@ -19,7 +33,9 @@
 - Entrenamiento programado o clase: Wear OS identifica WOD/HIIT y tipo
   específico cuando existe. La ejecución se envía al móvil con UUID
   estable; los datos terminales de sensores se conservan en el outbox de
-  finalización, para repetir en caso de desconexión.
+  finalización, para repetir en caso de desconexión. `sessionHealthSportId`
+  y `HealthConnectWriter.exerciseTypeFor` resuelven título → fuerza/HIIT
+  (`FallbackActivityKind`) si no hay deporte ni WOD.
 
 ## Semántica de energía (importante)
 

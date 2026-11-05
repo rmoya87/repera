@@ -3,6 +3,7 @@ import Foundation
 import ReperaDomain
 import HealthKit
 import Observation
+import os
 
 /// Salud de Apple: lectura (Watch/Salud manda) + escritura del entreno.
 @MainActor
@@ -10,6 +11,7 @@ import Observation
 final class HealthKitStore {
     static let shared = HealthKitStore()
 
+    private let logger = Logger(subsystem: "com.app.repera", category: "HealthKit")
     private let store = HKHealthStore()
     private var mirroredWatchSession: HKWorkoutSession?
 
@@ -2556,6 +2558,29 @@ final class HealthKitStore {
                 cont.resume(returning: match)
             }
             store.execute(query)
+        }
+    }
+
+    /// Apple recommends starting the primary workout on Watch when a Watch app
+    /// exists (`startWatchApp`). Returns false when the Watch cannot be woken;
+    /// the caller must fall back to a phone-owned builder without inventing metrics.
+    @discardableResult
+    func startWatchAppIfPossible(
+        activityType: HKWorkoutActivityType,
+        locationType: HKWorkoutSessionLocationType
+    ) async -> Bool {
+        guard isAvailable else { return false }
+        let config = HKWorkoutConfiguration()
+        config.activityType = activityType
+        config.locationType = locationType
+        do {
+            try await store.startWatchApp(toHandle: config)
+            return true
+        } catch {
+            logger.debug(
+                "startWatchApp unavailable: \(error.localizedDescription, privacy: .public)"
+            )
+            return false
         }
     }
 

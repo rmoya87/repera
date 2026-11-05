@@ -248,6 +248,19 @@ nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError 
 
 - `startToday()` / live indoor piden un pin con `requestLocation()`; el delegate debe responder al fallo o el Watch cierra al pulsar Entreno guiado/libre.
 
+#### Apple Watch — WKApplicationDelegate `handle(_:)` (SDK watchOS 26)
+
+```swift
+// ❌ BAD — nombre antiguo; Xcode: 'handleWorkoutConfiguration' has been renamed to 'handle(_:)'
+func handleWorkoutConfiguration(_ workoutConfiguration: HKWorkoutConfiguration) { … }
+
+// ✅ GOOD — firma actual del protocolo (handoff startWatchApp desde iPhone)
+func handle(_ workoutConfiguration: HKWorkoutConfiguration) { … }
+```
+
+- El hub interno puede seguir llamándose `handleWorkoutConfiguration`; solo el método del delegate usa `handle(_:)`.
+- Contrato: `tests/test_watch_owned_live_home_contract.py`.
+
 #### Apple — cáscara iPhone 0 kcal no gana al Watch
 
 ```swift

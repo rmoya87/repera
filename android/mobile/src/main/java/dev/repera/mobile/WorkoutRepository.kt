@@ -3,6 +3,7 @@ package dev.repera.mobile
 import android.content.Context
 import dev.repera.domain.ExerciseInput
 import dev.repera.domain.ExerciseInputMode
+import dev.repera.domain.FallbackActivityKind
 import dev.repera.domain.LiveSport
 import dev.repera.domain.WodFormat
 import dev.repera.domain.ResultCapture
@@ -3729,7 +3730,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
 
     /**
      * Physical activity classification for Health Connect: sport-specific if
-     * available, otherwise WOD/CrossFit -> HIIT instead of generic strength.
+     * available, otherwise WOD/CrossFit → CrossFit, else title-based gym/HIIT
+     * (`FallbackActivityKind`) — never an ambiguous blank/`other`.
      * Applies equally to personal plans and professional class prescriptions.
      */
     @Synchronized fun sessionHealthSportId(sessionId: String): String? {
@@ -3737,7 +3739,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val session = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
             .firstOrNull { it.optString("id") == sessionId } ?: return null
         val sport = session.optString("liveSportID").takeIf {
-            it.isNotBlank() && it != "null"
+            it.isNotBlank() && it != "null" && it != LiveSport.OTHER.id
         }
         if (sport != null) return sport
         val blocks = session.optJSONArray("routineBlocks")
@@ -3747,7 +3749,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }) || (exercises != null && (0 until exercises.length()).any {
             exercises.optJSONObject(it)?.optString("blockKind") == "wod"
         }) || (session.optJSONArray("wodResults")?.length() ?: 0) > 0
-        return if (hasWod) LiveSport.CROSSFIT.id else null
+        if (hasWod) return LiveSport.CROSSFIT.id
+        val title = session.optString("title")
+        return FallbackActivityKind.resolving(title).liveSportId
     }
 
     @Synchronized fun sessionTitleAndRange(sessionId: String): Triple<String, Long, Long>? {

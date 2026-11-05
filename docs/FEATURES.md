@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (bloqueo táctil Comenzar y navegación Watch/Wear; Fitness: ruta Watch + cáscaras 0 kcal).
+Última actualización: 2026-11-05 (fallback clase sin plan → gym/HIIT en Apple y Android/Wear; bloqueo táctil Comenzar).
 
 ## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
 
@@ -38,7 +38,8 @@
 
 - **Compartir / Abrir con:** Share Extension iOS y intents Android `SEND`/`VIEW` para GPX y foto de pizarra; la app hidratada importa la ruta o abre el OCR (sin sensores en la extensión).
 - **Controles de descanso:** Now Playing / auriculares en iOS y MediaSession en Android (pausar / saltar descanso; nunca series ni Salud).
-- **Live Activity:** registro de push tokens (`pushType: .token`); actualizaciones remotas / push-to-start pendientes de APNs.
+- **Live Activity:** tokens update + push-to-start en dispositivo (`LiveActivityPushTokenStore`); envío APNs ActivityKit pendiente de migración RPC + Edge. Plan/clase Watch-owned y handoff Play→Watch: `docs/watch-healthkit.md`.
+- **Clase sin plan → gimnasio/HIIT:** iOS/Watch y Android/Wear usan `FallbackActivityKind` (título → `strength` o `hiit`); Play sigue visible; Health Connect no exporta tipo «other» ambiguo. Matriz de dueños Android: `docs/ANDROID_WEAR_HEALTH_METRICS_2026_11_05.md`.
 - **Focus Filter:** opción de silenciar la pestaña Center durante un Focus.
 - **Calendario:** mirror opcional de reservas Center `booked` (EventKit / CalendarContract).
 - **Escanear pizarra:** Control Widget + Atajo / deep link `repera://board`.

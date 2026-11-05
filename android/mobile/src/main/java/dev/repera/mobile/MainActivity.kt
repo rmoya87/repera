@@ -2369,7 +2369,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             sessionId, info.first, info.second, info.third,
                             repo.healthRecordId(sessionId),
                             HealthConnectWriter.exerciseTypeFor(
-                                repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)
+                                repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId),
+                                info.first
                             ),
                             repo.sessionRoutePoints(sessionId),
                             repo.sessionRecordedDistanceMeters(sessionId),
@@ -2400,7 +2401,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val linked = HealthConnectWriter(this@MainActivity,stillAuthorized={current()})
                         .syncFinishedSession(sessionId, info.first,
                             info.second, info.third, repo.healthRecordId(sessionId),
-                            HealthConnectWriter.exerciseTypeFor(repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId)),
+                            HealthConnectWriter.exerciseTypeFor(
+                                repo.sessionHealthSportId(sessionId)?.let(dev.repera.domain.LiveSport::byId),
+                                info.first
+                            ),
                             repo.sessionRoutePoints(sessionId),
                             repo.sessionRecordedDistanceMeters(sessionId),
                             repo.sessionWearTotalEnergyKcal(sessionId))

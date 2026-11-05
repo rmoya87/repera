@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-11-05 (HealthKit, ActivityKit Watch-owned y persistencia Inicio)
+Última actualización: 2026-11-05 (fallback clase sin plan → gimnasio/HIIT en Apple y Android/Wear; Live Activity; handoff)
 
 ## Hub (31/10/2026)
 
@@ -81,14 +81,37 @@ historial del iPhone no se actualizaba hasta que terminase HealthKit.
    métricas finales de HealthKit, el iPhone vuelve a volcar el estado más
    reciente antes del ACK para evitar que el Watch reintente indefinidamente.
 
+**Plan / clase iniciados en Watch (mismo canal):** además de Comenzar,
+un plan o clase con `startedOnThisWatch` publica snapshots `kind: .planned`
+(ejercicio/series + pausa) por `sendWatchOwnedLive`. El iPhone pinta
+`watch:UUID` (sin controles de pausa del teléfono) y no abre una tarjeta
+`planned:` concurrente cuando `appleHealthProvenance` es Watch.
+
+**Play en iPhone con Watch emparejado (handoff Apple):** si
+`WCSession` está emparejado y **alcanzable**, el iPhone marca
+`watchHealthKitPending`, envía `handoffStart` y llama
+`HKHealthStore.startWatchApp(toHandle:)`. El Watch adopta el mismo UUID y
+escribe el único `HKWorkout`. Si el reloj no confirma mirroring a tiempo,
+el iPhone hace fallback al builder local (sin inventar métricas). Comenzar
+en iPhone usa el mismo criterio vía `LiveActivityRecorder.watchHandoffHandler`.
+
+**Clase / cita sin plan de ejercicios:** Play sigue disponible. Se abre
+Comenzar como **gimnasio** (`strength` / `traditionalStrengthTraining`) o
+**HIIT** si el título lo indica (`FallbackActivityKind`). En Watch, un
+handoff sin plan de hoy ni tipo reconocido también arranca fuerza o HIIT,
+nunca queda idle ni escribe `.other` ambiguo en Salud. **Android / Wear:**
+mismo `FallbackActivityKind` en dominio (`android/domain`); Play de clase
+sin bloques abre Comenzar con cuenta atrás; Wear sin plan de hoy arranca
+`startWatchOwnedLive(strength|hiit)`. Detalle de dueños HC:
+`docs/ANDROID_WEAR_HEALTH_METRICS_2026_11_05.md`.
+
 **Limitación del sistema:** una `ActivityKit` puede iniciarse localmente
 en el iPhone solo cuando iOS permite ejecutar la aplicación. Una entrega
 `transferUserInfo` al iPhone suspendido no es una garantía de inicio
-inmediato en Dynamic Island. Para inicio remoto garantizado cuando el
-iPhone está completamente suspendido sería necesario evaluar
-ActivityKit push-to-start con APNs, permisos/entitlements y servidor,
-sin inventar que `WCSession` sea una notificación push instantánea.
-Con `ActivityAuthorizationInfo().areActivitiesEnabled == false`
+inmediato en Dynamic Island. Los tokens push-to-start / update se capturan
+en `LiveActivityPushTokenStore` (UserDefaults); subirlos y enviar APNs
+ActivityKit requiere ampliar `register_push_device` y Edge (no desplegado
+aquí). Con `ActivityAuthorizationInfo().areActivitiesEnabled == false`
 no se muestra Live Activity; se conserva el entrenamiento sin fallar.
 
 **Pruebas de aceptación (iPhone y Apple Watch reales):**

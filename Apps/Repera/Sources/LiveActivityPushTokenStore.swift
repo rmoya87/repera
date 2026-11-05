@@ -2,16 +2,24 @@
 import Foundation
 import os
 
-/// Captures ActivityKit push tokens so a trusted backend can update / push-to-start
-/// Live Activities without opening the UI. Tokens stay on-device until a push path exists.
+/// Captures ActivityKit push-to-start and per-activity update tokens so a trusted
+/// backend can start/update Live Activities while the iPhone is suspended.
+/// Tokens stay on-device only: `register_push_device` currently allows `ios`/`android`
+/// alert tokens, not ActivityKit PTS tokens. Uploading them requires a future
+/// migration + Edge APNs ActivityKit sender (not deployed from this change).
 @MainActor
 enum LiveActivityPushTokenStore {
     private static let logger = Logger(subsystem: "com.app.repera", category: "LiveActivityPush")
-    private static let tokenKey = "repera.liveActivity.pushToken.v1"
+    private static let updateTokenKey = "repera.liveActivity.pushToken.v1"
+    private static let pushToStartTokenKey = "repera.liveActivity.pushToStartToken.v1"
     private static var observersStarted = false
 
     static var latestTokenHex: String? {
-        UserDefaults.standard.string(forKey: tokenKey)
+        UserDefaults.standard.string(forKey: updateTokenKey)
+    }
+
+    static var latestPushToStartTokenHex: String? {
+        UserDefaults.standard.string(forKey: pushToStartTokenKey)
     }
 
     static func startObservingIfNeeded() {
@@ -19,23 +27,43 @@ enum LiveActivityPushTokenStore {
         observersStarted = true
         Task {
             for await data in Activity<TrainingActivityAttributes>.pushToStartTokenUpdates {
-                persist(data)
+                persistPushToStart(data)
+            }
+        }
+        Task {
+            for await data in Activity<RestActivityAttributes>.pushToStartTokenUpdates {
+                persistPushToStart(data)
             }
         }
         Task {
             for await activity in Activity<TrainingActivityAttributes>.activityUpdates {
                 Task {
                     for await tokenData in activity.pushTokenUpdates {
-                        persist(tokenData)
+                        persistUpdateToken(tokenData)
+                    }
+                }
+            }
+        }
+        Task {
+            for await activity in Activity<RestActivityAttributes>.activityUpdates {
+                Task {
+                    for await tokenData in activity.pushTokenUpdates {
+                        persistUpdateToken(tokenData)
                     }
                 }
             }
         }
     }
 
-    private static func persist(_ data: Data) {
+    private static func persistUpdateToken(_ data: Data) {
         let hex = data.map { String(format: "%02x", $0) }.joined()
-        UserDefaults.standard.set(hex, forKey: tokenKey)
-        logger.debug("ActivityKit push token updated (\(hex.count, privacy: .public) hex chars)")
+        UserDefaults.standard.set(hex, forKey: updateTokenKey)
+        logger.debug("ActivityKit update token updated (\(hex.count, privacy: .public) hex chars)")
+    }
+
+    private static func persistPushToStart(_ data: Data) {
+        let hex = data.map { String(format: "%02x", $0) }.joined()
+        UserDefaults.standard.set(hex, forKey: pushToStartTokenKey)
+        logger.debug("ActivityKit push-to-start token updated (\(hex.count, privacy: .public) hex chars)")
     }
 }

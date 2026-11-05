@@ -65,37 +65,55 @@ final class WorkoutLiveActivityCoordinator {
             return
         }
         guard !closedSessionIDs.contains(id) else { return }
-        let sport = snapshot.sportID.flatMap(LiveSport.init(rawValue:))
-        let isGPS = sport?.usesGPS ?? false
         let elapsed = max(0, Int(snapshot.elapsedSeconds.rounded(.down)))
-        let pace: String
-        if let speed = snapshot.averageSpeedKmh, speed.isFinite, speed > 0.1 {
-            if sport?.displaysSpeed == true {
-                pace = String(format: "%.1f", speed)
-            } else {
-                let seconds = min(3599, Int(3600 / speed))
-                pace = String(format: "%d:%02d", seconds / 60, seconds % 60)
-            }
-        } else {
-            pace = sport?.displaysSpeed == true ? "—" : "—:—"
-        }
         let phase: TrainingActivityAttributes.ContentState.Phase =
             snapshot.phase == .paused ? .paused : .running
-        let state = TrainingActivityAttributes.ContentState(
-            phase: phase, title: snapshot.sportTitle,
-            symbol: sport?.symbol ?? "figure.run",
-            subtitle: "Registrando en Apple Watch",
-            timerAnchor: snapshot.capturedAt.addingTimeInterval(-TimeInterval(elapsed)),
-            elapsedSeconds: elapsed,
-            primaryValue: isGPS ? pace : "—",
-            primaryLabel: isGPS
-                ? (sport?.displaysSpeed == true ? "Veloc. media" : "Ritmo medio")
-                : "FC (ppm)",
-            secondaryValue: isGPS
-                ? String(format: "%.2f", max(0, snapshot.distanceMeters) / 1000)
-                : "—",
-            secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
-        )
+        let timerAnchor = snapshot.capturedAt.addingTimeInterval(-TimeInterval(elapsed))
+        let state: TrainingActivityAttributes.ContentState
+        switch snapshot.kind {
+        case .planned:
+            // Plan/class owned by Watch: same UUID card, no phone pause controls.
+            state = TrainingActivityAttributes.ContentState(
+                phase: phase,
+                title: snapshot.sportTitle.isEmpty ? "Entrenamiento" : snapshot.sportTitle,
+                symbol: snapshot.symbolName ?? "figure.cross.training",
+                subtitle: snapshot.subtitle ?? "Entrenamiento en Apple Watch",
+                timerAnchor: timerAnchor, elapsedSeconds: elapsed,
+                primaryValue: snapshot.primaryValue ?? "—",
+                primaryLabel: snapshot.primaryLabel ?? "Ejercicio",
+                secondaryValue: snapshot.secondaryValue ?? "—",
+                secondaryLabel: snapshot.secondaryLabel ?? "Series"
+            )
+        case .sport:
+            let sport = snapshot.sportID.flatMap(LiveSport.init(rawValue:))
+            let isGPS = sport?.usesGPS ?? false
+            let pace: String
+            if let speed = snapshot.averageSpeedKmh, speed.isFinite, speed > 0.1 {
+                if sport?.displaysSpeed == true {
+                    pace = String(format: "%.1f", speed)
+                } else {
+                    let seconds = min(3599, Int(3600 / speed))
+                    pace = String(format: "%d:%02d", seconds / 60, seconds % 60)
+                }
+            } else {
+                pace = sport?.displaysSpeed == true ? "—" : "—:—"
+            }
+            state = TrainingActivityAttributes.ContentState(
+                phase: phase, title: snapshot.sportTitle,
+                symbol: sport?.symbol ?? "figure.run",
+                subtitle: "Registrando en Apple Watch",
+                timerAnchor: timerAnchor, elapsedSeconds: elapsed,
+                primaryValue: isGPS ? pace : "—",
+                primaryLabel: isGPS
+                    ? (sport?.displaysSpeed == true ? "Veloc. media" : "Ritmo medio")
+                    : "FC (ppm)",
+                secondaryValue: isGPS
+                    ? String(format: "%.2f", max(0, snapshot.distanceMeters) / 1000)
+                    : "—",
+                secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
+            )
+        }
+        // Always watch:UUID so widget hides phone-side controls for Watch-owned work.
         await upsert(id: id, isPlanned: false, state: state)
     }
 
@@ -116,9 +134,15 @@ final class WorkoutLiveActivityCoordinator {
 
     /// Todos los planes (incluidos OCR, entrenador personal y Apple Watch)
     /// comparten la misma ActivityKit, nunca dependen de WorkoutView visible.
-    func updatePlanned(_ session: WorkoutSession?) async {
+    /// Watch-owned plans use `updateWatchOwned` (`watch:UUID`) instead.
+    func updatePlanned(_ session: WorkoutSession?, isPaused: Bool = false) async {
         guard let session, let start = session.startedAt, session.finishedAt == nil else {
             await endAll(isPlanned: true, dismissal: .immediate)
+            return
+        }
+        if session.appleHealthProvenance == "watchHealthKit"
+            || session.appleHealthProvenance == "watchHealthKitPending" {
+            // Live Activity is driven by durable Watch snapshots for this UUID.
             return
         }
         let exercise = session.currentExercise
@@ -127,14 +151,20 @@ final class WorkoutLiveActivityCoordinator {
         let completedSets = session.exercises.reduce(0) { result, exercise in
             result + exercise.loggedSets.count
         }
-        let elapsed = max(0, Int(Date().timeIntervalSince(start)))
+        let activeElapsed: TimeInterval
+        if let active = session.activeDurationSeconds, active > 0 {
+            activeElapsed = active
+        } else {
+            activeElapsed = max(0, Date().timeIntervalSince(start))
+        }
+        let elapsed = max(0, Int(activeElapsed.rounded(.down)))
         // Outdoor planned workouts use the same verified GPS odometer as Comenzar.
         // Indoor strength/WOD keeps its series/exercise counters unchanged.
         let gps = WorkoutLocationTracker.shared
         let outdoor = WorkoutLocationTracker.shouldTrackRoute(for: session)
             && gps.trackingSessionID == session.id
         let kilometers = gps.recordedDistanceMeters / 1000
-        let activeSeconds = max(1, Date().timeIntervalSince(start))
+        let activeSeconds = max(1, activeElapsed)
         let speedKmh = gps.recordedDistanceMeters / activeSeconds * 3.6
         let isCycling = session.title.localizedCaseInsensitiveContains("bici")
             || session.title.localizedCaseInsensitiveContains("cycling")
@@ -149,13 +179,16 @@ final class WorkoutLiveActivityCoordinator {
         } else {
             gpsMetric = "—:—"
         }
+        let phase: TrainingActivityAttributes.ContentState.Phase =
+            isPaused ? .paused : .running
         let state = TrainingActivityAttributes.ContentState(
-            phase: .running,
+            phase: phase,
             title: session.title.isEmpty ? "Entrenamiento" : session.title,
             symbol: outdoor ? "figure.run" : "figure.cross.training",
             subtitle: exercise.map { ($0.blockHeader ?? $0.exercise.name) }
                 ?? "Entrenamiento programado",
-            timerAnchor: start, elapsedSeconds: elapsed,
+            timerAnchor: Date().addingTimeInterval(-TimeInterval(elapsed)),
+            elapsedSeconds: elapsed,
             primaryValue: outdoor ? gpsMetric : progress,
             primaryLabel: outdoor ? (isCycling ? "Veloc. media" : "Ritmo medio") : "Ejercicio",
             secondaryValue: outdoor ? String(format: "%.2f", kilometers) : String(completedSets),

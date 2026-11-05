@@ -92,4 +92,42 @@ final class WatchLiveActivitySnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.distanceMeters, 0)
         XCTAssertNil(snapshot.averageSpeedKmh)
     }
+
+    func testPlannedKindRoundTripsAndLegacyDecodesAsSport() throws {
+        let planned = WatchLiveActivitySnapshot(
+            id: UUID(), sportTitle: "Fuerza A", phase: .paused,
+            elapsedSeconds: 90, distanceMeters: 0,
+            averageSpeedKmh: nil, nextTurn: nil, nextTurnMeters: nil,
+            capturedAt: Date(), kind: .planned,
+            subtitle: "Press banca", symbolName: "figure.strengthtraining.traditional",
+            primaryValue: "2/8", primaryLabel: "Ejercicio",
+            secondaryValue: "3", secondaryLabel: "Series"
+        )
+        let decoded = try JSONDecoder().decode(
+            WatchLiveActivitySnapshot.self, from: JSONEncoder().encode(planned)
+        )
+        XCTAssertEqual(decoded, planned)
+        XCTAssertEqual(decoded.kind, .planned)
+        XCTAssertEqual(decoded.displayElapsed(at: planned.capturedAt.addingTimeInterval(30)), 90)
+
+        // Legacy Comenzar payloads omit `kind` and must keep working.
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        var legacyObject = try JSONSerialization.jsonObject(
+            with: encoder.encode(WatchLiveActivitySnapshot(
+                id: UUID(), sportTitle: "Caminata", phase: .recording,
+                elapsedSeconds: 10, distanceMeters: 20,
+                averageSpeedKmh: nil, nextTurn: nil, nextTurnMeters: nil,
+                capturedAt: Date(timeIntervalSince1970: 1_800_000_000),
+                sportID: "walking"
+            ))
+        ) as! [String: Any]
+        legacyObject.removeValue(forKey: "kind")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let old = try decoder.decode(WatchLiveActivitySnapshot.self, from: legacyData)
+        XCTAssertEqual(old.kind, .sport)
+        XCTAssertEqual(old.sportID, "walking")
+    }
 }
