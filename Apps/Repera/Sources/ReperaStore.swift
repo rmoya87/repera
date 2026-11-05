@@ -2205,13 +2205,14 @@ final class ReperaStore: NSObject {
                     )
                 }
                 let snapshot = state
+                let savedForAnnouncement = pending
                 Task { @MainActor in
                     await LocalStore.shared.persistAndFlush(snapshot)
                     guard LocalStore.shared.lastPersistenceError == nil else { return }
                     if firstArrival {
                         WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
                         self.suggestPlaceForRecentWatchWorkout(session)
-                        self.announceFreshWatchWorkout(pending)
+                        self.announceFreshWatchWorkout(savedForAnnouncement)
                     }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
