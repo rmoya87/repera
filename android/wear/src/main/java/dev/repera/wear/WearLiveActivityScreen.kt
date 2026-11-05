@@ -468,12 +468,16 @@ internal fun WearHeartRateZoneBar(
                             .weight(1f)
                             .height(if (zone == index + 1) 12.dp else 8.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(color.copy(alpha = if (zone == index + 1) 1f else 0.28f))
+                            .background(color.copy(alpha = when {
+                                zone == null -> 0.12f
+                                zone == index + 1 -> 1f
+                                else -> 0.28f
+                            }))
                     )
                 }
             }
             Text(
-                zone?.let { "Zona $it/5" } ?: "Esperando pulso",
+                zone?.let { "Zona $it/5" } ?: "Zona —/5",
                 style = MaterialTheme.typography.labelSmall,
                 color = WearOg.label2,
                 maxLines = 1

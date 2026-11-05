@@ -3898,9 +3898,9 @@ extension ReperaStore: PhoneConnectivityDelegate {
         await handleWatchLiveCommand(sessionId: sessionId, command: command)
     }
 
-    /// El botón Finalizar del Watch equivale a Guardar en Comenzar.
-    /// Se conserva el mismo UUID, ruta, parciales y datos verificados de Salud.
-    /// El ACK solo se devuelve después de persistir en el iPhone.
+    /// Finalizar desde Watch detiene el registro, conserva el checkpoint
+    /// y muestra Revisión en el iPhone. El ACK confirma el cambio de fase,
+    /// no un guardado silencioso de resultados o datos de Salud.
     private func handleWatchLiveCommand(sessionId: UUID, command: String) async -> Bool {
         let recorder = LiveActivityRecorder.shared
         if command == "finish",

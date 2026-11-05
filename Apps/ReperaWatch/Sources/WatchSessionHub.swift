@@ -740,7 +740,7 @@ final class WatchSessionHub: NSObject {
                     guard let self else { return }
                     self.isFinishingCompanionLive = false
                     guard saved else {
-                        self.liveCommandError = "No se pudo guardar en el iPhone. Reintenta."
+                        self.liveCommandError = "No se pudo finalizar en el iPhone. Reintenta."
                         self.lastFailedLiveCommand = "finish"
                         WKInterfaceDevice.current().play(.failure)
                         return
@@ -748,7 +748,7 @@ final class WatchSessionHub: NSObject {
                     self.lastFailedLiveCommand = nil
                     WKInterfaceDevice.current().play(.success)
                     let elapsed = Int(live.displayElapsed(at: Date()))
-                    let finished = WorkoutSession(
+                    var finished = WorkoutSession(
                         id: live.id, title: live.sportTitle, exercises: [],
                         phase: .finished,
                         startedAt: Date().addingTimeInterval(-Double(elapsed)),
@@ -757,6 +757,9 @@ final class WatchSessionHub: NSObject {
                             ? live.distanceMeters : nil,
                         activeDurationSeconds: Double(elapsed)
                     )
+                    // The companion phone has frozen the activity in Review;
+                    // the athlete has not yet chosen Save or Discard.
+                    finished.awaitingResultEntry = true
                     self.lastFinished = finished
                     self.summaryDismissed = false
                     self.suppressCompanionLive = true

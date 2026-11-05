@@ -1287,7 +1287,9 @@ struct WatchSessionView: View {
                     }
                 }
                 if session.liveSportID != nil, session.awaitingResultEntry {
-                    Text("Actividad registrada. Revisa, añade ejercicios o modifica resultados desde el iPhone.")
+                    Text(session.liveSportID == "companion"
+                        ? "Actividad terminada. Abre Comenzar en el iPhone para guardar o descartar; después podrás añadir o modificar ejercicios."
+                        : "Actividad registrada. Revisa, añade ejercicios o modifica resultados desde el iPhone.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

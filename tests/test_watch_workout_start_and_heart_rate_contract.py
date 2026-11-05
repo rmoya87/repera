@@ -61,7 +61,7 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertIn('?? "Esperando pulso"', watch)
         self.assertIn("WatchHeartRateZoneMetric", watch)
         self.assertIn("accessibilityLabel(accessibilityDescription)", watch)
-        self.assertIn('?: "Esperando pulso"', wear)
+        self.assertIn('?: "Zona —/5"', wear)
         self.assertIn("WearHeartRateZoneBar(bpm = health?.first", wear)
         self.assertIn("WearHeartRateZoneBar(bpm = state.health?.first)", wear_plan)
 
@@ -70,6 +70,7 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         store = read("Apps/Repera/Sources/ReperaStore.swift")
         notifier = read("Apps/Repera/Sources/WorkoutCompletionNotifier.swift")
         self.assertIn("pending.awaitingResultEntry = true", hub)
+        self.assertIn("finished.awaitingResultEntry = true", hub)
         self.assertIn("completed.awaitingResultEntry = true", store)
         self.assertIn("WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)", store)
         self.assertIn("self.state.workouts.first(where: { $0.id == session.id })?.awaitingResultEntry == true", store)
