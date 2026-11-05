@@ -3632,7 +3632,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val workouts = loadOrNull()?.optJSONArray("workouts") ?: return false
         return (0 until workouts.length()).any { idx ->
             val session = workouts.optJSONObject(idx)
-            session?.optString("id") == sessionId &&
+            session != null && session.optString("id") == sessionId &&
                 session.optBoolean("userEditedDuration", false)
         }
     }
