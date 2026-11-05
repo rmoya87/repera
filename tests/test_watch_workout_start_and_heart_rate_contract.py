@@ -14,12 +14,11 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertIn("onPlayPlan: {\n                            startSelectedPlan(recordOnly: false)", view)
         self.assertIn("onRecordPlan: {\n                            startSelectedPlan(recordOnly: true)", view)
         # watchOS: no contextMenu ni confirmationDialog (Liquid Glass traga toques).
-        overlay = read("Apps/ReperaWatch/Sources/WatchPlanModeOverlay.swift")
         self.assertNotIn(".contextMenu", home)
         self.assertNotIn(".confirmationDialog(", home)
-        self.assertIn("WatchPlanModeOverlay", home)
-        self.assertIn("Entreno guiado", overlay)
-        self.assertIn("Entreno libre", overlay)
+        self.assertIn("private struct WatchPlanModeOverlay", home)
+        self.assertIn("Entreno guiado", home)
+        self.assertIn("Entreno libre", home)
         self.assertIn("guard hub.startToday(), hub.active?.phase == .ready", view)
 
     def test_apple_watch_last_value_not_ttl_hidden(self):
