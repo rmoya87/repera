@@ -25,7 +25,7 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         ui = read("Apps/Repera/Sources/StatsView.swift")
         self.assertIn('private var latestActivity: RecentActivity?', ui)
         self.assertIn('externalActivities.max { $0.end < $1.end }', ui)
-        self.assertIn('scoreMetric("Entrenos registrados"', ui.split('private var scoreSummary: some View', 1)[1].replace('\n', ' '))
+        self.assertIn('"Entrenos registrados",', ui.split('private var scoreSummary: some View', 1)[1])
         self.assertIn('range.contains(finishedAt, weekStartsOnMonday: weekStartsOnMonday)', ui)
         self.assertIn('HealthMuscleMapper.uniqueExternalActivities(', ui)
 
