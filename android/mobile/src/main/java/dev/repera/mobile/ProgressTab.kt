@@ -119,6 +119,37 @@ internal fun ProgressTab(
                 (if (sensorFacts.isEmpty()) "" else " · " + sensorFacts.joinToString(" · "))
         }
     }
+    // 7 sesiones, no 7 fechas. El historial completo incluye planes,
+    // Comenzar, Watch y actividades que proceden de Health Connect.
+    val recentWorkoutBars = remember(overview) {
+        val local = overview?.completeHistory.orEmpty().mapNotNull { workout ->
+            if (workout.timerDetails != null) return@mapNotNull null
+            val end = workout.finishedAtIso?.let {
+                runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+            } ?: return@mapNotNull null
+            RecentWorkoutPlot(
+                id = "repera-" + workout.id, title = workout.title, finishedMillis = end,
+                minutes = workout.displayDurationMinutes().takeIf { it > 0 },
+                verifiedScore = workout.review?.takeIf {
+                    it.scoreBasis == dev.repera.domain.ScoreBasis.PERSONAL_HISTORY
+                }?.overallScore
+            )
+        }
+        val imported = overview?.externalHealthHistory.orEmpty().filterNot { activity ->
+            // Salud y Repera pueden referirse a la misma grabación: no duplicar.
+            local.any { session ->
+                kotlin.math.abs(session.finishedMillis - activity.endMillis) < 90_000L &&
+                    kotlin.math.abs((session.minutes ?: 0.0) - activity.minutes) < 3.0
+            }
+        }.map { activity ->
+            RecentWorkoutPlot(
+                id = "health-" + activity.id, title = activity.title,
+                finishedMillis = activity.endMillis,
+                minutes = activity.minutes.takeIf { it > 0 }, verifiedScore = null
+            )
+        }
+        (local + imported).sortedByDescending { it.finishedMillis }.take(7).reversed()
+    }
     val subscriptions = LocalSubscriptions.current
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
@@ -292,7 +323,8 @@ internal fun ProgressTab(
                                     latestActivity = latestActivityTitle,
                                     recordedSessions = overview?.dayWorkoutCounts
                                         ?.filterKeys { rangeEnum.contains(it, today, monday) }
-                                        ?.values?.sum() ?: 0
+                                        ?.values?.sum() ?: 0,
+                                    recentWorkouts = recentWorkoutBars
                                 )
                             },
                             second = {
