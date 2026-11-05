@@ -3315,6 +3315,19 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
             target.put("wodResults", working.optJSONArray("wodResults") ?: JSONArray())
         }
+        // Un cambio de fecha/hora/duración es una corrección humana y nunca
+        // debe ser reemplazado por el cronómetro antiguo de Wear OS.
+        val beforeStart = target.optString("startedAt")
+        val beforeEnd = target.optString("finishedAt")
+        val scheduleChanged = (start != null && start.toString() != beforeStart)
+            || (end != null && end.toString() != beforeEnd)
+        if (scheduleChanged) {
+            target.put("userEditedDuration", true)
+            // Las métricas asociadas al horario anterior dejan de ser válidas.
+            // Se recargarán exclusivamente desde Health Connect si hay fuente fiable.
+            target.remove("appleActiveEnergyKcal")
+            target.remove("appleAverageHeartRateBpm")
+        }
         target.put("title", cleanTitle)
         if (start != null) target.put("startedAt", start.toString())
         if (end != null) target.put("finishedAt", end.toString())
@@ -3324,7 +3337,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         // hay kcal verificadas; la duración es fin - inicio (mín. 60 s); y la
         // valoración se RECALCULA con el historial (attachSessionReview), nunca
         // se borra por extensión: solo desaparece si el motor devuelve null.
-        if (target.isNull("healthKitWorkoutUUID") || target.optString("healthKitWorkoutUUID").isEmpty()) {
+        if (target.optString("healthKitWorkoutUUID").isBlank()
+            && target.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD).isBlank()) {
             target.remove("appleActiveEnergyKcal")
         }
         val s2 = start ?: runCatching { java.time.Instant.parse(target.optString("startedAt")) }.getOrNull()
@@ -3602,6 +3616,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
         }
         return emptyList()
+    }
+
+    /** Ventana editada: la fuente Health Connect original sigue asociada por ID. */
+    @Synchronized fun sessionHasEditedDuration(sessionId: String): Boolean {
+        val workouts = loadOrNull()?.optJSONArray("workouts") ?: return false
+        return (0 until workouts.length()).any { idx ->
+            val session = workouts.optJSONObject(idx)
+            session?.optString("id") == sessionId &&
+                session.optBoolean("userEditedDuration", false)
+        }
     }
 
     /** Ventana temporal de una sesión (epoch ms inicio/fin) para leer Salud. */
