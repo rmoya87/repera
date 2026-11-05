@@ -1,4 +1,4 @@
-## Actualización 31/10/2026 — visibilidad persistente y maquetación de Tramo
+## Actualización 05/11/2026 — visibilidad persistente, bloqueo y maquetación de Tramo
 
 ### Apple Watch
 - La app watchOS declara expresamente `WKSupportsAlwaysOnDisplay=true`. El sistema puede mantener su interfaz en Always On siempre que exista `HKWorkoutSession` en ejecución y el usuario no salga manualmente.
@@ -15,6 +15,12 @@
 - En la Live Activity del entrenamiento libre, `Tramo` pasa a una tarjeta centrada bajo la fila de indicadores y con márgenes simétricos e inferiores.
 - Se reutiliza el mismo componente visual en el área expandida de Dynamic Island y en el formato compacto de la Smart Stack. Las sesiones planificadas conservan su subtítulo independiente.
 - El tramo se muestra exclusivamente cuando Repera tiene un dato real de parcial; no se generan valores estimados.
+
+### Bloqueo de pantalla móvil (05/11/2026)
+
+En `Comenzar` la pantalla móvil permanece activa al bloquearse la interacción táctil durante una sesión iniciada o en pausa. iOS se integra con `TimerScreenAwake` para que los demás temporizadores no pierdan el permiso. Android aplica `View.keepScreenOn` mientras el bloqueo de Comenzar sigue activo. El sistema puede apagar la pantalla por orden manual del usuario, llamada o restricción de energía: no es una anulación del botón de encendido. El desbloqueo exige mantener el candado durante 1 s.
+
+Watch/Wear no fuerzan brillo constante. Con instrucciones reales la vista inicial es Navegación y la segunda es Métricas; siempre se respeta Always On/ambiente y la navegación horizontal propia de controles.
 
 ### Validación de hardware
 1. Empezar paseo desde reloj y desde móvil, bajar la muñeca al menos 3 minutos y regresar: pantalla de sesión/Always On, no esfera. Probar activo y pausado.
