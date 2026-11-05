@@ -60,7 +60,7 @@ internal object SessionScoreProgress {
                 when {
                     savedScore != null -> entry.finished to
                         review?.optString("confidenceLabel")
-                            ?.takeIf { it.isNotBlank() && it != "null" }
+                            ?.takeIf { it.isNotBlank() && it != "null" && it != "En construcción" }
                             .orEmpty().ifBlank { "Media · historial personal" }
                     gpsScore(entry, sessions, zone) != null ->
                         entry.finished to "Media · historial personal"
