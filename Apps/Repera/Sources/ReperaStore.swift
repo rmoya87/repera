@@ -2160,6 +2160,10 @@ final class ReperaStore: NSObject {
                     publishSessionChrome()
                 }
                 persistWorkouts()
+                if pending.userEditedDuration, pending.healthKitWorkoutUUID != nil {
+                    let id = pending.id
+                    Task { await refineSessionReviewWithHealth(sessionId: id) }
+                }
                 if firstArrival {
                     emitWorkoutCompletedAnalytics(
                         pending,
@@ -2282,7 +2286,13 @@ final class ReperaStore: NSObject {
                 changed = true
             }
 
-            if changed { persistWorkouts() }
+            if changed {
+                persistWorkouts()
+                if state.workouts.first(where: { $0.id == session.id })?.userEditedDuration == true {
+                    let id = session.id
+                    Task { await refineSessionReviewWithHealth(sessionId: id) }
+                }
+            }
             if session.finishedAt != nil {
                 Task {
                     await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
