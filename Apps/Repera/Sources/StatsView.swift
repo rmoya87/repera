@@ -599,7 +599,7 @@ struct StatsView: View {
                 value: prCount > 0 ? "\(prCount)" : "—",
                 unit: prCount > 0 ? "PR" : nil,
                 caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption) · \(strengthTodaySummary)"
+                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg / 7 d\n\(strengthTodaySummary)"
                     : strengthTodaySummary,
                 valuePointSize: 64,
                 chartHeight: 118,
@@ -746,7 +746,7 @@ struct StatsView: View {
 
     private var strengthTodaySummary: String {
         let kilos = Int((strengthDailyVolumeLast7.last ?? 0).rounded())
-        return "hoy: \(trainingSessionsToday) sesiones · \(kilos) kg · \(personalRecordsToday) PR"
+        return "Hoy \(trainingSessionsToday) ses. · \(kilos) kg · \(personalRecordsToday) PR"
     }
 
     private var strengthInsightCopy: String {
