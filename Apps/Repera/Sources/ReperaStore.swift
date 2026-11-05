@@ -2112,6 +2112,32 @@ final class ReperaStore: NSObject {
         }
     }
 
+    /// A finished Watch sport is not a planned iPhone session. End its
+    /// own ActivityKit card by UUID, without starting another HealthKit workout.
+    private func completeImportedWatchActivity(_ session: WorkoutSession) {
+        Task {
+            if session.liveSportID != nil {
+                await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
+                    sessionID: session.id, saved: true
+                )
+            } else {
+                await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
+            }
+        }
+    }
+
+    /// The Home view is date-scoped and may be showing a different day.
+    /// A fresh Watch completion should focus its real calendar date, not a
+    /// stale selection; historic offline backfills must never steal focus.
+    private func announceFreshWatchWorkout(_ session: WorkoutSession) {
+        guard let finishedAt = session.finishedAt,
+              abs(finishedAt.timeIntervalSinceNow) < 10 * 60 else { return }
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.watchWorkoutSaved"),
+            object: session.startedAt ?? finishedAt
+        )
+    }
+
     func applyWatchSession(_ session: WorkoutSession) {
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
@@ -2158,9 +2184,7 @@ final class ReperaStore: NSObject {
                 }
                 upsertWorkout(pending)
                 if session.finishedAt != nil {
-                    Task {
-                        await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
-                    }
+                    completeImportedWatchActivity(session)
                 }
                 if state.activeSession?.id == pending.id {
                     state.activeSession = nil
@@ -2187,6 +2211,7 @@ final class ReperaStore: NSObject {
                     if firstArrival {
                         WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
                         self.suggestPlaceForRecentWatchWorkout(session)
+                        self.announceFreshWatchWorkout(pending)
                     }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
@@ -2303,9 +2328,7 @@ final class ReperaStore: NSObject {
                 }
             }
             if session.finishedAt != nil {
-                Task {
-                    await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)
-                }
+                completeImportedWatchActivity(session)
             }
             let snapshot = state
             let needsSync = changed
@@ -2322,6 +2345,7 @@ final class ReperaStore: NSObject {
                         WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
                     }
                     self.suggestPlaceForRecentWatchWorkout(session)
+                    self.announceFreshWatchWorkout(session)
                 }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
@@ -4077,6 +4101,28 @@ extension ReperaStore: PhoneConnectivityDelegate {
             self.watchTimerLastUpdate = timer.updatedAt
             self.watchTimerMirror = timer.isActive &&
                 Date().timeIntervalSince(timer.updatedAt) < 60 ? timer : nil
+        }
+    }
+
+    nonisolated func phoneConnectivityDidReceiveWatchOwnedLive(
+        _ snapshot: WatchLiveActivitySnapshot
+    ) {
+        Task { @MainActor in
+            if snapshot.phase == .review {
+                await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
+                    sessionID: snapshot.id, saved: false
+                )
+                return
+            }
+            // Do not revive an already archived workout, nor replace an
+            // unrelated phone-owned workout in the Dynamic Island.
+            guard !self.state.workouts.contains(where: {
+                $0.id == snapshot.id && $0.finishedAt != nil
+            }), self.state.activeSession == nil else { return }
+            let phone = LiveActivityRecorder.shared
+            guard phone.phase != .recording, phone.phase != .paused,
+                  phone.phase != .review else { return }
+            await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
         }
     }
 
