@@ -1,8 +1,10 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-05 (ficha ejercicios: copy prioriza Supabase; hub Progreso nota 0–10).
+Última actualización: 2026-11-05 (Inicio Android swipe excluye chips; carruseles full-bleed).
 
 ## Hub Progreso — chips (2026-11-04)
+
+En Android, `Modifier.reperaFullBleedHorizontal` (`ReperaFloatingTabBar.kt`) anula el gutter horizontal del `LazyColumn` anfitrión para carruseles (`ProgressCategoryChipBar`, chips de ficha/editores). El inset de lectura permanece como padding del contenido scrolleable (`ReperaPageGutter` = 16 dp), no como recorte del viewport.
 
 `StatsView` / `ProgressTab` sustituyen el segmentado Entreno/Actividad/Recuperación por `ProgressCategory` + barra de chips (`ProgressCategoryChips.swift` / `ProgressCategoryChips.kt`). Sin `ProgressTimeRange` elegible en cabecera: `applyHubRangePolicy` fija siempre `.week` (Últimos 7 días); mes solo en bloques «Este mes» / Media mes. El sheet de periodo del hub se elimina.
 
@@ -227,7 +229,7 @@ Lectura/escritura Salud: peso, energía activa, workouts externos, FC, rutas. Al
 | Detalle | [analytics/IMPLEMENTATION_PLAN.md](analytics/IMPLEMENTATION_PLAN.md) |
 
 ## Swipe bidireccional de Inicio (27/10/2026)
-- `RegisterSwipeRevealCard` y su coordinador UIKit admiten `onEdit` opcional (revelado positivo, botón azul) y mantienen `onDelete` (negativo, rojo). `SwipeRevealMath` aplica umbrales simétricos y limita el desplazamiento positivo cuando la tarjeta no dispone de editor. El host preserva el bloqueo temporal del carrusel de chips y las animaciones de desplazamiento.
+- `RegisterSwipeRevealCard` y su coordinador UIKit admiten `onEdit` opcional (revelado positivo, botón azul) y mantienen `onDelete` (negativo, rojo). `SwipeRevealMath` aplica umbrales simétricos y limita el desplazamiento positivo cuando la tarjeta no dispone de editor. El host preserva el bloqueo temporal del carrusel de chips y las animaciones de desplazamiento. **Android:** `HomeSwipeRevealCard` usa el mismo `shouldBeginSwipe` (banda inferior chips + footer) y `HomeRegisterChipsRow` con `horizontalScroll` para no pelear con editar/borrar.
 - `HomeView` separa entrenos planificados propios (`state.routines`) y resultados propios (`state.workouts`) de las prescripciones de `BusinessDataStore`. Solo los dos primeros abren edición de `DayEditorView`, reutilizando `CompletedWorkoutEditing` para resultados. Las fichas de entrenador/gimnasio y de Apple Salud carecen de `onEdit`. Clase con plan en Inicio: chip «Clase», sin lápiz; swipe rojo → cancelar reserva (`homeBookingPendingCancellation` / Android `pendingClassCancellation`), no `removeScheduledRoutine`.
 
 ## Navegación (tabs)

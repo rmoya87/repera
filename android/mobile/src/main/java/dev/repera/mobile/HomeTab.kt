@@ -353,7 +353,12 @@ internal fun HomeTab(
                             onDelete = { onDeleteWorkout(workout.id) },
                             // Swipe Editar → misma página de crear/editar (historial-editar).
                             onEdit = if (workout.timerDetails == null)
-                                ({ onEditFinishedWorkout(workout.id) }) else null
+                                ({ onEditFinishedWorkout(workout.id) }) else null,
+                            footerExclusionHeight = if (showActions) {
+                                HomeReviewFooterExclusionHeight
+                            } else {
+                                0.dp
+                            }
                         ) {
                             HomeCompletedWorkoutCard(
                                 workout = workout,

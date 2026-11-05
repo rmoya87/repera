@@ -179,6 +179,31 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("VStack(alignment: .leading, spacing: 0)", swipe)
         self.assertIn(".padding(.top, 0)", home)
 
+    def test_android_home_swipe_yields_to_chip_carousel(self):
+        """Paridad iOS: swipe no arranca sobre la franja de chips; chips scrolleables."""
+        root = Path(__file__).resolve().parents[1]
+        cards = (root / "android/mobile/src/main/java/dev/repera/mobile/HomeDayCards.kt").read_text(
+            encoding="utf-8"
+        )
+        tab = (root / "android/mobile/src/main/java/dev/repera/mobile/HomeTab.kt").read_text(
+            encoding="utf-8"
+        )
+        domain = (
+            root / "android/domain/src/main/java/dev/repera/domain/SwipeRevealMath.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("fun shouldBeginSwipe(", domain)
+        self.assertIn("SwipeRevealMath.shouldBeginSwipe(", cards)
+        self.assertIn("HomeRegisterChipsBandHeight", cards)
+        self.assertIn("HomeReviewFooterExclusionHeight", cards)
+        self.assertIn("fun HomeRegisterChipsRow(", cards)
+        self.assertIn("horizontalScroll(rememberScrollState())", cards)
+        self.assertIn("testTag(\"home_register_chips\")", cards)
+        self.assertIn("footerExclusionHeight = if (showActions)", tab)
+        self.assertIn("HomeReviewFooterExclusionHeight", tab)
+        ios = swift("RegisterSwipeRevealCard.swift")
+        self.assertIn("chipsBandHeight: swipeBottomExclusion", ios)
+        self.assertIn("SwipeRevealMath.shouldBeginSwipe(", ios)
+
     def test_home_leading_edit_swipe_is_limited_to_personal_workouts(self):
         home = swift("HomeView.swift")
         swipe = swift("RegisterSwipeRevealCard.swift")

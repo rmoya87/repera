@@ -5,7 +5,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalPointerSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,12 +65,15 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
+import dev.repera.domain.SwipeRevealMath
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -75,6 +83,15 @@ import java.util.Locale
 
 private val registerCardShape = RoundedCornerShape(12.dp)
 private val chipShape = RoundedCornerShape(8.dp)
+
+/** Banda inferior excluida del swipe (paridad iOS RegisterSwipeRevealCard ~48). */
+internal val HomeRegisterChipsBandHeight = 48.dp
+
+/** Footer Descartar/Revisar excluido del swipe (paridad iOS homeReviewFooterHeight). */
+internal val HomeReviewFooterExclusionHeight = 52.dp
+
+/** Pad card 14 + icono 44 + gap 12 → chips alineados al título. */
+private val HomeRegisterChipsLeadingInset = 70.dp
 
 /** «ENTRENO · 7:11» (hoy) o «VIERNES · 7:11» (iOS WorkoutListCaption / RegisterSessionChrome). */
 internal fun homeDayTimeCaption(day: LocalDate, timeLabel: String?): String {
@@ -122,6 +139,32 @@ internal fun HomeRegisterChip(text: String, icon: ImageVector) {
     }
 }
 
+/**
+ * Carrusel horizontal de chips de registro (paridad `OGRegisterChipsRow` iOS):
+ * inset leading scrolleable; el gesto vive aquí para no pelear con el swipe de la card.
+ */
+@Composable
+internal fun HomeRegisterChipsRow(
+    chips: List<Pair<ImageVector, String>>,
+    modifier: Modifier = Modifier,
+    leadingInset: Dp = HomeRegisterChipsLeadingInset,
+) {
+    if (chips.isEmpty()) return
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .horizontalScroll(rememberScrollState())
+            .testTag("home_register_chips"),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(Modifier.width(leadingInset))
+        chips.forEach { (icon, label) -> HomeRegisterChip(label, icon) }
+        Spacer(Modifier.width(14.dp))
+    }
+}
+
 @Composable
 internal fun HomeRegisterLeadingIcon(
     icon: ImageVector,
@@ -143,6 +186,8 @@ internal fun HomeRegisterLeadingIcon(
 /**
  * Swipe reveal en cards compactas de Inicio (paridad RegisterSwipeRevealCard iOS):
  * izquierda = Eliminar; derecha = Editar cuando [onEdit] no es null.
+ * El gesto **no** arranca en la franja inferior de chips (+ footer opcional),
+ * para poder desplazar el carrusel de chips (paridad `shouldBeginSwipe` iOS).
  */
 @Composable
 internal fun HomeSwipeRevealCard(
@@ -156,11 +201,18 @@ internal fun HomeSwipeRevealCard(
     deleteContentDescription: String = "Eliminar",
     /** Si false, el basurero llama a [onDelete] al instante (p. ej. otra hoja de confirmación). */
     askDeleteConfirm: Boolean = true,
+    /** Altura de la banda de chips excluida del swipe (default = paridad iOS 48). */
+    chipsBandHeight: Dp = HomeRegisterChipsBandHeight,
+    /** Extra inferior (p. ej. Descartar/Revisar) también excluido del swipe. */
+    footerExclusionHeight: Dp = 0.dp,
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
     val deleteWidthPx = with(density) { 88.dp.toPx() }
     val editWidthPx = with(density) { if (onEdit != null) 72.dp.toPx() else 0f }
+    val excludeBandPx = with(density) {
+        (chipsBandHeight + footerExclusionHeight).toPx()
+    }
     var offset by remember(key) { mutableStateOf(0f) }
     var confirmDelete by remember(key) { mutableStateOf(false) }
     // Clip del contenedor al mismo radio que la card frontal: sin picos de
@@ -213,25 +265,42 @@ internal fun HomeSwipeRevealCard(
                 .fillMaxWidth()
                 .clip(registerCardShape)
                 .offset { IntOffset(offset.toInt(), 0) }
-                .pointerInput(key, busy, onEdit != null) {
+                .pointerInput(key, busy, onEdit != null, excludeBandPx) {
                     if (busy) return@pointerInput
-                    detectDragGestures(
-                        onDrag = { change, drag ->
-                            if (kotlin.math.abs(drag.x) > kotlin.math.abs(drag.y)) {
-                                val maxLeft = -deleteWidthPx
-                                val maxRight = editWidthPx
-                                offset = (offset + drag.x).coerceIn(maxLeft, maxRight)
-                                change.consume()
-                            }
-                        },
-                        onDragEnd = {
-                            offset = when {
-                                offset < -deleteWidthPx * 0.45f -> -deleteWidthPx
-                                onEdit != null && offset > editWidthPx * 0.45f -> editWidthPx
-                                else -> 0f
-                            }
+                    val maxLeft = -deleteWidthPx
+                    val maxRight = editWidthPx
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        if (!SwipeRevealMath.shouldBeginSwipe(
+                                locationY = down.position.y,
+                                viewHeight = size.height.toFloat(),
+                                chipsBandHeight = excludeBandPx
+                            )
+                        ) {
+                            // Toque en chips/footer: ceder el gesto al carrusel.
+                            return@awaitEachGesture
                         }
-                    )
+                        var total = offset
+                        val slopChange = awaitHorizontalPointerSlopOrCancellation(
+                            down.id,
+                            down.type
+                        ) { change, over ->
+                            change.consume()
+                            total = (total + over).coerceIn(maxLeft, maxRight)
+                            offset = total
+                        } ?: return@awaitEachGesture
+                        horizontalDrag(slopChange.id) { change ->
+                            val dx = change.positionChange().x
+                            change.consume()
+                            total = (total + dx).coerceIn(maxLeft, maxRight)
+                            offset = total
+                        }
+                        offset = when {
+                            offset < -deleteWidthPx * 0.45f -> -deleteWidthPx
+                            onEdit != null && offset > editWidthPx * 0.45f -> editWidthPx
+                            else -> 0f
+                        }
+                    }
                 }
         ) { content() }
     }
@@ -293,15 +362,10 @@ internal fun HomeDayRegisterCard(
             }
         }
         if (chips.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .padding(start = 70.dp, end = 14.dp, top = 6.dp)
-                    .height(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                chips.forEach { (icon, label) -> HomeRegisterChip(label, icon) }
-            }
+            HomeRegisterChipsRow(
+                chips = chips,
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
     }
 }
@@ -549,15 +613,10 @@ internal fun HomeCompletedWorkoutCard(
                 }
             }
             if (chips.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .padding(start = 70.dp, end = 14.dp, top = 6.dp)
-                        .height(24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    chips.forEach { (chipIcon, label) -> HomeRegisterChip(label, chipIcon) }
-                }
+                HomeRegisterChipsRow(
+                    chips = chips,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
             }
         }
         if (showReviewActions && onDiscardActions != null && onReview != null) {

@@ -876,12 +876,19 @@ internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
 
 @Composable
 private fun MetaChipRow(title: String, content: @Composable () -> Unit) {
+    // Padding interno de MuscleEquipmentCard = 14.dp: el carrusel sangra hasta
+    // el borde de la card y conserva inset scrolleable (misma regla que Progreso).
+    val cardGutter = 14.dp
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            modifier = Modifier
+                .fillMaxWidth()
+                .reperaFullBleedHorizontal(cardGutter)
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = cardGutter)) {
             content()
         }
     }

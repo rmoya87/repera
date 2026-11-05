@@ -949,8 +949,14 @@ internal fun ScheduledRoutineCard(
                     caption = "Nombre",
                     value = editTitle,
                     onValueChange = { editTitle = it })
-                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .reperaFullBleedHorizontal(16.dp)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     listOf("library" to "Sin fecha", "date" to "Día concreto",
                         "weekly" to "Semanal").forEach { option ->
                         ReperaFilterChip(selected = editPlanning == option.first,
@@ -968,8 +974,13 @@ internal fun ScheduledRoutineCard(
                     }) { Text("Fecha: " + cur.toString()) }
                 }
                 if (editPlanning == "weekly") Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .reperaFullBleedHorizontal(16.dp)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
                     listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, day ->
                         ReperaFilterChip(selected = editWeekday == index + 1,
                             onClick = { editWeekday = index + 1 },
@@ -1077,8 +1088,14 @@ internal fun RoutineCreatorCard(
                 value = title,
                 onValueChange = { title = it }
             )
-            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .reperaFullBleedHorizontal(16.dp)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 listOf("strength" to "Fuerza", "amrap" to "AMRAP",
                     "forTime" to "For Time", "emom" to "EMOM", "tabata" to "Tabata",
                     "circuit" to "Circuito", "chipper" to "Chipper", "afap" to "AFAP",
@@ -1191,8 +1208,14 @@ internal fun RoutineCreatorCard(
                 )
             }
             if (planning == "weekly") {
-                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .reperaFullBleedHorizontal(16.dp)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
                     listOf("L", "M", "X", "J", "V", "S", "D").forEachIndexed { index, label ->
                         ReperaFilterChip(selected = weekday == index + 1,
                             onClick = { weekday = index + 1 },

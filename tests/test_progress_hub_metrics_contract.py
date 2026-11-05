@@ -245,6 +245,19 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             main,
         )
 
+    def test_android_progress_chips_full_bleed_horizontal(self):
+        """Carrusel de chips: viewport a borde de pantalla; inset en contenido scrolleable."""
+        chips = read(ANDROID / "ProgressCategoryChips.kt")
+        bar = read(ANDROID / "ReperaFloatingTabBar.kt")
+        self.assertIn("fun Modifier.reperaFullBleedHorizontal", bar)
+        self.assertIn("ReperaPageGutter", bar)
+        self.assertIn("reperaFullBleedHorizontal()", chips)
+        self.assertIn("padding(horizontal = ReperaPageGutter", chips)
+        # No recortar el viewport con padding fijo pequeño antes del scroll.
+        self.assertNotIn("padding(horizontal = 4.dp, vertical = 4.dp)", chips)
+        ios = read(IOS / "ProgressCategoryChips.swift")
+        self.assertIn(".padding(.horizontal, OG.pad)", ios)
+
     def test_hub_uses_last_7_days_not_esta_semana(self):
         stats = read(IOS / "StatsView.swift")
         chips = read(IOS / "ProgressCategoryChips.swift")

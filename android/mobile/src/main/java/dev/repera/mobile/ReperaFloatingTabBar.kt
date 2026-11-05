@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -63,10 +64,34 @@ import androidx.compose.ui.semantics.semantics
  */
 internal val LocalReperaTabBarInset = compositionLocalOf { 0.dp }
 
+/** Gutter horizontal de página (paridad `OG.pad` iOS / default de listas). */
+internal val ReperaPageGutter = 16.dp
+
+/**
+ * Rompe el `contentPadding` horizontal del LazyColumn anfitrión para que un
+ * carrusel horizontal llegue al borde físico de pantalla. El inset de lectura
+ * debe ir en el *contenido* scrolleable (padding interior / Spacers), como
+ * `contentMargins` + padding del HStack en iOS — no en el viewport.
+ */
+internal fun Modifier.reperaFullBleedHorizontal(
+    gutter: Dp = ReperaPageGutter
+): Modifier = this.then(
+    Modifier.layout { measurable, constraints ->
+        val gutterPx = gutter.roundToPx()
+        val wide = (constraints.maxWidth + gutterPx * 2).coerceAtLeast(0)
+        val placeable = measurable.measure(
+            constraints.copy(minWidth = wide, maxWidth = wide)
+        )
+        layout(constraints.maxWidth, placeable.height) {
+            placeable.placeRelative(-gutterPx, 0)
+        }
+    }
+)
+
 /** Padding de listas con tab bar: horizontal/top fijos + bottom = inset medido. */
 @Composable
 internal fun reperaScrollContentPadding(
-    horizontal: Dp = 16.dp,
+    horizontal: Dp = ReperaPageGutter,
     top: Dp = 16.dp,
     extraBottom: Dp = 12.dp
 ): PaddingValues = PaddingValues(

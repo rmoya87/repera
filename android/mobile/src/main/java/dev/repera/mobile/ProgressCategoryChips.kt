@@ -59,11 +59,14 @@ internal fun ProgressCategoryChipBar(
     modifier: Modifier = Modifier
 ) {
     val scroll = rememberScrollState()
+    // Full-bleed viewport (rompe gutter del LazyColumn) + inset scrolleable
+    // como iOS ProgressCategoryChipBar (padding del HStack, no del ScrollView).
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .reperaFullBleedHorizontal()
             .horizontalScroll(scroll)
-            .padding(horizontal = 4.dp, vertical = 4.dp)
+            .padding(horizontal = ReperaPageGutter, vertical = 4.dp)
             .testTag("progress_category_chips"),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
