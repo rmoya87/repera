@@ -164,7 +164,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertNotIn("makeTone(duration: 0.82)", feedback)
         self.assertNotIn("392 * seconds", feedback)
         self.assertNotIn("AudioServicesPlaySystemSound", feedback)
-        self.assertIn("session.mode != .spokenAudio", feedback)
+        self.assertIn("session.mode != .voicePrompt", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
             "func cancelStartCountdown()", 1
         )[0]
@@ -209,7 +209,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("try session.setCategory(", audio)
         self.assertIn("try session.setActive(true)", audio)
         self.assertIn("try? session.setActive(false, options: .notifyOthersOnDeactivation)", audio)
-        self.assertIn("session.mode != .spokenAudio", audio)
+        self.assertIn("session.mode != .voicePrompt", audio)
         # Si mañana alguien mueve prepareToPlay a MainActor, este test falla.
         self.assertLess(audio.index("queue.async { [self] in"), audio.index("player.prepareToPlay()"))
 
