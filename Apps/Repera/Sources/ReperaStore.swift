@@ -3721,6 +3721,7 @@ final class ReperaStore: NSObject {
         let copy = Routine(
             title: source.title, scheduledDate: date,
             scheduledTimeMinutes: source.scheduledTimeMinutes,
+            plannedDurationMinutes: source.plannedDurationMinutes,
             blocks: source.blocks.map { $0.duplicatingContent() },
             // Crear desde Favoritos debe reproducir fielmente todas las
             // prescripciones, aunque exista historial para este ejercicio.
