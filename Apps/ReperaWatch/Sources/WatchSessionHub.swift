@@ -957,7 +957,7 @@ final class WatchSessionHub: NSObject {
             plan = ctrl.session
             plan.appleHealthProvenance = "watchHealthKitPending"
         }
-        var next = SessionController(session: plan)
+        let next = SessionController(session: plan)
         controller = next
         isRecordingPlannedWorkout = false
         startedOnThisWatch = true

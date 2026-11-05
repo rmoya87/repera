@@ -25,7 +25,9 @@ struct ReperaFocusFilterIntent: SetFocusFilterIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        ReperaFocusPreferences.apply(silenceCenter: silenceCenter, sessionOnly: sessionOnly)
+        // Focus Filter puede ejecutar fuera del main actor; la UI (RootTabView)
+        // observa didChange y muta @State — hay que publicar en main.
+        await ReperaFocusPreferences.apply(silenceCenter: silenceCenter, sessionOnly: sessionOnly)
         return .result()
     }
 }
@@ -43,6 +45,7 @@ enum ReperaFocusPreferences {
         UserDefaults.standard.object(forKey: sessionKey) as? Bool ?? false
     }
 
+    @MainActor
     static func apply(silenceCenter: Bool, sessionOnly: Bool) {
         UserDefaults.standard.set(silenceCenter, forKey: silenceKey)
         UserDefaults.standard.set(sessionOnly, forKey: sessionKey)

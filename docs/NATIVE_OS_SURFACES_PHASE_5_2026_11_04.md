@@ -13,7 +13,7 @@ Complementa `NATIVE_SYSTEM_INTEGRATION_2026_11_04.md` (fases 1–4). Distinguir 
 | **Now Playing iOS** | `RestRemoteCommandCenter` + `MPRemoteCommandCenter` en descanso (pause/resume/skip) | Solo timer UI |
 | **MediaSession Android** | `RestMediaSessionController` en `StrengthRestService` | Solo skip/countdown |
 | **Live Activity push tokens** | `Activity.request(…, pushType: .token)` + `LiveActivityPushTokenStore` (update + **push-to-start** Training/Rest en UserDefaults) | **Subida RPC + envío APNs ActivityKit** pendiente (RPC solo acepta `ios`/`android` alert; hace falta migración + Edge) |
-| **Focus Filter** | `ReperaFocusFilterIntent` silencia tab Center | Preferencia local |
+| **Focus Filter** | `ReperaFocusFilterIntent` silencia tab Center; `apply` publica `didChange` en `@MainActor` (App Intent puede ir en background) | Preferencia local |
 | **EventKit / CalendarContract** | Mirror opcional de reservas `booked` | Write-only; permiso usuario |
 | **Control Widget + Atajo «Escanear pizarra»** | `ReperaBoardScanControl` / `ReperaBoardScanIntent` → `repera://board` | No Camera Control hardware dedicado |
 | **Assistant / Gemini** | Capacidades shortcuts + `ReperaAppFunctions` catalog; App Functions API cuando estabilice | Navegación only |
