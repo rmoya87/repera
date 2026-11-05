@@ -310,7 +310,7 @@ private fun SevenRecentWorkoutDurationChart(
                 }
                 .pointerInput(recent) {
                     detectTapGestures { offset ->
-                        selectedIndex = ((offset.x / size.width.coerceAtLeast(1f)) * recent.size)
+                        selectedIndex = ((offset.x / size.width.coerceAtLeast(1).toFloat()) * recent.size)
                             .toInt().coerceIn(0, recent.lastIndex)
                     }
                 }
