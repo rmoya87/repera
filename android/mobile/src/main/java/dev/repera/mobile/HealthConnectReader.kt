@@ -401,12 +401,21 @@ class HealthConnectReader(private val context: Context) {
      *  contradictoria entre orígenes devuelve vacío (ni curva ni refinado). */
     suspend fun readSessionHeartSeries(startEpochMs: Long, endEpochMs: Long,
                                        linkedRecordId: String? = null,
-                                       linkedSessionId: String? = null): List<Pair<Long, Int>> {
+                                       linkedSessionId: String? = null,
+                                       editedWindow: Boolean = false): List<Pair<Long, Int>> {
         if (!available() || endEpochMs <= startEpochMs) return emptyList()
+        // Un horario corregido no permite vincular un entrenamiento distinto
+        // por simple solapamiento: exigir identidad Health Connect persistida.
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return emptyList()
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return emptyList()
-        val evidence = readSessionEvidence(matched.startEpochMs, matched.endEpochMs)
+        val from = if (editedWindow) startEpochMs else matched.startEpochMs
+        val until = if (editedWindow) endEpochMs else matched.endEpochMs
+        val evidence = readSessionEvidence(from, until)
+        val eligibleHeart = if (editedWindow)
+            evidence.heart.filter { it.originPackage == matched.packageName }
+        else evidence.heart
         return when (val merged = dev.repera.domain.SessionHealthMatcher
-            .mergeHeartRate(evidence.heart)) {
+            .mergeHeartRate(eligibleHeart)) {
             is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged -> merged.series
             else -> emptyList()
         }
@@ -424,30 +433,38 @@ class HealthConnectReader(private val context: Context) {
      *    (workout.statistics iOS); sin asociación no hay kcal. */
     suspend fun readSessionSample(startEpochMs: Long, endEpochMs: Long,
                                   linkedRecordId: String? = null,
-                                  linkedSessionId: String? = null): dev.repera.domain.SessionCardioSample {
+                                  linkedSessionId: String? = null,
+                                  editedWindow: Boolean = false): dev.repera.domain.SessionCardioSample {
         if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return dev.repera.domain.SessionCardioSample()
         // Sin asociación confiable (None o Ambiguous) no se refina: la nota
         // existente se conserva y la FC ajena en ventana no se usa.
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId)
             ?: return dev.repera.domain.SessionCardioSample()
-        val evidence = readSessionEvidence(matched.startEpochMs, matched.endEpochMs)
+        val from = if (editedWindow) startEpochMs else matched.startEpochMs
+        val until = if (editedWindow) endEpochMs else matched.endEpochMs
+        val evidence = readSessionEvidence(from, until)
+        val eligibleHeart = if (editedWindow)
+            evidence.heart.filter { it.originPackage == matched.packageName }
+        else evidence.heart
         val bpm: List<Double> = when (val merged = dev.repera.domain.SessionHealthMatcher
-            .mergeHeartRate(evidence.heart)) {
+            .mergeHeartRate(eligibleHeart)) {
             is dev.repera.domain.SessionHealthMatcher.HeartMerge.Merged ->
                 merged.series.map { it.second.toDouble() }
             else -> emptyList()
         }
         val kcal: Double? = evidence.kcal.filter {
             it.originPackage == matched.packageName &&
-                it.startMs >= matched.startEpochMs &&
-                it.endMs <= matched.endEpochMs
-        }.sumOf { it.kcal }.takeIf { it > 0 }
+                it.startMs >= from &&
+                it.endMs <= until
+        }.sumOf { it.kcal }.takeIf { it.isFinite() && it > 0 }
         return dev.repera.domain.SessionCardioSample(
             averageHeartRateBpm = bpm.takeIf { it.isNotEmpty() }?.average(),
             maxHeartRateBpm = bpm.maxOrNull(),
             heartRateBpmSamples = bpm,
             activeEnergyKcal = kcal,
-            durationMinutes = dev.repera.domain.SessionHealthMatcher.observedDurationMinutes(matched),
+            durationMinutes = if (editedWindow) (until - from).toDouble() / 60000.0
+                else dev.repera.domain.SessionHealthMatcher.observedDurationMinutes(matched),
             sourceRecordId = matched.id
         )
     }
@@ -457,15 +474,19 @@ class HealthConnectReader(private val context: Context) {
      *  si no hay muestras de ese origen, solo se usa la ventana cuando UN ÚNICO origen aporta datos en el rango (`usesTimeWindow=true`); con varios orígenes no se suma ni se elige: sin dato (fail-closed).
      *  Cada lectura exige su permiso ya concedido; no se solicita ni se estima nada. */
     suspend fun readSessionMovement(startEpochMs: Long, endEpochMs: Long, linkedRecordId: String? = null,
-                                    linkedSessionId: String? = null): dev.repera.domain.SessionMovement? {
+                                    linkedSessionId: String? = null,
+                                    editedWindow: Boolean = false): dev.repera.domain.SessionMovement? {
         if (!available() || endEpochMs <= startEpochMs) return null
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return null
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return null
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
         val canSteps = HealthPermission.getReadPermission(StepsRecord::class) in granted
         val canDistance = HealthPermission.getReadPermission(DistanceRecord::class) in granted
         if (!canSteps && !canDistance) return null
-        val range = TimeRangeFilter.between(Instant.ofEpochMilli(matched.startEpochMs), Instant.ofEpochMilli(matched.endEpochMs))
+        val from = if (editedWindow) startEpochMs else matched.startEpochMs
+        val until = if (editedWindow) endEpochMs else matched.endEpochMs
+        val range = TimeRangeFilter.between(Instant.ofEpochMilli(from), Instant.ofEpochMilli(until))
         suspend fun total(origins: Set<String>, steps: Boolean): Double? {
             val r = client.aggregate(AggregateRequest(setOf(if (steps) StepsRecord.COUNT_TOTAL else DistanceRecord.DISTANCE_TOTAL),
                 range, origins.map { DataOrigin(it) }.toSet()))

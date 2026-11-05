@@ -54,4 +54,34 @@ class MeasuredEnergyTest {
   }
   assertTrue(checked>500)
  }
+ @Test fun correctedWindowReplacesMeasuredHeartRateAndRetainsVerifiedEnergy() {
+  val w=w("a","2026-11-05T06:45:00Z","2026-11-05T07:45:00Z")
+   .put("userEditedDuration",true)
+   .put(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD,"record-1")
+   .put("originalSensorEnergyKcal",230.0)
+   .put("originalSensorHeartRateBpm",136.0)
+  val state=state(w)
+  assertTrue(SessionReviewSupport.applyMeasuredEnergy(state,"a",310.0,"record-1"))
+  assertTrue(SessionReviewSupport.applyMeasuredHeartRate(state,"a",142.0,"record-1"))
+  assertEquals(310.0,w.getDouble("appleActiveEnergyKcal"),0.001)
+  assertEquals(142.0,w.getDouble("appleAverageHeartRateBpm"),0.001)
+  assertEquals(230.0,w.getDouble("originalSensorEnergyKcal"),0.001)
+  assertEquals(136.0,w.getDouble("originalSensorHeartRateBpm"),0.001)
+  assertFalse(SessionReviewSupport.applyMeasuredHeartRate(state,"a",999.0,"record-1"))
+  assertFalse(SessionReviewSupport.applyMeasuredHeartRate(state,"a",90.0,"wrong-record"))
+ }
+
+ @Test fun cardioNoLinkedEvidenceDoesNotInventCaloriesOrHeartRate() {
+  val w=w("a","2026-11-05T06:45:00Z","2026-11-05T07:45:00Z")
+   .put("userEditedDuration",true)
+   .put(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD,"record-1")
+  val state=state(w)
+  assertFalse(SessionReviewSupport.applyMeasuredEnergy(state,"a",null,"record-1"))
+  assertFalse(SessionReviewSupport.applyMeasuredEnergy(state,"a",250.0,null))
+  assertFalse(SessionReviewSupport.applyMeasuredHeartRate(state,"a",null,"record-1"))
+  assertFalse(SessionReviewSupport.applyMeasuredHeartRate(state,"a",125.0,null))
+  assertFalse(w.has("appleActiveEnergyKcal"))
+  assertFalse(w.has("appleAverageHeartRateBpm"))
+ }
+
 }

@@ -252,4 +252,25 @@ class WorkoutPinEditingInstrumentedTest {
         assertTrue(repo.updateFinishedWorkout(a.id, edit(blocksJson = blocks.toString())) { n -> fail("no debe pedir cuota"); false })
         assertEquals(sizeAfterFirst, repo.finishedWorkoutsSnapshot().first().getJSONArray("exercises").length())
     }
+    @Test fun editingStartAndDurationKeepsHealthLinkAndPersistsOverride() {
+        val (repo, _) = repoWithRoutines("time-fixture")
+        val session = repo.startStrengthRoutine("time-fixture")
+        repo.finish()
+        repo.setHealthRecordId(session.id, "health-source-1")
+        assertTrue(repo.updateFinishedWorkout(
+            session.id,
+            edit(start = "2026-11-05T06:45:00Z", end = "2026-11-05T07:45:00Z")
+        ))
+        val saved = repo.finishedWorkoutsSnapshot().first { it.optString("id") == session.id }
+        assertEquals("2026-11-05T06:45:00Z", saved.getString("startedAt"))
+        assertEquals("2026-11-05T07:45:00Z", saved.getString("finishedAt"))
+        assertTrue(saved.getBoolean("userEditedDuration"))
+        assertTrue(repo.sessionHasEditedDuration(session.id))
+        assertEquals("health-source-1", repo.healthRecordId(session.id))
+        assertEquals(60_000L * 60, repo.sessionTimeRange(session.id)!!.second -
+            repo.sessionTimeRange(session.id)!!.first)
+        // Sin muestras de Health Connect no se deben sintetizar kcal.
+        assertFalse(saved.has("appleActiveEnergyKcal"))
+    }
+
 }

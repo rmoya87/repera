@@ -1660,6 +1660,8 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     public var scheduledDate: Date?
     /// Hora del día en minutos desde medianoche (0…1439). Opcional.
     public var scheduledTimeMinutes: Int?
+    /// Duración prevista; independiente del tiempo registrado al realizar la sesión.
+    public var plannedDurationMinutes: Int?
     /// Plantilla habitual reutilizable desde Crear → Favoritos.
     public var isFavorite: Bool
     /// En una sesión planificada, UUID de la COPIA independiente en Favoritos.
@@ -1704,6 +1706,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         weekday: Int? = nil,
         scheduledDate: Date? = nil,
         scheduledTimeMinutes: Int? = nil,
+        plannedDurationMinutes: Int? = nil,
         exercises: [RoutineExercise] = [],
         blocks: [RoutineBlock]? = nil,
         progression: ProgressionPolicy = .linear,
@@ -1720,6 +1723,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         } else {
             self.scheduledTimeMinutes = nil
         }
+        self.plannedDurationMinutes = plannedDurationMinutes.flatMap { (1...600).contains($0) ? $0 : nil }
         self.isFavorite = isFavorite
         self.favoriteTemplateId = favoriteTemplateId
         self.locationPin = locationPin
@@ -1746,7 +1750,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, weekday, scheduledDate, scheduledTimeMinutes, exercises, blocks, progression, isFavorite, favoriteTemplateId, locationPin
+        case id, title, weekday, scheduledDate, scheduledTimeMinutes, plannedDurationMinutes, exercises, blocks, progression, isFavorite, favoriteTemplateId, locationPin
     }
 
     public init(from decoder: Decoder) throws {
@@ -1765,6 +1769,8 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         } else {
             scheduledTimeMinutes = nil
         }
+        plannedDurationMinutes = try c.decodeIfPresent(Int.self, forKey: .plannedDurationMinutes)
+            .flatMap { (1...600).contains($0) ? $0 : nil }
         isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         favoriteTemplateId = try c.decodeIfPresent(UUID.self, forKey: .favoriteTemplateId)
         locationPin = try c.decodeIfPresent(WorkoutLocationPin.self, forKey: .locationPin)
@@ -1787,6 +1793,7 @@ public struct Routine: Identifiable, Codable, Sendable, Hashable {
         try c.encodeIfPresent(weekday, forKey: .weekday)
         try c.encodeIfPresent(scheduledDate, forKey: .scheduledDate)
         try c.encodeIfPresent(normalizedScheduledTimeMinutes, forKey: .scheduledTimeMinutes)
+        try c.encodeIfPresent(plannedDurationMinutes, forKey: .plannedDurationMinutes)
         try c.encode(isFavorite, forKey: .isFavorite)
         try c.encodeIfPresent(favoriteTemplateId, forKey: .favoriteTemplateId)
         try c.encodeIfPresent(locationPin, forKey: .locationPin)
@@ -2239,6 +2246,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var appleHealthProvenance: String?
     /// Duración según Apple Salud / Watch (segundos).
     public var appleDurationSeconds: TimeInterval?
+    /// Indica que la duración introducida manualmente prevalece para las vistas y estadísticas.
+    public var userEditedDuration: Bool
     /// UUID del `HKWorkout` guardado en Salud (si aplica).
     public var healthKitWorkoutUUID: UUID?
     /// Scores de bloques WOD (AMRAP reps, For Time tiempo…).
@@ -2285,6 +2294,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleAverageHeartRateBpm: Double? = nil,
         appleHealthProvenance: String? = nil,
         appleDurationSeconds: TimeInterval? = nil,
+        userEditedDuration: Bool = false,
         healthKitWorkoutUUID: UUID? = nil,
         wodResults: [WODBlockResult] = [],
         routineBlocks: [RoutineBlock]? = nil,
@@ -2314,6 +2324,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.appleAverageHeartRateBpm = appleAverageHeartRateBpm
         self.appleHealthProvenance = appleHealthProvenance
         self.appleDurationSeconds = appleDurationSeconds
+        self.userEditedDuration = userEditedDuration
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
         self.wodResults = wodResults
         self.routineBlocks = routineBlocks
@@ -2332,7 +2343,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, title, routineId, favoriteRoutineId, awaitingResultEntry, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
-        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, healthKitWorkoutUUID
+        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, userEditedDuration, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints, liveSportID, liveRouteID, recordedDistanceMeters, activeDurationSeconds
         case liveKilometerSplitsSeconds, timerDetails, activityConditions
@@ -2355,6 +2366,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleAverageHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .appleAverageHeartRateBpm)
         appleHealthProvenance = try c.decodeIfPresent(String.self, forKey: .appleHealthProvenance)
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
+        userEditedDuration = try c.decodeIfPresent(Bool.self, forKey: .userEditedDuration) ?? false
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
         wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
         routineBlocks = try c.decodeIfPresent([RoutineBlock].self, forKey: .routineBlocks)
@@ -2387,6 +2399,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(appleAverageHeartRateBpm, forKey: .appleAverageHeartRateBpm)
         try c.encodeIfPresent(appleHealthProvenance, forKey: .appleHealthProvenance)
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
+        try c.encode(userEditedDuration, forKey: .userEditedDuration)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
         try c.encode(wodResults, forKey: .wodResults)
         try c.encodeIfPresent(routineBlocks, forKey: .routineBlocks)
@@ -2421,6 +2434,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     /// Minutos del entreno: prioriza Apple Salud / Watch.
     public var durationMinutes: Double {
         if let timerDetails { return Double(timerDetails.configuredSeconds) / 60 }
+        if userEditedDuration, let start = startedAt, let end = finishedAt {
+            return max(0, end.timeIntervalSince(start) / 60)
+        }
         if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let apple = appleDurationSeconds, apple > 0 {
             return apple / 60
@@ -2434,6 +2450,9 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     /// No usa el time-cap ni la duración de Salud (esos van a kcal / detalle).
     public var displayDurationMinutes: Double {
         if let timerDetails { return Double(timerDetails.configuredSeconds) / 60 }
+        if userEditedDuration, let start = startedAt, let end = finishedAt {
+            return max(0, end.timeIntervalSince(start) / 60)
+        }
         if liveSportID != nil, let activeDurationSeconds { return max(0, activeDurationSeconds / 60) }
         if let start = startedAt {
             let end = finishedAt ?? start.addingTimeInterval(60)

@@ -161,6 +161,10 @@ object ProgressSnapshotBuilder {
             val end = runCatching { Instant.parse(session.optString("finishedAt")).toEpochMilli() }.getOrNull()
             val duration = when {
                 timerDetails != null -> timerDetails.displayDurationMinutes
+                // La corrección voluntaria de horario tiene prioridad sobre la
+                // duración original de Wear/Health Connect en todas las gráficas.
+                session.optBoolean("userEditedDuration") && started != null && end != null ->
+                    maxOf(0.0, (end-started)/60000.0)
                 activeSeconds != null -> maxOf(0.0, activeSeconds / 60.0)
                 measuredSeconds != null -> measuredSeconds / 60.0
                 started != null && end != null -> maxOf(0.0, (end-started)/60000.0)

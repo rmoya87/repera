@@ -93,6 +93,37 @@ object SessionReviewSupport {
         return false
     }
 
+    /** La FC media del chip debe coincidir con el intervalo realmente consultado,
+     *  no conservar el resumen de Wear OS anterior a la corrección. */
+    fun applyMeasuredHeartRate(
+        state: JSONObject, sessionId: String,
+        averageBpm: Double?, sourceRecordId: String?
+    ): Boolean {
+        if (sourceRecordId.isNullOrBlank() ||
+            averageBpm == null || !averageBpm.isFinite() ||
+            averageBpm !in 25.0..250.0) return false
+        val archive = state.optJSONArray("workouts") ?: return false
+        val target = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == sessionId } ?: return false
+        val existing = target.optDouble("appleAverageHeartRateBpm", Double.NaN)
+        if (existing.isFinite() && kotlin.math.abs(existing - averageBpm) < 0.01) return false
+        if (existing.isFinite() && !target.optBoolean("userEditedDuration")) return false
+        val linked = target.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD)
+        if (linked.isNotBlank() && linked != "null" && linked != sourceRecordId) return false
+        val range = instantRange(target) ?: return false
+        for (j in 0 until archive.length()) {
+            val other = archive.optJSONObject(j) ?: continue
+            if (other.optString("id") == sessionId) continue
+            val otherRange = instantRange(other) ?: continue
+            if (otherRange.first < range.second && range.first < otherRange.second)
+                return false
+            if (other.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD) == sourceRecordId)
+                return false
+        }
+        target.put("appleAverageHeartRateBpm", averageBpm)
+        return true
+    }
+
     private fun instantRange(session: JSONObject): Pair<java.time.Instant, java.time.Instant>? = runCatching {
         val a = java.time.Instant.parse(session.getString("startedAt"))
         val b = java.time.Instant.parse(session.getString("finishedAt"))

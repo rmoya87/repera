@@ -166,7 +166,11 @@ struct HomeView: View {
                 health.verifiedWorkoutDurationMinutes[$0]
             }
             let resolved: Double
-            if let measured, measured > 0,
+            if session.userEditedDuration {
+                // La edición explícita prevalece en Inicio, Actividad y Progreso.
+                // La duración original de sensores permanece en appleDurationSeconds.
+                resolved = logged
+            } else if let measured, measured > 0,
                (session.healthKitWorkoutUUID.map {
                    health.verifiedExternalWorkoutUUIDs.contains($0)
                } == true || abs(measured - logged) <= max(5, logged * 0.25)) {
@@ -1587,6 +1591,9 @@ struct HomeView: View {
             },
             chips: {
                 let blockCount = routine.blocks.count
+                if let planned = routine.plannedDurationMinutes, planned > 0 {
+                    OGRegisterChip(text: "\(planned) min", icon: "timer")
+                }
                 if blockCount > 0 {
                     OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
                 }
@@ -1612,6 +1619,12 @@ struct HomeView: View {
         let caption = center.isEmpty ? captionBase : "\(captionBase) · \(center)"
         let blockCount = routine.blocks.count
         let wodLabel = routine.blocks.first(where: { $0.kind == .wod })?.headerLabel
+        let classMinutes: Int? = {
+            guard let start = BusinessDataStore.date(occurrence.startsAt),
+                  let end = BusinessDataStore.date(occurrence.endsAt),
+                  end > start else { return nil }
+            return Int((end.timeIntervalSince(start) / 60).rounded())
+        }()
         return registerCardWithChipsOverlay(
             open: action,
             accessibilityHint: "Toca para ver la clase. Desliza para cancelar la reserva. El entreno lo publica el centro y no se puede editar.",
@@ -1641,6 +1654,9 @@ struct HomeView: View {
             },
             chips: {
                 OGRegisterChip(text: "Clase", icon: "person.3")
+                if let classMinutes {
+                    OGRegisterChip(text: "\(classMinutes) min", icon: "timer")
+                }
                 if blockCount > 0 {
                     OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
                 }
@@ -1782,9 +1798,10 @@ struct HomeView: View {
                     WorkoutRegisterChips.repera(
                         session: session,
                         prCount: prs,
-                        verifiedHealthKcal: session.healthKitWorkoutUUID.flatMap {
-                            health.verifiedWorkoutEnergyKcal[$0]
-                        }
+                        verifiedHealthKcal: session.userEditedDuration ? nil :
+                            session.healthKitWorkoutUUID.flatMap {
+                                health.verifiedWorkoutEnergyKcal[$0]
+                            }
                     )
                 }
                 .frame(height: 24, alignment: .center)

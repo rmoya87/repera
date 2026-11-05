@@ -1827,6 +1827,32 @@ final class ReperaStore: NSObject {
             }
             return
         }
+        // Vincular solo la muestra exacta del Watch/Salud: nunca adjudicar
+        // energía por un solape con otra clase o sesión. La corrección horaria
+        // requiere reemplazar tanto la kcal como la FC anterior, no sumarlas
+        // a la medida vieja de 45 minutos.
+        if extras.energySourceIsVerified,
+           let uuid = extras.resolvedWorkoutUUID,
+           var linked = state.workouts.first(where: { $0.id == sessionId }),
+           linked.healthKitWorkoutUUID == uuid {
+            let verifiedKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
+            let verifiedHR = extras.averageHeartRateBpm.flatMap { $0 > 0 ? $0 : nil }
+            var changed = false
+            if linked.appleActiveEnergyKcal != verifiedKcal,
+               (verifiedKcal != nil || linked.userEditedDuration) {
+                linked.appleActiveEnergyKcal = verifiedKcal
+                changed = true
+            }
+            if linked.userEditedDuration,
+               linked.appleAverageHeartRateBpm != verifiedHR {
+                linked.appleAverageHeartRateBpm = verifiedHR
+                changed = true
+            }
+            if changed {
+                upsertWorkout(linked)
+                persistWorkouts()
+            }
+        }
         let cardio = SessionCardioSample(
             averageHeartRateBpm: extras.averageHeartRateBpm,
             maxHeartRateBpm: extras.maxHeartRateBpm,
@@ -1852,6 +1878,16 @@ final class ReperaStore: NSObject {
             ])
         }
         var draft = session
+        if let previous = state.workouts.first(where: { $0.id == draft.id }) {
+            if previous.userEditedDuration { draft.userEditedDuration = true }
+            if draft.userEditedDuration,
+               (previous.startedAt != draft.startedAt || previous.finishedAt != draft.finishedAt) {
+                // Se invalida el valor atribuido al intervalo antiguo hasta
+                // que Salud responda para el horario corregido.
+                draft.appleActiveEnergyKcal = nil
+                draft.appleAverageHeartRateBpm = nil
+            }
+        }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
         }
@@ -2064,6 +2100,13 @@ final class ReperaStore: NSObject {
                     // never reset sets that the athlete corrected on the phone.
                     pending.exercises = old.exercises
                     pending.routineBlocks = old.routineBlocks ?? session.routineBlocks
+                    if old.userEditedDuration {
+                        // Un replay tardío de watchOS no puede restablecer el
+                        // inicio/fin originales tras la corrección del usuario.
+                        pending.startedAt = old.startedAt
+                        pending.finishedAt = old.finishedAt
+                        pending.userEditedDuration = true
+                    }
                     pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
                     pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
                     pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
@@ -3678,6 +3721,7 @@ final class ReperaStore: NSObject {
         let copy = Routine(
             title: source.title, scheduledDate: date,
             scheduledTimeMinutes: source.scheduledTimeMinutes,
+            plannedDurationMinutes: source.plannedDurationMinutes,
             blocks: source.blocks.map { $0.duplicatingContent() },
             // Crear desde Favoritos debe reproducir fielmente todas las
             // prescripciones, aunque exista historial para este ejercicio.

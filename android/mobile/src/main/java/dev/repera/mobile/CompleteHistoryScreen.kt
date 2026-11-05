@@ -295,7 +295,9 @@ internal fun WorkoutHistoryDetailScreen(
   item {
    val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
    val movementProvider = LocalSessionMovement.current
-   val movement by produceState<dev.repera.domain.SessionMovement?>(null, workout.id) {
+   val movement by produceState<dev.repera.domain.SessionMovement?>(
+    null, workout.id, workout.startedAtIso, workout.finishedAtIso
+   ) {
     value = runCatching { movementProvider(workout.id) }.getOrNull()
    }
    val volumeKg = remember(workout) {

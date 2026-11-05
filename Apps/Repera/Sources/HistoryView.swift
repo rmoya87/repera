@@ -262,9 +262,10 @@ struct HistoryView: View {
                 WorkoutRegisterChips.repera(
                     session: live,
                     prCount: prs,
-                    verifiedHealthKcal: live.healthKitWorkoutUUID.flatMap {
-                        health.verifiedWorkoutEnergyKcal[$0]
-                    }
+                    verifiedHealthKcal: live.userEditedDuration ? nil :
+                        live.healthKitWorkoutUUID.flatMap {
+                            health.verifiedWorkoutEnergyKcal[$0]
+                        }
                 )
             }
             .padding(.leading, -Self.historyRowPad)
@@ -427,10 +428,20 @@ struct WorkoutDetailView: View {
             draft = store.state.workouts.first(where: { $0.id == sessionId })
         }
         .onChange(of: store.workoutsEpoch) { _, _ in
-            // Si termina una recuperación mientras el detalle está abierto,
-            // actualizar el mapa sin obligar a cerrar y reabrir la pantalla.
+            // Conservar el detalle enlazado a la misma sesión al editar o sincronizar.
             guard !isEditing else { return }
             draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
+        .task(id: store.workoutsEpoch) {
+            // Si Salud enlaza después el HKWorkout o recupera kcal, refrescar
+            // los tiles sin cerrar/reabrir y sin usar datos de otra sesión.
+            guard didHydrateDetail, !isEditing,
+                  let updated = store.state.workouts.first(where: { $0.id == sessionId }),
+                  updated.timerDetails == nil else { return }
+            let refreshed = await health.sessionHealthExtras(for: updated)
+            guard !Task.isCancelled, !isEditing,
+                  store.state.workouts.contains(where: { $0.id == sessionId }) else { return }
+            healthExtras = refreshed
         }
         .task(id: sessionId) {
             guard !didHydrateDetail else { return }

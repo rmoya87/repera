@@ -125,8 +125,6 @@ struct DayEditorView: View {
     @State private var completedDetails: WorkoutSession?
     /// No sobrescribir la elección o eliminación manual con una sugerencia tardía.
     @State private var completedPlaceEdited = false
-    /// Duración estimada del one-off (UI; el fin real se calcula en sesiones terminadas).
-    @State private var oneOffPlannedDurationMinutes: Int = 45
     @State private var scaledInputDrafts: [String: String] = [:]
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
@@ -1421,6 +1419,7 @@ struct DayEditorView: View {
             set: { date in
                 if isEnd {
                     completedDetails?.finishedAt = date
+                    completedDetails?.userEditedDuration = true
                 } else {
                     let previousStart = completedDetails?.startedAt
                     let previousEnd = completedDetails?.finishedAt
@@ -1449,6 +1448,7 @@ struct DayEditorView: View {
                 let start = completedDetails?.startedAt ?? Date()
                 completedDetails?.startedAt = start
                 completedDetails?.finishedAt = start.addingTimeInterval(TimeInterval(max(1, minutes) * 60))
+                completedDetails?.userEditedDuration = true
             }
         )
     }
@@ -1475,17 +1475,17 @@ struct DayEditorView: View {
     private var oneOffDateTimeDurationRow: some View {
         dateTimeDurationRow(
             date: oneOffDateTimeBinding,
-            durationDisplay: "\(oneOffPlannedDurationMinutes) min",
+            durationDisplay: "\(routine.plannedDurationMinutes ?? 45) min",
             onDurationMinus: {
-                oneOffPlannedDurationMinutes = max(1, oneOffPlannedDurationMinutes - 5)
+                routine.plannedDurationMinutes = max(1, (routine.plannedDurationMinutes ?? 45) - 5)
             },
             onDurationPlus: {
-                oneOffPlannedDurationMinutes = min(600, oneOffPlannedDurationMinutes + 5)
+                routine.plannedDurationMinutes = min(600, (routine.plannedDurationMinutes ?? 45) + 5)
             },
             onDurationCommit: { text in
                 let digits = text.filter(\.isNumber)
                 if let v = Int(digits) {
-                    oneOffPlannedDurationMinutes = min(600, max(1, v))
+                    routine.plannedDurationMinutes = min(600, max(1, v))
                 }
             }
         )

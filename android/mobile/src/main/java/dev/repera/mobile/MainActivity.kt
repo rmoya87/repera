@@ -813,7 +813,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         val repo = WorkoutRepository(this@MainActivity, uid)
                         val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
                         reader.readSessionMovement(range.first, range.second,
-                            linkedRecordId = repo.healthRecordId(sessionId), linkedSessionId = sessionId)
+                            linkedRecordId = repo.healthRecordId(sessionId), linkedSessionId = sessionId,
+                            editedWindow = repo.sessionHasEditedDuration(sessionId))
                     }.getOrNull()
                 }.takeIf { profile?.uniqueId == uid && centerGate.revision == revision }
             }
@@ -892,9 +893,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             val range = WorkoutRepository(this@MainActivity, uid)
                                 .sessionTimeRange(sessionId)
                                 ?: return@runCatching emptyList()
+                            val repo = WorkoutRepository(this@MainActivity, uid)
                             reader.readSessionHeartSeries(range.first, range.second,
-                                linkedRecordId = WorkoutRepository(this@MainActivity, uid).healthRecordId(sessionId),
-                                linkedSessionId = sessionId)
+                                linkedRecordId = repo.healthRecordId(sessionId),
+                                linkedSessionId = sessionId,
+                                editedWindow = repo.sessionHasEditedDuration(sessionId))
                         }.getOrDefault(emptyList())
                     }.takeIf {profile?.uniqueId==uid && centerGate.revision==revision}.orEmpty()
                 },
@@ -1445,7 +1448,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         dev.repera.domain.monetization.PaywallContext.ROUTINES_LIMIT,
                         feature = dev.repera.domain.monetization.ReperaFeature.UNLIMITED_ROUTINES)
                   } else
-                    runWorkoutAction {
+                    runWorkoutAction(onSuccess = {
+                        // El editor cambia el intervalo LOCAL: no sobrescribir
+                        // el ExerciseSessionRecord original del reloj.
+                        refineFinishedSessionWithHealth(workoutId, syncToHealth = false)
+                        profile?.uniqueId?.let { uid ->
+                            lifecycleScope.launch { refreshHealthSamplesAfterMutation(uid) }
+                        }
+                    }) {
                         val withBlocks = if (drafts != null) {
                             val json = blocksJsonFromDrafts(drafts) { before ->
                                 subscriptions.syncCounts(snapshot?.libraryRoutineCount ?: 0, before)
@@ -2284,14 +2294,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
      *  (relee FC/kcal SOLO con asociación confiable y afina la nota). Si la
      *  hoja de valoración sigue visible con esa sesión, la actualiza
      *  (presentIfPending iOS). */
-    private fun refineFinishedSessionWithHealth(sessionId: String) {
+    private fun refineFinishedSessionWithHealth(sessionId: String, syncToHealth: Boolean = true) {
         val signedIn = profile ?: return
         val revision=centerGate.revision
         fun current()=profile?.uniqueId==signedIn.uniqueId && centerGate.revision==revision
         val reader = HealthConnectReader(this)
         if (!reader.available()) return
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
+            if (syncToHealth) withContext(Dispatchers.IO) {
                 runCatching {
                     if(!current()) return@runCatching
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
@@ -2314,15 +2324,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     val repo = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                     val range = repo.sessionTimeRange(sessionId) ?: return@runCatching null
                     val sample = reader.readSessionSample(range.first, range.second,
-                        repo.healthRecordId(sessionId), sessionId)
+                        repo.healthRecordId(sessionId), sessionId,
+                        editedWindow = repo.sessionHasEditedDuration(sessionId))
                     if (!current() || !sample.hasUsableSignal) return@runCatching null
-                    WorkoutRepository(this@MainActivity, signedIn.uniqueId)
+                    val review = WorkoutRepository(this@MainActivity, signedIn.uniqueId)
                         .refineSessionReviewWithCardio(sessionId, sample)
+                    true to review
                 }.getOrNull()
             }
             if (!current()) return@launch
-            if (updated != null) {
-                if (pendingReviewSessionId == sessionId) pendingReview = updated
+            if (updated?.first == true) {
+                if (pendingReviewSessionId == sessionId && updated.second != null)
+                    pendingReview = updated.second
                 reloadFor(signedIn.uniqueId)
             }
         }
@@ -3313,6 +3326,7 @@ data class StateOverview(
                             .takeIf { it.isFinite() && it > 0 },
                         appleAverageHeartRateBpm = session.optDouble("appleAverageHeartRateBpm", Double.NaN)
                             .takeIf { it.isFinite() && it > 0 },
+                        userEditedDuration = session.optBoolean("userEditedDuration"),
                         liveKilometerSplitsSeconds = session.optJSONArray("liveKilometerSplitsSeconds")?.let { a ->
                             (0 until a.length()).map { a.optDouble(it) }.filter { it.isFinite() && it > 0 }
                         }.orEmpty(),
@@ -3829,7 +3843,8 @@ data class WorkoutHistoryEntry(
     val activityConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
     /** Energía / FC medidas (Health Connect → apple* keys, paridad iOS). */
     val appleActiveEnergyKcal: Double? = null,
-    val appleAverageHeartRateBpm: Double? = null
+    val appleAverageHeartRateBpm: Double? = null,
+    val userEditedDuration: Boolean = false
 ) {
     /**
      * Minutos para chips/tiles (iOS displayDurationMinutes / HistoryView summary):
@@ -3837,6 +3852,12 @@ data class WorkoutHistoryEntry(
      */
     fun displayDurationMinutes(): Double {
         timerDetails?.let { return it.configuredSeconds / 60.0 }
+        if (userEditedDuration) {
+            val start = startedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+            val end = finishedAtIso?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+            if (start != null && end != null && end > start)
+                return java.time.Duration.between(start, end).toMillis() / 60000.0
+        }
         if (liveSportID != null) {
             activeDurationSeconds?.takeIf { it > 0 }?.let { return it / 60.0 }
         }
