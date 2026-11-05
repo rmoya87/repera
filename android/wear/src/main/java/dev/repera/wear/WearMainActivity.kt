@@ -152,6 +152,16 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     private var restJob: kotlinx.coroutines.Job? = null
     private val restClock=dev.repera.domain.RestCountdown()
     private var health by mutableStateOf<Pair<Int?, Double?>?>(null)
+    private var displayedHeartSampleAtElapsed = 0L
+    private var displayedHeartExpiry: kotlinx.coroutines.Job? = null
+
+    private fun clearDisplayedHeart() {
+        displayedHeartExpiry?.cancel()
+        displayedHeartExpiry = null
+        displayedHeartSampleAtElapsed = 0L
+        health = null
+    }
+
     private var healthConnection:WearHealthService.Connection?=null
     private var healthBound=false
     private var pauseSensorsIntent:dev.repera.domain.WearStartPauseIntent?=null
@@ -160,7 +170,36 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             healthConnection=binder as WearHealthService.Connection
             healthConnection?.observe {state ->runOnUiThread {
                 val current = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")
-                health=if(state.sessionId==current) state.heart to state.energy else null
+                // Keep only the last authentic sample, for 60s from capture.
+                // Transient sensor gaps/binder reconnects must not clear it,
+                // but provider snapshots may not extend its age artificially.
+                if (current.isNullOrBlank()) {
+                    clearDisplayedHeart()
+                } else if (state.sessionId == current) {
+                    val captured = state.heartAtElapsed
+                    val age = android.os.SystemClock.elapsedRealtime() - captured
+                    val valid = state.heart != null && captured > 0L && age in 0L..60_000L
+                    val last = if (valid) state.heart else
+                        if (captured == 0L) health?.first else null
+                    health = last to (state.energy ?: health?.second)
+                    if (valid && captured != displayedHeartSampleAtElapsed) {
+                        displayedHeartSampleAtElapsed = captured
+                        displayedHeartExpiry?.cancel()
+                        val ownerID = current
+                        displayedHeartExpiry = lifecycleScope.launch {
+                            kotlinx.coroutines.delay(
+                                (60_001L - (android.os.SystemClock.elapsedRealtime() - captured))
+                                    .coerceAtLeast(0L)
+                            )
+                            val stillCurrent = visibleSession?.sessionId
+                                ?: liveActivityJson?.optString("sessionId")
+                            if (stillCurrent == ownerID &&
+                                displayedHeartSampleAtElapsed == captured) {
+                                health = health?.let { null to it.second }
+                            }
+                        }
+                    }
+                }
                 // Apple startToday + selectBlock pauses HealthKit; decision logic is WearStartPauseIntent (JVM-tested).
                 pauseSensorsIntent?.let {intent ->
                     when(intent.onSensorState(visibleSession?.sessionId,state.sessionId,state.recording,state.paused,sessionPaused)) {
@@ -173,7 +212,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }}
             if(visibleSession!=null || liveActivityJson?.optString("phase") in setOf("recording","paused")) ensureHealthRecording()
         }
-        override fun onServiceDisconnected(name:android.content.ComponentName) {healthConnection=null;health=null}
+        override fun onServiceDisconnected(name:android.content.ComponentName) {
+            healthConnection = null
+            // A binder disconnect is not a new workout or a new pulse sample.
+            // Session changes and termination reset the cached display.
+        }
     }
 
     private var sensorRevision=0L
@@ -1076,6 +1119,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         if (previous != next) {
+            // A new companion workout has no heart-rate sample yet.
+            clearDisplayedHeart()
             sessionCache.edit().putString("companionLiveSessionId", next).apply()
             sensorRevision++
             ensureHealthRecording()
@@ -1491,22 +1536,45 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      */
     private fun startTodayPlan(startIndex: Int = 0, selectedPlan: JSONObject? = null) {
         if(visibleSession!=null || runCatching {pendingFinish.sessionId()!=null}.getOrDefault(true)) {
-            sendStatus="Hay una sesión activa o pendiente de terminar";return
+            hubNotice = "Hay una sesión activa o pendiente de terminar"
+            sendStatus = hubNotice
+            return
         }
-        val prescription = selectedPlan ?: todayPlanJson ?: return
+        val prescription = selectedPlan ?: todayPlanJson ?: run {
+            hubNotice = "No hay plan descargado. Sincronízalo con el teléfono."
+            return
+        }
         val begun=runCatching {dev.repera.domain.WatchPlanExecution.begin(prescription)}.getOrElse {
-            sendStatus="No se pudo iniciar el plan: ${it.localizedMessage}";return
+            hubNotice="No se pudo iniciar el plan: ${it.localizedMessage}"
+            sendStatus=hubNotice
+            return
         }
-        // Apple startToday + selectBlock(startingAt:): jump without completing skipped work.
-        val plan=if(startIndex>0) dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
-        val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrNull()
-            ?: return
+        // Select the requested block, then start counting on the very first tap.
+        // The ready gate is reserved for later block navigation, as on Apple Watch.
+        val ready = if(startIndex>0)
+            dev.repera.domain.WatchPlanExecution.select(begun,startIndex) ?: begun else begun
+        val plan = dev.repera.domain.WatchPlanExecution.play(ready) ?: run {
+            hubNotice = "No hay un bloque válido para iniciar"
+            return
+        }
+        val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrElse {
+            hubNotice = "El plan no se puede abrir en el reloj: ${it.localizedMessage}"
+            sendStatus = hubNotice
+            return
+        }
         if(!sessionCache.edit().putString("snapshot",plan.toString()).putBoolean("watchStarted",true)
                 .remove("todayPlan").remove("todayPlanAt").remove("inputDraft").remove("restState").commit()) {
-            sendStatus="No se pudo guardar el inicio en el reloj";return
+            hubNotice="No se pudo guardar el inicio en el reloj"
+            sendStatus=hubNotice
+            return
         }
+        hubNotice = null
+        sendStatus = null
         sensorRevision++
+        // Different execution ID: do not show the previous session's pulse.
+        clearDisplayedHeart()
         sessionPaused=false
+        pauseSensorsIntent = null
         restJob?.cancel();restClock.clear();restRemaining=0
         wodTickJob?.cancel();phoneWodTimerJson=null;localWodTimerJson=null;wodTickSeconds=0
         finishedSummary=null
@@ -1519,7 +1587,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         repCounter.reset()
         todayPlanJson = null
         refreshWearSurfaces()
-        resetElapsedClock()
+        startElapsedClock()
+        if (summary.wodFormatLabel != null) controlLocalWodTimer("start")
         ensureHealthRecording()
         // No abrir dos diálogos de permisos simultáneamente: esperar el de sensores.
         if (WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT).all { permission ->
@@ -1537,11 +1606,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 )
             }
         }
-        // begin() leaves phase=ready (Apple startOnPhone). Stay ready until Play.
-        pauseSensorsIntent = dev.repera.domain.WearStartPauseIntent(summary.sessionId)
-        sessionPaused = true
-        restClock.pause(SystemClock.elapsedRealtime())
-        persistRest()
+        // The workout is already counting. No synthetic paused state or
+        // sensor pause request should follow a successful start tap.
     }
 
     /** Captura una coordenada al inicio de una sesión autónoma del reloj.
@@ -2292,7 +2358,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 // Paused/rest state belongs to the old workout, never the new identity.
                 sessionPaused=false
                 skipRest()
-                health=null
+                clearDisplayedHeart()
                 sessionCache.edit().remove("restState").apply()
             }
             // Persist only a validated session; a malformed update cannot corrupt recovery.
@@ -2375,7 +2441,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         showingCachedSession = false
         skipRest()
         healthConnection?.stop(sensorSessionId)
-        health = null
+        clearDisplayedHeart()
         refreshWearSurfaces()
     }
 
@@ -2393,7 +2459,6 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     }
 
     private fun ensureHealthRecording() {
-        health=null
         val permissions=WearHealthPermissions.requested(android.os.Build.VERSION.SDK_INT)
         val granted=permissions.all {permission ->androidx.core.content.ContextCompat.checkSelfPermission(this,permission)==android.content.pm.PackageManager.PERMISSION_GRANTED}
         if (granted) {

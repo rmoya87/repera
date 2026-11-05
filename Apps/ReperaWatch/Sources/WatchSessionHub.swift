@@ -237,12 +237,19 @@ final class WatchSessionHub: NSObject {
         }
         return workingReps
     }
-    var heartRateBpm: Int? {
-        guard let bpm = health.pulseBpm,
-              let measuredAt = health.pulseCapturedAt,
-              (0...20).contains(Date().timeIntervalSince(measuredAt)) else { return nil }
+    /// Last authentic wrist measurement, kept visible for at most 60 seconds.
+    /// The phone transport still requires a fresh (< 20s) measured sample.
+    func heartRateBpm(at date: Date = .now) -> Int? {
+        guard let bpm = health.pulseBpm, let captured = health.pulseCapturedAt,
+              (0..<60).contains(date.timeIntervalSince(captured)) else { return nil }
         return bpm
     }
+    func heartRateIsFresh(at date: Date = .now) -> Bool {
+        guard heartRateBpm(at: date) != nil, let captured = health.pulseCapturedAt else { return false }
+        return (0...20).contains(date.timeIntervalSince(captured))
+    }
+    var heartRateBpm: Int? { heartRateBpm(at: .now) }
+    var heartRateIsFresh: Bool { heartRateIsFresh(at: .now) }
     var measuredEnergyKcal: Double? { health.kcal }
     var healthWarning: String? { liveRecoveryNotice ?? health.permissionIssue }
 
@@ -733,7 +740,7 @@ final class WatchSessionHub: NSObject {
                     guard let self else { return }
                     self.isFinishingCompanionLive = false
                     guard saved else {
-                        self.liveCommandError = "No se pudo guardar en el iPhone. Reintenta."
+                        self.liveCommandError = "No se pudo finalizar en el iPhone. Reintenta."
                         self.lastFailedLiveCommand = "finish"
                         WKInterfaceDevice.current().play(.failure)
                         return
@@ -741,7 +748,7 @@ final class WatchSessionHub: NSObject {
                     self.lastFailedLiveCommand = nil
                     WKInterfaceDevice.current().play(.success)
                     let elapsed = Int(live.displayElapsed(at: Date()))
-                    let finished = WorkoutSession(
+                    var finished = WorkoutSession(
                         id: live.id, title: live.sportTitle, exercises: [],
                         phase: .finished,
                         startedAt: Date().addingTimeInterval(-Double(elapsed)),
@@ -750,6 +757,9 @@ final class WatchSessionHub: NSObject {
                             ? live.distanceMeters : nil,
                         activeDurationSeconds: Double(elapsed)
                     )
+                    // The companion phone has frozen the activity in Review;
+                    // the athlete has not yet chosen Save or Discard.
+                    finished.awaitingResultEntry = true
                     self.lastFinished = finished
                     self.summaryDismissed = false
                     self.suppressCompanionLive = true
@@ -1025,6 +1035,9 @@ final class WatchSessionHub: NSObject {
         )
         pending.appleActiveEnergyKcal = kcalSnapshot
         pending.appleAverageHeartRateBpm = bpmSnapshot
+        // Comenzar originated on Watch also needs the editable results prompt
+        // on iPhone. This is a finished recording, never a running workout.
+        pending.awaitingResultEntry = true
         // Snapshot de WeatherKit con complementos marinos/nieve exclusivamente.
         let coord = points.last.map { ($0.latitude, $0.longitude) }
         lastFinished = pending

@@ -41,8 +41,9 @@ class WearHealthSession(private val context: Context) {
     var heartRateBpm: Int? = null
         private set
     private var lastHeartSampleAtElapsed = 0L
-    /** A Health Services state update is not necessarily a new HR measurement.
-     * Reuse the last valid sensor sample only for 20 seconds, never indefinitely.
+    val heartSampleAtElapsed: Long get() = lastHeartSampleAtElapsed
+    /** The last sensor value is kept for watch UI until the session ends.
+     *  Only freshHeartRateBpm is eligible for transmission as a live sample.
      */
     val freshHeartRateBpm: Int?
         get() = heartRateBpm?.takeIf {
@@ -92,8 +93,6 @@ class WearHealthSession(private val context: Context) {
             } else if (hr != null) {
                 heartRateBpm = hr.toInt()
                 lastHeartSampleAtElapsed = android.os.SystemClock.elapsedRealtime()
-            } else if (freshHeartRateBpm == null) {
-                heartRateBpm = null
             }
             update.latestMetrics.getData(DataType.CALORIES_TOTAL)?.total
                 ?.takeIf {it.isFinite() && it>=0}?.let {energyKcal=it}

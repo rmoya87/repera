@@ -207,6 +207,7 @@ struct RootTabView: View {
         }
         .task {
             restoreActiveSessionOnLaunch()
+            openPendingWatchLiveReviewNotification()
             openPendingSystemCommand()
             LiveActivityPushTokenStore.startObservingIfNeeded()
             drainShareInboxIfReady()
@@ -339,6 +340,11 @@ struct RootTabView: View {
         )) { _ in
             flowPath = []
             tab = .start
+            if LiveActivityRecorder.shared.phase == .review {
+                UserDefaults.standard.removeObject(
+                    forKey: WorkoutCompletionNotifier.pendingLiveReviewKey
+                )
+            }
         }
         .task(id: LiveActivityRecorder.shared.isActive) {
             store.refreshContinueChrome()
@@ -447,6 +453,21 @@ struct RootTabView: View {
         guard let raw = UserDefaults.standard.string(forKey: WorkoutCompletionNotifier.pendingKey),
               let id = UUID(uuidString: raw) else { return }
         openNotifiedCompletedWorkout(id)
+    }
+
+    private func openPendingWatchLiveReviewNotification() {
+        guard let raw = UserDefaults.standard.string(
+            forKey: WorkoutCompletionNotifier.pendingLiveReviewKey
+        ), let id = UUID(uuidString: raw) else { return }
+        defer {
+            UserDefaults.standard.removeObject(
+                forKey: WorkoutCompletionNotifier.pendingLiveReviewKey
+            )
+        }
+        guard LiveActivityRecorder.shared.sessionID == id,
+              LiveActivityRecorder.shared.phase == .review else { return }
+        flowPath = []
+        tab = .start
     }
 
     private func openPendingSystemCommand() {

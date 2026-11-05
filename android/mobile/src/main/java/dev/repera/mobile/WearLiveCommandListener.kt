@@ -70,7 +70,12 @@ class WearLiveCommandListener : WearableListenerService() {
             when (action) {
                 "pause" -> runtime.pause()
                 "resume" -> runtime.resume()
-                "finish" -> runtime.finish() // Review/Save remains on the phone.
+                "finish" -> {
+                    runtime.finish() // Review/Save remains on the phone.
+                    if (runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) {
+                        WearLiveReviewNotification.show(this, owner, sessionId)
+                    }
+                }
             }
         }
     }

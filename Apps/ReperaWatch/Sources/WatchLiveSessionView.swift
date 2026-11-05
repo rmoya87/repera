@@ -50,18 +50,7 @@ struct WatchLiveSessionView: View {
                             }
                         }
                     }
-                    if let bpm = hub.heartRateBpm {
-                        if isLuminanceReduced {
-                            WatchLiveMetricRow(label: "FC", value: "\(bpm)")
-                        } else {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("FC")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                WatchHeartRateZoneBar(bpm: bpm, prominent: !sport.usesGPS)
-                            }
-                        }
-                    }
+                    WatchHeartRateZoneMetric(prominent: !sport.usesGPS)
                     if !isLuminanceReduced {
                         WatchLiveMetricRow(
                             label: "kcal",
@@ -185,6 +174,37 @@ struct WatchLiveSessionView: View {
     }
 }
 
+
+/// Fixed-size heart-rate area shared by planned, recording and free live workouts.
+/// No pulse before first reading or after 60s: show a dash and faint zone bars.
+struct WatchHeartRateZoneMetric: View {
+    @Environment(WatchSessionHub.self) private var hub
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+    var prominent: Bool = false
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
+            let bpm = hub.heartRateBpm(at: context.date)
+            let label = bpm == nil ? "FC · sin lectura"
+                : (hub.heartRateIsFresh(at: context.date) ? "FC" : "FC · última lectura")
+            if isLuminanceReduced {
+                WatchLiveMetricRow(
+                    label: bpm == nil ? "FC" : "Últ. FC",
+                    value: bpm.map(String.init) ?? "—",
+                    prominent: prominent
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    WatchHeartRateZoneBar(bpm: bpm, prominent: prominent)
+                }
+            }
+        }
+    }
+}
+
 /// Cinco zonas basadas en porcentaje de FCmáx estimada; no son un diagnóstico.
 /// Las muestras provienen exclusivamente de HealthKit.
 struct WatchHeartRateZoneBar: View {
@@ -212,11 +232,16 @@ struct WatchHeartRateZoneBar: View {
         return 5
     }
 
-    @ViewBuilder
+    private var accessibilityDescription: String {
+        guard let bpm, let zone else {
+            return "Esperando la primera lectura de frecuencia cardíaca"
+        }
+        return "Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5"
+    }
+
     var body: some View {
-        if let bpm, let zone {
         HStack(spacing: 7) {
-            Text(String(bpm))
+            Text(bpm.map(String.init) ?? "—")
                 .font(.system(size: prominent ? 28 : 19, weight: .bold).monospacedDigit())
                 .frame(minWidth: prominent ? 50 : 34, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
@@ -224,19 +249,18 @@ struct WatchHeartRateZoneBar: View {
                     ForEach(1...5, id: \.self) { level in
                         Capsule()
                             .fill(colors[level - 1])
-                            .opacity(zone == level ? 1 : 0.28)
+                            .opacity(zone == level ? 1 : 0.16)
                             .frame(height: zone == level ? 12 : 8)
                     }
                 }
-                Text("Zona \(zone)/5")
+                Text(zone.map { "Zona \($0)/5" } ?? "Esperando pulso")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
-        }
+        .accessibilityLabel(accessibilityDescription)
     }
 }
 

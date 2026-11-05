@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 import ReperaDomain
 import Observation
 import WatchConnectivity
@@ -2218,8 +2219,12 @@ final class ReperaStore: NSObject {
                 var completed = session
                 // No fabricated Health duration: displayDurationMinutes already
                 // provides the wall-clock fallback in the UI when HK is unavailable.
-                // La confirmación y el resumen ya se hicieron en el Watch:
-                // guardar el historial sin volver a pedir confirmación en iPhone.
+                // A free activity recorded entirely on Apple Watch needs the same
+                // editable results prompt as a recorded planned workout.
+                // Keep the measured HealthKit workout intact while editing.
+                if completed.liveSportID != nil && completed.timerDetails == nil {
+                    completed.awaitingResultEntry = true
+                }
                 attachSessionReview(&completed, present: false)
                 upsertWorkout(completed)
                 if state.activeSession?.id == completed.id {
@@ -2274,7 +2279,9 @@ final class ReperaStore: NSObject {
                       snapshot.workouts.first(where: { $0.id == session.id })
                 else { return }
                 if firstArrival && session.timerDetails == nil {
-                    WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                    if self.state.workouts.first(where: { $0.id == session.id })?.awaitingResultEntry == true {
+                        WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)
+                    }
                     self.suggestPlaceForRecentWatchWorkout(session)
                 }
                 self.lastWatchAcknowledgedSession = session.id
@@ -3891,9 +3898,9 @@ extension ReperaStore: PhoneConnectivityDelegate {
         await handleWatchLiveCommand(sessionId: sessionId, command: command)
     }
 
-    /// El botón Finalizar del Watch equivale a Guardar en Comenzar.
-    /// Se conserva el mismo UUID, ruta, parciales y datos verificados de Salud.
-    /// El ACK solo se devuelve después de persistir en el iPhone.
+    /// Finalizar desde Watch detiene el registro, conserva el checkpoint
+    /// y muestra Revisión en el iPhone. El ACK confirma el cambio de fase,
+    /// no un guardado silencioso de resultados o datos de Salud.
     private func handleWatchLiveCommand(sessionId: UUID, command: String) async -> Bool {
         let recorder = LiveActivityRecorder.shared
         if command == "finish",
@@ -3922,66 +3929,18 @@ extension ReperaStore: PhoneConnectivityDelegate {
             sendWatchContextNow()
             return true
         case "finish":
-            guard !isAutoSavingWatchActivity else { return false }
-            isAutoSavingWatchActivity = true
-            defer { isAutoSavingWatchActivity = false }
+            // The Watch ends measurement; the phone still owns the user's
+            // choice to review/edit/add exercises, save, or discard.
             if recorder.phase == .recording || recorder.phase == .paused {
-                recorder.finish()
+                recorder.finish() // Durable review checkpoint (no auto-save).
             }
-            guard recorder.phase == .review,
-                  var completed = recorder.makeSession(title: recorder.sport.title, notes: ""),
-                  completed.id == sessionId else { return false }
-
-            // Igual que Guardar en iPhone: vincular un HKWorkout existente antes
-            // de que saveWorkout decida si debe escribir uno nuevo en Salud.
-            if let extras = await HealthKitStore.shared.sessionHealthExtras(for: completed),
-               extras.hasExternalSaludSource,
-               let matchedUUID = extras.resolvedWorkoutUUID {
-                completed.healthKitWorkoutUUID = matchedUUID
-                completed.appleActiveEnergyKcal =
-                    extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
-                completed.appleAverageHeartRateBpm = extras.averageHeartRateBpm
-                completed.appleHealthProvenance = "healthKitExternal"
-            }
-            guard recorder.sessionID == sessionId, recorder.phase == .review else {
-                return false
-            }
-            if completed.liveRouteID == nil && completed.routePoints.count >= 2
-                && recorder.sport.usesGPS {
-                // Si falla archivar la ruta independiente, los puntos siguen
-                // dentro del entrenamiento guardado; no se pierde la actividad.
-                completed.liveRouteID = try? LiveRoutesStore.shared.addRecordedRoute(
-                    from: completed
-                )
-            }
-            // Guardar antes de geocodificar: la confirmación del Watch no debe
-            // depender de una petición de red o un servicio de mapas lento.
-            let namedSport = recorder.sport
-            let namedStart = completed.routePoints.first
-            let namedEnd = completed.routePoints.last
-            let genericName = completed.title
-            saveWorkout(completed)
-            let snapshot = state
-            await LocalStore.shared.persistAndFlush(snapshot)
-            guard LocalStore.shared.lastPersistenceError == nil,
-                  state.workouts.contains(where: { $0.id == sessionId }),
-                  recorder.sessionID == sessionId,
-                  recorder.phase == .review else { return false }
-            recorder.discard(saved: true)
+            guard recorder.phase == .review else { return false }
             sendWatchContextNow()
-            // Igual que el guardado manual del iPhone: completar el nombre
-            // con la localidad cuando el geocodificador tenga respuesta.
-            // Si ya se ha editado, no sobreescribir el título del usuario.
-            Task { @MainActor in
-                guard let suggested = await LiveActivityLocationName.suggest(
-                    sport: namedSport, start: namedStart, end: namedEnd
-                ), !suggested.isEmpty,
-                      let current = self.state.workouts.first(where: { $0.id == sessionId }),
-                      current.title == genericName else { return }
-                var named = current
-                named.title = suggested
-                self.upsertWorkout(named)
-                self.persistWorkouts()
+            NotificationCenter.default.post(
+                name: Notification.Name("repera.openComenzarFromWatch"), object: nil
+            )
+            if UIApplication.shared.applicationState != .active {
+                WorkoutCompletionNotifier.shared.scheduleLiveReview(sessionID: sessionId)
             }
             return true
         default:
@@ -4003,10 +3962,7 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 )
                 return true
             }
-            // Revisión pendiente del anterior: cerrar para poder arrancar el nuevo.
-            if recorder.phase == .review {
-                recorder.discard()
-            }
+            // Never discard an unsaved review just because a new Watch start arrived.
             guard recorder.phase == .idle else { return false }
             recorder.choose(sport)
             recorder.start()
