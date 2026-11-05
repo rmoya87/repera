@@ -110,6 +110,16 @@ object SessionReviewSupport {
         if (existing.isFinite() && !target.optBoolean("userEditedDuration")) return false
         val linked = target.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD)
         if (linked.isNotBlank() && linked != "null" && linked != sourceRecordId) return false
+        val range = instantRange(target) ?: return false
+        for (j in 0 until archive.length()) {
+            val other = archive.optJSONObject(j) ?: continue
+            if (other.optString("id") == sessionId) continue
+            val otherRange = instantRange(other) ?: continue
+            if (otherRange.first < range.second && range.first < otherRange.second)
+                return false
+            if (other.optString(dev.repera.domain.HealthSessionLink.SNAPSHOT_FIELD) == sourceRecordId)
+                return false
+        }
         target.put("appleAverageHeartRateBpm", averageBpm)
         return true
     }
