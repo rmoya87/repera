@@ -58,13 +58,31 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
         self.assertIn('hour.toString() + " h"', android)
         self.assertIn('Offset(0f, lineY), Offset(size.width, lineY)', android)
 
+    def test_plot_last_seven_sessions_not_last_seven_calendar_days(self):
+        ios = read("Apps/Repera/Sources/StatsView.swift")
+        android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
+        plot = read("android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt")
+        self.assertIn(".prefix(7).reversed()", ios)
+        self.assertIn("private var recentWorkouts: [RecentWorkoutBar]", ios)
+        self.assertIn('y: .value("Duración", minutes)', ios)
+        self.assertIn("if let score = item.verifiedScore", ios)
+        self.assertIn(".take(7).reversed()", android)
+        self.assertIn("ScoreBasis.PERSONAL_HISTORY", android)
+        self.assertIn("SevenRecentWorkoutDurationChart(recentWorkouts", plot)
+        self.assertIn("workout.minutes", plot)
+        self.assertIn("Sin nota comparable", plot)
+        # Cada sesión ocupa una posición; no se interpolan días sin sesión.
+        self.assertNotIn("ChronoUnit.DAYS", plot.split("private fun SevenRecentWorkoutDurationChart(", 1)[1])
+
     def test_daily_training_not_confused_with_fake_weight(self):
         ios = read("Apps/Repera/Sources/StatsView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressTab.kt")
         self.assertIn('private var trainingSessionsToday: Int', ios)
         self.assertIn('La carga en kg requiere series y pesos registrados', ios)
         self.assertIn('activitiesToday = overview?.dayWorkoutCounts', android)
-        self.assertIn('sin kg confirmados', android)
+        self.assertIn('val todaySummary =', android)
+        self.assertIn('todayPrs', android)
+        self.assertIn('hubDailyVolumeKg.lastOrNull()', android)
 
 
 if __name__ == "__main__":
