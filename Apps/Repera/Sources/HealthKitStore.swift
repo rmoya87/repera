@@ -1075,15 +1075,18 @@ final class HealthKitStore {
             || source.name.localizedCaseInsensitiveContains("repera")
     }
 
-    /// Fuente de verdad del HKWorkout: estadística de energía activa de Salud.
+    /// Fuente de verdad del HKWorkout: estadística de energía o total de Salud.
+    /// El Watch a menudo deja la energía en `totalEnergyBurned` aunque
+    /// `statistics(activeEnergyBurned)` aún no esté hidratado en el iPhone.
     /// No calcula calorías a partir de duración, pulso ni intensidad.
     nonisolated private static func workoutEnergyKcal(_ workout: HKWorkout) -> Double? {
-        guard let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-              let kcal = workout.statistics(for: type)?
-                .sumQuantity()?.doubleValue(for: .kilocalorie()),
-              kcal.isFinite, kcal > 0
-        else { return nil }
-        return kcal
+        let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        let statisticsKcal = type.flatMap {
+            workout.statistics(for: $0)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+        }
+        let totalKcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+        return [statisticsKcal, totalKcal].compactMap { $0 }
+            .first(where: { $0.isFinite && $0 > 0 })
     }
 
     /// Agrupar por origen Y dispositivo. Dos relojes con el mismo proveedor

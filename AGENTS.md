@@ -248,6 +248,19 @@ nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError 
 
 - `startToday()` / live indoor piden un pin con `requestLocation()`; el delegate debe responder al fallo o el Watch cierra al pulsar Entreno guiado/libre.
 
+#### Apple — kcal Watch: no quitar `totalEnergyBurned`
+
+```swift
+// ❌ BAD — solo statistics; tras sync iPhone a menudo nil → chip «—»
+workout.statistics(for: activeEnergy)?.sumQuantity()
+
+// ✅ GOOD — statistics + totalEnergyBurned del HKWorkout (PR b3b6e06 / restauración)
+[statisticsKcal, workout.totalEnergyBurned?.…].compactMap { $0 }.first { $0 > 0 }
+```
+
+- Tras editar horario: no poner `appleActiveEnergyKcal = nil` en el save; rehidratar y **solo sustituir si hay medición**.
+- Contrato: `test_watch_energy_uses_total_energy_burned_fallback`.
+
 #### Apple Watch — tipos HealthKit de Comenzar = iPhone
 
 ```swift

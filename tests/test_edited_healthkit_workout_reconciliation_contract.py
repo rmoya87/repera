@@ -55,6 +55,27 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         self.assertIn("editedWindowQuantity(", health)
         self.assertIn("if groups.count == 1", health)
 
+    def test_watch_energy_uses_total_energy_burned_fallback(self):
+        health = read(IOS / "HealthKitStore.swift")
+        segment = health.split("nonisolated private static func workoutEnergyKcal", 1)[1].split(
+            "private static func samplesFromLinkedSensor", 1
+        )[0]
+        self.assertIn("totalEnergyBurned", segment)
+        self.assertIn("statisticsKcal", segment)
+        store = read(IOS / "ReperaStore.swift")
+        refine = store.split("func refineSessionReviewWithHealth", 1)[1].split(
+            "func saveWorkout(", 1
+        )[0]
+        self.assertIn("if let verifiedKcal, linked.appleActiveEnergyKcal != verifiedKcal", refine)
+        self.assertNotIn(
+            "(verifiedKcal != nil || linked.userEditedDuration)",
+            refine,
+        )
+        watch = read(
+            ROOT / "Apps" / "ReperaWatch" / "Sources" / "WatchHealthKitSession.swift"
+        )
+        self.assertIn("totalEnergyBurned", watch)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -398,6 +398,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 // the Watch is locked (sensor-backed either way).
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                     ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                    ?? saved?.totalEnergyBurned?.doubleValue(for: .kilocalorie())
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                 self.finishWith(Result(

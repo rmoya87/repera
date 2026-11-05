@@ -1850,12 +1850,14 @@ final class ReperaStore: NSObject {
                 linked.healthKitWorkoutUUID = uuid
                 changed = true
             }
-            if linked.appleActiveEnergyKcal != verifiedKcal,
-               (verifiedKcal != nil || linked.userEditedDuration) {
+            // Solo sustituye con una medición real. Si la relectura falla
+            // (p. ej. estadísticas HK aún no sincronizadas), no borrar kcal
+            // ya mostradas del Watch.
+            if let verifiedKcal, linked.appleActiveEnergyKcal != verifiedKcal {
                 linked.appleActiveEnergyKcal = verifiedKcal
                 changed = true
             }
-            if linked.userEditedDuration,
+            if linked.userEditedDuration, let verifiedHR,
                linked.appleAverageHeartRateBpm != verifiedHR {
                 linked.appleAverageHeartRateBpm = verifiedHR
                 changed = true
@@ -1904,12 +1906,10 @@ final class ReperaStore: NSObject {
                 ?? (changedRecordedWindow ? previous.startedAt : nil)
             draft.recordedEndBeforeEditing = previous.recordedEndBeforeEditing
                 ?? (changedRecordedWindow ? previous.finishedAt : nil)
-            if changedRecordedWindow {
-                // La hora/cobertura cambió: no atribuir al nuevo intervalo
-                // la FC ni las kcal de la ventana anterior.
-                draft.appleActiveEnergyKcal = nil
-                draft.appleAverageHeartRateBpm = nil
-            }
+            // Si cambia la ventana, refineSessionReviewWithHealth recalcula
+            // kcal/FC. No poner nil aquí: el chip de Inicio solo lee
+            // appleActiveEnergyKcal tras editar y quedaba en «—» cuando
+            // HealthKit aún no devolvía statistics.
         }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
