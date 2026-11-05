@@ -118,13 +118,15 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     area,
                     Brush.verticalGradient(listOf(mid.copy(alpha = 0.65f), ink))
                 )
-                // Cuadrícula sutil de horas, sin márgenes interiores en la curva.
+                // Horas encima del plot (izquierda). Omite el mínimo del dominio
+                // para no chocar con el eje X de fechas.
                 val hoursInk = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     color = android.graphics.Color.argb(185, 235, 241, 255)
                     textSize = 10.sp.toPx()
-                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textAlign = android.graphics.Paint.Align.LEFT
                 }
                 for (hour in ceil(yLo).toInt()..floor(yHi).toInt() step 2) {
+                    if (hour.toDouble() <= yLo + 0.01) continue
                     val lineY = y(hour.toDouble())
                     drawLine(
                         Color.White.copy(alpha = 0.25f),
@@ -136,7 +138,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                     )
                     drawContext.canvas.nativeCanvas.drawText(
                         hour.toString() + " h",
-                        size.width - 8.dp.toPx(),
+                        6.dp.toPx(),
                         (lineY - 5.dp.toPx()).coerceAtLeast(12.dp.toPx()),
                         hoursInk
                     )

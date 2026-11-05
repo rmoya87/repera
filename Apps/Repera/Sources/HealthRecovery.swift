@@ -1492,6 +1492,24 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
 
                 Chart {
+                    // Guías + horas encima del plot (sin reservar eje). Omite el
+                    // mínimo del dominio para no chocar con las fechas del eje X.
+                    ForEach(
+                        Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2))
+                            .map(Double.init)
+                            .filter { $0 > yLo + 0.01 },
+                        id: \.self
+                    ) { hour in
+                        RuleMark(y: .value("Referencia en horas", hour))
+                            .foregroundStyle(Color.white.opacity(0.25))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
+                            .annotation(position: .overlay, alignment: .leading) {
+                                Text("\(Int(hour)) h")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(Color.white.opacity(0.78))
+                                    .padding(.leading, 6)
+                            }
+                    }
                     ForEach(orderedNights) { night in
                         AreaMark(
                             x: .value("Día", night.date),
@@ -1532,9 +1550,10 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartXSelection(value: $selectedSleepDate)
+                // Ancho completo: primer y último punto en los bordes del plot.
                 .chartXScale(
                     domain: xStart...(xEnd > xStart ? xEnd : xStart.addingTimeInterval(86_400)),
-                    range: .plotDimension(startPadding: 8, endPadding: 8)
+                    range: .plotDimension(startPadding: 0, endPadding: 0)
                 )
                 .chartYScale(domain: yLo...yHi)
                 .chartXAxis {
@@ -1551,28 +1570,13 @@ struct HealthRecoveryProgressView: View {
                         .font(.system(size: 10, weight: .medium))
                     }
                 }
-                .chartYAxis {
-                    AxisMarks(
-                        position: .leading,
-                        values: Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)).map(Double.init)
-                    ) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [2, 4]))
-                            .foregroundStyle(Color.white.opacity(0.25))
-                        AxisValueLabel {
-                            if let hour = value.as(Double.self) {
-                                Text("\(Int(hour)) h")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(Color.white.opacity(0.78))
-                            }
-                        }
-                    }
-                }
+                .chartYAxis(.hidden)
                 .chartLegend(.hidden)
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 6)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")

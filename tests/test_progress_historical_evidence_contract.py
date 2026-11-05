@@ -62,14 +62,18 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
     def test_sleep_fills_plot_and_shows_hour_guides(self):
         ios = read("Apps/Repera/Sources/HealthRecovery.swift")
         sleep = ios.split('private func sleepNightCard(', 1)[1].split('private func phaseDistributionBar(', 1)[0]
-        self.assertIn('startPadding: 8, endPadding: 8', sleep)
+        self.assertIn('startPadding: 0, endPadding: 0', sleep)
         self.assertIn('Text("\\(Int(hour)) h")', sleep)
+        self.assertIn('filter { $0 > yLo + 0.01 }', sleep)
+        self.assertIn('.chartYAxis(.hidden)', sleep)
+        self.assertIn('annotation(position: .overlay, alignment: .leading)', sleep)
         self.assertIn('selected.hours)) h · \\(selected.date.formatted', sleep)
-        self.assertNotIn('.chartYAxis(.hidden)', sleep)
         self.assertNotIn('.chartXAxis(.hidden)', sleep)
         android = read("android/mobile/src/main/java/dev/repera/mobile/RecoverySleepChart.kt")
         self.assertIn('PathEffect.dashPathEffect(', android)
         self.assertIn('hour.toString() + " h"', android)
+        self.assertIn('if (hour.toDouble() <= yLo + 0.01) continue', android)
+        self.assertIn('Paint.Align.LEFT', android)
         self.assertIn('Offset(0f, lineY), Offset(size.width, lineY)', android)
         self.assertIn('h · ${', android)
 
