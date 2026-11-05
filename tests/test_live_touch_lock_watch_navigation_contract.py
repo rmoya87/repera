@@ -28,6 +28,9 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("interactionLockButton(registerAnchor: false)", ios)
         self.assertIn(".onLongPressGesture(minimumDuration: 1)", ios)
         self.assertGreaterEqual(ios.count("interactionLockButton()"), 2)
+        self.assertIn(
+            ".toolbar(isInteractionLocked || recorder.phase == .review ? .hidden", ios
+        )
 
     def test_android_intercepts_all_gestures_and_releases_awake(self):
         android = source("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
@@ -40,6 +43,10 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("Icons.Outlined.LockOpen", android)
         self.assertEqual(android.count("LiveScreenTouchBlocker(lockTarget, lockContainer"), 3)
         self.assertIn("live_touch_unlock", android)
+        shell = source("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
+        self.assertIn("LiveActivityTouchLockState.locked = keepAwake", android)
+        self.assertIn('currentRoute == "en-vivo" && LiveActivityTouchLockState.locked', shell)
+        self.assertIn('val mapUnderTabs = currentRoute == "en-vivo"', shell)
 
     def test_watch_vertical_navigation_preserves_lateral_controls(self):
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
