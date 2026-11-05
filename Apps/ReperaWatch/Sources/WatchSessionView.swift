@@ -1732,9 +1732,6 @@ private struct WatchLiveNavigationPage: View {
                 .lineLimit(3)
                 .minimumScaleFactor(0.75)
             Spacer(minLength: 0)
-            Text("Desliza para ver métricas")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
