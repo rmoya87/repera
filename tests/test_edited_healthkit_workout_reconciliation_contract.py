@@ -76,6 +76,13 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         )
         self.assertIn("totalEnergyBurned", watch)
 
+    def test_phone_shell_zero_kcal_yields_to_watch_workout(self):
+        health = read(IOS / "HealthKitStore.swift")
+        self.assertIn("phoneShell", health)
+        self.assertIn("linkedPhoneShell", health)
+        self.assertIn("watchOnly: true, expectedSessionID: sessionId", health)
+        self.assertIn("Antes de escribir una cáscara 0 kcal del iPhone", health)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1422,11 +1422,17 @@ final class HealthKitStore {
         }
 
         // Los WKWorkout de Repera iPhone pueden haberse creado como ficha
-        // provisional antes de que llegase la actividad real del reloj.
-        // Buscar SIEMPRE por el ID estable de ejecución si proviene de Watch.
+        // provisional (0 kcal en Fitness) antes de que llegase el del reloj.
+        // Buscar SIEMPRE por el ID estable de ejecución si proviene de Watch
+        // o si el enlace actual es una cáscara sin energía.
         let fromWatch = session.appleHealthProvenance == "watchHealthKit"
             || session.appleHealthProvenance == "watchHealthKitPending"
-        if (workout == nil || (fromWatch && workout.map {
+        let linkedPhoneShell = workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+                && !Self.isWatchRecordedSource($0.sourceRevision.source)
+                && (Self.workoutEnergyKcal($0) ?? 0) <= 0
+        } == true
+        if (workout == nil || linkedPhoneShell || (fromWatch && workout.map {
             Self.isReperaSource($0.sourceRevision.source)
         } == true)),
            let verified = await verifiedWatchWorkout(forReperaSession: session.id),
@@ -1441,15 +1447,20 @@ final class HealthKitStore {
         // un candidato de Repera Watch inequívoco sobre la hora ORIGINAL.
         let linkedToPhonePlaceholder = workout.map {
             Self.isReperaSource($0.sourceRevision.source)
+                && !Self.isWatchRecordedSource($0.sourceRevision.source)
         } == true
-        if (fromWatch || (session.userEditedDuration &&
+        let needsWatchRecovery = workout == nil || linkedToPhonePlaceholder
+            || (workout.map { (Self.workoutEnergyKcal($0) ?? 0) <= 0 } == true
+                && (fromWatch || linkedPhoneShell))
+        if (fromWatch || linkedPhoneShell || (session.userEditedDuration &&
             (session.appleDurationSeconds ?? 0) > 0))
-            && (workout == nil || linkedToPhonePlaceholder) {
+            && needsWatchRecovery {
             let anchorStart = session.recordedStartBeforeEditing ?? start
             let anchorEnd = session.recordedEndBeforeEditing ?? end
             if let verified = await overlappingWorkout(
                 from: anchorStart, to: anchorEnd,
-                watchOnly: fromWatch, expectedSessionID: session.id
+                watchOnly: fromWatch || linkedPhoneShell,
+                expectedSessionID: session.id
             ) {
                 workout = verified
                 workoutUUID = verified.uuid
@@ -2627,10 +2638,27 @@ final class HealthKitStore {
             await discardLocalBuilder()
             lastError = nil
         } else if let owned = previous {
-            savedUUID = owned.uuid
-            duration = max(1, owned.duration)
-            resolvedStart = owned.startDate
-            resolvedEnd = owned.endDate
+            // Una ficha vacía del iPhone (0 kcal) no debe ganar si en la
+            // misma ventana hay un HKWorkout de Watch con sensores.
+            let phoneShell = Self.isReperaSource(owned.sourceRevision.source)
+                && !Self.isWatchRecordedSource(owned.sourceRevision.source)
+                && (Self.workoutEnergyKcal(owned) ?? 0) <= 0
+            if phoneShell,
+               let watch = await overlappingWorkout(
+                   from: owned.startDate, to: owned.endDate,
+                   watchOnly: true, expectedSessionID: sessionId
+               ) {
+                resolvedStart = watch.startDate
+                resolvedEnd = watch.endDate
+                duration = max(1, watch.duration)
+                verifiedKcal = await externalWorkoutEnergyKcal(uuid: watch.uuid) ?? 0
+                savedUUID = watch.uuid
+            } else {
+                savedUUID = owned.uuid
+                duration = max(1, owned.duration)
+                resolvedStart = owned.startDate
+                resolvedEnd = owned.endDate
+            }
             await discardLocalBuilder()
             lastError = nil
         } else if let external {
@@ -2655,16 +2683,31 @@ final class HealthKitStore {
             lastError = "Apple Watch sigue grabando. La conciliación se realizará cuando termine."
             await discardLocalBuilder()
         } else if canWriteWorkouts {
-            savedUUID = await saveStrengthWorkout(
-                sessionId: sessionId,
-                title: title,
-                start: resolvedStart,
-                end: resolvedEnd,
-                preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil,
-                activityType: activityType,
-                locationType: locationType
-            )
-            if savedUUID != nil { lastError = nil }
+            // Antes de escribir una cáscara 0 kcal del iPhone, mirar si el
+            // Watch ya dejó un HKWorkout en esa ventana (metadata tardía).
+            if let watch = await overlappingWorkout(
+                from: resolvedStart, to: resolvedEnd,
+                watchOnly: true, expectedSessionID: sessionId
+            ) {
+                resolvedStart = watch.startDate
+                resolvedEnd = watch.endDate
+                duration = max(1, watch.duration)
+                verifiedKcal = await externalWorkoutEnergyKcal(uuid: watch.uuid) ?? 0
+                savedUUID = watch.uuid
+                await discardLocalBuilder()
+                lastError = nil
+            } else {
+                savedUUID = await saveStrengthWorkout(
+                    sessionId: sessionId,
+                    title: title,
+                    start: resolvedStart,
+                    end: resolvedEnd,
+                    preferBuilder: trackedSessionId == sessionId ? liveBuilder : nil,
+                    activityType: activityType,
+                    locationType: locationType
+                )
+                if savedUUID != nil { lastError = nil }
+            }
         } else {
             // Sin autorización: guardar únicamente en Repera, sin afirmar que
             // Salud ya contenga un workout ni fabricar muestras de sensores.

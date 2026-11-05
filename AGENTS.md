@@ -248,6 +248,20 @@ nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError 
 
 - `startToday()` / live indoor piden un pin con `requestLocation()`; el delegate debe responder al fallo o el Watch cierra al pulsar Entreno guiado/libre.
 
+#### Apple — cáscara iPhone 0 kcal no gana al Watch
+
+```swift
+// ❌ BAD — finishWorkout se queda con existingReperaWorkout del iPhone (0 kcal en Fitness)
+//         aunque el Watch tenga el HKWorkout real con FC/energía
+savedUUID = owned.uuid  // phone shell
+
+// ✅ GOOD — si phoneShell (Repera iPhone + 0 kcal), buscar Watch por ventana/ID
+overlappingWorkout(..., watchOnly: true, expectedSessionID:)
+```
+
+- Fitness con «Repera / 0 KCAL / FC 134» = cáscara iPhone; la FC puede venir de muestras del intervalo, no de kcal del workout.
+- No inventar kcal si Salud tiene 0 de verdad.
+
 #### Apple — kcal Watch: no quitar `totalEnergyBurned`
 
 ```swift
