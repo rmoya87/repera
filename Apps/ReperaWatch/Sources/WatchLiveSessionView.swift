@@ -51,13 +51,11 @@ struct WatchLiveSessionView: View {
                         }
                     }
                     WatchHeartRateZoneMetric(prominent: !sport.usesGPS)
-                    if !isLuminanceReduced {
-                        WatchLiveMetricRow(
-                            label: "kcal",
-                            value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
-                            prominent: !sport.usesGPS
-                        )
-                    }
+                    WatchLiveMetricRow(
+                        label: "kcal",
+                        value: String(format: "%.0f", hub.displayedEnergyKcal),
+                        prominent: !sport.usesGPS
+                    )
                 }
 
                 if !isLuminanceReduced, let warning = hub.healthWarning {

@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (no preferir cáscara iPhone 0 kcal frente al Watch).
+Última actualización: 2026-11-05 (Watch: indicador kcal siempre visible + enableCollection).
 
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 

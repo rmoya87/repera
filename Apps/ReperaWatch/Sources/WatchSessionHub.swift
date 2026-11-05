@@ -250,7 +250,10 @@ final class WatchSessionHub: NSObject {
     }
     var heartRateBpm: Int? { heartRateBpm(at: .now) }
     var heartRateIsFresh: Bool { heartRateIsFresh(at: .now) }
+    /// Última suma de energía activa del builder HealthKit (`nil` = aún sin muestra).
     var measuredEnergyKcal: Double? { health.kcal }
+    /// Indicador de UI: siempre un número (0 si Salud todavía no ha entregado kcal).
+    var displayedEnergyKcal: Double { health.kcal ?? 0 }
     var healthWarning: String? { liveRecoveryNotice ?? health.permissionIssue }
 
     /// Origen para `Text(timerInterval:)` en Always-On (nil si está en pausa).

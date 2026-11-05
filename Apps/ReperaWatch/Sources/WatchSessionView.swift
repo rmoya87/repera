@@ -301,7 +301,7 @@ struct WatchSessionView: View {
                     WatchHeartRateZoneMetric(prominent: !outdoor)
                     WatchLiveMetricRow(
                         label: "kcal",
-                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
+                        value: String(format: "%.0f", hub.displayedEnergyKcal),
                         prominent: !outdoor
                     )
                 }
@@ -579,13 +579,11 @@ struct WatchSessionView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 WatchHeartRateZoneMetric(prominent: true)
-                if !isLuminanceReduced {
-                    WatchLiveMetricRow(
-                        label: "kcal",
-                        value: hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—",
-                        prominent: true
-                    )
-                }
+                WatchLiveMetricRow(
+                    label: "kcal",
+                    value: String(format: "%.0f", hub.displayedEnergyKcal),
+                    prominent: true
+                )
                 if hub.isPaused && !isLuminanceReduced {
                     Text("En pausa").foregroundStyle(WatchTheme.warning).font(.caption)
                 }
@@ -734,7 +732,7 @@ struct WatchSessionView: View {
                 }
                 Spacer(minLength: 0)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(hub.measuredEnergyKcal.map { String(Int($0.rounded())) } ?? "—")
+                    Text(String(Int(hub.displayedEnergyKcal.rounded())))
                         .font(.system(size: 23, weight: .bold).monospacedDigit())
                         .foregroundStyle(.orange)
                     Text("kcal").font(.caption2).foregroundStyle(.secondary)
@@ -1278,7 +1276,7 @@ struct WatchSessionView: View {
                     statsLine(
                         icon: "flame.fill",
                         label: "Calorías",
-                        value: session.appleActiveEnergyKcal.map { "\(Int($0.rounded())) kcal" } ?? "—"
+                        value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded())) kcal"
                     )
                     statsLine(
                         icon: "heart.fill",
@@ -1293,10 +1291,11 @@ struct WatchSessionView: View {
                         )
                     }
                 } else {
-                    if let energy = session.appleActiveEnergyKcal {
-                        statsLine(icon: "flame.fill", label: "Calorías",
-                                  value: "\(Int(energy.rounded())) kcal")
-                    }
+                    statsLine(
+                        icon: "flame.fill",
+                        label: "Calorías",
+                        value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded())) kcal"
+                    )
                     if let bpm = session.appleAverageHeartRateBpm {
                         statsLine(icon: "heart.fill", label: "FC media",
                                   value: "\(Int(bpm.rounded())) lpm")

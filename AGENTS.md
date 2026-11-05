@@ -275,6 +275,18 @@ workout.statistics(for: activeEnergy)?.sumQuantity()
 - Tras editar horario: no poner `appleActiveEnergyKcal = nil` en el save; rehidratar y **solo sustituir si hay medición**.
 - Contrato: `test_watch_energy_uses_total_energy_burned_fallback`.
 
+#### Apple Watch — indicador kcal siempre + enableCollection
+
+```swift
+// ❌ BAD — ocultar kcal con «—» y dataSource por defecto (crossTraining a veces sin energía)
+value: hub.measuredEnergyKcal.map { … } ?? "—"
+liveBuilder.dataSource = HKLiveWorkoutDataSource(…)
+
+// ✅ GOOD — UI con 0 hasta que llegue la muestra; forzar colección
+var displayedEnergyKcal: Double { health.kcal ?? 0 }
+dataSource.enableCollection(for: energy, predicate: nil)
+```
+
 #### Apple Watch — tipos HealthKit de Comenzar = iPhone
 
 ```swift

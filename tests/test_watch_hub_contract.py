@@ -357,6 +357,26 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("HKWorkout antiguos", mapper)
         self.assertIn("highIntensityIntervalTraining", mapper)
 
+    def test_watch_kcal_indicator_always_visible_and_collects_energy(self):
+        hub = source("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        health = source("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
+        live = source("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
+        session = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        self.assertIn("var displayedEnergyKcal: Double { health.kcal ?? 0 }", hub)
+        self.assertIn("enableCollection(for: energy, predicate: nil)", health)
+        self.assertIn("enableCollection(for: heart, predicate: nil)", health)
+        self.assertIn("makeLiveDataSource(", health)
+        self.assertIn("hub.displayedEnergyKcal", live)
+        self.assertIn("hub.displayedEnergyKcal", session)
+        self.assertNotIn(
+            'hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—"',
+            live,
+        )
+        self.assertNotIn(
+            'hub.measuredEnergyKcal.map { String(format: "%.0f", $0) } ?? "—"',
+            session,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

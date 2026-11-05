@@ -86,15 +86,16 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 self.workoutID = matches ? id : nil
                 self.hasUnlinkedRecovery = !matches
                 self.workout = recovered
-                live.dataSource = HKLiveWorkoutDataSource(
-                    healthStore: self.store,
-                    workoutConfiguration: recovered.workoutConfiguration
+                live.dataSource = Self.makeLiveDataSource(
+                    store: self.store,
+                    configuration: recovered.workoutConfiguration
                 )
                 recovered.delegate = self
                 live.delegate = self
                 self.builder = live
                 self.pendingStateTransition = nil
                 self.isRecording = true
+                self.seedMetricsFromBuilder(live)
                 completion?(matches ? .recovered : .mismatch)
             }
         }
@@ -185,8 +186,8 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             do {
                 let session = try HKWorkoutSession(healthStore: self.store, configuration: config)
                 let liveBuilder = session.associatedWorkoutBuilder()
-                liveBuilder.dataSource = HKLiveWorkoutDataSource(
-                    healthStore: self.store, workoutConfiguration: config
+                liveBuilder.dataSource = Self.makeLiveDataSource(
+                    store: self.store, configuration: config
                 )
                 session.delegate = self
                 liveBuilder.delegate = self
@@ -367,9 +368,44 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 self.pulseCapturedAt = Date()
             }
             if let average, average.isFinite, average > 0 { self.averageBpm = average }
+            // Incluir 0: el indicador del Watch debe reflejar la suma real del builder.
             if let active, active.isFinite, active >= 0 { self.kcal = active }
             self.onMetricsUpdated?()
         }
+    }
+
+    /// Activa explícitamente FC y energía activa: algunos tipos (p. ej. crossTraining)
+    /// no siempre las incluyen por defecto en el data source.
+    private static func makeLiveDataSource(
+        store: HKHealthStore, configuration: HKWorkoutConfiguration
+    ) -> HKLiveWorkoutDataSource {
+        let dataSource = HKLiveWorkoutDataSource(
+            healthStore: store, workoutConfiguration: configuration
+        )
+        if let heart = HKQuantityType.quantityType(forIdentifier: .heartRate) {
+            dataSource.enableCollection(for: heart, predicate: nil)
+        }
+        if let energy = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
+            dataSource.enableCollection(for: energy, predicate: nil)
+        }
+        return dataSource
+    }
+
+    private func seedMetricsFromBuilder(_ liveBuilder: HKLiveWorkoutBuilder) {
+        let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+        let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        let hrUnit = HKUnit.count().unitDivided(by: .minute())
+        if let active = liveBuilder.statistics(for: energy)?
+            .sumQuantity()?.doubleValue(for: .kilocalorie()),
+           active.isFinite, active >= 0 {
+            kcal = active
+        }
+        if let average = liveBuilder.statistics(for: heart)?
+            .averageQuantity()?.doubleValue(for: hrUnit),
+           average.isFinite, average > 0 {
+            averageBpm = average
+        }
+        onMetricsUpdated?()
     }
 
     nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {}
@@ -399,8 +435,11 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                     ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                     ?? saved?.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                    ?? self.kcal
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
+                    ?? self.averageBpm
+                if let active, active.isFinite, active >= 0 { self.kcal = active }
                 self.finishWith(Result(
                     uuid: saved?.uuid,
                     activeEnergyKcal: (active ?? 0) > 0 ? active : nil,
