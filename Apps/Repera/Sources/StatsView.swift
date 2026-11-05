@@ -586,36 +586,59 @@ struct StatsView: View {
         }
     }
 
+    /// Los entrenos completados hoy incluyen planificados, libres y Comenzar.
+    /// Los kilos solo proceden de series de trabajo registradas; no son calorías.
+    private var completedWorkoutsToday: [WorkoutSession] {
+        store.state.workouts.filter { workout in
+            guard workout.phase == .finished || workout.finishedAt != nil,
+                  let ended = workout.finishedAt ?? workout.startedAt else { return false }
+            return Calendar.current.isDateInToday(ended)
+        }
+    }
+
     @ViewBuilder
     private var strengthCategoryContent: some View {
-        let prCount = snap.records.count
-        let volumeKg = Int(snap.summary.volumeKg.rounded())
+        let todaySessions = completedWorkoutsToday
+        let todayCount = todaySessions.count
+        let todayVolume = Int(todaySessions.reduce(0.0) {
+            $0 + max(0, StatsEngine.confirmedVolumeKg(in: $1))
+        }.rounded())
+        let todayPR = StatsEngine.personalRecords(from: store.state.workouts)
+            .filter { Calendar.current.isDateInToday($0.date) }.count
+        let todayMinutes = Int(todaySessions.reduce(0.0) {
+            $0 + max(0, $1.durationMinutes)
+        }.rounded())
         OGCardSectionTitle(title: "Fuerza")
-        if (prCount > 0 || volumeKg > 0), !strengthSparkSamples.isEmpty {
+        if todayCount > 0 || !strengthSparkSamples.isEmpty {
             ProgressInsightElevatedCard(
-                title: "Carga y marcas",
+                title: "Carga y marcas hoy",
                 systemImage: ProgressCategory.strength.systemImage,
                 tint: ProgressCategory.strength.accent,
-                value: prCount > 0 ? "\(prCount)" : "—",
-                unit: prCount > 0 ? "PR" : nil,
-                caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption)"
-                    : hubPeriodCaption,
+                value: todayVolume > 0 ? "\(todayVolume)" : (todayCount > 0 ? "\(todayCount)" : "—"),
+                unit: todayVolume > 0 ? "kg" : (todayCount > 0 ? "entrenos" : nil),
+                caption: todayVolume > 0
+                    ? "\(todayPR) PR hoy · \(todayCount) entrenos"
+                    : (todayCount > 0
+                        ? "\(todayMinutes) min hoy · sin kilos de fuerza registrados"
+                        : "Sin entrenos hoy · carga últimos 7 días"),
                 valuePointSize: 64,
                 chartHeight: 118,
                 chartBesideTitle: true
             ) {
-                // Área/spark distinta de las barras de estímulo y del rango de FC.
-                ProgressMiniAreaSpark(
-                    fractions: strengthSparkSamples.map(\.upperBound),
-                    tint: ProgressCategory.strength.accent,
-                    height: 118
-                )
-                .accessibilityLabel("Carga diaria, últimos 7 días")
+                if !strengthSparkSamples.isEmpty {
+                    ProgressMiniAreaSpark(
+                        fractions: strengthSparkSamples.map(\.upperBound),
+                        tint: ProgressCategory.strength.accent,
+                        height: 118
+                    )
+                    .accessibilityLabel("Carga diaria en kg, últimos 7 días")
+                } else {
+                    EmptyView()
+                }
             }
         } else {
             ProgressInsightCard(
-                title: "Carga y marcas",
+                title: "Carga y marcas hoy",
                 systemImage: ProgressCategory.strength.systemImage,
                 narrative: strengthInsightCopy,
                 tint: ProgressCategory.strength.accent
@@ -623,7 +646,7 @@ struct StatsView: View {
                 ProgressHeroMetricRow(
                     value: "—",
                     unit: nil,
-                    caption: "sin marcas aún",
+                    caption: "sin entrenamiento registrado hoy",
                     valuePointSize: 64
                 ) {
                     EmptyView()
@@ -1994,6 +2017,14 @@ private struct ProgressSessionScoreChartCard: View {
         var id: Date { date }
     }
 
+    private var latestCompletedWorkout: WorkoutSession? {
+        workouts.filter { $0.phase == .finished || $0.finishedAt != nil }
+            .max {
+                ($0.finishedAt ?? $0.startedAt ?? .distantPast) <
+                    ($1.finishedAt ?? $1.startedAt ?? .distantPast)
+            }
+    }
+
     private var points: [ScoreDay] {
         let calendar = Calendar.current
         if isTeaserPreview {
@@ -2047,7 +2078,7 @@ private struct ProgressSessionScoreChartCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 9) {
-                    scoreMetric("Última nota", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
+                    scoreMetric("Última nota comparable", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
                     scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
                     scoreMetric("Días evaluados", value: "\(values.count)")
                 }
@@ -2118,10 +2149,51 @@ private struct ProgressSessionScoreChartCard: View {
             }
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
+                    if !isTeaserPreview, let latest = latestCompletedWorkout {
+                        let lastDate = latest.finishedAt ?? latest.startedAt ?? Date()
+                        let sameDay = workouts.filter { workout in
+                            guard workout.phase == .finished || workout.finishedAt != nil,
+                                  let when = workout.finishedAt ?? workout.startedAt else {
+                                return false
+                            }
+                            return Calendar.current.isDate(when, inSameDayAs: lastDate)
+                        }
+                        let minutes = Int(sameDay.reduce(0.0) {
+                            $0 + max(0, $1.durationMinutes)
+                        }.rounded())
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Última actividad registrada")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(OG.label2)
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(latest.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                Spacer(minLength: 6)
+                                Text(lastDate.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption2)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Text("\(sameDay.count) entrenos ese día · \(minutes) min")
+                                .font(.caption2)
+                                .foregroundStyle(OG.label2)
+                            if let bpm = latest.appleAverageHeartRateBpm, bpm > 0 {
+                                Text("FC media registrada: \(Int(bpm.rounded())) lpm")
+                                    .font(.caption2)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            if latest.sessionReview?.scoreBasis != .personalHistory {
+                                Text("Sin nota comparable: la actividad cuenta, pero no se inventa un resultado.")
+                                    .font(.caption2)
+                                    .foregroundStyle(OG.label2)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     scoreSummary
                     if values.isEmpty {
                         ProgressEmptyChart(
-                            message: "Repera está aprendiendo de ti. Completa al menos 2 días previos comparables y registra un 60% de rendimiento evaluable.",
+                            message: "Todavía no hay una nota comparable en este periodo. Tus entrenamientos sí cuentan en el histórico.",
                             height: 205,
                             yRange: 0.0...10.0
                         )
