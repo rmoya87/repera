@@ -1430,6 +1430,22 @@ final class HealthKitStore {
             workout = watchWorkout
             workoutUUID = uuid
         }
+        // La identidad de un workout provisional escrito por Repera iPhone
+        // NO demuestra que sea el entrenamiento grabado por Apple Watch.
+        // Si faltó la metadata al guardar el builder, recuperar únicamente
+        // un candidato de Repera Watch inequívoco sobre la hora ORIGINAL.
+        if fromWatch && (workout == nil || workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+        } == true) {
+            let anchorStart = session.recordedStartBeforeEditing ?? start
+            let anchorEnd = session.recordedEndBeforeEditing ?? end
+            if let verified = await overlappingWorkout(
+                from: anchorStart, to: anchorEnd, watchOnly: true
+            ) {
+                workout = verified
+                workoutUUID = verified.uuid
+            }
+        }
         if workout == nil,
            let own = await existingReperaWorkout(sessionId: session.id) {
             workout = own
@@ -1437,10 +1453,8 @@ final class HealthKitStore {
         }
         if workout == nil {
             if session.userEditedDuration {
-                // Primero recurrir a la ventana ANTERIOR a la edición para no
-                // asociar una clase distinta que ocurra en las nuevas horas.
-                // En actividades Watch antiguas sin ancla conservada exigimos
-                // un único HKWorkout REAL del reloj que solape suficientemente.
+                // Solo Watch de Repera con procedencia declarada; nunca
+                // asociar por mera cercanía una clase o workout de otra app.
                 if fromWatch {
                     let anchorStart = session.recordedStartBeforeEditing ?? start
                     let anchorEnd = session.recordedEndBeforeEditing ?? end
