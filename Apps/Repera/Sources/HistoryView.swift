@@ -1962,14 +1962,20 @@ struct WorkoutDetailView: View {
     private var startedBinding: Binding<Date> {
         Binding(
             get: { draft?.startedAt ?? Date() },
-            set: { draft?.startedAt = $0 }
+            set: {
+                draft?.startedAt = $0
+                draft?.userEditedDuration = true
+            }
         )
     }
 
     private var finishedBinding: Binding<Date> {
         Binding(
             get: { draft?.finishedAt ?? Date() },
-            set: { draft?.finishedAt = $0 }
+            set: {
+                draft?.finishedAt = $0
+                draft?.userEditedDuration = true
+            }
         )
     }
 
