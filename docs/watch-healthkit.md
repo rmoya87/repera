@@ -73,7 +73,13 @@ historial del iPhone no se actualizaba hasta que terminase HealthKit.
 5. Al guardar desde Comenzar en iPhone una actividad vinculada a
    prescripción, el estado sigue siendo `.finished` aunque quede
    `awaitingResultEntry = true`; no se convierte a `.ready` con
-   `finishedAt` ya fijado.
+   `finishedAt` ya fijado. Además, la pantalla de revisión no descarta
+   su checkpoint GPS ni informa de éxito hasta que termine
+   `LocalStore.persistAndFlush`; si falla, muestra error y permite
+   reintentar sin perder el registro.
+6. Si la primera versión del Watch se está persistiendo cuando llegan las
+   métricas finales de HealthKit, el iPhone vuelve a volcar el estado más
+   reciente antes del ACK para evitar que el Watch reintente indefinidamente.
 
 **Limitación del sistema:** una `ActivityKit` puede iniciarse localmente
 en el iPhone solo cuando iOS permite ejecutar la aplicación. Una entrega
