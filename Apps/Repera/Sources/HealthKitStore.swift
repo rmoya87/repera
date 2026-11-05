@@ -1088,6 +1088,40 @@ final class HealthKitStore {
             .first(where: { $0.isFinite && $0 > 0 })
     }
 
+    /// Agrupar por origen Y dispositivo. Dos relojes con el mismo proveedor
+    /// no autorizan sumar automáticamente señales duplicadas.
+    private static func samplesFromLinkedSensor(
+        _ samples: [HKQuantitySample], workout: HKWorkout
+    ) -> [HKQuantitySample] {
+        let origin = workout.sourceRevision.source.bundleIdentifier.lowercased()
+        let watch = isWatchRecordedSource(workout.sourceRevision.source)
+        let valid = samples.filter { sample in
+            let source = sample.sourceRevision.source
+            let bundle = source.bundleIdentifier.lowercased()
+            if isReperaSource(source) && !isWatchRecordedSource(source) { return false }
+            if bundle == origin { return true }
+            return watch && (
+                isWatchRecordedSource(source)
+                || source.name.localizedCaseInsensitiveContains("Apple Watch")
+                || sample.device?.name?.localizedCaseInsensitiveContains("Apple Watch") == true
+            )
+        }
+        let groups = Dictionary(grouping: valid) { sample in
+            let bundle = sample.sourceRevision.source.bundleIdentifier.lowercased()
+            let device = sample.device?.localIdentifier
+                ?? sample.device?.name ?? "no-device"
+            return bundle + "|" + device
+        }
+        let sameOrigin = groups.filter { $0.key.hasPrefix(origin + "|") }
+        if sameOrigin.count == 1, let selected = sameOrigin.values.first {
+            return selected
+        }
+        if groups.count == 1, let selected = groups.values.first {
+            return selected
+        }
+        return []
+    }
+
     /// Muestras auténticas de UN origen compatible con el dispositivo del workout.
     /// El editor no amplía la grabación del reloj: consulta únicamente datos
     /// que Salud haya medido dentro del intervalo corregido. Nunca mezcla
@@ -1110,35 +1144,8 @@ final class HealthKitStore {
             }
             store.execute(query)
         }
-        let originBundle = workout.sourceRevision.source.bundleIdentifier.lowercased()
-        let isWatchWorkout = Self.isWatchRecordedSource(workout.sourceRevision.source)
-        let permitted = samples.filter { sample in
-            let source = sample.sourceRevision.source
-            let bundle = source.bundleIdentifier.lowercased()
-            if Self.isReperaSource(source) && !Self.isWatchRecordedSource(source) {
-                return false
-            }
-            if bundle == originBundle { return true }
-            // Las muestras del sistema Apple Watch pueden aparecer bajo el
-            // origen del sensor y no bajo el bundle que guardó el HKWorkout.
-            return isWatchWorkout && (
-                Self.isWatchRecordedSource(source)
-                || source.name.localizedCaseInsensitiveContains("Apple Watch")
-                || sample.device?.name?.localizedCaseInsensitiveContains("Apple Watch") == true
-            )
-        }
-        let groups = Dictionary(grouping: permitted) {
-            $0.sourceRevision.source.bundleIdentifier.lowercased()
-        }
-        let group: [HKQuantitySample]
-        if let exact = groups[originBundle], !exact.isEmpty {
-            group = exact
-        } else if groups.count == 1, let unique = groups.values.first {
-            group = unique
-        } else {
-            // Dos relojes/apps en el mismo rango: ninguna suma sin identidad.
-            return nil
-        }
+        let group = Self.samplesFromLinkedSensor(samples, workout: workout)
+        guard !group.isEmpty else { return nil }
         let unit: HKUnit
         switch type.identifier {
         case HKQuantityTypeIdentifier.activeEnergyBurned.rawValue: unit = .kilocalorie()
@@ -1193,14 +1200,20 @@ final class HealthKitStore {
         let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)
         let steps = if let stepType {
             await revisedWorkoutQuantity(stepType, workout: workout,
-                newStart: start, newEnd: end, original: original.steps.map(Double.init))
+                newStart: start, newEnd: end, original: original.steps.map { Double($0) })
         } else { nil }
         let distanceIdentifier: HKQuantityTypeIdentifier
-        switch workout.workoutActivityType {
-        case .cycling: distanceIdentifier = .distanceCycling
-        case .swimming: distanceIdentifier = .distanceSwimming
-        case .downhillSkiing, .snowboarding: distanceIdentifier = .distanceDownhillSnowSports
-        default: distanceIdentifier = .distanceWalkingRunning
+        switch original.distanceLabel {
+        case "Distancia bici": distanceIdentifier = .distanceCycling
+        case "Distancia nieve": distanceIdentifier = .distanceDownhillSnowSports
+        case "Distancia nado": distanceIdentifier = .distanceSwimming
+        default:
+            switch workout.workoutActivityType {
+            case .cycling: distanceIdentifier = .distanceCycling
+            case .swimming: distanceIdentifier = .distanceSwimming
+            case .downhillSkiing, .snowboarding: distanceIdentifier = .distanceDownhillSnowSports
+            default: distanceIdentifier = .distanceWalkingRunning
+            }
         }
         let type = HKQuantityType.quantityType(forIdentifier: distanceIdentifier)
         let meters = if let type {
@@ -1402,7 +1415,8 @@ final class HealthKitStore {
         var extras = await loadHealthExtras(
             workoutUUID: workoutUUID,
             start: rangeStart,
-            end: rangeEnd
+            end: rangeEnd,
+            sensorWorkout: shouldReadEditedWindow ? workout : nil
         )
         if shouldReadEditedWindow, let workout {
             let originalMovement = await workoutMovementMetrics(workout)
@@ -1615,9 +1629,10 @@ final class HealthKitStore {
     private func loadHealthExtras(
         workoutUUID: UUID?,
         start: Date,
-        end: Date
+        end: Date,
+        sensorWorkout: HKWorkout? = nil
     ) async -> SessionHealthExtras {
-        async let hrSeries = heartRateSeries(from: start, to: end)
+        async let hrSeries = heartRateSeries(from: start, to: end, workout: sensorWorkout)
         async let route = fetchRoutePoints(workoutUUID: workoutUUID, start: start, end: end)
         let (series, points) = await (hrSeries, route)
 
@@ -1792,27 +1807,29 @@ final class HealthKitStore {
         }
     }
 
-    private func heartRateSeries(from start: Date, to end: Date) async -> [HeartRatePoint] {
+    private func heartRateSeries(
+        from start: Date, to end: Date, workout: HKWorkout? = nil
+    ) async -> [HeartRatePoint] {
         guard let type = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
-        return await withCheckedContinuation { cont in
+        let raw: [HKQuantitySample] = await withCheckedContinuation { cont in
             let q = HKSampleQuery(
                 sampleType: type,
                 predicate: predicate,
                 limit: HKObjectQueryNoLimit,
                 sortDescriptors: [sort]
             ) { _, samples, _ in
-                let unit = HKUnit.count().unitDivided(by: .minute())
-                let points = (samples as? [HKQuantitySample] ?? []).map { sample in
-                    HeartRatePoint(
-                        date: sample.startDate,
-                        bpm: sample.quantity.doubleValue(for: unit)
-                    )
-                }
-                cont.resume(returning: points)
+                cont.resume(returning: samples as? [HKQuantitySample] ?? [])
             }
             store.execute(q)
+        }
+        let trusted = workout.map { Self.samplesFromLinkedSensor(raw, workout: $0) } ?? raw
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        return trusted.sorted { $0.startDate < $1.startDate }.compactMap { sample in
+            let bpm = sample.quantity.doubleValue(for: unit)
+            guard bpm.isFinite, (25...250).contains(bpm) else { return nil }
+            return HeartRatePoint(date: sample.startDate, bpm: bpm)
         }
     }
 
