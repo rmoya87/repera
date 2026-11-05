@@ -24,6 +24,8 @@ struct WatchSessionView: View {
     @State private var pendingPlanStart: WorkoutSession?
     /// La llegada tardía de una indicación nunca interrumpe a quien está viendo métricas.
     @State private var selectedCompanionLivePage = 0
+    @State private var previouslySeenCompanionTurnMeters: Int?
+    @State private var companionTurnAlerted = false
 
     private var accent: Color { WatchTheme.accent }
 
@@ -351,9 +353,25 @@ struct WatchSessionView: View {
             .tabViewStyle(.verticalPage)
             .task(id: live.id) {
                 selectedCompanionLivePage = hasGuidance ? 0 : 1
+                previouslySeenCompanionTurnMeters = live.nextTurnMeters
+                companionTurnAlerted = false
             }
             .onChange(of: hasGuidance) { _, available in
                 if !available { selectedCompanionLivePage = 1 }
+            }
+            .onChange(of: live.nextTurn) { _, _ in
+                previouslySeenCompanionTurnMeters = live.nextTurnMeters
+                companionTurnAlerted = false
+            }
+            .onChange(of: live.nextTurnMeters) { _, current in
+                guard let current, hasGuidance else { return }
+                if current > 150 { companionTurnAlerted = false }
+                if let previous = previouslySeenCompanionTurnMeters, previous > 100,
+                   current <= 100, !companionTurnAlerted {
+                    companionTurnAlerted = true
+                    WKInterfaceDevice.current().play(.directionUp)
+                }
+                previouslySeenCompanionTurnMeters = current
             }
         } controls: {
             if live.phase != .review {
@@ -1695,7 +1713,6 @@ private struct WatchActivityCancelOverlay: View {
 private struct WatchLiveNavigationPage: View {
     let instruction: String
     let distanceMeters: Int?
-    @State private var alreadyWarnedAboutThisTurn = false
 
     private var symbol: String {
         if instruction.localizedStandardContains("izquierda") { return "arrow.turn.up.left" }
@@ -1736,18 +1753,6 @@ private struct WatchLiveNavigationPage: View {
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
-        .onChange(of: instruction) { _, _ in
-            alreadyWarnedAboutThisTurn = false
-        }
-        .onChange(of: distanceMeters) { previous, current in
-            guard let current else { return }
-            if current > 150 { alreadyWarnedAboutThisTurn = false }
-            if let previous, previous > 100, current <= 100,
-               !alreadyWarnedAboutThisTurn {
-                alreadyWarnedAboutThisTurn = true
-                WKInterfaceDevice.current().play(.directionUp)
-            }
-        }
     }
 }
 
