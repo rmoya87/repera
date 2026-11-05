@@ -696,12 +696,16 @@ struct StatsView: View {
         return ids.count
     }
 
-    /// Barras = volumen kg por día en los últimos 7 días (relativo al pico).
+    /// Barras = volumen kg por día en los últimos 7 días.
+    /// Escala logarítmica respecto al pico: un día con ~10 % del pico sigue
+    /// leyéndose ~alto; evita que un outlier aplasté el resto de la curva.
     private var strengthSparkSamples: [ClosedRange<Double>] {
         let volumes = strengthDailyVolumeLast7
         guard let peak = volumes.max(), peak > 0 else { return [] }
+        let logPeak = log1p(peak)
         return volumes.map { vol in
-            let hi = vol > 0 ? max(0.12, min(1.0, vol / peak)) : 0.08
+            guard vol > 0, logPeak > 0 else { return 0...0.08 }
+            let hi = max(0.16, min(1.0, log1p(vol) / logPeak))
             return 0...hi
         }
     }
@@ -2271,7 +2275,8 @@ private struct ProgressSessionScoreChartCard: View {
                 }
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
-            .chartXScale(domain: 0...max(2, recent.count + 1))
+            // 1…N a ancho completo: primer punto pegado a la izquierda, último a la derecha.
+            .chartXScale(domain: 1...max(1, recent.count))
             .chartYScale(domain: 0.0...10.0)
             .chartYAxis {
                 AxisMarks(position: .leading, values: [0.0, 5.0, 10.0]) {

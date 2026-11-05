@@ -316,12 +316,20 @@ private fun SevenRecentWorkoutScoreChart(
                     }
                     .pointerInput(recent) {
                         detectTapGestures { offset ->
-                            selectedIndex = ((offset.x / size.width.coerceAtLeast(1).toFloat()) * recent.size)
-                                .toInt().coerceIn(0, recent.lastIndex)
+                            selectedIndex = if (recent.size == 1) 0
+                            else {
+                                val fraction = (offset.x / size.width.coerceAtLeast(1).toFloat())
+                                    .coerceIn(0f, 1f)
+                                (fraction * (recent.size - 1)).roundToInt()
+                                    .coerceIn(0, recent.lastIndex)
+                            }
                         }
                     }
             ) {
-                fun x(index: Int) = size.width * (index + 0.5f) / recent.size
+                // Primer punto a la izquierda, último a la derecha (ancho completo).
+                fun x(index: Int) =
+                    if (recent.size == 1) size.width / 2f
+                    else size.width * index / (recent.size - 1).toFloat()
                 fun y(score: Int) = size.height - (score / 10f) * size.height
                 listOf(0f, 0.5f, 1f).forEach { fraction ->
                     val y = size.height * (1 - fraction)

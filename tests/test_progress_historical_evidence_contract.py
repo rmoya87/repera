@@ -113,8 +113,20 @@ class ProgressHistoricalEvidenceContract(unittest.TestCase):
     def test_cardio_selection_shows_min_avg_max(self):
         ios = read("Apps/Repera/Sources/ProgressTrendCards.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/ProgressCardioPlot.kt")
-        self.assertIn("minBpm.rounded())) · \\(Int(selectedPoint.avgBpm.rounded())) · \\(Int(selectedPoint.maxBpm.rounded())) lpm", ios)
+        cardio = ios.split("struct ProgressCardioChartCard", 1)[1].split("struct ProgressCaloriesChartCard", 1)[0]
+        self.assertIn("minBpm.rounded())) · \\(Int(selectedPoint.avgBpm.rounded())) · \\(Int(selectedPoint.maxBpm.rounded())) lpm", cardio)
+        # Label fuera del Chart para no perderse con el clip del plot.
+        self.assertLess(cardio.find("if let selectedPoint {"), cardio.find("Chart {"))
         self.assertIn('Math.round(p.minBpm)+" · "+Math.round(p.avgBpm)+" · "+Math.round(p.maxBpm)+" lpm"', android)
+
+    def test_score_chart_uses_full_width_domain(self):
+        ios = read("Apps/Repera/Sources/StatsView.swift")
+        chart = ios.split("private var sevenWorkoutChart", 1)[1]
+        self.assertIn(".chartXScale(domain: 1...max(1, recent.count))", chart)
+        self.assertNotIn(".chartXScale(domain: 0...", chart.split(".chartYScale", 1)[0])
+        android = read("android/mobile/src/main/java/dev/repera/mobile/SessionScoreProgressCard.kt")
+        score = android.split("private fun SevenRecentWorkoutScoreChart(", 1)[1]
+        self.assertIn("size.width * index / (recent.size - 1)", score)
 
     def test_recovery_evolution_keeps_continuous_scored_days(self):
         ios = read("Apps/Repera/Sources/HealthRecovery.swift")

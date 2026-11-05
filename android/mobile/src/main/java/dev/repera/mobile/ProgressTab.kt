@@ -61,6 +61,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import kotlin.math.ln
 import kotlin.math.roundToInt
 import dev.repera.domain.HeartRatePlotPoint
 import dev.repera.domain.LiveSport
@@ -1038,8 +1039,10 @@ private fun strengthInsightCopy(prCount: Int, volumeKg: Int, activitiesToday: In
 private fun strengthDailyBarFractions(dailyKg: List<Double>): List<Float> {
     if (dailyKg.isEmpty()) return emptyList()
     val peak = dailyKg.maxOrNull()?.takeIf { it > 0 } ?: return emptyList()
+    val logPeak = ln(1.0 + peak)
+    if (logPeak <= 0.0) return emptyList()
     return dailyKg.map { vol ->
-        if (vol > 0) (vol / peak).toFloat().coerceIn(0.12f, 1f) else 0.08f
+        if (vol > 0) (ln(1.0 + vol) / logPeak).toFloat().coerceIn(0.16f, 1f) else 0.08f
     }
 }
 

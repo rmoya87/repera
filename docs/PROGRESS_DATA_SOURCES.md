@@ -1,6 +1,6 @@
 # Progreso y preparación: fuentes verificadas
 
-Última actualización: 2026-11-05 (Entreno: nota 0–10; sin Cobertura; zonas FC por muestras).
+Última actualización: 2026-11-05 (nota 0–10 full-width; carga log; FC selección ×3).
 
 ## Organización del hub (chips, 04/11/2026)
 
@@ -30,7 +30,7 @@ La información de clases se carga por usuario autenticado desde `BusinessDataSt
 ## Organización de Progreso (iOS y Android, 04/11/2026)
 
 - **Entreno:** consistencia **«Últimos 7 días»** primero; después tiles **Media mes / Racha / Entrenos / Tiempo** (mes calendario). Puntuación verificada + confianza; **equilibrio muscular = estado actual** (fatiga retenida); movilidad; largo plazo (Pro) e Historial.
-- **Fuerza:** insight «Carga y marcas»: héroe = nº de PR **all-time**; caption = kg de volumen de los **últimos 7 días** (sin línea «Hoy N ses. · kg · PR»). Barras = **volumen diario** de esos mismos 7 días (relativo al pico). Las actividades sin series con peso registrado cuentan en Entreno/Físico, pero nunca generan kg ni PR sintéticos. Tiles **Sesiones fuerza / Ejercicios** = solo sesiones con series de fuerza confirmadas en esos 7 días. **Progreso por ejercicio** y **récords** = mejores marcas de siempre. Teasers en gratis.
+- **Fuerza:** insight «Carga y marcas»: héroe = nº de PR **all-time**; caption = kg de volumen de los **últimos 7 días** (sin línea «Hoy N ses. · kg · PR»). Barras = **volumen diario** de esos mismos 7 días con escala **log1p** respecto al pico (un outlier no aplasta el resto). Las actividades sin series con peso registrado cuentan en Entreno/Físico, pero nunca generan kg ni PR sintéticos. Tiles **Sesiones fuerza / Ejercicios** = solo sesiones con series de fuerza confirmadas en esos 7 días. **Progreso por ejercicio** y **récords** = mejores marcas de siempre. Teasers en gratis.
 - **Físico — Estímulo activo (7d):** héroe = **media diaria** = `minutos totales (Repera terminados + Salud/HC) / 7` (ventana fija; días sin estímulo cuentan como 0 min de actividad, no son ceros fisiológicos). Mini gráfica = **barras desde la base** con los minutos/día de la ventana de 7 días (`ProgressMiniFillBars` / `FILL`). Caption «media diaria» alineada abajo con la gráfica; el sobrante bajo el título es el dato grande. Unidad corta **m** (no «min»). Nunca sesiones abiertas (en iOS `durationMinutes` con `finishedAt ?? now` inflaría el total). Duración en **h + m** si ≥ 60 min.
 - **Físico — Este mes:** héroe = **media por semana** = `minutos del mes / (días transcurridos del mes / 7)`; caption «media semana» (sin «N sesiones»); barras fill minutos/día del mes; mismo layout título → dato grande → caption alineado a la base de la gráfica. Heatmap, calorías y peso aparte.
 - **Calorías (Pro, hub 7d):** fuente = **energía activa de Apple Salud / Health Connect** (y kcal de actividades externas HK/HC; nunca MET inventados de Repera). El eje X muestra siempre los **7 días** de la ventana (ticks de calendario); días sin kcal = **hueco** (no se inventa 0 kcal fisiológico). Media/día = media solo sobre días **con** dato. iOS: `ProgressChartBuilder.mergedDailyCalories` → `ProgressCaloriesChartCard`; Android: `ProgressChartBuilder` → `ProgressCaloriesPlot`.

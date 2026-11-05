@@ -158,6 +158,7 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             "private var strengthInsightCopy", 1
         )[0]
         self.assertIn("strengthDailyVolumeLast7", spark)
+        self.assertIn("log1p(vol) / logPeak", spark)
         self.assertNotIn("weeklyVolumeSeries", spark)
         self.assertNotIn("estimatedOneRM / 200", spark)
         insight = stats.split("private var strengthInsightCopy", 1)[1].split(
@@ -173,6 +174,7 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
         self.assertNotIn("snap.chartExercises.count", strength)
         tab = read(ANDROID / "ProgressTab.kt")
         self.assertIn("strengthDailyBarFractions", tab)
+        self.assertIn("ln(1.0 + vol) / logPeak", tab)
         self.assertIn("hubDailyVolumeKg", tab)
         self.assertNotIn("Las barras muestran", tab)
         self.assertIn("strengthSessionCount", tab)

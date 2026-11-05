@@ -283,6 +283,13 @@ struct ProgressCardioChartCard: View {
             OGCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if !points.isEmpty {
+                        // Fuera del Chart: el clip del plot no puede ocultar mín·media·máx.
+                        if let selectedPoint {
+                            Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm · \(selectedPoint.date.formatted(Date.FormatStyle().day().month(.abbreviated).locale(SpanishDate.appLocale)))")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                                .accessibilityLabel("Selección: mínima \(Int(selectedPoint.minBpm.rounded())), media \(Int(selectedPoint.avgBpm.rounded())), máxima \(Int(selectedPoint.maxBpm.rounded())) pulsaciones")
+                        }
                         Chart {
                             ForEach(points) { point in
                                 LineMark(
@@ -317,13 +324,24 @@ struct ProgressCardioChartCard: View {
                                 RuleMark(x: .value("Día seleccionado", selectedPoint.date))
                                     .foregroundStyle(OG.label2)
                                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                                    .annotation(position: .top, spacing: 6) {
-                                        Text("\(Int(selectedPoint.minBpm.rounded())) · \(Int(selectedPoint.avgBpm.rounded())) · \(Int(selectedPoint.maxBpm.rounded())) lpm")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(OG.label)
-                                            .padding(5)
-                                            .background(OG.surface, in: RoundedRectangle(cornerRadius: 6))
-                                    }
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.minBpm)
+                                )
+                                .foregroundStyle(Self.minTint)
+                                .symbolSize(36)
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.avgBpm)
+                                )
+                                .foregroundStyle(Self.avgTint)
+                                .symbolSize(44)
+                                PointMark(
+                                    x: .value("Día seleccionado", selectedPoint.date),
+                                    y: .value("lpm", selectedPoint.maxBpm)
+                                )
+                                .foregroundStyle(Self.maxTint)
+                                .symbolSize(36)
                             }
                         }
                         .chartForegroundStyleScale([
