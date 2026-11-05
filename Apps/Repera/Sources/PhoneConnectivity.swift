@@ -465,10 +465,7 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
             }
             // A background userInfo may be delivered long after its workout
             // finished. Do not resurrect an obsolete lock-screen activity.
-            let age = Date().timeIntervalSince(snapshot.capturedAt)
-            guard age >= -5, age <= (snapshot.phase == .review ? 3600 : 90) else {
-                return
-            }
+            guard WatchOwnedLiveDeliveryPolicy.accepts(snapshot) else { return }
             delegate?.phoneConnectivityDidReceiveWatchOwnedLive(snapshot)
         }
         if let data = payload["timerMirror"] as? Data {
