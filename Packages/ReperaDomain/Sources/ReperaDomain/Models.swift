@@ -2248,6 +2248,11 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     public var appleDurationSeconds: TimeInterval?
     /// Indica que la duración introducida manualmente prevalece para las vistas y estadísticas.
     public var userEditedDuration: Bool
+    /// Horario capturado antes de la primera corrección manual.
+    /// Es solo una pista para re-enlazar el HKWorkout ORIGINAL, nunca
+    /// el horario mostrado después de editar.
+    public var recordedStartBeforeEditing: Date?
+    public var recordedEndBeforeEditing: Date?
     /// UUID del `HKWorkout` guardado en Salud (si aplica).
     public var healthKitWorkoutUUID: UUID?
     /// Scores de bloques WOD (AMRAP reps, For Time tiempo…).
@@ -2295,6 +2300,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleHealthProvenance: String? = nil,
         appleDurationSeconds: TimeInterval? = nil,
         userEditedDuration: Bool = false,
+        recordedStartBeforeEditing: Date? = nil,
+        recordedEndBeforeEditing: Date? = nil,
         healthKitWorkoutUUID: UUID? = nil,
         wodResults: [WODBlockResult] = [],
         routineBlocks: [RoutineBlock]? = nil,
@@ -2325,6 +2332,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         self.appleHealthProvenance = appleHealthProvenance
         self.appleDurationSeconds = appleDurationSeconds
         self.userEditedDuration = userEditedDuration
+        self.recordedStartBeforeEditing = recordedStartBeforeEditing
+        self.recordedEndBeforeEditing = recordedEndBeforeEditing
         self.healthKitWorkoutUUID = healthKitWorkoutUUID
         self.wodResults = wodResults
         self.routineBlocks = routineBlocks
@@ -2343,7 +2352,7 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, title, routineId, favoriteRoutineId, awaitingResultEntry, exercises, currentIndex, phase
         case startedAt, finishedAt, notes
-        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, userEditedDuration, healthKitWorkoutUUID
+        case appleActiveEnergyKcal, appleAverageHeartRateBpm, appleHealthProvenance, appleDurationSeconds, userEditedDuration, recordedStartBeforeEditing, recordedEndBeforeEditing, healthKitWorkoutUUID
         case wodResults, routineBlocks, sessionReview
         case locationPin, routePoints, liveSportID, liveRouteID, recordedDistanceMeters, activeDurationSeconds
         case liveKilometerSplitsSeconds, timerDetails, activityConditions
@@ -2367,6 +2376,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         appleHealthProvenance = try c.decodeIfPresent(String.self, forKey: .appleHealthProvenance)
         appleDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .appleDurationSeconds)
         userEditedDuration = try c.decodeIfPresent(Bool.self, forKey: .userEditedDuration) ?? false
+        recordedStartBeforeEditing = try c.decodeIfPresent(Date.self, forKey: .recordedStartBeforeEditing)
+        recordedEndBeforeEditing = try c.decodeIfPresent(Date.self, forKey: .recordedEndBeforeEditing)
         healthKitWorkoutUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitWorkoutUUID)
         wodResults = try c.decodeIfPresent([WODBlockResult].self, forKey: .wodResults) ?? []
         routineBlocks = try c.decodeIfPresent([RoutineBlock].self, forKey: .routineBlocks)
@@ -2400,6 +2411,8 @@ public struct WorkoutSession: Identifiable, Codable, Sendable, Equatable {
         try c.encodeIfPresent(appleHealthProvenance, forKey: .appleHealthProvenance)
         try c.encodeIfPresent(appleDurationSeconds, forKey: .appleDurationSeconds)
         try c.encode(userEditedDuration, forKey: .userEditedDuration)
+        try c.encodeIfPresent(recordedStartBeforeEditing, forKey: .recordedStartBeforeEditing)
+        try c.encodeIfPresent(recordedEndBeforeEditing, forKey: .recordedEndBeforeEditing)
         try c.encodeIfPresent(healthKitWorkoutUUID, forKey: .healthKitWorkoutUUID)
         try c.encode(wodResults, forKey: .wodResults)
         try c.encodeIfPresent(routineBlocks, forKey: .routineBlocks)
