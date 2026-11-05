@@ -1584,7 +1584,7 @@ struct StatsView: View {
         // La gráfica real solo incorpora notas verificadas. Si no existen,
         // mantiene los ejes y explica la ausencia de datos.
         ProgressSessionScoreChartCard(
-            workouts: snap.filteredWorkouts,
+            workouts: store.state.workouts,
             range: model.range,
             weekStartsOnMonday: mondayFirst
         )
@@ -2008,6 +2008,8 @@ private struct ProgressSessionScoreChartCard: View {
         }
         let rated: [(Date, Double)] = workouts.compactMap { session in
             guard let finishedAt = session.finishedAt,
+                  range.contains(finishedAt, weekStartsOnMonday: weekStartsOnMonday),
+                  session.timerDetails == nil,
                   let review = session.sessionReview,
                   review.scoreBasis == .personalHistory else { return nil }
             return (calendar.startOfDay(for: finishedAt), Double(review.overallScore))
@@ -2029,9 +2031,24 @@ private struct ProgressSessionScoreChartCard: View {
         }
     }
 
+    /// Incluye todos los entrenamientos realizados, también Comenzar y Watch
+    /// sin series ni puntuación comparable. No contabiliza temporizadores.
+    private var latestSession: WorkoutSession? {
+        workouts.filter { $0.finishedAt != nil && $0.timerDetails == nil }
+            .max { ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast) }
+    }
+
+    private var registeredSessionsInRange: Int {
+        workouts.filter {
+            guard let finished = $0.finishedAt, $0.timerDetails == nil else { return false }
+            return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
+        }.count
+    }
+
     private var latestConfidenceLabel: String? {
         let rated = workouts.filter {
-            $0.finishedAt != nil && $0.sessionReview?.scoreBasis == .personalHistory
+            guard let finished = $0.finishedAt, $0.sessionReview?.scoreBasis == .personalHistory else { return false }
+            return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
         }
         guard let latest = rated.max(by: {
             ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast)
@@ -2045,11 +2062,36 @@ private struct ProgressSessionScoreChartCard: View {
         let average = values.isEmpty ? nil :
             Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
         VStack(alignment: .leading, spacing: 12) {
+            if !isTeaserPreview, let latest = latestSession {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Última actividad registrada")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(OG.label2)
+                    Text(latest.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                    if let ended = latest.finishedAt {
+                        Text("\(ended.formatted(Date.FormatStyle().day().month(.abbreviated).hour().minute().locale(SpanishDate.appLocale))) · \(Int(latest.durationMinutes.rounded())) min")
+                            .font(.caption2)
+                            .foregroundStyle(OG.label2)
+                    }
+                    if latest.sessionReview?.scoreBasis != .personalHistory {
+                        Text("Registrada en tu histórico · sin nota comparable todavía")
+                            .font(.caption2)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             HStack(alignment: .center, spacing: 14) {
                 VStack(alignment: .leading, spacing: 9) {
-                    scoreMetric("Última nota", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
+                    scoreMetric("Última nota verificada", value: values.last.map { "\(Int($0.score))/10" } ?? "—")
                     scoreMetric("Mejor nota", value: values.map(\.score).max().map { "\(Int($0))/10" } ?? "—")
                     scoreMetric("Días evaluados", value: "\(values.count)")
+                    if !isTeaserPreview {
+                        scoreMetric("Entrenos registrados", value: "\(registeredSessionsInRange)")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 

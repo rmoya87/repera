@@ -1497,6 +1497,17 @@ struct HealthRecoveryProgressView: View {
                     .foregroundStyle(OG.label2)
 
                 Chart {
+                    // Guías discretas y legibles, sin desplazar las mediciones.
+                    ForEach(Array(stride(from: Int(ceil(yLo)), through: Int(floor(yHi)), by: 2)), id: \.self) { hour in
+                        RuleMark(y: .value("Referencia en horas", Double(hour)))
+                            .foregroundStyle(Color.white.opacity(0.25))
+                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
+                            .annotation(position: .trailing) {
+                                Text("\(hour) h")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.75))
+                            }
+                    }
                     ForEach(orderedNights) { night in
                         AreaMark(
                             x: .value("Día", night.date),
@@ -1537,7 +1548,10 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartXSelection(value: $selectedSleepDate)
-                .chartXScale(domain: xStart...xEnd)
+                .chartXScale(
+                    domain: xStart...(xEnd > xStart ? xEnd : xStart.addingTimeInterval(86_400)),
+                    range: .plotDimension(startPadding: 0, endPadding: 0)
+                )
                 .chartYScale(domain: yLo...yHi)
                 .chartXAxis(.hidden)
                 .chartYAxis(.hidden)
@@ -1545,7 +1559,6 @@ struct HealthRecoveryProgressView: View {
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: fittedSleepChartHeight)
                 .frame(maxWidth: .infinity)
-                .padding(10)
                 .background(NightSky.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .accessibilityLabel("Horas de sueño por noche")

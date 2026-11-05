@@ -91,7 +91,9 @@ public enum VerifiedSessionReviewEngine {
         } else if weakestTier == 2 {
             confidence = "Media · distinto contexto"
         } else {
-            confidence = "En construcción"
+            // Una nota con >=2 referencias reales ya tiene confianza de nivel medio.
+            // "En construcción" no es un nivel y dibujaba la cápsula gris.
+            confidence = "Media · historial personal"
         }
         let coveragePercent = Int((coverage * 100).rounded())
 
@@ -189,7 +191,7 @@ public enum VerifiedSessionReviewEngine {
             keepTips: ["Solo se comparan intentos del mismo deporte."],
             scoreBasis: .personalHistory,
             evidenceCoverage: 1,
-            confidenceLabel: distinctDays.count >= 5 ? "Alta" : "En construcción"
+            confidenceLabel: distinctDays.count >= 5 ? "Alta" : "Media · historial personal"
         )
     }
 

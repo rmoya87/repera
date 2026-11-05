@@ -1486,7 +1486,7 @@ final class ReperaStore: NSObject {
     }
 
     /// Versión de la fórmula de Resultado; al subir, se recalculan todas las notas.
-    private static let sessionReviewFormulaVersion = 12
+    private static let sessionReviewFormulaVersion = 13
 
     /// Recomputa la review con la fórmula actual y la persiste.
     @discardableResult
@@ -2056,13 +2056,13 @@ final class ReperaStore: NSObject {
         pushActiveToWatch(immediate: true)
     }
 
-    /// La sesión del Watch puede llegar sin GPS si fue indoor. Solo utilizar
-    /// la posición del iPhone al recibir un fin RECIENTE, con permiso ya dado;
-    /// un histórico sincronizado tarde no debe tomar el lugar actual.
+    /// Geocodificar solo coordenadas capturadas por el reloj DURANTE la sesión.
+    /// Recibirla en el teléfono (incluso pocos segundos después) no permite
+    /// inferir que el usuario sigue en el lugar donde entrenó.
     private func suggestPlaceForRecentWatchWorkout(_ session: WorkoutSession) {
-        guard let ended = session.finishedAt,
-              (-60...300).contains(Date().timeIntervalSince(ended)),
+        guard session.finishedAt != nil,
               session.routePoints.count < 2,
+              session.locationPin != nil,
               session.locationPin?.hasChosenPlace != true else { return }
         let sessionID = session.id
         let sourcePin = session.locationPin
@@ -2075,18 +2075,8 @@ final class ReperaStore: NSObject {
         guard !sport.usesGPS else { return }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let pin: WorkoutLocationPin?
-            if sourcePin != nil || !points.isEmpty {
-                pin = sourcePin
-            } else {
-                let tracker = WorkoutLocationTracker.shared
-                tracker.refreshStatus()
-                guard tracker.isAuthorized else { return } // Nunca pedir permisos en segundo plano.
-                pin = await tracker.capturePin()
-                guard pin != nil else { return }
-            }
             let suggestion = await SportNearbyPlaceSuggester.suggestForSession(
-                sport: sport, routePoints: points, existingPin: pin
+                sport: sport, routePoints: points, existingPin: sourcePin
             )
             guard !Task.isCancelled, let suggestion,
                   var current = self.state.workouts.first(where: { $0.id == sessionID }),
