@@ -164,7 +164,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertNotIn("makeTone(duration: 0.82)", feedback)
         self.assertNotIn("392 * seconds", feedback)
         self.assertNotIn("AudioServicesPlaySystemSound", feedback)
-        self.assertIn("session.mode != .voicePrompt", feedback)
+        self.assertIn("!LiveNavigationAudioLease.shared.isActive", feedback)
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
             "func cancelStartCountdown()", 1
         )[0]
@@ -209,7 +209,11 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("try session.setCategory(", audio)
         self.assertIn("try session.setActive(true)", audio)
         self.assertIn("try? session.setActive(false, options: .notifyOthersOnDeactivation)", audio)
-        self.assertIn("session.mode != .voicePrompt", audio)
+        self.assertIn("!LiveNavigationAudioLease.shared.isActive", audio)
+        self.assertIn("if !LiveNavigationAudioLease.shared.isActive {", audio)
+        self.assertIn("final class LiveNavigationAudioLease: @unchecked Sendable", feedback)
+        self.assertIn("LiveNavigationAudioLease.shared.setActive(true)", LIVE)
+        self.assertIn("LiveNavigationAudioLease.shared.setActive(false)", LIVE)
         # Si mañana alguien mueve prepareToPlay a MainActor, este test falla.
         self.assertLess(audio.index("queue.async { [self] in"), audio.index("player.prepareToPlay()"))
 
