@@ -1131,7 +1131,7 @@ final class LiveActivityRecorder: NSObject {
     private override init() {
         super.init()
         speechSynthesizer.delegate = self
-        // Misma sesión .playback/.spokenAudio para locuciones y para ducking
+        // Sesión .playback/.voicePrompt para locuciones y ducking
         // de música/podcasts, también al recibir GPS en bloqueo.
         speechSynthesizer.usesApplicationAudioSession = true
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
@@ -1329,7 +1329,7 @@ final class LiveActivityRecorder: NSObject {
             let audio = AVAudioSession.sharedInstance()
             do {
                 try audio.setCategory(
-                    .playback, mode: .spokenAudio,
+                    .playback, mode: .voicePrompt,
                     // Navegación: bajar música durante la frase y pausar podcasts hablados.
                     // Al terminar se libera el audio para restaurar el volumen anterior.
                     options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
