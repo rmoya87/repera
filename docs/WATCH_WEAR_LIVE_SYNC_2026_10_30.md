@@ -19,6 +19,12 @@
   la escritura es idempotente por ID de serie y solo se confirma tras persistencia.
   El cronómetro activo dispone de checkpoint para recuperación tras recreación.
 
+## Páginas de navegación y métricas (05/11/2026)
+
+Cuando Comenzar comparte una instrucción `nextTurn` no vacía, las apps companion presentan primero la navegación (flecha, instrucción y `nextTurnMeters`), después las métricas mediante un gesto **vertical**. Si no hay indicaciones reales, las métricas permanecen en primera pantalla. El gesto **horizontal** sigue abriendo los controles de Pausa / Finalizar, conservando el propietario único del GPS y la sesión de salud. En Wear, `WearActiveSessionBridge` ahora incluye `nextTurnMeters` en el mensaje Data Layer. Hay aviso háptico al cruzar desde más de 100 m hasta 100 m o menos y desactivación de avisos repetidos, que se rearma cuando la distancia supera 150 m.
+
+Los deportes iniciados localmente desde el reloj sin ruta ni instrucciones remotas no simulan navegación. La vista Always On puede atenuarse por el sistema y no se desactiva el modo ambiente.
+
 ## Hub 31/10/2026 (complemento)
 
 Además del companion phone-owned, el hub Deportes permite iniciar un deporte
