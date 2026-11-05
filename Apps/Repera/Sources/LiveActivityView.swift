@@ -2415,7 +2415,7 @@ struct LiveActivityView: View {
                 }
             }
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .toolbar(recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
+            .toolbar(isInteractionLocked || recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
             .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
