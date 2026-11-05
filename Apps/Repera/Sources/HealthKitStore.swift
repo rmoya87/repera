@@ -1116,8 +1116,33 @@ final class HealthKitStore {
         if sameOrigin.count == 1, let selected = sameOrigin.values.first {
             return selected
         }
+        let deviceID = workout.device?.localIdentifier
+            ?? workout.device?.name
+        if let deviceID {
+            let sameDevice = groups.filter { $0.key.hasSuffix("|" + deviceID) }
+            if sameDevice.count == 1, let selected = sameDevice.values.first {
+                return selected
+            }
+        }
         if groups.count == 1, let selected = groups.values.first {
             return selected
+        }
+        // Los sensores pueden aparecer bajo «Apple» y no bajo el bundle
+        // de Repera Watch, especialmente tras la sincronización con iPhone.
+        // Admitir un solo origen inequívoco, pero jamás sumar orígenes.
+        if groups.isEmpty {
+            let external = samples.filter {
+                !isReperaSource($0.sourceRevision.source)
+            }
+            let providers = Dictionary(grouping: external) { sample in
+                let bundle = sample.sourceRevision.source.bundleIdentifier.lowercased()
+                let device = sample.device?.localIdentifier
+                    ?? sample.device?.name ?? "no-device"
+                return bundle + "|" + device
+            }
+            if providers.count == 1, let selected = providers.values.first {
+                return selected
+            }
         }
         return []
     }
