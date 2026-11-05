@@ -158,10 +158,12 @@ const gearAliases:Record<string,string> = {
   "resistance_band":"resistance_band","pica":"pvc_pipe","pvc":"pvc_pipe",
   "pvc_pipe":"pvc_pipe","pared":"wall","wall":"wall",
   "barra de dominadas":"pullup_bar","pullup_bar":"pullup_bar",
-  "banco":"bench","bench":"bench","rodillo":"foam_roller","foam roller":"foam_roller",
+  "banco":"bench","bench":"bench","rack":"rack","jaula":"rack","power rack":"rack",
+  "rodillo":"foam_roller","foam roller":"foam_roller",
   "foam_roller":"foam_roller","marco de puerta":"door_frame","door_frame":"door_frame",
 };
 function equipmentStatus(requirements:string[],available?:string[]) {
+  if(!requirements.length)return "pendiente_confirmacion";
   const needs=requirements.filter(x=>x!=="bodyweight");
   if(!needs.length)return "sin_material";
   if(available==null)return "pendiente_confirmacion";
