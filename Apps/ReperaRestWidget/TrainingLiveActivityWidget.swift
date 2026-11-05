@@ -77,10 +77,16 @@ struct TrainingLiveActivityWidget: Widget {
                             }
                         }
                         if context.state.phase != .completed {
-                            liveActivityControls(
-                                phase: context.state.phase,
-                                isPlanned: context.attributes.isPlanned
-                            )
+                            if context.attributes.sessionID.hasPrefix("watch:") {
+                                Text("Control desde Apple Watch")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                liveActivityControls(
+                                    phase: context.state.phase,
+                                    isPlanned: context.attributes.isPlanned
+                                )
+                            }
                         }
                     }
                 }
@@ -202,10 +208,19 @@ struct TrainingLiveActivityWidget: Widget {
             .background(.black)
 
             if context.state.phase != .completed {
-                liveActivityControls(
-                    phase: context.state.phase,
-                    isPlanned: context.attributes.isPlanned
-                )
+                Group {
+                    if context.attributes.sessionID.hasPrefix("watch:") {
+                        Text("Control desde Apple Watch")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        liveActivityControls(
+                            phase: context.state.phase,
+                            isPlanned: context.attributes.isPlanned
+                        )
+                    }
+                }
                 .padding(.horizontal, 14)
                 .padding(.bottom, hasNavigation ? 14 : 12)
                 .background(.black)
@@ -364,7 +379,10 @@ struct TrainingLiveActivityWidget: Widget {
     }
 
     private func destination(for attributes: TrainingActivityAttributes) -> URL? {
-        URL(string: attributes.isPlanned ? "repera://workout" : "repera://live")
+        // A Watch-owned workout has no phone-side pause/resume controller.
+        URL(string: attributes.sessionID.hasPrefix("watch:")
+            ? "repera://today"
+            : (attributes.isPlanned ? "repera://workout" : "repera://live"))
     }
 
     /// Interactive controls enqueue pause/resume/open in the app process.
