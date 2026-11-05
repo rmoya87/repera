@@ -1798,9 +1798,10 @@ struct HomeView: View {
                     WorkoutRegisterChips.repera(
                         session: session,
                         prCount: prs,
-                        verifiedHealthKcal: session.healthKitWorkoutUUID.flatMap {
-                            health.verifiedWorkoutEnergyKcal[$0]
-                        }
+                        verifiedHealthKcal: session.userEditedDuration ? nil :
+                            session.healthKitWorkoutUUID.flatMap {
+                                health.verifiedWorkoutEnergyKcal[$0]
+                            }
                     )
                 }
                 .frame(height: 24, alignment: .center)
