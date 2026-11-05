@@ -3317,10 +3317,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         }
         // Un cambio de fecha/hora/duración es una corrección humana y nunca
         // debe ser reemplazado por el cronómetro antiguo de Wear OS.
-        val beforeStart = target.optString("startedAt")
-        val beforeEnd = target.optString("finishedAt")
-        val scheduleChanged = (start != null && start.toString() != beforeStart)
-            || (end != null && end.toString() != beforeEnd)
+        val beforeStart = runCatching {
+            java.time.Instant.parse(target.getString("startedAt"))
+        }.getOrNull()
+        val beforeEnd = runCatching {
+            java.time.Instant.parse(target.getString("finishedAt"))
+        }.getOrNull()
+        // Comparar instantes, no strings: un cambio de serialización ISO
+        // no debe borrar kcal/FC al guardar únicamente notas o favoritos.
+        val scheduleChanged = (start != null && start != beforeStart)
+            || (end != null && end != beforeEnd)
         if (scheduleChanged) {
             target.put("userEditedDuration", true)
             // Guardar el testimonio original de los sensores Wear antes de
