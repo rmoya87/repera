@@ -395,8 +395,15 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
                 let hrType = HKObjectType.quantityType(forIdentifier: .heartRate)!
                 let hrUnit = HKUnit.count().unitDivided(by: .minute())
+                // A workout may report measured energy as a total even when its
+                // per-type statistics have not been populated yet on iPhone.
+                // The live builder is also sensor-backed when HealthKit returns
+                // a temporarily nil workout while the Watch is locked.
                 let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                    ?? saved?.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                    ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
+                    ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                 self.finishWith(Result(
                     uuid: saved?.uuid,
                     activeEnergyKcal: (active ?? 0) > 0 ? active : nil,
