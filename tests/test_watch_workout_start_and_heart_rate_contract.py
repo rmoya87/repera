@@ -47,12 +47,16 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         activity = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
         ensure = activity.split("private fun ensureHealthRecording()", 1)[1].split("\n    }", 1)[0]
         self.assertNotIn("health=null", ensure)
+        self.assertIn("state.heart ?: health?.first", activity)
+        self.assertIn("health = null\n        sessionPaused=false", activity)
+        self.assertIn("if (previous != next) {\n            // A new companion workout has no heart-rate sample yet.\n            health = null", activity)
 
     def test_zones_reserve_space_before_first_sensor_reading(self):
         watch = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
         wear = read("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         wear_plan = read("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
         self.assertIn('?? "Esperando pulso"', watch)
+        self.assertIn("accessibilityLabel(accessibilityDescription)", watch)
         self.assertIn('?: "Esperando pulso"', wear)
         self.assertIn("WearHeartRateZoneBar(bpm = health?.first", wear)
         self.assertIn("WearHeartRateZoneBar(bpm = state.health?.first)", wear_plan)

@@ -214,6 +214,13 @@ struct WatchHeartRateZoneBar: View {
         return 5
     }
 
+    private var accessibilityDescription: String {
+        guard let bpm, let zone else {
+            return "Esperando la primera lectura de frecuencia cardíaca"
+        }
+        return "Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5"
+    }
+
     var body: some View {
         HStack(spacing: 7) {
             Text(bpm.map(String.init) ?? "—")
@@ -235,11 +242,7 @@ struct WatchHeartRateZoneBar: View {
             .frame(maxWidth: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            (bpm != nil && zone != nil)
-                ? "Frecuencia cardíaca \(bpm!) pulsaciones, zona \(zone!) de 5"
-                : "Esperando la primera lectura de frecuencia cardíaca"
-        )
+        .accessibilityLabel(accessibilityDescription)
     }
 }
 

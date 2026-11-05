@@ -160,7 +160,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             healthConnection=binder as WearHealthService.Connection
             healthConnection?.observe {state ->runOnUiThread {
                 val current = visibleSession?.sessionId ?: liveActivityJson?.optString("sessionId")
-                health=if(state.sessionId==current) state.heart to state.energy else null
+                // Health Services may briefly detach or publish null while it
+                // reconnects. Keep this workout's last real measurement until
+                // the provider updates it, but never carry it to a new workout.
+                health = when {
+                    current.isNullOrBlank() -> null
+                    state.sessionId == current ->
+                        (state.heart ?: health?.first) to (state.energy ?: health?.second)
+                    else -> health
+                }
                 // Apple startToday + selectBlock pauses HealthKit; decision logic is WearStartPauseIntent (JVM-tested).
                 pauseSensorsIntent?.let {intent ->
                     when(intent.onSensorState(visibleSession?.sessionId,state.sessionId,state.recording,state.paused,sessionPaused)) {
@@ -173,7 +181,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             }}
             if(visibleSession!=null || liveActivityJson?.optString("phase") in setOf("recording","paused")) ensureHealthRecording()
         }
-        override fun onServiceDisconnected(name:android.content.ComponentName) {healthConnection=null;health=null}
+        override fun onServiceDisconnected(name:android.content.ComponentName) {
+            healthConnection = null
+            // A binder disconnect is not a new workout or a new pulse sample.
+            // Session changes and termination reset the cached display.
+        }
     }
 
     private var sensorRevision=0L
@@ -1076,6 +1088,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             return
         }
         if (previous != next) {
+            // A new companion workout has no heart-rate sample yet.
+            health = null
             sessionCache.edit().putString("companionLiveSessionId", next).apply()
             sensorRevision++
             ensureHealthRecording()
@@ -1526,6 +1540,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         hubNotice = null
         sendStatus = null
         sensorRevision++
+        // Different execution ID: do not show the previous session's pulse.
+        health = null
         sessionPaused=false
         pauseSensorsIntent = null
         restJob?.cancel();restClock.clear();restRemaining=0
