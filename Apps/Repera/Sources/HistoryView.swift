@@ -262,9 +262,10 @@ struct HistoryView: View {
                 WorkoutRegisterChips.repera(
                     session: live,
                     prCount: prs,
-                    verifiedHealthKcal: live.healthKitWorkoutUUID.flatMap {
-                        health.verifiedWorkoutEnergyKcal[$0]
-                    }
+                    verifiedHealthKcal: live.userEditedDuration ? nil :
+                        live.healthKitWorkoutUUID.flatMap {
+                            health.verifiedWorkoutEnergyKcal[$0]
+                        }
                 )
             }
             .padding(.leading, -Self.historyRowPad)
