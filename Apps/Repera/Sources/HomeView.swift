@@ -166,7 +166,11 @@ struct HomeView: View {
                 health.verifiedWorkoutDurationMinutes[$0]
             }
             let resolved: Double
-            if let measured, measured > 0,
+            if session.userEditedDuration {
+                // La edición explícita prevalece en Inicio, Actividad y Progreso.
+                // La duración original de sensores permanece en appleDurationSeconds.
+                resolved = logged
+            } else if let measured, measured > 0,
                (session.healthKitWorkoutUUID.map {
                    health.verifiedExternalWorkoutUUIDs.contains($0)
                } == true || abs(measured - logged) <= max(5, logged * 0.25)) {
@@ -1587,6 +1591,9 @@ struct HomeView: View {
             },
             chips: {
                 let blockCount = routine.blocks.count
+                if let planned = routine.plannedDurationMinutes, planned > 0 {
+                    OGRegisterChip(text: "\(planned) min", icon: "timer")
+                }
                 if blockCount > 0 {
                     OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
                 }
