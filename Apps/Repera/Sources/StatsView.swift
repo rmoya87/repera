@@ -599,8 +599,8 @@ struct StatsView: View {
                 value: prCount > 0 ? "\(prCount)" : "—",
                 unit: prCount > 0 ? "PR" : nil,
                 caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption) · \(trainingSessionsToday) hoy"
-                    : "\(trainingSessionsToday) entrenos hoy",
+                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption) · \(strengthTodaySummary)"
+                    : strengthTodaySummary,
                 valuePointSize: 64,
                 chartHeight: 118,
                 chartBesideTitle: true
@@ -730,6 +730,23 @@ struct StatsView: View {
             health.recentExternalActivities, workouts: store.state.workouts
         ).filter { Calendar.current.isDate($0.end, inSameDayAs: today) }.count
         return logged + external
+    }
+
+    /// Las marcas de hoy son PR realmente superados, no el primer registro
+    /// de cada ejercicio ni los mejores pesos históricos sin cambio.
+    private var personalRecordsToday: Int {
+        let counts = store.cachedPersonalRecordCountsBySession()
+        let today = Date()
+        return store.state.workouts.reduce(0) { total, session in
+            guard let ended = session.finishedAt,
+                  Calendar.current.isDate(ended, inSameDayAs: today) else { return total }
+            return total + (counts[session.id] ?? 0)
+        }
+    }
+
+    private var strengthTodaySummary: String {
+        let kilos = Int((strengthDailyVolumeLast7.last ?? 0).rounded())
+        return "hoy: \(trainingSessionsToday) sesiones · \(kilos) kg · \(personalRecordsToday) PR"
     }
 
     private var strengthInsightCopy: String {
