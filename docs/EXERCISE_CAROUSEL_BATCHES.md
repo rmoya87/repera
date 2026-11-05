@@ -47,9 +47,10 @@ compilar ni publicar. Generación de imágenes limitada (~50/día): tandas noctu
 ## Pipeline por ejercicio (repetir en la siguiente tanda)
 
 1. Elegir 2-3 fases visuales; captions = los primeros N pasos de
-   CatalogSpanish.spanishInstructions (el detalle los muestra 1:1 con los
-   frames; iOS y Android exigen nº pasos >= nº frames). Reescribir los pasos
-   1..N si no describen la fase del frame.
+   `mobile_instructions` / `Exercise.instructions` tras sync (en iOS la ficha
+   usa `resolvedInstructions`; el diccionario `CatalogSpanish` solo es fallback).
+   iOS y Android exigen nº pasos >= nº frames. Reescribir los pasos 1..N en
+   Supabase si no describen la fase del frame.
 2. Generar cada frame con tools image edit (smart, 1:1, 1K), referencias
    art_ab_wheel.jpg + hero del ejercicio; prompt maestro de
    docs/EXERCISE_ART_REGEN_PROMPTS.md (atleta gris sin rostro, torso desnudo,

@@ -243,7 +243,7 @@ enum ExerciseArt {
                     numbered.append(step)
                 }
             }
-            let captions = CatalogSpanish.instructions(forName: exercise.name) ?? exercise.instructions
+            let captions = CatalogSpanish.resolvedInstructions(for: exercise)
             let captionCount = captions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
             let resolved: [String]
             if numbered.count >= 2 && captionCount >= numbered.count {
@@ -299,7 +299,8 @@ enum ExerciseArt {
             resolved = []
         }
         // Los N primeros textos son captions de fase del carrusel; pueden seguir pasos de coaching.
-        let captions = CatalogSpanish.instructions(forName: exercise.name) ?? exercise.instructions
+        // Misma fuente que la ficha (Exercise mergeado / Supabase), no el diccionario embebido.
+        let captions = CatalogSpanish.resolvedInstructions(for: exercise)
         let captionCount = captions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.count
         if resolved.count >= 2 && captionCount < resolved.count {
             resolved = uiImage(named: base) == nil ? [] : [base]

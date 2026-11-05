@@ -1183,15 +1183,30 @@ final class WatchSessionHub: NSObject {
         }
     }
 
-    func selectTodayPlan(_ id: UUID) {
-        guard let plan = todayPlans.first(where: { $0.id == id }) else { return }
+    /// Fija el plan elegido en el hub (objeto completo: no buscar solo por id,
+    /// el carrusel puede venir de `todayPlan` cuando `todayPlans` está vacío).
+    func selectTodayPlan(_ plan: WorkoutSession) {
         todayPlan = plan
+        if !todayPlans.contains(where: { $0.id == plan.id }) {
+            todayPlans.insert(plan, at: 0)
+        }
         save()
     }
 
-    func startToday() {
-        guard !hasWorkoutInProgress, !awaitingHealthSave,
-              let plan = todaysWorkout, !plan.exercises.isEmpty else { return }
+    /// Compatibilidad: id de sesión o de routineId del hub.
+    func selectTodayPlan(_ id: UUID) {
+        if let plan = todayPlans.first(where: { $0.id == id })
+            ?? todayPlans.first(where: { $0.routineId == id })
+            ?? (todayPlan?.id == id || todayPlan?.routineId == id ? todayPlan : nil) {
+            selectTodayPlan(plan)
+        }
+    }
+
+    @discardableResult
+    func startToday() -> Bool {
+        guard !hasWorkoutInProgress else { return false }
+        guard !awaitingHealthSave else { return false }
+        guard let plan = todaysWorkout, !plan.exercises.isEmpty else { return false }
         lastHubItemID = WatchHubItem.plan(plan).id
         if let idx = hubCarouselItems.firstIndex(where: { $0.id == lastHubItemID }) {
             hubCarouselIndex = idx
@@ -1233,15 +1248,18 @@ final class WatchSessionHub: NSObject {
         lastClockTick = Date()
         startClock()
         checkpoint(flush: true)
+        return true
     }
 
     /// Graba tiempo y Salud sin obligar a marcar series. Los valores reales se
     /// introducen después en el editor del iPhone, no se infieren del plan.
-    func startPlanRecording() {
-        guard active?.phase == .ready, !isRecordingPlannedWorkout else { return }
+    @discardableResult
+    func startPlanRecording() -> Bool {
+        guard active?.phase == .ready, !isRecordingPlannedWorkout else { return false }
         isRecordingPlannedWorkout = true
         play()
         save()
+        return true
     }
 
     /// One play per block / standalone exercise. A counting session does not reset.

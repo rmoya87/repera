@@ -10,7 +10,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Glance de esfuerzo de la última sesión verificada del periodo. */
-internal data class SessionScoreEffortGlance(
+data class SessionScoreEffortGlance(
     val relativeChangePercent: Int?,
     val coveragePercent: Int?,
     val referenceDays: Int?
@@ -134,7 +134,7 @@ internal object SessionScoreProgress {
             return SessionScoreEffortGlance(relative, coverage, references)
         }
         val gps = gpsEffort(latest.entry, sessions, zone) ?: return SessionScoreEffortGlance(
-            inferredRelativeChange(latest.score.roundToInt(), live = true),
+            inferredRelativeChange(latest.score.roundToInt(), liveSport = true),
             100,
             null
         )

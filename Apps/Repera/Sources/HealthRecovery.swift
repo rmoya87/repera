@@ -827,6 +827,11 @@ struct HealthRecoveryProgressView: View {
             }
             OGCard {
                 Chart {
+                    ProgressChartYOverlay.marks(
+                        values: [0.0, 5.0, 10.0],
+                        domainLow: 0.0,
+                        format: { "\(Int($0))/10" }
+                    )
                     ForEach(0..<scores.count, id: \.self) { index in
                         LineMark(
                             x: .value("Día", index + 1),
@@ -837,12 +842,13 @@ struct HealthRecoveryProgressView: View {
                         .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
                     }
                 }
-                .chartXScale(domain: 0...8)
+                .chartXScale(
+                    domain: 1...max(1, scores.count),
+                    range: .plotDimension(startPadding: 0, endPadding: 0)
+                )
                 .chartYScale(domain: 0.0...10.0)
                 .chartPlotStyle { $0.clipped() }
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
-                }
+                .chartYAxis(.hidden)
                 .frame(height: readinessChartHeight)
                 .allowsHitTesting(false)
             }
@@ -872,6 +878,10 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                     }
                     Chart {
+                        ProgressChartYOverlay.marks(
+                            values: ProgressChartYOverlay.ticks(low: 40, high: 70),
+                            domainLow: 40
+                        )
                         ForEach(0..<hrv.count, id: \.self) { index in
                             LineMark(
                                 x: .value("Día", index + 1),
@@ -881,7 +891,12 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.accent)
                         }
                     }
-                    .chartXScale(domain: 0...8)
+                    .chartXScale(
+                        domain: 1...max(1, hrv.count),
+                        range: .plotDimension(startPadding: 0, endPadding: 0)
+                    )
+                    .chartYScale(domain: 40...70)
+                    .chartYAxis(.hidden)
                     .chartPlotStyle { $0.clipped() }
                     .frame(height: physiologyChartHeight)
                     Divider().opacity(0.25)
@@ -983,7 +998,14 @@ struct HealthRecoveryProgressView: View {
                 }
             }
             if values.count >= 2 {
+                let yLow = values.map(\.value).min() ?? 0
+                let yHigh = max(yLow + 1, values.map(\.value).max() ?? 1)
                 Chart {
+                    ProgressChartYOverlay.marks(
+                        values: ProgressChartYOverlay.ticks(low: yLow, high: yHigh),
+                        domainLow: yLow,
+                        format: { ReperaNumberFormat.decimal($0, maximumFractionDigits: 0) }
+                    )
                     ForEach(values) { sample in
                         LineMark(
                             x: .value("Día", sample.date),
@@ -1013,6 +1035,9 @@ struct HealthRecoveryProgressView: View {
                     }
                 }
                 .chartXSelection(value: $selectedVitalDate)
+                .chartYScale(domain: yLow...yHigh)
+                .chartYAxis(.hidden)
+                .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 0))
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 3)) {
                         AxisGridLine()
@@ -1022,6 +1047,8 @@ struct HealthRecoveryProgressView: View {
                                 .month(.abbreviated)
                                 .locale(SpanishDate.appLocale)
                         )
+                        .foregroundStyle(OG.label2)
+                        .font(.system(size: 10))
                     }
                 }
                 .frame(height: physiologyChartHeight)
@@ -1380,6 +1407,11 @@ struct HealthRecoveryProgressView: View {
             OGCardSectionTitle(title: "Evolución")
             OGCard {
                 Chart {
+                    ProgressChartYOverlay.marks(
+                        values: [0.0, 5.0, 10.0],
+                        domainLow: 0.0,
+                        format: { "\(Int($0))/10" }
+                    )
                     ForEach(recoveryPoints) { point in
                     LineMark(
                         x: .value("Día", point.date),
@@ -1428,9 +1460,7 @@ struct HealthRecoveryProgressView: View {
                 }
                 .chartXSelection(value: $selectedRecoveryDate)
                 .chartYScale(domain: 0.0...10.0)
-                .chartYAxis {
-                    AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
-                }
+                .chartYAxis(.hidden)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                         AxisGridLine()
@@ -1440,8 +1470,11 @@ struct HealthRecoveryProgressView: View {
                                 .month(.abbreviated)
                                 .locale(SpanishDate.appLocale)
                         )
+                        .foregroundStyle(OG.label2)
+                        .font(.system(size: 10))
                     }
                 }
+                .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 0))
                 .chartPlotStyle { $0.clipped() }
                 .frame(height: readinessChartHeight)
                 .accessibilityLabel("Evolución de preparación para entrenar")

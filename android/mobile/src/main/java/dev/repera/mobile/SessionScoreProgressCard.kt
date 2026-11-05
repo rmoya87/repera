@@ -46,7 +46,7 @@ internal fun SessionScoreProgressCard(
     var selected by remember(values, domain) { mutableStateOf<Int?>(null) }
     val accent = MaterialTheme.colorScheme.primary
     val rule = MaterialTheme.colorScheme.onSurfaceVariant
-    val grid = rule.copy(alpha = 0.15f)
+    val grid = rule.copy(alpha = 0.22f)
     fun nearest(f: Float) =
         values.indices.minBy { abs(ProgressPlotAxis.fraction(values[it].day, domain) - f) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -178,17 +178,9 @@ internal fun SessionScoreProgressCard(
                             }
                         }
                     ) {
-                        Column(
-                            Modifier.width(36.dp).height(205.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            listOf("10", "5", "0").forEach {
-                                Text(it, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
                         Canvas(
                             Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
                                 .height(205.dp)
                                 .testTag("session_score_plot")
                                 .pointerInput(values, domain, preview) {
@@ -205,9 +197,19 @@ internal fun SessionScoreProgressCard(
                         ) {
                             fun x(i: Int) = ProgressPlotAxis.fraction(values[i].day, domain) * size.width
                             fun y(value: Double) = size.height - (value / 10 * size.height).toFloat()
+                            val yLabelPaint = progressChartYLabelPaint(rule, 10.dp.toPx())
                             clipRect {
+                                listOf(10 to 0f, 5 to 0.5f).forEach { (label, f) ->
+                                    val gy = f * size.height
+                                    drawLine(grid, Offset(0f, gy), Offset(size.width, gy), 0.5.dp.toPx())
+                                    drawContext.canvas.nativeCanvas.drawText(
+                                        label.toString(),
+                                        4.dp.toPx(),
+                                        (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                                        yLabelPaint
+                                    )
+                                }
                                 listOf(0f, 0.5f, 1f).forEach { f ->
-                                    drawLine(grid, Offset(0f, f * size.height), Offset(size.width, f * size.height), 0.5.dp.toPx())
                                     drawLine(grid, Offset(f * size.width, 0f), Offset(f * size.width, size.height), 0.5.dp.toPx())
                                 }
                                 val positions = values.indices.map {
@@ -254,7 +256,7 @@ internal fun SessionScoreProgressCard(
                         }
                     }
                     Row(
-                        Modifier.fillMaxWidth().padding(start = 36.dp),
+                        Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         val fmt = java.time.format.DateTimeFormatter.ofPattern(
@@ -292,83 +294,81 @@ private fun SevenRecentWorkoutScoreChart(
     if (recent.isEmpty()) return
     var selectedIndex by remember(recent) { mutableIntStateOf(recent.lastIndex) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.width(28.dp).height(180.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf("10", "5", "0").forEach {
-                    Text(it, style = MaterialTheme.typography.labelSmall)
+        Canvas(
+            Modifier.fillMaxWidth().height(180.dp).testTag("recent_workouts_plot")
+                .semantics {
+                    contentDescription = "Últimos ${recent.size} entrenos puntuados de 0 a 10"
+                    customActions = listOf(
+                        CustomAccessibilityAction("Entreno anterior") {
+                            selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
+                        },
+                        CustomAccessibilityAction("Entreno siguiente") {
+                            selectedIndex = (selectedIndex + 1).coerceAtMost(recent.lastIndex); true
+                        }
+                    )
                 }
-            }
-            Canvas(
-                Modifier.weight(1f).height(180.dp).testTag("recent_workouts_plot")
-                    .semantics {
-                        contentDescription = "Últimos ${recent.size} entrenos puntuados de 0 a 10"
-                        customActions = listOf(
-                            CustomAccessibilityAction("Entreno anterior") {
-                                selectedIndex = (selectedIndex - 1).coerceAtLeast(0); true
-                            },
-                            CustomAccessibilityAction("Entreno siguiente") {
-                                selectedIndex = (selectedIndex + 1).coerceAtMost(recent.lastIndex); true
-                            }
-                        )
-                    }
-                    .pointerInput(recent) {
-                        detectTapGestures { offset ->
-                            selectedIndex = if (recent.size == 1) 0
-                            else {
-                                val fraction = (offset.x / size.width.coerceAtLeast(1).toFloat())
-                                    .coerceIn(0f, 1f)
-                                (fraction * (recent.size - 1)).roundToInt()
-                                    .coerceIn(0, recent.lastIndex)
-                            }
+                .pointerInput(recent) {
+                    detectTapGestures { offset ->
+                        selectedIndex = if (recent.size == 1) 0
+                        else {
+                            val fraction = (offset.x / size.width.coerceAtLeast(1).toFloat())
+                                .coerceIn(0f, 1f)
+                            (fraction * (recent.size - 1)).roundToInt()
+                                .coerceIn(0, recent.lastIndex)
                         }
                     }
-            ) {
-                // Primer punto a la izquierda, último a la derecha (ancho completo).
-                fun x(index: Int) =
-                    if (recent.size == 1) size.width / 2f
-                    else size.width * index / (recent.size - 1).toFloat()
-                fun y(score: Int) = size.height - (score / 10f) * size.height
-                listOf(0f, 0.5f, 1f).forEach { fraction ->
-                    val y = size.height * (1 - fraction)
-                    drawLine(rule.copy(alpha = 0.16f), Offset(0f, y),
-                        Offset(size.width, y), 0.6.dp.toPx())
                 }
-                val positions = recent.mapIndexed { index, workout ->
-                    ReadinessCurve.Point(x(index), y(workout.verifiedScore ?: 0))
-                }
-                if (positions.size > 1) {
-                    val path = Path()
-                    path.moveTo(positions.first().x, positions.first().y)
-                    ReadinessCurve.segments(positions).forEach { c ->
-                        path.cubicTo(
-                            c.control1.x, c.control1.y,
-                            c.control2.x, c.control2.y,
-                            c.end.x, c.end.y
-                        )
-                    }
-                    drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-                }
-                positions.forEachIndexed { index, point ->
-                    drawCircle(
-                        if (index == selectedIndex) accent else accent.copy(alpha = 0.85f),
-                        radius = 3.dp.toPx(),
-                        center = Offset(point.x, point.y)
+        ) {
+            // Primer punto a la izquierda, último a la derecha (ancho completo).
+            fun x(index: Int) =
+                if (recent.size == 1) size.width / 2f
+                else size.width * index / (recent.size - 1).toFloat()
+            fun y(score: Int) = size.height - (score / 10f) * size.height
+            val yLabelPaint = progressChartYLabelPaint(rule, 10.dp.toPx())
+            // Omite 0 para no chocar con el eje X.
+            listOf(10 to 1f, 5 to 0.5f).forEach { (label, fraction) ->
+                val gy = size.height * (1 - fraction)
+                drawLine(rule.copy(alpha = 0.16f), Offset(0f, gy),
+                    Offset(size.width, gy), 0.6.dp.toPx())
+                drawContext.canvas.nativeCanvas.drawText(
+                    label.toString(),
+                    4.dp.toPx(),
+                    (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                    yLabelPaint
+                )
+            }
+            val positions = recent.mapIndexed { index, workout ->
+                ReadinessCurve.Point(x(index), y(workout.verifiedScore ?: 0))
+            }
+            if (positions.size > 1) {
+                val path = Path()
+                path.moveTo(positions.first().x, positions.first().y)
+                ReadinessCurve.segments(positions).forEach { c ->
+                    path.cubicTo(
+                        c.control1.x, c.control1.y,
+                        c.control2.x, c.control2.y,
+                        c.end.x, c.end.y
                     )
                 }
-                selectedIndex.takeIf { it in recent.indices }?.let { index ->
-                    drawLine(
-                        rule.copy(alpha = 0.65f),
-                        Offset(x(index), 0f),
-                        Offset(x(index), size.height),
-                        1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(
-                            floatArrayOf(3.dp.toPx(), 4.dp.toPx())
-                        )
+                drawPath(path, accent, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
+            }
+            positions.forEachIndexed { index, point ->
+                drawCircle(
+                    if (index == selectedIndex) accent else accent.copy(alpha = 0.85f),
+                    radius = 3.dp.toPx(),
+                    center = Offset(point.x, point.y)
+                )
+            }
+            selectedIndex.takeIf { it in recent.indices }?.let { index ->
+                drawLine(
+                    rule.copy(alpha = 0.65f),
+                    Offset(x(index), 0f),
+                    Offset(x(index), size.height),
+                    1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(3.dp.toPx(), 4.dp.toPx())
                     )
-                }
+                )
             }
         }
         selectedIndex.takeIf { it in recent.indices }?.let { index ->

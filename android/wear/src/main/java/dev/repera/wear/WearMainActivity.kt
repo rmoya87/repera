@@ -517,6 +517,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                     restoreLastHubItem()
                                 },
                                 onStartTodayPlan = { startTodayPlan() },
+                                onStartPlan = { plan, recordOnly ->
+                                    startTodayPlan(selectedPlan = plan, recordOnly = recordOnly)
+                                },
                                 onStartTodayPlanAt = { startTodayPlan(it) },
                                 onTogglePause = { togglePause() },
                                 onSelectBlock = { session, index -> requestSelectBlock(session, index) },
@@ -1311,7 +1314,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             sessionCache.edit().putInt("hubIndex", idx).apply()
         }
         when (item) {
-            is WearHubCarouselItem.Plan -> startTodayPlan(selectedPlan = item.plan)
+            is WearHubCarouselItem.Plan ->
+                startTodayPlan(selectedPlan = item.plan, recordOnly = false)
             is WearHubCarouselItem.Sport -> requestLiveStart(item.sportId)
         }
     }
@@ -1534,8 +1538,14 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      * activa en el teléfono (startToday de watchOS). Las series se encolan con
      * la sesión adjunta y el teléfono la adopta al reconciliar.
      */
-    private fun startTodayPlan(startIndex: Int = 0, selectedPlan: JSONObject? = null) {
-        if(visibleSession!=null || runCatching {pendingFinish.sessionId()!=null}.getOrDefault(true)) {
+    private fun startTodayPlan(
+        startIndex: Int = 0,
+        selectedPlan: JSONObject? = null,
+        recordOnly: Boolean = false
+    ) {
+        // Fail-open: un error al leer pendingFinish no debe bloquear el inicio.
+        val finishPending = runCatching { pendingFinish.sessionId() != null }.getOrDefault(false)
+        if (visibleSession != null || finishPending) {
             hubNotice = "Hay una sesión activa o pendiente de terminar"
             sendStatus = hubNotice
             return
@@ -1557,12 +1567,18 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             hubNotice = "No hay un bloque válido para iniciar"
             return
         }
+        if (recordOnly) {
+            // Cronómetro + Salud; series reales se apuntan después en el teléfono.
+            plan.put("awaitingResultEntry", true)
+            plan.put("isRecordingPlannedWorkout", true)
+        }
         val summary = runCatching { WatchSessionSummary.fromJson(plan) }.getOrElse {
             hubNotice = "El plan no se puede abrir en el reloj: ${it.localizedMessage}"
             sendStatus = hubNotice
             return
         }
         if(!sessionCache.edit().putString("snapshot",plan.toString()).putBoolean("watchStarted",true)
+                .putBoolean("recordingPlannedWorkout", recordOnly)
                 .remove("todayPlan").remove("todayPlanAt").remove("inputDraft").remove("restState").commit()) {
             hubNotice="No se pudo guardar el inicio en el reloj"
             sendStatus=hubNotice

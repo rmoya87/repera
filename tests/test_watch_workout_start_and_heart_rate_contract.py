@@ -13,12 +13,14 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
         self.assertIn("onPlayPlan: {\n                            startSelectedPlan(recordOnly: false)", view)
         self.assertIn("onRecordPlan: {\n                            startSelectedPlan(recordOnly: true)", view)
-        # watchOS 7+ deprecó contextMenu: el plan elige modo con diálogo visible.
+        # watchOS: no contextMenu ni confirmationDialog (Liquid Glass traga toques).
+        overlay = read("Apps/ReperaWatch/Sources/WatchPlanModeOverlay.swift")
         self.assertNotIn(".contextMenu", home)
-        self.assertIn(".confirmationDialog(", home)
-        self.assertIn('Button("Comenzar en vivo")', home)
-        self.assertIn('Button("Grabar entreno")', home)
-        self.assertIn("hub.startToday()\n        guard hub.active?.phase == .ready", view)
+        self.assertNotIn(".confirmationDialog(", home)
+        self.assertIn("WatchPlanModeOverlay", home)
+        self.assertIn("Entreno guiado", overlay)
+        self.assertIn("Entreno libre", overlay)
+        self.assertIn("guard hub.startToday(), hub.active?.phase == .ready", view)
 
     def test_apple_watch_last_value_not_ttl_hidden(self):
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-05 (hub Progreso: nota 0–10, zonas FC por muestras).
+Última actualización: 2026-11-05 (ficha ejercicios: copy prioriza Supabase; hub Progreso nota 0–10).
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -352,7 +352,7 @@ Consola Business (`web/console`): `trainer-agenda.js` + `management-360.js` / `c
 - `ExerciseArt.imageName(forExerciseName:muscleGroup:)` solo devuelve un hero cuando hay asignación exacta en `nameMap`: nunca emplea una foto ajena como fallback por músculo.
 - `imageNames(for:)` prioriza pasos propios `_1…_8`, después `movementFrames` verificados y por último un hero. La lista de candidaturas no habilita por sí misma un fallback.
 - El conjunto `quarantinedSequences` bloquea carruseles con fallos comprobados visualmente: la ficha conserva el hero y el texto técnico mientras se regenera el material, aunque el hero también requiere QA independiente.
-- Los holds estáticos se fuerzan a un único hero. Los N primeros textos de `CatalogSpanish.instructions` son captions de fase; si hay menos de N, se retira el carrusel y queda solo el hero. Los pasos siguientes son coaching («Cómo hacerlo») y no cuentan para ese chequeo.
+- Los holds estáticos se fuerzan a un único hero. Los N primeros textos de `CatalogSpanish.resolvedInstructions(for:)` (campos del `Exercise` mergeado / Supabase; fallback al diccionario embebido) son captions de fase; si hay menos de N, se retira el carrusel y queda solo el hero. Los pasos siguientes son coaching («Cómo hacerlo») y no cuentan para ese chequeo.
 - `scripts/export_generated_art.py` escribe full JPEG 1024×1024 y thumb JPEG 192×192 bajo `Apps/Repera/Resources/ExerciseArt/`; no hace falta registrar cada recurso por separado en `project.yml`.
 - `scripts/audit_exercise_art.py` con Pillow valida JPEG, medidas, pares full/thumb, referencia desde `nameMap` y N captions. `docs/EXERCISE_ART_AUDIT.csv` recopila por stem los defectos confirmados y lo que continúa pendiente de inspección visual.
 

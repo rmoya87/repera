@@ -311,62 +311,17 @@ final class ReperaStore: NSObject {
     }
 
     /// Enrich + append missing seed rows off the MainActor (string compares over hundreds of exercises).
+    /// No pisa copy/arte remotos: ver `CatalogSeedHydration`.
     nonisolated private static func mergeCatalogOffMain(
         current: [Exercise],
         seed: [Exercise]
     ) -> (exercises: [Exercise], changed: Bool) {
-        let seedByName = Dictionary(uniqueKeysWithValues: seed.map { ($0.name, $0) })
-        var exercises = current
-        var changed = false
-        for i in exercises.indices {
-            guard !exercises[i].isCustom,
-                  let fresh = seedByName[SportExerciseNames.canonicalName(exercises[i].name)]
-            else { continue }
-            let staleName = exercises[i].name != fresh.name
-            let staleMeta = exercises[i].instructions.isEmpty
-                || exercises[i].catalogId == nil
-                || exercises[i].detailDescription != fresh.detailDescription
-                || exercises[i].instructions != fresh.instructions
-            let staleGroup = exercises[i].muscleGroup != fresh.muscleGroup
-                || exercises[i].equipment != fresh.equipment
-                || exercises[i].sportTag != fresh.sportTag
-            guard staleName || staleMeta || staleGroup else { continue }
-            let fav = exercises[i].isFavorite
-            let id = exercises[i].id
-            exercises[i] = Exercise(
-                id: id,
-                name: fresh.name,
-                muscleGroup: fresh.muscleGroup,
-                equipment: fresh.equipment,
-                isCustom: false,
-                catalogId: fresh.catalogId,
-                targetMuscle: fresh.targetMuscle,
-                secondaryMuscles: fresh.secondaryMuscles,
-                bodyPart: fresh.bodyPart,
-                detailDescription: fresh.detailDescription,
-                instructions: fresh.instructions,
-                // La hidratación del catálogo empaquetado no puede borrar los
-                // alias editoriales recibidos de Supabase.
-                searchAliases: exercises[i].searchAliases,
-                primaryRegions: fresh.primaryRegions,
-                secondaryRegions: fresh.secondaryRegions,
-                isFavorite: fav,
-                sportTag: fresh.sportTag
-            )
-            changed = true
-        }
         // Los movimientos provisionales creados al escanear ("BTT", "T2B",
         // "Burpee to target"...) NO son fichas oficiales: nunca deben impedir
         // que entren las entradas reales del seed tras actualizar TestFlight.
         // Antes los ejercicios custom ocultaban el alta oficial por nombre.
-        let existing = Set(exercises.filter { !$0.isCustom }
-            .map { SportExerciseNames.canonicalName($0.name) })
-        let missing = seed.filter { !existing.contains($0.name) }
-        if !missing.isEmpty {
-            exercises.append(contentsOf: missing)
-            changed = true
-        }
-        return (exercises, changed)
+        let result = CatalogSeedHydration.merge(current: current, seed: seed)
+        return (result.exercises, result.changed)
     }
 
     /// Enrich + missing seed in one pass (iCloud adopt path).

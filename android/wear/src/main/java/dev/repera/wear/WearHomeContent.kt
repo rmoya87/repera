@@ -1,5 +1,6 @@
 package dev.repera.wear
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.focusable
@@ -179,6 +180,8 @@ internal class WearHomeCallbacks(
     val onDismissFinished: (FinishedSummary) -> Unit = {},
     val onLiveCommand: (String) -> Unit = {},
     val onStartTodayPlan: () -> Unit = {},
+    /** Hub plan: recordOnly = Entreno libre. */
+    val onStartPlan: (JSONObject, Boolean) -> Unit = { _, _ -> },
     val onStartTodayPlanAt: (Int) -> Unit = {},
     val onTogglePause: () -> Unit = {},
     val onPlayReady: () -> Unit = {},
@@ -282,6 +285,7 @@ internal fun WearHomeContent(
                 syncProblem = state.syncProblem,
                 onHubIndexChange = callbacks.onHubIndexChange,
                 onHubPlay = callbacks.onHubPlay,
+                onStartPlan = callbacks.onStartPlan,
                 onOpenTimer = callbacks.onOpenTimer,
                 onToggleAudioMuted = callbacks.onToggleHubAudioMuted,
                 onSyncRequest = callbacks.onSyncRequest,
@@ -552,6 +556,10 @@ internal fun WearHubHome(
     syncProblem: Boolean,
     onHubIndexChange: (Int) -> Unit,
     onHubPlay: (WearHubCarouselItem) -> Unit,
+    /** Plan: true = Entreno libre (cronómetro/Salud; series en el teléfono). */
+    onStartPlan: (JSONObject, recordOnly: Boolean) -> Unit = { item, _ ->
+        onHubPlay(WearHubCarouselItem.Plan(item))
+    },
     onOpenTimer: () -> Unit,
     onToggleAudioMuted: () -> Unit,
     onSyncRequest: () -> Unit,
@@ -564,6 +572,7 @@ internal fun WearHubHome(
     val indexLatest = rememberUpdatedState(index)
     val focus = remember { FocusRequester() }
     var swipeAcc by remember { mutableFloatStateOf(0f) }
+    var pendingPlan by remember { mutableStateOf<JSONObject?>(null) }
     val cornerBtn = IconButtonDefaults.SmallButtonSize
     val cornerIcon = IconButtonDefaults.iconSizeFor(cornerBtn)
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -592,13 +601,15 @@ internal fun WearHubHome(
                 .fillMaxSize()
                 .padding(start = 22.dp, end = 22.dp, top = 28.dp, bottom = 44.dp)
                 .clickable(
+                    enabled = pendingPlan == null,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClickLabel = startLabel
                 ) {
-                    when {
-                        current != null -> onHubPlay(current)
-                        syncProblem -> onSyncRequest()
+                    when (val item = current) {
+                        is WearHubCarouselItem.Plan -> pendingPlan = item.plan
+                        is WearHubCarouselItem.Sport -> onHubPlay(item)
+                        null -> if (syncProblem) onSyncRequest()
                     }
                 }
                 .pointerInput(items.size) {
@@ -702,6 +713,79 @@ internal fun WearHubHome(
                 contentDescription = stringResource(R.string.wear_cd_timer),
                 modifier = Modifier.size(cornerIcon)
             )
+        }
+        pendingPlan?.let { plan ->
+            WearPlanModeOverlay(
+                planTitle = plan.optString("title").ifBlank { "Entreno" },
+                onLive = {
+                    pendingPlan = null
+                    onStartPlan(plan, false)
+                },
+                onRecord = {
+                    pendingPlan = null
+                    onStartPlan(plan, true)
+                },
+                onCancel = { pendingPlan = null }
+            )
+        }
+    }
+}
+
+/** Paridad WatchPlanModeOverlay: fondo opaco; toques fiables en Wear. */
+@Composable
+internal fun WearPlanModeOverlay(
+    planTitle: String,
+    onLive: () -> Unit,
+    onRecord: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(30f)
+            .background(Color.Black)
+            .semantics { contentDescription = "Iniciar plan" },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Iniciar plan",
+                style = MaterialTheme.typography.titleSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+            Text(
+                planTitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = WearOg.label2,
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+            Button(
+                onClick = onLive,
+                modifier = Modifier.fillMaxWidth().height(44.dp)
+            ) {
+                WearButtonLabel("Entreno guiado")
+            }
+            Button(
+                onClick = onRecord,
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WearOg.card,
+                    contentColor = Color.White
+                )
+            ) {
+                WearButtonLabel("Entreno libre", color = Color.White)
+            }
+            TextButton(onClick = onCancel) {
+                Text("Cancelar", color = WearOg.label2)
+            }
         }
     }
 }

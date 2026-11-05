@@ -2,6 +2,39 @@ import Charts
 import ReperaDomain
 import SwiftUI
 
+/// Guías Y dibujadas encima del plot (sin reservar columna). Omite el valor
+/// inferior del dominio para no chocar con el eje X.
+enum ProgressChartYOverlay {
+    static func ticks(low: Double, high: Double, count: Int = 3) -> [Double] {
+        guard count >= 2, high > low else { return high > low ? [high] : [] }
+        return (0..<count).map { i in
+            low + (high - low) * Double(i) / Double(count - 1)
+        }
+    }
+
+    @ChartContentBuilder
+    static func marks(
+        values: [Double],
+        domainLow: Double,
+        format: @escaping (Double) -> String = { "\(Int($0.rounded()))" },
+        gridColor: Color = OG.surface3,
+        // label2 en noche: los números del eje deben leerse encima del plot.
+        labelColor: Color = OG.label2
+    ) -> some ChartContent {
+        ForEach(values.filter { $0 > domainLow + 0.01 }, id: \.self) { value in
+            RuleMark(y: .value("Guía Y", value))
+                .foregroundStyle(gridColor.opacity(0.9))
+                .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
+                .annotation(position: .overlay, alignment: .leading) {
+                    Text(format(value))
+                        .font(.system(size: 10).monospacedDigit())
+                        .foregroundStyle(labelColor)
+                        .padding(.leading, 4)
+                }
+        }
+    }
+}
+
 /// Mantiene las dimensiones y el eje de una gráfica sin simular observaciones.
 struct ProgressEmptyChart: View {
     var message: String
@@ -11,21 +44,18 @@ struct ProgressEmptyChart: View {
     var body: some View {
         ZStack {
             Chart {
+                ProgressChartYOverlay.marks(
+                    values: ProgressChartYOverlay.ticks(
+                        low: yRange.lowerBound, high: yRange.upperBound
+                    ),
+                    domainLow: yRange.lowerBound
+                )
                 RuleMark(y: .value("Base", yRange.lowerBound))
                     .foregroundStyle(Color.clear)
             }
             .chartYScale(domain: yRange)
             .chartXAxis(.hidden)
-            .chartYAxis {
-                AxisMarks(
-                    position: .leading,
-                    values: [yRange.lowerBound, (yRange.lowerBound + yRange.upperBound) / 2, yRange.upperBound]
-                ) { _ in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.6, dash: [3, 4]))
-                        .foregroundStyle(OG.surface3)
-                    AxisValueLabel()
-                }
-            }
+            .chartYAxis(.hidden)
             .frame(height: height)
             Text(message)
                 .font(.subheadline.weight(.medium))
@@ -281,6 +311,12 @@ struct ProgressCardioChartCard: View {
                     if !points.isEmpty {
                         ZStack(alignment: .top) {
                             Chart {
+                                ProgressChartYOverlay.marks(
+                                    values: ProgressChartYOverlay.ticks(
+                                        low: yDomain.lowerBound, high: yDomain.upperBound
+                                    ),
+                                    domainLow: yDomain.lowerBound
+                                )
                                 ForEach(points) { point in
                                     LineMark(
                                         x: .value("Día", point.date),
@@ -339,7 +375,10 @@ struct ProgressCardioChartCard: View {
                                 "Media": Self.avgTint,
                                 "Máx": Self.maxTint
                             ])
-                            .chartXScale(domain: xDomain)
+                            .chartXScale(
+                                domain: xDomain,
+                                range: .plotDimension(startPadding: 0, endPadding: 0)
+                            )
                             .chartXSelection(value: $selectedDate)
                             .chartYScale(domain: yDomain)
                             .chartPlotStyle { $0.clipped() }
@@ -351,23 +390,11 @@ struct ProgressCardioChartCard: View {
                                         format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
                                         collisionResolution: .greedy
                                     )
-                                    .foregroundStyle(OG.label3)
+                                    .foregroundStyle(OG.label2)
                                     .font(.system(size: 10))
                                 }
                             }
-                            .chartYAxis {
-                                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                        .foregroundStyle(OG.surface3)
-                                    AxisValueLabel {
-                                        if let v = value.as(Double.self) {
-                                            Text("\(Int(v.rounded()))")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(OG.label3)
-                                        }
-                                    }
-                                }
-                            }
+                            .chartYAxis(.hidden)
                             .chartLegend(.hidden)
                             .frame(height: 190)
                             .frame(maxWidth: .infinity)
@@ -419,13 +446,13 @@ struct ProgressCardioChartCard: View {
         VStack(spacing: 4) {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
+                .foregroundStyle(OG.label2)
             Text("\(Int(value.rounded()))")
                 .font(.system(size: 18, weight: .semibold).monospacedDigit())
                 .foregroundStyle(tint)
             Text("lpm")
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(OG.label3)
+                .foregroundStyle(OG.label2)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
@@ -511,6 +538,10 @@ struct ProgressCaloriesChartCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if hasData {
                         Chart {
+                            ProgressChartYOverlay.marks(
+                                values: ProgressChartYOverlay.ticks(low: 0, high: yMax),
+                                domainLow: 0
+                            )
                             ForEach(points) { point in
                                 if !prefersSparseMarks {
                                     AreaMark(
@@ -554,7 +585,10 @@ struct ProgressCaloriesChartCard: View {
                                     }
                             }
                         }
-                        .chartXScale(domain: xDomain)
+                        .chartXScale(
+                            domain: xDomain,
+                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                        )
                         .chartXSelection(value: $selectedDate)
                         .chartYScale(domain: 0...yMax)
                         .chartPlotStyle { $0.clipped() }
@@ -566,23 +600,11 @@ struct ProgressCaloriesChartCard: View {
                                     format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
                                     collisionResolution: .greedy
                                 )
-                                .foregroundStyle(OG.label3)
+                                .foregroundStyle(OG.label2)
                                 .font(.system(size: 10))
                             }
                         }
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(OG.surface3)
-                                AxisValueLabel {
-                                    if let v = value.as(Double.self) {
-                                        Text("\(Int(v.rounded()))")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(OG.label3)
-                                    }
-                                }
-                            }
-                        }
+                        .chartYAxis(.hidden)
                         .chartLegend(.hidden)
                         .frame(height: 210)
                         .frame(maxWidth: .infinity)
@@ -619,7 +641,7 @@ struct ProgressCaloriesChartCard: View {
         VStack(alignment: .center, spacing: 2) {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
+                .foregroundStyle(OG.label2)
             Text(value)
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(OG.label)
@@ -774,6 +796,13 @@ struct ProgressWeightChartCard: View {
                         )
                     } else {
                         Chart {
+                            ProgressChartYOverlay.marks(
+                                values: ProgressChartYOverlay.ticks(
+                                    low: yDomain.lowerBound, high: yDomain.upperBound, count: 4
+                                ),
+                                domainLow: yDomain.lowerBound,
+                                format: { ReperaNumberFormat.decimal($0) }
+                            )
                             if let goal = goalKg {
                                 RuleMark(y: .value("Objetivo", goal))
                                     .foregroundStyle(OG.yellow.opacity(0.85))
@@ -814,7 +843,10 @@ struct ProgressWeightChartCard: View {
                                     }
                             }
                         }
-                        .chartXScale(domain: xDomain)
+                        .chartXScale(
+                            domain: xDomain,
+                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                        )
                         .chartXSelection(value: $selectedDate)
                         .chartYScale(domain: yDomain)
                         .chartPlotStyle { $0.clipped() }
@@ -832,23 +864,11 @@ struct ProgressWeightChartCard: View {
                                     format: ProgressChartAxis.labelFormat(range: range, granularity: granularity),
                                     collisionResolution: .greedy
                                 )
-                                .foregroundStyle(OG.label3)
+                                .foregroundStyle(OG.label2)
                                 .font(.system(size: 10))
                             }
                         }
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(OG.surface3)
-                                AxisValueLabel {
-                                    if let v = value.as(Double.self) {
-                                        Text(ReperaNumberFormat.decimal(v))
-                                            .font(.system(size: 10).monospacedDigit())
-                                            .foregroundStyle(OG.label3)
-                                    }
-                                }
-                            }
-                        }
+                        .chartYAxis(.hidden)
                         .frame(height: 210)
 
                     }
@@ -885,7 +905,7 @@ struct ProgressWeightChartCard: View {
         VStack(alignment: .center, spacing: 2) {
             Text(label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(OG.label3)
+                .foregroundStyle(OG.label2)
             Text(value)
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(valueColor)
@@ -939,12 +959,12 @@ enum ProgressChartAxis {
             case .days360: return 360
             }
         }()
-        // Pocos puntos: dominio acotado a datos + padding → gráfica a ancho completo.
+        // Pocos puntos: dominio = primer…último día (línea a borde a borde).
         if points.count < expectedDays, let first = points.min(), let last = points.max() {
             if first == last {
                 return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
             }
-            return first.addingTimeInterval(-halfDay)...last.addingTimeInterval(halfDay)
+            return first...last
         }
         if start == end || points.count <= 1 {
             return start.addingTimeInterval(-halfDay)...end.addingTimeInterval(halfDay)

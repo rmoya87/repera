@@ -90,13 +90,13 @@ final class ExerciseArtCaptionTests: XCTestCase {
             }
         }
     }
-    /// La compuerta del carrusel consulta `CatalogSpanish.instructions(forName:)`
-    /// con el nombre SEMBRADO (CrossFit/Halterofilia siembran el canonico ingles
-    /// via `SportExerciseNames.displayName`; Gimnasia conserva el nombre tal cual).
-    /// Este test parte de las filas reales del catalogo para que ningun carrusel
-    /// dependa de una clave que la UI no puede alcanzar (p. ej. probar
-    /// "Snatch mancuerna" cuando la ficha recibe "Dumbbell Snatch" y confia en
-    /// el puente `SportExerciseNames.spanishAlias`).
+    /// La UI resuelve captions con `CatalogSpanish.resolvedInstructions(for:)`
+    /// (campos del Exercise; fallback diccionario). Este test comprueba que el
+    /// seed sigue pudiendo resolver captions por nombre SEMBRADO
+    /// (CrossFit/Halterofilia via `SportExerciseNames.displayName`; Gimnasia
+    /// conserva el nombre tal cual), para que ningun carrusel dependa de una
+    /// clave que la ficha no alcance (p. ej. "Snatch mancuerna" vs
+    /// "Dumbbell Snatch" + `spanishAlias`).
     func testCarouselCaptionsResolveFromSeededExerciseNames() {
         let expected: [(catalog: String, sport: String, frames: Int)] = [
             ("Snatch mancuerna", "CrossFit", 3),

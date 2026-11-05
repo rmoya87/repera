@@ -32,9 +32,9 @@ internal object ProgressPlotAxis {
    ProgressTimeRange.TODAY -> 1
    ProgressTimeRange.WEEK -> 7
    ProgressTimeRange.MONTH -> 28
-   ProgressTimeRange.DAYS90 -> 90
-   ProgressTimeRange.DAYS180 -> 180
-   ProgressTimeRange.DAYS360 -> 360
+   ProgressTimeRange.DAYS_90 -> 90
+   ProgressTimeRange.DAYS_180 -> 180
+   ProgressTimeRange.DAYS_360 -> 360
   }
   if (days.size < expectedDays) {
    val start=days.minOrNull() ?: today
@@ -74,7 +74,8 @@ internal object ProgressPlotAxis {
  var selected by remember(points,domain) {mutableStateOf<Int?>(null)}
  val orange=Color(0xFFFF9F0A)
  val rule=MaterialTheme.colorScheme.onSurfaceVariant
- val grid=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.15f)
+ val axisInk=MaterialTheme.colorScheme.onSurfaceVariant
+ val grid=MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.22f)
  fun nearest(f:Float)=points.indices.minBy {abs(ProgressPlotAxis.fraction(points[it].day,domain)-f)}
  Column(Modifier.fillMaxWidth().semantics {
   contentDescription=if(preview) "Calorías de ejemplo, datos ficticios" else "Calorías activas registradas"
@@ -86,28 +87,29 @@ internal object ProgressPlotAxis {
    EmptyHealthChart("Sin kcal de Salud en ${charts.range.title.lowercase()}.",0.0,600.0,210.dp)
   } else {
    selected?.let {Text(points[it].day.format(reperaDayFormatter)+": "+Math.round(points[it].value)+" kcal",style=MaterialTheme.typography.labelSmall)}
-   Row(Modifier.fillMaxWidth()) {
-    Column(Modifier.width(36.dp).height(210.dp),verticalArrangement=Arrangement.SpaceBetween) {
-     Text(Math.round(maximum).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
-     Text(Math.round(maximum/2).toString(),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
-     Text("0",style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp))
-    }
-    Canvas(Modifier.weight(1f).height(210.dp).testTag("calories_observed_plot")
-     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
-     .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
-     fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
-     fun y(value:Double)=size.height-(value/maximum*size.height).toFloat()
-     clipRect {
-      listOf(0f,0.5f,1f).forEach {f ->drawLine(grid,Offset(0f,f*size.height),Offset(size.width,f*size.height),0.5.dp.toPx())}
-      ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
-      val positions=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
-      val path=Path();path.moveTo(positions.first().x,positions.first().y)
-      ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
-      val area=Path().apply {addPath(path);lineTo(positions.last().x,size.height);lineTo(positions.first().x,size.height);close()}
-      drawPath(area,Brush.verticalGradient(listOf(orange.copy(alpha=0.32f),orange.copy(alpha=0.02f))))
-      drawPath(path,orange,style=Stroke(2.25.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
-      selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
+   Canvas(Modifier.fillMaxWidth().height(210.dp).testTag("calories_observed_plot")
+    .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
+    .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
+    fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width
+    fun y(value:Double)=size.height-(value/maximum*size.height).toFloat()
+    val yLabelPaint=progressChartYLabelPaint(axisInk,10.sp.toPx())
+    clipRect {
+     // Omite 0 (mínimo) para no chocar con el eje X.
+     listOf(maximum,maximum/2).forEach {value ->
+      val gy=y(value)
+      drawLine(grid,Offset(0f,gy),Offset(size.width,gy),0.5.dp.toPx())
+      drawContext.canvas.nativeCanvas.drawText(
+       Math.round(value).toString(),4.dp.toPx(),(gy-4.dp.toPx()).coerceAtLeast(12.dp.toPx()),yLabelPaint
+      )
      }
+     ticks.forEach {day ->val x=ProgressPlotAxis.fraction(day,domain)*size.width;drawLine(grid,Offset(x,0f),Offset(x,size.height),0.5.dp.toPx())}
+     val positions=points.indices.map {ReadinessCurve.Point(x(it),y(points[it].value))}
+     val path=Path();path.moveTo(positions.first().x,positions.first().y)
+     ReadinessCurve.segments(positions).forEach {c ->path.cubicTo(c.control1.x,c.control1.y,c.control2.x,c.control2.y,c.end.x,c.end.y)}
+     val area=Path().apply {addPath(path);lineTo(positions.last().x,size.height);lineTo(positions.first().x,size.height);close()}
+     drawPath(area,Brush.verticalGradient(listOf(orange.copy(alpha=0.32f),orange.copy(alpha=0.02f))))
+     drawPath(path,orange,style=Stroke(2.25.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
+     selected?.let {i ->drawLine(rule,Offset(x(i),0f),Offset(x(i),size.height),1.dp.toPx(),pathEffect=PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))}
     }
    }
    ProgressPlotDateLabels(ticks,domain,charts)
@@ -122,8 +124,10 @@ internal object ProgressPlotAxis {
    "Variación" to CalorieAverageStats.changeLabel(CalorieAverageStats.change(charts.caloriesDailyAverage,charts.previousCaloriesDailyAverage)))
   labels.forEach {(title,value) ->Surface(Modifier.weight(1f),shape=androidx.compose.foundation.shape.RoundedCornerShape(10.dp),color=MaterialTheme.colorScheme.surfaceVariant) {
    Column(Modifier.fillMaxWidth().padding(horizontal=6.dp,vertical=10.dp),horizontalAlignment=androidx.compose.ui.Alignment.CenterHorizontally) {
-    Text(title,style=MaterialTheme.typography.labelSmall,maxLines=1)
-    Text(value,style=MaterialTheme.typography.labelMedium,maxLines=1)
+    Text(title,style=MaterialTheme.typography.labelSmall,maxLines=1,
+     color=MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(value,style=MaterialTheme.typography.labelMedium,maxLines=1,
+     color=MaterialTheme.colorScheme.onSurface)
    }
   }}
  }
@@ -147,7 +151,8 @@ internal fun progressPlotDatePattern(charts:ProgressPreparedCharts):String = if(
    val measurer=androidx.compose.ui.text.rememberTextMeasurer()
    val density=androidx.compose.ui.platform.LocalDensity.current
    val style=MaterialTheme.typography.labelSmall.copy(fontSize=androidx.compose.ui.unit.TextUnit(10f,androidx.compose.ui.unit.TextUnitType.Sp))
-   androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(start=44.dp).height(22.dp)) {
+   val dateColor=MaterialTheme.colorScheme.onSurfaceVariant
+   androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(22.dp)) {
     val fmt=java.time.format.DateTimeFormatter.ofPattern(progressPlotDatePattern(charts),java.util.Locale("es","ES"))
     val candidates=ticks.map {day ->
      val text=day.format(fmt)
@@ -155,7 +160,7 @@ internal fun progressPlotDatePattern(charts:ProgressPreparedCharts):String = if(
      Triple(text,ProgressPlotAxis.fraction(day,domain)*maxWidth.value,width)
     }
     greedyPlotDateLabels(candidates,maxWidth.value).forEach {label ->
-     Text(label.text,Modifier.offset(x=label.left.dp).width(label.width.dp),style=style,maxLines=1,softWrap=false)
+     Text(label.text,Modifier.offset(x=label.left.dp).width(label.width.dp),style=style,color=dateColor,maxLines=1,softWrap=false)
     }
    }
 }

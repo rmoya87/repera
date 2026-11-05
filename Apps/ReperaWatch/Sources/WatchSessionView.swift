@@ -174,13 +174,17 @@ struct WatchSessionView: View {
             startErrorMessage = "Hay otro entrenamiento activo. Finalízalo antes de iniciar uno nuevo."
             return
         }
-        hub.startToday()
-        guard hub.active?.phase == .ready else {
-            startErrorMessage = "El reloj no pudo abrir el plan. Comprueba la sincronización o una sesión de Salud pendiente."
+        guard hub.startToday(), hub.active?.phase == .ready else {
+            startErrorMessage = hub.todaysWorkout == nil
+                ? "No hay plan de hoy sincronizado. Ábrelo en el iPhone y vuelve a intentar."
+                : "El reloj no pudo abrir el plan. Si acabas de terminar otro entreno, espera un momento a que Salud lo guarde."
             return
         }
         if recordOnly {
-            hub.startPlanRecording()
+            guard hub.startPlanRecording() else {
+                startErrorMessage = "No se pudo iniciar la grabación del plan."
+                return
+            }
         } else {
             hub.play()
         }

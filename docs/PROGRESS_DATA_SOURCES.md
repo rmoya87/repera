@@ -1,6 +1,6 @@
 # Progreso y preparación: fuentes verificadas
 
-Última actualización: 2026-11-05 (nota 0–10 full-width; carga log; FC selección ×3).
+Última actualización: 2026-11-05 (eje Y overlay full-width; contraste noche label3→162 + ejes label2).
 
 ## Organización del hub (chips, 04/11/2026)
 
@@ -50,7 +50,8 @@ Solo se muestran valoraciones verificadas `scoreBasis == personalHistory`, calcu
 - En **Progreso → Entreno**, la tarjeta presenta primero **Actividad** (última terminada entre Repera y Salud/Health Connect: título, duración y FC/kcal reales cuando están disponibles), aunque carezca de nota; después la columna de esfuerzo de la **última sesión con nota verificada**: **Rendimiento** (`±N %` vs mediana personal) y **Referencias** (días previos). El anillo es la **media** de notas del periodo; la barra de **confianza** es del último entreno evaluable. La gráfica inferior muestra hasta **7 sesiones con nota** en eje **0–10** (no duración en minutos). Sin textos explicativos bajo esas métricas.
 - **Zonas cardíacas (iOS):** si Apple no expone `zoneGroup` del HKWorkout, se estiman tiempos por zona a partir de las **muestras reales de FC** del intervalo del entreno (umbrales 60/70/80/90 % FCmáx, misma regla que Comenzar). Sin muestras de pulso no se inventan zonas.
 - **Recuperación → Evolución:** solo días con nota de preparación; la línea une esos puntos de forma continua (sin cortar el trazo por huecos de calendario).
-- **Sueño:** eje Y con horas (`N h`) y eje X con fechas; al seleccionar una noche se muestra `horas · fecha`.
+- **Sueño:** eje Y con horas (`N h`) superpuestas sobre el plot (sin columna reservada) y eje X con fechas; al seleccionar una noche se muestra `horas · fecha`.
+- **Eje Y overlay (iOS/Android):** Evolución, VFC, FC, calorías, peso y Último entreno ocultan el eje Y nativo y dibujan guías/valores encima del plot (`ProgressChartYOverlay` / canvas), con la curva a ancho completo (`plotDimension` 0/0 o Canvas `fillMaxWidth` sin inset 36 dp). Se omite la etiqueta del mínimo del dominio para no chocar con el eje X.
 - **FC / kcal / peso:** la selección de FC superpone mín · media · máx sobre la gráfica (sin bajar el plot ni repetir «Media» junto al título). kcal/peso muestran el valor del día. Zonas estimadas por muestras no muestran el pie «Estimado desde…».
 - La etiqueta histórica «En construcción» no es un nivel de confianza: si la sesión ya tiene nota verificada, se visualiza **Media** (dos a cuatro referencias exactas, sin umbral de Alta); **Alta** exige al menos cinco referencias exactas y cobertura ≥80%. Los valores guardados se recalculan con la revisión de fórmula; ambas interfaces tratan el legado de forma coherente. En el detalle post-entreno, los KPI **Evolución personal, Rendimiento y Cobertura** aparecen a la izquierda del anillo global. **Rendimiento** es un nombre transversal para resultados de fuerza, WOD o actividad deportiva comparable, no una nota de WOD impuesta a otras sesiones. La confianza se presenta con cuatro niveles (*Aprendiendo, Baja, Media, Alta*), destacando el nivel real. No hay control «Ver cómo se calcula» ni nota ilustrativa. Un temporizador sin rendimiento comparable **no recibe puntuación inventada**.
 - La gráfica agrupa por fecha los entrenamientos puntuados (media redondeada si hay varios) y separa tramos sin valores. No interpola días sin nota ni los rellena con 0.

@@ -212,6 +212,20 @@ await WorkoutScheduler.shared.schedule(plan, at: when)
 - Auth del scheduler **no Sendable**: puente `nonisolated` → `rawValue` / outcome Sendable.
 - Intervalos: `CustomWorkout` / `IntervalBlock` solo con `supportsActivity` / `supportsGoal` / `supportsAlert`; nunca inventar GPS.
 
+#### Apple Watch — confirmationDialog / contextMenu (hub plan)
+
+```swift
+// ❌ BAD — watchOS 26 Liquid Glass: toques del diálogo no llegan (plan no arranca)
+.confirmationDialog("Iniciar plan", isPresented: $show) {
+    Button("Entreno guiado") { play() }
+}
+
+// ✅ GOOD — overlay opaco propio (como cancelar actividad)
+.overlay { if show { WatchPlanModeOverlay(...) } }
+```
+
+- Misma regla que `WatchActivityCancelOverlay`: no depender de `.confirmationDialog` para acciones críticas del hub.
+
 #### Apple — Live Activities / intents
 
 - `LiveActivityIntent` solo **encola** (`UserDefaults` + notificación); la app aplica tras hidratar identidad.

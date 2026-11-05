@@ -56,9 +56,11 @@ enum OG {
         light: UIColor(red: 93 / 255, green: 110 / 255, blue: 99 / 255, alpha: 1),
         dark: UIColor(red: 174 / 255, green: 174 / 255, blue: 178 / 255, alpha: 1)
     )
+    /// Terciario legible en noche: antes 120/120/128 quedaba casi invisible
+    /// sobre cards oscuras (ejes de gráficas, captions Media/día…).
     static let label3 = adaptive(
         light: UIColor(red: 137 / 255, green: 153 / 255, blue: 143 / 255, alpha: 1),
-        dark: UIColor(red: 120 / 255, green: 120 / 255, blue: 128 / 255, alpha: 1)
+        dark: UIColor(red: 162 / 255, green: 162 / 255, blue: 168 / 255, alpha: 1)
     )
 
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158

@@ -33,7 +33,8 @@ internal fun reperaColorScheme(dark: Boolean): ColorScheme {
         surfaceVariant = Color(0xFF2C2C2E), onSurfaceVariant = Color(0xFFAEB0B2),
         surfaceContainer = Color(0xFF1C1C1E), surfaceContainerLow = Color(0xFF0C0C0C),
         surfaceContainerHigh = Color(0xFF2C2C2E), surfaceContainerHighest = Color(0xFF3A3A3C),
-        surfaceContainerLowest = Color.Black, outline = Color(0xFF787880), outlineVariant = Color(0xFF3A3A3C), surfaceTint = brandGreen,
+        // outline ≈ OG.label3 noche (162): 120/120/128 era demasiado oscuro en cards.
+        surfaceContainerLowest = Color.Black, outline = Color(0xFFA2A2A8), outlineVariant = Color(0xFF3A3A3C), surfaceTint = brandGreen,
         error = extended.destructive, onError = Color.Black,
         errorContainer = Color(0xFF4A1512), onErrorContainer = Color(0xFFFFDAD6))
     } else {

@@ -12,7 +12,7 @@ struct WatchHomeHubView: View {
     var onPlaySport: (WatchLiveSport) -> Void
 
     @State private var crownValue = 0.0
-    @State private var showPlanModePicker = false
+    @State private var pendingPlan: WorkoutSession?
     @FocusState private var crownFocused: Bool
 
     private let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255)
@@ -37,9 +37,10 @@ struct WatchHomeHubView: View {
             Button {
                 guard let selected else { return }
                 switch selected {
-                case .plan:
-                    // watchOS deprecó contextMenu: elegir modo con diálogo visible.
-                    showPlanModePicker = true
+                case .plan(let plan):
+                    // Overlay opaco propio: confirmationDialog en watchOS
+                    // no registra toques de forma fiable (Liquid Glass).
+                    pendingPlan = plan
                 case .sport:
                     playSelected()
                 }
@@ -71,23 +72,7 @@ struct WatchHomeHubView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(selected == nil)
-            .confirmationDialog(
-                "Iniciar plan",
-                isPresented: $showPlanModePicker,
-                titleVisibility: .visible
-            ) {
-                Button("Comenzar en vivo") {
-                    playSelected()
-                }
-                Button("Grabar entreno") {
-                    recordSelectedPlan()
-                }
-            } message: {
-                if let selected {
-                    Text(selected.title)
-                }
-            }
+            .disabled(selected == nil || pendingPlan != nil)
             .accessibilityLabel(selected.map { "Comenzar \($0.title)" } ?? "Comenzar")
             // Zona reservada para dos botones de 44 pt y el bisel redondeado.
             .padding(.bottom, 58)
@@ -139,6 +124,32 @@ struct WatchHomeHubView: View {
         .onChange(of: items.count) { _, _ in
             syncCrown()
         }
+        .overlay {
+            if let plan = pendingPlan {
+                WatchPlanModeOverlay(
+                    planTitle: plan.title,
+                    onLive: {
+                        pendingPlan = nil
+                        startPlan(plan, recordOnly: false)
+                    },
+                    onRecord: {
+                        pendingPlan = nil
+                        startPlan(plan, recordOnly: true)
+                    },
+                    onCancel: { pendingPlan = nil }
+                )
+            }
+        }
+    }
+
+    private func startPlan(_ plan: WorkoutSession, recordOnly: Bool) {
+        hub.setHubCarouselIndex(selectedIndex)
+        hub.selectTodayPlan(plan)
+        if recordOnly {
+            onRecordPlan()
+        } else {
+            onPlayPlan()
+        }
     }
 
     private func cornerCircleButton(
@@ -169,17 +180,9 @@ struct WatchHomeHubView: View {
         hub.setHubCarouselIndex(selectedIndex)
         switch selected {
         case .plan(let plan):
-            hub.selectTodayPlan(plan.id)
-            onPlayPlan()
+            startPlan(plan, recordOnly: false)
         case .sport(let sport):
             onPlaySport(sport)
         }
-    }
-
-    private func recordSelectedPlan() {
-        guard case .some(.plan(let plan)) = selected else { return }
-        hub.setHubCarouselIndex(selectedIndex)
-        hub.selectTodayPlan(plan.id)
-        onRecordPlan()
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.platform.testTag
@@ -30,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
@@ -45,6 +48,16 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import dev.repera.domain.ProgressPreparedCharts
+
+/** Etiquetas Y encima del plot: onSurfaceVariant (secundario) a ~88 %, legible en noche. */
+internal fun progressChartYLabelPaint(
+    onSurfaceVariant: Color,
+    textSizePx: Float
+): android.graphics.Paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+    color = onSurfaceVariant.copy(alpha = 0.88f).toArgb()
+    textSize = textSizePx
+    textAlign = android.graphics.Paint.Align.LEFT
+}
 
 /** Gráficas de Progreso (pulso y calorías) a partir de las series
  *  preparadas por ProgressChartBuilder. Sin librerías externas. */
@@ -371,6 +384,7 @@ internal fun DayPointLineChart(
         return
     }
     val line = MaterialTheme.colorScheme.primary
+    val axisInk = MaterialTheme.colorScheme.onSurfaceVariant
     var selected by remember(points) { mutableStateOf<Int?>(null) }
     val minV = bounds?.start ?: minOf(points.minOf { it.value },goal ?: Double.POSITIVE_INFINITY)
     val maxV = bounds?.endInclusive ?: maxOf(points.maxOf { it.value },goal ?: Double.NEGATIVE_INFINITY)
@@ -379,7 +393,6 @@ internal fun DayPointLineChart(
     val axisMax=maxV+padding
     val span = (axisMax - axisMin).coerceAtLeast(1e-9)
     val plotHeight=chartHeight ?: if(weightStyle) 210.dp else if(readinessStyle) 220.dp else 100.dp
-    val insetPlot=readinessStyle || weightStyle
     val firstDay = points.first().day
     val midDay = DayChartPositions.midpoint(points)
     val lastDay = points.last().day
@@ -403,74 +416,54 @@ internal fun DayPointLineChart(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary)
         }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            // Columna de valores (máx arriba, mín abajo) separada de las
-            // fechas: antes el mínimo compartía fila con la primera fecha y
-            // colisionaban ("80.9 25 sept").
-            if(readinessStyle) {
-                androidx.compose.ui.layout.Layout(
-                    content={listOf(10.0,5.0,0.0).forEach {value ->
-                        Text(valueFormat(value),style=MaterialTheme.typography.labelSmall,
-                            maxLines=1,softWrap=false)
-                    }},
-                    modifier=Modifier.width(36.dp).height(plotHeight).padding(end=2.dp)
-                ) {measurables,constraints ->
-                    val labels=measurables.map {it.measure(constraints.copy(minWidth=0,minHeight=0))}
-                    layout(constraints.maxWidth,constraints.maxHeight) {
-                        labels.forEachIndexed {index,label ->
-                            val fraction=listOf(0.075f,0.5f,0.925f)[index]
-                            label.placeRelative(0,(constraints.maxHeight*fraction-label.height/2f).toInt()
-                                .coerceIn(0,(constraints.maxHeight-label.height).coerceAtLeast(0)))
-                        }
-                    }
-                }
-            } else
-            Column(
-                modifier = Modifier
-                    .width(36.dp)
-                    .height(plotHeight+24.dp)
-                    .padding(end = 2.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(valueFormat(axisMax),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1, softWrap = false)
-                Text(valueFormat(axisMin),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1, softWrap = false)
-            }
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(plotHeight)
                 .testTag(if(physiologyStyle) "physiology_observed_plot" else "day_point_plot")
-                .pointerInput(points,interactive,insetPlot) {
+                .pointerInput(points,interactive) {
                     if(!interactive) return@pointerInput
                     detectTapGestures { offset ->
-                        val idx = DayChartPositions.nearest(points,if(insetPlot)
-                            (offset.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
-                            else offset.x / size.width)
+                        val idx = DayChartPositions.nearest(points, offset.x / size.width)
                         selected = if (selected == idx) null else idx
                     }
                 }
-                .pointerInput(points,interactive,insetPlot) {
+                .pointerInput(points,interactive) {
                     if(!interactive) return@pointerInput
                     detectHorizontalDragGestures { change, _ ->
                         change.consume()
-                        val idx = DayChartPositions.nearest(points,if(insetPlot)
-                            (change.position.x-8.dp.toPx())/(size.width-16.dp.toPx()).coerceAtLeast(1f)
-                            else change.position.x / size.width)
-                        selected = idx
+                        selected = DayChartPositions.nearest(points, change.position.x / size.width)
                     }
                 }) {
-                fun x(i: Int):Float {
-                    val inset=if(insetPlot) 8.dp.toPx() else 0f
-                    return if(readinessPreview) (i+1).toFloat()/8f*size.width
-                        else inset+DayChartPositions.fraction(points,i)*(size.width-2*inset).coerceAtLeast(0f)
-                }
+                // Ancho completo: sin inset lateral. Eje Y superpuesto (omite el mínimo).
+                fun x(i: Int):Float =
+                    if(readinessPreview) (i+1).toFloat()/8f*size.width
+                    else DayChartPositions.fraction(points,i)*size.width
                 fun y(v: Double) =
                     size.height - ((v - axisMin) / span * size.height * 0.85f)
                         .toFloat() - size.height * 0.075f
+                val yGuidePaint = progressChartYLabelPaint(axisInk, 10.sp.toPx())
+                val guideValues = if (readinessStyle) listOf(10.0, 5.0) else listOf(axisMax, (axisMin + axisMax) / 2.0)
+                guideValues.forEach { value ->
+                    val gy = y(value)
+                    drawLine(
+                        line.copy(alpha = 0.16f),
+                        Offset(0f, gy),
+                        Offset(size.width, gy),
+                        0.5.dp.toPx(),
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                            floatArrayOf(2.dp.toPx(), 4.dp.toPx())
+                        )
+                    )
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawText(
+                            valueFormat(value),
+                            4.dp.toPx(),
+                            (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                            yGuidePaint
+                        )
+                    }
+                }
                 val path = Path()
                 points.forEachIndexed { i, p ->
                     if (i == 0) path.moveTo(x(i), y(p.value))
@@ -484,9 +477,8 @@ internal fun DayPointLineChart(
                     // Source declares X AxisGridLine. Keep the existing truthful
                     // calendar anchors; automatic Swift tick selection stays open.
                     listOf(firstDay,midDay,lastDay).distinct().forEach {day ->
-                        val inset=8.dp.toPx()
                         val gridX=if(readinessPreview) listOf(1f,4f,7f)[listOf(firstDay,midDay,lastDay).indexOf(day)]/8f*size.width
-                            else inset+DayChartPositions.dateFraction(firstDay,lastDay,day)*(size.width-2*inset)
+                            else DayChartPositions.dateFraction(firstDay,lastDay,day)*size.width
                         drawLine(line.copy(alpha=0.12f),Offset(gridX,0f),Offset(gridX,size.height),0.5.dp.toPx())
                     }
                     // Solo días con nota: trazo continuo entre puntos observados
@@ -591,7 +583,6 @@ internal fun DayPointLineChart(
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1, softWrap = false)
             }
-            }
         }
     }
 }
@@ -599,14 +590,38 @@ internal fun DayPointLineChart(
 @Composable
 internal fun EmptyHealthChartAxes(low:Double,high:Double,plotHeight:androidx.compose.ui.unit.Dp=96.dp) {
     val axis=MaterialTheme.colorScheme.onSurfaceVariant
-    Row(Modifier.fillMaxWidth()) {
-        Column(Modifier.width(36.dp).height(plotHeight),verticalArrangement=Arrangement.SpaceBetween) {
-            listOf(high,(low+high)/2,low).forEach {Text(formatWeight(it),style=MaterialTheme.typography.labelSmall)}
-        }
-        Canvas(Modifier.weight(1f).height(plotHeight).testTag("empty_health_chart_axes")) {
-            listOf(0f,0.5f,1f).forEach {f ->
-                drawLine(axis.copy(alpha=0.3f),Offset(0f,f*size.height),Offset(size.width,f*size.height),0.6.dp.toPx(),
-                    pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(),4.dp.toPx())))
+    // Misma geometría que las gráficas con datos: Y superpuesto, plot a ancho completo.
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(plotHeight)
+            .testTag("empty_health_chart_axes")
+            .semantics {
+                contentDescription =
+                    "Eje vacío de ${formatWeight(high)} a ${formatWeight(low)}"
+            }
+    ) {
+        val yLabelPaint = progressChartYLabelPaint(axis, 10.sp.toPx())
+        val span = (high - low).coerceAtLeast(1e-9)
+        // Omite el mínimo del dominio para no chocar con el eje X.
+        listOf(high, (low + high) / 2.0).forEach { value ->
+            val gy = ((high - value) / span * size.height).toFloat()
+            drawLine(
+                axis.copy(alpha = 0.3f),
+                Offset(0f, gy),
+                Offset(size.width, gy),
+                0.6.dp.toPx(),
+                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
+                    floatArrayOf(3.dp.toPx(), 4.dp.toPx())
+                )
+            )
+            drawIntoCanvas { canvas ->
+                canvas.nativeCanvas.drawText(
+                    formatWeight(value),
+                    4.dp.toPx(),
+                    (gy - 4.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                    yLabelPaint
+                )
             }
         }
     }

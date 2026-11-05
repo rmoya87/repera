@@ -1,8 +1,9 @@
 import Foundation
 import ReperaDomain
 
-/// Capa UI sobre `CatalogSpanish` del dominio.
+/// Capa UI sobre la resolución editorial del dominio.
 /// Preferimos un solo texto de técnica (pasos o descripción), no ambos duplicados.
+/// Autoridad: campos del `Exercise` (Supabase mergeado) → fallback `CatalogSpanish`.
 enum ExerciseCopy {
     /// Pasos de técnica si existen; si no, la descripción como un único párrafo.
     static func techniqueSteps(for exercise: Exercise) -> [String] {
@@ -18,14 +19,10 @@ enum ExerciseCopy {
     }
 
     static func description(for exercise: Exercise) -> String? {
-        CatalogSpanish.description(forName: exercise.name)
-            ?? exercise.detailDescription.map(CatalogSpanish.translateSentence)
+        CatalogSpanish.resolvedDescription(for: exercise)
     }
 
     static func instructions(for exercise: Exercise) -> [String] {
-        if let es = CatalogSpanish.instructions(forName: exercise.name), !es.isEmpty {
-            return es
-        }
-        return exercise.instructions.map(CatalogSpanish.translateSentence)
+        CatalogSpanish.resolvedInstructions(for: exercise)
     }
 }

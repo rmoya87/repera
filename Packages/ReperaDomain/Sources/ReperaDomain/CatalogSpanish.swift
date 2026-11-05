@@ -21,6 +21,27 @@ public enum CatalogSpanish {
         spanishInstructions[name] ?? spanishInstructions[SportExerciseNames.spanishAlias(for: name) ?? name] ?? CatalogMovilidad.instructions(forName: name)
     }
 
+    /// Texto de ficha: campos del `Exercise` (seed mergeado o Supabase) primero;
+    /// el diccionario embebido solo rellena huecos. Autoridad viva = remoto.
+    public static func resolvedDescription(for exercise: Exercise) -> String? {
+        if let raw = exercise.detailDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !raw.isEmpty {
+            return translateSentence(raw)
+        }
+        return description(forName: exercise.name)
+    }
+
+    /// Pasos de técnica / captions: mismos campos mergeados que la ficha.
+    public static func resolvedInstructions(for exercise: Exercise) -> [String] {
+        let fromExercise = exercise.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !fromExercise.isEmpty {
+            return fromExercise.map(translateSentence)
+        }
+        return instructions(forName: exercise.name) ?? []
+    }
+
     public static func translateSentence(_ raw: String) -> String {
         let lower = raw.lowercased()
         let looksSpanish = lower.contains(" el ") || lower.contains(" la ") || lower.contains(" los ")

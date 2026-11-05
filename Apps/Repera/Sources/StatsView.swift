@@ -2243,6 +2243,10 @@ private struct ProgressSessionScoreChartCard: View {
             )
         } else {
             Chart {
+                ProgressChartYOverlay.marks(
+                    values: [0.0, 5.0, 10.0],
+                    domainLow: 0.0
+                )
                 ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
                     LineMark(
                         x: .value("Entreno", index + 1),
@@ -2276,14 +2280,12 @@ private struct ProgressSessionScoreChartCard: View {
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
             // 1…N a ancho completo: primer punto pegado a la izquierda, último a la derecha.
-            .chartXScale(domain: 1...max(1, recent.count))
+            .chartXScale(
+                domain: 1...max(1, recent.count),
+                range: .plotDimension(startPadding: 0, endPadding: 0)
+            )
             .chartYScale(domain: 0.0...10.0)
-            .chartYAxis {
-                AxisMarks(position: .leading, values: [0.0, 5.0, 10.0]) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [3, 4]))
-                    AxisValueLabel()
-                }
-            }
+            .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(values: Array(1...recent.count))
             }
@@ -2449,6 +2451,10 @@ private struct ProgressSessionScoreChartCard: View {
                         )
                     } else {
                         Chart {
+                            ProgressChartYOverlay.marks(
+                                values: [0.0, 5.0, 10.0],
+                                domainLow: 0.0
+                            )
                             ForEach(values) { point in
                                 LineMark(
                                     x: .value("Día", point.date),
@@ -2482,17 +2488,18 @@ private struct ProgressSessionScoreChartCard: View {
                             }
                         }
                         .chartXSelection(value: $selectedDate)
-                        .chartXScale(domain: ProgressChartAxis.xDomain(
-                            points: values.map(\.date),
-                            range: range,
-                            weekStartsOnMonday: weekStartsOnMonday,
-                            isTeaserPreview: isTeaserPreview
-                        ))
+                        .chartXScale(
+                            domain: ProgressChartAxis.xDomain(
+                                points: values.map(\.date),
+                                range: range,
+                                weekStartsOnMonday: weekStartsOnMonday,
+                                isTeaserPreview: isTeaserPreview
+                            ),
+                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                        )
                         .chartYScale(domain: 0.0...10.0)
                         .chartPlotStyle { $0.clipped() }
-                        .chartYAxis {
-                            AxisMarks(position: .leading, values: [0.0, 5.0, 10.0])
-                        }
+                        .chartYAxis(.hidden)
                         .chartXAxis {
                             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
                                 AxisGridLine()
@@ -2502,6 +2509,8 @@ private struct ProgressSessionScoreChartCard: View {
                                         .month(.abbreviated)
                                         .locale(SpanishDate.appLocale)
                                 )
+                                .foregroundStyle(OG.label2)
+                                .font(.system(size: 10))
                             }
                         }
                         .frame(height: 205)
@@ -2509,7 +2518,7 @@ private struct ProgressSessionScoreChartCard: View {
                         if !isTeaserPreview {
                             Text("Media diaria de notas basadas en tu historial comparable.")
                                 .font(.caption)
-                                .foregroundStyle(OG.label3)
+                                .foregroundStyle(OG.label2)
                         }
                     }
                 }
