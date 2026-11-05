@@ -404,6 +404,9 @@ class HealthConnectReader(private val context: Context) {
                                        linkedSessionId: String? = null,
                                        editedWindow: Boolean = false): List<Pair<Long, Int>> {
         if (!available() || endEpochMs <= startEpochMs) return emptyList()
+        // Un horario corregido no permite vincular un entrenamiento distinto
+        // por simple solapamiento: exigir identidad Health Connect persistida.
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return emptyList()
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return emptyList()
         val from = if (editedWindow) startEpochMs else matched.startEpochMs
         val until = if (editedWindow) endEpochMs else matched.endEpochMs
@@ -430,6 +433,7 @@ class HealthConnectReader(private val context: Context) {
                                   linkedSessionId: String? = null,
                                   editedWindow: Boolean = false): dev.repera.domain.SessionCardioSample {
         if (!available() || endEpochMs <= startEpochMs) return dev.repera.domain.SessionCardioSample()
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return dev.repera.domain.SessionCardioSample()
         // Sin asociación confiable (None o Ambiguous) no se refina: la nota
         // existente se conserva y la FC ajena en ventana no se usa.
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId)
@@ -467,6 +471,7 @@ class HealthConnectReader(private val context: Context) {
                                     linkedSessionId: String? = null,
                                     editedWindow: Boolean = false): dev.repera.domain.SessionMovement? {
         if (!available() || endEpochMs <= startEpochMs) return null
+        if (editedWindow && linkedRecordId.isNullOrBlank()) return null
         val matched = matchedSession(linkedSessionId, startEpochMs, endEpochMs, linkedRecordId) ?: return null
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
