@@ -97,6 +97,19 @@ internal fun ProgressTab(
     accountId: String = ""
 ) {
     val recent = overview?.history.orEmpty()
+    // El último entreno se elige de todo el archivo, también Health Connect.
+    val latestActivityTitle = remember(overview) {
+        val local = overview?.completeHistory.orEmpty()
+            .filter { it.timerDetails == null && it.finishedAtIso != null }
+            .maxByOrNull { it.finishedAtIso.orEmpty() }
+        val external = overview?.externalHealthHistory.orEmpty().maxByOrNull { it.endMillis }
+        val localEnd = local?.finishedAtIso?.let {
+            runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull()
+        } ?: Long.MIN_VALUE
+        if (external != null && external.endMillis > localEnd) {
+            external.title + " · " + external.minutes.toInt() + " min"
+        } else local?.let { it.title + " · " + it.displayDurationMinutes().toInt() + " min" }
+    }
     val subscriptions = LocalSubscriptions.current
     var category by rememberSaveable { mutableStateOf(ProgressCategory.TRAINING.name) }
     val selectedCategory = ProgressCategory.entries.firstOrNull { it.name == category }
@@ -266,7 +279,11 @@ internal fun ProgressTab(
                                     preview = !pro,
                                     range = rangeEnum,
                                     monday = monday,
-                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null
+                                    confidenceLabel = if (pro) overview?.sessionScoreConfidenceByRange?.get(selectedRange) else null,
+                                    latestActivity = latestActivityTitle,
+                                    recordedSessions = overview?.dayWorkoutCounts
+                                        ?.filterKeys { rangeEnum.contains(it, today, monday) }
+                                        ?.values?.sum() ?: 0
                                 )
                             },
                             second = {
@@ -382,13 +399,18 @@ internal fun ProgressTab(
                             tint = ProgressCategory.STRENGTH.accent,
                             narrative = strengthInsightCopy(
                                 prCount = snapshot.records.size,
-                                volumeKg = snapshot.summary.volumeKg.toInt()
+                                volumeKg = snapshot.summary.volumeKg.toInt(),
+                                activitiesToday = overview?.dayWorkoutCounts?.get(today) ?: 0
                             ),
                             heroValue = if (snapshot.records.isEmpty()) "—" else "${snapshot.records.size}",
                             heroUnit = if (snapshot.records.isEmpty()) null else "PR",
                             heroCaption = when {
                                 snapshot.summary.volumeKg > 0 ->
-                                    "${snapshot.summary.volumeKg.toInt()} kg · $period"
+                                    snapshot.summary.volumeKg.toInt().toString() + " kg · " + period +
+                                        " · " + (overview?.dayWorkoutCounts?.get(today) ?: 0) + " hoy"
+                                (overview?.dayWorkoutCounts?.get(today) ?: 0) > 0 ->
+                                    (overview?.dayWorkoutCounts?.get(today) ?: 0).toString() +
+                                        " actividades hoy · sin kg confirmados"
                                 snapshot.records.isEmpty() -> "sin marcas aún"
                                 else -> period
                             },
@@ -950,10 +972,12 @@ internal fun ProgressTab(
     }
 }
 
-private fun strengthInsightCopy(prCount: Int, volumeKg: Int): String {
-    // Con dato, el héroe + caption bastan (sin «Has movido…»).
+private fun strengthInsightCopy(prCount: Int, volumeKg: Int, activitiesToday: Int = 0): String {
     if (prCount == 0 && volumeKg == 0) {
-        return "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
+        return if (activitiesToday > 0)
+            activitiesToday.toString() + " actividades registradas hoy. La carga en kg necesita " +
+                "series y pesos reales; tus sesiones sí cuentan en Progreso."
+        else "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
     }
     return ""
 }
