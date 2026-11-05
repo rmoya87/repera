@@ -96,6 +96,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+/** Estado UI compartido con el shell para no dejar la tab bar operativa con candado activo. */
+internal object LiveActivityTouchLockState {
+    var locked by mutableStateOf(false)
+}
+
 /** Primer wiring ejecutable: no estima kcal/pulso ni escribe Salud.
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
 @Composable
@@ -312,9 +317,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     DisposableEffect(touchLocked, touchLockAvailable, rootView) {
         val keepAwake = touchLocked && touchLockAvailable
+        LiveActivityTouchLockState.locked = keepAwake
         if (keepAwake) rootView.keepScreenOn = true
         onDispose {
             if (keepAwake) rootView.keepScreenOn = false
+            if (keepAwake) LiveActivityTouchLockState.locked = false
         }
     }
     LaunchedEffect(showingMetrics) {
