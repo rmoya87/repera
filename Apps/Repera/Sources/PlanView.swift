@@ -1429,6 +1429,9 @@ struct DayEditorView: View {
                     }()
                     completedDetails?.startedAt = date
                     completedDetails?.finishedAt = date.addingTimeInterval(preservedSeconds)
+                    // Cambiar solamente la hora de inicio también modifica
+                    // qué muestras de Salud corresponden al entrenamiento.
+                    completedDetails?.userEditedDuration = true
                 }
             }
         )

@@ -1116,8 +1116,33 @@ final class HealthKitStore {
         if sameOrigin.count == 1, let selected = sameOrigin.values.first {
             return selected
         }
+        let deviceID = workout.device?.localIdentifier
+            ?? workout.device?.name
+        if let deviceID {
+            let sameDevice = groups.filter { $0.key.hasSuffix("|" + deviceID) }
+            if sameDevice.count == 1, let selected = sameDevice.values.first {
+                return selected
+            }
+        }
         if groups.count == 1, let selected = groups.values.first {
             return selected
+        }
+        // Los sensores pueden aparecer bajo «Apple» y no bajo el bundle
+        // de Repera Watch, especialmente tras la sincronización con iPhone.
+        // Admitir un solo origen inequívoco, pero jamás sumar orígenes.
+        if groups.isEmpty {
+            let external = samples.filter {
+                !isReperaSource($0.sourceRevision.source)
+            }
+            let providers = Dictionary(grouping: external) { sample in
+                let bundle = sample.sourceRevision.source.bundleIdentifier.lowercased()
+                let device = sample.device?.localIdentifier
+                    ?? sample.device?.name ?? "no-device"
+                return bundle + "|" + device
+            }
+            if providers.count == 1, let selected = providers.values.first {
+                return selected
+            }
         }
         return []
     }
@@ -1389,24 +1414,66 @@ final class HealthKitStore {
         var workout: HKWorkout? = nil
         if let uuid = workoutUUID {
             workout = await fetchWorkout(uuid: uuid)
-            // Tras editar el horario, un enlace previo no se sustituye por
-            // un entrenamiento diferente que coincida con la nueva hora.
-            guard workout != nil else { return nil }
-        } else if let watch = await verifiedWatchWorkout(forReperaSession: session.id),
-                  let verified = watch.workoutUUID,
-                  let found = await fetchWorkout(uuid: verified) {
-            // La medición real de Watch prevalece sobre una ficha vacía
-            // escrita por el iPhone para la misma ejecución.
-            workout = found
-            workoutUUID = verified
-        } else if let own = await existingReperaWorkout(sessionId: session.id) {
+        }
+
+        // Los WKWorkout de Repera iPhone pueden haberse creado como ficha
+        // provisional antes de que llegase la actividad real del reloj.
+        // Buscar SIEMPRE por el ID estable de ejecución si proviene de Watch.
+        let fromWatch = session.appleHealthProvenance == "watchHealthKit"
+            || session.appleHealthProvenance == "watchHealthKitPending"
+        if (workout == nil || (fromWatch && workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+        } == true)),
+           let verified = await verifiedWatchWorkout(forReperaSession: session.id),
+           let uuid = verified.workoutUUID,
+           let watchWorkout = await fetchWorkout(uuid: uuid) {
+            workout = watchWorkout
+            workoutUUID = uuid
+        }
+        // La identidad de un workout provisional escrito por Repera iPhone
+        // NO demuestra que sea el entrenamiento grabado por Apple Watch.
+        // Si faltó la metadata al guardar el builder, recuperar únicamente
+        // un candidato de Repera Watch inequívoco sobre la hora ORIGINAL.
+        let linkedToPhonePlaceholder = workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+        } == true
+        if (fromWatch || (session.userEditedDuration &&
+            (session.appleDurationSeconds ?? 0) > 0))
+            && (workout == nil || linkedToPhonePlaceholder) {
+            let anchorStart = session.recordedStartBeforeEditing ?? start
+            let anchorEnd = session.recordedEndBeforeEditing ?? end
+            if let verified = await overlappingWorkout(
+                from: anchorStart, to: anchorEnd,
+                watchOnly: fromWatch, expectedSessionID: session.id
+            ) {
+                workout = verified
+                workoutUUID = verified.uuid
+            }
+        }
+        if workout == nil,
+           let own = await existingReperaWorkout(sessionId: session.id) {
             workout = own
             workoutUUID = own.uuid
-        } else {
-            // Con un horario EDITADO no se permite identificar un workout
-            // distinto solo porque solapa las nuevas horas.
-            guard !session.userEditedDuration else { return nil }
-            workout = await overlappingWorkout(from: start, to: end)
+        }
+        if workout == nil {
+            if session.userEditedDuration {
+                // Sesiones antiguas podían mostrar FC de un workout externo
+                // únicamente por solape SIN persistir su UUID. Para reparar
+                // el vínculo, exigir evidencia previa de HealthKit (duración
+                // medida o ancla original) y UN candidato inequívoco que
+                // no tenga un ID estable correspondiente a otra ejecución.
+                if fromWatch || session.appleDurationSeconds != nil
+                    || session.recordedStartBeforeEditing != nil {
+                    let anchorStart = session.recordedStartBeforeEditing ?? start
+                    let anchorEnd = session.recordedEndBeforeEditing ?? end
+                    workout = await overlappingWorkout(
+                        from: anchorStart, to: anchorEnd,
+                        watchOnly: fromWatch, expectedSessionID: session.id
+                    )
+                }
+            } else {
+                workout = await overlappingWorkout(from: start, to: end)
+            }
             workoutUUID = workout?.uuid
         }
 
@@ -2705,7 +2772,10 @@ final class HealthKitStore {
     }
 
     /// Match Watch/Salud workout only when overlap is unambiguous (≥40% of Repera span).
-    private func overlappingWorkout(from start: Date, to end: Date) async -> HKWorkout? {
+    private func overlappingWorkout(
+        from start: Date, to end: Date, watchOnly: Bool = false,
+        expectedSessionID: UUID? = nil
+    ) async -> HKWorkout? {
         let slack: TimeInterval = 45 * 60
         let reperaDuration = max(60, end.timeIntervalSince(start))
         let minOverlap = reperaDuration * 0.4
@@ -2722,6 +2792,12 @@ final class HealthKitStore {
             ) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
                 let ranked = workouts
+                    .filter { w in
+                        guard let expectedSessionID,
+                              let external = w.metadata?[HKMetadataKeyExternalUUID] as? String,
+                              !external.isEmpty else { return true }
+                        return external.caseInsensitiveCompare(expectedSessionID.uuidString) == .orderedSame
+                    }
                     .map { w -> (HKWorkout, TimeInterval) in
                         let overlapStart = max(w.startDate, start)
                         let overlapEnd = min(w.endDate, end)
@@ -2735,7 +2811,11 @@ final class HealthKitStore {
                             && $0.1 >= max(60, $0.0.duration * 0.60)
                     }
                 let external = ranked
-                    .filter { !Self.isReperaSource($0.0.sourceRevision.source) }
+                    .filter {
+                        watchOnly
+                            ? Self.isWatchRecordedSource($0.0.sourceRevision.source)
+                            : !Self.isReperaSource($0.0.sourceRevision.source)
+                    }
                     .sorted { $0.1 > $1.1 }
                 // Si hay dos fuentes externas igual de plausibles, no escoger
                 // una arbitrariamente ni reescribir los datos de otro deporte.

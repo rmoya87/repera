@@ -1833,11 +1833,17 @@ final class ReperaStore: NSObject {
         // a la medida vieja de 45 minutos.
         if extras.energySourceIsVerified,
            let uuid = extras.resolvedWorkoutUUID,
-           var linked = state.workouts.first(where: { $0.id == sessionId }),
-           linked.healthKitWorkoutUUID == uuid {
+           var linked = state.workouts.first(where: { $0.id == sessionId }) {
             let verifiedKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
             let verifiedHR = extras.averageHeartRateBpm.flatMap { $0 > 0 ? $0 : nil }
             var changed = false
+            if linked.healthKitWorkoutUUID != uuid {
+                // El resultado ya pasó la comprobación por identidad de Watch
+                // o por un único solape confiable: guardar su UUID para todas
+                // las consultas posteriores, incluso tras cambiar la hora.
+                linked.healthKitWorkoutUUID = uuid
+                changed = true
+            }
             if linked.appleActiveEnergyKcal != verifiedKcal,
                (verifiedKcal != nil || linked.userEditedDuration) {
                 linked.appleActiveEnergyKcal = verifiedKcal
@@ -1878,12 +1884,23 @@ final class ReperaStore: NSObject {
             ])
         }
         var draft = session
-        if let previous = state.workouts.first(where: { $0.id == draft.id }) {
-            if previous.userEditedDuration { draft.userEditedDuration = true }
-            if draft.userEditedDuration,
-               (previous.startedAt != draft.startedAt || previous.finishedAt != draft.finishedAt) {
-                // Se invalida el valor atribuido al intervalo antiguo hasta
-                // que Salud responda para el horario corregido.
+        let prior = state.workouts.first(where: { $0.id == draft.id })
+        let changedRecordedWindow = prior.map {
+            $0.startedAt != draft.startedAt || $0.finishedAt != draft.finishedAt
+        } ?? false
+        if let previous = prior {
+            if previous.userEditedDuration || changedRecordedWindow {
+                draft.userEditedDuration = true
+            }
+            // No perder la hora capturada por el reloj al mover el inicio.
+            // Esta ancla permite recuperar también entrenamientos sin UUID.
+            draft.recordedStartBeforeEditing = previous.recordedStartBeforeEditing
+                ?? (changedRecordedWindow ? previous.startedAt : nil)
+            draft.recordedEndBeforeEditing = previous.recordedEndBeforeEditing
+                ?? (changedRecordedWindow ? previous.finishedAt : nil)
+            if changedRecordedWindow {
+                // La hora/cobertura cambió: no atribuir al nuevo intervalo
+                // la FC ni las kcal de la ventana anterior.
                 draft.appleActiveEnergyKcal = nil
                 draft.appleAverageHeartRateBpm = nil
             }
@@ -1913,6 +1930,13 @@ final class ReperaStore: NSObject {
         upsertWorkout(draft)
         persistWorkouts()
         requestExerciseCatalogRefresh()
+        if draft.phase == .finished && changedRecordedWindow,
+           draft.timerDetails == nil {
+            let id = draft.id
+            // La edición desde Inicio también debe recuperar métricas; no
+            // depender de que se abra Detalle ni de volver a la pantalla.
+            Task { await refineSessionReviewWithHealth(sessionId: id) }
+        }
         if draft.phase == .finished {
             if alreadyArchived {
                 ReperaAnalytics.track(.workoutEdited, parameters: [
@@ -2108,8 +2132,14 @@ final class ReperaStore: NSObject {
                         pending.userEditedDuration = true
                     }
                     pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
-                    pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
-                    pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
+                    pending.recordedStartBeforeEditing = old.recordedStartBeforeEditing
+                    pending.recordedEndBeforeEditing = old.recordedEndBeforeEditing
+                    pending.appleActiveEnergyKcal = old.userEditedDuration
+                        ? old.appleActiveEnergyKcal
+                        : (session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal)
+                    pending.appleAverageHeartRateBpm = old.userEditedDuration
+                        ? old.appleAverageHeartRateBpm
+                        : (session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm)
                     pending.appleDurationSeconds = session.appleDurationSeconds ?? old.appleDurationSeconds
                     if old.locationPin?.hasChosenPlace == true {
                         pending.locationPin = old.locationPin
@@ -2130,6 +2160,10 @@ final class ReperaStore: NSObject {
                     publishSessionChrome()
                 }
                 persistWorkouts()
+                if pending.userEditedDuration, pending.healthKitWorkoutUUID != nil {
+                    let id = pending.id
+                    Task { await refineSessionReviewWithHealth(sessionId: id) }
+                }
                 if firstArrival {
                     emitWorkoutCompletedAnalytics(
                         pending,
@@ -2175,7 +2209,8 @@ final class ReperaStore: NSObject {
                     saved.appleHealthProvenance = "watchHealthKit"
                     changed = true
                 }
-                if let energy = session.appleActiveEnergyKcal, energy > 0,
+                if !saved.userEditedDuration,
+                   let energy = session.appleActiveEnergyKcal, energy > 0,
                    saved.appleActiveEnergyKcal != energy {
                     saved.appleActiveEnergyKcal = energy
                     changed = true
@@ -2185,7 +2220,8 @@ final class ReperaStore: NSObject {
                     saved.appleDurationSeconds = duration
                     changed = true
                 }
-                if let heartRate = session.appleAverageHeartRateBpm, heartRate > 0,
+                if !saved.userEditedDuration,
+                   let heartRate = session.appleAverageHeartRateBpm, heartRate > 0,
                    saved.appleAverageHeartRateBpm != heartRate {
                     saved.appleAverageHeartRateBpm = heartRate
                     changed = true
@@ -2250,7 +2286,13 @@ final class ReperaStore: NSObject {
                 changed = true
             }
 
-            if changed { persistWorkouts() }
+            if changed {
+                persistWorkouts()
+                if state.workouts.first(where: { $0.id == session.id })?.userEditedDuration == true {
+                    let id = session.id
+                    Task { await refineSessionReviewWithHealth(sessionId: id) }
+                }
+            }
             if session.finishedAt != nil {
                 Task {
                     await WorkoutLiveActivityCoordinator.shared.completePlanned(session, saved: true)

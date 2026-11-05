@@ -969,4 +969,58 @@ final class CompletedWorkoutEditingTests: XCTestCase {
         XCTAssertNil(legacy.plannedDurationMinutes)
     }
 
+    func testOriginalWatchTimeAnchorSurvivesManualShiftAndSerialization() throws {
+        let start = Date(timeIntervalSince1970: 1_794_000_000)
+        let originalEnd = start.addingTimeInterval(45 * 60)
+        let uuid = UUID()
+        let shifted = WorkoutSession(
+            title: "CrossFit", exercises: [], phase: .finished,
+            startedAt: start.addingTimeInterval(-15 * 60),
+            finishedAt: originalEnd,
+            appleHealthProvenance: "watchHealthKitPending",
+            appleDurationSeconds: 45 * 60,
+            userEditedDuration: true,
+            recordedStartBeforeEditing: start,
+            recordedEndBeforeEditing: originalEnd,
+            healthKitWorkoutUUID: uuid
+        )
+        XCTAssertEqual(shifted.displayDurationMinutes, 60)
+        XCTAssertEqual(shifted.appleDurationSeconds, 45 * 60)
+        XCTAssertEqual(shifted.recordedStartBeforeEditing, start)
+        let roundTrip = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONEncoder().encode(shifted)
+        )
+        XCTAssertTrue(roundTrip.userEditedDuration)
+        XCTAssertEqual(roundTrip.recordedStartBeforeEditing, start)
+        XCTAssertEqual(roundTrip.recordedEndBeforeEditing, originalEnd)
+        XCTAssertEqual(roundTrip.healthKitWorkoutUUID, uuid)
+        let modifiedSets = CompletedWorkoutEditing.applying(
+            Routine(title: "CrossFit"), to: roundTrip, catalog: []
+        )
+        XCTAssertEqual(modifiedSets.recordedStartBeforeEditing, start)
+        XCTAssertEqual(modifiedSets.recordedEndBeforeEditing, originalEnd)
+        XCTAssertEqual(modifiedSets.displayDurationMinutes, 60)
+    }
+
+    func testOldWatchHistoryWithoutNewAnchorStillDecodes() throws {
+        let original = WorkoutSession(
+            title: "Archivo antiguo", exercises: [], phase: .finished,
+            startedAt: Date(timeIntervalSince1970: 1_794_000_000),
+            finishedAt: Date(timeIntervalSince1970: 1_794_003_600),
+            userEditedDuration: true
+        )
+        let payload = try JSONEncoder().encode(original)
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: payload) as? [String: Any]
+        )
+        object.removeValue(forKey: "recordedStartBeforeEditing")
+        object.removeValue(forKey: "recordedEndBeforeEditing")
+        let restored = try JSONDecoder().decode(
+            WorkoutSession.self, from: JSONSerialization.data(withJSONObject: object)
+        )
+        XCTAssertTrue(restored.userEditedDuration)
+        XCTAssertNil(restored.recordedStartBeforeEditing)
+        XCTAssertNil(restored.recordedEndBeforeEditing)
+    }
+
 }
