@@ -498,7 +498,8 @@ struct ProgressMiniFillBars: View {
                 let barH = max(size.height * CGFloat(f), 3)
                 let x = CGFloat(i) * (slot + spacing) + (slot - barW) / 2
                 let rect = CGRect(x: x, y: size.height - barH, width: barW, height: barH)
-                let path = Path(roundedRect: rect, cornerRadius: min(barW * 0.35, 4), style: .continuous)
+                // Cápsula completa: radio = mitad del ancho.
+                let path = Path(roundedRect: rect, cornerRadius: barW / 2, style: .continuous)
                 context.fill(path, with: .color(tint.opacity(0.9)))
             }
         }
@@ -507,7 +508,7 @@ struct ProgressMiniFillBars: View {
     }
 }
 
-/// Sparkline con área y picos suavizados (carga / volumen).
+/// Sparkline de carga / volumen: solo trazo (sin relleno degradado).
 struct ProgressMiniAreaSpark: View {
     let fractions: [Double]
     var tint: Color = OG.accent
@@ -524,19 +525,9 @@ struct ProgressMiniAreaSpark: View {
                 CGPoint(x: CGFloat(i) * step, y: h * (1 - CGFloat(v)))
             }
             Path { path in
-                Self.addSmoothCurve(to: &path, points: points, closeToBaseline: h)
-            }
-            .fill(
-                LinearGradient(
-                    colors: [tint.opacity(0.42), tint.opacity(0.05)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            Path { path in
                 Self.addSmoothCurve(to: &path, points: points, closeToBaseline: nil)
             }
-            .stroke(tint, style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+            .stroke(tint, style: StrokeStyle(lineWidth: 4.8, lineCap: .round, lineJoin: .round))
         }
         .frame(height: height)
         .accessibilityHidden(true)

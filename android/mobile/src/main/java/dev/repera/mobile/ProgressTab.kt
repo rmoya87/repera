@@ -1326,10 +1326,7 @@ private fun ProgressMiniBarRow(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(f)
-                    .clip(
-                        if (fillFromBottom) RoundedCornerShape(6.dp)
-                        else RoundedCornerShape(percent = 50)
-                    )
+                    .clip(RoundedCornerShape(percent = 50))
                     .background(tint.copy(alpha = 0.85f))
             )
         }
@@ -1429,16 +1426,10 @@ private fun ProgressMiniChart(
                     return path
                 }
                 drawPath(
-                    cubicPath(closeBaseline = true),
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        listOf(tint.copy(alpha = 0.42f), tint.copy(alpha = 0.05f))
-                    )
-                )
-                drawPath(
                     cubicPath(closeBaseline = false),
                     color = tint,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 2.4.dp.toPx(),
+                        width = 4.8.dp.toPx(),
                         cap = androidx.compose.ui.graphics.StrokeCap.Round,
                         join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
