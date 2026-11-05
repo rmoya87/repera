@@ -4068,6 +4068,16 @@ struct LiveActivityView: View {
                 session.awaitingResultEntry = true
             }
             store.saveWorkout(session)
+            // Keep the Review screen and its GPS/Health checkpoint until the
+            // atomic local write is confirmed. A pending asynchronous write
+            // must never look like a successful "Guardar" on iPhone.
+            await LocalStore.shared.persistAndFlush(store.state)
+            guard LocalStore.shared.lastPersistenceError == nil else {
+                savedWorkoutID = nil
+                isSavingRecordedActivity = false
+                routeError = "No se pudo guardar el entrenamiento en este dispositivo. El registro sigue disponible para reintentar."
+                return
+            }
             UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
             let day = session.startedAt ?? Date()
             recorder.discard(saved: true)
