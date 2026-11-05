@@ -1827,18 +1827,31 @@ final class ReperaStore: NSObject {
             }
             return
         }
-        // Guardar kcal auténticas recuperadas de Salud para que Inicio,
-        // Historial y detalle lean el mismo valor sin depender de abrir la ficha.
-        // Exigir coincidencia del UUID: el mero solape horario no prueba identidad.
+        // Vincular solo la muestra exacta del Watch/Salud: nunca adjudicar
+        // energía por un solape con otra clase o sesión. La corrección horaria
+        // requiere reemplazar tanto la kcal como la FC anterior, no sumarlas
+        // a la medida vieja de 45 minutos.
         if extras.energySourceIsVerified,
-           let kcal = extras.activeEnergyKcal, kcal > 0,
            let uuid = extras.resolvedWorkoutUUID,
            var linked = state.workouts.first(where: { $0.id == sessionId }),
-           linked.healthKitWorkoutUUID == uuid,
-           linked.appleActiveEnergyKcal != kcal {
-            linked.appleActiveEnergyKcal = kcal
-            upsertWorkout(linked)
-            persistWorkouts()
+           linked.healthKitWorkoutUUID == uuid {
+            let verifiedKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
+            let verifiedHR = extras.averageHeartRateBpm.flatMap { $0 > 0 ? $0 : nil }
+            var changed = false
+            if linked.appleActiveEnergyKcal != verifiedKcal,
+               (verifiedKcal != nil || linked.userEditedDuration) {
+                linked.appleActiveEnergyKcal = verifiedKcal
+                changed = true
+            }
+            if linked.userEditedDuration,
+               linked.appleAverageHeartRateBpm != verifiedHR {
+                linked.appleAverageHeartRateBpm = verifiedHR
+                changed = true
+            }
+            if changed {
+                upsertWorkout(linked)
+                persistWorkouts()
+            }
         }
         let cardio = SessionCardioSample(
             averageHeartRateBpm: extras.averageHeartRateBpm,
@@ -1865,9 +1878,15 @@ final class ReperaStore: NSObject {
             ])
         }
         var draft = session
-        if let previous = state.workouts.first(where: { $0.id == draft.id }),
-           previous.userEditedDuration {
-            draft.userEditedDuration = true
+        if let previous = state.workouts.first(where: { $0.id == draft.id }) {
+            if previous.userEditedDuration { draft.userEditedDuration = true }
+            if draft.userEditedDuration,
+               (previous.startedAt != draft.startedAt || previous.finishedAt != draft.finishedAt) {
+                // Se invalida el valor atribuido al intervalo antiguo hasta
+                // que Salud responda para el horario corregido.
+                draft.appleActiveEnergyKcal = nil
+                draft.appleAverageHeartRateBpm = nil
+            }
         }
         if let start = draft.startedAt, let end = draft.finishedAt, end < start {
             draft.finishedAt = start.addingTimeInterval(60)
