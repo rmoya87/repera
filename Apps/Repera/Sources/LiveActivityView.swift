@@ -2345,6 +2345,7 @@ struct LiveActivityView: View {
     /// Bloqueo táctil local a Comenzar, nunca de GPS/HealthKit ni del sistema.
     @State private var isInteractionLocked = false
     @State private var routeError: String?
+    @State private var saveError: String?
     @State private var title = ""
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
@@ -2466,6 +2467,13 @@ struct LiveActivityView: View {
             // .data cubre archivos .gpx cuya UTI no esté registrada en el dispositivo.
             .fileImporter(isPresented: $importing, allowedContentTypes: [.xml, .data]) { result in
                 importResult(result)
+            }
+            .alert("No se pudo guardar", isPresented: Binding(
+                get: { saveError != nil }, set: { if !$0 { saveError = nil } }
+            )) {
+                Button("Aceptar", role: .cancel) { saveError = nil }
+            } message: {
+                Text(saveError ?? "")
             }
             .alert("No se pudo cargar la ruta", isPresented: Binding(
                 get: { routeError != nil }, set: { if !$0 { routeError = nil } }
@@ -4075,7 +4083,7 @@ struct LiveActivityView: View {
             guard LocalStore.shared.lastPersistenceError == nil else {
                 savedWorkoutID = nil
                 isSavingRecordedActivity = false
-                routeError = "No se pudo guardar el entrenamiento en este dispositivo. El registro sigue disponible para reintentar."
+                saveError = "No se pudo guardar el entrenamiento en este dispositivo. El registro sigue disponible para reintentar."
                 return
             }
             UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
