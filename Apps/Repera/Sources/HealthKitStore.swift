@@ -1453,13 +1453,18 @@ final class HealthKitStore {
         }
         if workout == nil {
             if session.userEditedDuration {
-                // Solo Watch de Repera con procedencia declarada; nunca
-                // asociar por mera cercanía una clase o workout de otra app.
-                if fromWatch {
+                // Sesiones antiguas podían mostrar FC de un workout externo
+                // únicamente por solape SIN persistir su UUID. Para reparar
+                // el vínculo, exigir evidencia previa de HealthKit (duración
+                // medida o ancla original) y UN candidato inequívoco que
+                // no tenga un ID estable correspondiente a otra ejecución.
+                if fromWatch || session.appleDurationSeconds != nil
+                    || session.recordedStartBeforeEditing != nil {
                     let anchorStart = session.recordedStartBeforeEditing ?? start
                     let anchorEnd = session.recordedEndBeforeEditing ?? end
                     workout = await overlappingWorkout(
-                        from: anchorStart, to: anchorEnd, watchOnly: true
+                        from: anchorStart, to: anchorEnd,
+                        watchOnly: fromWatch, expectedSessionID: session.id
                     )
                 }
             } else {
@@ -2764,7 +2769,8 @@ final class HealthKitStore {
 
     /// Match Watch/Salud workout only when overlap is unambiguous (≥40% of Repera span).
     private func overlappingWorkout(
-        from start: Date, to end: Date, watchOnly: Bool = false
+        from start: Date, to end: Date, watchOnly: Bool = false,
+        expectedSessionID: UUID? = nil
     ) async -> HKWorkout? {
         let slack: TimeInterval = 45 * 60
         let reperaDuration = max(60, end.timeIntervalSince(start))
@@ -2782,6 +2788,12 @@ final class HealthKitStore {
             ) { _, samples, _ in
                 let workouts = (samples as? [HKWorkout]) ?? []
                 let ranked = workouts
+                    .filter { w in
+                        guard let expectedSessionID,
+                              let external = w.metadata?[HKMetadataKeyExternalUUID] as? String,
+                              !external.isEmpty else { return true }
+                        return external.caseInsensitiveCompare(expectedSessionID.uuidString) == .orderedSame
+                    }
                     .map { w -> (HKWorkout, TimeInterval) in
                         let overlapStart = max(w.startDate, start)
                         let overlapEnd = min(w.endDate, end)
