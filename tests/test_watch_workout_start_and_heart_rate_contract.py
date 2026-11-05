@@ -75,6 +75,9 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertIn("WorkoutCompletionNotifier.shared.schedule(workoutID: session.id)", store)
         self.assertIn("self.state.workouts.first(where: { $0.id == session.id })?.awaitingResultEntry == true", store)
         self.assertIn("scheduleLiveReview(sessionID: UUID)", notifier)
+        self.assertIn("pendingLiveReviewKey", notifier)
+        root = read("Apps/Repera/Sources/RootTabView.swift")
+        self.assertIn("openPendingWatchLiveReviewNotification()", root)
 
     def test_iphone_companion_watch_finish_enters_review_not_auto_save(self):
         store = read("Apps/Repera/Sources/ReperaStore.swift")

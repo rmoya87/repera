@@ -6,6 +6,7 @@ import UserNotifications
 final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = WorkoutCompletionNotifier()
     static let pendingKey = "repera.pendingCompletedWorkoutToOpen"
+    static let pendingLiveReviewKey = "repera.pendingWatchLiveReviewToOpen"
     static let openEvent = Notification.Name("repera.openFinishedWorkoutEditor")
     private static let prefix = "repera.completeWorkout."
     private static let liveReviewPrefix = "repera.reviewLive."
@@ -92,6 +93,7 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
         } else if let raw = response.notification.request.content.userInfo["liveReviewSessionID"] as? String,
                   let id = UUID(uuidString: raw),
                   response.notification.request.identifier == Self.liveReviewPrefix + id.uuidString {
+            UserDefaults.standard.set(id.uuidString, forKey: Self.pendingLiveReviewKey)
             Task { @MainActor in
                 NotificationCenter.default.post(
                     name: Notification.Name("repera.openComenzarFromWatch"), object: nil
