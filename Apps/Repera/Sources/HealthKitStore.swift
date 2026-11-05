@@ -1403,7 +1403,9 @@ final class HealthKitStore {
             workout = own
             workoutUUID = own.uuid
         } else {
-            // Solo se recurre al solape cuando no hay identidad persistida.
+            // Con un horario EDITADO no se permite identificar un workout
+            // distinto solo porque solapa las nuevas horas.
+            guard !session.userEditedDuration else { return nil }
             workout = await overlappingWorkout(from: start, to: end)
             workoutUUID = workout?.uuid
         }
