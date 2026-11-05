@@ -1294,11 +1294,12 @@ final class LiveActivityRecorder: NSObject {
         // didFinish puede llegar entre dos utterances. La sesión sigue activa
         // hasta que todas las locuciones pendientes hayan terminado/cancelado.
         guard pendingGuidanceUtterances.isEmpty, guidanceAudioActive else { return }
-        guidanceAudioActive = false
         do {
             try AVAudioSession.sharedInstance().setActive(
                 false, options: .notifyOthersOnDeactivation
             )
+            guidanceAudioActive = false
+            LiveNavigationAudioLease.shared.setActive(false)
         } catch {
             NSLog("[Repera] No se pudo liberar el audio de navegación: %@", String(describing: error))
         }
@@ -1336,6 +1337,7 @@ final class LiveActivityRecorder: NSObject {
                 )
                 try audio.setActive(true)
                 guidanceAudioActive = true
+                LiveNavigationAudioLease.shared.setActive(true)
             } catch {
                 NSLog("[Repera] No se pudo activar audio de navegación: %@", String(describing: error))
                 return false
