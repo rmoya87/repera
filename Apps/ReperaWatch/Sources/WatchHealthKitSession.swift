@@ -24,6 +24,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     /// adjuntar `HKWorkoutRoute` a un workout creado por watchkitapp.
     private var routeBuilder: HKWorkoutRouteBuilder?
     private var recordsRoute = false
+    /// Metros GPS verificados por el registrador de ruta. No equivale a una
+    /// muestra de HealthKit hasta que se asocia al HKWorkout.
+    private var recordedRouteDistanceMeters: Double = 0
     private var pendingRouteLocations: [CLLocation] = []
     private var routeInsertTask: Task<Void, Never>?
     private var workoutID: UUID?
@@ -175,6 +178,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         kcal = nil
         averageBpm = nil
         recordsRoute = outdoor
+        recordedRouteDistanceMeters = 0
         routeBuilder = nil
         pendingRouteLocations = []
         routeInsertTask?.cancel()
@@ -187,6 +191,12 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         if outdoor {
             read.insert(HKSeriesType.workoutRoute())
             share.insert(HKSeriesType.workoutRoute())
+            if let distanceType = Self.routeDistanceType(for: activityType) {
+                read.insert(distanceType)
+                // Sin compartir distancia, addSamples puede fallar aunque la ruta
+                // sea visible en Fitness; se solicita con el resto de permisos.
+                share.insert(distanceType)
+            }
         }
         // HealthKit operations stay on the MainActor. The authorization sheet,
         // builder collection and metadata use Apple's async APIs on watchOS 27.
@@ -243,7 +253,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     // A metadata error must not discard a live sensor recording.
                     do {
                         try await liveBuilder.addMetadata([
-                            HKMetadataKeyExternalUUID: id.uuidString
+                            HKMetadataKeyExternalUUID: id.uuidString,
+                            HKMetadataKeyWorkoutBrandName: "Repera",
+                            "ReperaActivityType": String(activityType.rawValue)
                         ])
                     } catch {
                         if self.workoutID == id {
@@ -265,6 +277,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 if self.workoutID == id { self.permissionIssue = error.localizedDescription }
             }
         }
+    }
+
+    /// La distancia GPS ya filtrada por el registrador se utiliza únicamente
+    /// cuando HealthKit no capturó su propio acumulado de distancia.
+    func updateRecordedRouteDistance(_ meters: Double) {
+        guard recordsRoute, meters.isFinite, meters >= 0 else { return }
+        recordedRouteDistanceMeters = max(recordedRouteDistanceMeters, meters)
     }
 
     /// Alimenta el `HKWorkoutRouteBuilder` con fixes GPS del hub (outdoor).
@@ -340,6 +359,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         builder = nil
         routeBuilder = nil
         recordsRoute = false
+        recordedRouteDistanceMeters = 0
         pendingRouteLocations = []
         routeInsertTask?.cancel()
         routeInsertTask = nil
@@ -478,6 +498,25 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         return dataSource
     }
 
+    /// Un mapa GPS no implica que Fitness tenga la distancia numérica.
+    /// Es esencial un tipo específico para que la actividad tenga ritmo.
+    private static func routeDistanceType(for activity: HKWorkoutActivityType) -> HKQuantityType? {
+        let identifier: HKQuantityTypeIdentifier
+        switch activity {
+        case .walking, .running, .hiking, .crossCountrySkiing:
+            identifier = .distanceWalkingRunning
+        case .cycling:
+            identifier = .distanceCycling
+        case .downhillSkiing, .snowboarding:
+            identifier = .distanceDownhillSnowSports
+        case .swimming:
+            identifier = .distanceSwimming
+        default:
+            return nil
+        }
+        return HKQuantityType.quantityType(forIdentifier: identifier)
+    }
+
     private func seedMetricsFromBuilder(_ liveBuilder: HKLiveWorkoutBuilder) {
         let energy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         let heart = HKObjectType.quantityType(forIdentifier: .heartRate)!
@@ -501,6 +540,31 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         guard let builder else { finishWith(Result()); return }
         Task { @MainActor [weak self] in
             guard let self else { return }
+            // La ruta se graba como HKWorkoutRoute, pero esa serie NO rellena
+            // automáticamente la distancia del HKWorkout. Si el reloj no produjo
+            // distancia nativa, adjuntar los metros GPS reales antes de cerrarlo.
+            // No sumar ni sustituir un valor válido de los sensores.
+            if self.recordsRoute, self.recordedRouteDistanceMeters >= 20,
+               let activity = self.workout?.workoutConfiguration.activityType,
+               let type = Self.routeDistanceType(for: activity) {
+                let native = builder.statistics(for: type)?
+                    .sumQuantity()?.doubleValue(for: .meter()) ?? 0
+                if native <= 0 {
+                    let start = self.workout?.startDate ?? date.addingTimeInterval(-1)
+                    let sample = HKQuantitySample(
+                        type: type,
+                        quantity: HKQuantity(unit: .meter(), doubleValue: self.recordedRouteDistanceMeters),
+                        start: min(start, date.addingTimeInterval(-1)),
+                        end: date,
+                        metadata: ["ReperaDistanceSource": "recordedGPS"]
+                    )
+                    do {
+                        try await builder.addSamples([sample])
+                    } catch {
+                        self.permissionIssue = "No se pudo incluir la distancia GPS en Salud: \(error.localizedDescription)"
+                    }
+                }
+            }
             do {
                 try await builder.endCollection(at: date)
             } catch {
@@ -534,10 +598,15 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                 // statistics are empty); finally the live session accumulator.
                 let legacyTotal = (saved?.value(forKey: "totalEnergyBurned") as? HKQuantity)?
                     .doubleValue(for: .kilocalorie())
-                let active = saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
-                    ?? builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
-                    ?? legacyTotal
-                    ?? self.kcal
+                // Una estadística 0 provisional no debe ocultar una medición
+                // positiva guardada en el valor legacy o en el acumulador vivo.
+                let energyCandidates: [Double] = [
+                    saved?.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+                    builder.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
+                    legacyTotal,
+                    self.kcal
+                ].compactMap { $0 }.filter { $0.isFinite && $0 >= 0 }
+                let active = energyCandidates.first(where: { $0 > 0 }) ?? energyCandidates.first
                 let average = saved?.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? builder.statistics(for: hrType)?.averageQuantity()?.doubleValue(for: hrUnit)
                     ?? self.averageBpm
@@ -563,6 +632,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         builder = nil
         routeBuilder = nil
         recordsRoute = false
+        recordedRouteDistanceMeters = 0
         pendingRouteLocations = []
         routeInsertTask?.cancel()
         routeInsertTask = nil
