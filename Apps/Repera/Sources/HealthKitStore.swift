@@ -1068,9 +1068,21 @@ final class HealthKitStore {
         // sensores auténticos y debe ser fuente de verdad, no una estimación
         // escrita por el iPhone. Las kcal antiguas del iPhone siguen excluidas.
         let bundle = source.bundleIdentifier.lowercased()
-        if bundle == "com.app.repera.watchkitapp" { return false }
+        if isWatchRecordedSource(source) { return false }
         return source.bundleIdentifier == Bundle.main.bundleIdentifier
             || source.name.localizedCaseInsensitiveContains("repera")
+    }
+
+    /// Fuente de verdad del HKWorkout: estadística de energía o total de Salud.
+    /// No calcula calorías a partir de duración, pulso ni intensidad.
+    nonisolated private static func workoutEnergyKcal(_ workout: HKWorkout) -> Double? {
+        let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        let statisticsKcal = type.flatMap {
+            workout.statistics(for: $0)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+        }
+        let totalKcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+        return [statisticsKcal, totalKcal].compactMap { $0 }
+            .first(where: { $0.isFinite && $0 > 0 })
     }
 
     /// Descartamos kcal de muestras escritas por Repera: antiguas versiones
@@ -1166,13 +1178,7 @@ final class HealthKitStore {
         ) {
             return nil
         }
-        let kcal: Double? = {
-            guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-                  let burned = w.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
-                  burned > 0
-            else { return nil }
-            return burned
-        }()
+        let kcal = Self.workoutEnergyKcal(w)
         let distance = w.totalDistance?.doubleValue(for: .meter())
         return ExternalActivity(
             id: w.uuid,
@@ -1479,11 +1485,7 @@ final class HealthKitStore {
         if let workoutUUID, let workout = await fetchWorkout(uuid: workoutUUID) {
             source = workout.sourceRevision.source.name
             typeRaw = workout.workoutActivityType.rawValue
-            if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
-               burned > 0 {
-                kcal = burned
-            }
+            kcal = Self.workoutEnergyKcal(workout)
             let movement = await workoutMovementMetrics(workout)
             steps = movement.steps
             movingMeters = movement.distanceMeters
@@ -1965,20 +1967,18 @@ final class HealthKitStore {
         var verified: [UUID: Double] = [:]
         var durations: [UUID: Double] = [:]
         var externalUUIDs: Set<UUID> = []
-        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
         for uuid in uuids {
             if Task.isCancelled { return }
             guard let workout = await fetchWorkout(uuid: uuid) else { continue }
             if workout.duration > 0 {
                 durations[uuid] = workout.duration / 60
             }
-            guard !Self.isReperaSource(workout.sourceRevision.source) else { continue }
+            guard !Self.isReperaSource(workout.sourceRevision.source)
+                || Self.isWatchRecordedSource(workout.sourceRevision.source) else { continue }
             externalUUIDs.insert(uuid)
-            guard let energyType,
-                  let kcal = workout.statistics(for: energyType)?
-                    .sumQuantity()?.doubleValue(for: .kilocalorie()),
-                  kcal > 0 else { continue }
-            verified[uuid] = kcal
+            if let kcal = Self.workoutEnergyKcal(workout) {
+                verified[uuid] = kcal
+            }
         }
         guard !Task.isCancelled else { return }
         verifiedWorkoutEnergyKcal = verified
@@ -2023,11 +2023,7 @@ final class HealthKitStore {
         guard let workout = await fetchWorkout(uuid: uuid) else { return nil }
         if Self.isReperaSource(workout.sourceRevision.source),
            !Self.isWatchRecordedSource(workout.sourceRevision.source) { return nil }
-        guard let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-              let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
-              burned > 0
-        else { return nil }
-        return burned
+        return Self.workoutEnergyKcal(workout)
     }
 
     private func fetchRoutes(for workout: HKWorkout) async -> [HKWorkoutRoute] {
@@ -2491,11 +2487,7 @@ final class HealthKitStore {
     private func resolveAppleMetrics(from start: Date, to end: Date) async -> AppleMetrics {
         if let workout = await overlappingWorkout(from: start, to: end) {
             var kcal: Double = 0
-            if let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned),
-               let burned = workout.statistics(for: energyType)?.sumQuantity()?.doubleValue(for: .kilocalorie()),
-               burned > 0 {
-                kcal = burned
-            } else {
+            kcal = Self.workoutEnergyKcal(workout) else {
                 kcal = await activeEnergy(from: workout.startDate, to: workout.endDate)
             }
             return AppleMetrics(
