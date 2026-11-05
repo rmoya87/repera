@@ -88,6 +88,17 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertNotIn("saveWorkout(completed)", command)
         self.assertNotIn("recorder.discard(saved: true)", command)
 
+    def test_comenzar_review_can_save_then_add_or_edit_exercises(self):
+        ios = read("Apps/Repera/Sources/LiveActivityView.swift")
+        android = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
+        screen = read("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
+        self.assertIn("Guardar y añadir/editar ejercicios", ios)
+        self.assertIn("session.awaitingResultEntry = true", ios)
+        self.assertIn("WorkoutCompletionNotifier.openEvent", ios)
+        self.assertIn("Guardar y añadir/editar ejercicios", android)
+        self.assertIn('testTag("live_save_and_edit")', android)
+        self.assertIn('navController.navigate("historial-editar/" + Uri.encode(sessionId))', screen)
+
     def test_android_wear_finish_offers_review(self):
         listener = read("android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt")
         main = read("android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt")

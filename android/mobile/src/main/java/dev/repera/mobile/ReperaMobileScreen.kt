@@ -1212,6 +1212,10 @@ fun ReperaMobileScreen(
                     LiveActivityScreen(accountId = accountId,
                         hasActiveWorkout = activeWorkout != null, onOpenWorkout = { navController.navigate("entreno-activo") },
                         onSaved = { sessionId -> onLiveActivitySaved(sessionId); navigateTab("inicio") },
+                        onSavedAndEdit = { sessionId ->
+                            onLiveActivitySaved(sessionId)
+                            navController.navigate("historial-editar/" + Uri.encode(sessionId))
+                        },
                         onSavedDay={ homeFocusDay=java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() },
                         onOpenTools = { navController.navigate("crear") },
                         onOpenCenter = if (centerVisible) ({ showCenter = true }) else null,

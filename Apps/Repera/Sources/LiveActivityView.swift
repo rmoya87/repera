@@ -2336,6 +2336,7 @@ struct LiveActivityView: View {
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
     @State private var isSavingRecordedActivity = false
+    @State private var editExercisesAfterSave = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     /// FC real reciente de Salud o del Watch vinculado al UUID de esta sesión.
     @State private var liveHeartRateBpm: Int?
@@ -3782,6 +3783,20 @@ struct LiveActivityView: View {
                 }
 
                 Section {
+                    Button {
+                        editExercisesAfterSave = true
+                        saveRecordedActivity()
+                    } label: {
+                        Label("Guardar y añadir/editar ejercicios", systemImage: "square.and.pencil")
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(OG.accent)
+                    .disabled(isSavingRecordedActivity)
+                    .ogCardListRow()
+                }
+
+                Section {
                     Button(role: .destructive) {
                         showDiscard = true
                     } label: {
@@ -3913,6 +3928,7 @@ struct LiveActivityView: View {
               savedWorkoutID != draft.id else { return }
         isSavingRecordedActivity = true
         savedWorkoutID = draft.id
+        let editAfterSave = editExercisesAfterSave
         Task { @MainActor in
             var session = draft
             // Consultar Salud también al pulsar Guardar: la lectura asíncrona
@@ -3955,6 +3971,9 @@ struct LiveActivityView: View {
                 session.phase = .ready
                 session.awaitingResultEntry = true
             }
+            if editAfterSave {
+                session.awaitingResultEntry = true
+            }
             store.saveWorkout(session)
             UserDefaults.standard.removeObject(forKey: "repera.plannedRecordingRoutineID")
             let day = session.startedAt ?? Date()
@@ -3963,7 +3982,15 @@ struct LiveActivityView: View {
             notes = ""
             savedWorkoutID = nil
             isSavingRecordedActivity = false
+            editExercisesAfterSave = false
             onSaved(day)
+            if editAfterSave {
+                // Uses the same completed-workout editor as the programmed
+                // recording flow, preserving Health and route measurements.
+                NotificationCenter.default.post(
+                    name: WorkoutCompletionNotifier.openEvent, object: session.id
+                )
+            }
         }
     }
 

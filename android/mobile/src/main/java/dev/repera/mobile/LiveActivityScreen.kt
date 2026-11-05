@@ -86,6 +86,7 @@ import kotlin.math.roundToInt
  * Rutas, voz y revisión visual se completan por separado, no se ocultan. */
 @Composable
 internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) -> Unit,
+    onSavedAndEdit: (sessionId: String) -> Unit = onSaved,
     onOpenTools: () -> Unit, onOpenCenter: (() -> Unit)? = null,
     hasActiveWorkout: Boolean = false, onOpenWorkout: () -> Unit = {},
     onMapRendered: (() -> Unit)? = null,
@@ -1211,6 +1212,49 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     // REVIEW: resumen estilo Fitness (mapa + métricas + guardar), sin el formulario genérico.
     if (state.phase == LiveActivityState.Phase.REVIEW) {
+        val saveReview: (Boolean) -> Unit = save@{ editAfterSave ->
+            if (savingActivity) return@save
+            val now = System.currentTimeMillis()
+            val snapshot = state.snapshot(now)
+            if (snapshot == null) {
+                error = "No se pudo preparar la actividad para guardarla. Sigue disponible: vuelve a intentarlo o descártala."
+                return@save
+            }
+            savingActivity = true
+            scope.launch(kotlinx.coroutines.NonCancellable) { try {
+                val savedDay = state.startedMillis ?: now
+                val finishedMillis = state.finishedMillis ?: now
+                val duration = state.durationSeconds(now)
+                val conditions = runtime.liveConditions
+                val sessionId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    WorkoutRepository(context, accountId).saveLiveActivity(
+                        snapshot,
+                        finishedMillis,
+                        duration,
+                        title,
+                        notes,
+                        activityConditions = conditions,
+                        locationPin = runtime.startLocationPin
+                    )
+                }
+                if (runtime.discard()) {
+                    LiveActivityService.stop(context)
+                    title = ""
+                    notes = ""
+                    showingMetrics = false
+                    onSavedDay(savedDay)
+                    if (editAfterSave) onSavedAndEdit(sessionId) else onSaved(sessionId)
+                } else {
+                    error = "La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                error = "No se pudo guardar. La actividad sigue disponible para reintentar."
+            } finally {
+                savingActivity = false
+            } }
+        }
         LiveActivityReviewContent(
             state = state,
             title = title,
@@ -1223,50 +1267,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             error = error ?: runtime.lastError,
             onMapRendered = onMapRendered,
             activityConditions = runtime.liveConditions,
-            onSave = save@{
-                if (savingActivity) return@save
-                val now = System.currentTimeMillis()
-                val snapshot = state.snapshot(now)
-                if (snapshot == null) {
-                    error = "No se pudo preparar la actividad para guardarla. Sigue disponible: vuelve a intentarlo o descártala."
-                    return@save
-                }
-                savingActivity = true
-                // Saving is idempotent by gpsSessionID; leaving the screen mid-save must still clear the checkpoint.
-                scope.launch(kotlinx.coroutines.NonCancellable) { try {
-                    val savedDay = state.startedMillis ?: now
-                    val finishedMillis = state.finishedMillis ?: now
-                    val duration = state.durationSeconds(now)
-                    val conditions = runtime.liveConditions
-                    val sessionId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        WorkoutRepository(context, accountId).saveLiveActivity(
-                            snapshot,
-                            finishedMillis,
-                            duration,
-                            title,
-                            notes,
-                            activityConditions = conditions,
-                            locationPin = runtime.startLocationPin
-                        )
-                    }
-                    if (runtime.discard()) {
-                        LiveActivityService.stop(context)
-                        title = ""
-                        notes = ""
-                        showingMetrics = false
-                        onSavedDay(savedDay)
-                        onSaved(sessionId)
-                    } else {
-                        error = "La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
-                    }
-                } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    error = "No se pudo guardar. La actividad sigue disponible para reintentar."
-                } finally {
-                    savingActivity = false
-                } }
-            },
+            onSave = { saveReview(false) },
+            onSaveAndEdit = { saveReview(true) },
             onDiscard = { confirmDiscard = true },
             recoveryBlocked = runtime.recoveryBlocked
         )
@@ -1443,6 +1445,7 @@ private fun LiveActivityReviewContent(
     onMapRendered: (() -> Unit)?,
     activityConditions: dev.repera.domain.ActivityConditionsSnapshot?,
     onSave: () -> Unit,
+    onSaveAndEdit: () -> Unit,
     onDiscard: () -> Unit,
     recoveryBlocked: Boolean
 ) {
@@ -1629,6 +1632,16 @@ private fun LiveActivityReviewContent(
             shape = RoundedCornerShape(999.dp)
         ) {
             Text(stringResource(R.string.live_activity_screen_guardar), fontWeight = FontWeight.Bold)
+        }
+        OutlinedButton(
+            onClick = onSaveAndEdit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .testTag("live_save_and_edit"),
+            shape = RoundedCornerShape(999.dp)
+        ) {
+            Text("Guardar y añadir/editar ejercicios")
         }
         TextButton(
             onClick = onDiscard,
