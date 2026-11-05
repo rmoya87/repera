@@ -1389,24 +1389,43 @@ final class HealthKitStore {
         var workout: HKWorkout? = nil
         if let uuid = workoutUUID {
             workout = await fetchWorkout(uuid: uuid)
-            // Tras editar el horario, un enlace previo no se sustituye por
-            // un entrenamiento diferente que coincida con la nueva hora.
-            guard workout != nil else { return nil }
-        } else if let watch = await verifiedWatchWorkout(forReperaSession: session.id),
-                  let verified = watch.workoutUUID,
-                  let found = await fetchWorkout(uuid: verified) {
-            // La medición real de Watch prevalece sobre una ficha vacía
-            // escrita por el iPhone para la misma ejecución.
-            workout = found
-            workoutUUID = verified
-        } else if let own = await existingReperaWorkout(sessionId: session.id) {
+        }
+
+        // Los WKWorkout de Repera iPhone pueden haberse creado como ficha
+        // provisional antes de que llegase la actividad real del reloj.
+        // Buscar SIEMPRE por el ID estable de ejecución si proviene de Watch.
+        let fromWatch = session.appleHealthProvenance == "watchHealthKit"
+            || session.appleHealthProvenance == "watchHealthKitPending"
+        if (workout == nil || (fromWatch && workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+        } == true)),
+           let verified = await verifiedWatchWorkout(forReperaSession: session.id),
+           let uuid = verified.workoutUUID,
+           let watchWorkout = await fetchWorkout(uuid: uuid) {
+            workout = watchWorkout
+            workoutUUID = uuid
+        }
+        if workout == nil,
+           let own = await existingReperaWorkout(sessionId: session.id) {
             workout = own
             workoutUUID = own.uuid
-        } else {
-            // Con un horario EDITADO no se permite identificar un workout
-            // distinto solo porque solapa las nuevas horas.
-            guard !session.userEditedDuration else { return nil }
-            workout = await overlappingWorkout(from: start, to: end)
+        }
+        if workout == nil {
+            if session.userEditedDuration {
+                // Primero recurrir a la ventana ANTERIOR a la edición para no
+                // asociar una clase distinta que ocurra en las nuevas horas.
+                // En actividades Watch antiguas sin ancla conservada exigimos
+                // un único HKWorkout REAL del reloj que solape suficientemente.
+                if fromWatch {
+                    let anchorStart = session.recordedStartBeforeEditing ?? start
+                    let anchorEnd = session.recordedEndBeforeEditing ?? end
+                    workout = await overlappingWorkout(
+                        from: anchorStart, to: anchorEnd, watchOnly: true
+                    )
+                }
+            } else {
+                workout = await overlappingWorkout(from: start, to: end)
+            }
             workoutUUID = workout?.uuid
         }
 
@@ -2705,7 +2724,9 @@ final class HealthKitStore {
     }
 
     /// Match Watch/Salud workout only when overlap is unambiguous (≥40% of Repera span).
-    private func overlappingWorkout(from start: Date, to end: Date) async -> HKWorkout? {
+    private func overlappingWorkout(
+        from start: Date, to end: Date, watchOnly: Bool = false
+    ) async -> HKWorkout? {
         let slack: TimeInterval = 45 * 60
         let reperaDuration = max(60, end.timeIntervalSince(start))
         let minOverlap = reperaDuration * 0.4
@@ -2735,7 +2756,11 @@ final class HealthKitStore {
                             && $0.1 >= max(60, $0.0.duration * 0.60)
                     }
                 let external = ranked
-                    .filter { !Self.isReperaSource($0.0.sourceRevision.source) }
+                    .filter {
+                        watchOnly
+                            ? Self.isWatchRecordedSource($0.0.sourceRevision.source)
+                            : !Self.isReperaSource($0.0.sourceRevision.source)
+                    }
                     .sorted { $0.1 > $1.1 }
                 // Si hay dos fuentes externas igual de plausibles, no escoger
                 // una arbitrariamente ni reescribir los datos de otro deporte.
