@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -150,6 +152,18 @@ private fun WearLiveNavigationPage(live: JSONObject) {
     val distance = meters?.let {
         if (it >= 1000) String.format(java.util.Locale.ROOT, "%.1f km", it / 1000.0)
         else "$it m"
+    }
+    val haptic = LocalHapticFeedback.current
+    var priorDistance by remember(instruction) { mutableStateOf<Int?>(null) }
+    var warned by remember(instruction) { mutableStateOf(false) }
+    LaunchedEffect(meters, instruction) {
+        if (meters != null && meters > 150) warned = false
+        if (meters != null && priorDistance != null && priorDistance!! > 100 &&
+            meters <= 100 && !warned) {
+            warned = true
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        priorDistance = meters
     }
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 6.dp)
