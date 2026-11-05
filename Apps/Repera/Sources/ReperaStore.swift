@@ -2100,6 +2100,13 @@ final class ReperaStore: NSObject {
                     // never reset sets that the athlete corrected on the phone.
                     pending.exercises = old.exercises
                     pending.routineBlocks = old.routineBlocks ?? session.routineBlocks
+                    if old.userEditedDuration {
+                        // Un replay tardío de watchOS no puede restablecer el
+                        // inicio/fin originales tras la corrección del usuario.
+                        pending.startedAt = old.startedAt
+                        pending.finishedAt = old.finishedAt
+                        pending.userEditedDuration = true
+                    }
                     pending.healthKitWorkoutUUID = session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID
                     pending.appleActiveEnergyKcal = session.appleActiveEnergyKcal ?? old.appleActiveEnergyKcal
                     pending.appleAverageHeartRateBpm = session.appleAverageHeartRateBpm ?? old.appleAverageHeartRateBpm
