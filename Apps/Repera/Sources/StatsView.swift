@@ -599,8 +599,8 @@ struct StatsView: View {
                 value: prCount > 0 ? "\(prCount)" : "—",
                 unit: prCount > 0 ? "PR" : nil,
                 caption: volumeKg > 0
-                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption)"
-                    : hubPeriodCaption,
+                    ? "\(ReperaNumberFormat.integer(volumeKg)) kg · \(hubPeriodCaption) · \(trainingSessionsToday) hoy"
+                    : "\(trainingSessionsToday) entrenos hoy",
                 valuePointSize: 64,
                 chartHeight: 118,
                 chartBesideTitle: true
@@ -719,12 +719,27 @@ struct StatsView: View {
         return values
     }
 
+    /// Actividades de hoy desde Repera y Salud, sin duplicar el mismo registro.
+    private var trainingSessionsToday: Int {
+        let today = Date()
+        let logged = store.state.workouts.filter {
+            $0.finishedAt.map { Calendar.current.isDate($0, inSameDayAs: today) } == true
+                && $0.timerDetails == nil
+        }.count
+        let external = HealthMuscleMapper.uniqueExternalActivities(
+            health.recentExternalActivities, workouts: store.state.workouts
+        ).filter { Calendar.current.isDate($0.end, inSameDayAs: today) }.count
+        return logged + external
+    }
+
     private var strengthInsightCopy: String {
         let prCount = snap.records.count
         let volumeKg = Int(snap.summary.volumeKg.rounded())
-        // Con dato, el héroe + caption bastan (sin «Has movido…»).
         if prCount == 0 && volumeKg == 0 {
-            return "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
+            let count = trainingSessionsToday
+            return count > 0
+                ? "\(count) actividades hoy. La carga en kg requiere series y pesos registrados; tu tiempo de entrenamiento sí cuenta."
+                : "Cuando registres series de fuerza, verás aquí la carga y tus marcas."
         }
         return ""
     }
@@ -1586,7 +1601,10 @@ struct StatsView: View {
         ProgressSessionScoreChartCard(
             workouts: store.state.workouts,
             range: model.range,
-            weekStartsOnMonday: mondayFirst
+            weekStartsOnMonday: mondayFirst,
+            externalActivities: HealthMuscleMapper.uniqueExternalActivities(
+                health.recentExternalActivities, workouts: store.state.workouts
+            )
         )
     }
 
@@ -1986,6 +2004,7 @@ private struct ProgressSessionScoreChartCard: View {
     var range: ProgressTimeRange
     var weekStartsOnMonday: Bool
     var isTeaserPreview: Bool = false
+    var externalActivities: [HealthKitStore.ExternalActivity] = []
 
     private struct ScoreDay: Identifiable {
         let date: Date
@@ -2033,15 +2052,38 @@ private struct ProgressSessionScoreChartCard: View {
 
     /// Incluye todos los entrenamientos realizados, también Comenzar y Watch
     /// sin series ni puntuación comparable. No contabiliza temporizadores.
-    private var latestSession: WorkoutSession? {
-        workouts.filter { $0.finishedAt != nil && $0.timerDetails == nil }
+    private struct RecentActivity {
+        let title: String
+        let endedAt: Date
+        let durationMinutes: Int
+        let hasVerifiedScore: Bool
+    }
+
+    private var latestActivity: RecentActivity? {
+        let recorded = workouts.filter { $0.finishedAt != nil && $0.timerDetails == nil }
             .max { ($0.finishedAt ?? .distantPast) < ($1.finishedAt ?? .distantPast) }
+        let external = externalActivities.max { $0.end < $1.end }
+        if let external, external.end > (recorded?.finishedAt ?? .distantPast) {
+            return RecentActivity(
+                title: external.title, endedAt: external.end,
+                durationMinutes: Int(external.durationMinutes.rounded()),
+                hasVerifiedScore: false
+            )
+        }
+        guard let recorded, let endedAt = recorded.finishedAt else { return nil }
+        return RecentActivity(
+            title: recorded.title, endedAt: endedAt,
+            durationMinutes: Int(recorded.durationMinutes.rounded()),
+            hasVerifiedScore: recorded.sessionReview?.scoreBasis == .personalHistory
+        )
     }
 
     private var registeredSessionsInRange: Int {
         workouts.filter {
             guard let finished = $0.finishedAt, $0.timerDetails == nil else { return false }
             return range.contains(finished, weekStartsOnMonday: weekStartsOnMonday)
+        }.count + externalActivities.filter {
+            range.contains($0.end, weekStartsOnMonday: weekStartsOnMonday)
         }.count
     }
 
@@ -2062,7 +2104,7 @@ private struct ProgressSessionScoreChartCard: View {
         let average = values.isEmpty ? nil :
             Int((values.map(\.score).reduce(0, +) / Double(values.count)).rounded())
         VStack(alignment: .leading, spacing: 12) {
-            if !isTeaserPreview, let latest = latestSession {
+            if !isTeaserPreview, let latest = latestActivity {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Última actividad registrada")
                         .font(.caption2.weight(.medium))
@@ -2071,12 +2113,10 @@ private struct ProgressSessionScoreChartCard: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
                         .lineLimit(2)
-                    if let ended = latest.finishedAt {
-                        Text("\(ended.formatted(Date.FormatStyle().day().month(.abbreviated).hour().minute().locale(SpanishDate.appLocale))) · \(Int(latest.durationMinutes.rounded())) min")
-                            .font(.caption2)
-                            .foregroundStyle(OG.label2)
-                    }
-                    if latest.sessionReview?.scoreBasis != .personalHistory {
+                    Text("\(latest.endedAt.formatted(Date.FormatStyle().day().month(.abbreviated).hour().minute().locale(SpanishDate.appLocale))) · \(latest.durationMinutes) min")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label2)
+                    if !latest.hasVerifiedScore {
                         Text("Registrada en tu histórico · sin nota comparable todavía")
                             .font(.caption2)
                             .foregroundStyle(OG.label2)
