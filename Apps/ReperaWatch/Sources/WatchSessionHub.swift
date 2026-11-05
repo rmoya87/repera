@@ -92,6 +92,7 @@ final class WatchSessionHub: NSObject {
     /// de esa grabación se cancela para no grabar en dos dispositivos.
     private var abandonedCompanionStartAt: Date?
     private var lastLiveStateSave = Date.distantPast
+    private var lastPhoneWatchLiveUpdateAt = Date.distantPast
     /// Clave antigua de UserDefaults; el estado vive en un fichero protegido.
     private let persistenceKey = "repera.watch.offlineState.v1"
     private let persistenceFile = "offlineState.v1.json"
@@ -915,9 +916,37 @@ final class WatchSessionHub: NSObject {
         captureStartLocation(sessionID: id, recordsRoute: sport.usesGPS)
         startWatchLiveTick()
         saveLiveState()
+        publishWatchOwnedLiveToPhone(force: true)
         if !audioMuted {
             WKInterfaceDevice.current().play(.start)
         }
+    }
+
+    /// Watch owns HealthKit and the GPS route. The phone only renders the
+    /// lightweight ActivityKit UI, keyed to the SAME workout UUID.
+    private func publishWatchOwnedLiveToPhone(
+        phase overridePhase: WatchLiveActivitySnapshot.Phase? = nil,
+        force: Bool = false
+    ) {
+        guard let id = watchLiveSessionID,
+              let sport = watchLiveSport, let started = watchLiveStartedAt else { return }
+        let now = Date()
+        if !force && now.timeIntervalSince(lastPhoneWatchLiveUpdateAt) < 12 { return }
+        lastPhoneWatchLiveUpdateAt = now
+        let paused = watchLivePausedAccum + (watchLivePausedAt.map {
+            max(0, now.timeIntervalSince($0))
+        } ?? 0)
+        let elapsed = max(0, now.timeIntervalSince(started) - paused)
+        let distance = max(0, watchLiveDistanceMeters)
+        let speed = sport.usesGPS && elapsed > 0 && distance > 0
+            ? distance / elapsed * 3.6 : nil
+        connectivity.sendWatchOwnedLive(WatchLiveActivitySnapshot(
+            id: id, sportTitle: sport.title,
+            phase: overridePhase ?? (watchLivePaused ? .paused : .recording),
+            elapsedSeconds: elapsed, distanceMeters: distance,
+            averageSpeedKmh: speed, nextTurn: nil,
+            nextTurnMeters: nil, capturedAt: now, sportID: sport.rawValue
+        ), durable: force)
     }
 
     private func startWatchLiveTick() {
@@ -932,6 +961,7 @@ final class WatchSessionHub: NSObject {
         guard let sport = watchLiveSport, watchLiveSessionID != nil else { return }
         tickWatchLive()
         startWatchLiveTick()
+        publishWatchOwnedLiveToPhone(force: true)
         if sport.usesGPS && !watchLivePaused {
             configureLocationManager(recordsRoute: true)
             switch locationManager.authorizationStatus {
@@ -965,6 +995,7 @@ final class WatchSessionHub: NSObject {
         WKInterfaceDevice.current().play(.click)
         publishComplicationSnapshot(force: true)
         saveLiveState()
+        publishWatchOwnedLiveToPhone(force: true)
     }
 
     private func saveLiveState() {
@@ -976,6 +1007,7 @@ final class WatchSessionHub: NSObject {
     /// sin enviar un entrenamiento terminado y descartando su HealthKit.
     func cancelWatchLive() {
         guard watchLiveSport != nil else { return }
+        publishWatchOwnedLiveToPhone(phase: .review, force: true)
         health.discard()
         clearWatchLive() // Detiene GPS y el temporizador, descarta puntos y estado de pausa.
         watchLiveElapsedSeconds = 0
@@ -1005,6 +1037,7 @@ final class WatchSessionHub: NSObject {
         let elapsed = watchLiveElapsedSeconds
         let kcalSnapshot = health.kcal
         let bpmSnapshot = health.averageBpm ?? health.pulseBpm.map(Double.init)
+        publishWatchOwnedLiveToPhone(phase: .review, force: true)
         // Resumen primero (antes de clearWatchLive) para que la UI no reabra live.
         var pending = WorkoutSession(
             id: id,
@@ -1021,6 +1054,7 @@ final class WatchSessionHub: NSObject {
         )
         pending.appleActiveEnergyKcal = kcalSnapshot
         pending.appleAverageHeartRateBpm = bpmSnapshot
+        pending.appleHealthProvenance = "watchHealthKitPending"
         // Comenzar originated on Watch also needs the editable results prompt
         // on iPhone. This is a finished recording, never a running workout.
         pending.awaitingResultEntry = true
@@ -1032,6 +1066,9 @@ final class WatchSessionHub: NSObject {
         clearWatchLive()
         publishComplicationSnapshot(force: true)
         save()
+        // Durable transport cannot depend on HealthKit's asynchronous finish:
+        // the phone must paint the workout immediately even if HK takes time.
+        connectivity.sendFinished(pending)
         WKInterfaceDevice.current().play(.success)
 
         // Las condiciones se piden solo con la app en primer plano (resumen visible).
@@ -1065,9 +1102,6 @@ final class WatchSessionHub: NSObject {
                 self.save()
             }
         }
-        if !health.isRecording {
-            connectivity.sendFinished(pending)
-        }
     }
 
     func publishTimerMirror(_ mirror: WatchTimerMirror) {
@@ -1095,6 +1129,8 @@ final class WatchSessionHub: NSObject {
         guard let started = watchLiveStartedAt, !watchLivePaused else { return }
         let paused = watchLivePausedAccum
         watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
+        // Low-rate phone ActivityKit updates; the timer interpolates itself.
+        publishWatchOwnedLiveToPhone()
         // La complicación calcula el tiempo sola; aquí solo la copia de recuperación.
         if Date().timeIntervalSince(lastLiveStateSave) >= 30 {
             saveLiveState()
@@ -2225,6 +2261,14 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
     nonisolated func watchConnectivityDidBecomeReachable() {
         Task { @MainActor in
             self.publishCompanionHeartRateIfNeeded(force: true)
+            self.publishWatchOwnedLiveToPhone(force: true)
+        }
+    }
+
+    nonisolated func watchConnectivityDidChangeOwnerScope(hasOwner: Bool) {
+        Task { @MainActor in
+            self.phoneHasOwnerScope = hasOwner
+            if hasOwner { self.publishWatchOwnedLiveToPhone(force: true) }
         }
     }
 

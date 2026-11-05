@@ -81,6 +81,33 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
     }
 
+    /// A Watch-owned workout must announce its own live phase to the paired
+    /// iPhone: otherwise HealthKit runs on Watch but no ActivityKit UI starts.
+    /// Transitions are durable; periodic GPS/elapsed updates are best effort.
+    /// This never starts a second workout or forwards raw HealthKit samples.
+    func sendWatchOwnedLive(_ snapshot: WatchLiveActivitySnapshot, durable: Bool) {
+        guard WCSession.isSupported(),
+              let owner = currentOwnerScope, !owner.isEmpty,
+              let data = try? JSONEncoder().encode(snapshot),
+              WatchTransportLimits.accepts(data) else { return }
+        let wc = WCSession.default
+        guard wc.activationState == .activated else { return }
+        let payload: [String: Any] = [
+            "ownerScope": owner,
+            "watchOwnedLiveActivity": data
+        ]
+        if durable {
+            // watchOS delivers userInfo after reconnect; the phone checks UUID,
+            // phase, order and capture age before creating an ActivityKit card.
+            wc.transferUserInfo(payload)
+        }
+        if wc.isReachable {
+            wc.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                self?.logger.debug("Watch live UI update deferred: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     /// Controls a phone-owned Comenzar session without opening a second GPS
     /// or HealthKit workout on the watch. Commands are live-only: if the phone
     /// is offline, no local state is optimistically changed.

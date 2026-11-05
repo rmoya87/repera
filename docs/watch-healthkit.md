@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-11-05 (kcal visible + HKWorkoutRoute outdoor + enableCollection energía/FC/distancia)
+Última actualización: 2026-11-05 (HealthKit, ActivityKit Watch-owned y persistencia Inicio)
 
 ## Hub (31/10/2026)
 
@@ -32,6 +32,87 @@ y el Watch puede aportar pulsaciones de forma complementaria. Temporizador libre
    Para la **planificación de hoy**, el iPhone usa `updateApplicationContext` (último plan, incluso desconectado) y `sendMessage` (plan inmediato cuando el Watch está disponible). Si `WCSession` no está activada todavía, guarda en memoria el último snapshot protegido por `NSLock` y lo publica al completar la activación. El Watch solicita `requestToday` en el arranque, al recuperar conectividad, al volver al primer plano y desde «Sincronizar con iPhone». El iPhone responde con el snapshot disponible y vuelve a publicar los datos actuales.
 8. **Terminar / descartar en iPhone:** al limpiar `activeSession` el iPhone publica `session: Data()` vacío. El Watch ya **no ignora** ese nil: `WatchSessionHub.discardActiveSession()` cierra UI, descarta `HKWorkoutSession` si grababa en el reloj, limpia el snapshot offline (`current: nil`) y **no resucita** al reabrir la app. El Watch también ofrece **Descartar entreno** en listo/en curso. El resumen «¡Bien hecho!» solo aparece si el Watch completó la sesión; un cierre desde el iPhone vuelve al plan del día.
 9. En primer plano, el iPhone busca por external UUID muestras aún pendientes de sincronizar desde Apple Salud y actualiza su sesión. La sincronización autenticada con Supabase continúa siendo independiente de las mediciones de Salud.
+
+## Actividad en directo del iPhone y aparición en Inicio (05/11/2026)
+
+**Incidencia:** iniciar Comenzar en Apple Watch grababa correctamente
+`HKWorkoutSession`, pero el iPhone no recibía el estado Watch-owned para
+crear una `ActivityKit` en la pantalla bloqueada / Dynamic Island.
+Además, la primera transferencia del resultado de Comenzar desde Watch
+podía esperar al callback asíncrono de `HealthKit.finish`, por lo que el
+historial del iPhone no se actualizaba hasta que terminase HealthKit.
+
+**Flujo corregido:**
+
+1. Al iniciar desde el Watch se crea un único UUID de entrenamiento. El
+   Watch publica `WatchLiveActivitySnapshot` (registro, pausa,
+   reanudación y revisión) a `WatchConnectivityClient.sendWatchOwnedLive`.
+   Usa `sendMessage` si el iPhone es alcanzable y
+   `transferUserInfo` para transiciones duraderas en segundo plano.
+   Las actualizaciones periódicas se limitan a ~12 segundos. No se
+   transmiten puntos GPS ni muestras de Salud por el canal de UI.
+2. El iPhone valida `ownerScope`, formato, antigüedad y orden temporal.
+   `WorkoutLiveActivityCoordinator` presenta una actividad local con
+   identificador `watch:UUID` separado de `free:` y `planned:`.
+   El iPhone **no inicia otro workout HealthKit ni GPS**. Los controles
+   de pausa/reanudación que operarían sobre el iPhone se ocultan en la
+   notificación del registro Watch-owned; la tarjeta enlaza a Inicio.
+3. Al terminar o cancelar desde el reloj se envía estado de revisión
+   para cerrar exactamente el aviso de ese UUID. Al finalizar,
+   `sendFinished(pending)` se encola **inmediatamente después de
+   persistir el resultado local y antes de esperar HealthKit**.
+   `HealthKit.finish` puede enviar después el mismo UUID con
+   distancia, FC, kcal y `HKWorkout.uuid` verificados. La conciliación
+   conserva las series y las ediciones manuales previas, sin duplicar.
+4. `ReperaStore.applyWatchSession` distingue el cierre de una actividad
+   libre (`watch:`) del cierre de un plan (`planned:`). Después del
+   guardado local, el `workoutsEpoch` obliga a Inicio a rehacer las
+   tarjetas sin esperar la consulta asíncrona de Salud. Una actividad
+   fresca recibida desde Watch selecciona su día en Inicio; una
+   transferencia histórica offline no mueve el calendario.
+5. Al guardar desde Comenzar en iPhone una actividad vinculada a
+   prescripción, el estado sigue siendo `.finished` aunque quede
+   `awaitingResultEntry = true`; no se convierte a `.ready` con
+   `finishedAt` ya fijado. Además, la pantalla de revisión no descarta
+   su checkpoint GPS ni informa de éxito hasta que termine
+   `LocalStore.persistAndFlush`; si falla, muestra error y permite
+   reintentar sin perder el registro.
+6. Si la primera versión del Watch se está persistiendo cuando llegan las
+   métricas finales de HealthKit, el iPhone vuelve a volcar el estado más
+   reciente antes del ACK para evitar que el Watch reintente indefinidamente.
+
+**Limitación del sistema:** una `ActivityKit` puede iniciarse localmente
+en el iPhone solo cuando iOS permite ejecutar la aplicación. Una entrega
+`transferUserInfo` al iPhone suspendido no es una garantía de inicio
+inmediato en Dynamic Island. Para inicio remoto garantizado cuando el
+iPhone está completamente suspendido sería necesario evaluar
+ActivityKit push-to-start con APNs, permisos/entitlements y servidor,
+sin inventar que `WCSession` sea una notificación push instantánea.
+Con `ActivityAuthorizationInfo().areActivitiesEnabled == false`
+no se muestra Live Activity; se conserva el entrenamiento sin fallar.
+
+**Pruebas de aceptación (iPhone y Apple Watch reales):**
+
+- Inicio desde Watch con iPhone desbloqueado y Repera abierta: tarjeta
+  de duración/distancia y tipo, pausa/reanudación, sin controles
+  inoperantes ni otro `HKWorkout`.
+- Inicio desde Watch con iPhone bloqueado, Repera en segundo plano,
+  después fuera de cobertura y reconexión: observar la entrega del
+  aviso cuando iOS permita iniciarlo, nunca reabrir sesiones ya
+  finalizadas. Verificar que la sesión se recibe tras reconectar.
+- Finalizar desde Watch: Inicio pinta la sesión antes de recibir el
+  enriquecimiento de HealthKit, con el mismo UUID después de recibirlo.
+- Inicio y Guardar desde iPhone: Inicio selecciona la fecha correcta,
+  muestra la nueva tarjeta y el punto del calendario sin salir/entrar
+  manualmente. Repetir con prescripción y `awaitingResultEntry`.
+- Verificar fin de sesión, cancelación, duplicados, acciones offline,
+  permiso Live Activities desactivado y reinicio de ambas apps.
+
+Pruebas: `WatchLiveActivitySnapshotTests.swift` (política de
+antigüedad/orden), `tests/test_watch_owned_live_home_contract.py`
+(cableado entre reloj, teléfono, widget e historial). Compilar iOS y
+watchOS con el toolchain configurado y validar en dispositivos antes
+de certificar el comportamiento de ActivityKit en segundo plano.
 
 ## Permisos y privacidad
 

@@ -465,7 +465,9 @@ struct HomeView: View {
                     selectedDay = calendar.startOfDay(for: focusDay)
                 }
                 // Con diskPaint, workouts ya están en store (mismo ritmo que Salud).
-                if !didBuildDayBuckets { rebuildDayBuckets() }
+                // Saved sessions may arrive while Inicio is kept alive by
+                // TabView. Always paint the current store snapshot on entry.
+                rebuildDayBuckets()
                 if !didBuildCalendarChrome ||
                    lastCalendarWeekStartsOn != store.state.settings.weekStartsOn {
                     rebuildWeekChrome()
@@ -487,6 +489,21 @@ struct HomeView: View {
             }
             .onChange(of: store.isHydrated) { _, hydrated in
                 guard hydrated else { return }
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+            }
+            // A local iPhone save or a background Watch import can change
+            // workouts before SwiftUI starts/restarts the async Health task.
+            // Build the actual Home cards synchronously from the local store.
+            .onChange(of: store.workoutsEpoch, initial: true) { _, _ in
+                rebuildDayBuckets()
+                rebuildWeekChrome()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: Notification.Name("repera.watchWorkoutSaved")
+            )) { notification in
+                guard let date = notification.object as? Date else { return }
+                selectedDay = calendar.startOfDay(for: date)
                 rebuildDayBuckets()
                 rebuildWeekChrome()
             }
@@ -529,8 +546,8 @@ struct HomeView: View {
                 // mark the epoch handled only after its async work completes.
                 let epoch = store.workoutsEpoch
                 guard lastProcessedWorkoutsEpoch != epoch else { return }
-                rebuildDayBuckets()
-                rebuildWeekChrome()
+                // Day cards were already rebuilt by the synchronous epoch
+                // observer. The async task only fetches optional Health data.
                 // Invalidar minutos HK en vivo: tras borrar sesión no reutilizar
                 // el total crudo de hoy hasta un refine fresco.
                 todayHealthLive = HealthKitStore.DayMetrics()
