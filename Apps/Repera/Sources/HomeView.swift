@@ -1107,14 +1107,7 @@ struct HomeView: View {
 
     /// Actividad diaria real, sin gráfica de evolución semanal.
     private var activityTodayCard: some View {
-        let workouts = workoutsOnSelectedDay
         let kcal = dayHealth.activeEnergyKcal.flatMap { $0 >= 0 ? $0 : nil }
-        let score = workouts.compactMap { session -> Int? in
-            guard let review = session.sessionReview,
-                  review.scoreBasis == .personalHistory,
-                  (review.evidenceCoverage ?? 0) >= 0.60 else { return nil }
-            return min(max(review.overallScore, 0), 10)
-        }.first
 
         return OGCard {
             VStack(alignment: .leading, spacing: 14) {
@@ -1158,25 +1151,6 @@ struct HomeView: View {
                     )
                 }
 
-                if let score {
-                    HStack(spacing: 12) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 19, weight: .semibold))
-                            .foregroundStyle(OG.accent)
-                            .frame(width: 26, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Puntuación del entrenamiento")
-                                .font(.footnote.weight(.medium))
-                                .foregroundStyle(OG.label2)
-                            Text("\(score)/10")
-                                .ogFont(24, weight: .bold, relativeTo: .title2)
-                                .foregroundStyle(OG.label)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(12)
-                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
             }
         }
     }

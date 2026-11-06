@@ -10,7 +10,6 @@ struct SessionPreviewView: View {
     var routine: Routine?
     var onClose: () -> Void
     var onStart: () -> Void
-    var onRecord: (Routine) -> Void
     var onContinue: () -> Void
     var onEdit: (Routine) -> Void
     /// Push del ejercicio por una única ruta en RootTabView.
@@ -20,7 +19,6 @@ struct SessionPreviewView: View {
     @State private var editedSnapshot: Routine?
     @State private var showDeleteConfirm = false
     @State private var startFailureMessage: String?
-    @State private var showStartChoices = false
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
 
@@ -183,7 +181,7 @@ struct SessionPreviewView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showStartChoices = true
+                        startVisibleRoutine()
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 15, weight: .semibold))
@@ -193,14 +191,6 @@ struct SessionPreviewView: View {
                     .accessibilityLabel("Iniciar")
                 }
             }
-        }
-        .confirmationDialog("Iniciar entreno", isPresented: $showStartChoices, titleVisibility: .visible) {
-            Button("Comenzar en vivo") { startVisibleRoutine() }
-            Button("Grabar entreno") {
-                guard let routine = liveRoutine else { return }
-                onRecord(routine)
-            }
-            Button("Cancelar", role: .cancel) {}
         }
         .alert("No se ha podido guardar el favorito", isPresented: Binding(
             get: { favoriteSaveError != nil },

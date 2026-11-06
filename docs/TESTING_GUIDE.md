@@ -1,3 +1,12 @@
+## Verificación de inicio directo y resumen diario (2026-11-06)
+
+- [ ] iPhone: abrir un entrenamiento planificado, pulsar Play una vez y comprobar que abre directamente la sesión en vivo, sin diálogo «Comenzar en vivo / Grabar entreno»; las series, bloques y cronómetros siguen disponibles.
+- [ ] iPhone: con una sesión ya iniciada, entrar de nuevo en la vista previa y continuar la misma sesión sin duplicados. Con un inicio bloqueado por otra actividad/Salud, verificar que el error se muestra y no se navega a una sesión vacía.
+- [ ] iPhone/iPad: en Inicio, tanto hoy como un día pasado, la tarjeta Actividad muestra solo Pasos, Calorías y Tiempo. En vista compacta, tamaño de texto accesible, Duo y horizontal no queda un hueco donde estaba la nota.
+- [ ] Entreno puntuado: el chip de puntuación permanece dentro de la tarjeta del entreno y en el detalle; un entreno sin nota no recibe valor inventado. Comprobar dos sesiones puntuadas el mismo día.
+- [ ] Android: la vista de entreno planificado inicia directamente y la tarjeta Actividad mantiene únicamente Pasos, Calorías y Tiempo; revisar diseño compacto/tablet.
+- [ ] Apple Watch/Wear OS: el inicio de un plan sigue ofreciendo Entreno guiado / Entreno libre sin cambios, y la sesión se sincroniza con el móvil. Validar en hardware cuando esté disponible.
+
 ## Validación de acceso Pro a 3D y pricing compacto (2026-10-29)
 
 - [ ] TestFlight iOS y Android Play: usuario Pro mensual, anual, prueba y acceso patrocinado pueden pulsar 3D sin abrir página de precios. Comprobar que cambia de verdad a cámara inclinada.

@@ -48,8 +48,11 @@ class VerifiedSessionScoreContractTests(unittest.TestCase):
         self.assertIn("TrainingScoreConfidenceBar(label: review.confidenceLabel)", review)
         for label in ("Evolución personal","Cumplimiento","Rendimiento"):
             self.assertIn(label,model)
-        self.assertIn("if let score {",home)
-        self.assertIn("review.scoreBasis == .personalHistory",home)
+        self.assertIn("WorkoutRegisterChips.repera(",home)
+        self.assertNotIn('Text("Puntuación del entrenamiento")',home)
+        chips = read("Apps/Repera/Sources/RegisterSessionChrome.swift")
+        self.assertIn("if let review = session.sessionReview {",chips)
+        self.assertIn("OGRegisterChip(text: review.scoreLabel, icon: review.scoreSymbolName)",chips)
         self.assertIn("private static let sessionReviewFormulaVersion = 12",
                       read("Apps/Repera/Sources/ReperaStore.swift"))
 

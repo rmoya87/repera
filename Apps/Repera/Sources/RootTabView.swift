@@ -668,7 +668,6 @@ struct RootTabView: View {
                 routine: resolvePreviewRoutine(id: routineId),
                 onClose: { flowPath = [] },
                 onStart: openWorkout,
-                onRecord: recordPlannedRoutine,
                 onContinue: openWorkout,
                 onEdit: { routine in
                     previewRoutine = routine
@@ -721,27 +720,6 @@ struct RootTabView: View {
         }
         if let previewRoutine { return previewRoutine }
         return store.routineForToday()
-    }
-
-    private func recordPlannedRoutine(_ routine: Routine) {
-        guard store.state.activeSession == nil,
-              !LiveActivityRecorder.shared.isActive else {
-            sportFavoriteOpenError = "Finaliza o descarta primero el entrenamiento que está en curso."
-            return
-        }
-        let names = routine.blocks.flatMap { block in
-            block.movements.map(\.name) + block.exercises.compactMap { entry in
-                store.state.exercises.first(where: { $0.id == entry.exerciseId })?.name
-            }
-        }.joined(separator: " ").lowercased()
-        let sport: LiveSport = names.contains("bicicleta exterior") || names.contains("outdoor cycling")
-            ? .cycling : (names.contains("carrera exterior") || names.contains("outdoor running")
-                ? .running : (routine.blocks.contains(where: { $0.kind == .wod }) ? .crossfit : .strength))
-        UserDefaults.standard.set(routine.id.uuidString, forKey: "repera.plannedRecordingRoutineID")
-        LiveActivityRecorder.shared.choose(sport)
-        flowPath = []
-        tab = .start
-        LiveActivityRecorder.shared.beginStartCountdown()
     }
 
     private func openWorkout() {

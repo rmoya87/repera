@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-05 (fallback clase sin plan → gym/HIIT en Apple y Android/Wear; bloqueo táctil Comenzar).
+Última actualización: 2026-11-06 (inicio directo de entrenos planificados en iPhone y resumen de actividad sin nota duplicada).
 
 ## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
 
@@ -795,9 +795,11 @@ detalle ejercicio, historial, WODs, permisos/onboarding y cards de progreso →
 
 El título mostrado es el del catálogo (EN en CrossFit/halterofilia; ES u original en el resto) en listado, ficha, creación/edición, vista previa, Play, historial y escaneo de pizarras. En sesiones antiguas se resuelve primero el UUID hacia el catálogo sin modificar los resultados originales; los nombres libres se conservan si no existe coincidencia. Alias ES/EN, jerga y acrónimos resuelven búsqueda y OCR hacia esa ficha. Apple Watch y Android/Wear aplican el mismo criterio. Pendiente validar en simuladores/dispositivos reales.
 
-## Grabación de entrenos programados (2026-11-02)
+## Inicio de entrenos programados y grabación desde relojes (2026-11-06)
 
-En iOS, **Iniciar** ofrece **Comenzar en vivo** (apuntar series en directo) y **Grabar entreno** (registrar cronómetro, calorías y pulso sin marcar repeticiones). En Apple Watch y Wear OS, al pulsar el plan en Inicio el overlay opaco ofrece **Entreno guiado** (series en el reloj) y **Entreno libre** (cronómetro/Salud; series después en el teléfono): la elección abre el seguimiento y HealthKit/Health Services se inicia solo entonces. Al preparar un nuevo bloque o reanudar una sesión previa, **Iniciar** continúa sin repetir el selector. En esa pantalla, **Descartar** utiliza el mismo ancho y márgenes que **Iniciar**. En el segundo modo el plan conserva sus ejercicios prescritos y los resultados se completan mediante el editor del iPhone. La sesión conserva `awaitingResultEntry=true` pero pasa a fase `finished` cuando termina en el reloj, aunque falten resultados reales; no se convierten objetivos en series realizadas. Los pendientes siguen accesibles desde Inicio. La sesión Apple Watch usa HealthKit ya abierto, sin crear otro entrenamiento. En deportes interiores los relojes ocultan ritmo/distancia y destacan FC/kcal. Pendiente validación en dispositivos reales y paridad del selector en Android/Wear OS.
+En **iOS/iPadOS**, el botón Play de la vista previa de un entreno inicia **directamente el modo en vivo**, sin mostrar la elección «Comenzar en vivo / Grabar entreno». Mantiene la comprobación de que se ha creado la sesión correcta, la navegación a Play, la posibilidad de continuar la sesión ya activa y los errores de inicio. **Android** ya comienza directamente el entrenamiento planificado sin ese selector. En ambos teléfonos, **Inicio → Actividad de hoy/del día** muestra solo las métricas de Pasos, Calorías y Tiempo; la puntuación de una sesión se consulta en su chip dentro de la tarjeta del entreno y en su detalle, sin una segunda tarjeta de puntuación.
+
+En **Apple Watch y Wear OS**, al pulsar el plan en Inicio se mantiene el selector nativo **Entreno guiado** (series en el reloj) / **Entreno libre** (cronómetro/Salud; series después en el teléfono): la elección abre el seguimiento y HealthKit/Health Services se inicia solo entonces. Al preparar un nuevo bloque o reanudar una sesión previa, **Iniciar** continúa sin repetir el selector. En esa pantalla, **Descartar** utiliza el mismo ancho y márgenes que **Iniciar**. En el segundo modo el plan conserva sus ejercicios prescritos y los resultados se completan mediante el editor del teléfono. La sesión conserva `awaitingResultEntry=true` pero pasa a fase `finished` cuando termina en el reloj, aunque falten resultados reales; no se convierten objetivos en series realizadas. Los pendientes siguen accesibles desde Inicio. La sesión Apple Watch usa HealthKit ya abierto, sin crear otro entrenamiento. En deportes interiores los relojes ocultan ritmo/distancia y destacan FC/kcal. Pendiente validación en dispositivos reales.
 
 ## Correcciones multi-dispositivo 03/11/2026
 
