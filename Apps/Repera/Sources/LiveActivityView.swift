@@ -3611,32 +3611,22 @@ struct LiveActivityView: View {
                     .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
                         canLockLiveScreen ? $0 : nil
                     }
-                    // Música oculta hasta que se integre un control real.
-                    Color.clear.frame(width: 64, height: 64)
-                        .frame(maxWidth: .infinity).accessibilityHidden(true)
-                }
-                if recorder.phase == .idle {
-                    Button { sportPicker = true } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: recorder.sport.symbol)
-                                .font(.title2).foregroundStyle(OG.accent)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Selecciona actividad")
-                                    .font(.caption).foregroundStyle(OG.label2)
-                                Text(recorder.sport.title).font(.title3.weight(.semibold))
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(OG.label2)
-                        }
-                        .padding(.horizontal, 20)
-                        .frame(minHeight: 64)
-                        .background(selectionCircleBackground, in: Capsule())
+                    // La selección de actividad ocupa el círculo derecho del botón principal.
+                    // La sheet nativa sube desde abajo y choose(_:) persiste la última elección.
+                    Button {
+                        sportPicker = true
+                    } label: {
+                        Image(systemName: recorder.sport.symbol)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 64, height: 64)
+                            .background(selectionCircleBackground, in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .transition(reduceMotion ? .opacity : .move(edge: .bottom))
-                } else {
-                    Text("Desliza a la izquierda para ver opciones")
-                        .font(.caption2).foregroundStyle(OG.label2)
+                    .disabled(recorder.phase != .idle || recorder.isStartCountingDown)
+                    .accessibilityLabel("Seleccionar actividad: \(recorder.sport.title)")
+                    .accessibilityHint("Abre el selector de actividades desde abajo")
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
