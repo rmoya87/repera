@@ -7,15 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -56,7 +47,6 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timeline
@@ -776,7 +766,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     LiveActivityService.stop(context)
                     title = ""
                     notes = ""
-                    showingMetrics = false
+                    showingMetrics = true
                 }
                 confirmDiscard = false
             },
@@ -1451,172 +1441,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
  * y superpone un candado en la misma posición del control original.
  * Mantener pulsado un segundo desbloquea; la acción accesible permite TalkBack.
  */
-/** Controles nativos compartidos entre el mapa y las métricas de Comenzar. */
-@Composable
-private fun LiveStartToolbar(
-    sportIcon: ImageVector,
-    sportTitle: String,
-    phase: LiveActivityState.Phase,
-    countdown: Int,
-    hasActiveWorkout: Boolean,
-    showOptions: Boolean,
-    audioEnabled: Boolean,
-    showMap: Boolean,
-    hasGPS: Boolean,
-    locked: Boolean,
-    onShowOptions: (Boolean) -> Unit,
-    onAudio: () -> Unit,
-    onMap: (Boolean) -> Unit,
-    onSport: () -> Unit,
-    onRoute: () -> Unit,
-    onPrimary: () -> Unit,
-    onFinish: () -> Unit,
-    onLock: () -> Unit,
-    onPrimaryPositioned: (Rect) -> Unit
-) {
-    var dragDistance by remember { mutableFloatStateOf(0f) }
-    val isActive = phase == LiveActivityState.Phase.RECORDING ||
-        phase == LiveActivityState.Phase.PAUSED
-    Column(
-        Modifier.fillMaxWidth().widthIn(max = 570.dp)
-            .pointerInput(locked) {
-                if (!locked) detectHorizontalDragGestures(
-                    onDragStart = { dragDistance = 0f },
-                    onHorizontalDrag = { change, delta ->
-                        dragDistance += delta
-                        change.consume()
-                    },
-                    onDragEnd = {
-                        if (dragDistance < -70f) onShowOptions(true)
-                        if (dragDistance > 70f) onShowOptions(false)
-                        dragDistance = 0f
-                    },
-                    onDragCancel = { dragDistance = 0f }
-                )
-            }
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AnimatedContent(
-            targetState = showOptions,
-            transitionSpec = {
-                (slideInHorizontally(animationSpec = tween(220)) { if (targetState) it else -it } + fadeIn())
-                    .togetherWith(slideOutHorizontally(animationSpec = tween(220)) {
-                        if (targetState) -it else it
-                    } + fadeOut())
-            },
-            label = "start_options"
-        ) { options ->
-            if (options) {
-                Column(
-                    Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Opciones", style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.weight(1f))
-                        TextButton(onClick = { onShowOptions(false) }) { Text("Cerrar") }
-                    }
-                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.VolumeUp, null)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Audio", style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f))
-                        Switch(checked = audioEnabled, onCheckedChange = { onAudio() })
-                    }
-                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Map, null)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Mapa", style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f))
-                        Switch(checked = hasGPS && showMap,
-                            enabled = hasGPS, onCheckedChange = onMap)
-                    }
-                    if (!isActive) {
-                        TextButton(onClick = onRoute, enabled = hasGPS,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                            Icon(Icons.Outlined.Route, null)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Cargar ruta", style = MaterialTheme.typography.titleMedium)
-                        }
-                    } else {
-                        TextButton(onClick = onLock,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                            Icon(Icons.Outlined.Lock, null)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Bloquear pantalla", style = MaterialTheme.typography.titleMedium)
-                        }
-                    }
-                }
-            } else {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        onClick = { if (isActive) onFinish() else onShowOptions(true) },
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(64.dp)
-                            .testTag(if (isActive) "live_finish" else "live_options")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(if (isActive) Icons.Outlined.Flag else Icons.Outlined.Settings,
-                                if (isActive) "Finalizar actividad" else "Opciones",
-                                modifier = Modifier.size(28.dp))
-                        }
-                    }
-                    Surface(
-                        onClick = onPrimary,
-                        shape = CircleShape,
-                        color = if (phase == LiveActivityState.Phase.RECORDING)
-                            ReperaAccents.pauseFab else brandGreen,
-                        modifier = Modifier.size(if (isActive) 94.dp else 116.dp)
-                            .onGloballyPositioned { onPrimaryPositioned(it.boundsInRoot()) }
-                            .testTag(if (isActive) "live_pause_resume" else "live_start")
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center) {
-                            if (countdown > 0) {
-                                Text("$countdown", color = Color.Black,
-                                    style = MaterialTheme.typography.headlineLarge)
-                            } else {
-                                Icon(
-                                    if (locked) Icons.Outlined.Lock else
-                                    if (phase == LiveActivityState.Phase.RECORDING) Icons.Filled.Pause
-                                    else Icons.Filled.PlayArrow,
-                                    contentDescription = null, tint = Color.Black,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                if (!isActive) {
-                                    Text(if (hasActiveWorkout) "CONTINUAR" else "COMENZAR",
-                                        color = Color.Black,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                    Surface(
-                        onClick = onSport, enabled = !isActive && countdown == 0,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.size(64.dp).testTag("live_sport_picker")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(sportIcon, "Elegir actividad: $sportTitle",
-                                tint = brandGreen, modifier = Modifier.size(28.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun LiveScreenTouchBlocker(
     target: Rect?,
