@@ -222,10 +222,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             trainingSettingsForAccount(context, accountId).heartRateMaxBpm ?: 190
         }
     }
-    // Mapa begins compact for every new live activity; Métricas remains full.
-    var mapDetailsExpanded by remember(accountId, state.gpsSessionID) {
-        mutableStateOf(false)
-    }
     // Mantener el último rumbo medido dentro de la misma sesión. Un fix sin
     // avance no debe hacer girar el mapa de vuelta hacia el norte.
     var lastReliableHeading by remember(state.gpsSessionID, state.sport.id) {
@@ -1377,110 +1373,74 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     ) {
         ReperaPageHeader(title = stringResource(R.string.tab_start))
         Text(state.sport.title,style=MaterialTheme.typography.titleLarge)
-        if(state.sport.usesGPS)
-            TextButton(onClick={showingMetrics=false;showRoutes=false}) {Text(stringResource(R.string.live_activity_screen_ver_mapa))}
-        if(state.phase==LiveActivityState.Phase.IDLE) {
-            OutlinedButton(onClick = { showSportPicker = true }, modifier = Modifier.testTag("live_sport_picker")) {
-                Text("Elegir actividad: ${state.sport.title}")
-            }
-            Text(state.sport.metricDescription)
-            TextButton(onClick = {
-                runtime.toggleSpokenGuidance()
-                if (!runtime.spokenGuidanceEnabled && android.os.Build.VERSION.SDK_INT >= 33)
-                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }) {
-                Text(if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz")
-            }
-            if (state.sport.usesGPS) {
-                TextButton(onClick = { showRoutes = true }) { Text(stringResource(R.string.live_activity_screen_mis_rutas)) }
-                state.selectedRouteID?.let { selected ->
-                    Text("Ruta: ${routes.firstOrNull { it.id == selected }?.title ?: "No disponible"}")
-                    TextButton(onClick = { runtime.selectRoute(null) }) { Text(stringResource(R.string.live_activity_screen_sin_ruta_planificada)) }
-                }
-            }
-            Button(onClick={
-                if (hasActiveWorkout) onOpenWorkout()
-                else if (startCountdown > 0) cancelStartCountdown()
-                else if(ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED &&
-                        ContextCompat.checkSelfPermission(context,Manifest.permission.ACCESS_COARSE_LOCATION)!=PackageManager.PERMISSION_GRANTED)
-                    permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))
-                else beginStartCountdown()
-            },modifier=Modifier.testTag("live_start")) {
-                Text(when {
-                    hasActiveWorkout -> "Continuar entrenamiento"
-                    startCountdown > 0 -> "Cancelar ($startCountdown)"
-                    else -> "Empezar actividad"
-                })
-            }
+        if (state.phase == LiveActivityState.Phase.IDLE) {
+            Text(state.sport.metricDescription,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            Text(LiveSportHistory.formatDuration(state.durationSeconds(nowTick)),style=MaterialTheme.typography.displayMedium)
-            if (state.phase == LiveActivityState.Phase.RECORDING ||
-                state.phase == LiveActivityState.Phase.PAUSED) {
-                LiveHeartRateZoneBar(bpm = displayedHeartRateBpm,
+            Text(LiveActivityClock.format(state.durationSeconds(nowTick)),
+                style = MaterialTheme.typography.displayLarge)
+            if (displayedHeartRateBpm != null) {
+                LiveHeartRateZoneBar(
+                    bpm = displayedHeartRateBpm,
                     estimatedMaxBpm = maxHeartRateBpm.toDouble())
             }
-            if(state.sport.usesGPS) {
-                Text("${ReperaNumberFormat.decimal(state.distanceMeters/1000)} km",style=MaterialTheme.typography.headlineSmall)
-                val now = System.currentTimeMillis()
-                if (state.sport.displaysSpeed) {
-                    state.averageSpeedKmh(now)?.let { Text("${ReperaNumberFormat.decimal(it)} km/h de media") }
-                    state.currentSpeedMps?.let { Text("${ReperaNumberFormat.decimal(it * 3.6)} km/h") }
-                } else {
-                    val speed = state.currentSpeedMps
-                    if (speed != null && speed > 0.5) Text("${LiveSportHistory.formatDuration(1000 / speed)} min/km")
-                    else Text(stringResource(R.string.live_activity_screen_ritmo_sin_datos))
-                }
-                if (state.sport.tracksElevation && state.hasElevationSamples)
-                    Text("+%.0f m / -%.0f m".format(dev.repera.domain.ReperaNumberFormat.displayLocale, state.elevationGainMeters, state.elevationLossMeters))
-                if (state.activeKilometerMeters >= 40) {
-                    val split = state.currentSplitSeconds(now)
-                    val current = if (state.sport.displaysSpeed && split > 0)
-                        "${ReperaNumberFormat.decimal(state.activeKilometerMeters / split * 3.6)} km/h"
-                    else "${LiveSportHistory.formatDuration(split * 1000 / state.activeKilometerMeters)} min/km"
-                    Text("Km ${state.activeKilometer} · $current")
-                }
-                LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
-                TextButton(onClick = { runtime.toggleSpokenGuidance() }) {
-                    Text(
-                        if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz"
-                        else "Activar avisos por voz"
-                    )
-                }
+            runtime.upcomingTurn?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium)
             }
-            runtime.upcomingTurn?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
             runtime.latestKilometerReport?.let { Text(it) }
-            when(state.phase) {
-                LiveActivityState.Phase.RECORDING -> Button(onClick={runtime.pause()},modifier=Modifier.testTag("live_pause")) {Text(stringResource(R.string.live_activity_screen_pausar))}
-                LiveActivityState.Phase.PAUSED -> {
-                    Text(stringResource(R.string.live_activity_screen_en_pausa))
-                    Button(onClick={runtime.resume();startService()},modifier=Modifier.testTag("live_resume")) {Text(stringResource(R.string.live_activity_screen_reanudar))}
-                }
-                else -> {}
-            }
-            Button(
-                onClick = { runtime.finish(); LiveActivityService.stop(context) },
-                modifier = Modifier.testTag("live_finish")
-            ) { Text(stringResource(R.string.home_tab_finalizar)) }
-            TextButton(onClick = { confirmDiscard = true }) { Text(stringResource(R.string.home_day_cards_descartar)) }
-            LiveKilometerSplitsSection(state.splitsSeconds, state.sport.displaysSpeed)
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp
+        ) {
+            LiveStartToolbar(
+                    sportIcon = state.sport.materialIcon,
+                    sportTitle = state.sport.title,
+                    phase = state.phase,
+                    countdown = startCountdown,
+                    hasActiveWorkout = hasActiveWorkout,
+                    showOptions = showStartOptions,
+                    audioEnabled = runtime.spokenGuidanceEnabled,
+                    showMap = !showingMetrics,
+                    hasGPS = state.sport.usesGPS,
+                    locked = touchLocked,
+                    onShowOptions = { showStartOptions = it },
+                    onAudio = { runtime.toggleSpokenGuidance() },
+                    onMap = { showingMetrics = !it },
+                    onSport = { showSportPicker = true },
+                    onRoute = { showStartOptions = false; showRoutes = true },
+                    onPrimary = {
+                        when (state.phase) {
+                            LiveActivityState.Phase.RECORDING -> runtime.pause()
+                            LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
+                            LiveActivityState.Phase.IDLE -> {
+                                if (hasActiveWorkout) onOpenWorkout()
+                                else if (startCountdown > 0) cancelStartCountdown()
+                                else if (ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                                    ) != PackageManager.PERMISSION_GRANTED &&
+                                    ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.ACCESS_COARSE_LOCATION
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) permissions.launch(arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                ))
+                                else beginStartCountdown()
+                            }
+                            else -> Unit
+                        }
+                    },
+                    onFinish = { confirmFinish = true },
+                    onLock = { showStartOptions = false; lockTouch() },
+                    onPrimaryPositioned = { lockTarget = it }
+                )
         }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada))}
-    }
-    if (touchLockAvailable) {
-        Row(
-            Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 12.dp, end = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.onGloballyPositioned { lockTarget = it.boundsInRoot() }) {
-                LiveMapCircleFab(Icons.Outlined.LockOpen, "Bloquear pantalla") { lockTouch() }
-            }
-            LiveMapCircleFab(
-                if (runtime.spokenGuidanceEnabled) Icons.Outlined.VolumeUp else Icons.Outlined.VolumeOff,
-                if (runtime.spokenGuidanceEnabled) "Desactivar avisos por voz" else "Activar avisos por voz"
-            ) { runtime.toggleSpokenGuidance() }
-        }
     }
     if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
     }
@@ -2110,7 +2070,7 @@ private fun LiveKilometerSplitSummary(
     }
 }
 
-/** Panel activo: duración, ritmo/velocidad, distancia + parcial del km (paridad mapMetricStrip iOS). */
+/** Panel compacto fijo: no admite expansión de métricas. */
 @Composable
 private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?,
     expanded: Boolean, maxBpm: Double) {
@@ -2177,13 +2137,7 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
             nowTick = nowTick,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
         )
-        Text(
-            if (expanded) "Ocultar detalles  ⌃" else "Mostrar detalles  ⌄",
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+
     }
 }
 
