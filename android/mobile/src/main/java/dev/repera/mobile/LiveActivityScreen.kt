@@ -57,8 +57,8 @@ import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.ViewInAr
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.VolumeOff
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.Whatshot
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -76,7 +76,6 @@ import androidx.compose.ui.unit.IntOffset
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -1199,16 +1198,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     .testTag("live_idle_panel")
             ) {
                 if (state.phase != LiveActivityState.Phase.IDLE) {
+                    val metricStripShape = RoundedCornerShape(22.dp)
                     Surface(
-                        shape = RoundedCornerShape(22.dp),
+                        shape = metricStripShape,
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                         tonalElevation = 0.dp,
-                        shadowElevation = 1.dp,
+                        shadowElevation = 0.dp,
                         border = BorderStroke(
                             1.dp,
                             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .reperaChromeShadow(metricStripShape)
                     ) {
                         LiveMapMetricStrip(state = state, nowTick = nowTick)
                     }
@@ -1626,7 +1629,7 @@ private fun LiveIdleOptionsSheet(
             )
         }
         LiveSportOptionSwitchRow(
-            icon = Icons.Outlined.VolumeUp,
+            icon = Icons.AutoMirrored.Outlined.VolumeUp,
             label = "Audio",
             checked = audioEnabled,
             minHeight = 56.dp,
@@ -1689,7 +1692,7 @@ private fun LiveSessionOptionsPane(
     ) {
         Text("Opciones", style = MaterialTheme.typography.headlineMedium)
         LiveSportOptionSwitchRow(
-            icon = Icons.Outlined.VolumeUp,
+            icon = Icons.AutoMirrored.Outlined.VolumeUp,
             label = "Audio",
             checked = audioEnabled,
             onCheckedChange = { onAudio() }
@@ -1877,10 +1880,25 @@ private fun LiveSessionMetricsPane(
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                     if (state.splitsSeconds.isEmpty()) {
-                        ReperaEmptyState(
-                            title = "Aún no hay parciales",
-                            subtitle = "El primer parcial aparecerá al completar un kilómetro."
-                        )
+                        // Sin card blanca: mismo fondo que métricas.
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Aún no hay parciales",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "El primer parcial aparecerá al completar un kilómetro.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     } else {
                         state.splitsSeconds.forEachIndexed { index, seconds ->
                             val pace = seconds.roundToInt().coerceAtLeast(0)
@@ -2188,7 +2206,7 @@ private fun LiveActivityReviewContent(
                 zoned.format(
                     java.time.format.DateTimeFormatter.ofPattern(
                         "EEEE, d 'de' MMMM 'de' yyyy, H:mm",
-                        java.util.Locale("es", "ES")
+                        java.util.Locale.forLanguageTag("es-ES")
                     )
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -2355,9 +2373,11 @@ private fun LiveMapCircleFab(icon: ImageVector, label: String, onClick: () -> Un
             onClick = onClick,
             shape = CircleShape,
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp,
+            shadowElevation = 0.dp,
             border = BorderStroke(0.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier
+                .size(44.dp)
+                .reperaChromeShadow(CircleShape)
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface,
@@ -2386,8 +2406,10 @@ private fun LiveMapSessionFab(
             onClick = onClick,
             shape = CircleShape,
             color = background,
-            shadowElevation = 2.dp,
-            modifier = Modifier.size(44.dp)
+            shadowElevation = 0.dp,
+            modifier = Modifier
+                .size(44.dp)
+                .reperaChromeShadow(CircleShape)
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(22.dp))
@@ -2541,7 +2563,7 @@ private fun RowScope.LiveIdleSelectionAction(
         Box(
             Modifier
                 .size(size)
-                .shadow(if (filledGreen) 0.dp else 1.dp, CircleShape)
+                .then(if (filledGreen) Modifier else Modifier.reperaChromeShadow(CircleShape))
                 .clip(CircleShape)
                 .background(if (filledGreen) brandGreen else MaterialTheme.colorScheme.surface)
                 .then(

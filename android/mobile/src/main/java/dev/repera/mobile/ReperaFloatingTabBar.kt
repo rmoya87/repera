@@ -37,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +58,20 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+
+/** Sombra corta y clara para chrome flotante (menú, FABs, cards glass). */
+internal val ReperaChromeAmbientShadow = Color.Black.copy(alpha = 0.05f)
+internal val ReperaChromeSpotShadow = Color.Black.copy(alpha = 0.08f)
+internal val ReperaChromeShadowElevation = 1.5.dp
+
+internal fun Modifier.reperaChromeShadow(shape: Shape): Modifier =
+    shadow(
+        elevation = ReperaChromeShadowElevation,
+        shape = shape,
+        clip = false,
+        ambientColor = ReperaChromeAmbientShadow,
+        spotColor = ReperaChromeSpotShadow,
+    )
 
 /**
  * Altura del chrome inferior (tab bar + Continuar + nav bars) cuando está visible.
@@ -207,11 +223,12 @@ internal fun ReperaFloatingTabBar(
         modifier = modifier
             .widthIn(max = REPERA_TAB_BAR_MAX_WIDTH)
             .fillMaxWidth()
+            .reperaChromeShadow(pillShape)
             .selectableGroup()
             .testTag("floating_tab_bar"),
         shape = pillShape,
         color = MaterialTheme.reperaColors.chromeSurface,
-        shadowElevation = 4.dp,
+        shadowElevation = 0.dp,
         tonalElevation = 0.dp,
         border = BorderStroke(
             1.dp,
@@ -318,14 +335,16 @@ internal fun ReperaContinueAccessory(
     val accent = if (isLiveActivity) brandAmber else brandGreen
     val chrome = MaterialTheme.reperaColors
     val continueLabel = stringResource(R.string.continue_a11y, title)
+    val continueShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     Surface(
         color = chrome.chromeSurface,
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
-        shadowElevation = 6.dp,
+        shape = continueShape,
+        shadowElevation = 0.dp,
         tonalElevation = 0.dp,
         modifier = modifier
             .widthIn(max = REPERA_TAB_BAR_MAX_WIDTH)
             .fillMaxWidth()
+            .reperaChromeShadow(continueShape)
             .clickable(onClickLabel = continueLabel, role = Role.Button, onClick = onClick)
             .semantics(mergeDescendants = true) {}
             .testTag("continuar_accessory")

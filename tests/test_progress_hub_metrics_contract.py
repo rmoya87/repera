@@ -245,6 +245,19 @@ class ProgressHubMetricsContractTests(unittest.TestCase):
             main,
         )
 
+    def test_android_chrome_shadow_is_shared_and_soft(self):
+        bar = read(ANDROID / "ReperaFloatingTabBar.kt")
+        live = read(ANDROID / "LiveActivityScreen.kt")
+        place = read(ANDROID / "PlaceSearchSheet.kt")
+        editor = read(ANDROID / "FinishedWorkoutEditor.kt")
+        self.assertIn("fun Modifier.reperaChromeShadow", bar)
+        self.assertIn("ReperaChromeShadowElevation = 1.5.dp", bar)
+        self.assertIn("reperaChromeShadow(", live)
+        self.assertIn("reperaChromeShadow(", place)
+        self.assertIn("ReperaChromeAmbientShadow", editor)
+        self.assertNotIn("shadowElevation = 4.dp", bar)
+        self.assertNotIn("shadowElevation = 6.dp", bar)
+
     def test_android_progress_chips_full_bleed_horizontal(self):
         """Carrusel de chips: viewport a borde de pantalla; inset en contenido scrolleable."""
         chips = read(ANDROID / "ProgressCategoryChips.kt")

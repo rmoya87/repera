@@ -352,6 +352,21 @@ case .hiit: .highIntensityIntervalTraining
 
 - Títulos/flags/`AppEnum`: `let` / estáticos; evitar `var` mutables entre procesos.
 
+#### Android — splash no espera catálogo/fromBytes (06/11/2026)
+
+```kotlin
+// ❌ BAD — restoringSession=true durante prepareAccountDataAfterAuth (red + StateOverview.fromBytes)
+// → LaunchSplashScreen eterno en emulador; Inicio nunca aparece
+prepareAccountDataAfterAuth(id) { current() } // dentro del try, splash aún visible
+
+// ✅ GOOD — tras profile + sesión verificada, bajar splash y hidratar después
+profile = GoogleProfile(...)
+restoringSession = false; busy = false
+prepareAccountDataAfterAuth(id) { current() }
+```
+
+- Contrato: `tests/test_android_launch_splash_contract.py`.
+
 #### Android / Wear — Pro B2B naming (CI 2026-11-04)
 
 ```kotlin

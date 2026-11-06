@@ -2234,7 +2234,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
-                prepareAccountDataAfterAuth(stored.uniqueId) { current() }
+                // Quitar splash YA: catálogo/espejos/fromBytes no deben bloquear Inicio.
+                restoringSession = false
+                busy = false
+                if (current()) prepareAccountDataAfterAuth(stored.uniqueId) { current() }
             } catch (error: Exception) {
                 if(!current()) return@launch
                 if(!SupabaseAuthErrors.isUnrecoverable(error)) {
@@ -2242,8 +2245,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     // la cuenta remota queda sin verificar hasta reintentar (onResume).
                     profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                     status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
+                    restoringSession = false
+                    busy = false
                     ensureLocalSeedIfMissing(stored.uniqueId) { current() }
-                    reloadFor(stored.uniqueId)
+                    if (current()) reloadFor(stored.uniqueId)
                     return@launch
                 }
                 // Revoked refresh token or session confirmed by Supabase: back to the login screen.

@@ -1091,12 +1091,16 @@ internal fun DragReorderItem(
         .zIndex(if (lifting) 100f else 0f)
         .graphicsLayer {
             translationY = dy
-            // Elevación baja → sombra corta; zIndex alto mantiene el ítem por encima.
-            shadowElevation = if (lifting) 2.5f else 0f
+            // Misma sombra chrome corta/clara que el menú flotante.
+            shadowElevation = if (lifting) {
+                with(density) { ReperaChromeShadowElevation.toPx() }
+            } else {
+                0f
+            }
             shape = liftShape
             clip = lifting
-            ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.10f)
-            spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.14f)
+            ambientShadowColor = ReperaChromeAmbientShadow
+            spotShadowColor = ReperaChromeSpotShadow
         }
         .then(
             if (lifting) Modifier

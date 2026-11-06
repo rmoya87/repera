@@ -186,6 +186,11 @@ class LiveStartControlsContractTests(unittest.TestCase):
         self.assertIn("liveSessionChromeSwipeGesture", ios)
         self.assertIn(".simultaneousGesture(liveSessionChromeSwipeGesture)", pager)
         self.assertIn("liveSplitsSection", ios)
+        self.assertIn("Aún no hay parciales", android)
+        empty_android = android.split('if (state.splitsSeconds.isEmpty())', 1)[1].split(
+            "} else {", 1
+        )[0]
+        self.assertNotIn("ReperaEmptyState(", empty_android)
         map_view = ios.split("private var mapView: some View", 1)[1].split(
             "private var mapHeader:", 1
         )[0]

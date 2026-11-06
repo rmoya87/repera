@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
@@ -222,7 +223,7 @@ internal fun HomeTab(
             ) {
                 val dateSubtitle = selectedDay.format(
                     java.time.format.DateTimeFormatter.ofPattern(
-                        "EEEE d MMMM", java.util.Locale("es", "ES")
+                        "EEEE d MMMM", java.util.Locale.forLanguageTag("es-ES")
                     )
                 ).replaceFirstChar { it.uppercase() }
                 ReperaPageHeader(
@@ -478,9 +479,10 @@ internal fun HomeTab(
                             }
                             else -> listOf(Icons.Outlined.FitnessCenter to "Reserva confirmada")
                         }
+                        val sessionTitle = session?.title
                         val title = when {
                             !isClass || planBlocks.isEmpty() -> occurrence.title
-                            !session?.title.isNullOrBlank() -> session!!.title
+                            !sessionTitle.isNullOrBlank() -> sessionTitle
                             else -> occurrence.title
                         }
                         val card = @Composable {
@@ -515,12 +517,14 @@ internal fun HomeTab(
                         HomeEmptyDayCard(day)
                     }
                     if (activeWorkout == null) {
+                        // Aire extra entre ficha del día y CTA (paridad iOS .padding(.top, 20)).
+                        Spacer(Modifier.height(14.dp))
                         HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
                     }
                     if (showDayPlus) {
                         val dayName = day.dayOfWeek.getDisplayName(
                             java.time.format.TextStyle.FULL,
-                            java.util.Locale("es")
+                            java.util.Locale.forLanguageTag("es")
                         ).replaceFirstChar { it.uppercase() }
                         DayPlusSheet(
                             dayName = dayName,
@@ -627,7 +631,7 @@ internal fun HomeTab(
     }
 
     val zone = remember { java.time.ZoneId.systemDefault() }
-    val es = remember { java.util.Locale("es", "ES") }
+    val es = remember { java.util.Locale.forLanguageTag("es-ES") }
     val dayFmt = remember {
         java.time.format.DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
     }

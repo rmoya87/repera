@@ -45,9 +45,10 @@ internal fun SessionDetailSkeleton(
 ) {
     val bone = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
     val card = MaterialTheme.colorScheme.surface
+    val contentResolver = LocalContext.current.contentResolver
     val reduceMotion = runCatching {
         Settings.Global.getFloat(
-            LocalContext.current.contentResolver,
+            contentResolver,
             Settings.Global.ANIMATOR_DURATION_SCALE,
             1f
         ) == 0f

@@ -10,9 +10,17 @@ HOME = (ROOT / "HomeView.swift").read_text(encoding="utf-8")
 PLAN = (ROOT / "PlanView.swift").read_text(encoding="utf-8")
 PLAY = (ROOT / "WorkoutView.swift").read_text(encoding="utf-8")
 THEME = (ROOT / "Theme.swift").read_text(encoding="utf-8")
+ANDROID_HOME = (
+    Path(__file__).resolve().parents[1]
+    / "android/mobile/src/main/java/dev/repera/mobile/HomeTab.kt"
+).read_text(encoding="utf-8")
 
 
 class HomeBackgroundAndEmptyReorderContracts(unittest.TestCase):
+    def test_android_add_workout_button_has_air_after_day_card(self):
+        self.assertIn("HomeAddWorkoutButton(", ANDROID_HOME)
+        self.assertIn("Spacer(Modifier.height(14.dp))", ANDROID_HOME)
+
     def test_home_topbar_is_transparent_and_its_underlay_is_white(self):
         self.assertIn(
             '.ogFixedTopBar("repera", subtitle: SpanishDate.long(selectedDay), drawsBackground: false)',

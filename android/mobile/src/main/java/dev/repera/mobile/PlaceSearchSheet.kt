@@ -565,16 +565,18 @@ fun PlaceSearchSheet(
                 }
 
                 // Card glass flotante (paridad iOS / compare4/52).
+                val glassCardShape = RoundedCornerShape(22.dp)
                 Surface(
-                    shape = RoundedCornerShape(22.dp),
+                    shape = glassCardShape,
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    tonalElevation = 2.dp,
-                    shadowElevation = 1.dp,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
                         .padding(horizontal = 12.dp, vertical = 12.dp)
                         .fillMaxWidth()
+                        .reperaChromeShadow(glassCardShape)
                 ) {
                     Column(Modifier.fillMaxWidth()) {
                         Row(
@@ -876,16 +878,18 @@ fun PlaceSearchSheet(
                 val confirmPending = pending
                 if (showsConfirmMap && confirmPending != null) {
                     // Chip abajo (paridad iOS): nombre + categoría/dirección + icono.
+                    val confirmChipShape = RoundedCornerShape(16.dp)
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = confirmChipShape,
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                        tonalElevation = 2.dp,
-                        shadowElevation = 1.dp,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding()
                             .padding(horizontal = 12.dp, vertical = 12.dp)
                             .fillMaxWidth()
+                            .reperaChromeShadow(confirmChipShape)
                             .testTag("place_confirm_chip")
                     ) {
                         Row(
