@@ -176,7 +176,16 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 # scripts/check_xcode_sources.py REQUIRED + tests/test_xcode_sources.py
 ```
 
-- Tras añadir Swift en subcarpeta nueva: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
+```yaml
+# ❌ BAD — SessionDetailSkeleton.swift en disco; scan/XcodeGen viejo no lo compila
+# → Cannot find 'SessionDetailSkeleton' in scope (HistoryView.swift)
+
+# ✅ GOOD — exclude + path explícito + REQUIRED
+# project.yml: - path: Apps/Repera/Sources/SessionDetailSkeleton.swift
+# scripts/check_xcode_sources.py REQUIRED + tests/test_xcode_sources.py
+```
+
+- Tras añadir Swift en subcarpeta nueva **o archivo Swift nuevo en Sources/**: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
 #### Apple — XcodeGen scripts + User Script Sandboxing (dSYMs Archive)
 

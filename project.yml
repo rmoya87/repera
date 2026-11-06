@@ -61,6 +61,7 @@ targets:
           - LiveSportHistoryView.swift
           - OGDuoContextRail.swift
           - PlusHubView.swift
+          - SessionDetailSkeleton.swift
           - Analytics/ReperaAnalytics.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       - path: Apps/Repera/Sources/RemoteExerciseArtCache.swift
@@ -71,6 +72,7 @@ targets:
       - path: Apps/Repera/Sources/LiveSportHistoryView.swift
       - path: Apps/Repera/Sources/OGDuoContextRail.swift
       - path: Apps/Repera/Sources/PlusHubView.swift
+      - path: Apps/Repera/Sources/SessionDetailSkeleton.swift
       # GA4 adapter: new Analytics/ folder is easy for XcodeGen 2.46 to drop from Compile Sources.
       - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift
       - path: Apps/Shared/RestActivityAttributes.swift

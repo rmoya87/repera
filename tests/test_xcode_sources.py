@@ -31,6 +31,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "WorkoutLiveActivityCoordinator.swift").write_text("// ActivityKit", encoding="utf-8")
         (directory / "LiveSportHistoryView.swift").write_text("// Sport progress", encoding="utf-8")
         (directory / "OGDuoContextRail.swift").write_text("// Duo layout detection", encoding="utf-8")
+        (directory / "SessionDetailSkeleton.swift").write_text("// Session detail skeleton", encoding="utf-8")
         (directory / "Analytics").mkdir()
         (directory / "Analytics/ReperaAnalytics.swift").write_text("// GA4 adapter", encoding="utf-8")
         watch = self.root / "Apps/ReperaWatch/Sources"
@@ -57,6 +58,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "      - path: Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift\n"
             "      - path: Apps/Repera/Sources/LiveSportHistoryView.swift\n"
             "      - path: Apps/Repera/Sources/OGDuoContextRail.swift\n"
+            "      - path: Apps/Repera/Sources/SessionDetailSkeleton.swift\n"
             "      - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift\n"
             "      - path: Apps/Shared/TrainingActivityAttributes.swift\n"
             "      - path: Apps/Shared/AppleWeatherConditionsClient.swift\n"
@@ -83,6 +85,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "WorkoutLiveActivityCoordinator.swift",
             "LiveSportHistoryView.swift",
             "OGDuoContextRail.swift",
+            "SessionDetailSkeleton.swift",
             "ReperaAnalytics.swift",
             "AppleWeatherConditionsClient.swift", "AppleWeatherAttributionView.swift",
         )
@@ -324,7 +327,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
     def test_missing_live_source_requires_checkout_update(self):
         for name in ("LiveActivityView.swift", "LiveActivityLocationName.swift",
                      "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
-                     "OGDuoContextRail.swift"):
+                     "OGDuoContextRail.swift", "SessionDetailSkeleton.swift"):
             source = self.root / "Apps/Repera/Sources" / name
             original = source.read_text(encoding="utf-8")
             source.unlink()
@@ -335,7 +338,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
     def test_stale_live_sources_in_generated_target_are_rejected(self):
         for name in ("LiveActivityView.swift", "LiveActivityLocationName.swift",
                      "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
-                     "OGDuoContextRail.swift"):
+                     "OGDuoContextRail.swift", "SessionDetailSkeleton.swift"):
             pbx = self.pbx.read_text(encoding="utf-8")
             self.pbx.write_text(pbx.replace(f"{name} in Sources", ""), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, name):
