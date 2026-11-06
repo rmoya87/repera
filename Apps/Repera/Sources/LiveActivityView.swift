@@ -3561,8 +3561,7 @@ struct LiveActivityView: View {
                 HStack(alignment: .center, spacing: 10) {
                     Button {
                         if canLockLiveScreen {
-                            if recorder.phase == .recording { confirmFinish = true }
-                            else { finishAndShowSave() }
+                            confirmFinish = true
                         } else {
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                 showOptions = true
@@ -3633,8 +3632,12 @@ struct LiveActivityView: View {
         .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
             guard !isInteractionLocked,
                   abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
-            if gesture.translation.width < -70 { withAnimation { showOptions = true } }
-            if gesture.translation.width > 70 { withAnimation { showOptions = false } }
+            if gesture.translation.width < -70 {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showOptions = true }
+            }
+            if gesture.translation.width > 70 {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showOptions = false }
+            }
         })
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: recorder.phase)
     }
