@@ -209,19 +209,19 @@ struct PaywallView: View {
                         ProgressView("Consultando App Store…")
                             .font(.footnote)
                     } else {
-                    Text("Compras no disponibles")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                    Text(subscriptions.offerings.unavailableReason
-                         ?? "No se han podido cargar los planes desde Apple.")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                    Button("Reintentar") {
-                        Task { await reloadPlans() }
-                    }
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(OG.accent)
-                    .accessibilityIdentifier("pro-retry-products")
+                        Text("Compras no disponibles")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Text(subscriptions.offerings.unavailableReason
+                             ?? "No se han podido cargar los planes desde Apple.")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                        Button("Reintentar") {
+                            Task { await reloadPlans() }
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                        .accessibilityIdentifier("pro-retry-products")
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
