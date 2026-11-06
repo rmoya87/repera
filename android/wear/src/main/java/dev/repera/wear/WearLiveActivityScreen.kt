@@ -190,10 +190,16 @@ private fun WearLiveNavigationPage(live: JSONObject) {
         Text(direction, color = WearOg.accent,
             style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
             textAlign = TextAlign.Center)
-        distance?.let {
-            Text(it, color = WearOg.accent,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center, maxLines = 1)
+        distance?.let { label ->
+            // Wear Material3 Typography no tiene headline*; displayMedium encaja entre
+            // displayLarge (flecha) y titleMedium (instrucción).
+            Text(
+                label,
+                color = WearOg.accent,
+                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
         }
         Text(instruction, style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center, maxLines = 3,

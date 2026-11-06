@@ -367,6 +367,19 @@ prepareAccountDataAfterAuth(id) { current() }
 
 - Contrato: `tests/test_android_launch_splash_contract.py`.
 
+#### Wear OS — tipografía Material3 sin `headline*` (06/11/2026)
+
+```kotlin
+// ❌ BAD — phone M3 tokens; Wear Compose Material3 1.7 no tiene headline*
+MaterialTheme.typography.headlineMedium
+
+// ✅ GOOD — escala Wear: display* / title* / label* / body* / numeral*
+MaterialTheme.typography.displayMedium
+```
+
+- Cascada típica: `Unresolved reference 'headlineMedium'` + `Cannot infer type for type parameter 'R'` en el `?.let`.
+- Contrato: `tests/test_wear_typography_contract.py`.
+
 #### Android / Wear — Pro B2B naming (CI 2026-11-04)
 
 ```kotlin
