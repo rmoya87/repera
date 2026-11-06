@@ -1927,13 +1927,6 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            LiveHeartRateZoneBar(
-                bpm = bpm,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                estimatedMaxBpm = maxBpm
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         LiveKilometerSplitSummary(
             state = state,
             nowTick = nowTick,
