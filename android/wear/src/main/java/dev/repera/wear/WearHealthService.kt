@@ -50,6 +50,11 @@ internal class WearHealthService:Service() {
                 else sensors.resume(id) {token==revision && isCurrent(id)}
             }.onFailure {status=it.localizedMessage;publish()}}
         }
+        /** Empuja kcal/FC al teléfono antes de stop/clear companion id. */
+        fun flushCompanionMetrics(id: String) {
+            if (id != owner) return
+            publishCompanionHeartRate(force = true)
+        }
         fun stop(id:String?) {if(id!=null && id==owner) endOwned(id)}
     }
     private val binder=Connection()
@@ -118,14 +123,21 @@ internal class WearHealthService:Service() {
      * A total-calorie update must be sent even when the HR sensor is silent.
      * Runs in the foreground service even with the phone/watch screen hidden.
      */
-    private fun publishCompanionHeartRate() {
+    private fun publishCompanionHeartRate(force: Boolean = false) {
         val id = owner ?: return
+        // El Activity debe hacer flush ANTES de borrar companionLiveSessionId.
         if (cache.getString("companionLiveSessionId", null) != id) return
-        val bpm = sensors.freshHeartRateBpm?.takeIf { it in 25..250 }
+        val bpm = if (force) {
+            sensors.heartRateBpm?.takeIf { it in 25..250 }
+        } else {
+            sensors.freshHeartRateBpm?.takeIf { it in 25..250 }
+        }
         val totalKcal = sensors.energyKcal?.takeIf { it.isFinite() && it > 0 }
-        if (bpm == null && totalKcal == null) return
+        val averageBpm = sensors.averageHeartRateBpm
+            ?.takeIf { it.isFinite() && it in 25.0..250.0 }
+        if (bpm == null && totalKcal == null && averageBpm == null) return
         val now = System.currentTimeMillis()
-        if (lastHeartSentSession == id) {
+        if (!force && lastHeartSentSession == id) {
             val elapsed = now - lastHeartSentAt
             val samePulse = lastHeartSentBpm == bpm
             val sameEnergy = totalKcal == lastTotalSentKcal
@@ -138,9 +150,7 @@ internal class WearHealthService:Service() {
         val payload = JSONObject().put("sessionId", id).put("capturedAt", now)
         bpm?.let { payload.put("bpm", it) }
         totalKcal?.let { payload.put("totalEnergyKcal", it) }
-        sensors.averageHeartRateBpm
-            ?.takeIf { it.isFinite() && it in 25.0..250.0 }
-            ?.let { payload.put("averageHeartRateBpm", it) }
+        averageBpm?.let { payload.put("averageHeartRateBpm", it) }
         val data = payload.toString().toByteArray(Charsets.UTF_8)
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
             nodes.forEach { node ->
@@ -220,6 +230,8 @@ internal class WearHealthService:Service() {
     private fun endOwned(id:String) {
         if(owner!=id || ending) return
         revision++;ending=true
+        // Último push de kcal/FC antes de endExercise / unregister Measure.
+        publishCompanionHeartRate(force = true)
         scope.launch {
             runCatching {sensors.stop(id)}.onFailure {
                 ending=false;status="No se pudo detener sensores. Abre Repera para revisar el registro.";publish()

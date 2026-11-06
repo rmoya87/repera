@@ -98,6 +98,34 @@ class WearHealthMetricContracts(unittest.TestCase):
         domain = read("android/domain/src/main/java/dev/repera/domain/WearMeasuredEnergy.kt")
         self.assertIn("kcal?.takeIf { it.isFinite() && it > 0.0 }", domain)
 
+    def test_companion_flush_metrics_before_stop_and_durable_commands(self):
+        """Paridad Apple: no perder kcal al pasar a revisión; comandos sin nodos."""
+        wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        service = read("android/wear/src/main/java/dev/repera/wear/WearHealthService.kt")
+        listener = read(
+            "android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt"
+        )
+        sync = wear.split("private fun syncCompanionSensors()", 1)[1].split(
+            "private fun presentCompanionFinished", 1
+        )[0]
+        self.assertIn("flushCompanionMetrics", sync)
+        # Flush/stop antes de borrar companionLiveSessionId (si no, el publish se corta).
+        clear_at = sync.index('remove("companionLiveSessionId"')
+        flush_at = sync.index("flushCompanionMetrics")
+        stop_at = sync.index(".stop(")
+        self.assertLess(flush_at, clear_at)
+        self.assertLess(stop_at, clear_at)
+        self.assertIn("fun flushCompanionMetrics", service)
+        self.assertIn("publishCompanionHeartRate(force = true)", service)
+        cmd = wear.split("private fun requestLiveCommand(command: String)", 1)[1].split(
+            "private fun beginCompanionFinish", 1
+        )[0]
+        self.assertIn("totalEnergyKcal", cmd)
+        self.assertIn("pendingLiveCommands", cmd)
+        self.assertIn("flushPendingLiveCommands", wear)
+        finish = listener.split('"finish" ->', 1)[1].split("}", 1)[0]
+        self.assertIn("WearLiveMetricsReceiver.accept", finish)
+
 
 if __name__ == "__main__":
     unittest.main()

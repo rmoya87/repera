@@ -746,6 +746,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         resendPendingTimers()
         liveRetry.reset()
         resendPendingLiveSaves()
+        flushPendingLiveCommands()
         if (todayPlanJson != null) restoreCachedTodayPlan()
         scheduleMidnightPlanExpiry()
         dataClient.dataItems.addOnSuccessListener { items ->
@@ -1154,7 +1155,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         if (ambientMode != null) refreshAmbientValues()
     }
 
-    /** Companion phone-owned: solo MeasureClient. Watch-owned usa ExerciseClient aparte. */
+    /** Companion phone-owned: ExerciseClient (kcal+FC) o MeasureClient (solo FC). */
     private fun syncCompanionSensors() {
         val live = liveActivityJson
         val next = live?.takeIf {
@@ -1165,8 +1166,11 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val previous = sessionCache.getString("companionLiveSessionId", null)
         if (next == null) {
             if (previous != null) {
-                sessionCache.edit().remove("companionLiveSessionId").apply()
+                // Flush kcal/FC mientras el id companion sigue vigente; si se
+                // borra antes, publishCompanionHeartRate no envía nada.
+                healthConnection?.flushCompanionMetrics(previous)
                 healthConnection?.stop(previous)
+                sessionCache.edit().remove("companionLiveSessionId").apply()
                 if (visibleSession == null && !watchOwnedLive) health = null
             }
             return
@@ -1206,6 +1210,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
     /**
      * Watch-owned: pause/resume/finish locales.
      * Companion: pide al teléfono; el resumen llega con el snapshot.
+     * Cola durable (`pendingLiveCommands`) si no hay nodos (paridad Apple WCSession).
      */
     private fun requestLiveCommand(command: String) {
         if (command !in setOf("pause", "resume", "finish")) return
@@ -1217,33 +1222,75 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         val id = live.optString("sessionId").orEmpty()
         if (id.isBlank() || pendingCompanionFinishId == id) return
         val body = JSONObject().put("sessionId", id).put("command", command)
+            .put("actionId", java.util.UUID.randomUUID().toString())
+            .put("capturedAt", System.currentTimeMillis())
         live.optString("commandToken").takeIf { it.isNotBlank() }?.let { body.put("token", it) }
-        val payload = body.toString().toByteArray(Charsets.UTF_8)
-        if (command == "finish") beginCompanionFinish(id)
-        val disconnected = {
-            failCompanionFinish(id, getString(R.string.wear_live_phone_disconnected))
-            liveNotice = getString(R.string.wear_live_phone_disconnected)
-            sendStatus = liveNotice
-            haptic(WearHaptic.REJECT)
+        // Adjuntar última medición de muñeca al finish (evita perder kcal en revisión).
+        if (command == "finish") {
+            healthConnection?.flushCompanionMetrics(id)
+            health?.second?.takeIf { it.isFinite() && it > 0 }?.let {
+                body.put("totalEnergyKcal", it)
+            }
+            health?.first?.takeIf { it in 25..250 }?.let {
+                body.put("averageHeartRateBpm", it.toDouble())
+            }
+            beginCompanionFinish(id)
+        }
+        enqueuePendingLiveCommand(body)
+        if (command == "pause" || command == "resume") {
+            // Espejo local inmediato; el teléfono confirma con el snapshot.
+            liveActivityJson = JSONObject(live.toString()).put(
+                "phase", if (command == "pause") "paused" else "recording"
+            )
+            liveNotice = null
+            haptic(if (command == "pause") WearHaptic.TOGGLE_OFF else WearHaptic.TOGGLE_ON)
+            sendStatus = null
+        }
+        flushPendingLiveCommands { empty ->
+            if (empty && command == "finish") {
+                // Sigue en cola; no fallar al instante (reintento al reconectar).
+                liveNotice = getString(R.string.wear_live_finish_pending)
+            }
+        }
+    }
+
+    private fun enqueuePendingLiveCommand(body: JSONObject) {
+        val raw = sessionCache.getString("pendingLiveCommands", "[]")
+        val arr = runCatching { org.json.JSONArray(raw) }.getOrElse { org.json.JSONArray() }
+        arr.put(body)
+        // Cap cola: últimas 12 órdenes.
+        val trimmed = org.json.JSONArray()
+        val start = (arr.length() - 12).coerceAtLeast(0)
+        for (i in start until arr.length()) trimmed.put(arr.getJSONObject(i))
+        sessionCache.edit().putString("pendingLiveCommands", trimmed.toString()).apply()
+    }
+
+    private fun flushPendingLiveCommands(onEmptyNodes: ((Boolean) -> Unit)? = null) {
+        val raw = sessionCache.getString("pendingLiveCommands", "[]")
+        val arr = runCatching { org.json.JSONArray(raw) }.getOrElse { org.json.JSONArray() }
+        if (arr.length() == 0) {
+            onEmptyNodes?.invoke(false)
+            return
         }
         Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            if (liveActivityJson?.optString("sessionId") != id) return@addOnSuccessListener
             if (nodes.isEmpty()) {
-                disconnected()
+                onEmptyNodes?.invoke(true)
                 return@addOnSuccessListener
             }
-            nodes.forEach { node ->
-                Wearable.getMessageClient(this).sendMessage(
-                    node.id, "/repera/live-command", payload
-                )
+            val remaining = org.json.JSONArray()
+            for (i in 0 until arr.length()) {
+                val body = arr.optJSONObject(i) ?: continue
+                val payload = body.toString().toByteArray(Charsets.UTF_8)
+                nodes.forEach { node ->
+                    Wearable.getMessageClient(this).sendMessage(
+                        node.id, "/repera/live-command", payload
+                    )
+                }
             }
-            if (command != "finish") {
-                liveNotice = null
-                haptic(if (command == "pause") WearHaptic.TOGGLE_OFF else WearHaptic.TOGGLE_ON)
-            }
-            // Sin toast «Control enviado…»: el snapshot del móvil actualiza la UI.
+            sessionCache.edit().putString("pendingLiveCommands", remaining.toString()).apply()
+            onEmptyNodes?.invoke(false)
             sendStatus = null
-        }.addOnFailureListener { disconnected() }
+        }.addOnFailureListener { onEmptyNodes?.invoke(true) }
     }
 
     private fun beginCompanionFinish(sessionId: String) {

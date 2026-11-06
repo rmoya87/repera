@@ -1,6 +1,6 @@
 # Android y Wear OS — reconciliación de entrenamientos y Health Connect
 
-**Fecha:** 2026-11-05 (fallback clase sin plan → gimnasio/HIIT; matriz de dueños)  
+**Fecha:** 2026-11-06 (companion: flush kcal antes de stop; cola durable live-command)  
 **Motivo:** registro de caminatas con GPS pero energía/ritmo ausentes y divergencia móvil–reloj.
 
 ## Propietarios y origen de cada medición
@@ -24,12 +24,14 @@ handoff `HKWorkout` al Watch).
   Comenzar con `FallbackActivityKind` (gimnasio / HIIT según título), nunca idle
   ni tipo HC «other» ambiguo.
 - Actividad iniciada **en Android**: el teléfono registra GPS/recorrido/tiempos
-  con `LiveActivityRuntime`. Wear OS usa `ExerciseClient` como fuente de
-  pulso y energía; no utiliza GPS en paralelo en este modo. Si el reloj no
-  soporta ese registro puede intentar `MeasureClient`, que proporciona
-  pulso pero **no calorías**. El móvil muestra pulsaciones recientes con
-  caducidad a los 20 s; conserva promedios y energía total realmente recibidos
-  hasta guardar la actividad.
+  con `LiveActivityRuntime`. Wear OS usa `ExerciseClient` (companion) como fuente
+  de pulso y energía total; no GPS en paralelo. Si falla, `MeasureClient` (solo
+  pulso, **sin** kcal). Antes de salir de companion (revisión/stop) el Wear hace
+  `flushCompanionMetrics` **con** `companionLiveSessionId` aún vigente; si se
+  borraba el id antes, el teléfono perdía el último paquete de kcal. Controles
+  pause/resume/finish van en cola `pendingLiveCommands` + flush al reconectar;
+  finish adjunta `totalEnergyKcal` / FC media. El móvil acepta esas métricas en
+  el mismo `live-command` antes de pasar a revisión.
 - Entrenamiento programado o clase: Wear OS identifica WOD/HIIT y tipo
   específico cuando existe. La ejecución se envía al móvil con UUID
   estable; los datos terminales de sensores se conservan en el outbox de

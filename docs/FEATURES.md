@@ -215,7 +215,7 @@ En la confirmación Guardar/Descartar de Comenzar (y detalle), las gráficas de
 `ProgressChartYOverlay` que Progreso) para aprovechar el ancho.
 
 
-Última actualización: 2026-11-06 (Comenzar iPhone↔Watch kcal/controles; eje Y overlay FC/elevación)
+Última actualización: 2026-11-06 (Apple Watch ownership + Wear companion flush kcal/comandos)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 

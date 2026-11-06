@@ -76,6 +76,8 @@ class WearLiveCommandListener : WearableListenerService() {
                 "pause" -> runtime.pause()
                 "resume" -> runtime.resume()
                 "finish" -> {
+                    // Wear puede adjuntar kcal/FC finales en el mismo comando.
+                    WearLiveMetricsReceiver.accept(this, owner, command)
                     runtime.finish() // Review/Save remains on the phone.
                     if (runtime.state.phase == dev.repera.domain.LiveActivityState.Phase.REVIEW) {
                         WearLiveReviewNotification.show(this, owner, sessionId)

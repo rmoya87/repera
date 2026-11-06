@@ -320,6 +320,21 @@ _ = await deleteExternalWorkout(id: owned.uuid)
 
 - Contratos: `tests/test_watch_live_sync_contract.py`, `tests/test_health_fitness_parity_contract.py`.
 
+#### Android / Wear — companion flush kcal + comandos duraderos (06/11/2026)
+
+```kotlin
+// ❌ BAD — syncCompanionSensors: remove(companionLiveSessionId) y luego stop
+// → publishCompanionHeartRate no envía; teléfono guarda sin wearTotalEnergyKcal
+
+// ❌ BAD — live-command solo MessageClient con nodes vacíos → fallo inmediato
+
+// ✅ GOOD — flushCompanionMetrics → stop → luego clear companion id
+// ✅ GOOD — finish live-command incluye totalEnergyKcal; listener accept() antes de finish()
+// ✅ GOOD — pendingLiveCommands + flushPendingLiveCommands en onStart
+```
+
+- Contrato: `tests/test_android_wear_health_metrics_contract.py::test_companion_flush_metrics_before_stop_and_durable_commands`.
+
 #### Apple — kcal Watch: no quitar `totalEnergyBurned`
 
 ```swift
