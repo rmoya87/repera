@@ -14,6 +14,69 @@ import java.util.UUID
 @RunWith(AndroidJUnit4::class)
 class RemoteExerciseCatalogInstrumentedTest {
     @Test
+    fun alternativesPresenceControlsClearingWithoutChangingOtherFields() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previousCache = if (file.exists()) file.readBytes() else null
+        val key = "catalog:Press banca"
+        val cases = listOf(
+            "absent" to null,
+            "null" to JSONObject.NULL,
+            "empty" to JSONArray(),
+            "replacement" to JSONArray().put("Press mancuernas")
+        )
+        try {
+            for (previous in listOf(listOf("Press antiguo"), emptyList())) {
+                for ((label, published) in cases) {
+                    val account = "alternatives-$label-${UUID.randomUUID()}"
+                    val id = UUID.randomUUID().toString()
+                    val local = LocalSnapshotStore(context, account)
+                    val workout = JSONObject().put("id", "historic-workout")
+                    val routine = JSONObject().put("id", "saved-routine")
+                    local.write(JSONObject()
+                        .put("exercises", JSONArray().put(JSONObject()
+                            .put("id", id).put("name", "Press banca")
+                            .put("muscleGroup", "Pecho").put("equipment", "Barra")
+                            .put("isFavorite", true).put("isCustom", false)
+                            .put("catalogAlternatives", JSONArray(previous))
+                            .put("instructions", JSONArray().put("Seed"))
+                            .put("artKeys", JSONArray().put("art_seed"))))
+                        .put("workouts", JSONArray().put(workout))
+                        .put("routines", JSONArray().put(routine))
+                        .put("syncRevision", 1).toString().toByteArray())
+                    val remote = JSONObject()
+                        .put("name", "Press banca").put("category", "Fuerza")
+                        .put("instructions", JSONArray()).put("art_keys", JSONArray())
+                        .put("is_active", true)
+                    if (published != null) remote.put("alternatives", published)
+                    file.writeText(JSONObject()
+                        .put("revision", 1)
+                        .put("entries", JSONObject().put(key, remote))
+                        .put("localIDs", JSONObject().put(key, id)).toString())
+                    val feed = RemoteExerciseCatalog(context)
+                    feed.applyToAccount(account)
+                    val state = JSONObject(String(local.read()!!, Charsets.UTF_8))
+                    val entries = state.getJSONArray("exercises")
+                    assertEquals(label, 1, entries.length())
+                    val next = entries.getJSONObject(0)
+                    val expected = if (published is JSONArray) published else JSONArray(previous)
+                    assertEquals(label, expected.toString(), next.getJSONArray("catalogAlternatives").toString())
+                    assertEquals(label, id, next.getString("id"))
+                    assertTrue(label, next.getBoolean("isFavorite"))
+                    assertEquals(label, "Barra", next.getString("equipment"))
+                    assertEquals(label, "[\"Seed\"]", next.getJSONArray("instructions").toString())
+                    assertEquals(label, "[\"art_seed\"]", next.getJSONArray("artKeys").toString())
+                    assertEquals(label, JSONArray().put(workout).toString(), state.getJSONArray("workouts").toString())
+                    assertEquals(label, JSONArray().put(routine).toString(), state.getJSONArray("routines").toString())
+                    assertFalse("Repeated merge must be idempotent: $label", feed.applyToAccount(account))
+                }
+            }
+        } finally {
+            if (previousCache == null) file.delete() else file.writeBytes(previousCache)
+        }
+    }
+
+    @Test
     fun spanishEditorialNamesReuseEnglishSeedUUIDs() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.filesDir, "exercise_catalog_remote_v1.json")

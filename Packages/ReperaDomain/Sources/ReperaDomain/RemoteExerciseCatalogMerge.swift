@@ -172,8 +172,8 @@ public enum RemoteExerciseCatalogMerge: Sendable {
             let sport = remote.sportTag
                 ?? (remote.category == "Fuerza" ? nil : remote.category)
             let archived = saved.tombstones.contains(key) || !remote.isActive
-            let alternatives = (remote.alternatives?.isEmpty == false)
-                ? remote.alternatives! : (old?.catalogAlternatives ?? [])
+            // An explicit [] clears editorial alternatives; absent/null preserves legacy data.
+            let alternatives = remote.alternatives ?? old?.catalogAlternatives ?? []
             let artKeys = (remote.artKeys?.isEmpty == false)
                 ? remote.artKeys! : (old?.artKeys ?? [])
             let next = Exercise(

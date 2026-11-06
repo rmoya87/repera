@@ -201,6 +201,52 @@ final class RemoteExerciseCatalogTests: XCTestCase {
         XCTAssertTrue(next.isCatalogArchived)
     }
 
+    func testAlternativesPresenceControlsClearingWithoutChangingOtherFields() throws {
+        let key = "catalog:Press banca"
+        let cases: [(String, Any?, [String]?)] = [
+            ("absent", nil, nil),
+            ("null", NSNull(), nil),
+            ("empty", [String](), []),
+            ("replacement", ["Press mancuernas"], ["Press mancuernas"])
+        ]
+        for previous in [["Press antiguo"], [String]()] {
+            for (label, published, expected) in cases {
+                let id = UUID()
+                let seed = Exercise(
+                    id: id, name: "Press banca", muscleGroup: "Pecho",
+                    equipment: "Barra", instructions: ["Seed"], isFavorite: true,
+                    catalogAlternatives: previous, artKeys: ["art_seed"]
+                )
+                var payload: [String: Any] = [
+                    "name": "Press banca", "category": "Fuerza", "is_active": true,
+                    "instructions": [String](), "art_keys": [String]()
+                ]
+                if let published { payload["alternatives"] = published }
+                let remote = try JSONDecoder().decode(
+                    RemoteExerciseCatalogEntry.self,
+                    from: JSONSerialization.data(withJSONObject: payload)
+                )
+                XCTAssertEqual(remote.alternatives, expected, label)
+                let source = RemoteExerciseCatalogSnapshot(
+                    revision: 1, entries: [key: remote], localIDs: [key: id]
+                )
+                let result = RemoteExerciseCatalogMerge.apply(source: source, current: [seed])
+                let next = try XCTUnwrap(result.exercises.first)
+                XCTAssertEqual(next.catalogAlternatives, expected ?? previous, label)
+                XCTAssertEqual(next.id, id, label)
+                XCTAssertTrue(next.isFavorite, label)
+                XCTAssertEqual(next.instructions, ["Seed"], label)
+                XCTAssertEqual(next.artKeys, ["art_seed"], label)
+                XCTAssertEqual(next.equipment, "Barra", label)
+                let repeated = RemoteExerciseCatalogMerge.apply(
+                    source: result.snapshot, current: result.exercises
+                )
+                XCTAssertFalse(repeated.changed, label)
+                XCTAssertEqual(repeated.exercises, result.exercises, label)
+            }
+        }
+    }
+
     func testStableUUIDIsDeterministicAcrossCalls() {
         let key = "catalog:Arrancada"
         XCTAssertEqual(

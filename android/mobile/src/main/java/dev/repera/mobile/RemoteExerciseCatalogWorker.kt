@@ -229,7 +229,8 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             if (!remote.isNull("movement_pattern") && remote.optString("movement_pattern").isNotBlank())
                 exercise.put("movementPattern", remote.getString("movement_pattern"))
             val alternatives = remote.optJSONArray("alternatives")
-            if (alternatives != null && alternatives.length() > 0)
+            // An explicit [] clears editorial alternatives; absent/null preserves legacy data.
+            if (alternatives != null)
                 exercise.put("catalogAlternatives", JSONArray(alternatives.toString()))
             val artKeys = remote.optJSONArray("art_keys")
             if (artKeys != null && artKeys.length() > 0)
