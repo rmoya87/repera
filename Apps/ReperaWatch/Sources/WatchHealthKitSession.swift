@@ -30,6 +30,9 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
     private var pendingRouteLocations: [CLLocation] = []
     private var routeInsertTask: Task<Void, Never>?
     private var workoutID: UUID?
+    /// Invalidate an async authorization started before a discard/restart, even
+    /// when the new workout deliberately reuses the same Repera session UUID.
+    private var startGeneration: UInt64 = 0
     private var lastRecordedBlockID: UUID?
     private var pendingBlock: (id: UUID, isInterval: Bool)?
     private var finishHandler: ((Result) -> Void)?
@@ -167,6 +170,8 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
             return
         }
+        startGeneration &+= 1
+        let generation = startGeneration
         workoutID = id
         lastRecordedBlockID = nil
         pendingBlock = nil
@@ -205,10 +210,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             do {
                 try await store.requestAuthorization(toShare: share, read: read)
             } catch {
-                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+                if self.startGeneration == generation, self.workoutID == id {
+                    self.permissionIssue = error.localizedDescription
+                }
                 return
             }
-            guard self.workoutID == id, !self.finishing else { return }
+            guard self.startGeneration == generation,
+                  self.workoutID == id, !self.finishing else { return }
 
             let config = HKWorkoutConfiguration()
             config.activityType = activityType
@@ -349,6 +357,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
 
     /// Descarta la sesión HealthKit sin guardar (cancelación desde iPhone o Watch).
     func discard() {
+        startGeneration &+= 1
         finishing = false
         finishHandler = nil
         if let liveBuilder = builder {
