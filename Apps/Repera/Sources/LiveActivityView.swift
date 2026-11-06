@@ -2942,7 +2942,6 @@ struct LiveActivityView: View {
                     }
                 }
                 mapCircleButton(
-                    effectiveNavigation3D ? "map" : "view.3d",                mapCircleButton(
                     effectiveNavigation3D ? "map" : "view.3d",
                     label: effectiveNavigation3D ? "Cambiar a vista 2D"
                         : (navigation3DAllowed ? "Cambiar a vista 3D" : "Desbloquear navegación 3D con Repera Pro")
@@ -2970,10 +2969,6 @@ struct LiveActivityView: View {
                     }
                 }
             }
-        }
-    }
-
-    /// Al pulsar 3D            }
         }
     }
 
@@ -3253,7 +3248,6 @@ struct LiveActivityView: View {
     }
 
     @ViewBuilder
-    private var elevationMetricStrip: some View {    @ViewBuilder
     private var elevationMetricStrip: some View {
         if recorder.sport.tracksElevation && recorder.hasElevationSamples {
             Divider().overlay(OG.label2.opacity(0.18))
@@ -3479,7 +3473,7 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Solo los selectores laterales son opacos.    /// Solo los selectores laterales son opacos. La barra general puede seguir
+    /// Solo los selectores laterales son opacos. La barra general puede seguir
     /// usando Liquid Glass, pero las superficies de Actividad/Ruta nunca.
     private var selectionCircleBackground: Color {
         colorScheme == .dark ? .black : .white
@@ -3720,7 +3714,7 @@ struct LiveActivityView: View {
         return "\(sign)\(String(format: "%d:%02d", abs(value) / 60, abs(value) % 60))"
     }
 
-    private func importResult(_ result: Result<URL, Error>) {    private func importResult(_ result: Result<URL, Error>) {
+    private func importResult(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
             let fileExtension = url.pathExtension.lowercased()
