@@ -57,7 +57,8 @@ class ExerciseDisciplineCatalogTest {
         assertEquals(listOf("CrossFit", "HYROX"), tags(byName.getValue("Wall ball")))
         assertEquals(listOf("Movilidad"), tags(byName.getValue("Gato-vaca")))
         assertTrue("Cardio" in tags(byName.getValue("Remo máquina")))
-        assertTrue(tags(byName.getValue("Prensa")).isEmpty())
+        // Prensa está en crossFitGeneral (fuerza de box) aunque el seed no traiga sportTag.
+        assertEquals(listOf("CrossFit"), tags(byName.getValue("Prensa")))
         assertFalse(HyroxExercises.isMovement("Burpee box jump over"))
         assertFalse(HyroxExercises.isMovement("Remo con barra"))
     }
