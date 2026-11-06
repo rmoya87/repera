@@ -145,6 +145,15 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### StoreKit TestFlight y errores de red de IA (06/11/2026)
+
+- Un `SKInternalErrorDomain 21` en `AppStore.sync()` no demuestra una compra caducada: primero consultar derechos **firmados** de `Transaction.currentEntitlements`, volver a consultarlos tras el fallo y presentar código técnico comprensible. No inventar Pro ni precios si Apple no devuelve productos.
+- TestFlight usa productos App Store Connect/Sandbox, **no** el catálogo local `.storekit` de Xcode. Una suscripción Sandbox vencida y `Product.products(for:)` vacío son incidencias diferentes. El paywall debe ofrecer reintento y no pedir comprar si ya hay Pro.
+- En IA, un fallo de `ai_access_tokens` **no** es una respuesta vacía. Solo mostrar «sin conexiones» tras lectura correcta; conservar configuración de proveedores ante fallo. La réplica best-effort de ejercicios no debe llenar la UI de errores internos.
+- Contrato: `tests/test_testflight_storekit_ai_reliability_contract.py`. Ningún contrato sustituye la prueba de compra real en TestFlight ni las sesiones OAuth en dispositivo.
+
+
+
 #### Comenzar — extracción Compose y eliminación completa de ramas (06/11/2026)
 
 - Un único `LiveStartToolbar.kt` para mapa, métricas y deportes interiores. **No duplicar** la definición en `LiveActivityScreen.kt`; los tres lugares deben invocar el mismo componente. Evitar desajustes en el estado del botón central, la actividad y el candado.
