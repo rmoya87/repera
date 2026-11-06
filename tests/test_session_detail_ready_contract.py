@@ -29,6 +29,8 @@ class SessionDetailReadyContractTests(unittest.TestCase):
         sk = read("Apps/Repera/Sources/SessionDetailSkeleton.swift")
         self.assertIn("struct SessionDetailSkeleton", sk)
         self.assertIn("OG.surface", sk)
+        self.assertIn("accessibilityReduceMotion", sk)
+        self.assertIn("tileBone", sk)
 
     def test_ios_route_weather_accepts_prefetch(self):
         cardio = read("Apps/Repera/Sources/CardioRouteComponents.swift")
