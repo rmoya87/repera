@@ -3585,19 +3585,15 @@ struct LiveActivityView: View {
                         else if store.hasActiveSession { onOpenWorkout() }
                         else { recorder.beginStartCountdown() }
                     } label: {
-                        VStack(spacing: 4) {
+                        Group {
                             if recorder.isStartCountingDown {
                                 Text("\(recorder.startCountdownRemaining)")
-                                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                                    .font(.system(size: 34, weight: .bold, design: .rounded))
                                     .monospacedDigit()
                             } else {
-                                Image(systemName: recorder.phase == .recording ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 30, weight: .bold))
-                            }
-                            if recorder.phase == .idle && !recorder.isStartCountingDown {
-                                Text(store.hasActiveSession ? "CONTINUAR" : "COMENZAR")
-                                    .font(.system(size: 12, weight: .heavy))
-                                    .minimumScaleFactor(0.8)
+                                Image(systemName: recorder.phase == .recording ? "pause.fill" :
+                                      (store.hasActiveSession && !canLockLiveScreen ? "arrow.uturn.forward" : "play.fill"))
+                                    .font(.system(size: 36, weight: .bold))
                             }
                         }
                         .foregroundStyle(.black)
