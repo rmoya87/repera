@@ -584,7 +584,10 @@ struct AIAccessView: View {
         defer { isLoadingConnections = false }
         do {
             let session = try await client.auth.session
-            guard !session.isExpired else { return }
+            guard !session.isExpired else {
+                connectionsError = "Tu sesión ha caducado. Vuelve a iniciar sesión en Repera."
+                return
+            }
             let items: [AIAccessTokenInfo]
             do {
                 items = try await client.from("ai_access_tokens")
