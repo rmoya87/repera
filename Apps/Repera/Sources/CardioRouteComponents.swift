@@ -83,7 +83,15 @@ struct CardioAltitudeChart: View {
         .font(.system(size: 13, weight: .semibold).monospacedDigit())
 
         if extras.heartRateSeries.count >= 2 {
+            let bpmValues = extras.heartRateSeries.map(\.bpm)
+            let yLow = min(bpmValues.min() ?? 0, 0)
+            let yHigh = max(bpmValues.max() ?? 1, yLow + 1)
+            let yDomain = yLow...yHigh
             Chart {
+                ProgressChartYOverlay.marks(
+                    values: ProgressChartYOverlay.ticks(low: yLow, high: yHigh),
+                    domainLow: yLow
+                )
                 ForEach(extras.heartRateSeries) { point in
                     AreaMark(x: .value("Hora", point.date), y: .value("Pulso", point.bpm))
                         .interpolationMethod(.catmullRom)
@@ -104,18 +112,14 @@ struct CardioAltitudeChart: View {
                 }
             }
             .chartXSelection(value: $selectedTime)
+            .progressChartYScale(domain: yDomain)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 3)) {
                     AxisGridLine().foregroundStyle(OG.surface3)
                     AxisValueLabel(format: .dateTime.hour().minute())
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
-                    AxisGridLine().foregroundStyle(OG.surface3)
-                    AxisValueLabel()
-                }
-            }
+            .chartYAxis(.hidden)
             .chartPlotStyle { $0.clipped() }
             .frame(height: 170)
             .frame(maxWidth: .infinity)
@@ -145,11 +149,18 @@ struct CardioAltitudeChart: View {
         .font(.system(size: 13, weight: .semibold).monospacedDigit())
 
         if result.profile.count >= 2 {
+            let elevLow = elevationRange.lowerBound
+            let elevHigh = elevationRange.upperBound
             Chart {
+                ProgressChartYOverlay.marks(
+                    values: ProgressChartYOverlay.ticks(low: elevLow, high: elevHigh),
+                    domainLow: elevLow,
+                    format: { "\(Int($0.rounded()))" }
+                )
                 ForEach(result.profile) { point in
                     AreaMark(
                         x: .value("Distancia", point.distanceKm),
-                        yStart: .value("Base", elevationRange.lowerBound),
+                        yStart: .value("Base", elevLow),
                         yEnd: .value("Altitud", point.altitudeMeters)
                     )
                     .interpolationMethod(.catmullRom)
@@ -172,19 +183,14 @@ struct CardioAltitudeChart: View {
             }
             .chartXSelection(value: $selectedDistance)
             .chartXScale(domain: distanceDomain)
-            .chartYScale(domain: elevationRange)
+            .progressChartYScale(domain: elevationRange)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 4)) {
                     AxisGridLine().foregroundStyle(OG.surface3)
                     AxisValueLabel()
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) {
-                    AxisGridLine().foregroundStyle(OG.surface3)
-                    AxisValueLabel()
-                }
-            }
+            .chartYAxis(.hidden)
             .chartPlotStyle { $0.clipped() }
             .frame(height: 170)
             .frame(maxWidth: .infinity)

@@ -44,6 +44,12 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("HKWorkoutSession", intents)
         self.assertNotIn("confirmAndAdvance", intents)
         self.assertNotIn("loggedSets", intents)
+        # perform() often runs off-main; enqueue must hop to MainActor before
+        # NotificationCenter (SwiftUI observers mutate @Observable state).
+        self.assertIn("@MainActor", intents)
+        self.assertIn("await TrainingLiveActivityCommand.request(.pause)", intents)
+        self.assertIn("await TrainingLiveActivityCommand.request(.resume)", intents)
+        self.assertIn("await TrainingLiveActivityCommand.request(.openSession)", intents)
         widget = source("Apps/ReperaRestWidget/TrainingLiveActivityWidget.swift")
         self.assertIn("TrainingPauseLiveActivityIntent()", widget)
         self.assertIn("TrainingOpenSessionLiveActivityIntent()", widget)

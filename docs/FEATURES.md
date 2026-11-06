@@ -199,15 +199,23 @@ Ver [docs/superpowers/specs/2026-10-31-watch-wear-hub-design.md](superpowers/spe
 La actividad libre iniciada en iPhone/Android ya dispone en los relojes de
 pantalla compañera de **tiempo activo, kilómetros, media de velocidad e indicación
 de próximo giro**, cuando procede. Los controles de pausa/reanudación y terminar
-piden la acción al teléfono propietario; terminar lleva a su revisión antes de
-guardar. Visualizar esa actividad **no** crea un segundo workout de Salud. Wear OS
-recibe el estado por Data Layer y Android procesa los controles fuera de MainActivity.
+piden la acción al teléfono propietario (en Apple, cola duradera WatchConnectivity
+además de `sendMessage`); terminar lleva a su revisión antes de guardar. En Apple,
+con Watch reachable + cuenta, el reloj es dueño del `HKWorkout` (también si se
+inicia en iPhone o el reloj aparece a mitad); al Guardar se espera/enlaza el
+workout del Watch y se borran cáscaras 0 kcal. Wear OS: companion = teléfono dueño
+de Health Connect (Measure en Wear); recibe estado por Data Layer y controles fuera
+de MainActivity.
 
 El hub del 31/10 añade inicio desde el reloj (vía teléfono o autónomo). Validación
-en hardware y CI siguen siendo obligatorias.
+en hardware y CI siguen siendo obligatorias. Detalle handoff: `docs/watch-healthkit.md`.
+
+En la confirmación Guardar/Descartar de Comenzar (y detalle), las gráficas de
+**ritmo cardíaco** y **elevación** dibujan el eje Y encima del plot (mismo patrón
+`ProgressChartYOverlay` que Progreso) para aprovechar el ancho.
 
 
-Última actualización: 2026-11-04 (escáner híbrido score+IA on-device; Always On / Wear ACK / R8 / push fail-closed)
+Última actualización: 2026-11-06 (Comenzar iPhone↔Watch kcal/controles; eje Y overlay FC/elevación)
 
 ## iPhone Duo — barra lateral (31/10/2026)
 

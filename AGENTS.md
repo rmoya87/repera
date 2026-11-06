@@ -296,6 +296,30 @@ _ = await deleteExternalWorkout(id: owned.uuid)
 - No inventar kcal si Salud tiene 0 de verdad.
 - Outdoor Watch: `HKWorkoutRouteBuilder` en watchkitapp (el iPhone no puede adjuntar ruta a un workout del Watch). Wear outdoor: `routePoints` en live-save + HC `ExerciseRoute`.
 
+#### Apple Watch — Comenzar desde iPhone: companion finish + controles (06/11/2026)
+
+```swift
+// ❌ BAD — live.phase == .review con solo companionSensorID → health.discard()
+// → Fitness «Repera / 0 KCAL»; el Watch nunca guarda energía
+
+// ❌ BAD — sendLiveCommand exige isReachable; el espejo llega por context
+// pero pausa/finalizar fallan («lo veo en el reloj pero no controlo»)
+
+// ❌ BAD — handoff live sin pendingPhoneHandoff; startWatchApp arranca otro UUID
+// ❌ BAD — companion startLive(..., outdoor: false, mirrorsToPhone: false)
+// ❌ BAD — startWatchApp woke=true pero mirroring lento → beginWorkout iPhone 0 kcal
+// ❌ BAD — sync/Guardar con watchHealthKitPending escribe finishWorkout del iPhone
+
+// ✅ GOOD — finishCompanionHealthIfNeeded en .review (phoneOriginated o companion)
+// ✅ GOOD — transferUserInfo + sendMessage opcional; espejo local de pausa
+// ✅ GOOD — pendingPhoneHandoff + adoptPhoneLiveHealthOwnership (mismo UUID)
+// ✅ GOOD — startLive(..., outdoor: sport.usesGPS, mirrorsToPhone: true)
+// ✅ GOOD — si woke Watch: healthOwnedByWatch / pending; waitForVerifiedWatchWorkout
+// ✅ GOOD — late handoff al volver reachable; deleteOrphanPhoneShells también por solape
+```
+
+- Contratos: `tests/test_watch_live_sync_contract.py`, `tests/test_health_fitness_parity_contract.py`.
+
 #### Apple — kcal Watch: no quitar `totalEnergyBurned`
 
 ```swift
@@ -345,7 +369,7 @@ case .hiit: .highIntensityIntervalTraining
 
 #### Apple — Live Activities / intents
 
-- `LiveActivityIntent` solo **encola** (`UserDefaults` + notificación); la app aplica tras hidratar identidad.
+- `LiveActivityIntent` solo **encola** (`UserDefaults` + notificación en `@MainActor`); la app aplica tras hidratar identidad. `perform()` suele ir en background: sin hop a main, SwiftUI avisa «Publishing changes from background threads».
 - «Confirmar serie» desde isla/bloqueo = **abrir** la sesión; nunca escribir sets en la extensión.
 
 #### Apple — Swift 6 / App Intents

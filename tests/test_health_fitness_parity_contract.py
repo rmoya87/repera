@@ -73,6 +73,47 @@ class HealthFitnessParityContractTests(unittest.TestCase):
         self.assertIn("syncFinishedSession", listener)
         self.assertIn("routePoints", listener)
 
+    def test_phone_comenzar_handoff_marks_watch_pending_before_builder(self):
+        """Con Watch reachable, Comenzar no debe escribir cáscara iPhone 0 kcal."""
+        live = read("Apps/Repera/Sources/LiveActivityView.swift")
+        store = read("Apps/Repera/Sources/ReperaStore.swift")
+        handoff = store.split(
+            "private func handoffLiveSportToWatch(sessionID: UUID, sport: LiveSport)",
+            1,
+        )[1].split("private func requestWatchHealthOwnership", 1)[0]
+        self.assertIn('shell.appleHealthProvenance = "watchHealthKitPending"', handoff)
+        self.assertIn("isWatchWorkoutMirrored", handoff)
+        # Si startWatchApp despertó el reloj, no caer al builder iPhone 0 kcal.
+        self.assertIn("return true", handoff)
+        self.assertIn("currentWatchOwnerScope()", handoff)
+        start = live.split("let handed = await Self.watchHandoffHandler?", 1)[1].split(
+            "refreshConditionsIfNeeded", 1
+        )[0]
+        self.assertIn("healthOwnedByWatch = true", start)
+        self.assertIn("beginWorkout(", start)
+
+    def test_watch_pending_never_writes_phone_shell_and_waits_on_save(self):
+        store = read("Apps/Repera/Sources/ReperaStore.swift")
+        health = read("Apps/Repera/Sources/HealthKitStore.swift")
+        live = read("Apps/Repera/Sources/LiveActivityView.swift")
+        sync = store.split(
+            "private func syncWorkoutToHealth(sessionId: UUID)", 1
+        )[1].split("func syncMissingWorkoutsToHealth", 1)[0]
+        self.assertIn('appleHealthProvenance == "watchHealthKitPending"', sync)
+        self.assertIn("waitForVerifiedWatchWorkout", sync)
+        self.assertNotIn("finishWorkout(", sync.split("watchHealthKitPending", 1)[1].split(
+            "let liveSport", 1
+        )[0])
+        self.assertIn("func waitForVerifiedWatchWorkout(", health)
+        self.assertIn("adoptWatchHealthOwnership", live)
+        self.assertIn("attemptLateLiveWatchHandoffIfNeeded", store)
+        # Cáscaras huérfanas también por solape temporal Watch, no solo provenance.
+        orphan = health.split("func deleteOrphanPhoneShells", 1)[1].split(
+            "func deleteExternalWorkout", 1
+        )[0]
+        self.assertIn("overlappingWorkout(", orphan)
+        self.assertIn("watchOnly: true", orphan)
+
 
 if __name__ == "__main__":
     unittest.main()

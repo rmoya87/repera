@@ -1992,8 +1992,15 @@ final class HealthKitStore {
                 return uuid != shell.uuid
             }()
             let verifiedWatch = await verifiedWatchWorkout(forReperaSession: session.id)
+            let windowStart = session.recordedStartBeforeEditing ?? session.startedAt ?? shell.startDate
+            let windowEnd = session.recordedEndBeforeEditing ?? session.finishedAt ?? shell.endDate
+            let overlapWatch = await overlappingWorkout(
+                from: windowStart, to: windowEnd,
+                watchOnly: true, expectedSessionID: session.id
+            )
             let hasWatch = linkedIsWatch
                 || (verifiedWatch?.workoutUUID.map { $0 != shell.uuid } ?? false)
+                || (overlapWatch.map { $0.uuid != shell.uuid } ?? false)
                 || session.appleHealthProvenance == "watchHealthKit"
                 || session.appleHealthProvenance == "watchHealthKitPending"
             guard hasWatch else { continue }
@@ -2326,6 +2333,52 @@ final class HealthKitStore {
             kcal: energy,
             durationSeconds: workout.duration,
             workoutUUID: workout.uuid
+        )
+    }
+
+    /// Espera a que el HKWorkout del Watch aparezca en el almacén del iPhone
+    /// tras finish (sync Salud / bloqueo de muñeca). No inventa muestras.
+    func waitForVerifiedWatchWorkout(
+        forReperaSession id: UUID,
+        timeoutSeconds: TimeInterval = 20,
+        windowStart: Date? = nil,
+        windowEnd: Date? = nil
+    ) async -> WorkoutSyncResult? {
+        let deadline = Date().addingTimeInterval(max(1, timeoutSeconds))
+        var delayNs: UInt64 = 400_000_000
+        while Date() < deadline {
+            if Task.isCancelled { break }
+            if let found = await resolveWatchOwnedWorkout(
+                sessionId: id, windowStart: windowStart, windowEnd: windowEnd
+            ) {
+                return found
+            }
+            try? await Task.sleep(nanoseconds: delayNs)
+            delayNs = min(delayNs &+ 250_000_000, 1_500_000_000)
+        }
+        return await resolveWatchOwnedWorkout(
+            sessionId: id, windowStart: windowStart, windowEnd: windowEnd
+        )
+    }
+
+    /// Metadata ExternalUUID first; then Watch-only overlap in the session window.
+    private func resolveWatchOwnedWorkout(
+        sessionId: UUID, windowStart: Date?, windowEnd: Date?
+    ) async -> WorkoutSyncResult? {
+        if let verified = await verifiedWatchWorkout(forReperaSession: sessionId) {
+            return verified
+        }
+        guard let start = windowStart, let end = windowEnd, end > start else { return nil }
+        guard let watch = await overlappingWorkout(
+            from: start, to: end, watchOnly: true, expectedSessionID: sessionId
+        ) else { return nil }
+        let energy = await externalWorkoutEnergyKcal(uuid: watch.uuid) ?? 0
+        return WorkoutSyncResult(
+            startedAt: watch.startDate,
+            finishedAt: watch.endDate,
+            kcal: energy,
+            durationSeconds: watch.duration,
+            workoutUUID: watch.uuid
         )
     }
 

@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-11-05 (fallback clase sin plan → gimnasio/HIIT en Apple y Android/Wear; Live Activity; handoff)
+Última actualización: 2026-11-06 (ownership matriz: woke≠shell, wait-on-save, late handoff, orphan overlap)
 
 ## Hub (31/10/2026)
 
@@ -8,8 +8,9 @@
 (`effectiveWatchPlan`: hoy \| atrasado reciente), recientes y catálogo Comenzar.
 Play del plan → flujo fuerza/WOD. Play de deporte **desde el Watch** →
 grabación nativa del propio reloj (`WatchLiveSessionView` + GPS + HK).
-Si se inicia **desde el iPhone**, el teléfono sigue siendo dueño del registro
-y el Watch puede aportar pulsaciones de forma complementaria. Temporizador libre en
+Si se inicia **desde el iPhone** con Watch reachable + cuenta, el **Watch escribe el
+único `HKWorkout`** (companion, mismo UUID); el iPhone conserva GPS/UI/guardar.
+Sin Watch o sin `ownerScope`, el iPhone graba Salud como siempre. Temporizador libre en
 `WatchStandaloneTimerView`. Mute sincroniza `spokenGuidance` del iPhone.
 
 ## Fuente de verdad
@@ -87,13 +88,32 @@ un plan o clase con `startedOnThisWatch` publica snapshots `kind: .planned`
 `watch:UUID` (sin controles de pausa del teléfono) y no abre una tarjeta
 `planned:` concurrente cuando `appleHealthProvenance` es Watch.
 
-**Play en iPhone con Watch emparejado (handoff Apple):** si
-`WCSession` está emparejado y **alcanzable**, el iPhone marca
-`watchHealthKitPending`, envía `handoffStart` y llama
-`HKHealthStore.startWatchApp(toHandle:)`. El Watch adopta el mismo UUID y
-escribe el único `HKWorkout`. Si el reloj no confirma mirroring a tiempo,
-el iPhone hace fallback al builder local (sin inventar métricas). Comenzar
-en iPhone usa el mismo criterio vía `LiveActivityRecorder.watchHandoffHandler`.
+**Play en iPhone con Watch emparejado (handoff Apple):** requiere Watch
+**alcanzable** + `ownerScope` de cuenta. El iPhone marca `watchHealthKitPending`,
+envía `handoffStart` y llama `HKHealthStore.startWatchApp(toHandle:)`. El Watch
+guarda `pendingPhoneHandoff` y adopta el **mismo UUID** como companion HealthKit
+(`adoptPhoneLiveHealthOwnership`, mirroring + outdoor). Si `startWatchApp`
+despierta el reloj, el iPhone **no** abre builder local aunque el mirroring
+tarde (evita cáscara 0 kcal); al Guardar/sync espera el workout del Watch
+(`waitForVerifiedWatchWorkout`) y borra shells huérfanos. Solo si el Watch
+**no** despertó hay fallback al builder iPhone. Si el reloj aparece a mitad de
+Comenzar, `attemptLateLiveWatchHandoffIfNeeded` promociona sensores al Watch.
+Comenzar usa `LiveActivityRecorder.watchHandoffHandler`.
+
+**Controles desde el Watch (Comenzar iniciado en iPhone):** pausa / reanudar /
+finalizar / cancelar van por `transferUserInfo` (durable) + `sendMessage` si hay
+reachability. Al pasar a revisión, el Watch **finaliza** su `HKWorkout`
+(`finishCompanionHealthIfNeeded`); nunca lo descarta en `.review`.
+
+**Matriz de ownership (Comenzar / Salud):**
+
+| Caso | Dueño HK | Notas |
+|------|----------|--------|
+| Solo Watch / inicio Watch | Watch | Sync al iPhone sin segundo workout |
+| Watch+iPhone / inicio Watch | Watch | iPhone = UI/ActivityKit |
+| Watch+iPhone / inicio iPhone | Watch companion | iPhone = GPS/UI; mismo UUID |
+| Solo iPhone / sin scope | iPhone | 0 kcal posible (sin muñeca) |
+| Watch aparece a mitad | Pasa a Watch | Descarta builder iPhone si handoff ok |
 
 **Clase / cita sin plan de ejercicios:** Play sigue disponible. Se abre
 Comenzar como **gimnasio** (`strength` / `traditionalStrengthTraining`) o

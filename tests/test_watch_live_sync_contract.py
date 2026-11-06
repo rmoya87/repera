@@ -121,6 +121,78 @@ class WatchLiveSyncContractTests(unittest.TestCase):
         self.assertIn("repo.logWearSet(", listener)
         self.assertIn("WearUiPresence.active", listener)
 
+    def test_companion_review_finishes_healthkit_not_discard(self):
+        """Revisión del iPhone debe cerrar el HKWorkout del Watch, no descartarlo."""
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        receive = hub.split(
+            "nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)",
+            1,
+        )[1].split(
+            "nonisolated func watchConnectivityDidReceiveHandoffStart(",
+            1,
+        )[0]
+        # La fase .review de la misma sesión companion debe finalizar Salud.
+        self.assertIn("finishCompanionHealthIfNeeded", receive)
+        self.assertIn("snapshot.phase == .review", receive)
+        self.assertIn("finishCompanionHealthIfNeeded", hub)
+        finish = hub.split("func finishCompanionHealthIfNeeded", 1)[1].split(
+            "func controlLiveActivity", 1
+        )[0]
+        self.assertIn("health.finish", finish)
+        self.assertNotIn("health.discard()", finish)
+
+    def test_phone_live_handoff_keeps_pending_for_startWatchApp(self):
+        """Comenzar desde iPhone no puede perder el UUID ante startWatchApp."""
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        handoff = hub.split(
+            "nonisolated func watchConnectivityDidReceiveHandoffStart(",
+            1,
+        )[1].split("nonisolated func watchConnectivityDidReceive(session:", 1)[0]
+        self.assertIn("self.pendingPhoneHandoff = (session, sessionID, sportID)", handoff)
+        self.assertIn("adoptPhoneLiveHealthOwnership", handoff)
+        config = hub.split("func handleWorkoutConfiguration(", 1)[1].split(
+            "private func publishWatchOwnedLiveToPhone", 1
+        )[0]
+        # Al despertar, consumir pending live con ownership companion (mismo UUID).
+        self.assertIn("adoptPhoneLiveHealthOwnership", config)
+        self.assertIn("pendingPhoneHandoff", config)
+
+    def test_companion_sensor_mirrors_and_respects_outdoor(self):
+        hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
+        receive = hub.split(
+            "nonisolated func watchConnectivityDidReceiveLive(_ snapshot: WatchLiveActivitySnapshot?)",
+            1,
+        )[1].split(
+            "nonisolated func watchConnectivityDidReceiveHandoffStart(",
+            1,
+        )[0]
+        self.assertIn("mirrorsToPhone: true", receive)
+        self.assertIn("outdoor: sport?.usesGPS", receive)
+        self.assertNotIn("outdoor: false, mirrorsToPhone: false", receive)
+
+    def test_live_commands_are_durable_without_momentary_reachability(self):
+        """Pausa/finalizar/cancelar deben encolar aunque sendMessage no esté reachable."""
+        watch = read("Apps/ReperaWatch/Sources/WatchConnectivityClient.swift")
+        send = watch.split("func sendLiveCommand(", 1)[1].split(
+            "func sendLiveHeartRate(", 1
+        )[0]
+        self.assertIn("transferUserInfo", send)
+        # No exigir isReachable como único camino (el espejo sí llega por context).
+        self.assertNotIn(
+            "WCSession.default.isReachable,\n              let owner = currentOwnerScope else { return false }",
+            send,
+        )
+
+    def test_phone_plan_handoff_keeps_pending_when_watch_woken(self):
+        store = read("Apps/Repera/Sources/ReperaStore.swift")
+        ownership = store.split(
+            "private func requestWatchHealthOwnership(for session: WorkoutSession)",
+            1,
+        )[1].split("private func currentWatchOwnerScope", 1)[0]
+        # Tras despertar Watch no borrar provenance ni abrir builder iPhone.
+        self.assertIn("if woke { return }", ownership)
+        self.assertIn("beginHealthTracking(for: active)", ownership)
+
 
 if __name__ == "__main__":
     unittest.main()

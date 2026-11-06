@@ -116,11 +116,23 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn('miniStat("Media"', charts)
         self.assertNotIn('miniStat("Vel. media"', charts)
         self.assertNotIn('miniStat("Vel. máx"', charts)
+        # Eje Y encima del plot (como Progreso) para estirar la gráfica.
+        self.assertIn("ProgressChartYOverlay.marks", cardio)
+        self.assertIn("ProgressChartYOverlay.marks", elevation)
+        self.assertIn(".chartYAxis(.hidden)", cardio)
+        self.assertIn(".chartYAxis(.hidden)", elevation)
+        self.assertIn(".progressChartYScale(domain:", cardio)
+        self.assertIn(".progressChartYScale(domain:", elevation)
         heart = history.split("private struct HealthHeartRateStatRow: View", 1)[1].split(
             "/// Superficie de toque independiente de MapKit.", 1
         )[0]
         self.assertNotIn('stat("Vel. media"', heart)
         self.assertNotIn('stat("Vel. máx"', heart)
+        hr_chart = history.split("private struct HealthHeartRateChart: View", 1)[1].split(
+            "private struct HealthHeartRateStatRow: View", 1
+        )[0]
+        self.assertIn("ProgressChartYOverlay.marks", hr_chart)
+        self.assertIn(".chartYAxis(.hidden)", hr_chart)
 
     def test_sport_metrics_do_not_invent_gps_for_padel_or_tennis(self):
         splits = swift("CardioRouteComponents.swift")

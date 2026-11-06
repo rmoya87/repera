@@ -125,19 +125,30 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         guard ["pause", "resume", "finish", "cancel"].contains(command),
               WCSession.isSupported(),
               WCSession.default.activationState == .activated,
-              WCSession.default.isReachable,
               let owner = currentOwnerScope else { return false }
-        WCSession.default.sendMessage([
+        let message: [String: Any] = [
             "ownerScope": owner,
             "action": "liveCommand",
             "sessionId": sessionId.uuidString,
             "command": command,
             "actionId": UUID().uuidString
-        ], replyHandler: { reply in
-            onResult?((reply["ok"] as? Bool) == true)
-        }) { [weak self] error in
-            self?.logger.warning("Live watch command failed: \(error.localizedDescription, privacy: .public)")
-            onResult?(false)
+        ]
+        let wc = WCSession.default
+        // Durable even when the phone mirror is visible via applicationContext
+        // but sendMessage is briefly unreachable (classic “lo veo pero no pausa”).
+        wc.transferUserInfo(message)
+        if wc.isReachable {
+            wc.sendMessage(message, replyHandler: { reply in
+                onResult?((reply["ok"] as? Bool) == true)
+            }) { [weak self] error in
+                self?.logger.warning(
+                    "Live watch command deferred: \(error.localizedDescription, privacy: .public)"
+                )
+                // transferUserInfo already queued — do not block pause/finish UI.
+                onResult?(true)
+            }
+        } else {
+            onResult?(true)
         }
         return true
     }

@@ -1024,6 +1024,12 @@ final class LiveActivityRecorder: NSObject {
     enum Phase: String { case idle, recording, paused, review }
     /// When true, phone keeps GPS/UI but must not write a second HKWorkout.
     private(set) var healthOwnedByWatch = false
+
+    /// Mid-session Watch handoff: drop the phone HK builder; keep GPS/UI here.
+    func adoptWatchHealthOwnership() {
+        healthOwnedByWatch = true
+        Task { await HealthKitStore.shared.discardLiveTracking() }
+    }
     private(set) var phase: Phase = .idle
     /// Cuenta atrás visual/sonora de tres segundos antes de abrir GPS y Salud.
     private(set) var startCountdownRemaining = 0
@@ -4436,21 +4442,51 @@ struct LiveActivityView: View {
         savedWorkoutID = draft.id
         Task { @MainActor in
             var session = draft
-            // Consultar Salud también al pulsar Guardar: la lectura asíncrona
-            // de la preview quizá todavía no terminó. No crear un segundo
-            // HKWorkout si existe otro real de Apple Watch para esta salida.
-            let extras: HealthKitStore.SessionHealthExtras?
-            if let cached = previewHealthExtras {
-                extras = cached
+            // Watch-owned Comenzar: esperar el HKWorkout del reloj antes de
+            // guardar, nunca crear cáscara iPhone 0 kcal en este camino.
+            let watchPending = session.appleHealthProvenance == "watchHealthKitPending"
+                || session.appleHealthProvenance == "watchHealthKit"
+                || recorder.healthOwnedByWatch
+            if watchPending {
+                session.appleHealthProvenance = "watchHealthKitPending"
+                if let watch = await health.waitForVerifiedWatchWorkout(
+                    forReperaSession: session.id,
+                    timeoutSeconds: 20,
+                    windowStart: session.startedAt,
+                    windowEnd: session.finishedAt
+                ) {
+                    session.healthKitWorkoutUUID = watch.workoutUUID
+                    session.appleDurationSeconds = watch.durationSeconds
+                    session.appleActiveEnergyKcal = watch.kcal > 0 ? watch.kcal : nil
+                    session.appleHealthProvenance = "watchHealthKit"
+                }
+                let extras = await health.sessionHealthExtras(for: session)
+                if let extras {
+                    if session.appleAverageHeartRateBpm == nil {
+                        session.appleAverageHeartRateBpm = extras.averageHeartRateBpm
+                    }
+                    if (session.appleActiveEnergyKcal ?? 0) <= 0,
+                       let kcal = extras.activeEnergyKcal, kcal > 0 {
+                        session.appleActiveEnergyKcal = kcal
+                    }
+                }
             } else {
-                extras = await health.sessionHealthExtras(for: session)
-            }
-            if let extras, extras.hasExternalSaludSource,
-               let matchedUUID = extras.resolvedWorkoutUUID {
-                session.healthKitWorkoutUUID = matchedUUID
-                session.appleActiveEnergyKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
-                session.appleAverageHeartRateBpm = extras.averageHeartRateBpm
-                session.appleHealthProvenance = "healthKitExternal"
+                // Consultar Salud también al pulsar Guardar: la lectura asíncrona
+                // de la preview quizá todavía no terminó. No crear un segundo
+                // HKWorkout si existe otro real de Apple Watch para esta salida.
+                let extras: HealthKitStore.SessionHealthExtras?
+                if let cached = previewHealthExtras {
+                    extras = cached
+                } else {
+                    extras = await health.sessionHealthExtras(for: session)
+                }
+                if let extras, extras.hasExternalSaludSource,
+                   let matchedUUID = extras.resolvedWorkoutUUID {
+                    session.healthKitWorkoutUUID = matchedUUID
+                    session.appleActiveEnergyKcal = extras.activeEnergyKcal.flatMap { $0 > 0 ? $0 : nil }
+                    session.appleAverageHeartRateBpm = extras.averageHeartRateBpm
+                    session.appleHealthProvenance = "healthKitExternal"
+                }
             }
             if session.liveRouteID == nil && session.routePoints.count >= 2
                 && recorder.sport.usesGPS {

@@ -901,7 +901,7 @@ final class ReperaStore: NSObject {
         var ctrl = SessionController(session: session)
         ctrl.startOnPhone()
         var started = ctrl.session
-        let preferWatch = connectivity.canHandoffToWatch
+        let preferWatch = canPreferWatchHealthOwnership
         if preferWatch {
             // Phone UI mirrors; Watch writes the only HKWorkout when handoff works.
             started.appleHealthProvenance = "watchHealthKitPending"
@@ -982,7 +982,7 @@ final class ReperaStore: NSObject {
         ctrl.startOnPhone()
         progressionReasons = [:]
         var started = ctrl.session
-        let preferWatch = connectivity.canHandoffToWatch
+        let preferWatch = canPreferWatchHealthOwnership
         if preferWatch {
             started.appleHealthProvenance = "watchHealthKitPending"
         }
@@ -1004,10 +1004,16 @@ final class ReperaStore: NSObject {
         return true
     }
 
+    /// Reachable Watch + account scope (handoff/commands require ownerScope).
+    private var canPreferWatchHealthOwnership: Bool {
+        connectivity.canHandoffToWatch && currentWatchOwnerScope() != nil
+    }
+
     /// Comenzar started on iPhone: wake Watch to own HealthKit for the same UUID.
     /// Returns false so the phone falls back to its builder when Watch cannot start.
     private func handoffLiveSportToWatch(sessionID: UUID, sport: LiveSport) async -> Bool {
-        guard connectivity.canHandoffToWatch else { return false }
+        guard canPreferWatchHealthOwnership,
+              let scope = currentWatchOwnerScope() else { return false }
         var shell = WorkoutSession(
             id: sessionID, title: sport.title, exercises: [],
             phase: .counting, startedAt: Date(), liveSportID: sport.rawValue
@@ -1017,22 +1023,32 @@ final class ReperaStore: NSObject {
             session: shell,
             sessionID: sessionID,
             sportID: sport.rawValue,
-            ownerScope: currentWatchOwnerScope()
+            ownerScope: scope
         )
         let woke = await HealthKitStore.shared.startWatchAppIfPossible(
             activityType: sport.healthType,
             locationType: sport.usesGPS ? .outdoor : .indoor
         )
-        try? await Task.sleep(for: .seconds(woke ? 6 : 1))
-        // Only skip the phone builder when HealthKit mirroring confirms Watch owns it.
-        // Otherwise fall back so Salud always receives one workout.
-        return HealthKitStore.shared.isWatchWorkoutMirrored
+        // Poll mirroring; if Watch was woken, never open a phone 0 kcal shell —
+        // prefer pending Watch ownership and link on finish/save.
+        let budget = woke ? 12 : 2
+        for _ in 0..<budget {
+            if HealthKitStore.shared.isWatchWorkoutMirrored { return true }
+            try? await Task.sleep(for: .seconds(1))
+        }
+        if HealthKitStore.shared.isWatchWorkoutMirrored { return true }
+        if woke { return true }
+        return false
     }
 
     /// Prefer Watch as HealthKit owner when the paired app can start.
-    /// Falls back to the phone builder after a short timeout so offline/no-Watch
-    /// athletes keep the previous behaviour without duplicate workouts.
+    /// Falls back to the phone builder only when Watch was not woken at all.
     private func requestWatchHealthOwnership(for session: WorkoutSession) {
+        guard canPreferWatchHealthOwnership else {
+            beginHealthTracking(for: session)
+            beginLocationTracking(for: session)
+            return
+        }
         let sessionID = session.id
         let activityType = workoutHealthType(for: session)
         let outdoor = WorkoutLocationTracker.shouldTrackRoute(for: session)
@@ -1047,12 +1063,16 @@ final class ReperaStore: NSObject {
                 activityType: activityType,
                 locationType: outdoor ? .outdoor : .indoor
             )
-            // Give WatchConnectivity + mirroring a moment before phone fallback.
-            try? await Task.sleep(for: .seconds(woke ? 8 : 2))
+            let budget = woke ? 12 : 2
+            for _ in 0..<budget {
+                if HealthKitStore.shared.isWatchWorkoutMirrored { return }
+                try? await Task.sleep(for: .seconds(1))
+            }
             guard state.activeSession?.id == sessionID,
                   state.activeSession?.finishedAt == nil else { return }
             if HealthKitStore.shared.isWatchWorkoutMirrored { return }
-            // Watch did not take ownership — phone records HealthKit as before.
+            if woke { return }
+            // Watch did not wake — phone records HealthKit as before.
             if var active = state.activeSession, active.id == sessionID,
                active.appleHealthProvenance == "watchHealthKitPending" {
                 active.appleHealthProvenance = nil
@@ -1062,6 +1082,20 @@ final class ReperaStore: NSObject {
             guard let active = state.activeSession, active.id == sessionID else { return }
             beginHealthTracking(for: active)
             beginLocationTracking(for: active)
+        }
+    }
+
+    /// Watch appears mid-Comenzar: promote sensors to Watch without second HK shell.
+    private func attemptLateLiveWatchHandoffIfNeeded() async {
+        let recorder = LiveActivityRecorder.shared
+        guard canPreferWatchHealthOwnership,
+              !recorder.healthOwnedByWatch,
+              recorder.phase == .recording || recorder.phase == .paused,
+              let sessionID = recorder.sessionID else { return }
+        let sport = recorder.sport
+        let handed = await handoffLiveSportToWatch(sessionID: sessionID, sport: sport)
+        if handed {
+            recorder.adoptWatchHealthOwnership()
         }
     }
 
@@ -2104,10 +2138,15 @@ final class ReperaStore: NSObject {
               end >= start else { return false }
         if session.appleHealthProvenance == "watchHealthKit"
             || session.appleHealthProvenance == "watchHealthKitPending" {
-            // Apple Watch owns this HKWorkout. Until it reaches the iPhone's
-            // HealthKit store, only link it later; never write a second one.
-            guard let actual = await HealthKitStore.shared.verifiedWatchWorkout(forReperaSession: sessionId),
-                  let uuid = actual.workoutUUID,
+            // Apple Watch owns this HKWorkout. Wait briefly for Salud sync;
+            // never write a phone 0 kcal shell while provenance is Watch.
+            let actual = await HealthKitStore.shared.waitForVerifiedWatchWorkout(
+                forReperaSession: sessionId,
+                timeoutSeconds: 20,
+                windowStart: session.startedAt,
+                windowEnd: session.finishedAt
+            )
+            guard let actual, let uuid = actual.workoutUUID,
                   var current = state.workouts.first(where: { $0.id == sessionId }),
                   current.healthKitWorkoutUUID == nil
             else { return false }
@@ -2117,6 +2156,7 @@ final class ReperaStore: NSObject {
             if actual.kcal > 0 { current.appleActiveEnergyKcal = actual.kcal }
             upsertWorkout(current)
             persistWorkouts()
+            await HealthKitStore.shared.deleteOrphanPhoneShells(for: [current])
             await refineSessionReviewWithHealth(sessionId: sessionId)
             return true
         }
@@ -4100,6 +4140,9 @@ extension ReperaStore: PhoneConnectivityDelegate {
         Task { @MainActor in
             self.isWatchReachable = reachable
             self.sendWatchContextNow()
+            if reachable {
+                await self.attemptLateLiveWatchHandoffIfNeeded()
+            }
         }
     }
 

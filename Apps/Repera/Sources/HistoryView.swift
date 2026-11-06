@@ -2166,6 +2166,13 @@ private struct HealthHeartRateChart: View {
     var series: [HealthKitStore.HeartRatePoint]
     var stats: HealthKitStore.SessionHealthExtras
 
+    private var yDomain: ClosedRange<Double> {
+        let values = series.map(\.bpm)
+        let low = min(values.min() ?? 0, 0)
+        let high = max(values.max() ?? 1, low + 1)
+        return low...high
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -2175,28 +2182,37 @@ private struct HealthHeartRateChart: View {
                 Spacer()
             }
 
-            Chart(series) { point in
-                AreaMark(
-                    x: .value("Tiempo", point.date),
-                    y: .value("lpm", point.bpm)
+            Chart {
+                ProgressChartYOverlay.marks(
+                    values: ProgressChartYOverlay.ticks(
+                        low: yDomain.lowerBound, high: yDomain.upperBound
+                    ),
+                    domainLow: yDomain.lowerBound
                 )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [OG.red.opacity(0.35), OG.red.opacity(0.02)],
-                        startPoint: .top,
-                        endPoint: .bottom
+                ForEach(series) { point in
+                    AreaMark(
+                        x: .value("Tiempo", point.date),
+                        y: .value("lpm", point.bpm)
                     )
-                )
-                .interpolationMethod(.catmullRom)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [OG.red.opacity(0.35), OG.red.opacity(0.02)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .interpolationMethod(.catmullRom)
 
-                LineMark(
-                    x: .value("Tiempo", point.date),
-                    y: .value("lpm", point.bpm)
-                )
-                .foregroundStyle(OG.red)
-                .lineStyle(StrokeStyle(lineWidth: 2))
-                .interpolationMethod(.catmullRom)
+                    LineMark(
+                        x: .value("Tiempo", point.date),
+                        y: .value("lpm", point.bpm)
+                    )
+                    .foregroundStyle(OG.red)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.catmullRom)
+                }
             }
+            .progressChartYScale(domain: yDomain)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 3)) { _ in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
@@ -2205,18 +2221,7 @@ private struct HealthHeartRateChart: View {
                         .foregroundStyle(OG.label3)
                 }
             }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(OG.surface3)
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text("\(Int(v))")
-                                .foregroundStyle(OG.label3)
-                        }
-                    }
-                }
-            }
+            .chartYAxis(.hidden)
             .frame(height: 170)
 
         }

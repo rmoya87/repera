@@ -13,6 +13,9 @@ enum TrainingLiveActivityCommand {
     static let notification = Notification.Name("repera.trainingLiveActivity.command")
     private static let pendingKey = "repera.trainingLiveActivity.pending"
 
+    /// Persist off-main is fine; the notify must reach SwiftUI on the main actor
+    /// (`LiveActivityIntent.perform` often runs in a background executor).
+    @MainActor
     static func request(_ action: Action) {
         UserDefaults.standard.set(action.rawValue, forKey: pendingKey)
         NotificationCenter.default.post(name: notification, object: nil)
@@ -32,7 +35,7 @@ struct TrainingPauseLiveActivityIntent: LiveActivityIntent {
     static let openAppWhenRun = false
 
     func perform() async throws -> some IntentResult {
-        TrainingLiveActivityCommand.request(.pause)
+        await TrainingLiveActivityCommand.request(.pause)
         return .result()
     }
 }
@@ -44,7 +47,7 @@ struct TrainingResumeLiveActivityIntent: LiveActivityIntent {
     static let openAppWhenRun = false
 
     func perform() async throws -> some IntentResult {
-        TrainingLiveActivityCommand.request(.resume)
+        await TrainingLiveActivityCommand.request(.resume)
         return .result()
     }
 }
@@ -57,7 +60,7 @@ struct TrainingOpenSessionLiveActivityIntent: LiveActivityIntent {
     static let openAppWhenRun = true
 
     func perform() async throws -> some IntentResult {
-        TrainingLiveActivityCommand.request(.openSession)
+        await TrainingLiveActivityCommand.request(.openSession)
         return .result()
     }
 }
