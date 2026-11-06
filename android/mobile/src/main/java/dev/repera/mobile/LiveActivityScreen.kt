@@ -1467,10 +1467,10 @@ private fun LiveScreenTouchBlocker(
                         (target.top - container.top).roundToInt()
                     )
                 }
-                .size(48.dp)
+                .size(94.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface)
-                .border(0.7.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                .background(brandGreen)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                 .pointerInput(Unit) {
                     detectTapGestures(onPress = {
                         // Solo mientras el dedo sigue apoyado al cumplirse 1 s.
@@ -1487,8 +1487,8 @@ private fun LiveScreenTouchBlocker(
         ) {
             Icon(
                 Icons.Outlined.Lock, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
+                tint = Color.Black,
+                modifier = Modifier.size(36.dp)
             )
         }
     }
