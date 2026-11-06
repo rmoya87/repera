@@ -18,6 +18,7 @@ struct PaywallView: View {
 
     @State private var selectedProductID: String?
     @State private var showError = false
+    @State private var isLoadingPlans = false
     @State private var mascotRaised = false
 
     private var context: PaywallContext {
@@ -66,8 +67,7 @@ struct PaywallView: View {
             .task {
                 // El onboarding no debe disparar de nuevo el paywall global.
                 await subscriptions.start()
-                await subscriptions.loadOfferings()
-                reconcileSelectedProduct()
+                await reloadPlans()
             }
             .onChange(of: packages.map(\.productID)) { _, _ in
                 reconcileSelectedProduct()
@@ -191,15 +191,38 @@ struct PaywallView: View {
     private var plansSection: some View {
         VStack(alignment: .leading, spacing: 7) {
             sectionHeading("ELIGE TU PLAN")
-            if packages.isEmpty {
+            if subscriptions.isPro {
+                Label(
+                    subscriptions.snapshot.status == .unknown
+                        ? "Acceso Pro conservado desde tu última compra verificada"
+                        : "Tu suscripción Repera Pro está activa",
+                    systemImage: "checkmark.seal.fill"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(OG.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(OG.pad)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+            } else if packages.isEmpty {
                 VStack(alignment: .leading, spacing: 7) {
+                    if isLoadingPlans {
+                        ProgressView("Consultando App Store…")
+                            .font(.footnote)
+                    } else {
                     Text("Compras no disponibles")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
                     Text(subscriptions.offerings.unavailableReason
-                         ?? "No se han podido cargar las suscripciones. Comprueba la conexión.")
+                         ?? "No se han podido cargar los planes desde Apple.")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
+                    Button("Reintentar") {
+                        Task { await reloadPlans() }
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    .accessibilityIdentifier("pro-retry-products")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(OG.pad)
@@ -262,34 +285,45 @@ struct PaywallView: View {
     }
 
     private var purchaseFooter: some View {
-        Button {
-            Task {
-                guard let id = selectedProductID else { return }
-                let ok = await subscriptions.purchase(productID: id)
-                if ok {
-                    if mode == .sheet { subscriptions.dismissPaywall() }
-                    onPurchaseSuccess?()
-                } else if subscriptions.lastErrorMessage != nil {
-                    showError = true
+        Group {
+            if subscriptions.isPro {
+                Label("Ya tienes acceso a Repera Pro", systemImage: "checkmark.seal.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .accessibilityIdentifier("pro-active-entitlement")
+            } else {
+                Button {
+                    Task {
+                        guard let id = selectedProductID else { return }
+                        let ok = await subscriptions.purchase(productID: id)
+                        if ok {
+                            if mode == .sheet { subscriptions.dismissPaywall() }
+                            onPurchaseSuccess?()
+                        } else if subscriptions.lastErrorMessage != nil {
+                            showError = true
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if subscriptions.purchaseInFlight {
+                            ProgressView().tint(OG.onAccent)
+                        }
+                        Text(selectedPackage?.hasFreeTrial == true ? "Probar Repera Pro" : "Continuar con Pro")
+                            .font(.system(size: 16, weight: .semibold))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .foregroundStyle(OG.onAccent)
+                    .background(OG.accent, in: RoundedRectangle(cornerRadius: 14))
                 }
+                .buttonStyle(.plain)
+                .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
             }
-        } label: {
-            HStack(spacing: 8) {
-                if subscriptions.purchaseInFlight {
-                    ProgressView().tint(OG.onAccent)
-                }
-                Text(selectedPackage?.hasFreeTrial == true ? "Probar Repera Pro" : "Continuar con Pro")
-                    .font(.system(size: 16, weight: .semibold))
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .foregroundStyle(OG.onAccent)
-            .background(OG.accent, in: RoundedRectangle(cornerRadius: 14))
         }
-        .buttonStyle(.plain)
-        .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
         .padding(.horizontal, OG.pad)
         .padding(.top, 6)
         .padding(.bottom, 5)
@@ -383,6 +417,15 @@ struct PaywallView: View {
             .tracking(1)
             .foregroundStyle(OG.label2)
             .accessibilityAddTraits(.isHeader)
+    }
+
+    @MainActor
+    private func reloadPlans() async {
+        guard !isLoadingPlans else { return }
+        isLoadingPlans = true
+        defer { isLoadingPlans = false }
+        await subscriptions.loadOfferings()
+        reconcileSelectedProduct()
     }
 
     private func reconcileSelectedProduct() {
