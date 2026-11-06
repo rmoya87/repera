@@ -2378,6 +2378,9 @@ struct LiveActivityView: View {
     @State private var liveSessionPage = 1
     /// Bloqueo táctil local a Comenzar, nunca de GPS/HealthKit ni del sistema.
     @State private var isInteractionLocked = false
+    /// Fusión candado→Play tipo gotas (0…1). Play no se desplaza.
+    @State private var isLockMergeAnimating = false
+    @State private var lockMergeProgress: CGFloat = 0
     @State private var routeError: String?
     @State private var saveError: String?
     @State private var title = ""
@@ -2457,12 +2460,24 @@ struct LiveActivityView: View {
                         .padding(.bottom, idleBottomChromePad)
                 }
             }
+            // Hit-target transparente: el candado visible vive en Play (sin parpadeo al fusionar).
             .overlayPreferenceValue(LiveInteractionLockAnchorKey.self) { anchor in
                 GeometryReader { geometry in
                     if isInteractionLocked, let anchor {
                         let rect = geometry[anchor]
-                        interactionLockButton(registerAnchor: false)
+                        Color.clear
+                            .frame(width: rect.width, height: rect.height)
+                            .contentShape(Circle())
                             .position(x: rect.midX, y: rect.midY)
+                            .onLongPressGesture(minimumDuration: 1) {
+                                unlockInteractionLock()
+                            }
+                            .accessibilityLabel("Pantalla bloqueada")
+                            .accessibilityHint("Mantén pulsado un segundo para desbloquear")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction(named: "Desbloquear pantalla") {
+                                unlockInteractionLock()
+                            }
                     }
                 }
             }
@@ -2474,12 +2489,6 @@ struct LiveActivityView: View {
                     || recorder.phase == .paused
                     ? .hidden : .automatic,
                 for: .tabBar
-            )
-            // Solo el candado: animar el cambio idle→vivo mueve el FAB del mapa
-            // y deja franja negra (TabView / safe area).
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 0.28),
-                value: isInteractionLocked
             )
             .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
@@ -2613,6 +2622,8 @@ struct LiveActivityView: View {
         .onChange(of: recorder.phase) { _, phase in
             if phase != .recording && phase != .paused {
                 isInteractionLocked = false
+                isLockMergeAnimating = false
+                lockMergeProgress = 0
                 liveSessionPage = 1
                 TimerScreenAwake.setRunning(false, for: .liveLock)
             }
@@ -2784,7 +2795,7 @@ struct LiveActivityView: View {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: liveSessionPage)
 
             // Controles encima (como el overlay idle); swipe aquí cambia de página.
-            VStack(spacing: 10) {
+            VStack(spacing: 6) {
                 if pageShowsMap {
                     mapMetricStrip
                         .padding(.horizontal, OG.topBarHorizontalInset)
@@ -2793,14 +2804,25 @@ struct LiveActivityView: View {
                     .frame(maxWidth: 570)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 14)
-                liveSessionPageDots
+                if !isInteractionLocked {
+                    liveSessionPageDots
+                }
             }
             .contentShape(Rectangle())
             .simultaneousGesture(liveSessionChromeSwipeGesture)
-            // Tab bar oculta: mismo aire bajo chrome que idle sin menú (~home indicator).
-            .padding(.bottom, 10 + continueChromeLift)
+            // Ignorar el inset fantasma del tab bar oculto; pad = home indicator real.
+            .padding(.bottom, liveChromeHomeIndicatorPad + continueChromeLift)
+            .ignoresSafeArea(.container, edges: .bottom)
         }
         .background(pageShowsMap ? Color.clear : OG.bg)
+    }
+
+    /// Solo el home indicator de la ventana (no el hueco del menú oculto en SwiftUI).
+    private var liveChromeHomeIndicatorPad: CGFloat {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first
+        let window = scene?.windows.first(where: \.isKeyWindow) ?? scene?.windows.first
+        return max(window?.safeAreaInsets.bottom ?? 12, 8) + 2
     }
 
     private var liveSessionPageCount: Int {
@@ -2883,23 +2905,6 @@ struct LiveActivityView: View {
                 Text(recorder.chosenRoute?.title ?? "Sin ruta cargada")
                     .font(.title3).foregroundStyle(OG.label2)
                     .padding(.vertical, 4)
-                Toggle(isOn: Binding(
-                    get: { isInteractionLocked },
-                    set: { locked in
-                        if locked {
-                            liveSessionPage = 1
-                            isInteractionLocked = true
-                        } else {
-                            isInteractionLocked = false
-                        }
-                    }
-                )) {
-                    Label("Bloquear pantalla", systemImage: "lock.fill")
-                        .font(.title3.weight(.semibold))
-                }
-                .tint(OG.accent)
-                .frame(minHeight: 72)
-                .accessibilityHint("Mantén pulsado el candado un segundo para desbloquear")
             }
             .padding(24)
             .frame(maxWidth: 570)
@@ -3192,10 +3197,10 @@ struct LiveActivityView: View {
             : "\(max(0, meters)) m"
     }
 
-    /// Solo 2D/3D arriba a la derecha; métricas por gesto horizontal y
-    /// recentrado automático tras manipular el mapa.
+    /// Deporte arriba a la izquierda (idle y vivo) + FAB 2D/3D a la derecha.
     private var mapHeader: some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .top, spacing: 10) {
+            liveSessionSportBadge
             Spacer(minLength: 0)
             mapCircleButton(
                 effectiveNavigation3D ? "map" : "view.3d",
@@ -3205,6 +3210,26 @@ struct LiveActivityView: View {
                 toggleNavigationMapMode()
             }
         }
+    }
+
+    /// Badge compartido mapa/métricas: icono + nombre, siempre a la izquierda.
+    private var liveSessionSportBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: recorder.sport.symbol)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(OG.accent)
+                .frame(width: 26)
+            Text(recorder.sport.title)
+                .font(.headline)
+                .foregroundStyle(OG.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: .capsule)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(recorder.sport.title)
     }
 
     /// Al pulsar 3D usar el último encuadre de MapKit si el GPS aún
@@ -3433,46 +3458,11 @@ struct LiveActivityView: View {
         .accessibilityLabel(label)
     }
 
-    /// En modo bloqueado la vista sigue actualizándose;    /// En modo bloqueado la vista sigue actualizándose; solo este símbolo
-    /// queda accesible por encima de la capa que anula el resto de los gestos.
-    private func interactionLockButton(registerAnchor: Bool = true) -> some View {
-        Group {
-            if isInteractionLocked {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.black)
-                    .frame(width: 94, height: 94)
-                    .background(OG.accent, in: Circle())
-                    .contentShape(Circle())
-                    .onLongPressGesture(minimumDuration: 1) {
-                        isInteractionLocked = false
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    }
-                    .accessibilityLabel("Pantalla bloqueada")
-                    .accessibilityHint("Mantén pulsado un segundo para desbloquear")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction(named: "Desbloquear pantalla") {
-                        isInteractionLocked = false
-                    }
-            } else {
-                Button {
-                    isInteractionLocked = true
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Image(systemName: "lock.open")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(OG.label)
-                        .frame(width: 44, height: 44)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Bloquear pantalla")
-                .accessibilityHint("Bloquea los toques, mantiene visibles las métricas y el mapa")
-            }
-        }
-        .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
-            registerAnchor ? $0 : nil
-        }
+    private func unlockInteractionLock() {
+        isInteractionLocked = false
+        isLockMergeAnimating = false
+        lockMergeProgress = 0
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private var guidanceSymbol: String {
@@ -3642,29 +3632,18 @@ struct LiveActivityView: View {
     @ViewBuilder
     private func metricsPrimarySection(at date: Date) -> some View {
         VStack(spacing: 0) {
-            GeometryReader { header in
-                HStack(spacing: 6) {
-                    Image(systemName: recorder.sport.symbol)
-                        .font(.title2.weight(.medium))
-                        .foregroundStyle(OG.accent)
-                        .frame(width: 28)
-                    Text(recorder.sport.title)
-                        .font(.headline)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.68)
-                        .frame(
-                            width: min(126, max(48, header.size.width - 240)),
-                            height: 54,
-                            alignment: .leading
-                        )
-                    Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                // Siempre a la izquierda (idle y vivo), mismo badge que mapa.
+                liveSessionSportBadge
+                Spacer(minLength: 0)
+                if !canLockLiveScreen {
                     metricsTrailingActions
                         .fixedSize(horizontal: true, vertical: false)
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            // Misma cabecera idle/vivo para no desplazar Duración al empezar.
-            .frame(height: 54)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Misma cabecera idle/vivo a la izquierda para no desplazar Duración.
+            .frame(minHeight: 54, alignment: .center)
             .padding(.horizontal, OG.topBarHorizontalInset)
             .padding(.top, 10)
             if recorder.chosenRoute != nil, recorder.phase != .idle {
@@ -3796,20 +3775,74 @@ struct LiveActivityView: View {
 
     /// Panel central compartido entre mapa y métricas.
     /// Los tres controles son Liquid Glass sueltos (sin recuadro contenedor).
-    /// Idle: Opciones = sheet modal fitted. En vivo: página 0 del pager (filas grandes).
+    /// Idle: Opciones / Play / actividad. En vivo: Finalizar / Play / candado
+    /// (el candado se fusiona con Play al bloquear; Play no se mueve).
     private var bottomControls: some View {
         HStack(alignment: .center, spacing: 10) {
-            liveGlassSideButton(
-                canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
-                label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
-            ) {
-                if canLockLiveScreen {
-                    confirmFinish = true
-                } else {
-                    showOptions = true
+            if isInteractionLocked {
+                // Hueco simétrico: Finalizar solo visible al desbloquear.
+                Color.clear
+                    .frame(width: sideControlDiameter, height: sideControlDiameter)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+            } else {
+                liveGlassSideButton(
+                    canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
+                    label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
+                ) {
+                    if canLockLiveScreen {
+                        confirmFinish = true
+                    } else {
+                        showOptions = true
+                    }
                 }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
+            livePrimaryControl
+                .frame(width: primaryControlDiameter, height: primaryControlDiameter)
+                .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
+                    canLockLiveScreen ? $0 : nil
+                }
+            if canLockLiveScreen {
+                liveLockSideControl
+                    .frame(maxWidth: .infinity)
+            } else {
+                liveGlassSideButton(
+                    recorder.sport.symbol,
+                    foreground: OG.accent,
+                    label: "Seleccionar actividad: \(recorder.sport.title)"
+                ) {
+                    sportPicker = true
+                }
+                .disabled(recorder.isStartCountingDown)
+                .accessibilityHint("Abre el selector de actividades desde abajo")
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .foregroundStyle(OG.label)
+        .contentShape(Rectangle())
+        .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
+            // Idle: swipe abre/cierra el sheet de Opciones. En vivo manda el pager.
+            guard !canLockLiveScreen, !isInteractionLocked,
+                  abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
+            if gesture.translation.width < -70 { showOptions = true }
+            if gesture.translation.width > 70 { showOptions = false }
+        })
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: recorder.phase)
+    }
+
+    /// True mientras el candado vive en el hueco de Play (fusión o bloqueado).
+    private var showsFusedLockAtPlay: Bool {
+        isInteractionLocked || isLockMergeAnimating
+    }
+
+    /// Play/Pausa fijo; el candado se absorbe aquí (Play no se mueve).
+    @ViewBuilder
+    private var livePrimaryControl: some View {
+        let absorb = isLockMergeAnimating ? (0.06 * lockMergeProgress) : 0
+        let playFade = isInteractionLocked ? 1.0 : Double(lockMergeProgress)
+        let fusedFade = isInteractionLocked ? 1.0 : Double(lockMergeProgress)
+        ZStack {
             Button {
                 if recorder.phase == .recording { recorder.pause() }
                 else if recorder.phase == .paused { recorder.resume() }
@@ -3846,30 +3879,92 @@ struct LiveActivityView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(recorder.phase == .recording ? "Pausar" :
                 (recorder.phase == .paused ? "Reanudar" : "Comenzar"))
-            .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
-                canLockLiveScreen ? $0 : nil
-            }
-            liveGlassSideButton(
-                recorder.sport.symbol,
-                foreground: OG.accent,
-                label: "Seleccionar actividad: \(recorder.sport.title)"
-            ) {
-                sportPicker = true
-            }
-            .disabled(recorder.phase != .idle || recorder.isStartCountingDown)
-            .accessibilityHint("Abre el selector de actividades desde abajo")
-            .frame(maxWidth: .infinity)
+            .opacity(1 - playFade)
+            .scaleEffect(1 + absorb)
+            .allowsHitTesting(!showsFusedLockAtPlay)
+
+            // Misma vista en fusión y bloqueado → sin parpadeo al terminar la gota.
+            Image(systemName: "lock.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(.black)
+                .frame(width: primaryControlDiameter, height: primaryControlDiameter)
+                .glassEffect(.regular.tint(OG.accent).interactive(), in: .circle)
+                .opacity(fusedFade)
+                .scaleEffect(showsFusedLockAtPlay ? (0.94 + 0.06 * (isInteractionLocked ? 1 : lockMergeProgress) + absorb) : 0.94)
+                .accessibilityHidden(!isInteractionLocked)
+                .accessibilityLabel("Pantalla bloqueada")
         }
-        .foregroundStyle(OG.label)
-        .contentShape(Rectangle())
-        .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
-            // Idle: swipe abre/cierra el sheet de Opciones. En vivo manda el pager.
-            guard !canLockLiveScreen, !isInteractionLocked,
-                  abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
-            if gesture.translation.width < -70 { showOptions = true }
-            if gesture.translation.width > 70 { showOptions = false }
-        })
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: recorder.phase)
+    }
+
+    /// Candado derecho (Liquid Glass); vuela hacia Play como gota y se absorbe.
+    @ViewBuilder
+    private var liveLockSideControl: some View {
+        GeometryReader { geo in
+            let travel = max(geo.size.width * 0.5 + primaryControlDiameter * 0.25, 72)
+            ZStack {
+                if isInteractionLocked {
+                    Color.clear
+                } else {
+                    Button {
+                        beginLockMerge()
+                    } label: {
+                        Image(systemName: lockMergeProgress > 0.45 ? "lock.fill" : "lock.open")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(OG.label)
+                            .frame(width: sideControlDiameter, height: sideControlDiameter)
+                            .glassEffect(.regular.interactive(), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLockMergeAnimating)
+                    .offset(x: -travel * lockMergeProgress)
+                    .scaleEffect(1 + 0.55 * lockMergeProgress)
+                    .opacity(Double(1 - lockMergeProgress))
+                    .accessibilityLabel("Bloquear pantalla")
+                    .accessibilityHint("Fusiona el candado con Play; mantén pulsado un segundo para desbloquear")
+                    .accessibilityHidden(isLockMergeAnimating)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+        }
+        .frame(height: sideControlDiameter)
+    }
+
+    private func beginLockMerge() {
+        guard canLockLiveScreen, !isInteractionLocked, !isLockMergeAnimating else { return }
+        // No forzar página 1: si estás en mapa, el bloqueo se queda en mapa.
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if reduceMotion {
+            isInteractionLocked = true
+            lockMergeProgress = 0
+            isLockMergeAnimating = false
+            return
+        }
+        isLockMergeAnimating = true
+        lockMergeProgress = 0
+        // Morph en pantalla: ease-in-out + spring ligero = gotas que se unen.
+        withAnimation(.easeInOut(duration: 0.34)) {
+            lockMergeProgress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(340))
+            guard canLockLiveScreen else {
+                var cancel = Transaction()
+                cancel.disablesAnimations = true
+                withTransaction(cancel) {
+                    isLockMergeAnimating = false
+                    lockMergeProgress = 0
+                }
+                return
+            }
+            // Primero bloqueado (misma vista fused); luego limpia el vuelo sin animar.
+            isInteractionLocked = true
+            var end = Transaction()
+            end.disablesAnimations = true
+            withTransaction(end) {
+                isLockMergeAnimating = false
+                lockMergeProgress = 0
+            }
+        }
     }
 
     /// Opciones idle: modal fitted nativo (por encima de la tab bar).

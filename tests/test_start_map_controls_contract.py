@@ -33,6 +33,10 @@ class LiveStartControlsContractTests(unittest.TestCase):
         self.assertIn('Image(systemName: recorder.phase == .recording ? "pause.fill"', toolbar)
         self.assertIn('"gearshape.fill"', toolbar)
         self.assertIn('"flag.checkered"', toolbar)
+        # Finalizar oculto con pantalla bloqueada (hueco simétrico).
+        self.assertIn("if isInteractionLocked", toolbar)
+        self.assertIn("Hueco simétrico: Finalizar solo visible al desbloquear", toolbar)
+        self.assertIn("if (locked)", android)
         self.assertNotIn('Text(store.hasActiveSession ? "CONTINUAR" : "COMENZAR")', toolbar)
         self.assertIn("Icons.Filled.PlayArrow", android)
         self.assertIn("Icons.Filled.Pause", android)
@@ -45,15 +49,40 @@ class LiveStartControlsContractTests(unittest.TestCase):
         ios_row = ios.split("private var bottomControls: some View", 1)[1].split(
             "private var liveSplitScreen", 1
         )[0]
+        # Idle: actividad a la derecha. En vivo: candado que se fusiona con Play.
         self.assertIn("recorder.sport.symbol", ios_row)
-        self.assertIn("liveGlassSideButton(", ios_row)
         self.assertIn("sportPicker = true", ios_row)
+        self.assertIn("liveLockSideControl", ios_row)
+        self.assertIn("beginLockMerge()", ios)
+        self.assertIn("lockMergeProgress", ios)
+        self.assertIn("showsFusedLockAtPlay", ios)
+        self.assertIn("liveSessionSportBadge", ios)
+        # Badge: nombre + icono, siempre a la izquierda en mapa y métricas.
+        badge = ios.split("private var liveSessionSportBadge", 1)[1].split(
+            "private func toggleNavigationMapMode", 1
+        )[0]
+        self.assertLess(badge.index("recorder.sport.symbol"), badge.index("recorder.sport.title"))
+        map_header = ios.split("private var mapHeader:", 1)[1].split(
+            "private var liveSessionSportBadge", 1
+        )[0]
+        self.assertLess(
+            map_header.index("liveSessionSportBadge"),
+            map_header.index("mapCircleButton("),
+        )
+        self.assertIn("if !isInteractionLocked {\n                    liveSessionPageDots", ios)
+        self.assertIn("beginLockMerge()", ios)
+        self.assertNotIn("liveSessionPage = 1\n        UIImpactFeedbackGenerator", ios)
+        android_screen = read(ANDROID / "LiveActivityScreen.kt")
+        self.assertIn("if (!touchLocked)", android_screen)
         self.assertIn(".sheet(isPresented: $sportPicker)", ios)
         self.assertIn('UserDefaults.standard.set(selection.rawValue, forKey: "repera.live.lastSport")', ios)
         self.assertIn("onClick = onSport", android)
         self.assertIn('testTag("live_sport_picker")', android)
+        self.assertIn('testTag("live_lock")', android)
+        self.assertIn("onLock: () -> Unit", android)
         self.assertIn("LiveGlassCircleButton(", android)
         self.assertIn('showSportPicker = false', read(ANDROID / "LiveActivityScreen.kt"))
+        self.assertIn("LiveSessionSportBadge(", read(ANDROID / "LiveActivityScreen.kt"))
 
 
     def test_settings_and_route_are_full_size(self):
@@ -64,10 +93,18 @@ class LiveStartControlsContractTests(unittest.TestCase):
         self.assertIn('Label("Audio", systemImage: "speaker.wave.2.fill")', ios)
         self.assertIn('Label("Mapa", systemImage: "map.fill")', ios)
         self.assertIn('Label("Cuenta atrás", systemImage: "timer")', ios)
-        self.assertIn('Label("Bloquear pantalla", systemImage: "lock.fill")', ios)
+        # Bloqueo vive en el chrome (candado derecho → fusión con Play), no en Opciones.
+        self.assertNotIn('Label("Bloquear pantalla", systemImage: "lock.fill")', ios)
+        self.assertIn('accessibilityLabel("Bloquear pantalla")', ios)
         self.assertIn("idleOptionsSheet", ios)
         self.assertIn("idleBottomChromePad", ios)
         self.assertIn("10 + continueChromeLift", ios)
+        self.assertIn("liveChromeHomeIndicatorPad", ios)
+        self.assertIn(".ignoresSafeArea(.container, edges: .bottom)", ios)
+        self.assertIn(
+            "sessionActive || state.phase == LiveActivityState.Phase.REVIEW -> 8.dp",
+            android,
+        )
         self.assertNotIn("88 + continueChromeLift", ios)
         self.assertIn(".ogFittedSheet()", ios)
         # Controles flotantes idle (no dentro del ScrollView de métricas).

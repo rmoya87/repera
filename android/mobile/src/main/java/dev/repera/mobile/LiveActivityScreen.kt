@@ -215,10 +215,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     val state=runtime.state
     val sessionActive = state.phase == LiveActivityState.Phase.RECORDING ||
         state.phase == LiveActivityState.Phase.PAUSED
-    // Con menú oculto en sesión, solo reserva el home indicator (paridad iOS).
+    // En sesión el menú está oculto: no usar tabChromeInset (deja un hueco enorme).
+    // Solo un aire mínimo sobre el home indicator / gesture bar.
     val bottomChromePad = when {
+        sessionActive || state.phase == LiveActivityState.Phase.REVIEW -> 8.dp
         tabChromeInset > 0.dp -> tabChromeInset
-        sessionActive || state.phase == LiveActivityState.Phase.REVIEW -> 24.dp
         else -> 96.dp
     }
     val maxHeartRateBpm by produceState(initialValue = 190, accountId) {
@@ -877,18 +878,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         showMap = !showingMetrics,
                         hasGPS = state.sport.usesGPS,
                         routeTitle = routes.firstOrNull { it.id == state.selectedRouteID }?.title,
-                        locked = touchLocked,
                         onAudio = { runtime.toggleSpokenGuidance() },
                         onCountdown = { runtime.toggleStartCountdown() },
                         onMap = { showingMetrics = !it },
-                        onLockChange = { enable ->
-                            if (enable) {
-                                liveSessionPage = 1
-                                lockTouch()
-                            } else {
-                                unlockTouch()
-                            }
-                        }
                     )
                     1 -> if (centerIsMetrics) {
                         LiveSessionMetricsPane(
@@ -976,23 +968,26 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                     },
                     onFinish = { confirmFinish = true },
+                    onLock = { lockTouch() },
                     onPrimaryPositioned = { lockTarget = it }
                 )
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    repeat(pageCount) { index ->
-                        Box(
-                            Modifier
-                                .padding(horizontal = 5.dp)
-                                .size(if (index == pagerState.currentPage) 10.dp else 8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (index == pagerState.currentPage) brandGreen
-                                    else MaterialTheme.colorScheme.outlineVariant
-                                )
-                        )
+                if (!touchLocked) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(pageCount) { index ->
+                            Box(
+                                Modifier
+                                    .padding(horizontal = 5.dp)
+                                    .size(if (index == pagerState.currentPage) 10.dp else 8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (index == pagerState.currentPage) brandGreen
+                                        else MaterialTheme.colorScheme.outlineVariant
+                                    )
+                            )
+                        }
                     }
                 }
             }
@@ -1034,17 +1029,18 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     followingMap = false
                     lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
                 })
-            // Solo 2D/3D arriba a la derecha (paridad iOS mapHeader).
-            Column(
+            // Deporte a la izquierda; 2D/3D a la derecha (paridad iOS mapHeader).
+            Row(
                 Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
                     .statusBarsPadding()
-                    // Mismo top idle/vivo: si baja al grabar, el FAB sube.
-                    .padding(top = 12.dp, end = 16.dp)
+                    .padding(top = 12.dp, start = 16.dp, end = 16.dp)
                     .testTag("live_map_fabs"),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
+                LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
                 LiveMapCircleFab(
                     icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
                     label = when {
@@ -1249,6 +1245,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                     },
                     onFinish = { confirmFinish = true },
+                    onLock = { lockTouch() },
                     onPrimaryPositioned = { lockTarget = it }
                 )
             }
@@ -1293,22 +1290,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     .padding(horizontal = 16.dp, vertical = 14.dp)
                     .heightIn(min = 54.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.Start
             ) {
-                Icon(
-                    state.sport.materialIcon,
-                    contentDescription = null,
-                    tint = brandGreen,
-                    modifier = Modifier.size(28.dp)
-                )
-                Text(
-                    state.sport.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
+                LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
             }
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
             Text(
@@ -1452,6 +1436,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 }
             },
             onFinish = { confirmFinish = true },
+            onLock = { lockTouch() },
             onPrimaryPositioned = { lockTarget = it },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1595,6 +1580,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
         },
         onFinish = { confirmFinish = true },
+        onLock = { lockTouch() },
         onPrimaryPositioned = { lockTarget = it },
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -1688,11 +1674,9 @@ private fun LiveSessionOptionsPane(
     showMap: Boolean,
     hasGPS: Boolean,
     routeTitle: String?,
-    locked: Boolean,
     onAudio: () -> Unit,
     onCountdown: () -> Unit,
-    onMap: (Boolean) -> Unit,
-    onLockChange: (Boolean) -> Unit
+    onMap: (Boolean) -> Unit
 ) {
     // Controles grandes: pensados para usarse en movimiento, con poca precisión.
     Column(
@@ -1727,12 +1711,6 @@ private fun LiveSessionOptionsPane(
             routeTitle ?: "Sin ruta cargada",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        LiveSportOptionSwitchRow(
-            icon = Icons.Outlined.Lock,
-            label = "Bloquear pantalla",
-            checked = locked,
-            onCheckedChange = onLockChange
         )
     }
 }
@@ -1805,16 +1783,10 @@ private fun LiveSessionMetricsPane(
                         .padding(horizontal = 16.dp, vertical = 14.dp)
                         .heightIn(min = 54.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.Start
                 ) {
-                    Icon(state.sport.materialIcon, null, tint = brandGreen, modifier = Modifier.size(28.dp))
-                    Text(
-                        state.sport.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    // Mismo badge que mapa: siempre a la izquierda.
+                    LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
                 }
                 Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
                 Text(
@@ -1982,12 +1954,16 @@ private fun LiveSessionMapPane(
             recenterToken = recenterToken,
             onCameraGesture = onCameraGesture
         )
-        Column(
+        Row(
             Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(top = 12.dp, end = 16.dp)
+                .padding(top = 12.dp, start = 16.dp, end = 16.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
             LiveMapCircleFab(
                 icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
                 label = when {
@@ -1999,6 +1975,28 @@ private fun LiveSessionMapPane(
             )
         }
         // Strip de métricas: chrome fijo del pager (encima de Play), no aquí.
+    }
+}
+
+@Composable
+private fun LiveSessionSportBadge(icon: ImageVector, title: String) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        border = BorderStroke(
+            0.7.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        ),
+        modifier = Modifier.heightIn(min = 44.dp)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, null, tint = brandGreen, modifier = Modifier.size(22.dp))
+            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+        }
     }
 }
 
@@ -2019,6 +2017,7 @@ private fun LiveScreenTouchBlocker(
             }
             .testTag("live_touch_blocked")
     )
+    // Solo hit-target transparente: el candado visible ya está en Play (sin parpadeo).
     if (target != null && container != null) {
         Box(
             Modifier
@@ -2030,8 +2029,6 @@ private fun LiveScreenTouchBlocker(
                 }
                 .size(94.dp)
                 .clip(CircleShape)
-                .background(brandGreen)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                 .pointerInput(Unit) {
                     detectTapGestures(onPress = {
                         // Solo mientras el dedo sigue apoyado al cumplirse 1 s.
@@ -2043,15 +2040,8 @@ private fun LiveScreenTouchBlocker(
                     contentDescription = "Pantalla bloqueada. Mantén pulsado un segundo para desbloquear"
                     onClick(label = "Desbloquear pantalla") { onUnlock(); true }
                 }
-                .testTag("live_touch_unlock"),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Outlined.Lock, contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(36.dp)
-            )
-        }
+                .testTag("live_touch_unlock")
+        )
     }
 }
 

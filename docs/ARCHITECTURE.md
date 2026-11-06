@@ -1,13 +1,13 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-06 (mapa vivo detrás del TabView; paridad idle).
+Última actualización: 2026-11-06 (chrome vivo pegado al home indicator).
 
 ## Comenzar: flujo nativo y propiedad de la sesión (2026-11-06)
 
-- iOS/iPadOS: idle = `bottomControls` en **overlay fijo** del root (mapa/métricas; no dentro del `ScrollView`). `idleBottomChromePad` ≈ **10 pt** (el safe area del menú ya los deja encima; no re-sumar ~altura de tab). En `.recording`/`.paused`, tab bar oculta + `liveSessionPager` (`TabView` page, `indexDisplayMode: .never`) = Opciones | Centro | Opuesto; indicadores `liveSessionPageDots` **debajo** de Play. En página mapa: `mapMetricStrip` en el **mismo chrome fijo** encima de Play (no dentro de `mapView`); `liveSessionChromeSwipeGesture` en el chrome porque MapKit se come el swipe del pager. Mapa a sangre (`.ignoresSafeArea` top+bottom, fondo clear). Centro = métricas o mapa según `showingMetrics`; héroe idle proporcional; en vivo `metricsKilometerSlot` + `metricsHeartRateSlot` con animación; `metricsBottomChromeReserve`; mapa siempre `OG.topBarTopInset`; parciales = `liveSplitsSection` en **2ª página** (`.scrollTargetBehavior(.paging)`, 1er bloque = 1 viewport), no `fullScreenCover`. Mapa: controles de sistema ocultos; solo 2D/3D.
+- iOS/iPadOS: idle = `bottomControls` en **overlay fijo** del root (mapa/métricas; no dentro del `ScrollView`). `idleBottomChromePad` ≈ **10 pt** (el safe area del menú ya los deja encima; no re-sumar ~altura de tab). En `.recording`/`.paused`, tab bar oculta + `liveSessionPager` (`TabView` page, `indexDisplayMode: .never`) = Opciones | Centro | Opuesto; indicadores `liveSessionPageDots` **debajo** de Play; chrome con `ignoresSafeArea(bottom)` + `liveChromeHomeIndicatorPad` (sin hueco fantasma del menú). En página mapa: `mapMetricStrip` en el **mismo chrome fijo** encima de Play (no dentro de `mapView`); `liveSessionChromeSwipeGesture` en el chrome porque MapKit se come el swipe del pager. Mapa a sangre (`.ignoresSafeArea` top+bottom, fondo clear). Centro = métricas o mapa según `showingMetrics`; héroe idle proporcional; en vivo `metricsKilometerSlot` + `metricsHeartRateSlot` con animación; `metricsBottomChromeReserve`; mapa siempre `OG.topBarTopInset`; parciales = `liveSplitsSection` en **2ª página** (`.scrollTargetBehavior(.paging)`, 1er bloque = 1 viewport), no `fullScreenCover`. Mapa: controles de sistema ocultos; solo 2D/3D.
 - Android: misma semántica con `HorizontalPager` + `LiveMapMetricStrip` encima del `LiveStartToolbar` cuando la página es mapa; swipe horizontal en el chrome (`detectHorizontalDragGestures` → `animateScrollToPage`). Tab bar oculta en sesión. Finalizar = `ReperaConfirmSheet`.
 - Cuenta atrás de arranque: `startCountdownEnabled` (`repera.live.startCountdown.enabled` / prefs `startCountdown`); off → `beginStartCountdown` llama a `start()` directo.
-- Bloqueo: switch en Opciones + candado 1 s; sin sensores nuevos. Relojes sin cambio de contrato Health.
+- Bloqueo: candado derecho del chrome → fusión gota con Play (Play fijo); hold 1 s para desbloquear. Sin sensores nuevos. Relojes sin cambio de contrato Health.
 
 ## Hub Progreso — chips (2026-11-04)
 

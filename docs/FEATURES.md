@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-06 (mapa vivo = mismo mapView que idle, detrás del pager).
+Última actualización: 2026-11-06 (candado derecho → fusión con Play; deporte arriba en mapa).
 
 ## Resumen de sesión en teléfono — carga completa (06/11/2026)
 
@@ -14,15 +14,15 @@
 ## Comenzar — nueva experiencia de inicio y sesión (06/11/2026)
 
 - **Preparación:** inicia en **Métricas**. Tres controles **Liquid Glass flotantes** (Opciones / Play verde / actividad) fijos encima del menú principal en mapa y métricas — **no** van con el scroll; aire ~10 pt sobre el safe area de la tab (sin re-sumar altura de menú). Al grabar/pausar se **oculta la tab bar** y los mismos controles quedan anclados abajo. Mis rutas a página completa sin subtítulo iCloud.
-- **En vivo (GPS):** pager horizontal — página 0 **Opciones**, página 1 **centro** (métricas o mapa según preferencia), página 2 **opuesto**. Swipe izquierda→derecha abre Opciones; derecha→izquierda el opuesto — también desde el **chrome inferior** (strip/Play/puntos), porque el mapa se come el gesto del pager. Controles Play/Pausa/Finalizar fijos; **puntos del pager debajo del Play**.
-- **Opciones:** idle = **modal/sheet** fitted desde el engrane (por encima de la tab bar; Play sigue visible); en vivo = página del pager con filas grandes (~72 pt/dp). Audio, Mapa, **Cuenta atrás** (off → Play al instante); en vivo, **Bloquear pantalla** como switch. Candado 1 s para desbloquear.
+- **En vivo (GPS):** pager horizontal — página 0 **Opciones**, página medio **centro** (métricas o mapa), página 2 **opuesto**. Chrome: **Finalizar / Play / candado**. Badge de deporte (nombre + icono) **arriba a la izquierda** en métricas y mapa (idle y vivo); FAB 2D/3D a la derecha en mapa. Bloquear **no cambia** de página; oculta Finalizar y los **puntos del pager**. Swipe también desde el chrome inferior.
+- **Opciones:** idle = **modal/sheet** fitted desde el engrane; en vivo = página del pager (Audio, Mapa, **Cuenta atrás**). El bloqueo ya no es switch de Opciones.
 - **Parciales:** segunda pantalla de métricas (scroll/paging vertical): la primera ocupa **exactamente un viewport** (Distancia/FC encima de Play; Parciales no asoma). Al deslizar hacia arriba: Kilómetro / Ritmo / Variación.
-- **Mapa en vivo:** a sangre (sin franjas negras); caja glass de Duración/Ritmo/Distancia **fija encima** de Play (no detrás ni dentro del Map). Solo FAB **2D/3D** arriba a la derecha. Finalizar = sheet fitted. Tab bar oculta al grabar.
-- **Bloqueo:** switch en Opciones; candado 1 s. Relojes sin rediseño en esta entrega.
+- **Mapa en vivo:** a sangre (sin franjas negras); strip glass encima de Play; badge de deporte + FAB **2D/3D** arriba a la derecha. Chrome inferior pegado al home indicator (sin hueco del menú oculto). Finalizar = sheet fitted. Tab bar oculta al grabar.
+- **Bloqueo:** candado derecho en **Liquid Glass** → fusión tipo gota hacia Play (Play fijo, sin parpadeo al terminar); mantén 1 s para desbloquear. Relojes sin rediseño en esta entrega.
 
 ## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
 
-- iOS/iPadOS: `LiveActivityView` conserva el bloqueo táctil con `LiveInteractionLockAnchorKey` y superpone el candado grande sobre el control central de sesión; mantén pulsado **1 s** para desbloquear. No se detienen GPS, HealthKit, audio ni actualizaciones.
+- iOS/iPadOS: candado derecho del chrome se fusiona con Play (`matchedGeometryEffect`); `LiveInteractionLockAnchorKey` ancla el candado grande; mantén pulsado **1 s** para desbloquear. No se detienen GPS, HealthKit, audio ni actualizaciones.
 - Al bloquear, también se oculta la barra inferior de pestañas nativa (iOS/Android), para impedir cambiar de vista por un toque accidental. Al desbloquear reaparece sin cambiar de sesión. Android mantiene el mapa a sangre mientras el chrome está oculto.
 - El coordinador `TimerScreenAwake` incorpora fuente `.liveLock`: las otras fuentes de temporizadores/descansos siguen siendo independientes y `scenePhase` suspende el permiso de pantalla despierta en segundo plano.
 - Android: `LiveActivityScreen` y `LiveStartToolbar` mantienen los controles y bloqueo Compose; `LiveScreenTouchBlocker` coloca el candado de 94 dp sobre el Play, con pulsación de 1 s y acción accesible TalkBack. Incluye deportes interiores sin mapa.
