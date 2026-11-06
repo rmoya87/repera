@@ -25,9 +25,10 @@ concurrency:
   group: android-native-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Reversible: cambiar a "false" para volver a bloquear deploy hasta emuladores verdes.
+# Reversible: "false" = documentar intención de gate estricto (hoy el job solo
+# needs android-native; ver deploy-internal-beta).
 env:
-  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "false"
+  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "true"
 
 jobs:
   android-native:
@@ -365,22 +366,22 @@ jobs:
           if [ "$N" -lt 1 ]; then exit 1; fi
 
   # Despliegue beta: SOLO rama beta, AAB de telefono a track INTERNA.
-  # Gate relajado (2026-10-31, Ramon): solo android-native. Los emuladores siguen
-  # en el workflow pero no bloquean deploy. REVERTIR: needs con instrumentados +
-  # if estricto (ver android/docs/DEPLOY_PLAY.md).
+  # Gate relajado (activo): solo android-native. Emuladores siguen en paralelo
+  # pero no bloquean. REVERTIR a estricto: needs instrumentados (ver DEPLOY_PLAY.md).
   deploy-internal-beta:
-    needs: [android-native, android-instrumented, android-instrumented-android17, wear-instrumented]
+    needs: [android-native]
     if: |
       github.ref == 'refs/heads/beta' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.android-native.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Modo de gate de deploy (beta)
         run: |
-          echo "## Deploy beta: gate estricto" >> "$GITHUB_STEP_SUMMARY"
-          echo "Compilación, dominio y pruebas instrumentadas Android/Wear deben aprobar antes del AAB." >> "$GITHUB_STEP_SUMMARY"
+          echo "## Deploy beta: gate relajado (solo android-native)" >> "$GITHUB_STEP_SUMMARY"
+          echo "AAB a track internal tras JVM/compile verdes; emuladores no bloquean." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

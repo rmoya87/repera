@@ -1,6 +1,6 @@
 # Despliegue Repera Android en Google Play (beta)
 
-**Última actualización:** 2026-10-31 — cuarentena `@Ignore` instrumentados UI + fix Wear warmup outbox; catálogo seed 197.
+**Última actualización:** 2026-11-06 — gate relajado activo otra vez (`needs: [android-native]`); sync `beta` ← `main` para internal.
 
 Autorizado por Ramon el 25/10/2026 ("Ok hazlo", tras plan presentado por chat):
 beta automatica SOLO de telefono a prueba INTERNA; produccion preparada pero
