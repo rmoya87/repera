@@ -80,6 +80,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import dev.repera.domain.ExerciseAliasSearch
+import dev.repera.domain.HistoricalWeatherReading
 import dev.repera.domain.WodFormat
 import dev.repera.domain.WodClock
 import dev.repera.domain.WodClockSpec
@@ -2030,6 +2031,9 @@ internal fun CardioRouteSection(
     workoutEpochMs: Long? = null,
     liveSportId: String? = null,
     persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
+    prefetchedReading: HistoricalWeatherReading? = null,
+    prefetchedFailure: String? = null,
+    weatherPrefetchReady: Boolean = false,
 ) {
     val analysis = remember(points) {
         dev.repera.domain.CardioRouteAnalysis.analyze(points.map {
@@ -2060,7 +2064,10 @@ internal fun CardioRouteSection(
                 workoutEpochMs = workoutEpochMs,
                 modifier = Modifier.testTag("route_weather_under_map"),
                 liveSportId = liveSportId,
-                persistedConditions = persistedConditions
+                persistedConditions = persistedConditions,
+                prefetchedReading = prefetchedReading,
+                prefetchedFailure = prefetchedFailure,
+                prefetchReady = weatherPrefetchReady
             )
         }
         // Solo los recorridos ya guardados muestran su escala de color (Apple c04c7dd9).
@@ -2308,12 +2315,18 @@ internal fun HeartRateCurveSection(
     sessionId: String,
     provider: suspend (String) -> List<Pair<Long, Int>>,
     /** Si no hay muestras no se pinta nada (evita fila «Entreno» vacía). */
-    sectionTitle: String? = null
+    sectionTitle: String? = null,
+    prefetchedSeries: List<Pair<Long, Int>>? = null,
 ) {
-    val series by produceState(initialValue = emptyList<Pair<Long, Int>>(),
-        key1 = sessionId) {
+    val loaded by produceState(initialValue = emptyList<Pair<Long, Int>>(),
+        key1 = sessionId, key2 = prefetchedSeries == null) {
+        if (prefetchedSeries != null) {
+            value = prefetchedSeries
+            return@produceState
+        }
         value = runCatching { provider(sessionId) }.getOrDefault(emptyList())
     }
+    val series = prefetchedSeries ?: loaded
     if (series.size < 2) return
     val minBpm = series.minOf { it.second }
     val maxBpm = series.maxOf { it.second }

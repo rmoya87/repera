@@ -24,6 +24,7 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.async
 
 internal object CompleteHistoryOrder {
  data class Row(val local:WorkoutHistoryEntry?=null,val external:ExternalHealthHistoryEntry?=null) {
@@ -189,6 +190,66 @@ internal fun WorkoutHistoryDetailScreen(
  var menuOpen by remember { mutableStateOf(false) }
  var confirmDelete by remember { mutableStateOf(false) }
  var favorite by remember(workout.id, isFavorite) { mutableStateOf(isFavorite) }
+ var detailReady by remember(workout.id) { mutableStateOf(false) }
+ var movement by remember(workout.id) {
+  mutableStateOf<dev.repera.domain.SessionMovement?>(null)
+ }
+ var hrSeries by remember(workout.id) {
+  mutableStateOf<List<Pair<Long, Int>>>(emptyList())
+ }
+ var weatherReading by remember(workout.id) {
+  mutableStateOf<dev.repera.domain.HistoricalWeatherReading?>(null)
+ }
+ var weatherFailure by remember(workout.id) { mutableStateOf<String?>(null) }
+ var weatherReady by remember(workout.id) { mutableStateOf(false) }
+ val movementProvider = LocalSessionMovement.current
+
+ LaunchedEffect(workout.id, workout.startedAtIso, workout.finishedAtIso) {
+  detailReady = false
+  weatherReady = false
+  kotlinx.coroutines.withTimeoutOrNull(2_500L) {
+   kotlinx.coroutines.coroutineScope {
+    val movementJob = async {
+     runCatching { movementProvider(workout.id) }.getOrNull()
+    }
+    val hrJob = async {
+     runCatching { heartSeries(workout.id) }.getOrDefault(emptyList())
+    }
+    val weatherJob = async {
+     val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+     val epoch = workoutEpochMs(workout) ?: return@async
+     val latLon: Pair<Double, Double>? = when {
+      sport?.usesGPS == true && workout.routePoints.size >= 2 -> {
+       val p = workout.routePoints.first()
+       p.latitude to p.longitude
+      }
+      else -> workout.locationPin
+       ?.takeIf { it.hasChosenPlace }
+       ?.let { it.latitude to it.longitude }
+     }
+     val coords = latLon ?: return@async
+     OpenMeteoWeatherClient.fetch(coords.first, coords.second, epoch)
+      .onSuccess { weatherReading = it; weatherFailure = null }
+      .onFailure {
+       weatherReading = null
+       weatherFailure = it.message?.takeIf { m -> m.isNotBlank() }
+        ?: "Datos meteorológicos no disponibles."
+      }
+     if (workout.activityConditions == null && workout.liveSportID != null) {
+      OpenMeteoWeatherClient.fetchConditions(
+       coords.first, coords.second, workout.liveSportID, epoch
+      )
+     }
+     weatherReady = true
+    }
+    movement = movementJob.await()
+    hrSeries = hrJob.await()
+    weatherJob.await()
+   }
+  }
+  if (!weatherReady) weatherReady = true
+  detailReady = true
+ }
 
  val zone = ZoneId.systemDefault()
  val startZ = workout.startedAtIso?.let {
@@ -214,6 +275,11 @@ internal fun WorkoutHistoryDetailScreen(
  }
  val navTitle = workout.title.ifBlank { "Entreno" }
  val mins = workout.displayDurationMinutes().takeIf { it > 0 }?.let { kotlin.math.round(it).toInt() }
+
+ if (!detailReady) {
+  SessionDetailSkeleton(onBack = onBack)
+  return
+ }
 
  if (confirmDelete) {
   ReperaConfirmSheet(
@@ -294,12 +360,6 @@ internal fun WorkoutHistoryDetailScreen(
   }
   item {
    val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
-   val movementProvider = LocalSessionMovement.current
-   val movement by produceState<dev.repera.domain.SessionMovement?>(
-    null, workout.id, workout.startedAtIso, workout.finishedAtIso
-   ) {
-    value = runCatching { movementProvider(workout.id) }.getOrNull()
-   }
    val volumeKg = remember(workout) {
     SessionSummaryTilesBuilder.volumeKgFromScoreSession(workout.scoreSessionJson)
    }
@@ -387,21 +447,31 @@ internal fun WorkoutHistoryDetailScreen(
        workout.routePoints
       )
      }
-     SessionMovementSection(workout.id)
+     SessionMovementSection(
+      workout.id,
+      prefetched = movement,
+      prefetchReady = true
+     )
      RouteUnavailableNotice(workout)
      HeartRateCurveSection(
       sessionId = workout.id,
       provider = heartSeries,
-      sectionTitle = null
+      sectionTitle = null,
+      prefetchedSeries = hrSeries
      )
     }
    } else {
     // Solo curva FC / pasos sin GPS: sin card vacía envolvente.
-    SessionMovementSection(workout.id)
+    SessionMovementSection(
+     workout.id,
+     prefetched = movement,
+     prefetchReady = true
+    )
     HeartRateCurveSection(
      sessionId = workout.id,
      provider = heartSeries,
-     sectionTitle = null
+     sectionTitle = null,
+     prefetchedSeries = hrSeries
     )
    }
   }
@@ -415,7 +485,10 @@ internal fun WorkoutHistoryDetailScreen(
      waterSport = sportForMap.isWaterSport,
      workoutEpochMs = workoutEpochMs(workout),
      liveSportId = workout.liveSportID,
-     persistedConditions = workout.activityConditions
+     persistedConditions = workout.activityConditions,
+     prefetchedReading = weatherReading,
+     prefetchedFailure = weatherFailure,
+     weatherPrefetchReady = weatherReady
     )
     OutlinedButton(
      onClick = {
@@ -523,7 +596,10 @@ internal fun WorkoutHistoryDetailScreen(
       placePin = placeOnly,
       modifier = Modifier.fillMaxWidth(),
       liveSportId = workout.liveSportID,
-      persistedConditions = workout.activityConditions
+      persistedConditions = workout.activityConditions,
+      prefetchedReading = weatherReading,
+      prefetchedFailure = weatherFailure,
+      weatherPrefetchReady = weatherReady
      ) {
       PlacePinMap(
        placeOnly.latitude,

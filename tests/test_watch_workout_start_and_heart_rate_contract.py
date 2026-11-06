@@ -36,6 +36,34 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertNotIn(".buttonStyle(.borderedProminent)", home)
         self.assertIn("guard hub.startToday(), hub.active?.phase == .ready", view)
 
+    def test_apple_watch_start_countdown_overlay_before_hub_start(self):
+        view = read("Apps/ReperaWatch/Sources/WatchSessionView.swift")
+        home = read("Apps/ReperaWatch/Sources/WatchHomeHubView.swift")
+        self.assertIn("pendingStartCountdown", view)
+        self.assertIn("WatchStartCountdownOverlay(", view)
+        self.assertIn("struct WatchStartCountdownOverlay", home)
+        # Deporte y plan pasan por countdown; start real tras yield.
+        self.assertIn("pendingStartCountdown = .sport", view)
+        self.assertIn("pendingStartCountdown = .plan", view)
+        on_play = view.split("onPlaySport:", 1)[1].split("planModePickerVisible:", 1)[0]
+        self.assertNotIn("hub.playHubSport(sport)", on_play)
+        self.assertIn("pendingStartCountdown", on_play)
+
+    def test_wear_start_countdown_overlay_before_hub_start(self):
+        wear = read("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
+        self.assertIn("WearStartCountdownOverlay", wear)
+        self.assertIn("pendingStartCountdown", wear)
+        hub = wear.split("internal fun WearHubHome(", 1)[1].split(
+            "internal fun WearPlanModeOverlay(", 1
+        )[0]
+        # No arrancar deporte/plan al instante desde el tap del centro.
+        self.assertIn(
+            "is WearHubCarouselItem.Sport -> pendingStartCountdown",
+            hub,
+        )
+        click = hub.split(".clickable(", 1)[1].split("detectVerticalDragGestures", 1)[0]
+        self.assertNotIn("onHubPlay(item)", click)
+
     def test_apple_watch_last_value_not_ttl_hidden(self):
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")
         self.assertIn("func heartRateBpm(at date: Date = .now) -> Int?", hub)

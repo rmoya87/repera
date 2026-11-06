@@ -58,8 +58,9 @@ class HomeHistoryPerformanceContractTests(unittest.TestCase):
             ".navigationDestination(isPresented: $showFullScreenRoute)", 1
         )[0]
         self.assertNotIn("repairHistoricalWODExercisesIfNeeded()", loading)
-        self.assertIn("await Task.yield()", loading)
-        self.assertIn("if session.sessionReview == nil", loading)
+        self.assertIn("hydrateWorkoutDetail()", loading)
+        self.assertIn("isDetailReady = true", loading)
+        self.assertIn("if session.sessionReview == nil", detail)
 
     def test_unchanged_review_never_triggers_backup_or_sync(self):
         store = source("ReperaStore.swift")

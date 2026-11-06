@@ -505,6 +505,116 @@ struct CardioSplitsView: View {
     }
 }
 
+/// Resultado de clima/condiciones listo antes del reveal del resumen.
+struct RouteWeatherPrefetch: Equatable {
+    var temperatureC: Double?
+    var humidity: Double?
+    var windKmh: Double?
+    var symbol: String = "cloud.sun"
+    var appleSnowfallCm: Double?
+    var failureHint: String?
+    var conditions: ActivityConditionsSnapshot?
+
+    static func load(
+        latitude: Double,
+        longitude: Double,
+        workoutDate: Date,
+        liveSportID: String? = nil,
+        persistedConditions: ActivityConditionsSnapshot? = nil
+    ) async -> RouteWeatherPrefetch {
+        var result = RouteWeatherPrefetch(conditions: persistedConditions)
+        let family = persistedConditions?.family
+            ?? ActivityConditionsSnapshot.family(forLiveSportID: liveSportID)
+
+        guard (try? await WeatherService.shared.attribution) != nil else {
+            result.failureHint = "No se pudo verificar la fuente meteorológica."
+            return await appendConditions(
+                result, latitude: latitude, longitude: longitude,
+                workoutDate: workoutDate, liveSportID: liveSportID,
+                family: family, persisted: persistedConditions
+            )
+        }
+        let weatherEpoch = Date(timeIntervalSince1970: 1_627_776_000)
+        let queryDate: Date = {
+            if workoutDate > Date() { return Date() }
+            if workoutDate < weatherEpoch { return weatherEpoch }
+            return workoutDate
+        }()
+        guard (-90...90).contains(latitude), (-180...180).contains(longitude) else {
+            result.failureHint = "Coordenadas no válidas para consultar el tiempo."
+            return await appendConditions(
+                result, latitude: latitude, longitude: longitude,
+                workoutDate: workoutDate, liveSportID: liveSportID,
+                family: family, persisted: persistedConditions
+            )
+        }
+        let location = CLLocation(
+            latitude: (latitude * 100).rounded() / 100,
+            longitude: (longitude * 100).rounded() / 100
+        )
+        do {
+            let hourly = try await WeatherService.shared.weather(
+                for: location,
+                including: .hourly(
+                    startDate: queryDate.addingTimeInterval(-3 * 3600),
+                    endDate: queryDate.addingTimeInterval(3 * 3600)
+                )
+            )
+            guard let match = hourly.forecast.min(by: {
+                abs($0.date.timeIntervalSince(queryDate)) < abs($1.date.timeIntervalSince(queryDate))
+            }), abs(match.date.timeIntervalSince(queryDate)) <= 3 * 3600 else {
+                result.failureHint = "Sin datos horarios para esa fecha y lugar."
+                return await appendConditions(
+                    result, latitude: latitude, longitude: longitude,
+                    workoutDate: workoutDate, liveSportID: liveSportID,
+                    family: family, persisted: persistedConditions
+                )
+            }
+            result.temperatureC = match.temperature.converted(to: .celsius).value
+            result.humidity = match.humidity
+            result.windKmh = match.wind.speed.converted(to: .kilometersPerHour).value
+            result.symbol = match.symbolName
+            if family == .snow {
+                result.appleSnowfallCm = match.snowfallAmount.converted(to: .centimeters).value
+            }
+        } catch {
+            #if DEBUG
+            print("WeatherKit error: \(error)")
+            #endif
+            result.failureHint = RouteWeatherStrip.hint(for: error)
+        }
+        return await appendConditions(
+            result, latitude: latitude, longitude: longitude,
+            workoutDate: workoutDate, liveSportID: liveSportID,
+            family: family, persisted: persistedConditions
+        )
+    }
+
+    private static func appendConditions(
+        _ base: RouteWeatherPrefetch,
+        latitude: Double,
+        longitude: Double,
+        workoutDate: Date,
+        liveSportID: String?,
+        family: ActivityConditionsFamily,
+        persisted: ActivityConditionsSnapshot?
+    ) async -> RouteWeatherPrefetch {
+        var result = base
+        if let persisted {
+            result.conditions = persisted
+            return result
+        }
+        guard family == .water || family == .snow else { return result }
+        result.conditions = await OpenMeteoConditionsClient.fetch(
+            latitude: latitude,
+            longitude: longitude,
+            sportID: liveSportID,
+            at: workoutDate
+        )
+        return result
+    }
+}
+
 /// Pie meteorológico anclado al mapa (misma card): icono a la izquierda, valor + título.
 /// Condiciones en la fecha del entreno vía WeatherKit histórico (AQI histórico no disponible).
 /// Extra Open-Meteo (marea/nieve) si hay `liveSportID` o snapshot persistido.
@@ -514,6 +624,8 @@ struct RouteWeatherStrip: View {
     var workoutDate: Date
     var liveSportID: String? = nil
     var persistedConditions: ActivityConditionsSnapshot? = nil
+    /// Si el padre ya hidrató clima, no vuelve a consultar (reveal sin reflow).
+    var prefetch: RouteWeatherPrefetch? = nil
 
     @State private var temperatureC: Double?
     @State private var humidity: Double?
@@ -584,10 +696,26 @@ struct RouteWeatherStrip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(OG.surface)
         .task(id: taskKey) {
+            if let prefetch {
+                apply(prefetch)
+                return
+            }
             await loadWeather()
             await loadConditions()
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func apply(_ prefetch: RouteWeatherPrefetch) {
+        temperatureC = prefetch.temperatureC
+        humidity = prefetch.humidity
+        windKmh = prefetch.windKmh
+        symbol = prefetch.symbol
+        appleSnowfallCm = prefetch.appleSnowfallCm
+        failureHint = prefetch.failureHint
+        conditions = prefetch.conditions ?? persistedConditions
+        isLoading = false
+        conditionsLoading = false
     }
 
     @ViewBuilder
@@ -880,7 +1008,8 @@ struct RouteWeatherStrip: View {
     }
 
     /// Mensaje accionable: el vacío casi siempre es portal/provisioning, no «dato perdido».
-    private static func hint(for error: Error) -> String {
+    /// `nonisolated`: solo clasifica el Error; lo llama también `RouteWeatherPrefetch.load` fuera del MainActor.
+    nonisolated static func hint(for error: Error) -> String {
         let text = error.localizedDescription.lowercased()
         if text.contains("auth") || text.contains("entitlement") || text.contains("permission")
             || text.contains("not entitled") || text.contains("401") || text.contains("403") {
@@ -903,6 +1032,7 @@ struct SessionMapWeatherCard<MapContent: View>: View {
     var placePin: WorkoutLocationPin? = nil
     var liveSportID: String? = nil
     var activityConditions: ActivityConditionsSnapshot? = nil
+    var weatherPrefetch: RouteWeatherPrefetch? = nil
     @ViewBuilder var map: () -> MapContent
 
     var body: some View {
@@ -922,7 +1052,8 @@ struct SessionMapWeatherCard<MapContent: View>: View {
                     longitude: longitude,
                     workoutDate: workoutDate,
                     liveSportID: liveSportID,
-                    persistedConditions: activityConditions
+                    persistedConditions: activityConditions,
+                    prefetch: weatherPrefetch
                 )
             }
         }

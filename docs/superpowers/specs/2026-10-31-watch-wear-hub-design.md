@@ -17,7 +17,7 @@ Hub de pocos toques en Apple Watch y Wear OS inspirado en Deportes de Apple Watc
 | Carrusel | Plan → recientes/favoritos → catálogo LiveSport |
 | Chrome | Mute círculo abajo izq., timer abajo der. (Watch y Wear; inset bisel redondo); tap en el centro inicia (sin Play); títulos con auto-size |
 | Audio off | Silencia pitidos/cuenta atrás; conserva hápticos |
-| Arranque | Cuenta atrás 3 s si audio on |
+| Arranque | Overlay fullscreen 3-2-1 (hápticos; pitidos si audio on); toque = skip e iniciar (2026-11-06) |
 
 ## Relación con main (2026-10-30)
 

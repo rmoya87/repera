@@ -167,6 +167,35 @@ struct WatchHomeHubView: View {
 
 /// Selector de modo al tocar un plan en el hub.
 /// Mismo patrón que `WatchActivityCancelOverlay`: fondo opaco + botones plain
+/// Cuenta atrás 3-2-1 a pantalla completa; toque = saltar e iniciar.
+struct WatchStartCountdownOverlay: View {
+    let remaining: Int
+    var onSkip: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea(.container, edges: .all)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onSkip)
+
+            Text("\(max(remaining, 1))")
+                .font(.system(size: 72, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .allowsHitTesting(false)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+        .ignoresSafeArea(.container, edges: .all)
+        .accessibilityLabel("Cuenta atrás \(max(remaining, 1))")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Toca para empezar ya")
+        .accessibilityAction(named: "Empezar ya", onSkip)
+    }
+}
+
 /// (no `.borderedProminent` / `.confirmationDialog`). Vive junto a
 /// `WatchHomeHubView` para no depender de un `.swift` nuevo en el pbxproj.
 struct WatchPlanModeOverlay: View {

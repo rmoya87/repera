@@ -12,6 +12,7 @@ import java.time.*
 import dev.repera.domain.AdaptiveRoutePace
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import kotlinx.coroutines.async
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun ExternalHealthDetailSheet(entry:ExternalHealthHistoryEntry,
@@ -29,18 +30,31 @@ import androidx.compose.ui.platform.testTag
  }
  DisposableEffect(readGate) {onDispose {readGate.invalidate()}}
  var loading by remember(readGate) {mutableStateOf(true)}
+ var routeLoading by remember(readGate) {mutableStateOf(true)}
  var detail by remember(readGate) {mutableStateOf<ExternalHealthDetail?>(null)}
- LaunchedEffect(readGate) {
-  val result=runCatching {provider(entry)}.getOrNull()
-  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) {
-   detail=result;loading=false
-  }
- }
- val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
  var routeRead by remember(readGate) {mutableStateOf<ExternalRouteRead?>(null)}
+ val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
  LaunchedEffect(readGate) {
-  val result=runCatching {effectiveRouteReader(entry.id)}.getOrNull()
-  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) routeRead=result
+  kotlinx.coroutines.withTimeoutOrNull(2_500L) {
+   kotlinx.coroutines.coroutineScope {
+    val detailJob = async {
+     runCatching {provider(entry)}.getOrNull()
+    }
+    val routeJob = async {
+     runCatching {effectiveRouteReader(entry.id)}.getOrNull()
+    }
+    val d = detailJob.await()
+    val r = routeJob.await()
+    if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) {
+     detail=d
+     routeRead=r
+    }
+   }
+  }
+  if(readGate.accepts(ownerKey,entry.id,SessionStore(ctx).identityRevision())) {
+   loading=false
+   routeLoading=false
+  }
  }
  var consentRequestedFor by remember(readGate) {mutableStateOf<String?>(null)}
  val consentLauncher=androidx.activity.compose.rememberLauncherForActivityResult(
@@ -54,7 +68,7 @@ import androidx.compose.ui.platform.testTag
   consentRequestedFor=null
  }
  ReperaModalBottomSheet(onDismissRequest=onClose) {
-  ExternalHealthDetailColumn(entry,detail,loading,routeRead,
+  ExternalHealthDetailColumn(entry,detail,loading || routeLoading,routeRead,
    onConsentLaunch ?: {id:String -> consentLauncher.launch(id)},
    consentRequestedFor,{consentRequestedFor=ExternalRouteSheetModel.consentKey(ownerKey,it)},onClose)
  }
@@ -82,11 +96,7 @@ import androidx.compose.ui.platform.testTag
    Text("${entry.minutes.toInt()} min registrados · Health Connect")
    Text("Fuente: ${entry.sourcePackage}",style=MaterialTheme.typography.bodySmall)
    if(loading) {
-    ReperaCard(modifier=Modifier.fillMaxWidth().height(180.dp)) {
-     Box(Modifier.fillMaxSize(), contentAlignment=androidx.compose.ui.Alignment.Center) {
-      CircularProgressIndicator()
-     }
-    }
+    SessionDetailSkeleton(onBack = onClose, modifier = Modifier.height(320.dp))
    } else if(detail==null) {
     ReperaEmptyState(title="Sin detalle", subtitle="No se pudo verificar el registro de Salud. Puede haber cambiado o faltar permiso.")
    } else {

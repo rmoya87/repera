@@ -27,11 +27,21 @@ internal object SessionMovementText {
 }
 
 @Composable
-internal fun SessionMovementSection(sessionId: String) {
+internal fun SessionMovementSection(
+    sessionId: String,
+    /** Si el padre ya resolvió movimiento, no volver a consultar (reveal sin reflow). */
+    prefetched: dev.repera.domain.SessionMovement? = null,
+    prefetchReady: Boolean = false,
+) {
     val provider = LocalSessionMovement.current
-    val movement by produceState<dev.repera.domain.SessionMovement?>(null, sessionId) {
+    val loaded by produceState<dev.repera.domain.SessionMovement?>(null, sessionId, prefetchReady) {
+        if (prefetchReady) {
+            value = prefetched
+            return@produceState
+        }
         value = runCatching { provider(sessionId) }.getOrNull()
     }
+    val movement = if (prefetchReady) prefetched else loaded
     movement?.let { m ->
         val lines = SessionMovementText.lines(m)
         lines.forEachIndexed { i, line ->

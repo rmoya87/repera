@@ -50,17 +50,31 @@ internal fun RouteWeatherStrip(
     workoutEpochMs: Long,
     modifier: Modifier = Modifier,
     liveSportId: String? = null,
-    persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null
+    persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
+    prefetchedReading: HistoricalWeatherReading? = null,
+    prefetchedFailure: String? = null,
+    prefetchReady: Boolean = false,
 ) {
-    var loading by remember(latitude, longitude, workoutEpochMs) { mutableStateOf(true) }
-    var reading by remember(latitude, longitude, workoutEpochMs) {
-        mutableStateOf<HistoricalWeatherReading?>(null)
+    var loading by remember(latitude, longitude, workoutEpochMs, prefetchReady) {
+        mutableStateOf(!prefetchReady)
     }
-    var failure by remember(latitude, longitude, workoutEpochMs) { mutableStateOf<String?>(null) }
-    var conditions by remember(latitude, longitude, workoutEpochMs, liveSportId) {
+    var reading by remember(latitude, longitude, workoutEpochMs, prefetchReady) {
+        mutableStateOf(if (prefetchReady) prefetchedReading else null)
+    }
+    var failure by remember(latitude, longitude, workoutEpochMs, prefetchReady) {
+        mutableStateOf(if (prefetchReady) prefetchedFailure else null)
+    }
+    var conditions by remember(latitude, longitude, workoutEpochMs, liveSportId, prefetchReady) {
         mutableStateOf(persistedConditions)
     }
-    LaunchedEffect(latitude, longitude, workoutEpochMs, liveSportId, persistedConditions) {
+    LaunchedEffect(latitude, longitude, workoutEpochMs, liveSportId, persistedConditions, prefetchReady) {
+        if (prefetchReady) {
+            reading = prefetchedReading
+            failure = prefetchedFailure
+            conditions = persistedConditions
+            loading = false
+            return@LaunchedEffect
+        }
         loading = true
         failure = null
         reading = null
@@ -339,6 +353,9 @@ internal fun SessionMapWeatherCard(
     modifier: Modifier = Modifier,
     liveSportId: String? = null,
     persistedConditions: dev.repera.domain.ActivityConditionsSnapshot? = null,
+    prefetchedReading: HistoricalWeatherReading? = null,
+    prefetchedFailure: String? = null,
+    weatherPrefetchReady: Boolean = false,
     map: @Composable () -> Unit
 ) {
     // Sin ReperaCard anidada: el contenedor del detalle ya aporta la card.
@@ -363,7 +380,10 @@ internal fun SessionMapWeatherCard(
                 longitude = longitude,
                 workoutEpochMs = workoutEpochMs,
                 liveSportId = liveSportId,
-                persistedConditions = persistedConditions
+                persistedConditions = persistedConditions,
+                prefetchedReading = prefetchedReading,
+                prefetchedFailure = prefetchedFailure,
+                prefetchReady = weatherPrefetchReady
             )
         }
     }

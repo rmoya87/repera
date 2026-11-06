@@ -22,6 +22,14 @@ struct WatchSessionView: View {
     @State private var cancelConfirmationError: String?
     /// Plan pendiente del selector guiado/libre (overlay a nivel de sesión).
     @State private var pendingPlanStart: WorkoutSession?
+    /// Arranque diferido tras 3-2-1 (deporte o plan); sensors solo al terminar/skip.
+    private enum PendingWatchStart: Equatable {
+        case sport(WatchLiveSport)
+        case plan(WorkoutSession, recordOnly: Bool)
+    }
+    @State private var pendingStartCountdown: PendingWatchStart?
+    @State private var startCountdownRemaining = 3
+    @State private var startCountdownTask: Task<Void, Never>?
     /// La llegada tardía de una indicación nunca interrumpe a quien está viendo métricas.
     @State private var selectedCompanionLivePage = 0
     @State private var previouslySeenCompanionTurnMeters: Int?
@@ -69,9 +77,11 @@ struct WatchSessionView: View {
                             pendingPlanStart = plan
                         },
                         onPlaySport: { sport in
-                            _ = hub.playHubSport(sport)
+                            pendingStartCountdown = .sport(sport)
+                            startHubCountdown()
                         },
                         planModePickerVisible: pendingPlanStart != nil
+                            || pendingStartCountdown != nil
                     )
                 }
             }
@@ -145,6 +155,12 @@ struct WatchSessionView: View {
                     onCancel: { pendingPlanStart = nil }
                 )
                 .zIndex(100)
+            } else if pendingStartCountdown != nil {
+                WatchStartCountdownOverlay(
+                    remaining: startCountdownRemaining,
+                    onSkip: { finishStartCountdown(skip: true) }
+                )
+                .zIndex(100)
             } else if showCancelConfirmation {
                 WatchActivityCancelOverlay(
                     error: cancelConfirmationError,
@@ -169,6 +185,7 @@ struct WatchSessionView: View {
             showCancelConfirmation = false
             cancelConfirmationError = nil
             pendingPlanStart = nil
+            cancelStartCountdown()
         }
     }
 
@@ -180,13 +197,58 @@ struct WatchSessionView: View {
         }
     }
 
-    /// Cierra el overlay y arranca en el siguiente ciclo de runloop para no
-    /// mutar el hub mientras SwiftUI desmonta el selector (crash en watchOS).
+    /// Cierra el mode picker y encola la cuenta atrás (no arranca HK aún).
     private func commitPendingPlanStart(_ plan: WorkoutSession, recordOnly: Bool) {
         pendingPlanStart = nil
+        pendingStartCountdown = .plan(plan, recordOnly: recordOnly)
+        startHubCountdown()
+    }
+
+    private func startHubCountdown() {
+        guard pendingStartCountdown != nil else { return }
+        startCountdownTask?.cancel()
+        startCountdownRemaining = 3
+        WKInterfaceDevice.current().play(.click)
+        startCountdownTask = Task { @MainActor in
+            for second in [2, 1, 0] {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                if second == 0 {
+                    finishStartCountdown(skip: false)
+                } else {
+                    startCountdownRemaining = second
+                    WKInterfaceDevice.current().play(.click)
+                }
+            }
+        }
+    }
+
+    private func cancelStartCountdown() {
+        startCountdownTask?.cancel()
+        startCountdownTask = nil
+        pendingStartCountdown = nil
+        startCountdownRemaining = 3
+    }
+
+    private func finishStartCountdown(skip: Bool) {
+        guard let pending = pendingStartCountdown else { return }
+        startCountdownTask?.cancel()
+        startCountdownTask = nil
+        pendingStartCountdown = nil
+        startCountdownRemaining = 3
+        if skip || !hub.audioMuted {
+            WKInterfaceDevice.current().play(.start)
+        } else {
+            WKInterfaceDevice.current().play(.click)
+        }
         Task { @MainActor in
             await Task.yield()
-            startSelectedPlan(plan, recordOnly: recordOnly)
+            switch pending {
+            case .sport(let sport):
+                _ = hub.playHubSport(sport)
+            case .plan(let plan, let recordOnly):
+                startSelectedPlan(plan, recordOnly: recordOnly)
+            }
         }
     }
 

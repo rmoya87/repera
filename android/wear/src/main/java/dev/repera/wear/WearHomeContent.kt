@@ -573,9 +573,37 @@ internal fun WearHubHome(
     val focus = remember { FocusRequester() }
     var swipeAcc by remember { mutableFloatStateOf(0f) }
     var pendingPlan by remember { mutableStateOf<JSONObject?>(null) }
+    var pendingStartCountdown by remember {
+        mutableStateOf<WearPendingStart?>(null)
+    }
+    var startCountdownRemaining by remember { mutableStateOf(3) }
     val cornerBtn = IconButtonDefaults.SmallButtonSize
     val cornerIcon = IconButtonDefaults.iconSizeFor(cornerBtn)
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(pendingStartCountdown) {
+        val pending = pendingStartCountdown ?: return@LaunchedEffect
+        startCountdownRemaining = 3
+        haptic.performHapticFeedback(
+            androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+        )
+        for (second in listOf(2, 1, 0)) {
+            kotlinx.coroutines.delay(1_000)
+            if (pendingStartCountdown != pending) return@LaunchedEffect
+            if (second == 0) {
+                pendingStartCountdown = null
+                when (pending) {
+                    is WearPendingStart.Sport -> onHubPlay(pending.item)
+                    is WearPendingStart.Plan -> onStartPlan(pending.plan, pending.recordOnly)
+                }
+            } else {
+                startCountdownRemaining = second
+                haptic.performHapticFeedback(
+                    androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress
+                )
+            }
+        }
+    }
     Box(
         modifier = modifier
             .onRotaryScrollEvent { event ->
@@ -601,14 +629,14 @@ internal fun WearHubHome(
                 .fillMaxSize()
                 .padding(start = 22.dp, end = 22.dp, top = 28.dp, bottom = 44.dp)
                 .clickable(
-                    enabled = pendingPlan == null,
+                    enabled = pendingPlan == null && pendingStartCountdown == null,
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClickLabel = startLabel
                 ) {
                     when (val item = current) {
                         is WearHubCarouselItem.Plan -> pendingPlan = item.plan
-                        is WearHubCarouselItem.Sport -> onHubPlay(item)
+                        is WearHubCarouselItem.Sport -> pendingStartCountdown = WearPendingStart.Sport(item)
                         null -> if (syncProblem) onSyncRequest()
                     }
                 }
@@ -719,15 +747,64 @@ internal fun WearHubHome(
                 planTitle = plan.optString("title").ifBlank { "Entreno" },
                 onLive = {
                     pendingPlan = null
-                    onStartPlan(plan, false)
+                    pendingStartCountdown = WearPendingStart.Plan(plan, recordOnly = false)
                 },
                 onRecord = {
                     pendingPlan = null
-                    onStartPlan(plan, true)
+                    pendingStartCountdown = WearPendingStart.Plan(plan, recordOnly = true)
                 },
                 onCancel = { pendingPlan = null }
             )
         }
+        pendingStartCountdown?.let { pending ->
+            WearStartCountdownOverlay(
+                remaining = startCountdownRemaining,
+                onSkip = {
+                    val toStart = pendingStartCountdown ?: return@WearStartCountdownOverlay
+                    pendingStartCountdown = null
+                    when (toStart) {
+                        is WearPendingStart.Sport -> onHubPlay(toStart.item)
+                        is WearPendingStart.Plan ->
+                            onStartPlan(toStart.plan, toStart.recordOnly)
+                    }
+                }
+            )
+        }
+    }
+}
+
+private sealed class WearPendingStart {
+    data class Sport(val item: WearHubCarouselItem.Sport) : WearPendingStart()
+    data class Plan(val plan: JSONObject, val recordOnly: Boolean) : WearPendingStart()
+}
+
+/** Paridad WatchStartCountdownOverlay: dígito grande; toque = empezar ya. */
+@Composable
+internal fun WearStartCountdownOverlay(
+    remaining: Int,
+    onSkip: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(40f)
+            .background(Color.Black)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onSkip
+            )
+            .semantics {
+                contentDescription = "Cuenta atrás ${remaining.coerceAtLeast(1)}. Toca para empezar ya"
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = remaining.coerceAtLeast(1).toString(),
+            style = MaterialTheme.typography.displayMedium,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

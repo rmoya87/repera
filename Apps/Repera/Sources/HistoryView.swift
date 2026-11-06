@@ -338,6 +338,8 @@ struct WorkoutDetailView: View {
 
     @State private var draft: WorkoutSession?
     @State private var didHydrateDetail = false
+    /// False hasta Salud + review + POI + clima (si aplica); muestra skeleton.
+    @State private var isDetailReady = false
     @State private var isEditing = false
     @State private var showCompletedEditor = false
     /// Freeze the editor's routine once, when the user taps Editar.
@@ -346,6 +348,7 @@ struct WorkoutDetailView: View {
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
     @State private var healthExtras: HealthKitStore.SessionHealthExtras?
+    @State private var weatherPrefetch: RouteWeatherPrefetch?
     @State private var showFullScreenRoute = false
     @State private var fullScreenRoutePoints: [HealthKitStore.RoutePoint] = []
     @State private var fullScreenPin: WorkoutLocationPin?
@@ -413,13 +416,16 @@ struct WorkoutDetailView: View {
 
     var body: some View {
         Group {
-            if draft != nil {
-                detailList
-            } else {
+            if draft == nil {
                 ContentUnavailableView("Entreno no encontrado", systemImage: "questionmark")
                     .foregroundStyle(OG.label2)
+            } else if isDetailReady {
+                detailList
+            } else {
+                SessionDetailSkeleton()
             }
         }
+        .ogPinnedTransparentNav(workoutNavTitle)
         .onAppear { loadDraft() }
         .onChange(of: store.catalogEpoch) { _, _ in
             // Si llegan los alias mientras el detalle ya está abierto, usar
@@ -449,84 +455,31 @@ struct WorkoutDetailView: View {
             // Doing an all-history repair every time the detail opens caused
             // large MainActor work and unnecessary disk/iCloud writes.
             loadDraft()
-            guard let session = draft else { return }
-            // A push animation needs a stable, already populated tree.
-            // Defer store mutations, review calculations and HealthKit work
-            // until after the navigation transition, not merely one yield.
+            guard draft != nil else {
+                isDetailReady = true
+                didHydrateDetail = true
+                return
+            }
+            // Skeleton al instante; diferir trabajo pesado tras la transición.
             do {
                 try await Task.sleep(for: .milliseconds(400))
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
-            if session.timerDetails != nil {
-                // Un cronómetro no es una sesión HealthKit: no buscar por
-                // solape ni calcular FC, kcal o una nota de rendimiento.
-                healthExtras = nil
-                didHydrateDetail = true
-                return
-            }
-            if session.sessionReview == nil {
-                _ = store.ensureSessionReview(for: sessionId)
-                draft = store.state.workouts.first(where: { $0.id == sessionId })
-            }
-            #if DEBUG
-            // Diagnóstico sin datos personales si un WOD histórico todavía
-            // muestra el alias antiguo: permite leer los escalares OCR reales,
-            // el UUID original y la ficha a la que resuelve la app.
-            for entry in session.exercises {
-                let raw = entry.exercise.name
-                let key = raw.lowercased()
-                guard key.contains("bt") || key.contains("t2") || key.contains("ttb")
-                    || key.contains("toes") else { continue }
-                let scalars = raw.unicodeScalars.map {
-                    String(format: "%04X", $0.value)
-                }.joined(separator: " ")
-                let resolved = store.historicalDisplayExercise(entry.exercise)
-                NSLog(
-                    "REPERA_ALIAS_DEBUG raw=%@ scalars=%@ savedUUID=%@ matched=%@ matchedUUID=%@",
-                    raw, scalars, entry.exercise.id.uuidString,
-                    resolved.name, resolved.id.uuidString
-                )
-            }
-            #endif
-            let extras = await health.sessionHealthExtras(for: session)
-            guard !Task.isCancelled else { return }
-            healthExtras = extras
-            // Al abrir un recorrido histórico sin coordenadas, consultar
-            // iCloud por si el documento completo sigue en descarga.
-            if session.routePoints.count < 2,
-               (extras?.routePoints.count ?? 0) < 2,
-               session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
-               !store.isSyncingiCloud {
-                await store.refreshFromiCloud()
-                guard !Task.isCancelled else { return }
-                draft = store.state.workouts.first(where: { $0.id == sessionId })
-            }
-            // Refinar una sola vez por apertura, no en cada vuelta de navegación.
-            await store.refineSessionReviewWithHealth(sessionId: sessionId)
-            guard !Task.isCancelled else { return }
-            draft = store.state.workouts.first(where: { $0.id == sessionId })
-            if let current = draft, !hasRecordedRoute(current),
-               current.locationPin?.hasChosenPlace != true {
-                let sport = current.liveSportID.flatMap(LiveSport.init(rawValue:))
-                let suggested = await SportNearbyPlaceSuggester.suggestForSession(
-                    sport: sport,
-                    routePoints: current.routePoints,
-                    existingPin: current.locationPin
-                )
-                guard !Task.isCancelled else { return }
-                if let suggested, suggested.hasChosenPlace {
-                    placeSuggestion = suggested
-                } else if current.locationPin == nil, let suggested {
-                    // Pin GPS anónimo para pintar mapa en indoor (pádel, HIIT…).
-                    var updated = current
-                    updated.locationPin = suggested
-                    store.saveWorkout(updated)
-                    draft = store.state.workouts.first(where: { $0.id == sessionId })
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in
+                    await hydrateWorkoutDetail()
                 }
+                group.addTask {
+                    try? await Task.sleep(for: .milliseconds(2_500))
+                }
+                await group.next()
+                group.cancelAll()
             }
+            guard !Task.isCancelled else { return }
             didHydrateDetail = true
+            isDetailReady = true
         }
         // Push con zoom animado desde la vista previa y retorno a su origen.
         .navigationDestination(isPresented: $showFullScreenRoute) {
@@ -758,6 +711,89 @@ struct WorkoutDetailView: View {
         placeSuggestion = nil
     }
 
+    /// Hidrata Salud, review, POI y clima antes del reveal (cancelable por timeout).
+    @MainActor
+    private func hydrateWorkoutDetail() async {
+        guard let session = draft else { return }
+        if session.timerDetails != nil {
+            // Un cronómetro no es una sesión HealthKit: no buscar por
+            // solape ni calcular FC, kcal o una nota de rendimiento.
+            healthExtras = nil
+            weatherPrefetch = nil
+            return
+        }
+        if session.sessionReview == nil {
+            _ = store.ensureSessionReview(for: sessionId)
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
+        #if DEBUG
+        for entry in session.exercises {
+            let raw = entry.exercise.name
+            let key = raw.lowercased()
+            guard key.contains("bt") || key.contains("t2") || key.contains("ttb")
+                || key.contains("toes") else { continue }
+            let scalars = raw.unicodeScalars.map {
+                String(format: "%04X", $0.value)
+            }.joined(separator: " ")
+            let resolved = store.historicalDisplayExercise(entry.exercise)
+            NSLog(
+                "REPERA_ALIAS_DEBUG raw=%@ scalars=%@ savedUUID=%@ matched=%@ matchedUUID=%@",
+                raw, scalars, entry.exercise.id.uuidString,
+                resolved.name, resolved.id.uuidString
+            )
+        }
+        #endif
+        let extras = await health.sessionHealthExtras(for: session)
+        guard !Task.isCancelled else { return }
+        healthExtras = extras
+        if session.routePoints.count < 2,
+           (extras?.routePoints.count ?? 0) < 2,
+           session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
+           !store.isSyncingiCloud {
+            await store.refreshFromiCloud()
+            guard !Task.isCancelled else { return }
+            draft = store.state.workouts.first(where: { $0.id == sessionId })
+        }
+        await store.refineSessionReviewWithHealth(sessionId: sessionId)
+        guard !Task.isCancelled else { return }
+        draft = store.state.workouts.first(where: { $0.id == sessionId })
+        if let current = draft, !hasRecordedRoute(current),
+           current.locationPin?.hasChosenPlace != true {
+            let sport = current.liveSportID.flatMap(LiveSport.init(rawValue:))
+            let suggested = await SportNearbyPlaceSuggester.suggestForSession(
+                sport: sport,
+                routePoints: current.routePoints,
+                existingPin: current.locationPin
+            )
+            guard !Task.isCancelled else { return }
+            if let suggested, suggested.hasChosenPlace {
+                placeSuggestion = suggested
+            } else if current.locationPin == nil, let suggested {
+                var updated = current
+                updated.locationPin = suggested
+                store.saveWorkout(updated)
+                draft = store.state.workouts.first(where: { $0.id == sessionId })
+            }
+        }
+        guard !Task.isCancelled else { return }
+        if let current = draft {
+            let displayPin = current.locationPin?.hasChosenPlace == true
+                ? current.locationPin
+                : (placeSuggestion ?? current.locationPin)
+            let coordinate = mapCoordinates(current)
+                ?? displayPin.map { (lat: $0.latitude, lon: $0.longitude) }
+            if let coordinate {
+                weatherPrefetch = await RouteWeatherPrefetch.load(
+                    latitude: coordinate.lat,
+                    longitude: coordinate.lon,
+                    workoutDate: current.startedAt ?? current.finishedAt ?? Date(),
+                    liveSportID: current.liveSportID,
+                    persistedConditions: current.activityConditions
+                )
+            }
+        }
+    }
+
     @ViewBuilder
     private func detailMapSections(_ session: WorkoutSession) -> some View {
         let mapKind = sessionMapContent(session)
@@ -774,7 +810,8 @@ struct WorkoutDetailView: View {
                     workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
                     placePin: displayPin,
                     liveSportID: session.liveSportID,
-                    activityConditions: session.activityConditions
+                    activityConditions: session.activityConditions,
+                    weatherPrefetch: weatherPrefetch
                 ) {
                     if mapKind != .none {
                         sessionMapView(session)
@@ -1120,7 +1157,6 @@ struct WorkoutDetailView: View {
                 highlightExerciseInstanceId: route.exerciseInstanceId
             )
         }
-        .ogPinnedTransparentNav(workoutNavTitle)
         .navigationBarBackButtonHidden(isEditing)
         .toolbar {
             if isEditing {
@@ -2313,6 +2349,8 @@ struct HealthActivityDetailView: View {
     var activityId: UUID
 
     @State private var detail: HealthKitStore.ExternalActivityDetail?
+    @State private var isDetailReady = false
+    @State private var weatherPrefetch: RouteWeatherPrefetch?
     @State private var showFullScreenRoute = false
 
     private var subtitle: String {
@@ -2322,17 +2360,36 @@ struct HealthActivityDetailView: View {
 
     var body: some View {
         Group {
-            if let detail {
+            if let detail, isDetailReady {
                 detailList(detail)
             } else {
-                ProgressView()
-                    .tint(OG.accent)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                SessionDetailSkeleton()
             }
         }
         .background(OG.bg)
+        .ogPinnedTransparentNav(detail?.activity.title ?? "Actividad")
         .task {
-            detail = await health.activityDetail(for: activityId)
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor in
+                    let loaded = await health.activityDetail(for: activityId)
+                    guard !Task.isCancelled else { return }
+                    detail = loaded
+                    if let loaded, let first = loaded.routePoints.first {
+                        weatherPrefetch = await RouteWeatherPrefetch.load(
+                            latitude: first.latitude,
+                            longitude: first.longitude,
+                            workoutDate: loaded.activity.start
+                        )
+                    }
+                }
+                group.addTask {
+                    try? await Task.sleep(for: .milliseconds(2_500))
+                }
+                await group.next()
+                group.cancelAll()
+            }
+            guard !Task.isCancelled else { return }
+            isDetailReady = true
         }
         .navigationDestination(isPresented: $showFullScreenRoute) {
             WorkoutMapZoomDestination(
@@ -2368,7 +2425,8 @@ struct HealthActivityDetailView: View {
                     SessionMapWeatherCard(
                         latitude: first?.latitude,
                         longitude: first?.longitude,
-                        workoutDate: activity.start
+                        workoutDate: activity.start,
+                        weatherPrefetch: weatherPrefetch
                     ) {
                         WorkoutMapTapTarget(accessibilityLabel: "Ampliar recorrido") {
                             showFullScreenRoute = true
