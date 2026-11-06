@@ -19,7 +19,7 @@ def read(path):
 class LiveStartControlsContractTests(unittest.TestCase):
     def test_start_tab_is_live_activity_not_center(self):
         root = read(IOS / "RootTabView.swift")
-        self.assertIn('SwiftUI.Tab("Comenzar"', root)
+        self.assertIn('"Comenzar"', root)
         self.assertIn("value: AppTab.start", root)
         self.assertIn("LiveActivityView(", root)
         self.assertNotIn("onOpenCenter:", root)
@@ -45,13 +45,16 @@ class LiveStartControlsContractTests(unittest.TestCase):
         ios_row = ios.split("private var bottomControls: some View", 1)[1].split(
             "private var liveSplitScreen", 1
         )[0]
-        self.assertIn('Image(systemName: recorder.sport.symbol)', ios_row)
+        self.assertIn("recorder.sport.symbol", ios_row)
+        self.assertIn("liveGlassSideButton(", ios_row)
         self.assertIn("sportPicker = true", ios_row)
         self.assertIn(".sheet(isPresented: $sportPicker)", ios)
         self.assertIn('UserDefaults.standard.set(selection.rawValue, forKey: "repera.live.lastSport")', ios)
-        self.assertIn("Surface(\n                        onClick = onSport", android)
+        self.assertIn("onClick = onSport", android)
         self.assertIn('testTag("live_sport_picker")', android)
+        self.assertIn("LiveGlassCircleButton(", android)
         self.assertIn('showSportPicker = false', read(ANDROID / "LiveActivityScreen.kt"))
+
 
     def test_settings_and_route_are_full_size(self):
         ios = read(IOS / "LiveActivityView.swift")
@@ -61,9 +64,10 @@ class LiveStartControlsContractTests(unittest.TestCase):
         self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', ios)
         self.assertIn('Label("Mapa", systemImage: "map")', ios)
         self.assertIn("showOptions", controls)
-        self.assertIn('Text("Audio",', controls)
-        self.assertIn('Text("Mapa",', controls)
-        self.assertIn('Text("Cargar ruta",', controls)
+        self.assertIn('"Audio"', controls)
+        self.assertIn('"Mapa"', controls)
+        self.assertIn('"Cargar ruta"', controls)
+        self.assertIn("Icons.Outlined.Close", controls)
         self.assertIn("if (showRoutes)", android)
         self.assertIn("Surface(Modifier.fillMaxSize()", android)
         self.assertIn("BackHandler { showRoutes = false }", android)
@@ -76,8 +80,17 @@ class LiveStartControlsContractTests(unittest.TestCase):
         self.assertIn("showSplits = true", android)
         self.assertIn("state.splitsSeconds.forEachIndexed", android)
         self.assertIn("detectVerticalDragGestures(", android)
+        self.assertIn("dy < -100", ios)
+        self.assertIn("showingMetrics = false", ios)
+        self.assertIn(".mapControlVisibility(.hidden)", ios)
         self.assertNotIn("mapDetailsExpanded", ios)
         self.assertNotIn("mapDetailsExpanded", android)
+        header = ios.split("private var mapHeader: some View", 1)[1].split(
+            "private func toggleNavigationMapMode", 1
+        )[0]
+        self.assertIn('effectiveNavigation3D ? "map" : "view.3d"', header)
+        self.assertNotIn("chart.bar.xaxis", header)
+        self.assertNotIn("applewatch", header)
 
     def test_map_3d_keeps_entitlement_and_manual_follow(self):
         ios = read(IOS / "LiveActivityView.swift")

@@ -582,10 +582,28 @@ fun ReperaMobileScreen(
         // Ajustes se abre desde el avatar de Inicio o la ruta `ajustes`.
         val tabRoutes = reperaTabRoutes
         val hideAppShell = reperaRouteHidesAppShell(currentRoute)
+        val liveRuntimeForChrome = remember(accountId) {
+            if (accountId.isNotBlank()) {
+                runCatching { LiveActivityRuntime.forAccount(activityContext, accountId) }.getOrNull()
+            } else null
+        }
+        val liveChromeTick by when (val runtime = liveRuntimeForChrome) {
+            null -> remember { kotlinx.coroutines.flow.MutableStateFlow(0L) }
+            else -> runtime.updates
+        }.collectAsStateWithLifecycle(0L)
+        @Suppress("UNUSED_VARIABLE")
+        val observedLiveChromeTick = liveChromeTick
+        val livePhase = liveRuntimeForChrome?.state?.phase
+        val liveSessionHidesTab = currentRoute == "en-vivo" && (
+            LiveActivityTouchLockState.locked ||
+                livePhase == LiveActivityState.Phase.RECORDING ||
+                livePhase == LiveActivityState.Phase.PAUSED
+        )
         // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
+        // En Comenzar activo el menú baja (paridad iOS LiveActivityView.toolbar tabBar).
         val showTabBar = currentRoute != "mensajes" &&
             (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)) &&
-            !(currentRoute == "en-vivo" && LiveActivityTouchLockState.locked)
+            !liveSessionHidesTab
         val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
         var tabBarChromeHeightDp by remember { mutableStateOf(0.dp) }
         Scaffold(

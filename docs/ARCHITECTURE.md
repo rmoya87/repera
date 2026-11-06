@@ -1,13 +1,12 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-06 (UI Comenzar nativa y selector de actividad compartido).
+Última actualización: 2026-11-06 (Comenzar glass, tab bar en sesión, gestos parciales/mapa).
 
 ## Comenzar: flujo nativo y propiedad de la sesión (2026-11-06)
 
-- iOS/iPadOS: `LiveActivityView.swift` renderiza los mismos `bottomControls` en Mapa y Métricas. `LiveActivityRecorder` sigue como única fuente de fase, deporte, GPS, parciales, preferencias de audio y tiempo activo; el selector `LiveSportPicker` usa `.sheet` ascendente. `routeSheet` y `liveSplitScreen` se presentan a pantalla completa, y las dos acciones de sesión (Play/Pausa y bandera) sustituyen los duplicados superiores.
-- Android: `LiveActivityScreen.kt` compone la misma barra `LiveStartToolbar.kt` para Mapa, Métricas y deportes interiores. La configuración y el deslizamiento lateral son locales al componente; selección y grabación continúan en `LiveActivityRuntime` / `LiveActivityState`, con el deporte persistido. La página de rutas y el desglose de parciales sustituyen al sheet de rutas y la expansión del panel de mapa.
-- Bloqueo: en ambos sistemas el anclaje del botón Play se usa para superponer el candado **sin modificar la grabación ni crear nuevos sensores**. `TimerScreenAwake.liveLock` / `LiveActivityTouchLockState` impiden toques accidentales; se desbloquea con pulsación de 1 segundo. Cada plataforma mantiene su diseño y accesibilidad propios.
-- Los relojes siguen con sus controles y navegación nativos; este cambio del teléfono no modifica el contrato de HealthKit/Health Connect ni el emparejamiento del UUID.
+- iOS/iPadOS: `LiveActivityView.swift` comparte `bottomControls` (tres botones glass sueltos) en Mapa y Métricas. Al pasar a `.recording`/`.paused` oculta la tab bar nativa (animación) y recolocan cabecera/overlays. Confirmación de finalizar = `OGConfirmSheet` fitted. Mapa: `.mapControls {}` + `.mapControlVisibility(.hidden)` (sin brújula del sistema); solo FAB 2D/3D. Gestos métricas: swipe up → parciales; swipe left → mapa.
+- Android: `LiveStartToolbar.kt` (glass Material, X en Opciones, countdown grande) en Mapa/Métricas/indoor; `ReperaMobileScreen` oculta `ReperaFloatingTabBar` en Comenzar activo (misma regla que bloqueo). `ReperaConfirmSheet` al finalizar. FABs de mapa solo 2D/3D; gestos vertical/horizontal alineados a iOS.
+- Bloqueo: anclaje del Play + candado **sin** nuevos sensores. `TimerScreenAwake.liveLock` / `LiveActivityTouchLockState`. Relojes sin cambio de contrato Health.
 
 ## Hub Progreso — chips (2026-11-04)
 

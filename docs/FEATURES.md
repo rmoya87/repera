@@ -1,14 +1,14 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-06 (rediseño de Comenzar: Play solo icono, actividad lateral, opciones, rutas y parciales).
+Última actualización: 2026-11-06 (Comenzar: glass suelto, tab bar al iniciar, parciales↑, mapa↔, confirmación finalizar).
 
 ## Comenzar — nueva experiencia de inicio y sesión (06/11/2026)
 
-- **Preparación en iOS/iPadOS y Android:** la pantalla inicia en **Métricas**. Un único control inferior compartido con Mapa muestra tres círculos: **Opciones** (izquierda), **Play verde solo con icono** (centro) y **actividad actual** (derecha). No hay texto bajo Play ni ficha adicional con el nombre de la actividad. El icono derecho abre el selector nativo desde abajo y se sustituye por el del deporte elegido. La última actividad se conserva entre aperturas.
-- **Opciones ampliadas:** animación lateral corta al abrir/cerrar o deslizar a izquierda/derecha sobre el panel; controles grandes de Audio (switch), Mapa (switch, solo con deporte GPS) y Cargar ruta. Los avisos por voz conservan la preferencia local. Mis rutas ocupa una **página completa** (no modal pequeña); importar GPX y escoger ruta no reescribe métricas.
-- **En grabación:** desaparece el selector inicial sin impedir el seguimiento GPS/Salud; el círculo central cambia a **Pausa amarilla** y, al pausar, a **Play verde**. La **bandera** reemplaza Opciones en el círculo izquierdo y solicita confirmación antes de finalizar. La actividad se visualiza en el círculo derecho, sin poder cambiar de deporte a mitad de sesión. No se muestra control de música.
-- **Parciales y mapa:** en la pantalla de Métricas GPS, gesto vertical hacia abajo abre **Parciales** a página completa (Kilómetro, Ritmo y Variación respecto al parcial anterior); sin kilómetros registrados muestra estado vacío honesto. El botón inferior devuelve a la sesión y muestra duración activa actual. El mapa conserva solo el panel compacto de duración, ritmo/velocidad, distancia y parcial, sin expansión ni métricas ocultas. Las métricas de FC medida siguen visibles en la página de Métricas.
-- **Bloqueo:** desde Opciones durante una sesión puede bloquearse la interacción. El botón central queda sustituido visualmente por **candado**, con pulsación prolongada de **1 segundo** para desbloquear; el seguimiento y avisos siguen funcionando. El bloqueo se libera al terminar. iPhone/iPad/Android comparten comportamiento, con implementaciones nativas independientes. La navegación y las pantallas propias de Apple Watch/Wear OS no se rediseñan en esta entrega.
+- **Preparación en iOS/iPadOS y Android:** la pantalla inicia en **Métricas**. Tres controles **Liquid Glass sueltos** (sin recuadro contenedor): **Opciones** (izquierda), **Play verde glass** (centro; números de cuenta atrás al tamaño del botón) y **actividad** (derecha). El icono derecho abre el selector nativo desde abajo; la última actividad se conserva.
+- **Opciones:** se cierran con **X** (como el resto de modales). Audio / Mapa / Cargar ruta; Mis rutas a página completa **sin** subtítulo de estado iCloud/local.
+- **Al iniciar:** la tab bar principal se oculta con animación hacia abajo y se recolocan cabecera/controles; el círculo central pasa a **Pausa amarilla glass** y, al pausar, a **Play verde**. La **bandera** pide confirmación en sheet inferior ajustada al contenido (`OGConfirmSheet` / `ReperaConfirmSheet`) antes de finalizar. Sin cambio de deporte a mitad de sesión.
+- **Gestos Métricas (GPS):** scroll **hacia arriba** abre **Parciales** (Kilómetro / Ritmo / Variación); swipe **izquierda** abre el mapa; desde mapa, swipe **derecha** vuelve a métricas. El mapa solo muestra **2D/3D** arriba a la derecha (sin brújula nativa que pise hora/batería; rumbo en la flecha «Tú»). Strip compacto de duración/ritmo/distancia/parcial; FC en Métricas.
+- **Bloqueo:** desde Opciones durante una sesión. Candado sobre el Play, pulsación **1 s** para desbloquear; tab bar también oculta. Relojes no se rediseñan en esta entrega.
 
 ## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
 

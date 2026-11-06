@@ -47,7 +47,7 @@ class DuoSelectionAndMetricsTests(unittest.TestCase):
             "private var metricsTrailingActions: some View", 1
         )[0]
         actions = swift.split("private var metricsTrailingActions: some View", 1)[1].split(
-            "private var selectionCircleBackground", 1
+            "private var bottomControls: some View", 1
         )[0]
         toolbar = swift.split("private var bottomControls: some View", 1)[1].split(
             "private var liveSplitScreen", 1

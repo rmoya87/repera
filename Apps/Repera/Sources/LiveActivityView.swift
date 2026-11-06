@@ -1062,7 +1062,7 @@ final class LiveActivityRecorder: NSObject {
     private(set) var gpsMessage: String?
     private(set) var chosenRoute: LiveSavedRoute?
     private var kilometerSplits: [LiveKmSplit] = []
-    var completedKilometerSplits: [LiveKmSplit] { kilometerSplits }
+    fileprivate var completedKilometerSplits: [LiveKmSplit] { kilometerSplits }
     private(set) var latestKilometerReport: String?
     private(set) var upcomingTurn: String?
     private(set) var upcomingTurnInstruction: String?
@@ -2436,7 +2436,18 @@ struct LiveActivityView: View {
                 }
             }
             .toolbar(recorder.phase == .review ? .visible : .hidden, for: .navigationBar)
-            .toolbar(isInteractionLocked || recorder.phase == .review ? .hidden : .automatic, for: .tabBar)
+            .toolbar(
+                isInteractionLocked
+                    || recorder.phase == .review
+                    || recorder.phase == .recording
+                    || recorder.phase == .paused
+                    ? .hidden : .automatic,
+                for: .tabBar
+            )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 0.28),
+                value: recorder.phase == .recording || recorder.phase == .paused || isInteractionLocked
+            )
             .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
             .ogTransparentNav()
@@ -2483,9 +2494,20 @@ struct LiveActivityView: View {
                 routeSheet
             }
             .fullScreenCover(isPresented: $showSplits) { liveSplitScreen }
-            .confirmationDialog("¿Finalizar actividad?", isPresented: $confirmFinish) {
-                Button("Finalizar y revisar") { finishAndShowSave() }
-                Button("Continuar actividad", role: .cancel) {}
+            .sheet(isPresented: $confirmFinish) {
+                OGConfirmSheet(
+                    systemImage: "flag.checkered",
+                    iconTint: OG.label,
+                    title: "¿Finalizar actividad?",
+                    message: "Puedes revisar y guardar tus datos al finalizar.",
+                    confirmTitle: "Finalizar y revisar",
+                    confirmTint: OG.accent,
+                    onConfirm: {
+                        confirmFinish = false
+                        finishAndShowSave()
+                    },
+                    onCancel: { confirmFinish = false }
+                )
             }
             // .data cubre archivos .gpx cuya UTI no esté registrada en el dispositivo.
             .fileImporter(isPresented: $importing, allowedContentTypes: [.xml, .data]) { result in
@@ -2712,6 +2734,10 @@ struct LiveActivityView: View {
                 }
             }
             .mapStyle(.standard(elevation: effectiveNavigation3D ? .realistic : .flat))
+            // Sin brújula nativa de MapKit: en iPhone físico pisa hora/batería.
+            // El rumbo va en la flecha «Tú»; 2D/3D es el único control superior.
+            .mapControls {}
+            .mapControlVisibility(.hidden)
             .onMapCameraChange(frequency: .continuous) { context in
                 // Capturar cámara también antes del primer GPS, sin obligar
                 // a seleccionar una coordenada fija como fallback.
@@ -2813,8 +2839,17 @@ struct LiveActivityView: View {
             // overlay de controles debe seguir la safe area del dispositivo
             // (Dynamic Island, iPad en Split View, rotación). Añadimos solo
             // el aire de la cabecera dentro de esa área, sin coordenadas fijas.
-            .safeAreaPadding(.top, OG.topBarTopInset)
+            .safeAreaPadding(.top, canLockLiveScreen ? max(4, OG.topBarTopInset - 8) : OG.topBarTopInset)
         }
+        .simultaneousGesture(DragGesture(minimumDistance: 45).onEnded { gesture in
+            guard recorder.sport.usesGPS, !isInteractionLocked else { return }
+            let dx = gesture.translation.width
+            let dy = gesture.translation.height
+            guard abs(dx) > abs(dy) * 1.25, dx > 70 else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                showingMetrics = true
+            }
+        })
         .task {
             startMapHeadingIfNeeded()
             recorder.prepareMapLocation()
@@ -2929,45 +2964,17 @@ struct LiveActivityView: View {
             : "\(max(0, meters)) m"
     }
 
-    /// Descartar encima, GPS y Métricas debajo. GPS solo al alejarse del centro.
+    /// Solo 2D/3D arriba a la derecha; métricas por gesto horizontal y
+    /// recentrado automático tras manipular el mapa.
     private var mapHeader: some View {
         HStack(alignment: .top) {
             Spacer(minLength: 0)
-            // Separación táctil de 60 pt entre centros de botones de 44 pt.
-            VStack(spacing: 16) {
-                if recorder.phase == .idle, !recorder.isStartCountingDown,
-                   !store.hasActiveSession, AppleWorkoutExportSheet.supports(recorder.sport) {
-                    mapCircleButton("applewatch", label: "Enviar objetivo a Entreno de Apple Watch") {
-                        appleWorkoutExport = true
-                    }
-                }
-                mapCircleButton(
-                    effectiveNavigation3D ? "map" : "view.3d",
-                    label: effectiveNavigation3D ? "Cambiar a vista 2D"
-                        : (navigation3DAllowed ? "Cambiar a vista 3D" : "Desbloquear navegación 3D con Repera Pro")
-                ) {
-                    toggleNavigationMapMode()
-                }
-                if !mapIsCentered, recorder.currentCoordinate != nil {
-                    mapCircleButton("location.fill", label: "Centrar en mi posición") {
-                        if let user = recorder.currentCoordinate {
-                            cancelPendingMapRecenter()
-                            mapIsCentered = true
-                            center3DMap(on: user)
-                            ReperaAnalytics.track(.mapRecenterRequested, parameters: [
-                                "feature_area": "live_sport",
-                                "result": "success"
-                            ])
-                        }
-                    }
-                }
-                // Disponible también ANTES de iniciar la actividad:
-                // Play conserva la pantalla que haya elegido el usuario.
-                if recorder.sport.usesGPS {
-                    mapCircleButton("chart.bar.xaxis", label: "Ver métricas") {
-                        showingMetrics = true
-                    }
-                }
+            mapCircleButton(
+                effectiveNavigation3D ? "map" : "view.3d",
+                label: effectiveNavigation3D ? "Cambiar a vista 2D"
+                    : (navigation3DAllowed ? "Cambiar a vista 3D" : "Desbloquear navegación 3D con Repera Pro")
+            ) {
+                toggleNavigationMapMode()
             }
         }
     }
@@ -3175,6 +3182,29 @@ struct LiveActivityView: View {
         recorder.phase == .recording || recorder.phase == .paused
     }
 
+    private var primaryControlDiameter: CGFloat {
+        recorder.phase == .idle ? 116 : 94
+    }
+
+    private var sideControlDiameter: CGFloat { 64 }
+
+    private func liveGlassSideButton(
+        _ symbol: String,
+        foreground: Color = OG.label,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 29, weight: .medium))
+                .foregroundStyle(foreground)
+                .frame(width: sideControlDiameter, height: sideControlDiameter)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
     /// En modo bloqueado la vista sigue actualizándose;    /// En modo bloqueado la vista sigue actualizándose; solo este símbolo
     /// queda accesible por encima de la capa que anula el resto de los gestos.
     private func interactionLockButton(registerAnchor: Bool = true) -> some View {
@@ -3322,9 +3352,9 @@ struct LiveActivityView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                .frame(height: 68)
+                .frame(height: canLockLiveScreen ? 54 : 68)
                 .padding(.horizontal, OG.topBarHorizontalInset)
-                .padding(.top, 14)
+                .padding(.top, canLockLiveScreen ? 6 : 14)
                 if recorder.chosenRoute != nil, recorder.phase != .idle {
                     HStack(spacing: 9) {
                         Image(systemName: recorder.upcomingTurnSymbol)
@@ -3428,9 +3458,18 @@ struct LiveActivityView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .simultaneousGesture(DragGesture(minimumDistance: 45).onEnded { gesture in
-                guard canLockLiveScreen, recorder.sport.usesGPS, !isInteractionLocked,
-                      gesture.translation.height > 100,
-                      abs(gesture.translation.height) > abs(gesture.translation.width) * 1.35 else { return }
+                guard recorder.sport.usesGPS, !isInteractionLocked else { return }
+                let dx = gesture.translation.width
+                let dy = gesture.translation.height
+                if abs(dx) > abs(dy) * 1.25, dx < -70 {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                        showingMetrics = false
+                    }
+                    return
+                }
+                guard canLockLiveScreen,
+                      dy < -100,
+                      abs(dy) > abs(dx) * 1.35 else { return }
                 showSplits = true
             })
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
@@ -3473,40 +3512,20 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Solo los selectores laterales son opacos. La barra general puede seguir
-    /// usando Liquid Glass, pero las superficies de Actividad/Ruta nunca.
-    private var selectionCircleBackground: Color {
-        colorScheme == .dark ? .black : .white
-    }
-
-    private func selectionCircle(_ symbol: String, foreground: Color) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 25, weight: .medium))
-            .foregroundStyle(foreground)
-            .frame(width: 58, height: 58)
-            .background(selectionCircleBackground, in: Circle())
-            .overlay {
-                Circle().strokeBorder(
-                    OG.label.opacity(colorScheme == .dark ? 0.22 : 0.10),
-                    lineWidth: 1
-                )
-            }
-    }
-
     /// Panel central compartido entre mapa y métricas.
+    /// Los tres controles son Liquid Glass sueltos (sin recuadro contenedor).
     private var bottomControls: some View {
-        VStack(spacing: 14) {
+        Group {
             if showOptions {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         Text("Opciones").font(.title2.bold())
                         Spacer()
-                        Button("Cerrar") {
+                        CloseToolbarButton {
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                                 showOptions = false
                             }
                         }
-                        .font(.headline)
                     }
                     Toggle(isOn: Binding(
                         get: { recorder.spokenGuidanceEnabled },
@@ -3555,11 +3574,16 @@ struct LiveActivityView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+                .padding(16)
+                .glassEffect(.regular, in: .rect(cornerRadius: 28))
                 .transition(reduceMotion ? .opacity :
                     .move(edge: .trailing).combined(with: .opacity))
             } else {
                 HStack(alignment: .center, spacing: 10) {
-                    Button {
+                    liveGlassSideButton(
+                        canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
+                        label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
+                    ) {
                         if canLockLiveScreen {
                             confirmFinish = true
                         } else {
@@ -3567,15 +3591,7 @@ struct LiveActivityView: View {
                                 showOptions = true
                             }
                         }
-                    } label: {
-                        Image(systemName: canLockLiveScreen ? "flag.checkered" : "gearshape.fill")
-                            .font(.system(size: 29, weight: .medium))
-                            .foregroundStyle(OG.label)
-                            .frame(width: 64, height: 64)
-                            .background(selectionCircleBackground, in: Circle())
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(canLockLiveScreen ? "Finalizar actividad" : "Opciones")
                     .frame(maxWidth: .infinity)
                     Button {
                         if recorder.phase == .recording { recorder.pause() }
@@ -3587,8 +3603,14 @@ struct LiveActivityView: View {
                         Group {
                             if recorder.isStartCountingDown {
                                 Text("\(recorder.startCountdownRemaining)")
-                                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                                    .font(.system(
+                                        size: primaryControlDiameter * 0.52,
+                                        weight: .bold,
+                                        design: .rounded
+                                    ))
                                     .monospacedDigit()
+                                    .minimumScaleFactor(0.7)
+                                    .lineLimit(1)
                             } else {
                                 Image(systemName: recorder.phase == .recording ? "pause.fill" :
                                       (store.hasActiveSession && !canLockLiveScreen ? "arrow.uturn.forward" : "play.fill"))
@@ -3596,9 +3618,13 @@ struct LiveActivityView: View {
                             }
                         }
                         .foregroundStyle(.black)
-                        .frame(width: recorder.phase == .idle ? 116 : 94,
-                               height: recorder.phase == .idle ? 116 : 94)
-                        .background(recorder.phase == .recording ? OG.yellow : OG.accent, in: Circle())
+                        .frame(width: primaryControlDiameter, height: primaryControlDiameter)
+                        .glassEffect(
+                            .regular.tint(
+                                recorder.phase == .recording ? OG.yellow : OG.accent
+                            ).interactive(),
+                            in: .circle
+                        )
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(recorder.phase == .recording ? "Pausar" :
@@ -3606,29 +3632,21 @@ struct LiveActivityView: View {
                     .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
                         canLockLiveScreen ? $0 : nil
                     }
-                    // La selección de actividad ocupa el círculo derecho del botón principal.
-                    // La sheet nativa sube desde abajo y choose(_:) persiste la última elección.
-                    Button {
+                    liveGlassSideButton(
+                        recorder.sport.symbol,
+                        foreground: OG.accent,
+                        label: "Seleccionar actividad: \(recorder.sport.title)"
+                    ) {
                         sportPicker = true
-                    } label: {
-                        Image(systemName: recorder.sport.symbol)
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(OG.accent)
-                            .frame(width: 64, height: 64)
-                            .background(selectionCircleBackground, in: Circle())
                     }
-                    .buttonStyle(.plain)
                     .disabled(recorder.phase != .idle || recorder.isStartCountingDown)
-                    .accessibilityLabel("Seleccionar actividad: \(recorder.sport.title)")
                     .accessibilityHint("Abre el selector de actividades desde abajo")
                     .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
         .foregroundStyle(OG.label)
-        .contentShape(RoundedRectangle(cornerRadius: 28))
+        .contentShape(Rectangle())
         .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
             guard !isInteractionLocked,
                   abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
@@ -3640,6 +3658,7 @@ struct LiveActivityView: View {
             }
         })
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: recorder.phase)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: showOptions)
     }
 
     private var liveSplitScreen: some View {
@@ -3649,7 +3668,7 @@ struct LiveActivityView: View {
                     HStack {
                         Text("Parciales").font(.largeTitle.bold())
                         Spacer()
-                        Button("Cerrar") { showSplits = false }
+                        CloseToolbarButton { showSplits = false }
                     }
                     .padding(24)
                     HStack {
@@ -4291,25 +4310,12 @@ private struct LiveRouteLibraryPickerView: View {
             List {
                 Section {
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Mis rutas")
-                                .font(.system(size: 31, weight: .bold))
-                                .foregroundStyle(OG.label)
-                            Text(routes.iCloudRouteStatus)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
+                        Text("Mis rutas")
+                            .font(.system(size: 31, weight: .bold))
+                            .foregroundStyle(OG.label)
                         Spacer()
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: 42, height: 42)
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                        .buttonStyle(.plain)
-                        .tint(OG.label)
-                        .accessibilityLabel("Cerrar Mis rutas")
+                        CloseToolbarButton(action: onClose)
+                            .accessibilityLabel("Cerrar Mis rutas")
                     }
                     .padding(.vertical, 4)
                 }

@@ -31,8 +31,9 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("isInteractionLocked = true", ios)
         self.assertIn('Image(systemName: "lock.fill")', ios)
         self.assertIn(
-            ".toolbar(isInteractionLocked || recorder.phase == .review ? .hidden", ios
+            "recorder.phase == .recording", ios
         )
+        self.assertIn("for: .tabBar", ios)
 
     def test_android_intercepts_all_gestures_and_releases_awake(self):
         android = source("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
@@ -49,7 +50,9 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("live_touch_unlock", android)
         shell = source("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
         self.assertIn("LiveActivityTouchLockState.locked = keepAwake", android)
-        self.assertIn('currentRoute == "en-vivo" && LiveActivityTouchLockState.locked', shell)
+        self.assertIn("liveSessionHidesTab", shell)
+        self.assertIn("LiveActivityState.Phase.RECORDING", shell)
+        self.assertIn("!liveSessionHidesTab", shell)
         self.assertIn('val mapUnderTabs = currentRoute == "en-vivo"', shell)
 
     def test_watch_vertical_navigation_preserves_lateral_controls(self):

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.BorderStroke
@@ -43,11 +44,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.ViewInAr
@@ -200,13 +199,20 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     // Altura real del chrome (menú + Continuar). Sin sumar navigationBars otra vez:
     // tabChromeInset ya incluye nav bars medidos en el host.
     val tabChromeInset = LocalReperaTabBarInset.current
-    val bottomChromePad = tabChromeInset.takeIf { it > 0.dp } ?: 96.dp
     val runtime=remember(accountId) { LiveActivityRuntime.forAccount(context,accountId) }
     val revision by runtime.updates.collectAsStateWithLifecycle()
     // Leer antes de cualquier retorno (también canvas GPS): los campos de
     // recorder son puros, la señal Flow invalida todas las ramas de UI.
     @Suppress("UNUSED_VARIABLE") val observedRevision = revision
     val state=runtime.state
+    val sessionActive = state.phase == LiveActivityState.Phase.RECORDING ||
+        state.phase == LiveActivityState.Phase.PAUSED
+    // Con menú oculto en sesión, solo reserva el home indicator (paridad iOS).
+    val bottomChromePad = when {
+        tabChromeInset > 0.dp -> tabChromeInset
+        sessionActive || state.phase == LiveActivityState.Phase.REVIEW -> 24.dp
+        else -> 96.dp
+    }
     val maxHeartRateBpm by produceState(initialValue = 190, accountId) {
         value = withContext(Dispatchers.IO) {
             trainingSettingsForAccount(context, accountId).heartRateMaxBpm ?: 190
@@ -611,7 +617,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Mis rutas", style = MaterialTheme.typography.headlineLarge,
                         modifier = Modifier.weight(1f))
-                    TextButton(onClick = { showRoutes = false }) { Text("Cerrar") }
+                    ReperaToolbarGlassIconButton(
+                        icon = Icons.Outlined.Close,
+                        contentDescription = "Cerrar Mis rutas",
+                        onClick = { showRoutes = false }
+                    )
                 }
                 TextButton(onClick = {
                     importGPX.launch(arrayOf(
@@ -680,7 +690,11 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Parciales", style = MaterialTheme.typography.headlineLarge,
                     modifier = Modifier.weight(1f))
-                TextButton(onClick = { showSplits = false }) { Text("Cerrar") }
+                ReperaToolbarGlassIconButton(
+                    icon = Icons.Outlined.Close,
+                    contentDescription = "Cerrar",
+                    onClick = { showSplits = false }
+                )
             }
             Row(Modifier.fillMaxWidth().padding(top = 30.dp)) {
                 Text("Kilómetro", modifier = Modifier.weight(1f),
@@ -740,20 +754,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             dismissButton = { TextButton(onClick = { pendingDeleteRoute = null }) { Text(stringResource(R.string.action_cancel)) } })
     }
     if (confirmFinish) {
-        AlertDialog(
-            onDismissRequest = { confirmFinish = false },
-            title = { Text("¿Finalizar actividad?") },
-            text = { Text("Puedes revisar y guardar tus datos al finalizar.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmFinish = false
-                    runtime.finish()
-                    LiveActivityService.stop(context)
-                }) { Text("Finalizar y revisar") }
+        ReperaConfirmSheet(
+            title = "¿Finalizar actividad?",
+            message = "Puedes revisar y guardar tus datos al finalizar.",
+            confirmTitle = "Finalizar y revisar",
+            onConfirm = {
+                confirmFinish = false
+                runtime.finish()
+                LiveActivityService.stop(context)
             },
-            dismissButton = {
-                TextButton(onClick = { confirmFinish = false }) { Text("Continuar") }
-            }
+            onCancel = { confirmFinish = false }
         )
     }
     if (confirmDiscard) {
@@ -832,17 +842,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     followingMap = false
                     lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
                 })
-            // FABs a la derecha (LiveActivityView.mapHeader): pausa/fin + mapa/métricas/voz.
+            // Solo 2D/3D arriba a la derecha (paridad iOS mapHeader).
             Column(
                 Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(top = 12.dp, end = 16.dp)
+                    .padding(top = if (sessionActive) 6.dp else 12.dp, end = 16.dp)
                     .testTag("live_map_fabs"),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                // Play, pausa y bandera están en la misma barra inferior.
                 LiveMapCircleFab(
                     icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
                     label = when {
@@ -888,19 +897,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                     }
                 }
-                if (!followingMap && (state.points.isNotEmpty() || freshPosition != null)) {
-                    LiveMapCircleFab(Icons.Outlined.MyLocation, "Centrar en mi posición") {
-                        followingMap = true; recenterToken++
-                        ReperaAnalytics.track(
-                            ReperaAnalytics.Event.MAP_RECENTER_REQUESTED,
-                            mapOf(
-                                "feature_area" to "live_sport",
-                                "result" to "success"
-                            )
-                        )
-                    }
-                }
-                LiveMapCircleFab(Icons.Outlined.BarChart, "Ver métricas") { showingMetrics = true }
             }
             if (state.selectedRouteID != null && state.phase != LiveActivityState.Phase.REVIEW) {
                 // Paridad iOS navigationDirectionsBanner: icono+distancia | instrucción.
@@ -979,8 +975,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     modifier = Modifier.align(Alignment.Center)
                 ) { Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada)) }
             }
-            // Hueco = altura medida del chrome (menú ± Continuar); sin sumar navBars otra vez.
-            Surface(
+            // Controles sueltos (sin recuadro); strip de métricas sí lleva glass.
+            Column(
                 Modifier
                     .align(
                         if (mapLandscape && state.phase != LiveActivityState.Phase.IDLE)
@@ -994,19 +990,41 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                             )
                         else Modifier
                     )
-                    .testTag("live_idle_panel"),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                tonalElevation = 0.dp,
-                // R7: sombra suave sobre mapa (evitar bandas/halos fuertes).
-                shadowElevation = 1.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                    .pointerInput(touchLocked) {
+                        if (!touchLocked) {
+                            var horizontalDistance = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { horizontalDistance = 0f },
+                                onHorizontalDrag = { change, delta ->
+                                    horizontalDistance += delta
+                                    change.consume()
+                                },
+                                onDragEnd = {
+                                    if (horizontalDistance > 70f) showingMetrics = true
+                                    horizontalDistance = 0f
+                                },
+                                onDragCancel = { horizontalDistance = 0f }
+                            )
+                        }
+                    }
+                    .testTag("live_idle_panel")
             ) {
-                Column {
-                    if (state.phase != LiveActivityState.Phase.IDLE) {
+                if (state.phase != LiveActivityState.Phase.IDLE) {
+                    Surface(
+                        shape = RoundedCornerShape(22.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                        tonalElevation = 0.dp,
+                        shadowElevation = 1.dp,
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
                         LiveMapMetricStrip(state = state, nowTick = nowTick)
                     }
-                    LiveStartToolbar(
+                }
+                LiveStartToolbar(
                     sportIcon = state.sport.materialIcon,
                     sportTitle = state.sport.title,
                     phase = state.phase,
@@ -1048,7 +1066,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     onLock = { showStartOptions = false; lockTouch() },
                     onPrimaryPositioned = { lockTarget = it }
                 )
-                }
             }
             if (touchLocked) {
                 LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
@@ -1079,8 +1096,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Modifier.fillMaxSize()
                 .onGloballyPositioned { lockContainer = it.boundsInRoot() }
                 .pointerInput(touchLocked, state.phase) {
-                    if (!touchLocked && (state.phase == LiveActivityState.Phase.RECORDING ||
-                            state.phase == LiveActivityState.Phase.PAUSED)) {
+                    if (!touchLocked) {
                         var verticalDistance = 0f
                         detectVerticalDragGestures(
                             onDragStart = { verticalDistance = 0f },
@@ -1089,10 +1105,28 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                                 change.consume()
                             },
                             onDragEnd = {
-                                if (verticalDistance > 120f) showSplits = true
+                                // Scroll hacia arriba → parciales (paridad iOS).
+                                if (sessionActive && verticalDistance < -120f) showSplits = true
                                 verticalDistance = 0f
                             },
                             onDragCancel = { verticalDistance = 0f }
+                        )
+                    }
+                }
+                .pointerInput(touchLocked) {
+                    if (!touchLocked) {
+                        var horizontalDistance = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { horizontalDistance = 0f },
+                            onHorizontalDrag = { change, delta ->
+                                horizontalDistance += delta
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                if (horizontalDistance < -70f) showingMetrics = false
+                                horizontalDistance = 0f
+                            },
+                            onDragCancel = { horizontalDistance = 0f }
                         )
                     }
                 }

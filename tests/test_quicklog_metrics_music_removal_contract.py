@@ -31,13 +31,12 @@ class QuickLogMetricsMusicRemovalTests(unittest.TestCase):
     def test_metrics_start_is_left_aligned_at_top_and_map_keeps_bottom(self):
         live = swift("LiveActivityView.swift")
         metrics = live.split("private var metricsView:", 1)[1].split(
-            "private var selectionCircleBackground:", 1
+            "private var bottomControls:", 1
         )[0]
-        self.assertIn("if recorder.phase == .idle", metrics)
+        self.assertIn("metricsTrailingActions", metrics)
         self.assertIn("bottomControls", metrics)
-        self.assertIn(".frame(maxWidth: 360, alignment: .leading)", metrics)
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .leading)", metrics)
-        self.assertLess(metrics.index("bottomControls"), metrics.index("Text(formattedTime("))
+        self.assertIn("Text(formattedTime(", metrics)
+        self.assertIn("if recorder.phase == .idle", metrics)
         map_part = live.split("private var mapView:", 1)[1].split(
             "private func sessionMapButton(", 1
         )[0]

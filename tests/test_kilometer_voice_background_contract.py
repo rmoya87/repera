@@ -96,7 +96,7 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("metricsTrailingActions", header)
         self.assertIn("bottomControls", header)
         actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
-            "private var selectionCircleBackground", 1
+            "private var bottomControls: some View", 1
         )[0]
         self.assertIn("HStack(spacing: 6)", actions)
         self.assertNotIn("sessionMapButton(", actions)
@@ -112,11 +112,12 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         toolbar = LIVE.split("private var bottomControls: some View", 1)[1].split(
             "private var liveSplitScreen", 1
         )[0]
-        self.assertIn('Image(systemName: canLockLiveScreen ? "flag.checkered"', toolbar)
+        self.assertIn('canLockLiveScreen ? "flag.checkered" : "gearshape.fill"', toolbar)
         self.assertIn("confirmFinish = true", toolbar)
         self.assertIn("recorder.pause()", toolbar)
         self.assertIn("recorder.resume()", toolbar)
-        self.assertIn('confirmationDialog("¿Finalizar actividad?"', LIVE)
+        self.assertIn('title: "¿Finalizar actividad?"', LIVE)
+        self.assertIn("OGConfirmSheet(", LIVE)
 
     def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")
