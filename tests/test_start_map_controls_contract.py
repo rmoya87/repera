@@ -75,16 +75,17 @@ class LiveStartControlsContractTests(unittest.TestCase):
     def test_swipes_splits_and_no_expand_map(self):
         ios = read(IOS / "LiveActivityView.swift")
         android = read(ANDROID / "LiveActivityScreen.kt")
-        self.assertIn(".fullScreenCover(isPresented: $showSplits)", ios)
+        self.assertIn("private var liveSessionPager", ios)
+        self.assertIn(".tabViewStyle(.page(indexDisplayMode: .always))", ios)
+        self.assertIn("liveSplitsSection", ios)
         self.assertIn("completedKilometerSplits", ios)
-        self.assertIn("showSplits = true", android)
+        self.assertIn("HorizontalPager(", android)
+        self.assertIn("liveSessionPage", android)
         self.assertIn("state.splitsSeconds.forEachIndexed", android)
-        self.assertIn("detectVerticalDragGestures(", android)
-        self.assertIn("dy < -100", ios)
-        self.assertIn("showingMetrics = false", ios)
         self.assertIn(".mapControlVisibility(.hidden)", ios)
         self.assertNotIn("mapDetailsExpanded", ios)
         self.assertNotIn("mapDetailsExpanded", android)
+        self.assertNotIn(".fullScreenCover(isPresented: $showSplits)", ios)
         header = ios.split("private var mapHeader: some View", 1)[1].split(
             "private func toggleNavigationMapMode", 1
         )[0]
@@ -105,10 +106,13 @@ class LiveStartControlsContractTests(unittest.TestCase):
 
     def test_android_reuses_one_toolbar_in_map_metrics_and_indoor(self):
         android = read(ANDROID / "LiveActivityScreen.kt")
-        self.assertEqual(android.count("LiveStartToolbar("), 3)
+        # Mapa idle, métricas idle, indoor + pager de sesión en vivo.
+        self.assertEqual(android.count("LiveStartToolbar("), 4)
         self.assertNotIn("private fun LiveStartToolbar(", android)
         self.assertIn("var showStartOptions by remember", android)
         self.assertIn("mutableStateOf(true)", android)
+        self.assertIn("HorizontalPager(", android)
+        self.assertIn("liveSessionPage", android)
 
 
 if __name__ == "__main__":

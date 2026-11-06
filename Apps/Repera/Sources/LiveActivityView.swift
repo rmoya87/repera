@@ -2358,8 +2358,9 @@ struct LiveActivityView: View {
     /// Conservar la elección entre sesiones: iniciar/pausar no cambia la pantalla.
     @State private var showingMetrics = true
     @State private var showOptions = false
-    @State private var showSplits = false
     @State private var confirmFinish = false
+    /// Pager en vivo: 0 opciones · 1 centro (métricas/mapa) · 2 opuesto.
+    @State private var liveSessionPage = 1
     /// Bloqueo táctil local a Comenzar, nunca de GPS/HealthKit ni del sistema.
     @State private var isInteractionLocked = false
     @State private var routeError: String?
@@ -2418,6 +2419,8 @@ struct LiveActivityView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if recorder.phase == .review {
                     review
+                } else if canLockLiveScreen {
+                    liveSessionPager
                 } else if recorder.sport.usesGPS && !showingMetrics {
                     mapView
                 } else {
@@ -2493,7 +2496,6 @@ struct LiveActivityView: View {
             }) {
                 routeSheet
             }
-            .fullScreenCover(isPresented: $showSplits) { liveSplitScreen }
             .sheet(isPresented: $confirmFinish) {
                 OGConfirmSheet(
                     systemImage: "flag.checkered",
@@ -2578,10 +2580,17 @@ struct LiveActivityView: View {
         .onChange(of: recorder.phase) { _, phase in
             if phase != .recording && phase != .paused {
                 isInteractionLocked = false
-                showSplits = false
+                liveSessionPage = 1
                 TimerScreenAwake.setRunning(false, for: .liveLock)
             }
-            if phase == .recording { showOptions = false }
+            if phase == .recording {
+                showOptions = false
+                liveSessionPage = 1
+            }
+        }
+        .onChange(of: showingMetrics) { _, _ in
+            // Al cambiar preferencia Mapa/Métricas, el centro se redefine.
+            if canLockLiveScreen { liveSessionPage = 1 }
         }
         .onChange(of: navigation3DAllowed) { _, allowed in
             // Al perder Pro, volver a 2D también durante una sesión activa;
@@ -2695,6 +2704,89 @@ struct LiveActivityView: View {
         previewHeadingRunning = false
     }
 
+    /// Sesión en vivo: pager Opciones | Centro | Opuesto, con puntos.
+    /// El centro es métricas o mapa según preferencia; el opuesto es el otro.
+    /// Controles Play/Pausa/Finalizar quedan fijos bajo el pager.
+    private var liveSessionPager: some View {
+        VStack(spacing: 0) {
+            TabView(selection: $liveSessionPage) {
+                liveOptionsPage
+                    .tag(0)
+                Group {
+                    if showingMetrics || !recorder.sport.usesGPS {
+                        metricsView
+                    } else {
+                        mapView
+                    }
+                }
+                .tag(1)
+                if recorder.sport.usesGPS {
+                    Group {
+                        if showingMetrics {
+                            mapView
+                        } else {
+                            metricsView
+                        }
+                    }
+                    .tag(2)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: liveSessionPage)
+
+            bottomControls
+                .frame(maxWidth: 570)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 10 + continueChromeLift)
+        }
+        .background(OG.bg)
+    }
+
+    /// Página independiente de configuración durante la sesión.
+    private var liveOptionsPage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("Opciones").font(.title2.bold())
+                Toggle(isOn: Binding(
+                    get: { recorder.spokenGuidanceEnabled },
+                    set: { value in
+                        if value != recorder.spokenGuidanceEnabled { recorder.toggleSpokenGuidance() }
+                    }
+                )) {
+                    Label("Audio", systemImage: "speaker.wave.2").font(.headline)
+                }
+                .tint(OG.accent)
+                .frame(minHeight: 50)
+                Toggle(isOn: Binding(
+                    get: { !showingMetrics && recorder.sport.usesGPS },
+                    set: { showingMetrics = !$0 }
+                )) {
+                    Label("Mapa", systemImage: "map").font(.headline)
+                }
+                .tint(OG.accent)
+                .disabled(!recorder.sport.usesGPS)
+                .frame(minHeight: 50)
+                Text(recorder.chosenRoute?.title ?? "Sin ruta cargada")
+                    .font(.subheadline).foregroundStyle(OG.label2)
+                Button {
+                    liveSessionPage = 1
+                    isInteractionLocked = true
+                } label: {
+                    Label("Bloquear pantalla", systemImage: "lock")
+                        .font(.headline).frame(maxWidth: .infinity, minHeight: 54)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(20)
+            .frame(maxWidth: 570)
+            .frame(maxWidth: .infinity)
+        }
+        .background(OG.bg)
+    }
+
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
     /// Tab bar principal permanece nativa y aparece superpuesta al mapa.
     private var mapView: some View {
@@ -2804,13 +2896,15 @@ struct LiveActivityView: View {
                     .padding(.horizontal, OG.topBarHorizontalInset)
                     .padding(.bottom, 10 + continueChromeLift)
 
-                    VStack {
-                        Spacer(minLength: 0)
-                        bottomControls
-                            .frame(maxWidth: 570)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 10 + continueChromeLift)
+                    if !canLockLiveScreen {
+                        VStack {
+                            Spacer(minLength: 0)
+                            bottomControls
+                                .frame(maxWidth: 570)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 10 + continueChromeLift)
+                        }
                     }
                 } else {
                     VStack(spacing: 12) {
@@ -2829,7 +2923,9 @@ struct LiveActivityView: View {
                         if recorder.phase == .recording || recorder.phase == .paused {
                             mapMetricStrip
                         }
-                        bottomControls
+                        if !canLockLiveScreen {
+                            bottomControls
+                        }
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
                     .padding(.bottom, 10 + continueChromeLift)
@@ -2841,15 +2937,6 @@ struct LiveActivityView: View {
             // el aire de la cabecera dentro de esa área, sin coordenadas fijas.
             .safeAreaPadding(.top, canLockLiveScreen ? max(4, OG.topBarTopInset - 8) : OG.topBarTopInset)
         }
-        .simultaneousGesture(DragGesture(minimumDistance: 45).onEnded { gesture in
-            guard recorder.sport.usesGPS, !isInteractionLocked else { return }
-            let dx = gesture.translation.width
-            let dy = gesture.translation.height
-            guard abs(dx) > abs(dy) * 1.25, dx > 70 else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                showingMetrics = true
-            }
-        })
         .task {
             startMapHeadingIfNeeded()
             recorder.prepareMapLocation()
@@ -3327,151 +3414,31 @@ struct LiveActivityView: View {
 
     private var metricsView: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            VStack(spacing: 0) {
-                GeometryReader { header in
-                    HStack(spacing: 6) {
-                        Image(systemName: recorder.sport.symbol)
-                            .font(.title2.weight(.medium))
-                            .foregroundStyle(OG.accent)
-                            .frame(width: 28)
-                        Text(recorder.sport.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.68)
-                            .frame(
-                                width: min(126, max(48, header.size.width - 240)),
-                                height: 54,
-                                alignment: .leading
-                            )
-                        // Separación flexible ENTRE el deporte y la primera
-                        // acción. Audio, Mapa y Pausa/Play van juntos a la
-                        // derecha: ningún hueco invisible entre sus botones.
-                        Spacer(minLength: 0)
-                        metricsTrailingActions
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .frame(height: canLockLiveScreen ? 54 : 68)
-                .padding(.horizontal, OG.topBarHorizontalInset)
-                .padding(.top, canLockLiveScreen ? 6 : 14)
-                if recorder.chosenRoute != nil, recorder.phase != .idle {
-                    HStack(spacing: 9) {
-                        Image(systemName: recorder.upcomingTurnSymbol)
-                            .font(.title2.weight(.bold))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(recorder.navigationCue?.instruction ?? "Sigue el recorrido")
-                                .font(.subheadline.weight(.bold))
-                            if let street = recorder.upcomingTurnStreet {
-                                Text("Hacia \(street)")
-                                    .font(.caption)
-                                    .lineLimit(1)
-                            }
-                        }
-                        Spacer(minLength: 4)
-                        if let meters = recorder.upcomingTurnMeters {
-                            Text(navigationDistanceLabel(meters))
-                                .font(.subheadline.weight(.bold))
-                                .monospacedDigit()
-                        }
-                    }
-                    .foregroundStyle(.black)
-                    .padding(12)
-                    .background(OG.accent, in: .rect(cornerRadius: 14))
-                    .padding(.horizontal, OG.topBarHorizontalInset)
-                }
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        metricsPrimarySection(at: timeline.date)
+                            // Primera “pantalla”: el scroll hacia arriba revela Parciales.
+                            .frame(minHeight: max(480, geometry.size.height - (canLockLiveScreen ? 8 : 120)))
 
-                Spacer(minLength: 16)
-                Text(formattedTime(recorder.duration(at: timeline.date)))
-                    .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(OG.label)
-                    .minimumScaleFactor(0.6).lineLimit(1)
-                Text("Duración")
-                    .font(.subheadline).foregroundStyle(OG.label2)
-                if recorder.sport.usesGPS, recorder.phase != .idle {
-                    // Sin caja propia, manteniendo los márgenes de la vista.
-                    kilometerSplitSummary
-                        .padding(.horizontal, 20)
-                        .padding(.top, 12)
-                }
-                Spacer(minLength: 14)
-                if recorder.sport.usesGPS {
-                    Text(paceOrSpeed)
-                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
-                        .minimumScaleFactor(0.55).lineLimit(1)
-                        .foregroundStyle(OG.label)
-                    Text(recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)")
-                        .font(.subheadline).foregroundStyle(OG.label2)
-                    Spacer(minLength: 14)
-                    Text(ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
-                        .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                    Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
-                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                        HeartRateZoneBar(bpm: bpm)
-                            .padding(.horizontal, 28)
-                            .padding(.top, 10)
+                        if recorder.sport.usesGPS, canLockLiveScreen {
+                            liveSplitsSection
+                                .padding(.top, 8)
+                                .padding(.bottom, 28)
+                        }
+
+                        if !canLockLiveScreen {
+                            bottomControls
+                                .frame(maxWidth: 570)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 10 + continueChromeLift)
+                        }
                     }
-                } else {
-                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                        Text("\(bpm)")
-                            .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
-                            .minimumScaleFactor(0.55).lineLimit(1)
-                            .foregroundStyle(OG.label)
-                        Text("Frecuencia cardíaca (lpm)")
-                            .font(.subheadline).foregroundStyle(OG.label2)
-                        Spacer(minLength: 14)
-                    }
-                    Text("—")
-                        .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(OG.label)
-                    Text("Calorías activas (kcal)")
-                        .font(.subheadline).foregroundStyle(OG.label2)
-                    if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                        HeartRateZoneBar(bpm: bpm)
-                            .padding(.horizontal, 28)
-                            .padding(.top, 10)
-                    }
-                }
-                if recorder.sport.tracksElevation && recorder.hasElevationSamples {
-                    HStack {
-                        Label(
-                            "+\(Int(recorder.elevationGainMeters.rounded())) m",
-                            systemImage: "arrow.up.right"
-                        )
-                        Spacer()
-                        Label(
-                            "−\(Int(recorder.elevationLossMeters.rounded())) m",
-                            systemImage: "arrow.down.right"
-                        )
-                    }
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(OG.label2)
-                    .padding(.horizontal, 28)
-                }
-                Spacer(minLength: 12)
-                bottomControls
-                    .frame(maxWidth: 570)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10 + continueChromeLift)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .simultaneousGesture(DragGesture(minimumDistance: 45).onEnded { gesture in
-                guard recorder.sport.usesGPS, !isInteractionLocked else { return }
-                let dx = gesture.translation.width
-                let dy = gesture.translation.height
-                if abs(dx) > abs(dy) * 1.25, dx < -70 {
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                        showingMetrics = false
-                    }
-                    return
                 }
-                guard canLockLiveScreen,
-                      dy < -100,
-                      abs(dy) > abs(dx) * 1.35 else { return }
-                showSplits = true
-            })
+                .scrollIndicators(.hidden)
+            }
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
                 recorder.checkpoint()
             }
@@ -3482,6 +3449,131 @@ struct LiveActivityView: View {
                 await refreshLiveHeartRate()
             }
         }
+    }
+
+    @ViewBuilder
+    private func metricsPrimarySection(at date: Date) -> some View {
+        VStack(spacing: 0) {
+            GeometryReader { header in
+                HStack(spacing: 6) {
+                    Image(systemName: recorder.sport.symbol)
+                        .font(.title2.weight(.medium))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 28)
+                    Text(recorder.sport.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.68)
+                        .frame(
+                            width: min(126, max(48, header.size.width - 240)),
+                            height: 54,
+                            alignment: .leading
+                        )
+                    Spacer(minLength: 0)
+                    metricsTrailingActions
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(height: canLockLiveScreen ? 54 : 68)
+            .padding(.horizontal, OG.topBarHorizontalInset)
+            .padding(.top, canLockLiveScreen ? 6 : 14)
+            if recorder.chosenRoute != nil, recorder.phase != .idle {
+                HStack(spacing: 9) {
+                    Image(systemName: recorder.upcomingTurnSymbol)
+                        .font(.title2.weight(.bold))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(recorder.navigationCue?.instruction ?? "Sigue el recorrido")
+                            .font(.subheadline.weight(.bold))
+                        if let street = recorder.upcomingTurnStreet {
+                            Text("Hacia \(street)")
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 4)
+                    if let meters = recorder.upcomingTurnMeters {
+                        Text(navigationDistanceLabel(meters))
+                            .font(.subheadline.weight(.bold))
+                            .monospacedDigit()
+                    }
+                }
+                .foregroundStyle(.black)
+                .padding(12)
+                .background(OG.accent, in: .rect(cornerRadius: 14))
+                .padding(.horizontal, OG.topBarHorizontalInset)
+            }
+
+            Spacer(minLength: 16)
+            Text(formattedTime(recorder.duration(at: date)))
+                .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
+                .foregroundStyle(OG.label)
+                .minimumScaleFactor(0.6).lineLimit(1)
+            Text("Duración")
+                .font(.subheadline).foregroundStyle(OG.label2)
+            if recorder.sport.usesGPS, recorder.phase != .idle {
+                kilometerSplitSummary
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+            }
+            Spacer(minLength: 14)
+            if recorder.sport.usesGPS {
+                Text(paceOrSpeed)
+                    .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                    .minimumScaleFactor(0.55).lineLimit(1)
+                    .foregroundStyle(OG.label)
+                Text(recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)")
+                    .font(.subheadline).foregroundStyle(OG.label2)
+                Spacer(minLength: 14)
+                Text(ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
+                    .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
+                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                    HeartRateZoneBar(bpm: bpm)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 10)
+                }
+            } else {
+                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                    Text("\(bpm)")
+                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                        .minimumScaleFactor(0.55).lineLimit(1)
+                        .foregroundStyle(OG.label)
+                    Text("Frecuencia cardíaca (lpm)")
+                        .font(.subheadline).foregroundStyle(OG.label2)
+                    Spacer(minLength: 14)
+                }
+                Text("—")
+                    .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(OG.label)
+                Text("Calorías activas (kcal)")
+                    .font(.subheadline).foregroundStyle(OG.label2)
+                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
+                    HeartRateZoneBar(bpm: bpm)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 10)
+                }
+            }
+            if recorder.sport.tracksElevation && recorder.hasElevationSamples {
+                HStack {
+                    Label(
+                        "+\(Int(recorder.elevationGainMeters.rounded())) m",
+                        systemImage: "arrow.up.right"
+                    )
+                    Spacer()
+                    Label(
+                        "−\(Int(recorder.elevationLossMeters.rounded())) m",
+                        systemImage: "arrow.down.right"
+                    )
+                }
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(OG.label2)
+                .padding(.horizontal, 28)
+            }
+            Spacer(minLength: 12)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     /// Salud es la única fuente de pulsaciones: ninguna muestra sintética.
@@ -3514,9 +3606,10 @@ struct LiveActivityView: View {
 
     /// Panel central compartido entre mapa y métricas.
     /// Los tres controles son Liquid Glass sueltos (sin recuadro contenedor).
+    /// En vivo, Opciones vive en la página 0 del pager (no en este panel).
     private var bottomControls: some View {
         Group {
-            if showOptions {
+            if showOptions && !canLockLiveScreen {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         Text("Opciones").font(.title2.bold())
@@ -3547,32 +3640,19 @@ struct LiveActivityView: View {
                     .tint(OG.accent)
                     .disabled(!recorder.sport.usesGPS)
                     .frame(minHeight: 50)
-                    if recorder.phase == .idle {
-                        Button {
-                            showOptions = false
-                            routePicker = true
-                        } label: {
-                            HStack {
-                                Label("Cargar ruta", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                                    .font(.headline)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                            }
-                            .frame(minHeight: 56)
+                    Button {
+                        showOptions = false
+                        routePicker = true
+                    } label: {
+                        HStack {
+                            Label("Cargar ruta", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                                .font(.headline)
+                            Spacer()
+                            Image(systemName: "chevron.right")
                         }
-                        .disabled(!recorder.sport.usesGPS)
-                    } else {
-                        Text(recorder.chosenRoute?.title ?? "Sin ruta cargada")
-                            .font(.subheadline).foregroundStyle(OG.label2)
-                        Button {
-                            showOptions = false
-                            isInteractionLocked = true
-                        } label: {
-                            Label("Bloquear pantalla", systemImage: "lock")
-                                .font(.headline).frame(maxWidth: .infinity, minHeight: 54)
-                        }
-                        .buttonStyle(.bordered)
+                        .frame(minHeight: 56)
                     }
+                    .disabled(!recorder.sport.usesGPS)
                 }
                 .padding(16)
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
@@ -3648,7 +3728,8 @@ struct LiveActivityView: View {
         .foregroundStyle(OG.label)
         .contentShape(Rectangle())
         .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
-            guard !isInteractionLocked,
+            // Idle: gesto local del panel. En vivo el pager horizontal manda.
+            guard !canLockLiveScreen, !isInteractionLocked,
                   abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
             if gesture.translation.width < -70 {
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showOptions = true }
@@ -3661,55 +3742,48 @@ struct LiveActivityView: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: showOptions)
     }
 
-    private var liveSplitScreen: some View {
-        NavigationStack {
-            TimelineView(.periodic(from: .now, by: 1)) { tick in
-                VStack(spacing: 0) {
+    /// Segundo apartado de la misma pantalla de métricas (scroll vertical).
+    private var liveSplitsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Parciales")
+                .font(.title2.bold())
+                .foregroundStyle(OG.label)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 12)
+            HStack {
+                Text("Kilómetro").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Ritmo").frame(maxWidth: .infinity)
+                Text("Variación").frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(OG.label2)
+            .padding(.horizontal, 24)
+            Divider().padding(.horizontal, 24).padding(.top, 8)
+            if recorder.completedKilometerSplits.isEmpty {
+                ContentUnavailableView(
+                    "Aún no hay parciales",
+                    systemImage: "figure.run",
+                    description: Text("El primer parcial aparecerá al completar un kilómetro.")
+                )
+                .padding(.top, 32)
+                .padding(.bottom, 16)
+            } else {
+                ForEach(recorder.completedKilometerSplits) { split in
                     HStack {
-                        Text("Parciales").font(.largeTitle.bold())
-                        Spacer()
-                        CloseToolbarButton { showSplits = false }
+                        Text("\(split.kilometer)").frame(maxWidth: .infinity, alignment: .leading)
+                        Text(split.clock).frame(maxWidth: .infinity)
+                        Text(splitVariation(split)).frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .padding(24)
-                    HStack {
-                        Text("Kilómetro").frame(maxWidth: .infinity, alignment: .leading)
-                        Text("Ritmo").frame(maxWidth: .infinity)
-                        Text("Variación").frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(OG.label2).padding(24)
+                    .font(.title3.monospacedDigit())
+                    .foregroundStyle(OG.label)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 16)
                     Divider().padding(.horizontal, 24)
-                    ScrollView {
-                        if recorder.completedKilometerSplits.isEmpty {
-                            ContentUnavailableView("Aún no hay parciales", systemImage: "figure.run",
-                                description: Text("El primer parcial aparecerá al completar un kilómetro."))
-                                .padding(.top, 64)
-                        } else {
-                            LazyVStack(spacing: 0) {
-                                ForEach(recorder.completedKilometerSplits) { split in
-                                    HStack {
-                                        Text("\(split.kilometer)").frame(maxWidth: .infinity, alignment: .leading)
-                                        Text(split.clock).frame(maxWidth: .infinity)
-                                        Text(splitVariation(split)).frame(maxWidth: .infinity, alignment: .trailing)
-                                    }
-                                    .font(.title3.monospacedDigit())
-                                    .padding(20)
-                                    Divider()
-                                }
-                            }
-                        }
-                    }
-                    Button { showSplits = false } label: {
-                        Label(formattedTime(recorder.duration(at: tick.date)), systemImage: "arrow.left")
-                            .font(.title3.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(.black).padding(.horizontal, 26)
-                            .frame(minHeight: 56).background(OG.accent, in: Capsule())
-                    }
-                    .padding(.bottom, 24)
                 }
-                .background(OG.bg.ignoresSafeArea())
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
     }
 
     private func splitVariation(_ split: LiveKmSplit) -> String {

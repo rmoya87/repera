@@ -8,7 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +33,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -308,12 +309,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSportPicker by remember { mutableStateOf(false) }
     var showStartOptions by remember(accountId) { mutableStateOf(false) }
-    var showSplits by remember(accountId) { mutableStateOf(false) }
     var confirmFinish by remember(accountId) { mutableStateOf(false) }
     var sportQuery by remember {mutableStateOf("")}
     var showingMetrics by remember(accountId) {
         mutableStateOf(true)
     }
+    /** Pager en vivo: 0 opciones · 1 centro · 2 opuesto (si GPS). */
+    var liveSessionPage by remember(accountId) { mutableIntStateOf(1) }
     var touchLocked by remember(accountId, state.gpsSessionID) { mutableStateOf(false) }
     val touchLockAvailable = state.phase == LiveActivityState.Phase.RECORDING ||
         state.phase == LiveActivityState.Phase.PAUSED
@@ -330,8 +332,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     BackHandler(enabled = touchLocked) { /* La flecha física tampoco cierra la sesión accidentalmente. */ }
     LaunchedEffect(state.phase) {
-        if (!touchLockAvailable) { touchLocked = false; showSplits = false }
-        if (state.phase == LiveActivityState.Phase.RECORDING) showStartOptions = false
+        if (!touchLockAvailable) { touchLocked = false; liveSessionPage = 1 }
+        if (state.phase == LiveActivityState.Phase.RECORDING) {
+            showStartOptions = false
+            liveSessionPage = 1
+        }
+    }
+    LaunchedEffect(showingMetrics) {
+        if (touchLockAvailable) liveSessionPage = 1
     }
     DisposableEffect(touchLocked, touchLockAvailable, rootView) {
         val keepAwake = touchLocked && touchLockAvailable
@@ -680,67 +688,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         }
         return
     }
-    if (showSplits && state.phase != LiveActivityState.Phase.REVIEW) {
-        BackHandler { showSplits = false }
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("Parciales", style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.weight(1f))
-                ReperaToolbarGlassIconButton(
-                    icon = Icons.Outlined.Close,
-                    contentDescription = "Cerrar",
-                    onClick = { showSplits = false }
-                )
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 30.dp)) {
-                Text("Kilómetro", modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Ritmo", modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Variación", modifier = Modifier.weight(1f), textAlign = TextAlign.End,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                if (state.splitsSeconds.isEmpty()) {
-                    ReperaEmptyState(
-                        title = "Aún no hay parciales",
-                        subtitle = "El primer parcial aparecerá al completar un kilómetro."
-                    )
-                } else state.splitsSeconds.forEachIndexed { index, seconds ->
-                    val pace = seconds.roundToInt().coerceAtLeast(0)
-                    val previous = state.splitsSeconds.getOrNull(index - 1)
-                    val delta = previous?.let { (seconds - it).roundToInt() }
-                    val variation = when {
-                        delta == null -> "—"
-                        delta == 0 -> "±0:00"
-                        else -> "${if (delta < 0) "−" else "+"}${"%d:%02d".format(
-                            kotlin.math.abs(delta) / 60, kotlin.math.abs(delta) % 60)}"
-                    }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 17.dp)) {
-                        Text("${index + 1}", modifier = Modifier.weight(1f))
-                        Text("%d:%02d".format(pace / 60, pace % 60),
-                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                        Text(variation, modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.End)
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-            }
-            Button(onClick = { showSplits = false },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-                    .padding(bottom = bottomChromePad).heightIn(min = 56.dp)) {
-                Icon(Icons.Outlined.Close, null)
-                Spacer(Modifier.width(10.dp))
-                Text(LiveActivityClock.format(state.durationSeconds(nowTick)))
-            }
-        }
-        return
-    }
     pendingDeleteRoute?.let { route ->
         AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
             title = { Text(stringResource(R.string.live_activity_screen_eliminar_ruta)) }, text = { Text(stringResource(R.string.live_activity_screen_se_borrara_la_ruta_guardada_tus)) },
@@ -811,7 +758,194 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             point.latitude, point.longitude, state.sport.id
         ).onSuccess { runtime.updateLiveConditions(it) }
     }
-    // El mapa permanece compuesto con la hoja de rutas encima (no se desmonta).
+    // Sesión en vivo: pager Opciones | Centro | Opuesto (paridad iOS liveSessionPager).
+    if (sessionActive && !showRoutes && state.phase != LiveActivityState.Phase.REVIEW) {
+        val pageCount = if (state.sport.usesGPS) 3 else 2
+        val pagerState = rememberPagerState(
+            initialPage = liveSessionPage.coerceIn(0, pageCount - 1),
+            pageCount = { pageCount }
+        )
+        LaunchedEffect(pagerState.currentPage) { liveSessionPage = pagerState.currentPage }
+        LaunchedEffect(liveSessionPage, pageCount) {
+            val target = liveSessionPage.coerceIn(0, pageCount - 1)
+            if (pagerState.currentPage != target) {
+                pagerState.scrollToPage(target)
+            }
+        }
+        val centerIsMetrics = showingMetrics || !state.sport.usesGPS
+        Column(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(bottom = bottomChromePad)
+                .onGloballyPositioned { lockContainer = it.boundsInRoot() }
+                .testTag("live_activity_screen")
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                userScrollEnabled = !touchLocked,
+                beyondViewportPageCount = 0
+            ) { page ->
+                when (page) {
+                    0 -> LiveSessionOptionsPane(
+                        audioEnabled = runtime.spokenGuidanceEnabled,
+                        showMap = !showingMetrics,
+                        hasGPS = state.sport.usesGPS,
+                        routeTitle = routes.firstOrNull { it.id == state.selectedRouteID }?.title,
+                        onAudio = { runtime.toggleSpokenGuidance() },
+                        onMap = { showingMetrics = !it },
+                        onLock = {
+                            liveSessionPage = 1
+                            lockTouch()
+                        }
+                    )
+                    1 -> if (centerIsMetrics) {
+                        LiveSessionMetricsPane(
+                            state = state,
+                            nowTick = nowTick,
+                            displayedHeartRateBpm = displayedHeartRateBpm,
+                            maxHeartRateBpm = maxHeartRateBpm,
+                            includeSplits = state.sport.usesGPS
+                        )
+                    } else {
+                        LiveSessionMapPane(
+                            state = state,
+                            routes = routes,
+                            previewPosition = previewPosition,
+                            effectiveNavigationMode = effectiveNavigationMode,
+                            canNavigate3D = canNavigate3D,
+                            followingMap = followingMap,
+                            recenterToken = recenterToken,
+                            compassHeading = compassHeading,
+                            currentMeasuredHeading = currentMeasuredHeading,
+                            lastReliableHeading = lastReliableHeading,
+                            nowTick = nowTick,
+                            onMapRendered = onMapRendered,
+                            onToggle3D = {
+                                if (checking3DAccess) Unit
+                                else if (canNavigate3D) {
+                                    setNavigationMode(!navigationMode)
+                                    followingMap = true
+                                    recenterToken++
+                                } else {
+                                    checking3DAccess = true
+                                    scope.launch {
+                                        try {
+                                            subscriptions?.refreshEntitlementsForFeatureAction()
+                                            when {
+                                                subscriptions?.policy?.canUse3DNavigation == true -> {
+                                                    setNavigationMode(true)
+                                                    followingMap = true
+                                                    recenterToken++
+                                                }
+                                                else -> show3DAccessVerificationError = true
+                                            }
+                                        } catch (_: Exception) {
+                                            show3DAccessVerificationError = true
+                                        } finally {
+                                            checking3DAccess = false
+                                        }
+                                    }
+                                }
+                            },
+                            onCameraGesture = {
+                                followingMap = false
+                                lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
+                            }
+                        )
+                    }
+                    else -> if (centerIsMetrics) {
+                        LiveSessionMapPane(
+                            state = state,
+                            routes = routes,
+                            previewPosition = previewPosition,
+                            effectiveNavigationMode = effectiveNavigationMode,
+                            canNavigate3D = canNavigate3D,
+                            followingMap = followingMap,
+                            recenterToken = recenterToken,
+                            compassHeading = compassHeading,
+                            currentMeasuredHeading = currentMeasuredHeading,
+                            lastReliableHeading = lastReliableHeading,
+                            nowTick = nowTick,
+                            onMapRendered = onMapRendered,
+                            onToggle3D = {
+                                if (canNavigate3D) {
+                                    setNavigationMode(!navigationMode)
+                                    followingMap = true
+                                    recenterToken++
+                                }
+                            },
+                            onCameraGesture = {
+                                followingMap = false
+                                lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
+                            }
+                        )
+                    } else {
+                        LiveSessionMetricsPane(
+                            state = state,
+                            nowTick = nowTick,
+                            displayedHeartRateBpm = displayedHeartRateBpm,
+                            maxHeartRateBpm = maxHeartRateBpm,
+                            includeSplits = true
+                        )
+                    }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(pageCount) { index ->
+                    Box(
+                        Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(if (index == pagerState.currentPage) 9.dp else 7.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (index == pagerState.currentPage) brandGreen
+                                else MaterialTheme.colorScheme.outlineVariant
+                            )
+                    )
+                }
+            }
+            LiveStartToolbar(
+                sportIcon = state.sport.materialIcon,
+                sportTitle = state.sport.title,
+                phase = state.phase,
+                countdown = startCountdown,
+                hasActiveWorkout = hasActiveWorkout,
+                showOptions = false,
+                audioEnabled = runtime.spokenGuidanceEnabled,
+                showMap = !showingMetrics,
+                hasGPS = state.sport.usesGPS,
+                locked = touchLocked,
+                onShowOptions = { open ->
+                    if (open) scope.launch { pagerState.animateScrollToPage(0) }
+                },
+                onAudio = { runtime.toggleSpokenGuidance() },
+                onMap = { showingMetrics = !it },
+                onSport = { },
+                onRoute = { },
+                onPrimary = {
+                    when (state.phase) {
+                        LiveActivityState.Phase.RECORDING -> runtime.pause()
+                        LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
+                        else -> Unit
+                    }
+                },
+                onFinish = { confirmFinish = true },
+                onLock = { lockTouch() },
+                onPrimaryPositioned = { lockTarget = it }
+            )
+        }
+        if (touchLocked) {
+            LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
+        }
+        return
+    }
+
+    // Idle: mapa o métricas según preferencia (sin pager).
     if (state.sport.usesGPS && state.phase != LiveActivityState.Phase.REVIEW && !showingMetrics) {
         val planned = routes.firstOrNull { it.id == state.selectedRouteID }
         // Una captura puntual no se convierte en ubicación viva por quedarse
@@ -1095,41 +1229,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         Box(
             Modifier.fillMaxSize()
                 .onGloballyPositioned { lockContainer = it.boundsInRoot() }
-                .pointerInput(touchLocked, state.phase) {
-                    if (!touchLocked) {
-                        var verticalDistance = 0f
-                        detectVerticalDragGestures(
-                            onDragStart = { verticalDistance = 0f },
-                            onVerticalDrag = { change, delta ->
-                                verticalDistance += delta
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                // Scroll hacia arriba → parciales (paridad iOS).
-                                if (sessionActive && verticalDistance < -120f) showSplits = true
-                                verticalDistance = 0f
-                            },
-                            onDragCancel = { verticalDistance = 0f }
-                        )
-                    }
-                }
-                .pointerInput(touchLocked) {
-                    if (!touchLocked) {
-                        var horizontalDistance = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { horizontalDistance = 0f },
-                            onHorizontalDrag = { change, delta ->
-                                horizontalDistance += delta
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                if (horizontalDistance < -70f) showingMetrics = false
-                                horizontalDistance = 0f
-                            },
-                            onDragCancel = { horizontalDistance = 0f }
-                        )
-                    }
-                }
         ) {
         Column(
             Modifier
@@ -1473,6 +1572,285 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
  * y superpone un candado en la misma posición del control original.
  * Mantener pulsado un segundo desbloquea; la acción accesible permite TalkBack.
  */
+@Composable
+private fun LiveSessionOptionsPane(
+    audioEnabled: Boolean,
+    showMap: Boolean,
+    hasGPS: Boolean,
+    routeTitle: String?,
+    onAudio: () -> Unit,
+    onMap: (Boolean) -> Unit,
+    onLock: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Opciones", style = MaterialTheme.typography.headlineSmall)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.VolumeUp, null)
+            Spacer(Modifier.width(12.dp))
+            Text("Audio", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Switch(checked = audioEnabled, onCheckedChange = { onAudio() })
+        }
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.Map, null)
+            Spacer(Modifier.width(12.dp))
+            Text("Mapa", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Switch(checked = hasGPS && showMap, enabled = hasGPS, onCheckedChange = onMap)
+        }
+        Text(
+            routeTitle ?: "Sin ruta cargada",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        TextButton(onClick = onLock, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) {
+            Icon(Icons.Outlined.Lock, null)
+            Spacer(Modifier.width(12.dp))
+            Text("Bloquear pantalla", style = MaterialTheme.typography.titleMedium)
+        }
+    }
+}
+
+@Composable
+private fun LiveSessionMetricsPane(
+    state: LiveActivityState,
+    nowTick: Long,
+    displayedHeartRateBpm: Int?,
+    maxHeartRateBpm: Int,
+    includeSplits: Boolean
+) {
+    val durationText = LiveActivityClock.format(state.durationSeconds(nowTick))
+    val average = state.averageSpeedKmh(nowTick)
+    val paceOrSpeed = when {
+        average == null || average <= 0.1 ->
+            if (state.sport.displaysSpeed) "—" else "—:—"
+        state.sport.displaysSpeed -> ReperaNumberFormat.decimal(average)
+        else -> {
+            val secs = (3600.0 / average).toInt()
+            if (secs >= 3600) "—:—" else "%d:%02d".format(java.util.Locale.ROOT, secs / 60, secs % 60)
+        }
+    }
+    val paceLabel = if (state.sport.displaysSpeed)
+        "Velocidad media (km/h)" else "Ritmo medio (min/km)"
+    val km = state.distanceMeters / 1000.0
+    val scroll = rememberScrollState()
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+            .padding(bottom = 12.dp)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .heightIn(min = 54.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(state.sport.materialIcon, null, tint = brandGreen, modifier = Modifier.size(28.dp))
+            Text(
+                state.sport.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(
+            durationText,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold, fontSize = 68.sp, letterSpacing = 0.sp
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Text(
+            stringResource(R.string.live_activity_screen_duracion),
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        LiveKilometerSplitSummary(
+            state = state,
+            nowTick = nowTick,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            paceOrSpeed,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold, fontSize = 78.sp, letterSpacing = 0.sp
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Text(
+            paceLabel,
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            ReperaNumberFormat.decimal(km),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.displayMedium.copy(
+                fontWeight = FontWeight.SemiBold, fontSize = 55.sp, letterSpacing = 0.sp
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Text(
+            stringResource(R.string.live_activity_screen_distancia_km),
+            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        LiveHeartRateZoneBar(
+            bpm = displayedHeartRateBpm,
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
+            estimatedMaxBpm = maxHeartRateBpm.toDouble()
+        )
+        // Primera pantalla ~viewport; al seguir scrolleando aparecen parciales.
+        Spacer(Modifier.height(48.dp))
+        if (includeSplits) {
+            Text(
+                "Parciales",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                Text("Kilómetro", modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Ritmo", modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Variación", modifier = Modifier.weight(1f), textAlign = TextAlign.End,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(
+                Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            if (state.splitsSeconds.isEmpty()) {
+                ReperaEmptyState(
+                    title = "Aún no hay parciales",
+                    subtitle = "El primer parcial aparecerá al completar un kilómetro."
+                )
+            } else {
+                state.splitsSeconds.forEachIndexed { index, seconds ->
+                    val pace = seconds.roundToInt().coerceAtLeast(0)
+                    val previous = state.splitsSeconds.getOrNull(index - 1)
+                    val delta = previous?.let { (seconds - it).roundToInt() }
+                    val variation = when {
+                        delta == null -> "—"
+                        delta == 0 -> "±0:00"
+                        else -> "${if (delta < 0) "−" else "+"}${"%d:%02d".format(
+                            kotlin.math.abs(delta) / 60, kotlin.math.abs(delta) % 60)}"
+                    }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+                        Text("${index + 1}", modifier = Modifier.weight(1f))
+                        Text(
+                            "%d:%02d".format(pace / 60, pace % 60),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(variation, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                    }
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 24.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun LiveSessionMapPane(
+    state: LiveActivityState,
+    routes: List<LiveSavedRoute>,
+    previewPosition: dev.repera.domain.WorkoutRoutePoint?,
+    effectiveNavigationMode: Boolean,
+    canNavigate3D: Boolean,
+    followingMap: Boolean,
+    recenterToken: Int,
+    compassHeading: Double?,
+    currentMeasuredHeading: Double?,
+    lastReliableHeading: Double?,
+    nowTick: Long,
+    onMapRendered: (() -> Unit)?,
+    onToggle3D: () -> Unit,
+    onCameraGesture: () -> Unit
+) {
+    val planned = routes.firstOrNull { it.id == state.selectedRouteID }
+    val freshPosition = previewPosition?.takeIf {
+        System.currentTimeMillis() - it.recordedAtEpochMs < 15_000
+    }
+    Box(Modifier.fillMaxSize()) {
+        RouteMapView(
+            if (state.points.isNotEmpty()) state.points else planned?.points ?: listOfNotNull(freshPosition),
+            isInteractive = true,
+            modifier = Modifier.fillMaxSize(),
+            plannedRoute = state.points.size < 2,
+            waterSport = state.sport.isWaterSport,
+            paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
+            controlsOverlay = true,
+            plannedPoints = if (state.points.isNotEmpty()) planned?.points.orEmpty() else emptyList(),
+            onMapRendered = onMapRendered,
+            navigationMode = effectiveNavigationMode,
+            cameraCenter = if (followingMap) state.points.lastOrNull() ?: freshPosition else null,
+            cameraTrace = state.points,
+            userPosition = state.points.lastOrNull() ?: freshPosition,
+            userHeadingDegrees = currentMeasuredHeading ?: lastReliableHeading ?: compassHeading,
+            recenterToken = recenterToken,
+            onCameraGesture = onCameraGesture
+        )
+        Column(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 6.dp, end = 16.dp)
+        ) {
+            LiveMapCircleFab(
+                icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
+                label = when {
+                    effectiveNavigationMode -> "Cambiar a vista 2D"
+                    canNavigate3D -> "Cambiar a vista 3D"
+                    else -> "Desbloquear navegación 3D con Repera Pro"
+                },
+                onClick = onToggle3D
+            )
+        }
+        Surface(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(12.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+        ) {
+            LiveMapMetricStrip(state = state, nowTick = nowTick)
+        }
+    }
+}
+
 @Composable
 private fun LiveScreenTouchBlocker(
     target: Rect?,

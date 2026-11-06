@@ -1,12 +1,12 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-06 (Comenzar glass, tab bar en sesión, gestos parciales/mapa).
+Última actualización: 2026-11-06 (Comenzar pager sesión + parciales en scroll).
 
 ## Comenzar: flujo nativo y propiedad de la sesión (2026-11-06)
 
-- iOS/iPadOS: `LiveActivityView.swift` comparte `bottomControls` (tres botones glass sueltos) en Mapa y Métricas. Al pasar a `.recording`/`.paused` oculta la tab bar nativa (animación) y recolocan cabecera/overlays. Confirmación de finalizar = `OGConfirmSheet` fitted. Mapa: `.mapControls {}` + `.mapControlVisibility(.hidden)` (sin brújula del sistema); solo FAB 2D/3D. Gestos métricas: swipe up → parciales; swipe left → mapa.
-- Android: `LiveStartToolbar.kt` (glass Material, X en Opciones, countdown grande) en Mapa/Métricas/indoor; `ReperaMobileScreen` oculta `ReperaFloatingTabBar` en Comenzar activo (misma regla que bloqueo). `ReperaConfirmSheet` al finalizar. FABs de mapa solo 2D/3D; gestos vertical/horizontal alineados a iOS.
-- Bloqueo: anclaje del Play + candado **sin** nuevos sensores. `TimerScreenAwake.liveLock` / `LiveActivityTouchLockState`. Relojes sin cambio de contrato Health.
+- iOS/iPadOS: en `.recording`/`.paused`, `liveSessionPager` (`TabView` page + dots) = Opciones | Centro | Opuesto. Centro = métricas o mapa según `showingMetrics`; parciales = segundo bloque del `ScrollView` de métricas (`liveSplitsSection`), no `fullScreenCover`. `bottomControls` fijos bajo el pager. Idle sigue sin pager. Mapa: controles de sistema ocultos; solo 2D/3D.
+- Android: misma semántica con `HorizontalPager` + indicadores; `LiveSessionMetricsPane` / `LiveSessionMapPane` / `LiveSessionOptionsPane`. Tab bar oculta en sesión. Finalizar = `ReperaConfirmSheet`.
+- Bloqueo: Play + candado 1 s; sin sensores nuevos. Relojes sin cambio de contrato Health.
 
 ## Hub Progreso — chips (2026-11-04)
 

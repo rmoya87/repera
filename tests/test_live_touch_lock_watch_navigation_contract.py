@@ -42,7 +42,7 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("rootView.keepScreenOn = false", android)
         self.assertIn("PointerEventPass.Initial", android)
         self.assertIn("withTimeoutOrNull(1_000L)", android)
-        self.assertIn("if (!touchLockAvailable) { touchLocked = false; showSplits = false }", android)
+        self.assertIn("if (!touchLockAvailable) { touchLocked = false; liveSessionPage = 1 }", android)
         self.assertIn("Icons.Outlined.Lock", android)
         self.assertIn(".size(94.dp)", android)
         self.assertIn("onPrimaryPositioned = { lockTarget = it }", android)

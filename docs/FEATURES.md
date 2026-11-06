@@ -1,14 +1,14 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-06 (Comenzar: glass suelto, tab bar al iniciar, parciales↑, mapa↔, confirmación finalizar).
+Última actualización: 2026-11-06 (Comenzar: pager Opciones|Centro|Opuesto + parciales en scroll).
 
 ## Comenzar — nueva experiencia de inicio y sesión (06/11/2026)
 
-- **Preparación en iOS/iPadOS y Android:** la pantalla inicia en **Métricas**. Tres controles **Liquid Glass sueltos** (sin recuadro contenedor): **Opciones** (izquierda), **Play verde glass** (centro; números de cuenta atrás al tamaño del botón) y **actividad** (derecha). El icono derecho abre el selector nativo desde abajo; la última actividad se conserva.
-- **Opciones:** se cierran con **X** (como el resto de modales). Audio / Mapa / Cargar ruta; Mis rutas a página completa **sin** subtítulo de estado iCloud/local.
-- **Al iniciar:** la tab bar principal se oculta con animación hacia abajo y se recolocan cabecera/controles; el círculo central pasa a **Pausa amarilla glass** y, al pausar, a **Play verde**. La **bandera** pide confirmación en sheet inferior ajustada al contenido (`OGConfirmSheet` / `ReperaConfirmSheet`) antes de finalizar. Sin cambio de deporte a mitad de sesión.
-- **Gestos Métricas (GPS):** scroll **hacia arriba** abre **Parciales** (Kilómetro / Ritmo / Variación); swipe **izquierda** abre el mapa; desde mapa, swipe **derecha** vuelve a métricas. El mapa solo muestra **2D/3D** arriba a la derecha (sin brújula nativa que pise hora/batería; rumbo en la flecha «Tú»). Strip compacto de duración/ritmo/distancia/parcial; FC en Métricas.
-- **Bloqueo:** desde Opciones durante una sesión. Candado sobre el Play, pulsación **1 s** para desbloquear; tab bar también oculta. Relojes no se rediseñan en esta entrega.
+- **Preparación:** inicia en **Métricas**. Tres controles **Liquid Glass sueltos**: Opciones / Play verde / actividad. Mis rutas a página completa sin subtítulo iCloud.
+- **En vivo (GPS):** pager horizontal con **puntos** — página 0 **Opciones**, página 1 **centro** (métricas o mapa según preferencia), página 2 **opuesto**. Swipe izquierda→derecha desde el centro abre Opciones; derecha→izquierda abre el opuesto. Controles Play/Pausa/Finalizar fijos debajo.
+- **Parciales:** en la página de métricas, **scroll vertical** en la misma pantalla (no modal a pantalla completa): la primera vista son las métricas; al subir aparece Kilómetro / Ritmo / Variación.
+- **Mapa:** solo FAB **2D/3D** arriba a la derecha; sin brújula nativa sobre status bar. Confirmación de finalizar = sheet fitted. Tab bar oculta al grabar.
+- **Bloqueo:** desde Opciones; candado 1 s. Relojes sin rediseño en esta entrega.
 
 ## Comenzar — bloqueo táctil y navegación en relojes (05/11/2026)
 
