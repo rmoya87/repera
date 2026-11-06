@@ -1,10 +1,13 @@
 import Foundation
 import ReperaDomain
 import StoreKit
+import os
 
 /// Precios y compras desde StoreKit 2 / App Store Connect (sin hardcodear importes).
 final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendable {
     var isConfigured: Bool { true }
+
+    private let logger = Logger(subsystem: "com.app.repera", category: "StoreKit")
 
     private let productIDs: [String] = [
         CommercialConfig.annualProductID,
@@ -70,20 +73,54 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
     }
 
     func restore() async throws -> CommercialSnapshot {
-        try await AppStore.sync()
-        let snap = await snapshotFromCurrentEntitlements()
-        if !snap.grantsProAccess {
-            throw EntitlementError.restoreFailed("No se encontró ninguna suscripción para restaurar.")
+        // StoreKit mantiene los derechos locales automáticamente, también en
+        // TestFlight. Una cuenta con Pro verificado no debe depender del sync.
+        let current = await snapshotFromCurrentEntitlements()
+        if current.grantsProAccess { return current }
+
+        // Solo una acción explícita del usuario permite forzar AppStore.sync().
+        do {
+            try await AppStore.sync()
+        } catch {
+            // La sincronización puede fallar en Sandbox aunque aparezca una
+            // transacción firmada válida mientras esperábamos la respuesta.
+            let recovered = await snapshotFromCurrentEntitlements()
+            if recovered.grantsProAccess { return recovered }
+
+            let nsError = error as NSError
+            logger.error("AppStore.sync failed: domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public)")
+            throw EntitlementError.restoreFailed(
+                "Apple no ha podido sincronizar las compras (código \(nsError.code)). " +
+                "En TestFlight, comprueba la cuenta Sandbox y vuelve a intentarlo."
+            )
         }
-        return snap
+
+        let restored = await snapshotFromCurrentEntitlements()
+        guard restored.grantsProAccess else {
+            throw EntitlementError.restoreFailed(
+                "Apple no ha encontrado ninguna suscripción Pro activa en esta cuenta de prueba. " +
+                "Las suscripciones de TestFlight pueden caducar después de sus renovaciones aceleradas."
+            )
+        }
+        return restored
     }
 
     func offerings() async throws -> CommercialOfferings {
-        let products = try await Product.products(for: Set(productIDs))
+        let products: [Product]
+        do {
+            products = try await Product.products(for: Set(productIDs))
+        } catch {
+            let nsError = error as NSError
+            logger.error("Product.products failed: domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public)")
+            throw EntitlementError.productUnavailable
+        }
         guard !products.isEmpty else {
+            // Un catálogo vacío no demuestra que la suscripción haya vencido:
+            // suele requerir revisar productos/territorios en App Store Connect.
             return CommercialOfferings(
                 packages: [],
-                unavailableReason: "No hay suscripciones disponibles en este momento. Vuelve a intentarlo."
+                unavailableReason: "Apple no está ofreciendo los planes de Repera. " +
+                    "Comprueba su disponibilidad en App Store Connect y vuelve a intentarlo."
             )
         }
         let packages = products.compactMap(Self.mapProduct(_:))

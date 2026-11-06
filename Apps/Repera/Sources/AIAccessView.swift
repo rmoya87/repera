@@ -174,6 +174,9 @@ struct AIAccessView: View {
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
+    @State private var hasLoadedConnections = false
+    @State private var isLoadingConnections = false
+    @State private var connectionsError: String?
 
     var body: some View {
         Form {
@@ -377,7 +380,11 @@ struct AIAccessView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                Task { await refreshTokens(); await refreshProviders() }
+                Task {
+                    await refreshTokens()
+                    await refreshProviders()
+                    _ = await changeRequests.syncCustomExercises(store: store)
+                }
             }
         }
         .onChange(of: auth.isConnected) { _, connected in
@@ -388,6 +395,8 @@ struct AIAccessView: View {
                 }
             } else {
                 tokens=[]
+                hasLoadedConnections = false
+                connectionsError = nil
                 changeRequests.clearSession()
             }
         }
@@ -471,8 +480,22 @@ struct AIAccessView: View {
 
     private var connectionsSection: some View {
         Section {
-            if tokens.isEmpty {
+            if !hasLoadedConnections && isLoadingConnections {
+                ProgressView("Comprobando conexiones…")
+                    .font(.footnote)
+            } else if let connectionsError {
+                Label(connectionsError, systemImage: "wifi.exclamationmark")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("Reintentar") { Task { await refreshTokens() } }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    .disabled(isLoadingConnections)
+            } else if hasLoadedConnections && tokens.isEmpty {
                 Text("Aún no tienes asistentes conectados.").foregroundStyle(.secondary)
+            } else if !auth.isConnected {
+                Text("Inicia sesión para consultar tus conexiones.")
+                    .foregroundStyle(.secondary)
             }
             ForEach(tokens) { token in
                 VStack(alignment: .leading, spacing: 8) {
@@ -548,17 +571,23 @@ struct AIAccessView: View {
                 .sorted { ["chatgpt", "claude", "grok"].firstIndex(of: $0.id)! < ["chatgpt", "claude", "grok"].firstIndex(of: $1.id)! }
             catalogError = nil
         } catch {
-            providers = providers.map { AIConnectionProvider(id: $0.id, name: $0.name, directoryURL: nil) }
-            catalogError = "No se pudo comprobar la disponibilidad de las conexiones."
+            // Conservar la última configuración conocida ante un fallo temporal.
+            catalogError = "No se pudo actualizar el catálogo de asistentes."
         }
     }
 
     @MainActor
     private func refreshTokens() async {
         guard auth.isConnected, let client = auth.apiClient else { return }
+        guard !isLoadingConnections else { return }
+        isLoadingConnections = true
+        defer { isLoadingConnections = false }
         do {
             let session = try await client.auth.session
-            guard !session.isExpired else { return }
+            guard !session.isExpired else {
+                connectionsError = "Tu sesión ha caducado. Vuelve a iniciar sesión en Repera."
+                return
+            }
             let items: [AIAccessTokenInfo]
             do {
                 items = try await client.from("ai_access_tokens")
@@ -578,15 +607,17 @@ struct AIAccessView: View {
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
             let previouslyVerified = Set(tokens.filter(\.hasConnected).map(\.id))
             tokens = items
+            hasLoadedConnections = true
+            connectionsError = nil
             for token in items where token.hasConnected && !previouslyVerified.contains(token.id) {
                 ReperaAnalytics.track(.aiConnectionVerified, parameters: [
                     "feature_area": "ai",
                     "result": "success"
                 ])
             }
-            errorMessage = nil
         } catch {
-            errorMessage = "No se pudieron cargar las conexiones: \(error.localizedDescription)"
+            // Un error de red NO equivale a una lista vacía.
+            connectionsError = "No se han podido consultar tus conexiones. Vuelve a intentarlo."
         }
     }
 

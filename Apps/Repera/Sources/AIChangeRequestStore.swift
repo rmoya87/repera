@@ -188,7 +188,12 @@ final class AIChangeRequestStore {
                     .eq("exercise_id",value:remote.exerciseId.uuidString).execute()
             }
             return client.auth.currentSession?.user.id==id
-        } catch {lastError="Catálogo personalizado pendiente: \(error.localizedDescription)";return false}
+        } catch {
+            // La réplica del catálogo es best-effort e idempotente.
+            // No ensuciar la pantalla de IA con un error de red de fondo:
+            // el siguiente primer plano volverá a intentarlo.
+            return false
+        }
     }
 
     func decide(_ request:Change,approve:Bool,store:ReperaStore) async -> Bool {

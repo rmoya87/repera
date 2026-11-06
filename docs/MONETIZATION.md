@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-11-04 (StoreKit / Play + Pro patrocinado B2B; sin RevenueCat)
+Última actualización: 2026-11-06 (TestFlight Sandbox: restauración, catálogo y errores de StoreKit)
 
 ## 1. Arquitectura
 
@@ -65,7 +65,9 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 
 - `StoreKitEntitlementProvider` es el único proveedor de producción.
 - Compra / restauración / `Transaction.updates` con `finish` solo en compras directas StoreKit.
-- Sin productos ASC → paywall muestra indisponibilidad; nunca concede Pro por UI.
+- Sin productos ASC → paywall muestra indisponibilidad y permite **Reintentar**; nunca concede Pro por UI.
+- Si hay una compra Apple verificada, el paywall muestra el acceso Pro actual en vez de pedir comprar otra vez.
+- Un catálogo vacío no equivale a una suscripción caducada: los productos se validan de forma independiente de los derechos firmados.
 - Debug: sección «Debug Pro» en Ajustes (`#if DEBUG`).
 
 ## 5. App Store Connect / Play Console
@@ -73,11 +75,15 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 1. Suscripciones con los IDs de la tabla §3.
 2. Paid Applications Agreement + impuestos / banking.
 3. Sandbox testers (iOS) / license testers (Play).
-4. Opcional: archivo `.storekit` en el scheme Xcode.
+4. Opcional: archivo `.storekit` en el scheme Xcode **solo para pruebas locales**; TestFlight consulta App Store Connect/Sandbox y no ese archivo.
+5. TestFlight: confirmar que los dos IDs están disponibles para el bundle `com.app.repera`, con localización/precios/territorios y acuerdos al día. La suscripción de prueba se renueva diariamente hasta seis veces y posteriormente expira.
+6. Si `Product.products(for:)` devuelve `[]`, comprobar App Store Connect y el tester Sandbox: ningún reintento en la app puede fabricar productos que Apple no ofrece.
 
 ## 6. Restaurar / gestionar
 
-- Paywall y Ajustes → «Restaurar compras» (`AppStore.sync()` / Play restore).
+- Paywall y Ajustes → «Restaurar compras». iOS consulta **primero** `Transaction.currentEntitlements` (firmadas por Apple). Solo si no encuentra acceso, y únicamente tras tocar Restaurar, llama a `AppStore.sync()`; si falla, vuelve a consultar derechos antes de informar del error. Un `SKInternalErrorDomain` como el código 21 se presenta en español con el código técnico, sin interpretar que la suscripción ha caducado. Android conserva su restore propio.
+- Un error de `AppStore.sync()` en TestFlight no justifica asignar Pro sin comprobación de Apple; puede requerir revisar la sesión Sandbox en el dispositivo o App Store Connect.
+- Probar en un iPhone TestFlight: cuenta con Pro vigente, prueba caducada, usuario sin compra, StoreKit indisponible, catálogo vacío, segundo intento al recuperar la red. Confirmar que no se borran entrenos ni caché.
 - «Gestionar suscripción» → URL de suscripciones de Apple / Play.
 
 ## 7. Offline
