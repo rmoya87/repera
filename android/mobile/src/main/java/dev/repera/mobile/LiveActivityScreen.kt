@@ -1004,9 +1004,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             ) {
                 Column {
                     if (state.phase != LiveActivityState.Phase.IDLE) {
-                        LiveMapMetricStrip(state = state, nowTick = nowTick,
-                            bpm = displayedHeartRateBpm, expanded = false,
-                            maxBpm = maxHeartRateBpm.toDouble())
+                        LiveMapMetricStrip(state = state, nowTick = nowTick)
                     }
                     LiveStartToolbar(
                     sportIcon = state.sport.materialIcon,
@@ -1896,8 +1894,7 @@ private fun LiveKilometerSplitSummary(
 
 /** Panel compacto fijo: no admite expansión de métricas. */
 @Composable
-private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int?,
-    expanded: Boolean, maxBpm: Double) {
+private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long) {
     val durationSec = state.durationSeconds(nowTick)
     val durationText = LiveActivityClock.format(durationSec)
     val average = state.averageSpeedKmh(nowTick)
@@ -1929,26 +1926,7 @@ private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long, bpm: Int
                 Modifier.weight(1f)
             )
         }
-        if (expanded && state.sport.tracksElevation && state.hasElevationSamples) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "+${state.elevationGainMeters.toInt()} m ascenso",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "−${state.elevationLossMeters.toInt()} m descenso",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        if (expanded && bpm != null && bpm in 25..250) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             LiveHeartRateZoneBar(
                 bpm = bpm,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
