@@ -823,8 +823,9 @@ fun ReperaConfirmSheet(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (confirmDestructive) MaterialTheme.reperaColors.destructive
                         else brandGreen,
+                        // Verde Repera → texto negro (paridad OG.onAccent / iOS).
                         contentColor = if (confirmDestructive) MaterialTheme.reperaColors.onDestructive
-                        else MaterialTheme.colorScheme.onPrimary
+                        else Color.Black
                     ),
                     shape = RoundedCornerShape(999.dp)
                 ) {

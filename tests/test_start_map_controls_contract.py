@@ -61,13 +61,71 @@ class LiveStartControlsContractTests(unittest.TestCase):
         android = read(ANDROID / "LiveActivityScreen.kt")
         controls = read(ANDROID / "LiveStartToolbar.kt")
         self.assertIn(".fullScreenCover(isPresented: $routePicker", ios)
-        self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', ios)
-        self.assertIn('Label("Mapa", systemImage: "map")', ios)
-        self.assertIn("showOptions", controls)
-        self.assertIn('"Audio"', controls)
-        self.assertIn('"Mapa"', controls)
-        self.assertIn('"Cargar ruta"', controls)
-        self.assertIn("Icons.Outlined.Close", controls)
+        self.assertIn('Label("Audio", systemImage: "speaker.wave.2.fill")', ios)
+        self.assertIn('Label("Mapa", systemImage: "map.fill")', ios)
+        self.assertIn('Label("Cuenta atrás", systemImage: "timer")', ios)
+        self.assertIn('Label("Bloquear pantalla", systemImage: "lock.fill")', ios)
+        self.assertIn("idleOptionsSheet", ios)
+        self.assertIn("idleBottomChromePad", ios)
+        self.assertIn("10 + continueChromeLift", ios)
+        self.assertNotIn("88 + continueChromeLift", ios)
+        self.assertIn(".ogFittedSheet()", ios)
+        # Controles flotantes idle (no dentro del ScrollView de métricas).
+        self.assertIn(".overlay(alignment: .bottom)", ios)
+        metrics = ios.split("private var metricsView:", 1)[1].split(
+            "private func metricsPrimarySection", 1
+        )[0]
+        self.assertNotIn("bottomControls", metrics)
+        self.assertIn("metricsBottomChromeReserve", metrics)
+        self.assertIn(".scrollTargetBehavior(.paging)", metrics)
+        self.assertIn(".scrollTargetLayout()", metrics)
+        self.assertIn("geometry.size.height", metrics)
+        self.assertIn("BoxWithConstraints(", android)
+        self.assertIn(".height(pageHeight)", android)
+        primary = ios.split("private func metricsPrimarySection", 1)[1].split(
+            "private var metricsTrailingActions", 1
+        )[0]
+        self.assertIn("metricsKilometerSlot", primary)
+        self.assertIn("metricsHeartRateSlot", ios)
+        self.assertIn("includeLastReport: false", ios)
+        self.assertIn("canLockLiveScreen", ios.split("private var metricsKilometerSlot", 1)[1])
+        self.assertIn(".animation(", primary)
+        self.assertIn("easeOut(duration: 0.28)", ios)
+        self.assertIn(".padding(.top, OG.topBarTopInset)", ios)  # FAB mapa fijo idle/vivo
+        self.assertNotIn("canLockLiveScreen ? max(4, OG.topBarTopInset - 8)", ios)
+        pager = ios.split("private var liveSessionPager:", 1)[1].split(
+            "private var liveSessionPageCount", 1
+        )[0]
+        # Mapa vivo = mismo mapView detrás del TabView (no dentro de una página).
+        self.assertIn("if pageShowsMap {\n                mapView", pager)
+        self.assertIn("Color.clear", pager)
+        self.assertIn(".allowsHitTesting(!pageShowsMap)", pager)
+        self.assertIn("if (pageShowsMap) {\n                LiveSessionMapPane(", android)
+        android_idle_metrics = android.split(
+            "// Métricas GPS (LiveActivityView.metricsView)", 1
+        )[1].split("LiveStartToolbar(", 1)[0]
+        self.assertIn("AnimatedVisibility(", android_idle_metrics)
+        self.assertIn("expandVertically()", android)
+        android_session_metrics = android.split(
+            "private fun LiveSessionMetricsPane(", 1
+        )[1].split("private fun LiveScreenTouchBlocker(", 1)[0]
+        hero_block = android_session_metrics.split(
+            'stringResource(R.string.live_activity_screen_duracion)', 1
+        )[1].split("// Primera pantalla", 1)[0]
+        self.assertIn("LiveKilometerSplitSummary(", hero_block)
+        self.assertLess(
+            hero_block.index("LiveKilometerSplitSummary("),
+            android_session_metrics.index('"Parciales"'),
+        )
+        self.assertIn("onShowOptions", controls)
+        self.assertIn("live_options", controls)
+        self.assertIn("LiveIdleOptionsSheet(", android)
+        self.assertIn('"Audio"', android)
+        self.assertIn('"Mapa"', android)
+        self.assertIn('"Cargar ruta"', android)
+        self.assertIn('testTag("live_start_options")', android)
+        self.assertIn(".sheet(isPresented: $showOptions)", ios)
+        self.assertIn("idleOptionsSheet", ios)
         self.assertIn("if (showRoutes)", android)
         self.assertIn("Surface(Modifier.fillMaxSize()", android)
         self.assertIn("BackHandler { showRoutes = false }", android)
@@ -76,11 +134,45 @@ class LiveStartControlsContractTests(unittest.TestCase):
         ios = read(IOS / "LiveActivityView.swift")
         android = read(ANDROID / "LiveActivityScreen.kt")
         self.assertIn("private var liveSessionPager", ios)
-        self.assertIn(".tabViewStyle(.page(indexDisplayMode: .always))", ios)
+        self.assertIn(".tabViewStyle(.page(indexDisplayMode: .never))", ios)
+        self.assertIn("liveSessionPageDots", ios)
+        # Strip de mapa encima de Play en el chrome fijo (no detrás de botones).
+        pager = ios.split("private var liveSessionPager:", 1)[1].split(
+            "private var liveSessionPageCount", 1
+        )[0]
+        self.assertIn("if pageShowsMap {\n                    mapMetricStrip", pager)
+        self.assertLess(
+            pager.index("mapMetricStrip"),
+            pager.index("bottomControls"),
+        )
+        # Swipe del chrome: el mapa no debe tragar el gesto del pager.
+        self.assertIn("liveSessionChromeSwipeGesture", ios)
+        self.assertIn(".simultaneousGesture(liveSessionChromeSwipeGesture)", pager)
         self.assertIn("liveSplitsSection", ios)
+        map_view = ios.split("private var mapView: some View", 1)[1].split(
+            "private var mapHeader:", 1
+        )[0]
+        self.assertNotIn("mapMetricStrip", map_view)
         self.assertIn("completedKilometerSplits", ios)
         self.assertIn("HorizontalPager(", android)
         self.assertIn("liveSessionPage", android)
+        # Strip encima de Play; puntos debajo del toolbar.
+        android_pager_chrome = android.split(
+            "// El mapa captura el swipe del pager", 1
+        )[1].split("LiveScreenTouchBlocker(", 1)[0]
+        self.assertIn("detectHorizontalDragGestures(", android_pager_chrome)
+        self.assertIn("animateScrollToPage(target)", android_pager_chrome)
+        self.assertLess(
+            android_pager_chrome.index("LiveMapMetricStrip("),
+            android_pager_chrome.index("LiveStartToolbar("),
+        )
+        self.assertLess(
+            android_pager_chrome.index("LiveStartToolbar("),
+            android_pager_chrome.index("repeat(pageCount)"),
+        )
+        self.assertIn("countdownEnabled", android)
+        self.assertIn('"Cuenta atrás"', android)
+        self.assertIn("LiveSportOptionSwitchRow(", android)
         self.assertIn("state.splitsSeconds.forEachIndexed", android)
         self.assertIn(".mapControlVisibility(.hidden)", ios)
         self.assertNotIn("mapDetailsExpanded", ios)

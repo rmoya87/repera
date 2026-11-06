@@ -139,15 +139,36 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertNotIn("saveWorkout(completed)", command)
         self.assertNotIn("recorder.discard(saved: true)", command)
 
-    def test_comenzar_review_can_save_then_add_or_edit_exercises(self):
+    def test_comenzar_review_saves_with_green_button_above_discard(self):
         ios = read("Apps/Repera/Sources/LiveActivityView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
-        screen = read("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
-        self.assertIn("Guardar y añadir/editar ejercicios", ios)
+        self.assertNotIn("Guardar y añadir/editar ejercicios", ios)
+        self.assertNotIn("Guardar y añadir/editar ejercicios", android)
+        self.assertNotIn('testTag("live_save_and_edit")', android)
+        review = ios.split("private var review: some View", 1)[1].split(
+            "private func reviewSubtitle", 1
+        )[0]
+        self.assertIn('Text("Guardar")', review)
+        self.assertIn("OG.onAccent", review)
+        self.assertIn("OG.accent", review)
+        self.assertIn("Descartar actividad", review)
+        self.assertLess(review.index('Text("Guardar")'), review.index("Descartar actividad"))
+        self.assertNotIn('Image(systemName: "checkmark")', review)
+        self.assertNotIn("confirmationAction", ios.split("var body: some View", 1)[1].split(
+            ".navigationDestination(isPresented: $showFullScreenRoute)", 1
+        )[0])
+        android_review = android.split("private fun LiveActivityReviewContent(", 1)[1]
+        self.assertIn('testTag("live_save")', android_review)
+        self.assertIn("containerColor = brandGreen", android_review)
+        self.assertIn("contentColor = Color.Black", android_review)
+        self.assertLess(
+            android_review.index('testTag("live_save")'),
+            android_review.index("live_activity_screen_descartar_actividad"),
+        )
+        self.assertNotIn("Icons.Outlined.Check", android_review)
         self.assertIn("session.awaitingResultEntry = true", ios)
-        self.assertIn("WorkoutCompletionNotifier.openEvent", ios)
-        self.assertIn("Guardar y añadir/editar ejercicios", android)
-        self.assertIn('testTag("live_save_and_edit")', android)
+        # Editor de historial sigue existiendo; ya no se abre desde el resumen de Comenzar.
+        screen = read("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
         self.assertIn('navController.navigate("historial-editar/" + Uri.encode(sessionId))', screen)
 
     def test_android_wear_finish_offers_review(self):

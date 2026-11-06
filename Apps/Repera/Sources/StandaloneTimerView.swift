@@ -666,7 +666,7 @@ struct StandaloneTimerView: View {
                                 Text("Guardar")
                                     .font(.headline)
                                     .frame(maxWidth: .infinity, minHeight: 52)
-                                    .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                                    .foregroundStyle(OG.onAccent)
                                     .background(OG.accent, in: Capsule())
                             }
                             .buttonStyle(.plain)

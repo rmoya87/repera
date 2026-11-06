@@ -1095,11 +1095,14 @@ final class LiveActivityRecorder: NSObject {
     // Los avisos por voz son opt-out; las notificaciones de segundo plano
     // siguen dependiendo del permiso del usuario.
     private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"
+    private let startCountdownKey = "repera.live.startCountdown.enabled"
     @ObservationIgnored private var speechSynthesizer = AVSpeechSynthesizer()
     @ObservationIgnored private var guidanceAudioActive = false
     /// No cerrar AVAudioSession entre dos frases que AVSpeechSynthesizer ha encolado.
     @ObservationIgnored private var pendingGuidanceUtterances: Set<ObjectIdentifier> = []
     private(set) var spokenGuidanceEnabled = true
+    /// Si está desactivado, Play arranca la sesión al instante (sin 3-2-1).
+    private(set) var startCountdownEnabled = true
     private var gpsSessionID = UUID()
     /// Última muestra real llegada desde el Watch para una sesión de iPhone concreta.
     /// Solo memoria: nunca persiste pulsaciones ni acepta muestras de otra sesión.
@@ -1141,6 +1144,9 @@ final class LiveActivityRecorder: NSObject {
         speechSynthesizer.usesApplicationAudioSession = true
         if UserDefaults.standard.object(forKey: spokenGuidanceKey) != nil {
             spokenGuidanceEnabled = UserDefaults.standard.bool(forKey: spokenGuidanceKey)
+        }
+        if UserDefaults.standard.object(forKey: startCountdownKey) != nil {
+            startCountdownEnabled = UserDefaults.standard.bool(forKey: startCountdownKey)
         }
         if let data = UserDefaults.standard.data(forKey: snapshotKey),
            let snapshot = try? JSONDecoder().decode(LiveSnapshot.self, from: data),
@@ -1284,6 +1290,11 @@ final class LiveActivityRecorder: NSObject {
             // Los avisos visuales son alternativos a la locución, no duplicados.
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         }
+    }
+
+    func toggleStartCountdown() {
+        startCountdownEnabled.toggle()
+        UserDefaults.standard.set(startCountdownEnabled, forKey: startCountdownKey)
     }
 
     /// La API pública no permite seleccionar las voces privadas de Siri.
@@ -1481,6 +1492,10 @@ final class LiveActivityRecorder: NSObject {
     /// El UUID evita que una cuenta cancelada reactive la actividad.
     func beginStartCountdown() {
         guard phase == .idle, !isStartCountingDown else { return }
+        guard startCountdownEnabled else {
+            start()
+            return
+        }
         stopGuidanceAudio()
         let id = UUID()
         startCountdownID = id
@@ -2369,7 +2384,6 @@ struct LiveActivityView: View {
     @State private var notes = ""
     @State private var savedWorkoutID: UUID?
     @State private var isSavingRecordedActivity = false
-    @State private var editExercisesAfterSave = false
     @State private var previewHealthExtras: HealthKitStore.SessionHealthExtras?
     /// FC real reciente de Salud o del Watch vinculado al UUID de esta sesión.
     @State private var liveHeartRateBpm: Int?
@@ -2427,8 +2441,22 @@ struct LiveActivityView: View {
                     metricsView
                 }
             }
-            .background(OG.bg)
+            // En mapa a sangre no pintar OG.bg: genera franjas negras arriba/abajo.
+            .background(liveMapFillsDisplay ? Color.clear : OG.bg)
             .allowsHitTesting(!isInteractionLocked)
+            // Idle: Play/Opciones/actividad flotantes fijos encima del menú (no van con el scroll).
+            // En vivo: liveSessionPager ya ancla bottomControls abajo con la tab bar oculta.
+            .overlay(alignment: .bottom) {
+                if !canLockLiveScreen,
+                   recorder.phase != .review,
+                   !store.isAutoSavingWatchActivity {
+                    bottomControls
+                        .frame(maxWidth: 570)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, idleBottomChromePad)
+                }
+            }
             .overlayPreferenceValue(LiveInteractionLockAnchorKey.self) { anchor in
                 GeometryReader { geometry in
                     if isInteractionLocked, let anchor {
@@ -2447,9 +2475,11 @@ struct LiveActivityView: View {
                     ? .hidden : .automatic,
                 for: .tabBar
             )
+            // Solo el candado: animar el cambio idle→vivo mueve el FAB del mapa
+            // y deja franja negra (TabView / safe area).
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.28),
-                value: recorder.phase == .recording || recorder.phase == .paused || isInteractionLocked
+                value: isInteractionLocked
             )
             .navigationTitle(recorder.phase == .review && !store.isAutoSavingWatchActivity ? "Guardar entreno" : "Comenzar")
             .navigationBarTitleDisplayMode(.inline)
@@ -2495,6 +2525,9 @@ struct LiveActivityView: View {
                 }
             }) {
                 routeSheet
+            }
+            .sheet(isPresented: $showOptions) {
+                idleOptionsSheet
             }
             .sheet(isPresented: $confirmFinish) {
                 OGConfirmSheet(
@@ -2706,24 +2739,38 @@ struct LiveActivityView: View {
 
     /// Sesión en vivo: pager Opciones | Centro | Opuesto, con puntos.
     /// El centro es métricas o mapa según preferencia; el opuesto es el otro.
-    /// Controles Play/Pausa/Finalizar quedan fijos bajo el pager.
+    /// Mapa = **el mismo `mapView` que en idle** (detrás del TabView, página clear).
+    /// Meter el Map dentro del TabView es lo que pintaba franjas negras.
     private var liveSessionPager: some View {
-        VStack(spacing: 0) {
+        let centerIsMap = recorder.sport.usesGPS && !showingMetrics
+        let oppositeIsMap = recorder.sport.usesGPS && showingMetrics
+        let pageShowsMap = (liveSessionPage == 1 && centerIsMap)
+            || (liveSessionPage == 2 && oppositeIsMap)
+
+        return ZStack(alignment: .bottom) {
+            // Misma capa que idle: mapView a sangre, fuera del TabView.
+            if pageShowsMap {
+                mapView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
             TabView(selection: $liveSessionPage) {
                 liveOptionsPage
                     .tag(0)
                 Group {
-                    if showingMetrics || !recorder.sport.usesGPS {
-                        metricsView
+                    if centerIsMap {
+                        Color.clear
+                            .contentShape(Rectangle())
                     } else {
-                        mapView
+                        metricsView
                     }
                 }
                 .tag(1)
                 if recorder.sport.usesGPS {
                     Group {
-                        if showingMetrics {
-                            mapView
+                        if oppositeIsMap {
+                            Color.clear
+                                .contentShape(Rectangle())
                         } else {
                             metricsView
                         }
@@ -2731,60 +2778,176 @@ struct LiveActivityView: View {
                     .tag(2)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .background(pageShowsMap ? Color.clear : OG.bg)
+            .allowsHitTesting(!pageShowsMap)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: liveSessionPage)
 
-            bottomControls
-                .frame(maxWidth: 570)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 14)
-                .padding(.top, 4)
-                .padding(.bottom, 10 + continueChromeLift)
+            // Controles encima (como el overlay idle); swipe aquí cambia de página.
+            VStack(spacing: 10) {
+                if pageShowsMap {
+                    mapMetricStrip
+                        .padding(.horizontal, OG.topBarHorizontalInset)
+                }
+                bottomControls
+                    .frame(maxWidth: 570)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 14)
+                liveSessionPageDots
+            }
+            .contentShape(Rectangle())
+            .simultaneousGesture(liveSessionChromeSwipeGesture)
+            // Tab bar oculta: mismo aire bajo chrome que idle sin menú (~home indicator).
+            .padding(.bottom, 10 + continueChromeLift)
         }
-        .background(OG.bg)
+        .background(pageShowsMap ? Color.clear : OG.bg)
+    }
+
+    private var liveSessionPageCount: Int {
+        recorder.sport.usesGPS ? 3 : 2
+    }
+
+    /// Swipe horizontal en strip/Play/puntos → Opciones | Centro | Opuesto.
+    /// Hace falta con mapa: MapKit se come el gesto del `TabView`.
+    private var liveSessionChromeSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 40).onEnded { gesture in
+            guard !isInteractionLocked,
+                  abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35
+            else { return }
+            let delta: Int
+            if gesture.translation.width < -70 { delta = 1 }
+            else if gesture.translation.width > 70 { delta = -1 }
+            else { return }
+            let next = liveSessionPage + delta
+            guard (0..<liveSessionPageCount).contains(next) else { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                liveSessionPage = next
+            }
+        }
+    }
+
+    /// Indicadores propios debajo del Play (el PageControl nativo solapa chrome).
+    private var liveSessionPageDots: some View {
+        HStack(spacing: 10) {
+            ForEach(0..<liveSessionPageCount, id: \.self) { index in
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                        liveSessionPage = index
+                    }
+                } label: {
+                    Circle()
+                        .fill(index == liveSessionPage ? OG.accent : Color.primary.opacity(0.28))
+                        .frame(
+                            width: index == liveSessionPage ? 10 : 8,
+                            height: index == liveSessionPage ? 10 : 8
+                        )
+                        .padding(6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(liveSessionPageAccessibilityLabel(index))
+                .accessibilityAddTraits(index == liveSessionPage ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func liveSessionPageAccessibilityLabel(_ index: Int) -> String {
+        switch index {
+        case 0: return "Opciones"
+        case 1: return showingMetrics || !recorder.sport.usesGPS ? "Métricas" : "Mapa"
+        default: return showingMetrics ? "Mapa" : "Métricas"
+        }
+    }
+
+    /// True cuando el lienzo visible es el mapa a sangre (idle o página del pager).
+    private var liveMapFillsDisplay: Bool {
+        if canLockLiveScreen {
+            let centerIsMap = recorder.sport.usesGPS && !showingMetrics
+            let oppositeIsMap = recorder.sport.usesGPS && showingMetrics
+            return (liveSessionPage == 1 && centerIsMap)
+                || (liveSessionPage == 2 && oppositeIsMap)
+        }
+        return recorder.sport.usesGPS && !showingMetrics
+            && recorder.phase != .review
     }
 
     /// Página independiente de configuración durante la sesión.
+    /// Controles grandes: pensados para usarse en movimiento, con poca precisión.
     private var liveOptionsPage: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Opciones").font(.title2.bold())
+            VStack(alignment: .leading, spacing: 22) {
+                Text("Opciones").font(.largeTitle.bold())
+                liveOptionsSpokenGuidanceToggle
+                liveOptionsMapToggle
+                liveOptionsCountdownToggle
+                Text(recorder.chosenRoute?.title ?? "Sin ruta cargada")
+                    .font(.title3).foregroundStyle(OG.label2)
+                    .padding(.vertical, 4)
                 Toggle(isOn: Binding(
-                    get: { recorder.spokenGuidanceEnabled },
-                    set: { value in
-                        if value != recorder.spokenGuidanceEnabled { recorder.toggleSpokenGuidance() }
+                    get: { isInteractionLocked },
+                    set: { locked in
+                        if locked {
+                            liveSessionPage = 1
+                            isInteractionLocked = true
+                        } else {
+                            isInteractionLocked = false
+                        }
                     }
                 )) {
-                    Label("Audio", systemImage: "speaker.wave.2").font(.headline)
+                    Label("Bloquear pantalla", systemImage: "lock.fill")
+                        .font(.title3.weight(.semibold))
                 }
                 .tint(OG.accent)
-                .frame(minHeight: 50)
-                Toggle(isOn: Binding(
-                    get: { !showingMetrics && recorder.sport.usesGPS },
-                    set: { showingMetrics = !$0 }
-                )) {
-                    Label("Mapa", systemImage: "map").font(.headline)
-                }
-                .tint(OG.accent)
-                .disabled(!recorder.sport.usesGPS)
-                .frame(minHeight: 50)
-                Text(recorder.chosenRoute?.title ?? "Sin ruta cargada")
-                    .font(.subheadline).foregroundStyle(OG.label2)
-                Button {
-                    liveSessionPage = 1
-                    isInteractionLocked = true
-                } label: {
-                    Label("Bloquear pantalla", systemImage: "lock")
-                        .font(.headline).frame(maxWidth: .infinity, minHeight: 54)
-                }
-                .buttonStyle(.bordered)
+                .frame(minHeight: 72)
+                .accessibilityHint("Mantén pulsado el candado un segundo para desbloquear")
             }
-            .padding(20)
+            .padding(24)
             .frame(maxWidth: 570)
             .frame(maxWidth: .infinity)
         }
         .background(OG.bg)
+    }
+
+    private var liveOptionsSpokenGuidanceToggle: some View {
+        Toggle(isOn: Binding(
+            get: { recorder.spokenGuidanceEnabled },
+            set: { value in
+                if value != recorder.spokenGuidanceEnabled { recorder.toggleSpokenGuidance() }
+            }
+        )) {
+            Label("Audio", systemImage: "speaker.wave.2.fill")
+                .font(.title3.weight(.semibold))
+        }
+        .tint(OG.accent)
+        .frame(minHeight: 72)
+    }
+
+    private var liveOptionsMapToggle: some View {
+        Toggle(isOn: Binding(
+            get: { !showingMetrics && recorder.sport.usesGPS },
+            set: { showingMetrics = !$0 }
+        )) {
+            Label("Mapa", systemImage: "map.fill")
+                .font(.title3.weight(.semibold))
+        }
+        .tint(OG.accent)
+        .disabled(!recorder.sport.usesGPS)
+        .frame(minHeight: 72)
+    }
+
+    private var liveOptionsCountdownToggle: some View {
+        Toggle(isOn: Binding(
+            get: { recorder.startCountdownEnabled },
+            set: { value in
+                if value != recorder.startCountdownEnabled { recorder.toggleStartCountdown() }
+            }
+        )) {
+            Label("Cuenta atrás", systemImage: "timer")
+                .font(.title3.weight(.semibold))
+        }
+        .tint(OG.accent)
+        .frame(minHeight: 72)
+        .accessibilityHint("Si está desactivada, Play inicia al instante")
     }
 
     /// Canvas edge-to-edge; únicamente las capas de interacción reciben material.
@@ -2880,9 +3043,7 @@ struct LiveActivityView: View {
                             // entre ambos. Spacer requiere una altura explícita
                             // para no dejar las métricas justo bajo el aviso.
                             Spacer(minLength: 12)
-                            if recorder.phase == .recording || recorder.phase == .paused {
-                                mapMetricStrip
-                            }
+                            // En vivo la strip va en el chrome fijo del pager (encima de Play).
                         }
                         .frame(
                             width: min(390, max(260, geometry.size.width * 0.42)),
@@ -2894,18 +3055,8 @@ struct LiveActivityView: View {
                             .frame(width: 44, alignment: .trailing)
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
-                    .padding(.bottom, 10 + continueChromeLift)
-
-                    if !canLockLiveScreen {
-                        VStack {
-                            Spacer(minLength: 0)
-                            bottomControls
-                                .frame(maxWidth: 570)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 14)
-                                .padding(.bottom, 10 + continueChromeLift)
-                        }
-                    }
+                    // Idle: hueco para controles flotantes del root.
+                    .padding(.bottom, canLockLiveScreen ? 0 : idleBottomChromePad)
                 } else {
                     VStack(spacing: 12) {
                         ZStack(alignment: .topLeading) {
@@ -2917,25 +3068,15 @@ struct LiveActivityView: View {
                         }
                         mapStatusMessages
                         Spacer(minLength: 0)
-                        // Antes de Play, la barra de selección inferior ya
-                        // contiene sus controles. No duplicar aquí los
-                        // valores 00:00:00, velocidad y distancia.
-                        if recorder.phase == .recording || recorder.phase == .paused {
-                            mapMetricStrip
-                        }
-                        if !canLockLiveScreen {
-                            bottomControls
-                        }
+                        // Strip de métricas en vivo: chrome fijo del pager (no aquí).
                     }
                     .padding(.horizontal, OG.topBarHorizontalInset)
-                    .padding(.bottom, 10 + continueChromeLift)
+                    .padding(.bottom, canLockLiveScreen ? 0 : idleBottomChromePad)
                 }
             }
-            // Apple: el MAPA puede llegar al borde físico, pero su
-            // overlay de controles debe seguir la safe area del dispositivo
-            // (Dynamic Island, iPad en Split View, rotación). Añadimos solo
-            // el aire de la cabecera dentro de esa área, sin coordenadas fijas.
-            .safeAreaPadding(.top, canLockLiveScreen ? max(4, OG.topBarTopInset - 8) : OG.topBarTopInset)
+            // Chrome en safe area (el Map sangra por su cuenta). Mismo +12 idle/vivo
+            // para que el FAB 2D/3D no se mueva al empezar.
+            .padding(.top, OG.topBarTopInset)
         }
         .task {
             startMapHeadingIfNeeded()
@@ -3355,7 +3496,7 @@ struct LiveActivityView: View {
                 }
                 if canLockLiveScreen && recorder.sport.usesGPS {
                     Divider().overlay(OG.label2.opacity(0.18))
-                    kilometerSplitSummary.padding(.horizontal, 8)
+                    kilometerSplitSummary().padding(.horizontal, 8)
                 }
             }
             .padding(.horizontal, 8)
@@ -3386,7 +3527,8 @@ struct LiveActivityView: View {
     }
 
     /// Misma fila de parcial en Mapa y Métricas, sin Glass adicional.
-    private var kilometerSplitSummary: some View {
+    /// `includeLastReport` solo en mapa/parciales: en el héroe el alto debe ser fijo.
+    private func kilometerSplitSummary(includeLastReport: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Km \(recorder.activeKilometer)")
@@ -3402,7 +3544,7 @@ struct LiveActivityView: View {
             }
             ProgressView(value: min(1000, recorder.activeKilometerMeters), total: 1000)
                 .tint(OG.accent)
-            if let last = recorder.latestKilometerReport {
+            if includeLastReport, let last = recorder.latestKilometerReport {
                 Text("Último parcial: \(last)")
                     .font(.caption)
                     .foregroundStyle(OG.label2)
@@ -3412,32 +3554,78 @@ struct LiveActivityView: View {
         .foregroundStyle(OG.label)
     }
 
+    /// Tramo solo en vivo (idle = Spacers proporcionales Duración/Ritmo/Distancia).
+    @ViewBuilder
+    private var metricsKilometerSlot: some View {
+        if recorder.sport.usesGPS, canLockLiveScreen {
+            kilometerSplitSummary(includeLastReport: false)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    /// Barra FC bajo Distancia: entra al empezar y Distancia sube con el layout.
+    @ViewBuilder
+    private var metricsHeartRateSlot: some View {
+        if canLockLiveScreen {
+            HeartRateZoneBar(bpm: displayedHeartRateBpm)
+                .padding(.horizontal, 28)
+                .padding(.top, 10)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    /// Héroe FC interior solo en vivo.
+    @ViewBuilder
+    private var metricsIndoorHeartHero: some View {
+        if canLockLiveScreen {
+            let bpm = displayedHeartRateBpm.flatMap { (25...250).contains($0) ? $0 : nil }
+            VStack(spacing: 0) {
+                Text(bpm.map(String.init) ?? "—")
+                    .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
+                    .minimumScaleFactor(0.55).lineLimit(1)
+                    .foregroundStyle(OG.label)
+                Text("Frecuencia cardíaca (lpm)")
+                    .font(.subheadline).foregroundStyle(OG.label2)
+            }
+            .opacity(bpm == nil ? 0 : 1)
+            .accessibilityHidden(bpm == nil)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
     private var metricsView: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 0) {
+                        // Página 1 = exactamente un viewport: Parciales no asoma debajo de Play.
+                        // El padding inferior deja Distancia/FC encima del chrome flotante.
                         metricsPrimarySection(at: timeline.date)
-                            // Primera “pantalla”: el scroll hacia arriba revela Parciales.
-                            .frame(minHeight: max(480, geometry.size.height - (canLockLiveScreen ? 8 : 120)))
+                            .padding(.bottom, metricsBottomChromeReserve)
+                            .frame(
+                                minHeight: max(480, geometry.size.height),
+                                maxHeight: max(480, geometry.size.height),
+                                alignment: .top
+                            )
 
                         if recorder.sport.usesGPS, canLockLiveScreen {
+                            // Página 2 al scrollear: mismo alto de viewport.
                             liveSplitsSection
-                                .padding(.top, 8)
-                                .padding(.bottom, 28)
-                        }
-
-                        if !canLockLiveScreen {
-                            bottomControls
-                                .frame(maxWidth: 570)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 14)
-                                .padding(.bottom, 10 + continueChromeLift)
+                                .padding(.top, 12)
+                                .padding(.bottom, metricsBottomChromeReserve + 28)
+                                .frame(
+                                    minHeight: max(480, geometry.size.height),
+                                    alignment: .top
+                                )
                         }
                     }
+                    .scrollTargetLayout()
                     .frame(maxWidth: .infinity)
                 }
                 .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.paging)
             }
             .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
                 recorder.checkpoint()
@@ -3475,9 +3663,10 @@ struct LiveActivityView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(height: canLockLiveScreen ? 54 : 68)
+            // Misma cabecera idle/vivo para no desplazar Duración al empezar.
+            .frame(height: 54)
             .padding(.horizontal, OG.topBarHorizontalInset)
-            .padding(.top, canLockLiveScreen ? 6 : 14)
+            .padding(.top, 10)
             if recorder.chosenRoute != nil, recorder.phase != .idle {
                 HStack(spacing: 9) {
                     Image(systemName: recorder.upcomingTurnSymbol)
@@ -3511,11 +3700,7 @@ struct LiveActivityView: View {
                 .minimumScaleFactor(0.6).lineLimit(1)
             Text("Duración")
                 .font(.subheadline).foregroundStyle(OG.label2)
-            if recorder.sport.usesGPS, recorder.phase != .idle {
-                kilometerSplitSummary
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-            }
+            metricsKilometerSlot
             Spacer(minLength: 14)
             if recorder.sport.usesGPS {
                 Text(paceOrSpeed)
@@ -3529,31 +3714,16 @@ struct LiveActivityView: View {
                     .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                 Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
-                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                    HeartRateZoneBar(bpm: bpm)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 10)
-                }
+                metricsHeartRateSlot
             } else {
-                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                    Text("\(bpm)")
-                        .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
-                        .minimumScaleFactor(0.55).lineLimit(1)
-                        .foregroundStyle(OG.label)
-                    Text("Frecuencia cardíaca (lpm)")
-                        .font(.subheadline).foregroundStyle(OG.label2)
-                    Spacer(minLength: 14)
-                }
+                metricsIndoorHeartHero
+                Spacer(minLength: 14)
                 Text("—")
                     .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                 Text("Calorías activas (kcal)")
                     .font(.subheadline).foregroundStyle(OG.label2)
-                if let bpm = displayedHeartRateBpm, (25...250).contains(bpm) {
-                    HeartRateZoneBar(bpm: bpm)
-                        .padding(.horizontal, 28)
-                        .padding(.top, 10)
-                }
+                metricsHeartRateSlot
             }
             if recorder.sport.tracksElevation && recorder.hasElevationSamples {
                 HStack {
@@ -3574,6 +3744,11 @@ struct LiveActivityView: View {
             Spacer(minLength: 12)
         }
         .frame(maxWidth: .infinity)
+        // Al pasar a vivo: Distancia sube y FC/tramo entran (ease-out corto).
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.28),
+            value: canLockLiveScreen
+        )
     }
 
     /// Salud es la única fuente de pulsaciones: ninguna muestra sintética.
@@ -3604,147 +3779,173 @@ struct LiveActivityView: View {
         }
     }
 
+    /// Aire mínimo entre controles flotantes y la tab bar.
+    /// El safe area del menú ya los deja encima; no volver a sumar ~altura de tab.
+    private var idleBottomChromePad: CGFloat {
+        10 + continueChromeLift
+    }
+
+    /// Reserva bajo la primera pantalla de métricas para no tapar Distancia.
+    private var metricsBottomChromeReserve: CGFloat {
+        if canLockLiveScreen {
+            primaryControlDiameter + 44 + continueChromeLift
+        } else {
+            idleBottomChromePad + primaryControlDiameter + 8
+        }
+    }
+
     /// Panel central compartido entre mapa y métricas.
     /// Los tres controles son Liquid Glass sueltos (sin recuadro contenedor).
-    /// En vivo, Opciones vive en la página 0 del pager (no en este panel).
+    /// Idle: Opciones = sheet modal fitted. En vivo: página 0 del pager (filas grandes).
     private var bottomControls: some View {
-        Group {
-            if showOptions && !canLockLiveScreen {
-                VStack(alignment: .leading, spacing: 18) {
-                    HStack {
-                        Text("Opciones").font(.title2.bold())
-                        Spacer()
-                        CloseToolbarButton {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                                showOptions = false
-                            }
-                        }
-                    }
-                    Toggle(isOn: Binding(
-                        get: { recorder.spokenGuidanceEnabled },
-                        set: { value in
-                            if value != recorder.spokenGuidanceEnabled { recorder.toggleSpokenGuidance() }
-                        }
-                    )) {
-                        Label("Audio", systemImage: "speaker.wave.2")
-                            .font(.headline)
-                    }
-                    .tint(OG.accent)
-                    .frame(minHeight: 50)
-                    Toggle(isOn: Binding(
-                        get: { !showingMetrics && recorder.sport.usesGPS },
-                        set: { showingMetrics = !$0 }
-                    )) {
-                        Label("Mapa", systemImage: "map").font(.headline)
-                    }
-                    .tint(OG.accent)
-                    .disabled(!recorder.sport.usesGPS)
-                    .frame(minHeight: 50)
-                    Button {
-                        showOptions = false
-                        routePicker = true
-                    } label: {
-                        HStack {
-                            Label("Cargar ruta", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                                .font(.headline)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                        }
-                        .frame(minHeight: 56)
-                    }
-                    .disabled(!recorder.sport.usesGPS)
-                }
-                .padding(16)
-                .glassEffect(.regular, in: .rect(cornerRadius: 28))
-                .transition(reduceMotion ? .opacity :
-                    .move(edge: .trailing).combined(with: .opacity))
-            } else {
-                HStack(alignment: .center, spacing: 10) {
-                    liveGlassSideButton(
-                        canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
-                        label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
-                    ) {
-                        if canLockLiveScreen {
-                            confirmFinish = true
-                        } else {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
-                                showOptions = true
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    Button {
-                        if recorder.phase == .recording { recorder.pause() }
-                        else if recorder.phase == .paused { recorder.resume() }
-                        else if recorder.isStartCountingDown { recorder.cancelStartCountdown() }
-                        else if store.hasActiveSession { onOpenWorkout() }
-                        else { recorder.beginStartCountdown() }
-                    } label: {
-                        Group {
-                            if recorder.isStartCountingDown {
-                                Text("\(recorder.startCountdownRemaining)")
-                                    .font(.system(
-                                        size: primaryControlDiameter * 0.52,
-                                        weight: .bold,
-                                        design: .rounded
-                                    ))
-                                    .monospacedDigit()
-                                    .minimumScaleFactor(0.7)
-                                    .lineLimit(1)
-                            } else {
-                                Image(systemName: recorder.phase == .recording ? "pause.fill" :
-                                      (store.hasActiveSession && !canLockLiveScreen ? "arrow.uturn.forward" : "play.fill"))
-                                    .font(.system(size: 36, weight: .bold))
-                            }
-                        }
-                        .foregroundStyle(.black)
-                        .frame(width: primaryControlDiameter, height: primaryControlDiameter)
-                        .glassEffect(
-                            .regular.tint(
-                                recorder.phase == .recording ? OG.yellow : OG.accent
-                            ).interactive(),
-                            in: .circle
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(recorder.phase == .recording ? "Pausar" :
-                        (recorder.phase == .paused ? "Reanudar" : "Comenzar"))
-                    .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
-                        canLockLiveScreen ? $0 : nil
-                    }
-                    liveGlassSideButton(
-                        recorder.sport.symbol,
-                        foreground: OG.accent,
-                        label: "Seleccionar actividad: \(recorder.sport.title)"
-                    ) {
-                        sportPicker = true
-                    }
-                    .disabled(recorder.phase != .idle || recorder.isStartCountingDown)
-                    .accessibilityHint("Abre el selector de actividades desde abajo")
-                    .frame(maxWidth: .infinity)
+        HStack(alignment: .center, spacing: 10) {
+            liveGlassSideButton(
+                canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
+                label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
+            ) {
+                if canLockLiveScreen {
+                    confirmFinish = true
+                } else {
+                    showOptions = true
                 }
             }
+            .frame(maxWidth: .infinity)
+            Button {
+                if recorder.phase == .recording { recorder.pause() }
+                else if recorder.phase == .paused { recorder.resume() }
+                else if recorder.isStartCountingDown { recorder.cancelStartCountdown() }
+                else if store.hasActiveSession { onOpenWorkout() }
+                else { recorder.beginStartCountdown() }
+            } label: {
+                Group {
+                    if recorder.isStartCountingDown {
+                        Text("\(recorder.startCountdownRemaining)")
+                            .font(.system(
+                                size: primaryControlDiameter * 0.52,
+                                weight: .bold,
+                                design: .rounded
+                            ))
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.7)
+                            .lineLimit(1)
+                    } else {
+                        Image(systemName: recorder.phase == .recording ? "pause.fill" :
+                              (store.hasActiveSession && !canLockLiveScreen ? "arrow.uturn.forward" : "play.fill"))
+                            .font(.system(size: 36, weight: .bold))
+                    }
+                }
+                .foregroundStyle(.black)
+                .frame(width: primaryControlDiameter, height: primaryControlDiameter)
+                .glassEffect(
+                    .regular.tint(
+                        recorder.phase == .recording ? OG.yellow : OG.accent
+                    ).interactive(),
+                    in: .circle
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(recorder.phase == .recording ? "Pausar" :
+                (recorder.phase == .paused ? "Reanudar" : "Comenzar"))
+            .anchorPreference(key: LiveInteractionLockAnchorKey.self, value: .bounds) {
+                canLockLiveScreen ? $0 : nil
+            }
+            liveGlassSideButton(
+                recorder.sport.symbol,
+                foreground: OG.accent,
+                label: "Seleccionar actividad: \(recorder.sport.title)"
+            ) {
+                sportPicker = true
+            }
+            .disabled(recorder.phase != .idle || recorder.isStartCountingDown)
+            .accessibilityHint("Abre el selector de actividades desde abajo")
+            .frame(maxWidth: .infinity)
         }
         .foregroundStyle(OG.label)
         .contentShape(Rectangle())
         .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { gesture in
-            // Idle: gesto local del panel. En vivo el pager horizontal manda.
+            // Idle: swipe abre/cierra el sheet de Opciones. En vivo manda el pager.
             guard !canLockLiveScreen, !isInteractionLocked,
                   abs(gesture.translation.width) > abs(gesture.translation.height) * 1.35 else { return }
-            if gesture.translation.width < -70 {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showOptions = true }
-            }
-            if gesture.translation.width > 70 {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { showOptions = false }
-            }
+            if gesture.translation.width < -70 { showOptions = true }
+            if gesture.translation.width > 70 { showOptions = false }
         })
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: recorder.phase)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: showOptions)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: recorder.phase)
+    }
+
+    /// Opciones idle: modal fitted nativo (por encima de la tab bar).
+    private var idleOptionsSheet: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            OGPageHeader(title: "Opciones") {
+                CloseToolbarButton(action: { showOptions = false }, large: true)
+            }
+            .padding(.top, 4)
+            Toggle(isOn: Binding(
+                get: { recorder.spokenGuidanceEnabled },
+                set: { value in
+                    if value != recorder.spokenGuidanceEnabled { recorder.toggleSpokenGuidance() }
+                }
+            )) {
+                Label("Audio", systemImage: "speaker.wave.2.fill")
+                    .font(.headline)
+            }
+            .tint(OG.accent)
+            .frame(minHeight: 50)
+            Toggle(isOn: Binding(
+                get: { !showingMetrics && recorder.sport.usesGPS },
+                set: { showingMetrics = !$0 }
+            )) {
+                Label("Mapa", systemImage: "map.fill").font(.headline)
+            }
+            .tint(OG.accent)
+            .disabled(!recorder.sport.usesGPS)
+            .frame(minHeight: 50)
+            Toggle(isOn: Binding(
+                get: { recorder.startCountdownEnabled },
+                set: { value in
+                    if value != recorder.startCountdownEnabled { recorder.toggleStartCountdown() }
+                }
+            )) {
+                Label("Cuenta atrás", systemImage: "timer").font(.headline)
+            }
+            .tint(OG.accent)
+            .frame(minHeight: 50)
+            .accessibilityHint("Si está desactivada, Play inicia al instante")
+            Button {
+                showOptions = false
+                routePicker = true
+            } label: {
+                HStack {
+                    Label(
+                        "Cargar ruta",
+                        systemImage: "point.topleft.down.curvedto.point.bottomright.up"
+                    )
+                    .font(.headline)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .frame(minHeight: 56)
+            }
+            .disabled(!recorder.sport.usesGPS)
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(OG.label)
+        .ogFittedHeight()
+        .ogFittedSheet()
     }
 
     /// Segundo apartado de la misma pantalla de métricas (scroll vertical).
     private var liveSplitsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let last = recorder.latestKilometerReport {
+                Text("Último parcial: \(last)")
+                    .font(.subheadline)
+                    .foregroundStyle(OG.label2)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             Text("Parciales")
                 .font(.title2.bold())
                 .foregroundStyle(OG.label)
@@ -3998,48 +4199,28 @@ struct LiveActivityView: View {
                 }
 
                 Section {
-                    Button {
-                        saveRecordedActivity()
-                    } label: {
-                        Text("Guardar")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 52)
-                            .foregroundStyle(.black)
-                            .background(OG.accent, in: Capsule())
+                    VStack(spacing: 8) {
+                        Button(action: saveRecordedActivity) {
+                            Text("Guardar")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .foregroundStyle(OG.onAccent)
+                                .background(OG.accent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isSavingRecordedActivity)
+                        .accessibilityLabel("Guardar")
+                        Button(role: .destructive) {
+                            showDiscard = true
+                        } label: {
+                            Text("Descartar actividad")
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(maxWidth: .infinity, minHeight: 42)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(OG.red)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isSavingRecordedActivity)
                     .ogCardListRow()
-                }
-
-                Section {
-                    Button {
-                        editExercisesAfterSave = true
-                        saveRecordedActivity()
-                    } label: {
-                        Label("Guardar y añadir/editar ejercicios", systemImage: "square.and.pencil")
-                            .frame(maxWidth: .infinity, minHeight: 46)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(OG.accent)
-                    .disabled(isSavingRecordedActivity)
-                    .ogCardListRow()
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showDiscard = true
-                    } label: {
-                        Text("Descartar actividad")
-                            .font(.system(size: 16, weight: .medium))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 16)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(OG.red)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
             }
         }
@@ -4158,7 +4339,6 @@ struct LiveActivityView: View {
               savedWorkoutID != draft.id else { return }
         isSavingRecordedActivity = true
         savedWorkoutID = draft.id
-        let editAfterSave = editExercisesAfterSave
         Task { @MainActor in
             var session = draft
             // Consultar Salud también al pulsar Guardar: la lectura asíncrona
@@ -4204,9 +4384,6 @@ struct LiveActivityView: View {
                 session.phase = .finished
                 session.awaitingResultEntry = true
             }
-            if editAfterSave {
-                session.awaitingResultEntry = true
-            }
             store.saveWorkout(session)
             // Keep the Review screen and its GPS/Health checkpoint until the
             // atomic local write is confirmed. A pending asynchronous write
@@ -4225,15 +4402,7 @@ struct LiveActivityView: View {
             notes = ""
             savedWorkoutID = nil
             isSavingRecordedActivity = false
-            editExercisesAfterSave = false
             onSaved(day)
-            if editAfterSave {
-                // Uses the same completed-workout editor as the programmed
-                // recording flow, preserving Health and route measurements.
-                NotificationCenter.default.post(
-                    name: WorkoutCompletionNotifier.openEvent, object: session.id
-                )
-            }
         }
     }
 

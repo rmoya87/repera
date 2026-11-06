@@ -6,6 +6,11 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.BorderStroke
@@ -50,6 +55,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.VolumeUp
@@ -72,6 +78,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -416,11 +423,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         startCountdownToken++
         startCountdown = 0
     }
-    /** Los tres pitidos son los del temporizador; el GPS empieza DESPUÉS. */
+    /** Los tres pitidos son los del temporizador; el GPS empieza DESPUÉS.
+     * Si la preferencia de cuenta atrás está off, arranca al instante. */
     fun beginStartCountdown() {
         if (currentActiveWorkout) { currentOpenWorkout(); return }
         if (runtime.recoveryBlocked) { error = runtime.lastError; return }
         if (startCountdown > 0 || state.phase != LiveActivityState.Phase.IDLE) return
+        if (!runtime.startCountdownEnabled) {
+            start()
+            return
+        }
         startCountdownToken++
         startCountdown = 3
         LiveStartFeedback.tick(context, 3, sound = runtime.spokenGuidanceEnabled)
@@ -500,6 +512,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     LaunchedEffect(runtime) {
         while(true) { delay(1000);runtime.publish() }
+    }
+    if (showStartOptions && state.phase == LiveActivityState.Phase.IDLE) {
+        ReperaModalBottomSheet(onDismissRequest = { showStartOptions = false }) {
+            LiveIdleOptionsSheet(
+                audioEnabled = runtime.spokenGuidanceEnabled,
+                countdownEnabled = runtime.startCountdownEnabled,
+                showMap = !showingMetrics,
+                hasGPS = state.sport.usesGPS,
+                onClose = { showStartOptions = false },
+                onAudio = { runtime.toggleSpokenGuidance() },
+                onCountdown = { runtime.toggleStartCountdown() },
+                onMap = { showingMetrics = !it },
+                onRoute = {
+                    showStartOptions = false
+                    showRoutes = true
+                }
+            )
+        }
     }
     if (showSportPicker) {
         // R8 P1-6: sheet alto tipo iOS LiveSportPicker — ✕, tarjetas, búsqueda abajo.
@@ -705,6 +735,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             title = "¿Finalizar actividad?",
             message = "Puedes revisar y guardar tus datos al finalizar.",
             confirmTitle = "Finalizar y revisar",
+            icon = Icons.Outlined.Flag,
+            confirmDestructive = false,
             onConfirm = {
                 confirmFinish = false
                 runtime.finish()
@@ -773,31 +805,89 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
         }
         val centerIsMetrics = showingMetrics || !state.sport.usesGPS
-        Column(
+        val pageShowsMap = (pagerState.currentPage == 1 && !centerIsMetrics) ||
+            (pagerState.currentPage == 2 && centerIsMetrics)
+        val onToggleLiveMap3D: () -> Unit = {
+            if (checking3DAccess) Unit
+            else if (canNavigate3D) {
+                setNavigationMode(!navigationMode)
+                followingMap = true
+                recenterToken++
+            } else {
+                checking3DAccess = true
+                scope.launch {
+                    try {
+                        subscriptions?.refreshEntitlementsForFeatureAction()
+                        when {
+                            subscriptions?.policy?.canUse3DNavigation == true -> {
+                                setNavigationMode(true)
+                                followingMap = true
+                                recenterToken++
+                            }
+                            else -> show3DAccessVerificationError = true
+                        }
+                    } catch (_: Exception) {
+                        show3DAccessVerificationError = true
+                    } finally {
+                        checking3DAccess = false
+                    }
+                }
+            }
+        }
+        Box(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .padding(bottom = bottomChromePad)
+                // Mapa como idle (sin statusBars en el root); métricas/opciones sí.
+                .then(if (pageShowsMap) Modifier else Modifier.statusBarsPadding())
                 .onGloballyPositioned { lockContainer = it.boundsInRoot() }
                 .testTag("live_activity_screen")
         ) {
+            // Mismo mapa que idle: detrás del pager, no dentro de una página.
+            if (pageShowsMap) {
+                LiveSessionMapPane(
+                    state = state,
+                    routes = routes,
+                    previewPosition = previewPosition,
+                    effectiveNavigationMode = effectiveNavigationMode,
+                    canNavigate3D = canNavigate3D,
+                    followingMap = followingMap,
+                    recenterToken = recenterToken,
+                    compassHeading = compassHeading,
+                    currentMeasuredHeading = currentMeasuredHeading,
+                    lastReliableHeading = lastReliableHeading,
+                    nowTick = nowTick,
+                    onMapRendered = onMapRendered,
+                    onToggle3D = onToggleLiveMap3D,
+                    onCameraGesture = {
+                        followingMap = false
+                        lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
+                    }
+                )
+            }
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                userScrollEnabled = !touchLocked,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = !touchLocked && !pageShowsMap,
                 beyondViewportPageCount = 0
             ) { page ->
                 when (page) {
                     0 -> LiveSessionOptionsPane(
                         audioEnabled = runtime.spokenGuidanceEnabled,
+                        countdownEnabled = runtime.startCountdownEnabled,
                         showMap = !showingMetrics,
                         hasGPS = state.sport.usesGPS,
                         routeTitle = routes.firstOrNull { it.id == state.selectedRouteID }?.title,
+                        locked = touchLocked,
                         onAudio = { runtime.toggleSpokenGuidance() },
+                        onCountdown = { runtime.toggleStartCountdown() },
                         onMap = { showingMetrics = !it },
-                        onLock = {
-                            liveSessionPage = 1
-                            lockTouch()
+                        onLockChange = { enable ->
+                            if (enable) {
+                                liveSessionPage = 1
+                                lockTouch()
+                            } else {
+                                unlockTouch()
+                            }
                         }
                     )
                     1 -> if (centerIsMetrics) {
@@ -809,78 +899,10 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                             includeSplits = state.sport.usesGPS
                         )
                     } else {
-                        LiveSessionMapPane(
-                            state = state,
-                            routes = routes,
-                            previewPosition = previewPosition,
-                            effectiveNavigationMode = effectiveNavigationMode,
-                            canNavigate3D = canNavigate3D,
-                            followingMap = followingMap,
-                            recenterToken = recenterToken,
-                            compassHeading = compassHeading,
-                            currentMeasuredHeading = currentMeasuredHeading,
-                            lastReliableHeading = lastReliableHeading,
-                            nowTick = nowTick,
-                            onMapRendered = onMapRendered,
-                            onToggle3D = {
-                                if (checking3DAccess) Unit
-                                else if (canNavigate3D) {
-                                    setNavigationMode(!navigationMode)
-                                    followingMap = true
-                                    recenterToken++
-                                } else {
-                                    checking3DAccess = true
-                                    scope.launch {
-                                        try {
-                                            subscriptions?.refreshEntitlementsForFeatureAction()
-                                            when {
-                                                subscriptions?.policy?.canUse3DNavigation == true -> {
-                                                    setNavigationMode(true)
-                                                    followingMap = true
-                                                    recenterToken++
-                                                }
-                                                else -> show3DAccessVerificationError = true
-                                            }
-                                        } catch (_: Exception) {
-                                            show3DAccessVerificationError = true
-                                        } finally {
-                                            checking3DAccess = false
-                                        }
-                                    }
-                                }
-                            },
-                            onCameraGesture = {
-                                followingMap = false
-                                lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
-                            }
-                        )
+                        Box(Modifier.fillMaxSize()) // mapa detrás
                     }
                     else -> if (centerIsMetrics) {
-                        LiveSessionMapPane(
-                            state = state,
-                            routes = routes,
-                            previewPosition = previewPosition,
-                            effectiveNavigationMode = effectiveNavigationMode,
-                            canNavigate3D = canNavigate3D,
-                            followingMap = followingMap,
-                            recenterToken = recenterToken,
-                            compassHeading = compassHeading,
-                            currentMeasuredHeading = currentMeasuredHeading,
-                            lastReliableHeading = lastReliableHeading,
-                            nowTick = nowTick,
-                            onMapRendered = onMapRendered,
-                            onToggle3D = {
-                                if (canNavigate3D) {
-                                    setNavigationMode(!navigationMode)
-                                    followingMap = true
-                                    recenterToken++
-                                }
-                            },
-                            onCameraGesture = {
-                                followingMap = false
-                                lastUserMapMoveAt = android.os.SystemClock.elapsedRealtime()
-                            }
-                        )
+                        Box(Modifier.fillMaxSize()) // mapa detrás
                     } else {
                         LiveSessionMetricsPane(
                             state = state,
@@ -892,52 +914,88 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     }
                 }
             }
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center
+            // Métricas del mapa encima de Play (fijas); puntos debajo.
+            // El mapa captura el swipe del pager: el chrome inferior cambia de página.
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = bottomChromePad)
+                    .pointerInput(touchLocked, pagerState.currentPage, pageCount) {
+                        if (touchLocked) return@pointerInput
+                        var horizontalDistance = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { horizontalDistance = 0f },
+                            onHorizontalDrag = { change, delta ->
+                                horizontalDistance += delta
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                val target = when {
+                                    horizontalDistance < -70f ->
+                                        (pagerState.currentPage + 1).coerceAtMost(pageCount - 1)
+                                    horizontalDistance > 70f ->
+                                        (pagerState.currentPage - 1).coerceAtLeast(0)
+                                    else -> pagerState.currentPage
+                                }
+                                horizontalDistance = 0f
+                                if (target != pagerState.currentPage) {
+                                    scope.launch { pagerState.animateScrollToPage(target) }
+                                }
+                            },
+                            onDragCancel = { horizontalDistance = 0f }
+                        )
+                    }
             ) {
-                repeat(pageCount) { index ->
-                    Box(
+                if (pageShowsMap) {
+                    Surface(
                         Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(if (index == pagerState.currentPage) 9.dp else 7.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (index == pagerState.currentPage) brandGreen
-                                else MaterialTheme.colorScheme.outlineVariant
-                            )
-                    )
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .padding(bottom = 10.dp),
+                        shape = RoundedCornerShape(22.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                    ) {
+                        LiveMapMetricStrip(state = state, nowTick = nowTick)
+                    }
+                }
+                LiveStartToolbar(
+                    sportIcon = state.sport.materialIcon,
+                    sportTitle = state.sport.title,
+                    phase = state.phase,
+                    countdown = startCountdown,
+                    hasActiveWorkout = hasActiveWorkout,
+                    locked = touchLocked,
+                    onShowOptions = { scope.launch { pagerState.animateScrollToPage(0) } },
+                    onSport = { },
+                    onPrimary = {
+                        when (state.phase) {
+                            LiveActivityState.Phase.RECORDING -> runtime.pause()
+                            LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
+                            else -> Unit
+                        }
+                    },
+                    onFinish = { confirmFinish = true },
+                    onPrimaryPositioned = { lockTarget = it }
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(pageCount) { index ->
+                        Box(
+                            Modifier
+                                .padding(horizontal = 5.dp)
+                                .size(if (index == pagerState.currentPage) 10.dp else 8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (index == pagerState.currentPage) brandGreen
+                                    else MaterialTheme.colorScheme.outlineVariant
+                                )
+                        )
+                    }
                 }
             }
-            LiveStartToolbar(
-                sportIcon = state.sport.materialIcon,
-                sportTitle = state.sport.title,
-                phase = state.phase,
-                countdown = startCountdown,
-                hasActiveWorkout = hasActiveWorkout,
-                showOptions = false,
-                audioEnabled = runtime.spokenGuidanceEnabled,
-                showMap = !showingMetrics,
-                hasGPS = state.sport.usesGPS,
-                locked = touchLocked,
-                onShowOptions = { open ->
-                    if (open) scope.launch { pagerState.animateScrollToPage(0) }
-                },
-                onAudio = { runtime.toggleSpokenGuidance() },
-                onMap = { showingMetrics = !it },
-                onSport = { },
-                onRoute = { },
-                onPrimary = {
-                    when (state.phase) {
-                        LiveActivityState.Phase.RECORDING -> runtime.pause()
-                        LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
-                        else -> Unit
-                    }
-                },
-                onFinish = { confirmFinish = true },
-                onLock = { lockTouch() },
-                onPrimaryPositioned = { lockTarget = it }
-            )
         }
         if (touchLocked) {
             LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
@@ -981,7 +1039,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(top = if (sessionActive) 6.dp else 12.dp, end = 16.dp)
+                    // Mismo top idle/vivo: si baja al grabar, el FAB sube.
+                    .padding(top = 12.dp, end = 16.dp)
                     .testTag("live_map_fabs"),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.End
@@ -1164,16 +1223,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     phase = state.phase,
                     countdown = startCountdown,
                     hasActiveWorkout = hasActiveWorkout,
-                    showOptions = showStartOptions,
-                    audioEnabled = runtime.spokenGuidanceEnabled,
-                    showMap = !showingMetrics,
-                    hasGPS = state.sport.usesGPS,
                     locked = touchLocked,
-                    onShowOptions = { showStartOptions = it },
-                    onAudio = { runtime.toggleSpokenGuidance() },
-                    onMap = { showingMetrics = !it },
+                    onShowOptions = { showStartOptions = true },
                     onSport = { showSportPicker = true },
-                    onRoute = { showStartOptions = false; showRoutes = true },
                     onPrimary = {
                         when (state.phase) {
                             LiveActivityState.Phase.RECORDING -> runtime.pause()
@@ -1197,7 +1249,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                         }
                     },
                     onFinish = { confirmFinish = true },
-                    onLock = { showStartOptions = false; lockTouch() },
                     onPrimaryPositioned = { lockTarget = it }
                 )
             }
@@ -1234,7 +1285,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(bottom = bottomChromePad)
                 .testTag("live_activity_screen")
         ) {
             Row(
@@ -1279,7 +1329,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            if (state.phase != LiveActivityState.Phase.IDLE) {
+            // Idle: Spacers proporcionales. En vivo el tramo entra y Distancia sube.
+            AnimatedVisibility(
+                visible = state.phase != LiveActivityState.Phase.IDLE,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 LiveKilometerSplitSummary(
                     state = state,
                     nowTick = nowTick,
@@ -1326,8 +1381,12 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            if (state.phase == LiveActivityState.Phase.RECORDING ||
-                state.phase == LiveActivityState.Phase.PAUSED) {
+            AnimatedVisibility(
+                visible = state.phase == LiveActivityState.Phase.RECORDING ||
+                    state.phase == LiveActivityState.Phase.PAUSED,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 LiveHeartRateZoneBar(
                     bpm = displayedHeartRateBpm,
                     modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
@@ -1354,67 +1413,58 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 }
             }
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 12.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp
-            ) {
-                LiveStartToolbar(
-                    sportIcon = state.sport.materialIcon,
-                    sportTitle = state.sport.title,
-                    phase = state.phase,
-                    countdown = startCountdown,
-                    hasActiveWorkout = hasActiveWorkout,
-                    showOptions = showStartOptions,
-                    audioEnabled = runtime.spokenGuidanceEnabled,
-                    showMap = !showingMetrics,
-                    hasGPS = state.sport.usesGPS,
-                    locked = touchLocked,
-                    onShowOptions = { showStartOptions = it },
-                    onAudio = { runtime.toggleSpokenGuidance() },
-                    onMap = { showingMetrics = !it },
-                    onSport = { showSportPicker = true },
-                    onRoute = { showStartOptions = false; showRoutes = true },
-                    onPrimary = {
-                        when (state.phase) {
-                            LiveActivityState.Phase.RECORDING -> runtime.pause()
-                            LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
-                            LiveActivityState.Phase.IDLE -> {
-                                if (hasActiveWorkout) onOpenWorkout()
-                                else if (startCountdown > 0) cancelStartCountdown()
-                                else if (ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.ACCESS_FINE_LOCATION
-                                    ) != PackageManager.PERMISSION_GRANTED &&
-                                    ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.ACCESS_COARSE_LOCATION
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                ) permissions.launch(arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                ))
-                                else beginStartCountdown()
-                            }
-                            else -> Unit
-                        }
-                    },
-                    onFinish = { confirmFinish = true },
-                    onLock = { showStartOptions = false; lockTouch() },
-                    onPrimaryPositioned = { lockTarget = it }
-                )
-            }
+            // Hueco para toolbar flotante (fuera del flujo / no scroll).
+            Spacer(Modifier.height(bottomChromePad + 120.dp))
             (error ?: runtime.lastError)?.let {
                 Text(it, color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             }
         }
+        LiveStartToolbar(
+            sportIcon = state.sport.materialIcon,
+            sportTitle = state.sport.title,
+            phase = state.phase,
+            countdown = startCountdown,
+            hasActiveWorkout = hasActiveWorkout,
+            locked = touchLocked,
+            onShowOptions = { showStartOptions = true },
+            onSport = { showSportPicker = true },
+            onPrimary = {
+                when (state.phase) {
+                    LiveActivityState.Phase.RECORDING -> runtime.pause()
+                    LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
+                    LiveActivityState.Phase.IDLE -> {
+                        if (hasActiveWorkout) onOpenWorkout()
+                        else if (startCountdown > 0) cancelStartCountdown()
+                        else if (ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.ACCESS_FINE_LOCATION
+                            ) != PackageManager.PERMISSION_GRANTED &&
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) permissions.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ))
+                        else beginStartCountdown()
+                    }
+                    else -> Unit
+                }
+            },
+            onFinish = { confirmFinish = true },
+            onPrimaryPositioned = { lockTarget = it },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = bottomChromePad)
+        )
         if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
         }
         return
     }
     // REVIEW: resumen estilo Fitness (mapa + métricas + guardar), sin el formulario genérico.
     if (state.phase == LiveActivityState.Phase.REVIEW) {
-        val saveReview: (Boolean) -> Unit = save@{ editAfterSave ->
+        val saveReview: () -> Unit = save@{
             if (savingActivity) return@save
             val now = System.currentTimeMillis()
             val snapshot = state.snapshot(now)
@@ -1447,7 +1497,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     notes = ""
                     showingMetrics = false
                     onSavedDay(savedDay)
-                    if (editAfterSave) onSavedAndEdit(sessionId) else onSaved(sessionId)
+                    onSaved(sessionId)
                 } else {
                     error = "La actividad se guardó, pero no se pudo limpiar el punto de recuperación."
                 }
@@ -1473,14 +1523,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             error = error ?: runtime.lastError,
             onMapRendered = onMapRendered,
             activityConditions = runtime.liveConditions,
-            onSave = { saveReview(false) },
-            onSaveAndEdit = { saveReview(true) },
+            onSave = saveReview,
             onDiscard = { confirmDiscard = true },
             recoveryBlocked = runtime.recoveryBlocked
         )
         return
     }
-    // Sin GPS / rutas: formulario bajo status bar (mapa usa fillMaxSize a sangre).
+    // Sin GPS / rutas: métricas scrolleables; toolbar flotante fijo encima del menú.
     Box(Modifier.fillMaxSize().onGloballyPositioned { lockContainer = it.boundsInRoot() }) {
     Column(
         Modifier
@@ -1488,7 +1537,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
-            .padding(bottom = bottomChromePad)
+            .padding(bottom = bottomChromePad + 120.dp)
             .testTag("live_activity_screen"),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -1511,59 +1560,119 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
             runtime.latestKilometerReport?.let { Text(it) }
         }
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp
-        ) {
-            LiveStartToolbar(
-                    sportIcon = state.sport.materialIcon,
-                    sportTitle = state.sport.title,
-                    phase = state.phase,
-                    countdown = startCountdown,
-                    hasActiveWorkout = hasActiveWorkout,
-                    showOptions = showStartOptions,
-                    audioEnabled = runtime.spokenGuidanceEnabled,
-                    showMap = !showingMetrics,
-                    hasGPS = state.sport.usesGPS,
-                    locked = touchLocked,
-                    onShowOptions = { showStartOptions = it },
-                    onAudio = { runtime.toggleSpokenGuidance() },
-                    onMap = { showingMetrics = !it },
-                    onSport = { showSportPicker = true },
-                    onRoute = { showStartOptions = false; showRoutes = true },
-                    onPrimary = {
-                        when (state.phase) {
-                            LiveActivityState.Phase.RECORDING -> runtime.pause()
-                            LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
-                            LiveActivityState.Phase.IDLE -> {
-                                if (hasActiveWorkout) onOpenWorkout()
-                                else if (startCountdown > 0) cancelStartCountdown()
-                                else if (ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.ACCESS_FINE_LOCATION
-                                    ) != PackageManager.PERMISSION_GRANTED &&
-                                    ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.ACCESS_COARSE_LOCATION
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                ) permissions.launch(arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                ))
-                                else beginStartCountdown()
-                            }
-                            else -> Unit
-                        }
-                    },
-                    onFinish = { confirmFinish = true },
-                    onLock = { showStartOptions = false; lockTouch() },
-                    onPrimaryPositioned = { lockTarget = it }
-                )
-        }
         (error ?: runtime.lastError)?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         if(runtime.recoveryBlocked) TextButton(onClick={confirmDiscard=true}) {Text(stringResource(R.string.live_activity_screen_descartar_recuperacion_danada))}
     }
+    LiveStartToolbar(
+        sportIcon = state.sport.materialIcon,
+        sportTitle = state.sport.title,
+        phase = state.phase,
+        countdown = startCountdown,
+        hasActiveWorkout = hasActiveWorkout,
+        locked = touchLocked,
+        onShowOptions = { showStartOptions = true },
+        onSport = { showSportPicker = true },
+        onPrimary = {
+            when (state.phase) {
+                LiveActivityState.Phase.RECORDING -> runtime.pause()
+                LiveActivityState.Phase.PAUSED -> { runtime.resume(); startService() }
+                LiveActivityState.Phase.IDLE -> {
+                    if (hasActiveWorkout) onOpenWorkout()
+                    else if (startCountdown > 0) cancelStartCountdown()
+                    else if (ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) != PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_COARSE_LOCATION
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) permissions.launch(arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ))
+                    else beginStartCountdown()
+                }
+                else -> Unit
+            }
+        },
+        onFinish = { confirmFinish = true },
+        onPrimaryPositioned = { lockTarget = it },
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .padding(bottom = bottomChromePad)
+    )
     if (touchLocked) LiveScreenTouchBlocker(lockTarget, lockContainer, ::unlockTouch)
+    }
+}
+
+/** Opciones idle: modal inferior (paridad sheet iOS), no panel inline bajo Play. */
+@Composable
+private fun LiveIdleOptionsSheet(
+    audioEnabled: Boolean,
+    countdownEnabled: Boolean,
+    showMap: Boolean,
+    hasGPS: Boolean,
+    onClose: () -> Unit,
+    onAudio: () -> Unit,
+    onCountdown: () -> Unit,
+    onMap: (Boolean) -> Unit,
+    onRoute: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp)
+            .testTag("live_start_options"),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Opciones",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.Close,
+                contentDescription = "Cerrar",
+                onClick = onClose
+            )
+        }
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.VolumeUp,
+            label = "Audio",
+            checked = audioEnabled,
+            minHeight = 56.dp,
+            titleStyle = MaterialTheme.typography.titleMedium,
+            onCheckedChange = { onAudio() }
+        )
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.Map,
+            label = "Mapa",
+            checked = hasGPS && showMap,
+            enabled = hasGPS,
+            minHeight = 56.dp,
+            titleStyle = MaterialTheme.typography.titleMedium,
+            onCheckedChange = onMap
+        )
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.Timer,
+            label = "Cuenta atrás",
+            checked = countdownEnabled,
+            minHeight = 56.dp,
+            titleStyle = MaterialTheme.typography.titleMedium,
+            onCheckedChange = { onCountdown() }
+        )
+        TextButton(
+            onClick = onRoute,
+            enabled = hasGPS,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("live_load_route")
+        ) {
+            Icon(Icons.Outlined.Route, null)
+            Spacer(Modifier.width(12.dp))
+            Text("Cargar ruta", style = MaterialTheme.typography.titleMedium)
+        }
     }
 }
 
@@ -1575,49 +1684,81 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
 @Composable
 private fun LiveSessionOptionsPane(
     audioEnabled: Boolean,
+    countdownEnabled: Boolean,
     showMap: Boolean,
     hasGPS: Boolean,
     routeTitle: String?,
+    locked: Boolean,
     onAudio: () -> Unit,
+    onCountdown: () -> Unit,
     onMap: (Boolean) -> Unit,
-    onLock: () -> Unit
+    onLockChange: (Boolean) -> Unit
 ) {
+    // Controles grandes: pensados para usarse en movimiento, con poca precisión.
     Column(
         Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Opciones", style = MaterialTheme.typography.headlineSmall)
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Outlined.VolumeUp, null)
-            Spacer(Modifier.width(12.dp))
-            Text("Audio", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Switch(checked = audioEnabled, onCheckedChange = { onAudio() })
-        }
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Outlined.Map, null)
-            Spacer(Modifier.width(12.dp))
-            Text("Mapa", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Switch(checked = hasGPS && showMap, enabled = hasGPS, onCheckedChange = onMap)
-        }
+        Text("Opciones", style = MaterialTheme.typography.headlineMedium)
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.VolumeUp,
+            label = "Audio",
+            checked = audioEnabled,
+            onCheckedChange = { onAudio() }
+        )
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.Map,
+            label = "Mapa",
+            checked = hasGPS && showMap,
+            enabled = hasGPS,
+            onCheckedChange = onMap
+        )
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.Timer,
+            label = "Cuenta atrás",
+            checked = countdownEnabled,
+            onCheckedChange = { onCountdown() }
+        )
         Text(
             routeTitle ?: "Sin ruta cargada",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        TextButton(onClick = onLock, modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)) {
-            Icon(Icons.Outlined.Lock, null)
-            Spacer(Modifier.width(12.dp))
-            Text("Bloquear pantalla", style = MaterialTheme.typography.titleMedium)
-        }
+        LiveSportOptionSwitchRow(
+            icon = Icons.Outlined.Lock,
+            label = "Bloquear pantalla",
+            checked = locked,
+            onCheckedChange = onLockChange
+        )
+    }
+}
+
+@Composable
+private fun LiveSportOptionSwitchRow(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    minHeight: Dp = 72.dp,
+    titleStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.titleLarge,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = minHeight),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null, modifier = Modifier.size(if (minHeight >= 72.dp) 28.dp else 24.dp))
+        Spacer(Modifier.width(if (minHeight >= 72.dp) 14.dp else 12.dp))
+        Text(
+            label,
+            style = titleStyle,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, enabled = enabled, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -1644,142 +1785,159 @@ private fun LiveSessionMetricsPane(
         "Velocidad media (km/h)" else "Ritmo medio (min/km)"
     val km = state.distanceMeters / 1000.0
     val scroll = rememberScrollState()
-    Column(
+    // Página 1 = un viewport (Parciales no asoma); página 2 al scrollear.
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .verticalScroll(scroll)
-            .padding(bottom = 12.dp)
+            .statusBarsPadding()
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-                .heightIn(min = 54.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(state.sport.materialIcon, null, tint = brandGreen, modifier = Modifier.size(28.dp))
-            Text(
-                state.sport.title,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Text(
-            durationText,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontWeight = FontWeight.Bold, fontSize = 68.sp, letterSpacing = 0.sp
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        Text(
-            stringResource(R.string.live_activity_screen_duracion),
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        LiveKilometerSplitSummary(
-            state = state,
-            nowTick = nowTick,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
-        )
-        Spacer(Modifier.height(14.dp))
-        Text(
-            paceOrSpeed,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontWeight = FontWeight.Bold, fontSize = 78.sp, letterSpacing = 0.sp
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        Text(
-            paceLabel,
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(14.dp))
-        Text(
-            ReperaNumberFormat.decimal(km),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            style = MaterialTheme.typography.displayMedium.copy(
-                fontWeight = FontWeight.SemiBold, fontSize = 55.sp, letterSpacing = 0.sp
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        Text(
-            stringResource(R.string.live_activity_screen_distancia_km),
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        LiveHeartRateZoneBar(
-            bpm = displayedHeartRateBpm,
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
-            estimatedMaxBpm = maxHeartRateBpm.toDouble()
-        )
-        // Primera pantalla ~viewport; al seguir scrolleando aparecen parciales.
-        Spacer(Modifier.height(48.dp))
-        if (includeSplits) {
-            Text(
-                "Parciales",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-            )
-            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                Text("Kilómetro", modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Ritmo", modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Variación", modifier = Modifier.weight(1f), textAlign = TextAlign.End,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            HorizontalDivider(
-                Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-            if (state.splitsSeconds.isEmpty()) {
-                ReperaEmptyState(
-                    title = "Aún no hay parciales",
-                    subtitle = "El primer parcial aparecerá al completar un kilómetro."
-                )
-            } else {
-                state.splitsSeconds.forEachIndexed { index, seconds ->
-                    val pace = seconds.roundToInt().coerceAtLeast(0)
-                    val previous = state.splitsSeconds.getOrNull(index - 1)
-                    val delta = previous?.let { (seconds - it).roundToInt() }
-                    val variation = when {
-                        delta == null -> "—"
-                        delta == 0 -> "±0:00"
-                        else -> "${if (delta < 0) "−" else "+"}${"%d:%02d".format(
-                            kotlin.math.abs(delta) / 60, kotlin.math.abs(delta) % 60)}"
-                    }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
-                        Text("${index + 1}", modifier = Modifier.weight(1f))
-                        Text(
-                            "%d:%02d".format(pace / 60, pace % 60),
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center
-                        )
-                        Text(variation, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
-                    }
-                    HorizontalDivider(
-                        Modifier.padding(horizontal = 24.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
+        val pageHeight = maxHeight
+        Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .height(pageHeight)
+                    .padding(bottom = 140.dp)
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                        .heightIn(min = 54.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(state.sport.materialIcon, null, tint = brandGreen, modifier = Modifier.size(28.dp))
+                    Text(
+                        state.sport.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                 }
+                Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
+                Text(
+                    durationText,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontWeight = FontWeight.Bold, fontSize = 68.sp, letterSpacing = 0.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    stringResource(R.string.live_activity_screen_duracion),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                LiveKilometerSplitSummary(
+                    state = state,
+                    nowTick = nowTick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+                Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
+                Text(
+                    paceOrSpeed,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontWeight = FontWeight.Bold, fontSize = 78.sp, letterSpacing = 0.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    paceLabel,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
+                Text(
+                    ReperaNumberFormat.decimal(km),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontWeight = FontWeight.SemiBold, fontSize = 55.sp, letterSpacing = 0.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    stringResource(R.string.live_activity_screen_distancia_km),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                LiveHeartRateZoneBar(
+                    bpm = displayedHeartRateBpm,
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
+                    estimatedMaxBpm = maxHeartRateBpm.toDouble()
+                )
             }
-            Spacer(Modifier.height(24.dp))
+            if (includeSplits) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = pageHeight)
+                        .padding(bottom = 140.dp)
+                ) {
+                    Text(
+                        "Parciales",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        Text("Kilómetro", modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Ritmo", modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Variación", modifier = Modifier.weight(1f), textAlign = TextAlign.End,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    if (state.splitsSeconds.isEmpty()) {
+                        ReperaEmptyState(
+                            title = "Aún no hay parciales",
+                            subtitle = "El primer parcial aparecerá al completar un kilómetro."
+                        )
+                    } else {
+                        state.splitsSeconds.forEachIndexed { index, seconds ->
+                            val pace = seconds.roundToInt().coerceAtLeast(0)
+                            val previous = state.splitsSeconds.getOrNull(index - 1)
+                            val delta = previous?.let { (seconds - it).roundToInt() }
+                            val variation = when {
+                                delta == null -> "—"
+                                delta == 0 -> "±0:00"
+                                else -> "${if (delta < 0) "−" else "+"}${"%d:%02d".format(
+                                    kotlin.math.abs(delta) / 60, kotlin.math.abs(delta) % 60)}"
+                            }
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+                                Text("${index + 1}", modifier = Modifier.weight(1f))
+                                Text(
+                                    "%d:%02d".format(pace / 60, pace % 60),
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(variation, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                            }
+                            HorizontalDivider(
+                                Modifier.padding(horizontal = 24.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
         }
     }
 }
@@ -1827,7 +1985,8 @@ private fun LiveSessionMapPane(
         Column(
             Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 6.dp, end = 16.dp)
+                .statusBarsPadding()
+                .padding(top = 12.dp, end = 16.dp)
         ) {
             LiveMapCircleFab(
                 icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
@@ -1839,15 +1998,7 @@ private fun LiveSessionMapPane(
                 onClick = onToggle3D
             )
         }
-        Surface(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(12.dp),
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-        ) {
-            LiveMapMetricStrip(state = state, nowTick = nowTick)
-        }
+        // Strip de métricas: chrome fijo del pager (encima de Play), no aquí.
     }
 }
 
@@ -1972,7 +2123,6 @@ private fun LiveActivityReviewContent(
     onMapRendered: (() -> Unit)?,
     activityConditions: dev.repera.domain.ActivityConditionsSnapshot?,
     onSave: () -> Unit,
-    onSaveAndEdit: () -> Unit,
     onDiscard: () -> Unit,
     recoveryBlocked: Boolean
 ) {
@@ -2163,35 +2313,36 @@ private fun LiveActivityReviewContent(
                 }
             }
         }
-        Button(
-            onClick = onSave,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .testTag("live_save"),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = brandGreen,
-                contentColor = Color.Black
-            ),
-            shape = RoundedCornerShape(999.dp)
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(stringResource(R.string.live_activity_screen_guardar), fontWeight = FontWeight.Bold)
-        }
-        OutlinedButton(
-            onClick = onSaveAndEdit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .testTag("live_save_and_edit"),
-            shape = RoundedCornerShape(999.dp)
-        ) {
-            Text("Guardar y añadir/editar ejercicios")
-        }
-        TextButton(
-            onClick = onDiscard,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-        ) {
-            Text(stringResource(R.string.live_activity_screen_descartar_actividad), color = MaterialTheme.colorScheme.error)
+            Button(
+                onClick = onSave,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .testTag("live_save"),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = brandGreen,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    stringResource(R.string.live_activity_screen_guardar),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(
+                onClick = onDiscard,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 42.dp)
+            ) {
+                Text(
+                    stringResource(R.string.live_activity_screen_descartar_actividad),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (recoveryBlocked) {

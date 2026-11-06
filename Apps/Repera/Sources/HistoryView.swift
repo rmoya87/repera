@@ -538,7 +538,7 @@ struct WorkoutDetailView: View {
                         } label: {
                             Text("Aceptar")
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                                .foregroundStyle(OG.onAccent)
                                 .frame(maxWidth: .infinity, minHeight: 54)
                                 .background(OG.accent, in: Capsule())
                         }

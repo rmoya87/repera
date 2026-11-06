@@ -192,7 +192,7 @@ struct WODTemplateDetailView: View {
                     } label: {
                         Text("Usar este WOD")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+                            .foregroundStyle(OG.onAccent)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .buttonStyle(.borderedProminent)

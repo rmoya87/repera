@@ -1,43 +1,26 @@
 package dev.repera.mobile
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,9 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.repera.domain.LiveActivityState
 
-/** Mapa y Métricas comparten controles nativos; el deporte elegido vive a la derecha.
- * El candado sustituye al Play mediante la superposición del bloqueo táctil del host.
- * Tres botones Liquid Glass sueltos (sin recuadro contenedor); Play/Pausa tintados.
+/**
+ * Controles Play/Pausa/Opciones/actividad.
+ * Idle: el engrane pide abrir el sheet de Opciones en el host (modal), no un panel inline.
  */
 @Composable
 internal fun LiveStartToolbar(
@@ -69,20 +52,13 @@ internal fun LiveStartToolbar(
     phase: LiveActivityState.Phase,
     countdown: Int,
     hasActiveWorkout: Boolean,
-    showOptions: Boolean,
-    audioEnabled: Boolean,
-    showMap: Boolean,
-    hasGPS: Boolean,
     locked: Boolean,
-    onShowOptions: (Boolean) -> Unit,
-    onAudio: () -> Unit,
-    onMap: (Boolean) -> Unit,
+    onShowOptions: () -> Unit,
     onSport: () -> Unit,
-    onRoute: () -> Unit,
     onPrimary: () -> Unit,
     onFinish: () -> Unit,
-    onLock: () -> Unit,
-    onPrimaryPositioned: (Rect) -> Unit
+    onPrimaryPositioned: (Rect) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val active = phase == LiveActivityState.Phase.RECORDING ||
         phase == LiveActivityState.Phase.PAUSED
@@ -95,17 +71,18 @@ internal fun LiveStartToolbar(
     val primarySize = if (active) 94.dp else 116.dp
 
     Column(
-        Modifier.fillMaxWidth().widthIn(max = 570.dp)
-            .pointerInput(locked) {
-                if (!locked) detectHorizontalDragGestures(
+        modifier
+            .fillMaxWidth()
+            .widthIn(max = 570.dp)
+            .pointerInput(locked, active) {
+                if (!locked && !active) detectHorizontalDragGestures(
                     onDragStart = { dragDelta = 0f },
                     onHorizontalDrag = { change, delta ->
                         dragDelta += delta
                         change.consume()
                     },
                     onDragEnd = {
-                        if (dragDelta < -70f) onShowOptions(true)
-                        if (dragDelta > 70f) onShowOptions(false)
+                        if (dragDelta < -70f) onShowOptions()
                         dragDelta = 0f
                     },
                     onDragCancel = { dragDelta = 0f }
@@ -113,160 +90,68 @@ internal fun LiveStartToolbar(
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AnimatedContent(
-            targetState = showOptions,
-            transitionSpec = {
-                (slideInHorizontally(animationSpec = tween(220)) {
-                    if (targetState) it else -it
-                } + fadeIn()).togetherWith(
-                    slideOutHorizontally(animationSpec = tween(220)) {
-                        if (targetState) -it else it
-                    } + fadeOut()
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LiveGlassCircleButton(
+                onClick = { if (active) onFinish() else onShowOptions() },
+                size = 64.dp,
+                color = sideGlass,
+                border = glassBorder,
+                modifier = Modifier.testTag(if (active) "live_finish" else "live_options")
+            ) {
+                Icon(
+                    if (active) Icons.Outlined.Flag else Icons.Outlined.Settings,
+                    if (active) "Finalizar actividad" else "Opciones",
+                    modifier = Modifier.size(28.dp)
                 )
-            },
-            label = "live_start_options"
-        ) { options ->
-            if (options) {
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-                    border = glassBorder,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(16.dp).testTag("live_start_options"),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Opciones",
-                                style = MaterialTheme.typography.headlineSmall,
-                                modifier = Modifier.weight(1f)
-                            )
-                            ReperaToolbarGlassIconButton(
-                                icon = Icons.Outlined.Close,
-                                contentDescription = "Cerrar",
-                                onClick = { onShowOptions(false) }
-                            )
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.VolumeUp, null)
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                "Audio",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(checked = audioEnabled, onCheckedChange = { onAudio() })
-                        }
-                        Row(
-                            Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Map, null)
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                "Mapa",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(
-                                checked = hasGPS && showMap,
-                                enabled = hasGPS,
-                                onCheckedChange = onMap
-                            )
-                        }
-                        if (!active) {
-                            TextButton(
-                                onClick = onRoute,
-                                enabled = hasGPS,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                                    .testTag("live_load_route")
-                            ) {
-                                Icon(Icons.Outlined.Route, null)
-                                Spacer(Modifier.width(12.dp))
-                                Text("Cargar ruta", style = MaterialTheme.typography.titleMedium)
-                            }
-                        } else {
-                            TextButton(
-                                onClick = onLock,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                            ) {
-                                Icon(Icons.Outlined.Lock, null)
-                                Spacer(Modifier.width(12.dp))
-                                Text("Bloquear pantalla", style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
-                    }
+            }
+            LiveGlassCircleButton(
+                onClick = onPrimary,
+                size = primarySize,
+                color = if (phase == LiveActivityState.Phase.RECORDING)
+                    ReperaAccents.pauseFab.copy(alpha = 0.88f) else brandGreen.copy(alpha = 0.88f),
+                border = glassBorder,
+                modifier = Modifier
+                    .onGloballyPositioned { onPrimaryPositioned(it.boundsInRoot()) }
+                    .testTag(if (active) "live_pause_resume" else "live_start")
+            ) {
+                if (countdown > 0) {
+                    Text(
+                        "$countdown",
+                        color = Color.Black,
+                        fontSize = (primarySize.value * 0.48f).sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Icon(
+                        if (locked) Icons.Outlined.Lock else
+                        if (phase == LiveActivityState.Phase.RECORDING)
+                            Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (locked) "Pantalla bloqueada" else
+                            if (phase == LiveActivityState.Phase.RECORDING)
+                                "Pausar" else if (active) "Reanudar" else "Comenzar",
+                        tint = Color.Black,
+                        modifier = Modifier.size(38.dp)
+                    )
                 }
-            } else {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LiveGlassCircleButton(
-                        onClick = { if (active) onFinish() else onShowOptions(true) },
-                        size = 64.dp,
-                        color = sideGlass,
-                        border = glassBorder,
-                        modifier = Modifier.testTag(if (active) "live_finish" else "live_options")
-                    ) {
-                        Icon(
-                            if (active) Icons.Outlined.Flag else Icons.Outlined.Settings,
-                            if (active) "Finalizar actividad" else "Opciones",
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    LiveGlassCircleButton(
-                        onClick = onPrimary,
-                        size = primarySize,
-                        color = if (phase == LiveActivityState.Phase.RECORDING)
-                            ReperaAccents.pauseFab.copy(alpha = 0.88f) else brandGreen.copy(alpha = 0.88f),
-                        border = glassBorder,
-                        modifier = Modifier
-                            .onGloballyPositioned { onPrimaryPositioned(it.boundsInRoot()) }
-                            .testTag(if (active) "live_pause_resume" else "live_start")
-                    ) {
-                        if (countdown > 0) {
-                            Text(
-                                "$countdown",
-                                color = Color.Black,
-                                fontSize = (primarySize.value * 0.48f).sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        } else {
-                            Icon(
-                                if (locked) Icons.Outlined.Lock else
-                                if (phase == LiveActivityState.Phase.RECORDING)
-                                    Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = if (locked) "Pantalla bloqueada" else
-                                    if (phase == LiveActivityState.Phase.RECORDING)
-                                        "Pausar" else if (active) "Reanudar" else "Comenzar",
-                                tint = Color.Black,
-                                modifier = Modifier.size(38.dp)
-                            )
-                        }
-                    }
-                    LiveGlassCircleButton(
-                        onClick = onSport,
-                        enabled = !active && countdown == 0 && !hasActiveWorkout,
-                        size = 64.dp,
-                        color = sideGlass,
-                        border = glassBorder,
-                        modifier = Modifier.testTag("live_sport_picker")
-                    ) {
-                        Icon(
-                            sportIcon,
-                            "Elegir actividad: $sportTitle",
-                            tint = brandGreen,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
+            }
+            LiveGlassCircleButton(
+                onClick = onSport,
+                enabled = !active && countdown == 0 && !hasActiveWorkout,
+                size = 64.dp,
+                color = sideGlass,
+                border = glassBorder,
+                modifier = Modifier.testTag("live_sport_picker")
+            ) {
+                Icon(
+                    sportIcon,
+                    "Elegir actividad: $sportTitle",
+                    tint = brandGreen,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     }

@@ -92,7 +92,7 @@ struct AppleWorkoutExportSheet: View {
             } label: {
                 Text(isOpening ? "Enviando…" : "Enviar")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(OG.onAccent)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(OG.accent, in: Capsule())
             }

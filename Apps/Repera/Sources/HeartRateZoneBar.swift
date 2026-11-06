@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Zonas de FC coherentes con Apple Watch (60/70/80/90 % de FCmáx estimada).
-/// No se atribuye una zona si Salud no aporta una lectura actual y válida.
+/// Sin lectura válida el hueco se reserva (opacity 0) para no mover el layout de métricas.
 struct HeartRateZoneBar: View {
     @Environment(ReperaStore.self) private var store
     var bpm: Int?
@@ -33,10 +33,10 @@ struct HeartRateZoneBar: View {
         return 5
     }
 
-    @ViewBuilder
     var body: some View {
-        if let bpm, let zone {
-            VStack(alignment: .leading, spacing: 3) {
+        let activeZone = zone
+        let activeBpm = bpm.flatMap { (25...250).contains($0) ? $0 : nil }
+        VStack(alignment: .leading, spacing: 3) {
             GeometryReader { geo in
                 let gap: CGFloat = 4
                 // Cuatro tramos de una unidad + el tramo activo de tres.
@@ -44,15 +44,15 @@ struct HeartRateZoneBar: View {
                 let unit = max(0, (geo.size.width - 4 * gap) / 7)
                 HStack(spacing: gap) {
                     ForEach(1...5, id: \.self) { level in
-                        let active = zone == level
+                        let active = activeZone == level
                         Capsule()
                             .fill(colors[level - 1].opacity(active ? 1 : 0.38))
                             .frame(width: unit * (active ? 3 : 1), height: active ? 42 : 12)
                             .overlay {
-                                if active {
+                                if active, let activeBpm {
                                     VStack(spacing: 0) {
                                         Text("Zona \(level)")
-                                        Text("\(bpm) lpm")
+                                        Text("\(activeBpm) lpm")
                                     }
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundStyle(.black)
@@ -67,10 +67,15 @@ struct HeartRateZoneBar: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(height: 44)
-
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5")
         }
+        .opacity(activeZone == nil ? 0 : 1)
+        .accessibilityHidden(activeZone == nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText(bpm: activeBpm, zone: activeZone))
+    }
+
+    private func accessibilityText(bpm: Int?, zone: Int?) -> String {
+        guard let bpm, let zone else { return "" }
+        return "Frecuencia cardíaca \(bpm) pulsaciones, zona \(zone) de 5"
     }
 }

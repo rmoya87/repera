@@ -5,17 +5,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -26,7 +26,7 @@ import dev.repera.domain.LiveHeartRateZones
 
 /**
  * Segmented FC indicator for Comenzar. Five solid colors, no gradient.
- * Only measured values may select/expand a zone.
+ * Sin lectura: reserva 44 dp (opacity 0) para no mover el layout de métricas.
  */
 @Composable
 internal fun LiveHeartRateZoneBar(
@@ -34,13 +34,22 @@ internal fun LiveHeartRateZoneBar(
     modifier: Modifier = Modifier,
     estimatedMaxBpm: Double = 190.0
 ) {
-    // No pulse => no HR card, no colored bars, no placeholder line.
-    val zone = LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return
+    val zone = LiveHeartRateZones.zone(bpm, estimatedMaxBpm)
+    if (zone == null) {
+        Spacer(
+            modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .graphicsLayer { alpha = 0f }
+                .testTag("live_heart_zone_bar")
+        )
+        return
+    }
+    val announcement = "Frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
     val colors = listOf(
         Color(0xFF408CFF), Color(0xFF33D966), Color(0xFFF2D926),
         Color(0xFFFF8C1A), Color(0xFFF23333)
     )
-    val announcement = "Frecuencia cardíaca $bpm pulsaciones, zona $zone de 5"
     Column(
         modifier = modifier
             .fillMaxWidth()

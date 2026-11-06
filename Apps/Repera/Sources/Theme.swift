@@ -786,7 +786,8 @@ struct OGConfirmSheet: View {
                 Button(action: onConfirm) {
                     Text(confirmTitle)
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.white)
+                        // Verde Repera → texto negro (OG.onAccent); destructivo/rojo → blanco.
+                        .foregroundStyle(confirmTint == OG.accent ? OG.onAccent : Color.white)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 50)
                         .glassEffect(.regular.tint(confirmTint).interactive(), in: .capsule)

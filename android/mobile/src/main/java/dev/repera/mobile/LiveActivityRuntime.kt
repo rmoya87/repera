@@ -47,6 +47,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private val voice = LiveSpokenGuidance(app)
     private val voicePrefs = app.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
     var spokenGuidanceEnabled = voicePrefs.getBoolean("enabled", true); private set
+    /** Si está desactivado, Play arranca al instante (sin 3-2-1). Paridad iOS. */
+    var startCountdownEnabled = voicePrefs.getBoolean("startCountdown", true); private set
     var upcomingTurn: String? = null; private set
     var upcomingCue: dev.repera.domain.LiveRouteGuidance.Cue? = null; private set
     var latestKilometerReport: String? = null; private set
@@ -133,6 +135,12 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         spokenGuidanceEnabled = !spokenGuidanceEnabled
         voicePrefs.edit().putBoolean("enabled", spokenGuidanceEnabled).apply()
         if (!spokenGuidanceEnabled) voice.stop()
+        publish()
+    }
+
+    fun toggleStartCountdown() {
+        startCountdownEnabled = !startCountdownEnabled
+        voicePrefs.edit().putBoolean("startCountdown", startCountdownEnabled).apply()
         publish()
     }
     private fun prepareRoute() {

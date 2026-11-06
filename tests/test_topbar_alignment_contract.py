@@ -84,15 +84,18 @@ class TopBarAlignmentContractTests(unittest.TestCase):
             "private var mapHeader: some View {", 1
         )[0]
         self.assertIn(".ignoresSafeArea()", map_view)
-        self.assertIn(".safeAreaPadding(.top, OG.topBarTopInset)", map_view)
+        # Chrome +12 sobre safe area del root (no safeAreaPadding variable idle/vivo).
+        self.assertIn(".padding(.top, OG.topBarTopInset)", map_view)
+        self.assertNotIn(".safeAreaPadding(.top, OG.topBarTopInset)", map_view)
         self.assertEqual(map_view.count(".padding(.horizontal, OG.topBarHorizontalInset)"), 2)
         # Nunca volver a colocar el overlay 8 pt desde el origen físico.
         self.assertNotIn(".padding(.top, 8)", map_view)
         self.assertIn(".frame(width: 44, alignment: .trailing)", map_view)
         map_header = live.split("private var mapHeader: some View {", 1)[1].split(
-            "private func center3DMap(", 1
+            "private func toggleNavigationMapMode(", 1
         )[0]
-        self.assertIn("VStack(spacing: 16)", map_header)
+        self.assertIn("mapCircleButton(", map_header)
+        self.assertIn('effectiveNavigation3D ? "map" : "view.3d"', map_header)
 
     def test_exercises_iphone_and_duo_share_inline_title_actions(self):
         library = read("LibraryView.swift")

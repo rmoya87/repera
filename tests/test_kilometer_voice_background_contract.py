@@ -59,13 +59,13 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("speakNavigation(", refresh)
         self.assertIn("RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)", LIVE)
-        self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', LIVE)
+        self.assertIn('Label("Audio", systemImage: "speaker.wave.2.fill")', LIVE)
         self.assertIn("metricsTrailingActions", LIVE)
         self.assertNotIn('else if recorder.sport.usesGPS {\n                        metricsCircleButton("map", label: "Ver mapa")', LIVE)
         self.assertIn("recorder.toggleSpokenGuidance()", LIVE)
 
     def test_audio_configurable_before_start_and_preference_persists(self):
-        self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', LIVE)
+        self.assertIn('Label("Audio", systemImage: "speaker.wave.2.fill")', LIVE)
         self.assertIn("get: { recorder.spokenGuidanceEnabled }", LIVE)
         self.assertIn("recorder.toggleSpokenGuidance()", LIVE)
         self.assertNotIn("if showGuidanceToggle {", LIVE)
@@ -143,6 +143,8 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         countdown = LIVE.split("func beginStartCountdown() {", 1)[1].split(
             "func cancelStartCountdown()", 1
         )[0]
+        self.assertIn("guard startCountdownEnabled else", countdown)
+        self.assertIn("start()", countdown)
         self.assertIn("startCountdownRemaining = 3", countdown)
         self.assertIn("for second in [2, 1, 0]", countdown)
         self.assertIn("try? await Task.sleep(for: .seconds(1))", countdown)
@@ -151,6 +153,9 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("RestFeedback.restComplete(sound: self.spokenGuidanceEnabled", countdown)
         self.assertIn("self.start()", countdown)
         self.assertIn("guard phase == .idle, !isStartCountingDown else", LIVE)
+        self.assertIn('private let startCountdownKey = "repera.live.startCountdown.enabled"', LIVE)
+        self.assertIn("private(set) var startCountdownEnabled = true", LIVE)
+        self.assertIn("func toggleStartCountdown()", LIVE)
         self.assertIn("recorder.beginStartCountdown()", LIVE)
         self.assertIn("recorder.cancelStartCountdown()", LIVE)
         self.assertIn("recorder.startCountdownRemaining", LIVE)
