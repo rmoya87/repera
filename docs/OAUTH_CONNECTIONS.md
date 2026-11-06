@@ -1,6 +1,6 @@
 # Conexión de ChatGPT y Claude
 
-Última actualización: 2026-10-24.
+Última actualización: 2026-11-06.
 
 ## Estado y alcance
 
@@ -31,6 +31,13 @@ Cliente registrado y habilitado en `ai_oauth_providers` (sin `directory_url`), e
 El prompt indica la URL MCP completa, OAuth, **Use your own OAuth client**, el ID público y secreto vacío. Evita las opciones de registro automático/CIMD, que este servidor no ofrece. Si las herramientas de Repera ya están disponibles, Claude debe llamar a `get_mcp_access_info` para comprobar el acceso sin leer ni alterar entrenamientos. Si no lo están, guía el formulario y solicita activar Repera en el chat. Ni copiar el texto ni abrir Claude marcan una conexión como completada.
 
 La ayuda oficial de Claude permite un conector personalizado en Free; publicar una ficha exige un plan de pago del desarrollador. El prompt explica el límite si ya existe otro conector, sin quitarlo ni contratar planes. No se promete instalación automática, ni se envían mensajes automáticamente a Claude.
+
+## Resiliencia de la pantalla iOS (06/11/2026)
+
+- Una consulta a `ai_access_tokens` que falla por conectividad o sesión **no** se interpreta como «sin asistentes conectados»: el estado vacío solo aparece después de una respuesta válida. Se conserva la última lista conocida y hay una acción «Reintentar».
+- El catálogo público de proveedores conserva la última configuración válida si falla la red; no se sustituyen URLs OAuth previamente conocidas por valores nulos.
+- La réplica `athlete_custom_exercise_mirror` es best-effort, y su error de red no se imprime en bruto ni impide acceder a las conexiones. Se vuelve a intentar al recuperar el primer plano.
+- Esto es recuperación y presentación de errores, no una garantía de que la conexión móvil o el proveedor OAuth estén operativos. Las pruebas reales con iOS/TestFlight, distintos operadores y una sesión autenticada siguen siendo necesarias.
 
 ## Componentes
 
