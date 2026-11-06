@@ -318,6 +318,30 @@ struct HistoryView: View {
     private static let chipsTitleLeading: CGFloat = historyRowPad + 44 + 12
 }
 
+/// Primer resultado gana (hidratación o timeout). Evita `addTask { @MainActor in }`
+/// dentro de `withTaskGroup`, que el region isolation checker de Swift 6 no entiende.
+@MainActor
+private func raceDetailHydration(
+    milliseconds: Int,
+    operation: @escaping @MainActor () async -> Void
+) async {
+    let work = Task { @MainActor in
+        await operation()
+    }
+    await withTaskGroup(of: Void.self) { group in
+        group.addTask {
+            _ = await work.result
+        }
+        group.addTask {
+            try? await Task.sleep(for: .milliseconds(milliseconds))
+        }
+        await group.next()
+        group.cancelAll()
+    }
+    work.cancel()
+    _ = await work.result
+}
+
 /// Detalle visual de un entreno completado (mismo lenguaje que Entreno / preview).
 struct WorkoutDetailView: View {
     @Environment(ReperaStore.self) private var store
@@ -467,15 +491,9 @@ struct WorkoutDetailView: View {
                 return
             }
             guard !Task.isCancelled else { return }
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor in
-                    await hydrateWorkoutDetail()
-                }
-                group.addTask {
-                    try? await Task.sleep(for: .milliseconds(2_500))
-                }
-                await group.next()
-                group.cancelAll()
+            // Race sin `addTask { @MainActor in }` (region isolation checker).
+            await raceDetailHydration(milliseconds: 2_500) {
+                await hydrateWorkoutDetail()
             }
             guard !Task.isCancelled else { return }
             didHydrateDetail = true
@@ -2369,24 +2387,8 @@ struct HealthActivityDetailView: View {
         .background(OG.bg)
         .ogPinnedTransparentNav(detail?.activity.title ?? "Actividad")
         .task {
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor in
-                    let loaded = await health.activityDetail(for: activityId)
-                    guard !Task.isCancelled else { return }
-                    detail = loaded
-                    if let loaded, let first = loaded.routePoints.first {
-                        weatherPrefetch = await RouteWeatherPrefetch.load(
-                            latitude: first.latitude,
-                            longitude: first.longitude,
-                            workoutDate: loaded.activity.start
-                        )
-                    }
-                }
-                group.addTask {
-                    try? await Task.sleep(for: .milliseconds(2_500))
-                }
-                await group.next()
-                group.cancelAll()
+            await raceDetailHydration(milliseconds: 2_500) {
+                await hydrateExternalActivityDetail()
             }
             guard !Task.isCancelled else { return }
             isDetailReady = true
@@ -2399,6 +2401,20 @@ struct HealthActivityDetailView: View {
                 onClose: { showFullScreenRoute = false }
             )
             .navigationTransition(.zoom(sourceID: activityId, in: routeZoomNamespace))
+        }
+    }
+
+    @MainActor
+    private func hydrateExternalActivityDetail() async {
+        let loaded = await health.activityDetail(for: activityId)
+        guard !Task.isCancelled else { return }
+        detail = loaded
+        if let loaded, let first = loaded.routePoints.first {
+            weatherPrefetch = await RouteWeatherPrefetch.load(
+                latitude: first.latitude,
+                longitude: first.longitude,
+                workoutDate: loaded.activity.start
+            )
         }
     }
 
