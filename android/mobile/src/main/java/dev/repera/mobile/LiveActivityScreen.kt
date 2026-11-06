@@ -801,7 +801,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 horizontalAlignment = Alignment.End
             ) {
                 // Play, pausa y bandera están en la misma barra inferior.
-                                LiveMapCircleFab(
+                LiveMapCircleFab(
                     icon = if (effectiveNavigationMode) Icons.Outlined.Map else Icons.Outlined.ViewInAr,
                     label = when {
                         effectiveNavigationMode -> "Cambiar a vista 2D"
@@ -952,14 +952,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                             )
                         else Modifier
                     )
-                    .testTag("live_idle_panel")
-                    .then(
-                        if (state.phase == LiveActivityState.Phase.IDLE) Modifier
-                        else Modifier.clickable(
-                            onClickLabel = if (mapDetailsExpanded)
-                                "Contraer detalles del mapa" else "Ampliar detalles del mapa"
-                        ) { mapDetailsExpanded = !mapDetailsExpanded }
-                    ),
+                    .testTag("live_idle_panel"),
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 tonalElevation = 0.dp,
@@ -1424,8 +1417,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
  * y superpone un candado en la misma posición del control original.
  * Mantener pulsado un segundo desbloquea; la acción accesible permite TalkBack.
  */
-@Composable
-
 /** Controles nativos compartidos entre el mapa y las métricas de Comenzar. */
 @Composable
 private fun LiveStartToolbar(
@@ -1592,6 +1583,7 @@ private fun LiveStartToolbar(
     }
 }
 
+@Composable
 private fun LiveScreenTouchBlocker(
     target: Rect?,
     container: Rect?,
