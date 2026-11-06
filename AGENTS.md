@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-05.
+Última actualización: 2026-11-06.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -144,6 +144,14 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Comenzar — extracción Compose y eliminación completa de ramas (06/11/2026)
+
+- Un único `LiveStartToolbar.kt` para mapa, métricas y deportes interiores. **No duplicar** la definición en `LiveActivityScreen.kt`; los tres lugares deben invocar el mismo componente. Evitar desajustes en el estado del botón central, la actividad y el candado.
+- Al quitar el panel expandido, eliminar **ambas ramas** (`if expanded`) y sus delimitadores; una sustitución parcial puede dejar `LiveHeartRateZoneBar(bpm = bpm)` fuera de su ámbito e impedir compilar. Proteger con `tests/test_start_map_controls_contract.py` y comprobación de sintaxis, no solo inspección visual.
+- Los jobs de GitHub Actions que terminan en segundos con `runner_name` vacío y `steps=[]` no demuestran que el código compile ni que los tests fallen: revisar primero disponibilidad de runners/logs y repetir compilación nativa cuando sea posible. No declarar paridad verificada por hardware.
+
+
 
 Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 

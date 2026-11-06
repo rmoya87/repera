@@ -26,14 +26,11 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         for limit in ("0.60", "0.70", "0.80", "0.90"):
             self.assertIn(limit, code)
 
-    def test_ios_gps_map_and_metrics_use_same_measured_bpm(self):
+    def test_ios_metrics_keep_measured_hr_while_map_stays_compact(self):
         live = read("Apps/Repera/Sources/LiveActivityView.swift")
-        self.assertGreaterEqual(live.count("HeartRateZoneBar(bpm: bpm)"), 3)
-        self.assertIn("if mapDetailsExpanded {", live)
-        self.assertIn(".onTapGesture { mapDetailsExpanded.toggle() }", live)
+        self.assertGreaterEqual(live.count("HeartRateZoneBar(bpm: bpm)"), 2)
+        self.assertNotIn("mapDetailsExpanded", live)
         self.assertIn("if let bpm = displayedHeartRateBpm", live)
-        self.assertIn(".accessibilityHint(\"Muestra u oculta desnivel y frecuencia cardíaca\")", live)
-        self.assertNotIn("guard !recorder.sport.usesGPS", live)
         self.assertIn("Date().addingTimeInterval(-60)", live)
         self.assertIn("receiveCompanionHeartRate(sessionId:", live)
         self.assertIn("latestCompanionHeartRateBpm", live)
@@ -58,7 +55,7 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         self.assertIn('case "liveHeartRate":', phone)
         self.assertIn("phoneConnectivityDidReceiveLiveHeartRate", store)
 
-    def test_android_segmented_bar_and_every_live_surface(self):
+    def test_android_metrics_have_measured_zones_without_map_expansion(self):
         bar = read("android/mobile/src/main/java/dev/repera/mobile/LiveHeartRateZoneBar.kt")
         screen = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
         self.assertNotIn("Brush.horizontalGradient", bar)
@@ -69,10 +66,10 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         self.assertIn("$bpm lpm", bar)
         self.assertNotIn("Sin lectura de FC", bar)
         self.assertIn("LiveHeartRateZones.zone(bpm, estimatedMaxBpm) ?: return", bar)
-        self.assertIn("expanded = mapDetailsExpanded", screen)
-        self.assertIn("mapDetailsExpanded = !mapDetailsExpanded", screen)
-        self.assertIn("if (expanded && bpm != null && bpm in 25..250)", screen)
-        self.assertGreaterEqual(screen.count("LiveHeartRateZoneBar("), 3)
+        self.assertIn("LiveMapMetricStrip(state = state, nowTick = nowTick)", screen)
+        self.assertNotIn("mapDetailsExpanded", screen)
+        self.assertNotIn("if (expanded && bpm", screen)
+        self.assertGreaterEqual(screen.count("LiveHeartRateZoneBar("), 2)
         self.assertIn("state.sport.usesGPS", screen)
         self.assertIn("HealthConnectReader(context)", screen)
         self.assertIn("runtime.currentWearHeartRateBpm(nowTick)", screen)
@@ -97,17 +94,17 @@ class LiveHeartRateZoneContractTests(unittest.TestCase):
         self.assertIn('"/repera/live-heart-rate"', listener)
         self.assertIn("SessionStore(this).load()?.uniqueId", listener)
 
-    def test_map_is_compact_by_default_and_metrics_view_keeps_hr_when_real(self):
+    def test_map_compact_and_heart_zones_are_on_metrics_page(self):
         ios = read("Apps/Repera/Sources/LiveActivityView.swift")
         android = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityScreen.kt")
-        self.assertIn("@State private var mapDetailsExpanded = false", ios)
-        self.assertIn("mapDetailsExpanded.toggle()", ios)
-        self.assertIn("if mapDetailsExpanded {", ios)
-        self.assertIn("if recorder.sport.tracksElevation && recorder.hasElevationSamples", ios)
-        self.assertIn("remember(accountId, state.gpsSessionID)", android)
-        self.assertIn("mutableStateOf(false)", android)
-        self.assertIn("if (expanded && state.sport.tracksElevation", android)
-        self.assertIn("if (state.phase == LiveActivityState.Phase.IDLE) Modifier", android)
+        self.assertIn("private var mapMetricStrip: some View", ios)
+        self.assertNotIn("mapDetailsExpanded", ios)
+        self.assertNotIn(".onTapGesture { mapDetailsExpanded.toggle() }", ios)
+        self.assertIn("HeartRateZoneBar(bpm: bpm)", ios)
+        self.assertIn("private fun LiveMapMetricStrip(state: LiveActivityState, nowTick: Long)", android)
+        self.assertNotIn("mapDetailsExpanded", android)
+        self.assertNotIn("if (expanded && state.sport.tracksElevation", android)
+        self.assertIn("LiveHeartRateZoneBar(", android)
         self.assertNotIn("Sin lectura de FC",
             read("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt"))
 

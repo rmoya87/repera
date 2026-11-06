@@ -41,38 +41,35 @@ class DuoSelectionAndMetricsTests(unittest.TestCase):
         self.assertIn("if routine != nil {", schedule)
         self.assertNotIn('if let routine {\n                        OGSwipeDeleteButton(', schedule)
 
-    def test_metrics_controls_stay_right_aligned_and_expand_horizontally(self):
+    def test_metrics_map_and_start_share_one_compact_control_row(self):
         swift = (SOURCE / "LiveActivityView.swift").read_text(encoding="utf-8")
         metrics = swift.split("private var metricsView: some View {", 1)[1].split(
-            "private var selectionCircleBackground:", 1
+            "private var metricsTrailingActions: some View", 1
         )[0]
-        # El HStack contiene título a la izquierda y botones en el extremo derecho.
-        heading = metrics.split("HStack(spacing: 12) {", 1)[1].split(
-            ".padding(.horizontal, 18)", 1
+        actions = swift.split("private var metricsTrailingActions: some View", 1)[1].split(
+            "private var selectionCircleBackground", 1
         )[0]
-        self.assertIn("Spacer(minLength: 4)", heading)
-        self.assertIn("metricsTrailingActions", heading)
-        self.assertLess(heading.index("Spacer(minLength: 4)"), heading.index("metricsTrailingActions"))
-        self.assertNotIn("HStack(spacing: 12) {\n                        if showGuidanceToggle", metrics)
+        toolbar = swift.split("private var bottomControls: some View", 1)[1].split(
+            "private var liveSplitScreen", 1
+        )[0]
+        header = swift.split("private var mapHeader: some View", 1)[1].split(
+            "private func toggleNavigationMapMode", 1
+        )[0]
 
-        # Play y Finalizar no forman una columna vertical.
-        actions = swift.split("private var metricsTrailingActions: some View {", 1)[1].split(
-            "private var selectionCircleBackground:", 1
-        )[0]
-        self.assertIn("HStack(spacing: 8)", actions)
-        self.assertIn("metricsCircleButton(", actions)
-        self.assertIn("sessionMapButton(", actions)
-        self.assertNotIn("VStack(spacing:", actions)
-        self.assertLess(actions.index('"play.fill"'), actions.index('"flag.checkered"'))
-        self.assertIn("if recorder.phase == .idle", metrics)
         self.assertIn("bottomControls", metrics)
-
-        # Mapa conserva la columna de acciones independiente.
-        map_header = swift.split("private var mapHeader: some View {", 1)[1].split(
-            "private func sessionMapButton(", 1
-        )[0]
-        self.assertIn("VStack(spacing: 10)", map_header)
-        self.assertIn('"flag.checkered"', map_header)
+        self.assertIn("metricsTrailingActions", metrics)
+        self.assertIn("bottomControls", swift.split("private var mapView: some View", 1)[1])
+        self.assertNotIn("sessionMapButton(", actions)
+        self.assertNotIn('metricsCircleButton("map"', actions)
+        self.assertNotIn('sessionMapButton(', header)
+        self.assertIn('recorder.sport.symbol', toolbar)
+        self.assertIn('sportPicker = true', toolbar)
+        self.assertIn('showOptions = true', toolbar)
+        self.assertIn('recorder.phase == .recording ? "pause.fill"', toolbar)
+        self.assertIn('canLockLiveScreen ? "flag.checkered" : "gearshape.fill"', toolbar)
+        self.assertNotIn('Text(store.hasActiveSession ? "CONTINUAR" : "COMENZAR")', toolbar)
+        self.assertIn(".frame(maxWidth: 570)", metrics)
+        self.assertNotIn("mapDetailsExpanded", swift)
 
 
 if __name__ == "__main__":

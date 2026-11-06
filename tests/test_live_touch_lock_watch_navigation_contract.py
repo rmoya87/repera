@@ -27,7 +27,9 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn(".overlayPreferenceValue(LiveInteractionLockAnchorKey.self)", ios)
         self.assertIn("interactionLockButton(registerAnchor: false)", ios)
         self.assertIn(".onLongPressGesture(minimumDuration: 1)", ios)
-        self.assertGreaterEqual(ios.count("interactionLockButton()"), 2)
+        self.assertIn(".anchorPreference(key: LiveInteractionLockAnchorKey.self", ios)
+        self.assertIn("isInteractionLocked = true", ios)
+        self.assertIn('Image(systemName: "lock.fill")', ios)
         self.assertIn(
             ".toolbar(isInteractionLocked || recorder.phase == .review ? .hidden", ios
         )
@@ -39,8 +41,10 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
         self.assertIn("rootView.keepScreenOn = false", android)
         self.assertIn("PointerEventPass.Initial", android)
         self.assertIn("withTimeoutOrNull(1_000L)", android)
-        self.assertIn("if (!touchLockAvailable) touchLocked = false", android)
-        self.assertIn("Icons.Outlined.LockOpen", android)
+        self.assertIn("if (!touchLockAvailable) { touchLocked = false; showSplits = false }", android)
+        self.assertIn("Icons.Outlined.Lock", android)
+        self.assertIn(".size(94.dp)", android)
+        self.assertIn("onPrimaryPositioned = { lockTarget = it }", android)
         self.assertEqual(android.count("LiveScreenTouchBlocker(lockTarget, lockContainer"), 3)
         self.assertIn("live_touch_unlock", android)
         shell = source("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")

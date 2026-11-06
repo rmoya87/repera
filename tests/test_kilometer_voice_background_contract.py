@@ -59,17 +59,16 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("speakNavigation(", refresh)
         self.assertIn("RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)", LIVE)
-        self.assertIn("recorder.phase != .review", LIVE)
+        self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', LIVE)
         self.assertIn("metricsTrailingActions", LIVE)
         self.assertNotIn('else if recorder.sport.usesGPS {\n                        metricsCircleButton("map", label: "Ver mapa")', LIVE)
-        self.assertIn("Desactivar avisos por voz", LIVE)
+        self.assertIn("recorder.toggleSpokenGuidance()", LIVE)
 
-    def test_audio_visible_before_start_and_preference_persists(self):
-        self.assertIn("private var showGuidanceToggle: Bool", LIVE)
-        self.assertIn("recorder.phase != .review", LIVE)
-        # Hay un altavoz en mapa y otro en métricas; ambos usan el mismo recorder.
-        self.assertIn("if showGuidanceToggle {", LIVE)
-        self.assertGreaterEqual(LIVE.count("recorder.toggleSpokenGuidance()"), 2)
+    def test_audio_configurable_before_start_and_preference_persists(self):
+        self.assertIn('Label("Audio", systemImage: "speaker.wave.2")', LIVE)
+        self.assertIn("get: { recorder.spokenGuidanceEnabled }", LIVE)
+        self.assertIn("recorder.toggleSpokenGuidance()", LIVE)
+        self.assertNotIn("if showGuidanceToggle {", LIVE)
         self.assertIn('private let spokenGuidanceKey = "repera.live.spokenGuidance.enabled"', LIVE)
         self.assertIn("private(set) var spokenGuidanceEnabled = true", LIVE)
         self.assertIn("UserDefaults.standard.bool(forKey: spokenGuidanceKey)", LIVE)
@@ -89,60 +88,35 @@ class KilometerVoiceBackgroundContractTests(unittest.TestCase):
         self.assertIn("pitch: 67", LIVE)
         self.assertIn("center3DMap(on: user)", LIVE)
 
-    def test_metrics_header_stays_fixed_during_recording_and_pause(self):
-        # El texto no cambia de anchura ni genera una tercera línea al aparecer
-        # Finalizar; en ambas fases Pausa/Play comparte la misma posición.
+    def test_metrics_recording_controls_are_only_in_shared_bottom_toolbar(self):
         header = LIVE.split("private var metricsView: some View", 1)[1].split(
             "private var metricsTrailingActions: some View", 1
         )[0]
-        self.assertIn(".frame(width: 28)", header)
-        self.assertIn(".lineLimit(2)", header)
-        self.assertIn(".minimumScaleFactor(0.68)", header)
         self.assertIn("GeometryReader { header in", header)
-        self.assertIn("width: min(126, max(48, header.size.width - 240))", header)
-        self.assertIn("Spacer(minLength: 0)", header)
-        self.assertIn(".padding(.horizontal, OG.topBarHorizontalInset)", header)
-        self.assertIn(".frame(maxWidth: .infinity, alignment: .trailing)", header)
-        self.assertIn(".fixedSize(horizontal: true, vertical: false)", header)
-        self.assertNotIn('Text("En pausa")', header)
-        self.assertNotIn('Text("Grabando actividad")', header)
+        self.assertIn("metricsTrailingActions", header)
+        self.assertIn("bottomControls", header)
         actions = LIVE.split("private var metricsTrailingActions: some View", 1)[1].split(
-            "private var selectionCircleBackground: Color", 1
+            "private var selectionCircleBackground", 1
         )[0]
         self.assertIn("HStack(spacing: 6)", actions)
-        self.assertNotIn("metricsActionPlaceholder", actions)
-        self.assertIn("if recorder.phase == .recording {", actions)
-        self.assertEqual(actions.count("if recorder.phase == .paused {"), 1)
-        # En pausa el orden es Audio · Mapa · Finalizar · Play.
-        # La bandera negra está directamente a la izquierda del botón verde;
-        # ambos pertenecen a la misma rama condicional de pausa.
-        self.assertLess(actions.index("guidanceSymbol"), actions.index('metricsCircleButton("map"'))
-        self.assertLess(actions.index('metricsCircleButton("map"'), actions.index('"flag.checkered"'))
-        self.assertLess(actions.index('"flag.checkered"'), actions.index('"play.fill"'))
-        paused = actions.split("} else if recorder.phase == .paused {", 1)[1]
-        self.assertIn('"flag.checkered"', paused)
-        self.assertIn('"play.fill"', paused)
-        self.assertLess(paused.index("finishAndShowSave()"), paused.index("recorder.resume()"))
-        self.assertNotIn('"flag.checkered"', actions.split("if showGuidanceToggle", 1)[0])
-
-    def test_finish_button_uses_visible_charcoal_liquid_glass_in_dark_mode(self):
-        # Flag mantiene su icono blanco pero recibe una superficie carbón
-        # visible frente al mapa oscuro y al fondo nocturno de Métricas.
-        button = LIVE.split("private func sessionMapButton(", 1)[1].split(
-            "private func metricsCircleButton(", 1
+        self.assertNotIn("sessionMapButton(", actions)
+        self.assertNotIn("guidanceSymbol", actions)
+        toolbar = LIVE.split("private var bottomControls: some View", 1)[1].split(
+            "private var liveSplitScreen", 1
         )[0]
-        self.assertIn('symbol == "flag.checkered" && colorScheme == .dark', button)
-        self.assertIn(".background(OG.surface2, in: Circle())", button)
-        self.assertIn(
-            ".glassEffect(.regular.tint(OG.surface2).interactive(), in: .circle)",
-            button,
-        )
-        self.assertIn(".background(background, in: Circle())", button)
-        self.assertIn(".foregroundStyle(foreground)", button)
-        self.assertIn(".frame(width: 44, height: 44)", button)
-        # En mapa y Métricas se comparte el mismo componente.
-        self.assertEqual(LIVE.count('"flag.checkered", label: "Finalizar y guardar"'), 2)
-        self.assertEqual(LIVE.count("background: .black, foreground: .white"), 2)
+        self.assertIn('recorder.phase == .recording ? "pause.fill"', toolbar)
+        self.assertIn('canLockLiveScreen ? "flag.checkered" : "gearshape.fill"', toolbar)
+        self.assertIn("recorder.resume()", toolbar)
+
+    def test_finish_flag_replaces_options_and_requires_confirmation(self):
+        toolbar = LIVE.split("private var bottomControls: some View", 1)[1].split(
+            "private var liveSplitScreen", 1
+        )[0]
+        self.assertIn('Image(systemName: canLockLiveScreen ? "flag.checkered"', toolbar)
+        self.assertIn("confirmFinish = true", toolbar)
+        self.assertIn("recorder.pause()", toolbar)
+        self.assertIn("recorder.resume()", toolbar)
+        self.assertIn('confirmationDialog("¿Finalizar actividad?"', LIVE)
 
     def test_three_seconds_countdown_reuses_timer_sound_before_gps_starts(self):
         feedback = (ROOT / "Apps/Repera/Sources/RestFeedback.swift").read_text(encoding="utf-8")

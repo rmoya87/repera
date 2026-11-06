@@ -81,7 +81,7 @@ class UnifiedGPSContracts(unittest.TestCase):
         # Un GPX ya no impone Mapa tras Play; las indicaciones también
         # permanecen visibles en la pantalla Métricas elegida.
         self.assertIn(
-            '@AppStorage("repera.live.preferredDisplay.metrics") private var showingMetrics = false',
+            '@State private var showingMetrics = true',
             self.live,
         )
         self.assertNotIn(
