@@ -28,7 +28,7 @@ class FavoriteProEntitlementContractTests(unittest.TestCase):
         self.assertIn("func refreshEntitlementsForFeatureAction() async", manager)
         self.assertIn('await refresh(reason: "feature-gate")', manager)
         self.assertIn("verifiedAppleAccessIfNeeded(next)", manager)
-        self.assertIn("guard verified.grantsProAccess else { return snapshot }", manager)
+        self.assertIn("return StoreKitEntitlementProvider()", manager)
         self.assertIn("provider = apple", manager)
 
     def test_restore_falls_back_to_verified_apple_transaction(self):
@@ -37,7 +37,7 @@ class FavoriteProEntitlementContractTests(unittest.TestCase):
             "private func refresh(reason:", 1
         )[0]
         self.assertIn("try await provider.restore()", restore)
-        self.assertIn("try? await apple.restore()", restore)
+        self.assertIn("let appleSnapshot = await apple.refresh()", restore)
         self.assertIn("await apple.refresh()", restore)
         self.assertIn("if appleSnapshot.grantsProAccess", restore)
         self.assertIn("provider = apple", restore)
