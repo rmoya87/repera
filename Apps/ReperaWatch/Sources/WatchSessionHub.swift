@@ -72,6 +72,8 @@ final class WatchSessionHub: NSObject {
     private let connectivity = WatchConnectivityClient()
     private let health = WatchHealthKitSession()
     private var companionSensorID: UUID?
+    /// Phone owns navigation/review; this same UUID has exactly one Watch HKWorkout.
+    private var phoneOriginatedHealthSessionID: UUID?
     private var lastCompanionHeartSentAt = Date.distantPast
     private var lastCompanionHeartSessionID: UUID?
     private var lastCompanionHeartBpm: Int?
@@ -140,6 +142,7 @@ final class WatchSessionHub: NSObject {
         var isRecordingPlannedWorkout: Bool?
         var live: PersistedWatchLive?
         var companionSensorID: UUID?
+        var phoneOriginatedHealthSessionID: UUID?
     }
 
     /// Actividad Comenzar grabada por el reloj: lo mínimo para reconstruir la UI
@@ -559,7 +562,9 @@ final class WatchSessionHub: NSObject {
             health.recoverIfNeeded(id: sensorID) { [weak self] outcome in
                 guard let self else { return }
                 switch outcome {
-                case .recovered where sensorID != nil && self.liveActivity?.id != sensorID:
+                case .recovered where sensorID != nil &&
+                    self.liveActivity?.id != sensorID &&
+                    self.phoneOriginatedHealthSessionID != sensorID:
                     self.health.discard()
                     self.companionSensorID = nil
                     self.save()
@@ -726,11 +731,47 @@ final class WatchSessionHub: NSObject {
         if companionSensorID == live.id {
             health.discard()
             companionSensorID = nil
+            phoneOriginatedHealthSessionID = nil
         }
         returnToHome()
         save()
         WKInterfaceDevice.current().play(.click)
         return true
+    }
+
+    /// An explicit handoff from iPhone promotes a temporary companion sensor
+    /// to the ONE persistent Watch workout. The iPhone remains the route/editor.
+    @discardableResult
+    private func adoptPhoneLiveHealthOwnership(
+        sessionID: UUID, sport: WatchLiveSport, startedAt: Date
+    ) -> Bool {
+        if phoneOriginatedHealthSessionID == sessionID { return true }
+        guard !hasWorkoutInProgress, watchLiveSport == nil,
+              liveActivity == nil || liveActivity?.id == sessionID,
+              companionSensorID == nil || companionSensorID == sessionID else { return false }
+        if companionSensorID == sessionID { health.discard() }
+        companionSensorID = sessionID
+        phoneOriginatedHealthSessionID = sessionID
+        health.startLive(
+            id: sessionID, at: startedAt,
+            activityType: sport.healthKitActivityType,
+            outdoor: sport.usesGPS, mirrorsToPhone: true
+        )
+        if liveActivity?.phase == .paused { health.pause() }
+        save()
+        return true
+    }
+
+    /// The phone owns the save/review UI, but must never discard its Watch
+    /// workout: finalize sensor collection for the SAME Repera session UUID.
+    private func finishPhoneOriginatedHealthIfNeeded(sessionID: UUID) {
+        guard phoneOriginatedHealthSessionID == sessionID else { return }
+        phoneOriginatedHealthSessionID = nil
+        companionSensorID = nil
+        health.finish { [weak self] _ in
+            self?.save()
+        }
+        save()
     }
 
     func controlLiveActivity(_ command: String) {
@@ -772,6 +813,7 @@ final class WatchSessionHub: NSObject {
                     self.summaryDismissed = false
                     self.suppressCompanionLive = true
                     self.liveActivity = nil
+                    self.finishPhoneOriginatedHealthIfNeeded(sessionID: live.id)
                     if self.companionSensorID != nil {
                         self.health.discard()
                         self.companionSensorID = nil
@@ -819,7 +861,11 @@ final class WatchSessionHub: NSObject {
         // No reabrir companion en revisión; el hub debe quedar libre para elegir otro.
         liveActivity = nil
         suppressCompanionLive = true
-        if companionSensorID != nil { health.discard(); companionSensorID = nil }
+        if companionSensorID != nil {
+            health.discard()
+            companionSensorID = nil
+            phoneOriginatedHealthSessionID = nil
+        }
         publishComplicationSnapshot(force: true)
         checkpoint()
     }
@@ -994,6 +1040,9 @@ final class WatchSessionHub: NSObject {
 
     /// Woken by `HKHealthStore.startWatchApp` — consume a pending phone handoff.
     func handleWorkoutConfiguration(_ configuration: HKWorkoutConfiguration) {
+        // The phone's existing live handoff may wake us a second time.
+        // Never start another native HealthKit session on that wake-up.
+        if phoneOriginatedHealthSessionID != nil { return }
         if let pending = pendingPhoneHandoff {
             pendingPhoneHandoff = nil
             _ = adoptPhoneHandoff(
@@ -1292,11 +1341,21 @@ final class WatchSessionHub: NSObject {
     /// HealthKit sends physical two-button pause requests and state changes.
     /// Repera remains the owner of interval and set timers; both clocks pause together.
     private func applyHealthPauseRequest() {
+        if let id = phoneOriginatedHealthSessionID, liveActivity?.id == id,
+           let live = liveActivity {
+            controlLiveActivity(live.phase == .paused ? "resume" : "pause")
+            return
+        }
         guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock else { return }
         if isPaused { play() } else { pause() }
     }
 
     private func alignWithHealthState(paused: Bool) {
+        if let id = phoneOriginatedHealthSessionID, liveActivity?.id == id,
+           let live = liveActivity, (live.phase == .paused) != paused {
+            controlLiveActivity(paused ? "pause" : "resume")
+            return
+        }
         guard hasWorkoutInProgress, active?.phase == .counting, !reviewingBlock,
               paused != isPaused else { return }
         if paused { pause() } else { play() }
@@ -1308,7 +1367,7 @@ final class WatchSessionHub: NSObject {
         guard url.scheme == "repera-watch" else { return }
         let host = (url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
             .lowercased()
-        guard host == "today" || host == "active" || host.isEmpty else { return }
+        guard host == "today" || host == "active" || host == "live" || host.isEmpty else { return }
         complicationOpenEpoch &+= 1
         // Los resúmenes anteriores no deben superponerse a la sesión en curso.
         summaryDismissed = true
@@ -2353,7 +2412,8 @@ final class WatchSessionHub: NSObject {
             reviewingBlock: reviewingBlock,
             clockTick: lastClockTick, acknowledgedSessionID: acknowledgedSessionID,
             startedOnThisWatch: startedOnThisWatch,
-            isRecordingPlannedWorkout: isRecordingPlannedWorkout
+            isRecordingPlannedWorkout: isRecordingPlannedWorkout,
+            phoneOriginatedHealthSessionID: phoneOriginatedHealthSessionID
         )
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: persistenceKey)
@@ -2389,6 +2449,8 @@ final class WatchSessionHub: NSObject {
         acknowledgedSessionID = snapshot.acknowledgedSessionID
         startedOnThisWatch = snapshot.startedOnThisWatch ?? false
         isRecordingPlannedWorkout = snapshot.isRecordingPlannedWorkout ?? false
+        phoneOriginatedHealthSessionID = snapshot.phoneOriginatedHealthSessionID
+        companionSensorID = snapshot.phoneOriginatedHealthSessionID
     }
 }
 
@@ -2427,6 +2489,18 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
             }
             if snapshot != nil {
                 self.pendingCompanionSport = nil
+                if let snapshot, snapshot.id == self.phoneOriginatedHealthSessionID {
+                    if snapshot.phase == .review {
+                        self.finishPhoneOriginatedHealthIfNeeded(sessionID: snapshot.id)
+                    } else if snapshot.phase == .paused {
+                        self.health.pause()
+                    } else {
+                        self.health.resume()
+                    }
+                    self.liveActivity = snapshot
+                    self.publishComplicationSnapshot(force: true)
+                    return
+                }
                 // El iPhone es propietario de GPS, pero no de los sensores de muñeca.
                 // Una sesión HealthKit de medición en Watch se descarta al terminar:
                 // evita guardar un segundo HKWorkout duplicado en Salud.
@@ -2450,8 +2524,10 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
                 if snapshot.phase == .paused { self.health.pause() }
                 else { self.health.resume() }
             } else if self.companionSensorID != nil {
+                // A terminal nil without Review means cancel/discard, not save.
                 self.health.discard()
                 self.companionSensorID = nil
+                self.phoneOriginatedHealthSessionID = nil
             }
             self.liveActivity = snapshot
             // No ocultar un error de guardado solo porque haya llegado la
@@ -2467,6 +2543,17 @@ extension WatchSessionHub: WatchConnectivityClientDelegate {
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     ) {
         Task { @MainActor in
+            if let sportID, let sport = WatchLiveSport(rawValue: sportID),
+               session == nil || session?.exercises.isEmpty == true {
+                // Ignore delayed durable handoffs from already-ended activities.
+                if let started = session?.startedAt,
+                   abs(Date().timeIntervalSince(started)) > 25 { return }
+                _ = self.adoptPhoneLiveHealthOwnership(
+                    sessionID: sessionID, sport: sport,
+                    startedAt: session?.startedAt ?? Date()
+                )
+                return
+            }
             self.pendingPhoneHandoff = (session, sessionID, sportID)
             if !self.adoptPhoneHandoff(
                 session: session, sessionID: sessionID, sportID: sportID

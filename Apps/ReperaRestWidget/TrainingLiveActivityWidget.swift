@@ -24,10 +24,12 @@ struct TrainingLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TrainingActivityAttributes.self) { context in
             TrainingFamilySwitcher(
-                regular: lockScreen(context),
+                regular: lockScreen(context)
+                    .widgetURL(destination(for: context.attributes)),
+                // watchOS must launch its installed native app, not repera:// on iPhone.
                 compact: watchSmartStack(context)
+                    .widgetURL(URL(string: "repera-watch://active"))
             )
-                .widgetURL(destination(for: context.attributes))
                 .activityBackgroundTint(.black)
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
@@ -168,30 +170,27 @@ struct TrainingLiveActivityWidget: Widget {
     @ViewBuilder
     private func lockScreen(_ context: ActivityViewContext<TrainingActivityAttributes>) -> some View {
         let hasNavigation = context.state.navigation != nil && context.state.phase != .completed
+        let active = context.state.phase != .completed
         VStack(spacing: 0) {
+            // Keep the title inside ActivityKit's limited height (no fixed minimum).
             HStack(spacing: 8) {
-                Image(systemName: context.state.phase == .paused ? "pause.fill" : context.state.symbol)
-                    .font(.subheadline.weight(.bold))
-                Text(context.state.phase == .paused ? "En pausa" :
-                     context.state.phase == .completed ? "Finalizado" : context.state.title)
+                Image(systemName: context.state.phase == .paused ? "pause.circle.fill" : context.state.symbol)
+                    .font(.subheadline.weight(.semibold))
+                Text(context.state.title)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                Spacer(minLength: 6)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 0)
             }
-            .foregroundStyle(context.state.phase == .paused ? .black : .white)
+            .foregroundStyle(context.state.phase == .paused ? pauseYellow : .white)
             .padding(.horizontal, 16)
-            // La altura mínima anterior creaba aire vacío bajo el título y
-            // forzaba a ActivityKit a recortar la parte inferior del widget.
-            // Margen explícito y equilibrado, sin reservar altura artificial.
-            .padding(.top, hasNavigation ? 18 : 12)
-            .padding(.bottom, hasNavigation ? 16 : 12)
-            .background(context.state.phase == .paused ? pauseYellow :
-                        context.state.phase == .completed ? green : Color.black)
+            .padding(.top, 12)
+            .padding(.bottom, 5)
 
-            if let cue = context.state.navigation,
-               context.state.phase != .completed {
-                navigationStrip(cue, compact: false)
-                    .padding(.horizontal, 12)
+            if let cue = context.state.navigation, active {
+                navigationStrip(cue, compact: true)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 3)
             }
 
             HStack(alignment: .center, spacing: 0) {
@@ -199,19 +198,41 @@ struct TrainingLiveActivityWidget: Widget {
                 lockMetric(value: Text(context.state.primaryValue), title: context.state.primaryLabel)
                 lockMetric(value: Text(context.state.secondaryValue), title: context.state.secondaryLabel)
             }
-            .padding(.horizontal, 14)
-            // Ahorramos espacio ENTRE la tarjeta de navegación y los datos
-            // para que la reserva bajo las etiquetas sea realmente visible.
-            .padding(.top, hasNavigation ? 10 : 14)
-            .padding(.bottom, hasNavigation ? 12 : 10)
+            .padding(.horizontal, 16)
+            .padding(.top, hasNavigation ? 5 : 8)
+            .padding(.bottom, 7)
             .foregroundStyle(.white)
-            .background(.black)
 
-            if context.state.phase != .completed {
+            // Optional single-line split goes BEFORE actions; omit it when long.
+            // Never sacrifice the title, metrics or actions to ActivityKit clipping.
+            if active, !hasNavigation, !context.attributes.isPlanned,
+               !context.state.subtitle.isEmpty, context.state.subtitle.count <= 36 {
+                Text(context.state.subtitle)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+            } else if active, !hasNavigation, context.attributes.isPlanned,
+                      !context.state.subtitle.isEmpty {
+                Text(context.state.subtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+            }
+
+            // Last element on the card, with symmetric side and bottom insets.
+            if active {
                 Group {
                     if context.attributes.sessionID.hasPrefix("watch:") {
                         Text("Control desde Apple Watch")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundStyle(.white.opacity(0.75))
                             .frame(maxWidth: .infinity)
                     } else {
@@ -221,58 +242,29 @@ struct TrainingLiveActivityWidget: Widget {
                         )
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, hasNavigation ? 14 : 12)
-                .background(.black)
-            }
-
-            if !hasNavigation, context.state.phase != .completed,
-               !context.state.subtitle.isEmpty {
-                Group {
-                    if context.attributes.isPlanned {
-                        Text(context.state.subtitle)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                    } else {
-                        splitStrip(context.state.subtitle, compact: false)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 1)
-                .padding(.bottom, 15)
-                .background(.black)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 12)
+            } else {
+                Color.clear.frame(height: 12)
             }
         }
         .background(.black)
     }
 
-    /// Parcial/kilómetro: tarjeta centrada con aire inferior y márgenes
-    /// idénticos a los tres indicadores de duración, ritmo y distancia.
-    /// El valor procede de latestKilometerReport, nunca se recalcula aquí.
+    /// One compact line; do not add a second "TRAMO" header or a tall card.
     private func splitStrip(_ text: String, compact: Bool) -> some View {
-        VStack(spacing: compact ? 2 : 4) {
-            Text("TRAMO")
-                .font(.system(size: compact ? 9 : 10, weight: .bold))
-                .tracking(1)
-                .foregroundStyle(green)
-            Text(text)
-                .font(.system(size: compact ? 11 : 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                .lineLimit(compact ? 2 : 3)
-                .minimumScaleFactor(0.8)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, compact ? 8 : 12)
-        .padding(.vertical, compact ? 7 : 10)
-        .background(.white.opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: compact ? 8 : 10,
-                                         style: .continuous))
-        .accessibilityElement(children: .combine)
+        Text(text)
+            .font(.system(size: compact ? 10 : 11, weight: .medium, design: .rounded))
+            .foregroundStyle(.white.opacity(0.85))
+            .multilineTextAlignment(.center)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, compact ? 7 : 10)
+            .padding(.vertical, 5)
+            .background(.white.opacity(0.07),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     /// Giro/calle para ruta GPX. Se adapta al ancho del bloqueo y la isla
@@ -341,11 +333,11 @@ struct TrainingLiveActivityWidget: Widget {
     }
 
     private func lockMetric(value: Text, title: String) -> some View {
-        VStack(alignment: .center, spacing: 5) {
+        VStack(alignment: .center, spacing: 3) {
             // El Text dinámico del cronómetro reserva espacio durante su actualización;
             // centrar también SU contenido evita que Duración quede a la izquierda.
             value
-                .font(.system(size: 25, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .minimumScaleFactor(0.65)
                 .lineLimit(1)
@@ -385,41 +377,47 @@ struct TrainingLiveActivityWidget: Widget {
             : (attributes.isPlanned ? "repera://workout" : "repera://live"))
     }
 
-    /// Interactive controls enqueue pause/resume/open in the app process.
-    /// They never confirm sets or write HealthKit from the widget extension.
+    /// Controls must be the last row. They only enqueue actions for the app,
+    /// never create another workout or write HealthKit from the extension.
     @ViewBuilder
     private func liveActivityControls(
         phase: TrainingActivityAttributes.ContentState.Phase,
         isPlanned: Bool
     ) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 9) {
             if !isPlanned {
                 if phase == .paused {
                     Button(intent: TrainingResumeLiveActivityIntent()) {
-                        Label("Reanudar", systemImage: "play.fill")
+                        Label("Reanudar", systemImage: "play.circle.fill")
                             .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .tint(green)
-                    .buttonStyle(.borderedProminent)
-                } else if phase == .running {
-                    Button(intent: TrainingPauseLiveActivityIntent()) {
-                        Label("Pausar", systemImage: "pause.fill")
-                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
                             .frame(maxWidth: .infinity)
                     }
                     .tint(pauseYellow)
+                    .foregroundStyle(.black)
+                    .buttonStyle(.borderedProminent)
+                } else if phase == .running {
+                    Button(intent: TrainingPauseLiveActivityIntent()) {
+                        Label("Pausar", systemImage: "pause.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .tint(pauseYellow)
+                    .foregroundStyle(.black)
                     .buttonStyle(.borderedProminent)
                 }
             }
             Button(intent: TrainingOpenSessionLiveActivityIntent()) {
-                Label(isPlanned ? "Confirmar serie" : "Abrir", systemImage: "arrow.up.forward.app")
+                Label("Abrir Repera", systemImage: "arrow.up.forward.app")
                     .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                     .frame(maxWidth: .infinity)
             }
-            .tint(.white)
-            .buttonStyle(.bordered)
+            .tint(green)
+            .foregroundStyle(.black)
+            .buttonStyle(.borderedProminent)
         }
-        .foregroundStyle(.white)
     }
 }

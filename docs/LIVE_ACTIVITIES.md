@@ -54,3 +54,11 @@ Los botones de **Pausar / Reanudar / Abrir** en bloqueo e isla usan `LiveActivit
 - Bloquear el iPhone, abrir Dynamic Island, pulsar y confirmar navegación al flujo correcto.
 - Comprobar coexistencia con la Live Activity del descanso (que sigue siendo independiente).
 - Salir de la app durante una actividad y restaurar la sesión sin perder tiempo o distancia; si se restauró en pausa no contar el tiempo de interrupción.
+
+## Ajustes de bloqueo y apertura del Watch (06/11/2026)
+
+- La tarjeta de bloqueo utiliza una distribución con título, tres métricas, parcial corto opcional y **botones siempre al final**, con margen superior, inferior y lateral homogéneo. Ya no existe una segunda línea «TRAMO». Si el texto del parcial ocupa demasiado, se oculta en lugar de recortar las métricas o acciones.
+- Pausar/Reanudar muestran los iconos circulares nativos; «Abrir Repera» se pinta en verde y texto negro.
+- La Smart Stack del reloj abre `repera-watch://active` (app instalada de watchOS), mientras bloqueo y Dynamic Island del iPhone conservan sus rutas `repera://`. El `Info.plist` de watchOS declara `WKSupportsLiveActivityLaunchAttributeTypes` para permitir abrir la app del reloj.
+- Un entrenamiento libre iniciado en iPhone mantiene el editor y la ruta GPS en el teléfono; si se confirma el handoff de HealthKit, el Apple Watch recoge los sensores usando **el mismo UUID** y se evita una sesión HealthKit extra en el móvil. Las acciones de pausa, reanudación y fin en la pantalla nativa del Watch controlan la sesión del teléfono sin abandonar el Watch. El cierre de la medición de Salud se hace al entrar en revisión, no descartándola.
+- Verificación física pendiente en iPhone + Apple Watch: apertura desde Smart Stack, tipografía grande, navegación GPX con avisos, pausa con botones físicos, GPS/FC/calorías, inicio con/desconexión de reloj, finalización, guardado y ausencia de duplicados en Salud. No hay compilación Xcode disponible en este entorno.
