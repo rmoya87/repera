@@ -614,76 +614,132 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         }
     }
     if (showRoutes) {
-        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-        ReperaModalBottomSheet(onDismissRequest = {
-            showRoutes = false
-            recenterToken++
-        }) {
+        BackHandler { showRoutes = false }
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(
-                Modifier.fillMaxWidth().heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                Modifier.fillMaxSize().statusBarsPadding()
+                    .padding(start = 20.dp, end = 20.dp, bottom = bottomChromePad),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // R8 P2: un solo título (RouteLibraryHeader ya dice «Mis rutas»).
-                RouteLibraryHeader { showRoutes = false }
-                if (routes.isEmpty()) {
-                    ReperaEmptyState(
-                        title = stringResource(R.string.live_activity_screen_todavia_no_hay_rutas),
-                        subtitle = stringResource(R.string.live_activity_screen_graba_un_recorrido_o_importa_un)
-                    )
+                Row(Modifier.fillMaxWidth().padding(top = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Mis rutas", style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = { showRoutes = false }) { Text("Cerrar") }
                 }
                 TextButton(onClick = {
                     importGPX.launch(arrayOf(
                         "application/gpx+xml", "application/xml", "text/xml",
                         "application/octet-stream"
                     ))
-                }) { Text(stringResource(R.string.live_activity_screen_importar_archivo_gpx)) }
-                val recentRoutes = routesStore?.latestRoutes?.take(5).orEmpty()
-                val favoriteRoutes = routesStore?.favoriteRoutes.orEmpty()
-                if (recentRoutes.isNotEmpty()) {
-                    Text(stringResource(R.string.live_activity_screen_ultimas_rutas), style = MaterialTheme.typography.titleSmall)
-                    recentRoutes.forEach { route ->
-                        ReperaCard(
-                            onClick = { runtime.selectRoute(route.id); showRoutes = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                    Icon(Icons.Outlined.Route, null)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Importar archivo GPX")
+                }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (routes.isEmpty()) {
+                        ReperaEmptyState(
+                            title = stringResource(R.string.live_activity_screen_todavia_no_hay_rutas),
+                            subtitle = stringResource(R.string.live_activity_screen_graba_un_recorrido_o_importa_un)
+                        )
+                    }
+                    val recentRoutes = routesStore?.latestRoutes?.take(5).orEmpty()
+                    val favorites = routesStore?.favoriteRoutes.orEmpty()
+                    if (recentRoutes.isNotEmpty()) {
+                        Text("Últimas rutas", style = MaterialTheme.typography.titleLarge)
+                        recentRoutes.forEach { route ->
+                            ReperaCard(
+                                onClick = { runtime.selectRoute(route.id); showRoutes = false },
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(route.title, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    "${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(route.title, style = MaterialTheme.typography.titleMedium)
+                                    Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
-                }
-                if (favoriteRoutes.isNotEmpty()) {
-                    Text(stringResource(R.string.live_activity_screen_favoritos), style = MaterialTheme.typography.titleSmall)
-                    favoriteRoutes.forEach { route ->
-                        ReperaCard(
-                            onClick = { runtime.selectRoute(route.id); showRoutes = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    if (favorites.isNotEmpty()) {
+                        Text("Favoritos", style = MaterialTheme.typography.titleLarge)
+                        favorites.forEach { route ->
+                            ReperaCard(
+                                onClick = { runtime.selectRoute(route.id); showRoutes = false },
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(route.title, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    "${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(route.title, style = MaterialTheme.typography.titleMedium)
+                                    Text("${ReperaNumberFormat.decimal(route.distanceKm)} km · ${route.sportTitle}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        return
+    }
+    if (showSplits && state.phase != LiveActivityState.Phase.REVIEW) {
+        BackHandler { showSplits = false }
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(Modifier.fillMaxWidth().padding(top = 24.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Parciales", style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.weight(1f))
+                TextButton(onClick = { showSplits = false }) { Text("Cerrar") }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 30.dp)) {
+                Text("Kilómetro", modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Ritmo", modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Variación", modifier = Modifier.weight(1f), textAlign = TextAlign.End,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                if (state.splitsSeconds.isEmpty()) {
+                    ReperaEmptyState(
+                        title = "Aún no hay parciales",
+                        subtitle = "El primer parcial aparecerá al completar un kilómetro."
+                    )
+                } else state.splitsSeconds.forEachIndexed { index, seconds ->
+                    val pace = seconds.roundToInt().coerceAtLeast(0)
+                    val previous = state.splitsSeconds.getOrNull(index - 1)
+                    val delta = previous?.let { (seconds - it).roundToInt() }
+                    val variation = when {
+                        delta == null -> "—"
+                        delta == 0 -> "±0:00"
+                        else -> "${if (delta < 0) "−" else "+"}${"%d:%02d".format(
+                            kotlin.math.abs(delta) / 60, kotlin.math.abs(delta) % 60)}"
+                    }
+                    Row(Modifier.fillMaxWidth().padding(vertical = 17.dp)) {
+                        Text("${index + 1}", modifier = Modifier.weight(1f))
+                        Text("%d:%02d".format(pace / 60, pace % 60),
+                            modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                        Text(variation, modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End)
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+            Button(onClick = { showSplits = false },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+                    .padding(bottom = bottomChromePad).heightIn(min = 56.dp)) {
+                Icon(Icons.Outlined.Close, null)
+                Spacer(Modifier.width(10.dp))
+                Text(LiveActivityClock.format(state.durationSeconds(nowTick)))
+            }
+        }
+        return
     }
     pendingDeleteRoute?.let { route ->
         AlertDialog(onDismissRequest = { pendingDeleteRoute = null },
@@ -1038,6 +1094,24 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         Box(
             Modifier.fillMaxSize()
                 .onGloballyPositioned { lockContainer = it.boundsInRoot() }
+                .pointerInput(touchLocked, state.phase) {
+                    if (!touchLocked && (state.phase == LiveActivityState.Phase.RECORDING ||
+                            state.phase == LiveActivityState.Phase.PAUSED)) {
+                        var verticalDistance = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { verticalDistance = 0f },
+                            onVerticalDrag = { change, delta ->
+                                verticalDistance += delta
+                                change.consume()
+                            },
+                            onDragEnd = {
+                                if (verticalDistance > 120f) showSplits = true
+                                verticalDistance = 0f
+                            },
+                            onDragCancel = { verticalDistance = 0f }
+                        )
+                    }
+                }
         ) {
         Column(
             Modifier
