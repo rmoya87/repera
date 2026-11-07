@@ -1230,6 +1230,19 @@ private struct WatchOwnedLiveMirrorView: View {
                     }
                 }
 
+                if snapshot.heartRateBpm != nil || snapshot.activeEnergyKcal != nil {
+                    HStack(spacing: 12) {
+                        if let bpm = snapshot.heartRateBpm, (25...250).contains(bpm) {
+                            metric("Frecuencia cardíaca", value: "\(bpm) lpm")
+                        }
+                        if let kcal = snapshot.activeEnergyKcal,
+                           kcal.isFinite, kcal >= 0 {
+                            metric("Calorías activas",
+                                   value: String(format: "%.0f kcal", kcal))
+                        }
+                    }
+                }
+
                 Label("Datos registrados por Apple Watch", systemImage: "applewatch")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
