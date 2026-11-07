@@ -55,9 +55,10 @@ historial del iPhone no se actualizaba hasta que terminase HealthKit.
 2. El iPhone valida `ownerScope`, formato, antigüedad y orden temporal.
    `WorkoutLiveActivityCoordinator` presenta una actividad local con
    identificador `watch:UUID` separado de `free:` y `planned:`.
-   El iPhone **no inicia otro workout HealthKit ni GPS**. Los controles
-   de pausa/reanudación que operarían sobre el iPhone se ocultan en la
-   notificación del registro Watch-owned; la tarjeta enlaza a Inicio.
+   El iPhone **no inicia otro workout HealthKit ni GPS**. La notificación
+   Watch-owned solo ofrece «Abrir Repera», que enlaza a Comenzar y muestra
+   el seguimiento nativo del mismo UUID. Desde esa pantalla se envían
+   pausa/reanudación/finalizar al reloj, sin crear otro registrador.
 3. Al terminar o cancelar desde el reloj se envía estado de revisión
    para cerrar exactamente el aviso de ese UUID. Al finalizar,
    `sendFinished(pending)` se encola **inmediatamente después de
@@ -85,8 +86,9 @@ historial del iPhone no se actualizaba hasta que terminase HealthKit.
 **Plan / clase iniciados en Watch (mismo canal):** además de Comenzar,
 un plan o clase con `startedOnThisWatch` publica snapshots `kind: .planned`
 (ejercicio/series + pausa) por `sendWatchOwnedLive`. El iPhone pinta
-`watch:UUID` (sin controles de pausa del teléfono) y no abre una tarjeta
-`planned:` concurrente cuando `appleHealthProvenance` es Watch.
+`watch:UUID` y permite abrir el espejo nativo con comandos al reloj,
+sin habilitar el grabador iPhone ni abrir una tarjeta `planned:` concurrente
+cuando `appleHealthProvenance` es Watch.
 
 **Play en iPhone con Watch emparejado (handoff Apple):** requiere Watch
 **alcanzable** + `ownerScope` de cuenta. El iPhone marca `watchHealthKitPending`,
