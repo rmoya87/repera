@@ -87,6 +87,8 @@ class AIConnectionReliabilityTests(unittest.TestCase):
         self.assertIn("Grok · configuración manual", android_view)
         self.assertIn("https://claude.ai/customize/connectors", android_launch)
         self.assertIn('uri.host?.lowercase() == "chatgpt.com"', android_launch)
+        self.assertIn('setup?.optString("clientID")', android_launch)
+        self.assertIn('p.optString("directoryURL")', android_launch)
         self.assertNotIn('"grok" -> "https://grok.com/"', android_launch)
 
     def test_technical_ai_network_errors_are_not_displayed(self):
