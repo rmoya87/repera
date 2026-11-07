@@ -106,30 +106,42 @@ final class StoreKitEntitlementProvider: EntitlementProviding, @unchecked Sendab
     }
 
     func offerings() async throws -> CommercialOfferings {
-        let products: [Product]
-        do {
-            products = try await Product.products(for: Set(productIDs))
-        } catch {
-            let nsError = error as NSError
-            logger.error("Product.products failed: domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public)")
-            throw EntitlementError.productUnavailable
+        // Un fallo de red/Sandbox ocasional no debe dejar el paywall vacío
+        // hasta que el usuario cierre y reabra Repera. Máximo dos intentos.
+        var products: [Product] = []
+        for attempt in 1...2 {
+            do {
+                products = try await Product.products(for: Set(productIDs))
+                if !products.isEmpty { break }
+                logger.warning("StoreKit devolvió 0 productos, intento \(attempt, privacy: .public) de 2")
+            } catch {
+                let nsError = error as NSError
+                logger.error("Product.products failed: domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public) attempt=\(attempt, privacy: .public)")
+                if attempt == 2 { throw EntitlementError.productUnavailable }
+            }
         }
         guard !products.isEmpty else {
-            // Un catálogo vacío no demuestra que la suscripción haya vencido:
-            // suele requerir revisar productos/territorios en App Store Connect.
+            // No sustituir Product.displayPrice por precios locales: TestFlight
+            // usa el catálogo real de App Store Connect/Sandbox.
             return CommercialOfferings(
                 packages: [],
-                unavailableReason: "Apple no está ofreciendo los planes de Repera. " +
-                    "Comprueba su disponibilidad en App Store Connect y vuelve a intentarlo."
+                unavailableReason: "App Store no ha devuelto precios para Repera Pro. " +
+                    "Reintenta la consulta y, si persiste, revisa la disponibilidad de las suscripciones en App Store Connect."
             )
         }
         let packages = products.compactMap(Self.mapProduct(_:))
             .sorted { lhs, rhs in
-                // Anual primero (destacado).
                 if lhs.isAnnual != rhs.isAnnual { return lhs.isAnnual && !rhs.isAnnual }
                 return lhs.productID < rhs.productID
             }
-        return CommercialOfferings(packages: packages, unavailableReason: nil)
+        let missingCount = Set(productIDs).subtracting(products.map(\.id)).count
+        if missingCount > 0 {
+            logger.warning("Catálogo StoreKit parcial: faltan \(missingCount, privacy: .public) productos")
+        }
+        return CommercialOfferings(
+            packages: packages,
+            unavailableReason: missingCount == 0 ? nil : "Apple no ofrece todos los planes en este momento. Puedes elegir los que aparecen o reintentar."
+        )
     }
 
     // MARK: - Helpers
