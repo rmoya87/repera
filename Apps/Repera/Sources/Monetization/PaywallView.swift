@@ -209,13 +209,16 @@ struct PaywallView: View {
                         ProgressView("Consultando App Store…")
                             .font(.footnote)
                     } else {
-                        Text("Compras no disponibles")
+                        Text("Precios temporalmente no disponibles")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(OG.label)
                         Text(subscriptions.offerings.unavailableReason
                              ?? "No se han podido cargar los planes desde Apple.")
                             .font(.footnote)
                             .foregroundStyle(OG.label2)
+                        Text("No se realizará ningún cargo hasta que Apple confirme el precio y aceptes la compra.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
                         Button("Reintentar") {
                             Task { await reloadPlans() }
                         }
@@ -233,6 +236,11 @@ struct PaywallView: View {
                 }
                 if let monthly {
                     planRow(monthly, badge: nil)
+                }
+                if let availabilityNotice = subscriptions.offerings.unavailableReason {
+                    Text(availabilityNotice)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
                 }
             }
         }
@@ -322,6 +330,7 @@ struct PaywallView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedProductID == nil || subscriptions.purchaseInFlight || packages.isEmpty)
+                .accessibilityHint(packages.isEmpty ? "Apple todavía no ha devuelto ningún precio. Pulsa Reintentar en Elegir plan." : "")
             }
         }
         .padding(.horizontal, OG.pad)
