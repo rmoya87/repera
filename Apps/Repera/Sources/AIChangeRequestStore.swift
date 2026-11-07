@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import ReperaDomain
 import Supabase
 
@@ -148,7 +149,13 @@ final class AIChangeRequestStore {
             }
             pending=rows.filter{ !awaiting.contains($0.id.uuidString) }
             lastError=nil
-        } catch {lastError="No se pudieron recuperar los cambios propuestos: \(error.localizedDescription)"}
+        } catch {
+            // El error detallado queda en el diagnóstico, no en la interfaz.
+            let detail = error as NSError
+            Logger(subsystem: "com.app.repera", category: "AIConnections")
+                .error("Cambios IA: dominio=\(detail.domain, privacy: .public) código=\(detail.code, privacy: .public)")
+            lastError = "No se han podido comprobar los cambios de la IA. Reintenta la conexión."
+        }
     }
 
     /// Mirror ONLY user-authored custom exercises. The global curated catalog
