@@ -13,6 +13,9 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
     /// iPhone asked Watch to own HealthKit for this execution (Apple handoff).
+    func watchConnectivityDidReceiveWatchOwnedLiveCommand(
+        sessionId: UUID, command: String
+    )
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     )
@@ -25,6 +28,9 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?) {}
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
+    func watchConnectivityDidReceiveWatchOwnedLiveCommand(
+        sessionId: UUID, command: String
+    ) {}
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     ) {}
