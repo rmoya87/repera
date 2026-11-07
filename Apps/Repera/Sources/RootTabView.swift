@@ -1243,11 +1243,8 @@ private struct WatchOwnedLiveMirrorView: View {
                     }
                 }
 
-                Label("Datos registrados por Apple Watch", systemImage: "applewatch")
-                    .font(.footnote)
-                    .foregroundStyle(OG.label2)
                 if Date().timeIntervalSince(snapshot.capturedAt) > 45 {
-                    Label("Esperando actualización del reloj", systemImage: "wifi.slash")
+                    Label("Esperando sincronización", systemImage: "wifi.slash")
                         .font(.footnote)
                         .foregroundStyle(.orange)
                 }
