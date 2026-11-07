@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-11-06 (TestFlight Sandbox: restauración, catálogo y errores de StoreKit)
+Última actualización: 2026-11-07 (diagnóstico de catálogo vacío y recuperación de precios en TestFlight)
 
 ## 1. Arquitectura
 
@@ -78,6 +78,14 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 4. Opcional: archivo `.storekit` en el scheme Xcode **solo para pruebas locales**; TestFlight consulta App Store Connect/Sandbox y no ese archivo.
 5. TestFlight: confirmar que los dos IDs están disponibles para el bundle `com.app.repera`, con localización/precios/territorios y acuerdos al día. La suscripción de prueba se renueva diariamente hasta seis veces y posteriormente expira.
 6. Si `Product.products(for:)` devuelve `[]`, comprobar App Store Connect y el tester Sandbox: ningún reintento en la app puede fabricar productos que Apple no ofrece.
+
+### Diagnóstico de precios no disponibles (07/11/2026)
+
+- iOS consulta el catálogo real con `Product.products(for: Set(productIDs))`. Si Apple devuelve un error o una lista vacía, hace **un único reintento automático** antes de mostrar el estado sin precios. El usuario también dispone de **Reintentar**; nunca se muestran los importes del archivo `.storekit` como sustituto de `Product.displayPrice`.
+- Si Apple devuelve un solo producto, se ofrece el disponible y se advierte que el catálogo es parcial. El pie de compra no permite pagar sin un identificador realmente recibido de StoreKit.
+- Los fallos técnicos (dominio, código e intento) quedan en los logs de StoreKit; la interfaz no muestra excepciones de CFNetwork en inglés ni atribuye el error a una suscripción caducada.
+- La disponibilidad **no puede repararse solo desde Swift**: en App Store Connect comprobar que ambos IDs existan para `com.app.repera`, sus estados, disponibilidad territorial (España), localizaciones, precios, grupo de suscripción, acuerdos de pago/fiscalidad y cuenta Sandbox. El estado real de esas opciones **no se ha verificado** desde este repositorio.
+- Validar con build TestFlight instalada (no solo simulador o archivo de configuración Xcode): catálogo completo, vacío, parcial, red inestable, compra mensual/anual, cancelación, transacciones verificadas y restauración. Los cambios de código no publican automáticamente una nueva build en TestFlight.
 
 ## 6. Restaurar / gestionar
 
