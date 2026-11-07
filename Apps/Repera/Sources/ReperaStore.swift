@@ -2325,6 +2325,19 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        // The finished workout may arrive before the terminal Live Activity
+        // snapshot (or after it is lost while the phone was offline).
+        // Close the UI mirror by the same execution UUID. Its HealthKit data
+        // is still reconciled below, never rewritten by iPhone.
+        if session.phase == .finished,
+           (session.appleHealthProvenance == "watchHealthKit"
+                || session.appleHealthProvenance == "watchHealthKitPending"
+                || session.liveSportID != nil),
+           watchOwnedLive?.id == session.id {
+            closedWatchOwnedLiveIDs.insert(session.id)
+            watchOwnedLive = nil
+            watchOwnedLiveOwnerScope = nil
+        }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
         }
