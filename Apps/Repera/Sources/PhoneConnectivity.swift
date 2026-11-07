@@ -73,6 +73,33 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         return true
     }
 
+    /// Remote controls for a Watch-owned activity. The Watch remains the only
+    /// HealthKit writer; iPhone sends only a scoped command for the same UUID.
+    @discardableResult
+    func sendWatchOwnedLiveCommand(sessionId: UUID, command: String) -> Bool {
+        guard ["pause", "resume", "finish"].contains(command),
+              WCSession.isSupported(), WCSession.default.activationState == .activated,
+              let owner = latestPayloadLock.withLock({
+                  latestPayload?["ownerScope"] as? String
+              }), !owner.isEmpty else { return false }
+        let payload: [String: Any] = [
+            "ownerScope": owner,
+            "action": "watchOwnedLiveCommand",
+            "sessionId": sessionId.uuidString,
+            "command": command,
+            "actionId": UUID().uuidString
+        ]
+        // The durable copy survives temporary disconnection. Duplicate delivery
+        // is safe because Watch applies transitions only to the current UUID/phase.
+        WCSession.default.transferUserInfo(payload)
+        if WCSession.default.isReachable {
+            WCSession.default.sendMessage(payload, replyHandler: nil) { [weak self] error in
+                self?.logger.debug("Watch command deferred: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        return true
+    }
+
     func activate() {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
