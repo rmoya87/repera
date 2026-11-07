@@ -63,8 +63,11 @@ object AIProviderLaunch {
             "https://claude.ai/customize/connectors" else null
         "chatgpt" -> provider.directoryURL?.takeIf { raw ->
             val uri = runCatching { java.net.URI(raw) }.getOrNull()
-            uri?.scheme == "https" && uri.host?.lowercase() == "chatgpt.com" &&
-                uri.port == -1 && uri.rawUserInfo == null && uri.path != "/"
+            uri?.let { link ->
+                link.scheme == "https" && link.host?.lowercase() == "chatgpt.com" &&
+                    link.port == -1 && link.rawUserInfo == null &&
+                    (link.path?.length ?: 0) > 1
+            } == true
         }
         // No se ofrece OAuth de Grok hasta disponer de cliente real.
         else -> null
