@@ -28,15 +28,19 @@ object AIProviderLaunch {
                     val p = arr.getJSONObject(i)
                     val setup = p.optJSONObject("setup")
                     val kind = setup?.optString("kind")
-                    val clientId = setup?.optString("client_id")
+                    // Backend connectionCatalogEntry publica camelCase, no snake_case.
+                    // Aceptar ambos evita romper catálogos de builds anteriores.
+                    val clientId = (setup?.optString("clientID")
                         ?.takeIf { it.isNotBlank() }
+                        ?: setup?.optString("client_id")?.takeIf { it.isNotBlank() })
                         ?.takeIf { kind == "claude_prompt" || kind == "oauth" }
                     AIAccessStore.AIProvider(
                         id = p.optString("id"),
                         name = p.optString("name"),
                         oauthClientID = clientId,
-                        directoryURL = p.optString("directory_url")
+                        directoryURL = p.optString("directoryURL")
                             .takeIf { it.isNotBlank() }
+                            ?: p.optString("directory_url").takeIf { it.isNotBlank() }
                     )
                 }
                 // Misma guardia que iOS: el catálogo debe ser exactamente chatgpt+claude.
