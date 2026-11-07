@@ -2060,6 +2060,12 @@ final class HealthKitStore {
             HKObjectType.quantityType(forIdentifier: .bodyMass)!,
             HKObjectType.workoutType(),
             HKSeriesType.workoutRoute(),
+            // Route geometry alone is not numerical distance/pace in Fitness.
+            // Re-request the same write scopes as the initial authorization.
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
+            HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
+            HKObjectType.quantityType(forIdentifier: .distanceSwimming)!,
+            HKObjectType.quantityType(forIdentifier: .distanceDownhillSnowSports)!,
         ]
         do {
             try await store.requestAuthorization(toShare: share, read: read)
