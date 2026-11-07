@@ -156,6 +156,14 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Código en main no equivale a migración/Edge desplegadas ni app instalada.
 
 
+#### Catálogo App Store y botones de IA veraces (07/11/2026)
+
+- Una pantalla de compra sin precios requiere distinguir StoreKit vacío/error (con reintento acotado, sin inventar importes) de derechos Pro firmados. Si TestFlight no recibe los productos, la disponibilidad territorial y comercial se revisa en App Store Connect; corregir Swift no activa productos no publicados.
+- El texto «Continuar con ChatGPT/Claude/Grok» es engañoso cuando la app solo copia instrucciones. La UI debe reflejar disponibilidad real del catálogo y concesiones OAuth usadas; abrir la portada de un asistente no crea una vinculación.
+- Claude debe abrir el formulario de conectores con cliente público PKCE; ChatGPT depende de ficha válida y revisión, Grok permanece en instrucciones manuales sin OAuth registrado. Mantener consentimiento del usuario y no escribir tokens/secretos en el chat.
+- Los errores de red deben quedarse en logs diagnósticos sin mostrar CFNetwork/PostgREST en inglés; un fallo de carga no implica una lista vacía. Probar Android/iOS y estados vacío/pendiente/conectado/offline, además de CI y TestFlight real.
+- Contrato: `tests/test_testflight_storekit_ai_reliability_contract.py`. Hasta ejecutar tests nativos y verificar Apple/Claude, no afirmar «compras/conexiones arregladas en producción».
+
 #### StoreKit TestFlight y errores de red de IA (06/11/2026)
 
 - Un `SKInternalErrorDomain 21` en `AppStore.sync()` no demuestra una compra caducada: primero consultar derechos **firmados** de `Transaction.currentEntitlements`, volver a consultarlos tras el fallo y presentar código técnico comprensible. No inventar Pro ni precios si Apple no devuelve productos.
