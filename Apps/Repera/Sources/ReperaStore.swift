@@ -13,11 +13,14 @@ final class ReperaStore: NSObject {
     /// iPhone UI mirror only. A Watch-owned workout always keeps its sensor,
     /// route and HealthKit writer on the Watch, regardless of the open screen.
     private(set) var watchOwnedLive: WatchLiveActivitySnapshot?
+    @ObservationIgnored private var watchOwnedLiveOwnerScope: String?
     @ObservationIgnored private var closedWatchOwnedLiveIDs: Set<UUID> = []
 
     @discardableResult
     func controlWatchOwnedLive(_ command: String) -> Bool {
         guard let live = watchOwnedLive, live.phase != .review,
+              let scope = currentWatchOwnerScope(), !scope.isEmpty,
+              scope == watchOwnedLiveOwnerScope,
               !closedWatchOwnedLiveIDs.contains(live.id) else { return false }
         return connectivity.sendWatchOwnedLiveCommand(
             sessionId: live.id, command: command
@@ -3064,6 +3067,12 @@ final class ReperaStore: NSObject {
         // Apple is the local identity; Google-only athletes use the verified
         // owner binding so WatchConnectivity never becomes silently disabled.
         let watchOwnerScope = currentWatchOwnerScope()
+        // A delayed Watch mirror must never remain visible after logout or
+        // switching Apple/Google users on this iPhone.
+        if watchOwnedLive != nil, watchOwnerScope != watchOwnedLiveOwnerScope {
+            watchOwnedLive = nil
+            watchOwnedLiveOwnerScope = nil
+        }
         connectivity.send(
             session: state.activeSession,
             today: plans.first,
@@ -4303,6 +4312,7 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 self.closedWatchOwnedLiveIDs.insert(snapshot.id)
                 if self.watchOwnedLive?.id == snapshot.id {
                     self.watchOwnedLive = nil
+                    self.watchOwnedLiveOwnerScope = nil
                 }
                 await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
                     sessionID: snapshot.id, saved: false
@@ -4338,6 +4348,7 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 active.appleHealthProvenance = "watchHealthKitPending"
                 self.state.activeSession = active
             }
+            self.watchOwnedLiveOwnerScope = self.currentWatchOwnerScope()
             self.watchOwnedLive = snapshot
             await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
         }
