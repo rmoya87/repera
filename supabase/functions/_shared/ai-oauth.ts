@@ -48,13 +48,15 @@ export function connectionCatalogEntry(provider: {
   id: string; name: string; enabled: boolean; client_id: string | null; directory_url: string | null;
 }) {
   // This is a public OAuth client identifier, never a bearer token or a secret.
-  // Claude's manually configured client must use PKCE and token auth "none".
-  const canGuideClaude = provider.id === 'claude' && provider.enabled &&
+  // Public, pre-registered PKCE clients only. No setup for disabled or missing clients.
+  const setupKind = provider.id === 'claude' ? 'claude_prompt'
+    : provider.id === 'chatgpt' ? 'chatgpt_prompt' : null;
+  const canGuideClient = setupKind !== null && provider.enabled &&
     typeof provider.client_id === 'string' && uuidPattern.test(provider.client_id);
   return {
     id: provider.id,
     name: provider.name,
     directoryURL: provider.enabled ? validDirectoryURL(provider.id, provider.directory_url) : null,
-    setup: canGuideClaude ? { kind: 'claude_prompt', clientID: provider.client_id } : null,
+    setup: canGuideClient ? { kind: setupKind, clientID: provider.client_id } : null,
   };
 }

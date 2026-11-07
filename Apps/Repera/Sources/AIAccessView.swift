@@ -77,15 +77,19 @@ private struct AIConnectionProvider: Decodable, Identifiable {
     }
 
     var oauthClientID: UUID? {
-        guard setup?.kind == "claude_prompt" || setup?.kind == "oauth" else { return nil }
+        guard setup?.kind == "claude_prompt" || setup?.kind == "chatgpt_prompt" || setup?.kind == "oauth" else { return nil }
         return setup?.clientID
     }
     var claudeClientID: UUID? {
         guard id == "claude" else { return nil }
         return oauthClientID
     }
+    var chatgptClientID: UUID? {
+        guard id == "chatgpt" else { return nil }
+        return oauthClientID
+    }
 
-    var isAvailable: Bool { claudeClientID != nil || connectionURL != nil }
+    var isAvailable: Bool { oauthClientID != nil || connectionURL != nil }
 
     var connectionURL: URL? {
         guard let directoryURL, let url = URL(string: directoryURL),
@@ -123,6 +127,26 @@ private enum AIProviderLaunch {
             Cliente OAuth: Usar tu propio cliente
             ID de cliente OAuth: \(clientID.uuidString.lowercased())
             Secreto: vacío (cliente público PKCE).
+            """
+        } else if provider.id == "chatgpt", let clientID = provider.chatgptClientID {
+            connectorSteps = """
+            En ChatGPT web, abre Configuración → Plugins y crea un servidor MCP personalizado (si está disponible en tu cuenta).
+            Nombre: Repera
+            URL del servidor MCP: \(server)
+            Autenticación: OAuth (cliente definido por el usuario).
+            ID de cliente OAuth público: \(clientID.uuidString.lowercased())
+            Secreto: vacío si ChatGPT admite el cliente público con PKCE.
+            Antes de conectar, comprueba que la URL de retorno exacta que muestra ChatGPT está registrada en Supabase Auth para ese cliente.
+            Si no aparece la opción de crear el conector, indica que esta función no está disponible en mi cuenta; no simules una conexión.
+            """
+        } else if provider.id == "chatgpt" {
+            connectorSteps = """
+            ChatGPT todavía no está habilitado en Repera: falta registrar un cliente OAuth y su URL de retorno exacta en Supabase.
+            No basta con pegar la URL del servidor ni con copiar estas instrucciones.
+            Si puedes crear un servidor MCP personalizado en ChatGPT web, empieza su configuración para obtener la URL de retorno exacta, que debe registrarse en Supabase Auth.
+            Cuando el cliente esté registrado y habilitado en Repera, vuelve a cargar las conexiones de la app para obtener el ID público.
+            URL del servidor MCP: \(server)
+            No inventes un ID de cliente ni pidas tokens o contraseñas.
             """
         } else {
             connectorSteps = """
@@ -423,7 +447,9 @@ struct AIAccessView: View {
                             .frame(width: 22, height: 22)
                             .accessibilityHidden(true)
                         Spacer(minLength: 0)
-                        Text(connectionVerified(for: provider) ? "\(provider.name) conectado" : "Continuar con \(provider.name)").fontWeight(.semibold)
+                        Text(connectionVerified(for: provider) ? "\(provider.name) conectado" :
+                             provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
+                            .fontWeight(.semibold)
                         Spacer(minLength: 0)
                         Color.clear.frame(width: 24, height: 1)
                     }
@@ -465,6 +491,11 @@ struct AIAccessView: View {
             "entry_point": provider.id,
             "result": "pending"
         ])
+        if provider.id == "chatgpt", !provider.isAvailable {
+            showInstructions = true
+            launchMessage = "ChatGPT aún no está disponible: falta registrar su cliente OAuth. Consulta las instrucciones."
+            return
+        }
         UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
         guard let url = AIProviderLaunch.url(for: provider.id) else {
             launchMessage = "Las instrucciones están copiadas, pero no hay una dirección válida para este asistente."

@@ -4,9 +4,20 @@
 
 ## Estado y alcance
 
-OAuth gestionado por Supabase Auth y consentimiento web. **ChatGPT sigue pendiente de verificación del desarrollador y publicación en su directorio. Claude dispone de conexión personalizada guiada por un prompt**, sin publicar en el directorio de Anthropic. El catálogo habilita cada recorrido solo cuando tiene su configuración real. Las instrucciones de Claude contienen únicamente direcciones e ID público de cliente; nunca tokens, secretos ni datos del deportista. No se utiliza la suscripción del asistente desde un chat embebido.
+OAuth gestionado por Supabase Auth y consentimiento web. **ChatGPT tiene pendiente su cliente OAuth para conexión personalizada y, por separado, la verificación/publicación en su directorio. Claude dispone de conexión personalizada guiada por un prompt**, sin publicar en el directorio de Anthropic. El catálogo habilita cada recorrido solo cuando tiene su configuración real. Las instrucciones de Claude contienen únicamente direcciones e ID público de cliente; nunca tokens, secretos ni datos del deportista. No se utiliza la suscripción del asistente desde un chat embebido.
 
 El usuario abre **Ajustes → Datos → Conecta tu IA**. ChatGPT abrirá la ficha publicada cuando esté disponible. Claude abre una guía con **Copiar instrucciones y abrir Claude**: copia un texto público y abre claude.ai para que el usuario lo pegue. Claude guía el alta del conector una vez; el chat no instala un MCP por leer una URL. La guía también ofrece acceso a Conectores, copia de URL e ID de cliente y pasos de alta sin depender del asistente. El usuario autoriza con la misma cuenta Apple/Google de Repera y elige consulta o consulta + planificación. Los cambios de historial y ejercicios personalizados mantienen aprobación nativa. Los PAT existentes continúan en Configuración manual.
+
+## Conexión personalizada de ChatGPT (estado actual)
+
+El servidor MCP está desplegado, pero **ChatGPT no puede completar OAuth mientras no exista un cliente registrado y habilitado en Supabase Auth**. En producción `ai_oauth_providers.chatgpt` sigue deshabilitado y sin `client_id`. No dar por conectado a nadie ni habilitar la fila antes de completar los pasos.
+
+1. Desde **ChatGPT web** (cuenta con permisos para crear plugins), abrir Configuración → Plugins → Añadir servidor MCP personalizado y seleccionar OAuth con **cliente definido por el usuario**. Introducir la URL MCP de la sección inferior. Copiar la **URL de retorno exacta** que muestre ChatGPT; no adivinar su identificador. Según el modo OAuth, ChatGPT puede usar `https://chatgpt.com/connector/oauth/{callback_id}` o `https://chatgpt.com/connector_platform_oauth_redirect`; registrar únicamente la que realmente presenta el configurador.
+2. En Supabase del proyecto **Repera**, ir a Authentication → OAuth Server y registrar un cliente público de nombre `ChatGPT · Repera`, PKCE S256, método de token `none`, con esa URL de retorno exacta. **No activar registro dinámico global** para sortear este paso. El cliente público no utiliza secreto.
+3. Tras comprobar el cliente y la URL, actualizar únicamente la fila `chatgpt` de `public.ai_oauth_providers`: `client_id` con el UUID asignado a ese cliente y `enabled=true`. No establecer `directory_url` hasta la publicación real. El catálogo expondrá `setup.kind=chatgpt_prompt` y el ID público únicamente si el cliente está habilitado; la app mostrará la guía de alta personalizada.
+4. Completar OAuth desde ChatGPT con la cuenta Repera, aprobar consentimiento explícito en `https://repera.app/ai/`, y llamar solo a `get_mcp_access_info`. Verificar respuestas 401 sin sesión, lectura permitida, escritura solo si se concedió, refresh, desconexión y ausencia de acceso a otros atletas.
+
+**Pendiente externo:** obtener la URL de retorno de la pantalla de creación de ChatGPT. El conector de GitHub/Supabase no configura el plugin dentro de una cuenta ChatGPT ni da acceso al navegador de ese usuario. Sin ese dato y una prueba E2E, una actualización de código en `main` no equivale a una conexión resuelta. La publicación en el directorio es independiente del conector personalizado.
 
 ## Despliegue comprobado — 2026-10-24
 

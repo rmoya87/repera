@@ -26,7 +26,18 @@ Deno.test('Claude setup is available only for an enabled registered client; no u
  assert(entry.setup?.clientID===id && entry.setup.kind==='claude_prompt');
  assert(entry.directoryURL===null);
  assert(!JSON.stringify(entry).includes('do-not-publish'));
- for(const patch of [{enabled:false},{client_id:null},{client_id:'not-a-client'},{id:'chatgpt'},{id:'unknown'}]) {
+ for(const patch of [{enabled:false},{client_id:null},{client_id:'not-a-client'},{id:'unknown'}]) {
    assert(connectionCatalogEntry({...provider,...patch}).setup===null);
+ }
+});
+
+Deno.test('ChatGPT setup requires an explicitly enabled pre-registered OAuth client',()=>{
+ const base={id:'chatgpt',name:'ChatGPT',enabled:true,client_id:id,directory_url:null};
+ const enabled=connectionCatalogEntry(base);
+ assert(enabled.setup?.kind==='chatgpt_prompt');
+ assert(enabled.setup?.clientID===id);
+ assert(enabled.directoryURL===null);
+ for(const patch of [{enabled:false},{client_id:null},{client_id:'bad-id'},{id:'unknown'}]) {
+   assert(connectionCatalogEntry({...base,...patch}).setup===null);
  }
 });
