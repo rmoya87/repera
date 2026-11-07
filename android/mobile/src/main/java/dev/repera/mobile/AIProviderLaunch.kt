@@ -53,10 +53,16 @@ object AIProviderLaunch {
         }
     }
 
-    fun urlFor(id: String): String? = when (id) {
-        "chatgpt" -> "https://chatgpt.com/"
-        "claude" -> "https://claude.ai/"
-        "grok" -> "https://grok.com/"
+    /** Solo abre una configuración comprobable, no la portada genérica de la IA. */
+    fun urlFor(provider: AIAccessStore.AIProvider): String? = when (provider.id) {
+        "claude" -> if (provider.oauthClientID != null)
+            "https://claude.ai/customize/connectors" else null
+        "chatgpt" -> provider.directoryURL?.takeIf { raw ->
+            val uri = runCatching { java.net.URI(raw) }.getOrNull()
+            uri?.scheme == "https" && uri.host?.lowercase() == "chatgpt.com" &&
+                uri.port == -1 && uri.rawUserInfo == null && uri.path != "/"
+        }
+        // No se ofrece OAuth de Grok hasta disponer de cliente real.
         else -> null
     }
 
