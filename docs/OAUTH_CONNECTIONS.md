@@ -1,6 +1,6 @@
 # Conexión de ChatGPT y Claude
 
-Última actualización: 2026-11-06.
+Última actualización: 2026-11-07.
 
 ## Estado y alcance
 
@@ -38,6 +38,16 @@ La ayuda oficial de Claude permite un conector personalizado en Free; publicar u
 - El catálogo público de proveedores conserva la última configuración válida si falla la red; no se sustituyen URLs OAuth previamente conocidas por valores nulos.
 - La réplica `athlete_custom_exercise_mirror` es best-effort, y su error de red no se imprime en bruto ni impide acceder a las conexiones. Se vuelve a intentar al recuperar el primer plano.
 - Esto es recuperación y presentación de errores, no una garantía de que la conexión móvil o el proveedor OAuth estén operativos. Las pruebas reales con iOS/TestFlight, distintos operadores y una sesión autenticada siguen siendo necesarias.
+
+## Estados reales de la conexión en la app (07/11/2026)
+
+La pantalla iOS y su equivalente Android distinguen entre **Conectar ChatGPT** (solo si el catálogo anuncia una ficha HTTPS permitida), **ChatGPT · pendiente de publicación**, **Configurar Claude** (si el catálogo contiene un cliente OAuth público), **Claude · no disponible todavía**, **Grok · configuración manual** y **Conectado** (solo cuando el servidor confirma una concesión activa y utilizada). Abrir una página web o copiar instrucciones nunca acredita conexión.
+
+- **Claude**: al pulsar «Configurar Claude» se copian instrucciones públicas y se abre `https://claude.ai/customize/connectors`, no la portada de Claude. El usuario añade servidor MCP y cliente OAuth, inicia sesión y aprueba los permisos. Se comprueba el uso de la conexión antes de marcarla como conectada.
+- **ChatGPT**: se muestra como pendiente hasta que el catálogo reciba una URL de directorio válida, publicada y permitida por `connectionURL`. No se habilita OAuth artificialmente, no se inventa ID de cliente ni se marca conectado por abrir ChatGPT. La publicación del conector requiere acciones y requisitos de OpenAI fuera del código.
+- **Grok**: sin cliente OAuth registrado en Repera se presenta como configuración manual e instrucciones, sin fingir una conexión lista ni una autorización validada.
+- Si falla la carga de catálogo o de concesiones, mostrar error recuperable en español y **Reintentar**, conservar los datos anteriores y no afirmar que no existen conexiones. Los errores técnicos se registran por dominio/código sin exponer secretos. Android conserva fallback de columna aditiva `oauth_client_id` cuando PostgREST devuelve 42703.
+- Verificación en Supabase el 07/11/2026: `chatgpt` inactivo y sin cliente/ficha, `claude` activo con cliente público y sin ficha, `repera-ai-connect` y `repera-mcp` activos. El despliegue backend por sí solo no garantiza conectividad desde una app de terceros: falta prueba OAuth real y autorización individual.
 
 ## Componentes
 
