@@ -1017,9 +1017,14 @@ struct OGDoneCheckButton: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(OG.onDoneAccent)
+                .frame(width: 36, height: 36)
+                .background(OG.accent, in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
-        .buttonStyle(.borderedProminent)
-        .tint(OG.accent)
+        // A system toolbar can render borderedProminent as clear Liquid Glass.
+        // The explicit Repera fill remains green in both appearances.
+        .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
         .opacity(enabled ? 1 : 0.4)
         .disabled(!enabled)

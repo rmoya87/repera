@@ -1163,7 +1163,13 @@ struct DayEditorView: View {
 
     private var canConfirm: Bool {
         guard !isConfirmingSave else { return false }
-        if onApplyDraft != nil || onApplyCompleted != nil {
+        // Un deporte registrado (caminata, carrera, etc.) no necesita bloques
+        // de ejercicios para editar su fecha, duración o notas.
+        if onApplyCompleted != nil {
+            return completedWorkoutDraft != nil
+                && !routine.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if onApplyDraft != nil {
             return routine.blocks.contains { block in
                 switch block.kind {
                 case .strength: return !block.exercises.isEmpty

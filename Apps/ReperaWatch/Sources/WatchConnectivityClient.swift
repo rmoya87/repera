@@ -13,6 +13,9 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?)
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String)
     /// iPhone asked Watch to own HealthKit for this execution (Apple handoff).
+    func watchConnectivityDidReceiveWatchOwnedLiveCommand(
+        sessionId: UUID, command: String
+    )
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     )
@@ -25,6 +28,9 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveTodayPlans(_ plans: [WorkoutSession], scheduledDay: Date?) {}
     func watchConnectivityDidReceiveHubMeta(recentSportIDs: [String], audioMuted: Bool?) {}
     func watchConnectivityDidReceiveTimerCommand(id: UUID, command: String) {}
+    func watchConnectivityDidReceiveWatchOwnedLiveCommand(
+        sessionId: UUID, command: String
+    ) {}
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     ) {}
@@ -636,6 +642,21 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
         if let incoming = payload["ownerScope"] as? String,
            incoming != currentOwnerScope { return }
+        if payload["action"] as? String == "watchOwnedLiveCommand" {
+            guard let scope = payload["ownerScope"] as? String, !scope.isEmpty,
+                  scope == currentOwnerScope,
+                  let rawID = payload["sessionId"] as? String,
+                  let id = UUID(uuidString: rawID),
+                  let command = payload["command"] as? String,
+                  ["pause", "resume", "finish"].contains(command) else {
+                logger.warning("Ignoring unscoped or invalid Watch-owned command")
+                return
+            }
+            delegate?.watchConnectivityDidReceiveWatchOwnedLiveCommand(
+                sessionId: id, command: command
+            )
+            return
+        }
         if payload["action"] as? String == "timerCommand" {
             // Órdenes que alteran estado: exigir el ámbito de cuenta. Las builds de
             // iPhone anteriores no lo enviaban; se rechazan (función no crítica).

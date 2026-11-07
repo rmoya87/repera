@@ -77,7 +77,7 @@ final class WorkoutLiveActivityCoordinator {
                 phase: phase,
                 title: snapshot.sportTitle.isEmpty ? "Entrenamiento" : snapshot.sportTitle,
                 symbol: snapshot.symbolName ?? "figure.cross.training",
-                subtitle: snapshot.subtitle ?? "Entrenamiento en Apple Watch",
+                subtitle: snapshot.subtitle ?? "",
                 timerAnchor: timerAnchor, elapsedSeconds: elapsed,
                 primaryValue: snapshot.primaryValue ?? "—",
                 primaryLabel: snapshot.primaryLabel ?? "Ejercicio",
@@ -101,7 +101,7 @@ final class WorkoutLiveActivityCoordinator {
             state = TrainingActivityAttributes.ContentState(
                 phase: phase, title: snapshot.sportTitle,
                 symbol: sport?.symbol ?? "figure.run",
-                subtitle: "Registrando en Apple Watch",
+                subtitle: "",
                 timerAnchor: timerAnchor, elapsedSeconds: elapsed,
                 primaryValue: isGPS ? pace : "—",
                 primaryLabel: isGPS

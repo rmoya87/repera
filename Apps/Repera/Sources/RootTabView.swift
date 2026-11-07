@@ -293,14 +293,26 @@ struct RootTabView: View {
                 systemImage: tab == .start ? "play.circle.fill" : "play.circle",
                 value: AppTab.start
             ) {
-                LiveActivityView(
-                    onSaved: { date in
-                        homeFocusDay = date
-                        tab = .home
-                        store.requestExerciseCatalogRefresh()
-                    },
-                    onOpenWorkout: openWorkout
-                )
+                if let watchLive = store.watchOwnedLive,
+                   !LiveActivityRecorder.shared.isActive,
+                   (store.state.activeSession == nil
+                       || store.state.activeSession?.id == watchLive.id) {
+                    // Same native Comenzar tab, but the Watch owns sensors/HealthKit.
+                    WatchOwnedLiveMirrorView(
+                        snapshot: watchLive,
+                        sendCommand: store.controlWatchOwnedLive
+                    )
+                    .id(watchLive.id)
+                } else {
+                    LiveActivityView(
+                        onSaved: { date in
+                            homeFocusDay = date
+                            tab = .home
+                            store.requestExerciseCatalogRefresh()
+                        },
+                        onOpenWorkout: openWorkout
+                    )
+                }
             }
 
             // No ocupar un hueco con «+» si no hay cliente vinculado.
@@ -1133,5 +1145,175 @@ private struct InvitationDeepLinkSheet: View {
         } else {
             onDone()
         }
+    }
+}
+
+
+/// Presentation-only iPhone companion for a Watch-owned live workout.
+/// Controls are commands to the Watch; no local WorkoutSession, GPS recorder,
+/// HealthKit workout or synthetic metrics are created on this screen.
+private struct WatchOwnedLiveMirrorView: View {
+    let snapshot: WatchLiveActivitySnapshot
+    let sendCommand: (String) -> Bool
+
+    @State private var showFinishConfirmation = false
+    @State private var commandNotice: String?
+
+    private var isOutdoor: Bool {
+        snapshot.sportID.flatMap(LiveSport.init(rawValue:))?.usesGPS == true
+    }
+
+    private var symbol: String {
+        snapshot.symbolName
+            ?? snapshot.sportID.flatMap(LiveSport.init(rawValue:))?.symbol
+            ?? "figure.cross.training"
+    }
+
+    private var pace: String {
+        guard let speed = snapshot.averageSpeedKmh, speed.isFinite, speed > 0.1 else {
+            return "—:—"
+        }
+        if snapshot.sportID.flatMap(LiveSport.init(rawValue:))?.displaysSpeed == true {
+            return String(format: "%.1f", speed)
+        }
+        let seconds = min(3599, Int(3600 / speed))
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack(spacing: 12) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 26, weight: .medium))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 52, height: 52)
+                        .background(OG.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 16))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(snapshot.sportTitle)
+                            .font(.title2.bold())
+                        Text(snapshot.phase == .paused ? "En pausa" : "En curso")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(snapshot.phase == .paused ? .orange : OG.accent)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let elapsed = snapshot.elapsedSeconds + (
+                        snapshot.phase == .recording
+                            ? max(0, context.date.timeIntervalSince(snapshot.capturedAt))
+                            : 0
+                    )
+                    Text(String(format: "%02d:%02d", Int(elapsed) / 60, Int(elapsed) % 60))
+                        .font(.system(size: 60, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                        .accessibilityLabel("Tiempo de entrenamiento")
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    if snapshot.kind == .planned {
+                        metric(snapshot.primaryLabel ?? "Ejercicio",
+                               value: snapshot.primaryValue ?? "—")
+                        metric(snapshot.secondaryLabel ?? "Series",
+                               value: snapshot.secondaryValue ?? "—")
+                    } else if isOutdoor {
+                        metric("Distancia", value: String(
+                            format: "%.2f km", max(0, snapshot.distanceMeters) / 1000
+                        ))
+                        metric("Ritmo medio", value: pace)
+                    } else {
+                        metric("Actividad", value: snapshot.sportTitle)
+                    }
+                }
+
+                if snapshot.heartRateBpm != nil || snapshot.activeEnergyKcal != nil {
+                    HStack(spacing: 12) {
+                        if let bpm = snapshot.heartRateBpm, (25...250).contains(bpm) {
+                            metric("Frecuencia cardíaca", value: "\(bpm) lpm")
+                        }
+                        if let kcal = snapshot.activeEnergyKcal,
+                           kcal.isFinite, kcal >= 0 {
+                            metric("Calorías activas",
+                                   value: String(format: "%.0f kcal", kcal))
+                        }
+                    }
+                }
+
+                if Date().timeIntervalSince(snapshot.capturedAt) > 45 {
+                    Label("Esperando sincronización", systemImage: "wifi.slash")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+                if let commandNotice {
+                    Text(commandNotice)
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                }
+
+                HStack(spacing: 12) {
+                    Button {
+                        issue(snapshot.phase == .paused ? "resume" : "pause")
+                    } label: {
+                        Label(snapshot.phase == .paused ? "Reanudar" : "Pausar",
+                              systemImage: snapshot.phase == .paused
+                                ? "play.circle.fill" : "pause.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(OG.accent)
+
+                    Button {
+                        showFinishConfirmation = true
+                    } label: {
+                        Label("Finalizar", systemImage: "flag.checkered")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .controlSize(.large)
+            }
+            .frame(maxWidth: 580)
+            .frame(maxWidth: .infinity)
+            .padding(24)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .confirmationDialog(
+            "¿Finalizar el entrenamiento en Apple Watch?",
+            isPresented: $showFinishConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Finalizar entrenamiento") { issue("finish") }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("La sesión se cerrará en el reloj y se sincronizará con Repera y Salud.")
+        }
+        .onChange(of: snapshot.capturedAt) { _, _ in commandNotice = nil }
+    }
+
+    private func metric(_ name: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(name)
+                .font(.caption)
+                .foregroundStyle(OG.label2)
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func issue(_ action: String) {
+        commandNotice = sendCommand(action)
+            ? "Orden enviada. Esperando confirmación del Apple Watch."
+            : "No se ha podido enviar la orden al Apple Watch."
     }
 }

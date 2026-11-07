@@ -10,6 +10,22 @@ import WatchConnectivity
 final class ReperaStore: NSObject {
     var state: AppState
     var isWatchReachable = false
+    /// iPhone UI mirror only. A Watch-owned workout always keeps its sensor,
+    /// route and HealthKit writer on the Watch, regardless of the open screen.
+    private(set) var watchOwnedLive: WatchLiveActivitySnapshot?
+    @ObservationIgnored private var watchOwnedLiveOwnerScope: String?
+    @ObservationIgnored private var closedWatchOwnedLiveIDs: Set<UUID> = []
+
+    @discardableResult
+    func controlWatchOwnedLive(_ command: String) -> Bool {
+        guard let live = watchOwnedLive, live.phase != .review,
+              let scope = currentWatchOwnerScope(), !scope.isEmpty,
+              scope == watchOwnedLiveOwnerScope,
+              !closedWatchOwnedLiveIDs.contains(live.id) else { return false }
+        return connectivity.sendWatchOwnedLiveCommand(
+            sessionId: live.id, command: command
+        )
+    }
     private(set) var watchTimerMirror: WatchTimerMirror?
     private var watchTimerLastUpdate = Date.distantPast
     var iCloudStatus: ICloudStatus = .temporarilyUnavailable
@@ -2309,6 +2325,19 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        // The finished workout may arrive before the terminal Live Activity
+        // snapshot (or after it is lost while the phone was offline).
+        // Close the UI mirror by the same execution UUID. Its HealthKit data
+        // is still reconciled below, never rewritten by iPhone.
+        if session.phase == .finished,
+           (session.appleHealthProvenance == "watchHealthKit"
+                || session.appleHealthProvenance == "watchHealthKitPending"
+                || session.liveSportID != nil),
+           watchOwnedLive?.id == session.id {
+            closedWatchOwnedLiveIDs.insert(session.id)
+            watchOwnedLive = nil
+            watchOwnedLiveOwnerScope = nil
+        }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
         }
@@ -3051,6 +3080,12 @@ final class ReperaStore: NSObject {
         // Apple is the local identity; Google-only athletes use the verified
         // owner binding so WatchConnectivity never becomes silently disabled.
         let watchOwnerScope = currentWatchOwnerScope()
+        // A delayed Watch mirror must never remain visible after logout or
+        // switching Apple/Google users on this iPhone.
+        if watchOwnedLive != nil, watchOwnerScope != watchOwnedLiveOwnerScope {
+            watchOwnedLive = nil
+            watchOwnedLiveOwnerScope = nil
+        }
         connectivity.send(
             session: state.activeSession,
             today: plans.first,
@@ -4287,11 +4322,22 @@ extension ReperaStore: PhoneConnectivityDelegate {
     ) {
         Task { @MainActor in
             if snapshot.phase == .review {
+                self.closedWatchOwnedLiveIDs.insert(snapshot.id)
+                if self.watchOwnedLive?.id == snapshot.id {
+                    self.watchOwnedLive = nil
+                    self.watchOwnedLiveOwnerScope = nil
+                }
                 await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
                     sessionID: snapshot.id, saved: false
                 )
                 return
             }
+            guard !self.closedWatchOwnedLiveIDs.contains(snapshot.id),
+                  WatchOwnedLiveDeliveryPolicy.isNewer(
+                    snapshot,
+                    than: self.watchOwnedLive?.id == snapshot.id
+                        ? self.watchOwnedLive?.capturedAt : nil
+                  ) else { return }
             // Do not revive an already archived workout, nor replace an
             // unrelated phone-owned workout in the Dynamic Island.
             // The same UUID may already be activeSession after sendCurrent.
@@ -4315,6 +4361,8 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 active.appleHealthProvenance = "watchHealthKitPending"
                 self.state.activeSession = active
             }
+            self.watchOwnedLiveOwnerScope = self.currentWatchOwnerScope()
+            self.watchOwnedLive = snapshot
             await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
         }
     }

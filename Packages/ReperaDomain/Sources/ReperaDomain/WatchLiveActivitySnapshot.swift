@@ -24,6 +24,10 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
     public let elapsedSeconds: TimeInterval
     public let distanceMeters: Double
     public let averageSpeedKmh: Double?
+    /// Only aggregate sensor readings published by the Watch for its own UUID.
+    /// No raw HealthKit samples are transferred or rewritten by the iPhone.
+    public let heartRateBpm: Int?
+    public let activeEnergyKcal: Double?
     public let nextTurn: String?
     public let nextTurnMeters: Int?
     public let capturedAt: Date
@@ -42,6 +46,7 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         elapsedSeconds: TimeInterval, distanceMeters: Double,
         averageSpeedKmh: Double?, nextTurn: String?,
         nextTurnMeters: Int?, capturedAt: Date,
+        heartRateBpm: Int? = nil, activeEnergyKcal: Double? = nil,
         conditions: ActivityConditionsSnapshot? = nil,
         sportID: String? = nil,
         kind: Kind = .sport,
@@ -60,6 +65,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         self.elapsedSeconds = max(0, elapsedSeconds)
         self.distanceMeters = max(0, distanceMeters)
         self.averageSpeedKmh = averageSpeedKmh
+        self.heartRateBpm = heartRateBpm
+        self.activeEnergyKcal = activeEnergyKcal
         self.nextTurn = nextTurn
         self.nextTurnMeters = nextTurnMeters
         self.capturedAt = capturedAt
@@ -74,7 +81,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id, sportTitle, sportID, phase, kind, elapsedSeconds, distanceMeters
-        case averageSpeedKmh, nextTurn, nextTurnMeters, capturedAt, conditions
+        case averageSpeedKmh, heartRateBpm, activeEnergyKcal
+        case nextTurn, nextTurnMeters, capturedAt, conditions
         case subtitle, symbolName, primaryValue, primaryLabel
         case secondaryValue, secondaryLabel
     }
@@ -89,6 +97,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         elapsedSeconds = max(0, try c.decode(TimeInterval.self, forKey: .elapsedSeconds))
         distanceMeters = max(0, try c.decode(Double.self, forKey: .distanceMeters))
         averageSpeedKmh = try c.decodeIfPresent(Double.self, forKey: .averageSpeedKmh)
+        heartRateBpm = try c.decodeIfPresent(Int.self, forKey: .heartRateBpm)
+        activeEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .activeEnergyKcal)
         nextTurn = try c.decodeIfPresent(String.self, forKey: .nextTurn)
         nextTurnMeters = try c.decodeIfPresent(Int.self, forKey: .nextTurnMeters)
         capturedAt = try c.decode(Date.self, forKey: .capturedAt)
@@ -111,6 +121,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         try c.encode(elapsedSeconds, forKey: .elapsedSeconds)
         try c.encode(distanceMeters, forKey: .distanceMeters)
         try c.encodeIfPresent(averageSpeedKmh, forKey: .averageSpeedKmh)
+        try c.encodeIfPresent(heartRateBpm, forKey: .heartRateBpm)
+        try c.encodeIfPresent(activeEnergyKcal, forKey: .activeEnergyKcal)
         try c.encodeIfPresent(nextTurn, forKey: .nextTurn)
         try c.encodeIfPresent(nextTurnMeters, forKey: .nextTurnMeters)
         try c.encode(capturedAt, forKey: .capturedAt)
