@@ -157,6 +157,16 @@ antigüedad/orden), `tests/test_watch_owned_live_home_contract.py`
 watchOS con el toolchain configurado y validar en dispositivos antes
 de certificar el comportamiento de ActivityKit en segundo plano.
 
+## Continuidad Watch / iPhone y distancia GPS (07/11/2026)
+
+- Una actividad iniciada desde Apple Watch mantiene ese dispositivo como único escritor de `HKWorkout`, ruta y muestras HealthKit. La Live Activity elimina «Registrando en Apple Watch» / «Control desde Apple Watch» y ofrece «Abrir Repera». En iPhone abre `repera://live` y muestra un espejo nativo SwiftUI de ese UUID, sin crear otro workout; en Apple Watch, la Smart Stack sigue abriendo `repera-watch://active`.
+- El espejo iPhone presenta tiempo, distancia/ritmo, pulso y energía activa solo si existen métricas verificadas transmitidas por Watch. Pausar, reanudar y finalizar son comandos de WatchConnectivity con `ownerScope` y UUID, reenviados de forma duradera si es necesario. No se ejecuta una pausa falsa sobre el grabador del iPhone.
+- Para las caminatas y otros exteriores, Watch solicita escritura de `HKWorkoutRoute` y distancia numérica del deporte. La ruta GPS por sí sola no añade distancia/ritmo a Fitness. Antes de añadir una muestra se comprueba `sharingAuthorized`: si la distancia está denegada, el workout, FC y energía siguen guardándose y la ruta permanece en Repera; se muestra un aviso para revisar el permiso en Apple Salud.
+- En iPhone, `ensureWorkoutRouteAccess` solicita también escritura de los tipos de distancia (andar/correr, bici, natación y nieve). Un permiso denegado anteriormente puede necesitar habilitarse manualmente en Salud/Ajustes.
+- La edición de entrenamientos terminados de cardio sin bloques de ejercicios habilita Guardar, cuyo check muestra el fondo verde Repera.
+
+**Validación pendiente en hardware:** comprobar en Apple Watch + iPhone reales datos, permisos concedidos/denegados, apertura desde ambas Live Activities, fases y comandos en pausa, exportación GPS, sesiones offline, ausencia de duplicados y compilación iOS/watchOS.
+
 ## Permisos y privacidad
 
 Entitlement HealthKit y cadenas `NSHealthShareUsageDescription` / `NSHealthUpdateUsageDescription` en el target del Watch. Modo background `workout-processing`. No se declara `audio`: los controles de reproducción se delegan al sistema mediante `NowPlayingView`.
