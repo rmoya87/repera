@@ -79,16 +79,13 @@ struct TrainingLiveActivityWidget: Widget {
                             }
                         }
                         if context.state.phase != .completed {
-                            if context.attributes.sessionID.hasPrefix("watch:") {
-                                Text("Control desde Apple Watch")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                liveActivityControls(
-                                    phase: context.state.phase,
-                                    isPlanned: context.attributes.isPlanned
-                                )
-                            }
+                            liveActivityControls(
+                                phase: context.state.phase,
+                                // A Watch-owned activity opens its native iPhone
+                                // mirror, not a second phone recorder.
+                                isPlanned: context.attributes.isPlanned
+                                    || context.attributes.sessionID.hasPrefix("watch:")
+                            )
                         }
                     }
                 }
@@ -230,17 +227,11 @@ struct TrainingLiveActivityWidget: Widget {
             // Last element on the card, with symmetric side and bottom insets.
             if active {
                 Group {
-                    if context.attributes.sessionID.hasPrefix("watch:") {
-                        Text("Control desde Apple Watch")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        liveActivityControls(
-                            phase: context.state.phase,
-                            isPlanned: context.attributes.isPlanned
-                        )
-                    }
+                    liveActivityControls(
+                        phase: context.state.phase,
+                        isPlanned: context.attributes.isPlanned
+                            || context.attributes.sessionID.hasPrefix("watch:")
+                    )
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -371,9 +362,10 @@ struct TrainingLiveActivityWidget: Widget {
     }
 
     private func destination(for attributes: TrainingActivityAttributes) -> URL? {
-        // A Watch-owned workout has no phone-side pause/resume controller.
+        // The iPhone opens a live Watch mirror; the Watch Smart Stack
+        // keeps its separate native repera-watch://active deep link.
         URL(string: attributes.sessionID.hasPrefix("watch:")
-            ? "repera://today"
+            ? "repera://live"
             : (attributes.isPlanned ? "repera://workout" : "repera://live"))
     }
 
