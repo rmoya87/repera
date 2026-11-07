@@ -176,7 +176,7 @@ fun AIAccessScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    "Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
+                    "La conexión solo se confirma después de autorizar Repera y comprobar su uso.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -184,6 +184,22 @@ fun AIAccessScreen(
                     providers?.first?.forEach { provider ->
                         val verified = provider.oauthClientID != null && tokens.orEmpty().any {
                             it.oauthClientID == provider.oauthClientID && it.hasConnected
+                        }
+                        val configured = AIProviderLaunch.urlFor(provider) != null
+                        val connectionLabel = when {
+                            verified -> "${provider.name} conectado"
+                            provider.id == "chatgpt" && !configured -> "ChatGPT · pendiente de publicación"
+                            provider.id == "chatgpt" -> "Conectar ChatGPT"
+                            provider.id == "claude" && configured -> "Configurar Claude"
+                            provider.id == "claude" -> "Claude · no disponible todavía"
+                            else -> "Grok · configuración manual"
+                        }
+                        val connectionHint = when {
+                            verified -> "Autorización registrada y utilizada"
+                            provider.id == "chatgpt" && !configured -> "La integración oficial todavía no está publicada."
+                            provider.id == "claude" && configured -> "Configura OAuth desde Conectores."
+                            provider.id == "grok" -> "Sin conexión OAuth oficial; consulta la guía."
+                            else -> "Comprueba los requisitos de la conexión."
                         }
                         OutlinedButton(
                             onClick = {
@@ -202,7 +218,7 @@ fun AIAccessScreen(
                             },
                             enabled = connected,
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
                         ) {
                             Icon(
                                 androidx.compose.ui.res.painterResource(
@@ -219,10 +235,12 @@ fun AIAccessScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(Modifier.width(12.dp))
-                            Text(
-                                if (verified) "${provider.name} conectado"
-                                else "Continuar con ${provider.name}"
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(connectionLabel, style = MaterialTheme.typography.bodyMedium)
+                                Text(connectionHint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -269,13 +287,16 @@ fun AIAccessScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
-                        AIProviderLaunch.urlFor(provider.id)?.let { url ->
+                        AIProviderLaunch.urlFor(provider)?.let { url ->
                             context.startActivity(android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
                                 android.net.Uri.parse(url)))
                         }
                         instructionsFor = null
-                    }) { Text("Copiar y abrir ${provider.name}") }
+                    }) {
+                        Text(if (AIProviderLaunch.urlFor(provider) != null)
+                            "Copiar y abrir configuración" else "Copiar instrucciones")
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = { instructionsFor = null }) { Text("Cerrar") }
