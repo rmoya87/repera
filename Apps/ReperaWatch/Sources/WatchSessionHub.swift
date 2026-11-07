@@ -1126,8 +1126,10 @@ final class WatchSessionHub: NSObject {
                 phase: overridePhase ?? (watchLivePaused ? .paused : .recording),
                 elapsedSeconds: elapsed, distanceMeters: distance,
                 averageSpeedKmh: speed, nextTurn: nil,
-                nextTurnMeters: nil, capturedAt: now, sportID: sport.rawValue,
-                kind: .sport
+                nextTurnMeters: nil, capturedAt: now,
+                heartRateBpm: health.pulseBpm,
+                activeEnergyKcal: health.kcal,
+                sportID: sport.rawValue, kind: .sport
             ), durable: force)
             return
         }
@@ -1145,7 +1147,10 @@ final class WatchSessionHub: NSObject {
             phase: overridePhase ?? (isPaused ? .paused : .recording),
             elapsedSeconds: TimeInterval(max(0, sessionElapsed)),
             distanceMeters: 0, averageSpeedKmh: nil, nextTurn: nil,
-            nextTurnMeters: nil, capturedAt: now, kind: .planned,
+            nextTurnMeters: nil, capturedAt: now,
+            heartRateBpm: health.pulseBpm,
+            activeEnergyKcal: health.kcal,
+            kind: .planned,
             subtitle: exercise.map { $0.blockHeader ?? $0.exercise.name }
                 ?? "Entrenamiento en Apple Watch",
             symbolName: "figure.cross.training",
