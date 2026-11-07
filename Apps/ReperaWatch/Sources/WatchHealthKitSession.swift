@@ -567,10 +567,17 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                         end: date,
                         metadata: ["ReperaDistanceSource": "recordedGPS"]
                     )
-                    do {
-                        try await builder.addSamples([sample])
-                    } catch {
-                        self.permissionIssue = "No se pudo incluir la distancia GPS en Salud: \(error.localizedDescription)"
+                    // Authorization requests can complete successfully even when
+                    // sharing was denied. Never let an optional distance sample
+                    // break the saved workout, heart rate or energy measurements.
+                    if self.store.authorizationStatus(for: type) == .sharingAuthorized {
+                        do {
+                            try await builder.addSamples([sample])
+                        } catch {
+                            self.permissionIssue = "No se pudo guardar la distancia GPS en Salud: \(error.localizedDescription)"
+                        }
+                    } else {
+                        self.permissionIssue = "La distancia GPS se conserva en Repera, pero Salud no permite escribirla. Activa el permiso de distancia para Repera en Apple Salud (Apple Watch)."
                     }
                 }
             }
