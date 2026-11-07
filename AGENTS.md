@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-06.
+Última actualización: 2026-11-07.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -144,6 +144,17 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Material alternativo y disponibilidad MCP (07/11/2026)
+
+- Un array plano `required_equipment` es AND, no OR. No añadir ambas ramas ni
+  vaciarlo para aparentar que «barra o mancuernas» está resuelto.
+- Usar configuraciones OR de grupos AND; una máquina genérica no acredita una
+  máquina asistida concreta. Alternativas y calentamientos comparten evaluador.
+- Unificar alias de entrada no permite inferir aparatos. Probar ramas completas,
+  incompletas, legacy y datos malformados; conservar filtros musculares/articulares.
+- Código en main no equivale a migración/Edge desplegadas ni app instalada.
+
 
 #### StoreKit TestFlight y errores de red de IA (06/11/2026)
 

@@ -1,3 +1,4 @@
+import { canonicalGear, hasDeclaredEquipment } from "./equipment.ts";
 import { z } from "npm:zod@4.3.6";
 import type { McpServer } from "npm:@modelcontextprotocol/server@2.0.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.58.0";
@@ -21,28 +22,6 @@ type Entry = { exercise?: { name?: string; catalogId?: string; targetMuscle?: st
     kind?: string; toFailure?: boolean; quantityUnit?: string; durationSeconds?: number }> };
 type Session = { id: string; finished_at: string; exercises: Entry[] };
 function normalized(v: string) { return v.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
-const gearAliases: Record<string,string> = {
-  "barra":"barbell","barra olimpica":"barbell","barbell":"barbell",
-  "mancuernas":"dumbbells","mancuerna":"dumbbells","dumbbells":"dumbbells",
-  "gomas":"resistance_band","bandas":"resistance_band","bandas elasticas":"resistance_band",
-  "resistance bands":"resistance_band","resistance_band":"resistance_band",
-  "anillas":"gymnastic_rings","rings":"gymnastic_rings",
-  "cajon":"plyometric_box","cajon pliometrico":"plyometric_box","box":"plyometric_box",
-  "kettlebell":"kettlebell","pesa rusa":"kettlebell",
-  "comba":"jump_rope","cuerda de saltar":"jump_rope","jump_rope":"jump_rope",
-  "peso corporal":"bodyweight","sin material":"bodyweight","bodyweight":"bodyweight",
-  "disco":"weight_plate","weight_plate":"weight_plate",
-  "polea":"cable_machine","cable_machine":"cable_machine",
-  "balon medicinal":"medicine_ball","medicine_ball":"medicine_ball",
-  "pared":"wall","wall":"wall",
-  "banco":"bench","bench":"bench",
-  "barra de dominadas":"pullup_bar","pullup_bar":"pullup_bar",
-  "rack":"rack","jaula":"rack","power rack":"rack",
-  "trineo":"sled","sled":"sled","saco":"sandbag","sandbag":"sandbag",
-  "air bike":"air_bike","air_bike":"air_bike","echo bike":"echo_bike","echo_bike":"echo_bike",
-  "bicicleta estatica":"stationary_bike","stationary_bike":"stationary_bike",
-};
-function canonicalGear(v:string):string { return gearAliases[normalized(v)] ?? normalized(v); }
 
 function isoWeek(date: string): string {
   const d = new Date(date.slice(0, 10) + "T12:00:00Z");
@@ -294,17 +273,15 @@ export function registerCoachTools(
     if(!origin.primary_muscles?.length)
       return result({candidates:[],reason:"El ejercicio carece de músculo principal de fuerza; no se infiere equivalencia de cardio."});
     const {data:meta,error:metaError}=await db.from("training_exercise_metadata")
-      .select("catalog_key,primary_muscles,secondary_muscles,required_equipment,joint_demands,metadata_source,movement_pattern")
+      .select("*")
       .limit(1500);
     const {data:names,error:namesError}=await db.from("business_exercise_catalog")
       .select("catalog_key,name,category,display_name_en").limit(1500);
     if(metaError||namesError)throw new Error("No se pudieron consultar alternativas");
-    const gear=new Set(availableEquipment.map(canonicalGear));
     const labels=new Map((names??[]).map(x=>[x.catalog_key,x]));
     const candidates=(meta??[]).filter(x=>{
       if(x.catalog_key===catalogKey || !x.primary_muscles?.length) return false;
-      if(!x.required_equipment?.length || x.required_equipment.includes("gym_machine_unspecified")) return false;
-      if(!x.required_equipment.every((g:string)=>g==="bodyweight" || gear.has(normalized(g))))return false;
+      if(!hasDeclaredEquipment(x, availableEquipment)) return false;
       if(avoidJointDemands.length) {
         // Unknown joint demands are explicitly excluded when requested.
         if(!x.joint_demands?.length) return false;
@@ -315,6 +292,7 @@ export function registerCoachTools(
       catalog_key:x.catalog_key,
       name:labels.get(x.catalog_key)?.display_name_en??labels.get(x.catalog_key)?.name??x.catalog_key,
       required_equipment:x.required_equipment,
+      required_equipment_options:x.required_equipment_options??null,
       joint_demands:x.joint_demands,
       metadata_source:x.metadata_source,
       shared_primary_muscles:x.primary_muscles.filter((m:string)=>origin.primary_muscles.includes(m)),

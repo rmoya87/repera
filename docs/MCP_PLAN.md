@@ -1,4 +1,50 @@
-# Repera IA — tokens personales, planificación y MCP
+# Repera IA - tokens personales, planificación y MCP
+
+Última actualización: 2026-11-07.
+
+## Material alternativo: configuraciones O/Y (07/11/2026)
+
+Código preparado en repositorio, **no implica migración ni Edge desplegadas**.
+`required_equipment` mantiene su contrato legacy: todos los tokens son necesarios
+(AND). El campo opcional `required_equipment_options` expresa OR entre grupos,
+con AND dentro de cada grupo:
+
+- Muñeca: `[["barbell"],["dumbbells"]]`.
+- Dominadas asistidas: `[["assisted_pullup_machine"],["pullup_bar","resistance_band"]]`.
+  El token específico exige confirmar una máquina de dominadas asistidas, no una
+  máquina genérica ni una barra de halterofilia. Barra de dominadas y banda forman
+  una sola configuración y ambas son necesarias.
+
+`equipment.ts` centraliza normalización y evaluación para alternativas y
+calentamientos. Opciones ausentes/SQL NULL conservan AND legacy. Opciones presentes
+vacías, malformadas o con grupos vacíos quedan pendientes de confirmación y no
+entran como disponibles. Sin material se expresa con `bodyweight`, nunca con `[]`.
+`gym_machine_unspecified` no acredita aparato concreto: en calentamientos queda
+pendiente y en alternativas no pasa el filtro. Una rama concreta disponible puede
+usarse aunque otra rama sea genérica/desconocida. Las respuestas de candidatos
+incluyen las configuraciones, sin convertir coincidencia muscular en equivalencia
+mecánica ni alterar el filtro articular existente.
+
+La migración `20261107080000_equipment_alternative_configurations.sql` añade JSONB
+validado y prepara únicamente las dos fichas indicadas, con guardas de requisitos
+anteriores; conserva los arrays legacy y las relaciones. Necesita revisión y
+aprobación de aplicación remota, igual que el despliegue de `repera-mcp`. Hasta
+entonces el código nuevo acepta el esquema anterior (`SELECT *` interno sólo en
+las rutas evaluadoras), usa AND legacy y **el filtro publicado no está corregido**.
+No se han cambiado selectores nativos, apps/relojes, B2B ni sus catálogos locales:
+esta regla pertenece al MCP de alternativas y calentamientos. La sincronización
+nativa de listas vacías es una corrección independiente.
+
+Pruebas locales:
+`npx --yes deno test supabase/functions/repera-mcp/equipment_test.ts supabase/functions/repera-mcp/equipment_integration_test.ts`.
+Cubren OR, AND, ramas incompletas, máquina genérica/específica, aliases ES/EN,
+legacy, valores vacíos/malformados y handlers registrados con fixtures, incluidos
+filtros de músculo/joints. Son pruebas del código, no de una Edge en producción.
+La migración se prueba con PostgreSQL embebido local (PGlite, sólo dependencia de test) mediante:
+`npx --yes deno test --allow-read supabase/functions/repera-mcp/equipment_migration_test.ts`.
+Comprueba semillas acotadas, restricciones y conservación de los demás campos; no
+sustituye la revisión de deriva/esquema antes de aprobar aplicación remota.
+
 
 ## Guías multidisciplinares y contexto deportivo verificable (23/10/2026)
 

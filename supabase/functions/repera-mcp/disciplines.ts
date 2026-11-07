@@ -1,3 +1,4 @@
+import { equipmentStatus } from "./equipment.ts";
 import { z } from "npm:zod@4.3.6";
 import type { McpServer } from "npm:@modelcontextprotocol/server@2.0.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.58.0";
@@ -152,24 +153,6 @@ const warmupMovementFocus = [
     focus:"locomoción y tracción",
     exercises:["Rodilla a pared para tobillo","CARs de cadera","Estiramiento dinámico de isquios","Zancada Spiderman con rotación"]},
 ] as const;
-const gearAliases:Record<string,string> = {
-  "bodyweight":"bodyweight","peso corporal":"bodyweight","sin material":"bodyweight",
-  "bandas":"resistance_band","gomas":"resistance_band","banda elastica":"resistance_band",
-  "resistance_band":"resistance_band","pica":"pvc_pipe","pvc":"pvc_pipe",
-  "pvc_pipe":"pvc_pipe","pared":"wall","wall":"wall",
-  "barra de dominadas":"pullup_bar","pullup_bar":"pullup_bar",
-  "banco":"bench","bench":"bench","rack":"rack","jaula":"rack","power rack":"rack",
-  "rodillo":"foam_roller","foam roller":"foam_roller",
-  "foam_roller":"foam_roller","marco de puerta":"door_frame","door_frame":"door_frame",
-};
-function equipmentStatus(requirements:string[],available?:string[]) {
-  if(!requirements.length)return "pendiente_confirmacion";
-  const needs=requirements.filter(x=>x!=="bodyweight");
-  if(!needs.length)return "sin_material";
-  if(available==null)return "pendiente_confirmacion";
-  const declared=new Set(available.map(x=>gearAliases[folded(x)]??folded(x)));
-  return needs.every(x=>declared.has(x))?"disponible_declarado":"no_declarado";
-}
 
 function periodTotals(rows: Session[], since: number, until: number) {
   let workouts=0, workSets=0, strengthSets=0, volumeKg=0;
@@ -313,9 +296,9 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
     errorIf(error,"No se pudieron comprobar los movimientos de calentamiento");
     const keys=(data??[]).map(x=>x.catalog_key);
     const {data:metadata,error:metaError}=keys.length?await db.from("training_exercise_metadata")
-      .select("catalog_key,required_equipment").in("catalog_key",keys):{data:[],error:null};
+      .select("*").in("catalog_key",keys):{data:[],error:null};
     errorIf(metaError,"No se pudo comprobar el material necesario para calentamiento");
-    const meta=new Map((metadata??[]).map(x=>[x.catalog_key,x.required_equipment as string[]]));
+    const meta=new Map((metadata??[]).map(x=>[x.catalog_key,x]));
     const available=new Map((data??[]).map(x=>[x.name,x]));
     return reply({
       purpose:"Progressively prepare the actual movement patterns and energy system, without exhausting the athlete.",
@@ -326,9 +309,10 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       candidates:names.flatMap(name=>{
         const item=available.get(name);
         if(!item)return [];
-        const required=meta.get(item.catalog_key)??[];
-        return [{...item,required_equipment:required,
-          equipment_status:equipmentStatus(required,availableEquipment)}];
+        const constraints=meta.get(item.catalog_key)??{};
+        return [{...item,required_equipment:constraints.required_equipment??[],
+          required_equipment_options:constraints.required_equipment_options??null,
+          equipment_status:equipmentStatus(constraints,availableEquipment)}];
       }),
       instructions:[
         "Pick only relevant movements and confirmed accessible equipment; candidate names do NOT confirm gear availability",
