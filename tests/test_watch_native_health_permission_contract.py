@@ -71,6 +71,26 @@ class WatchNativeHealthContracts(unittest.TestCase):
         self.assertIn("if let bpm = snapshot.heartRateBpm", root)
         self.assertIn("if let kcal = snapshot.activeEnergyKcal", root)
 
+    def test_finished_watch_result_clears_mirror_and_reuses_same_health_uuid(self):
+        phone = read("Apps/Repera/Sources/ReperaStore.swift")
+        incoming = phone.split("func applyWatchSession(_ session: WorkoutSession)", 1)[1].split(
+            "func reconcileWatchHealthMetrics", 1
+        )[0]
+        self.assertIn("watchOwnedLive?.id == session.id", incoming)
+        self.assertIn("closedWatchOwnedLiveIDs.insert(session.id)", incoming)
+        self.assertIn("watchOwnedLive = nil", incoming)
+        self.assertIn("upsertWorkout(pending)", incoming)
+        self.assertIn("session.healthKitWorkoutUUID ?? old.healthKitWorkoutUUID", incoming)
+        self.assertIn("saved.healthKitWorkoutUUID != uuid", incoming)
+        self.assertIn("if session.routePoints.count > saved.routePoints.count", incoming)
+        sync = phone.split("private func syncWorkoutToHealth(sessionId: UUID)", 1)[1].split(
+            "func syncMissingWorkoutsToHealth", 1
+        )[0]
+        self.assertIn('session.appleHealthProvenance == "watchHealthKitPending"', sync)
+        self.assertLess(sync.index("waitForVerifiedWatchWorkout"),
+                        sync.index("HealthKitStore.shared.finishWorkout"))
+        self.assertIn("guard let actual, let uuid = actual.workoutUUID", sync)
+
     def test_distance_write_denial_does_not_abort_watch_workout(self):
         watch = read("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
         distance = watch.split("private func endBuilder(at date: Date)", 1)[1].split(
