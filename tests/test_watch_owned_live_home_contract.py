@@ -63,8 +63,10 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("updateWatchOwned(snapshot)", store)
         self.assertIn("case .planned:", coordinator)
         self.assertIn('sessionID.hasPrefix("watch:")', widget)
-        self.assertIn('"Control desde Apple Watch"', widget)
-        self.assertIn('"repera://today"', widget)
+        self.assertNotIn('"Control desde Apple Watch"', widget)
+        self.assertNotIn('"Registrando en Apple Watch"', coordinator)
+        self.assertIn('"repera://live"', widget)
+        self.assertIn("liveActivityControls(", widget)
         self.assertIn("pushType: nil", coordinator)
 
     def test_watch_owned_planned_live_and_phone_handoff(self):
