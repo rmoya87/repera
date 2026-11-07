@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 import ReperaDomain
 import Supabase
 import SwiftUI
@@ -107,7 +108,7 @@ private enum AIProviderLaunch {
     static let server = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 
     static func url(for id: String) -> URL? {
-        let values = ["chatgpt": "https://chatgpt.com/", "claude": "https://claude.ai/", "grok": "https://grok.com/"]
+        let values = ["chatgpt": "https://chatgpt.com/", "claude": "https://claude.ai/customize/connectors", "grok": "https://grok.com/"]
         return values[id].flatMap(URL.init(string:))
     }
 
@@ -404,9 +405,23 @@ struct AIAccessView: View {
 
     private var connectionSection: some View {
         Section {
-            Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.")
+            Text("Conecta Repera a tu asistente habitual. La conexión solo figura como activa después de autorizarla y comprobar su uso.")
                 .foregroundStyle(OG.label2)
                 .listRowSeparator(.hidden)
+            if catalogLoading {
+                ProgressView("Comprobando disponibilidad de asistentes…")
+                    .font(.footnote)
+                    .listRowSeparator(.hidden)
+            } else if let catalogError {
+                Label(catalogError, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+                    .listRowSeparator(.hidden)
+                Button("Reintentar catálogo") { Task { await refreshProviders() } }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    .listRowSeparator(.hidden)
+            }
             ForEach(providers) { provider in
                 Button {
                     if connectionVerified(for: provider) {
@@ -422,14 +437,23 @@ struct AIAccessView: View {
                             .scaledToFit()
                             .frame(width: 22, height: 22)
                             .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(connectionLabel(for: provider))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(OG.label)
+                            Text(connectionHint(for: provider))
+                                .font(.caption)
+                                .foregroundStyle(OG.label2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Spacer(minLength: 0)
-                        Text(connectionVerified(for: provider) ? "\(provider.name) conectado" : "Continuar con \(provider.name)").fontWeight(.semibold)
-                        Spacer(minLength: 0)
-                        Color.clear.frame(width: 24, height: 1)
+                        Image(systemName: connectionVerified(for: provider) ? "checkmark.circle.fill" : "chevron.right")
+                            .foregroundStyle(connectionVerified(for: provider) ? OG.accent : OG.label3)
+                            .accessibilityHidden(true)
                     }
-                    .foregroundStyle(OG.label)
-                    .frame(height: 48)
+                    .frame(minHeight: 54)
                     .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
                     .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
                     .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
                 }
@@ -439,7 +463,7 @@ struct AIAccessView: View {
                 .disabled(!auth.isConnected)
             }
             if !auth.isConnected {
-                Text("Inicia sesión en Repera para conectar tu asistente.")
+                Text("Inicia sesión en Repera para autorizar una conexión.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if let launchMessage {
@@ -448,6 +472,28 @@ struct AIAccessView: View {
             Button("Ver instrucciones") { showInstructions = true }
                 .buttonStyle(.borderless)
         } header: { Text("Elige tu asistente") }
+    }
+
+    private func connectionLabel(for provider: AIConnectionProvider) -> String {
+        if connectionVerified(for: provider) { return "\(provider.name) conectado" }
+        switch provider.id {
+        case "chatgpt": return provider.connectionURL == nil ? "ChatGPT · pendiente de publicación" : "Conectar ChatGPT"
+        case "claude": return provider.isAvailable ? "Configurar Claude" : "Claude · no disponible todavía"
+        default: return "Grok · configuración manual"
+        }
+    }
+
+    private func connectionHint(for provider: AIConnectionProvider) -> String {
+        if connectionVerified(for: provider) { return "Autorización registrada y utilizada" }
+        switch provider.id {
+        case "chatgpt": return provider.connectionURL == nil
+            ? "La integración oficial aún no está publicada."
+            : "Autoriza Repera desde la ficha del asistente."
+        case "claude": return provider.isAvailable
+            ? "Abre Conectores y autoriza con OAuth."
+            : "Comprueba la disponibilidad del cliente OAuth."
+        default: return "Sin conexión OAuth oficial; consulta las instrucciones."
+        }
     }
 
     private func connectionVerified(for provider: AIConnectionProvider) -> Bool {
@@ -460,20 +506,30 @@ struct AIAccessView: View {
     }
 
     private func launch(_ provider: AIConnectionProvider) {
+        // Abrir un asistente no equivale a completar OAuth.
+        guard provider.isAvailable, provider.id != "grok" else {
+            launchMessage = provider.id == "chatgpt"
+                ? "ChatGPT aún no dispone de una conexión Repera publicada. Consulta los requisitos antes de configurarla."
+                : provider.id == "claude"
+                ? "La configuración OAuth de Claude no está disponible. Reintenta el catálogo."
+                : "Grok no tiene una conexión OAuth verificada con Repera. Consulta la configuración manual."
+            showInstructions = true
+            return
+        }
+        guard let url = provider.connectionURL ?? AIProviderLaunch.url(for: provider.id) else {
+            launchMessage = "No se ha encontrado un enlace de configuración válido."
+            return
+        }
         ReperaAnalytics.track(.aiConnectionStarted, parameters: [
             "feature_area": "ai",
             "entry_point": provider.id,
             "result": "pending"
         ])
         UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
-        guard let url = AIProviderLaunch.url(for: provider.id) else {
-            launchMessage = "Las instrucciones están copiadas, pero no hay una dirección válida para este asistente."
-            return
-        }
-        launchMessage = "Instrucciones copiadas. Pégalas en \(provider.name) al abrirlo."
+        launchMessage = "Instrucciones copiadas. Completa la autorización OAuth desde \(provider.name); abrirlo no conecta la cuenta."
         openURL(url) { accepted in
             if !accepted {
-                launchMessage = "No se pudo abrir \(provider.name). Las instrucciones permanecen copiadas."
+                launchMessage = "No se pudo abrir la configuración de \(provider.name). Puedes usar las instrucciones copiadas."
             }
         }
     }
@@ -572,13 +628,19 @@ struct AIAccessView: View {
             catalogError = nil
         } catch {
             // Conservar la última configuración conocida ante un fallo temporal.
-            catalogError = "No se pudo actualizar el catálogo de asistentes."
+            let diagnostic = error as NSError
+            Logger(subsystem: "com.app.repera", category: "AIConnections")
+                .error("Catálogo IA: dominio=\(diagnostic.domain, privacy: .public) código=\(diagnostic.code, privacy: .public)")
+            catalogError = "No se pudo comprobar la disponibilidad de las conexiones. Comprueba tu red y vuelve a intentarlo."
         }
     }
 
     @MainActor
     private func refreshTokens() async {
-        guard auth.isConnected, let client = auth.apiClient else { return }
+        guard auth.isConnected, let client = auth.apiClient else {
+            connectionsError = "Inicia sesión en Repera para consultar las conexiones."
+            return
+        }
         guard !isLoadingConnections else { return }
         isLoadingConnections = true
         defer { isLoadingConnections = false }
@@ -616,8 +678,11 @@ struct AIAccessView: View {
                 ])
             }
         } catch {
-            // Un error de red NO equivale a una lista vacía.
-            connectionsError = "No se han podido consultar tus conexiones. Vuelve a intentarlo."
+            // Un error temporal jamás se interpreta como "sin asistentes".
+            let diagnostic = error as NSError
+            Logger(subsystem: "com.app.repera", category: "AIConnections")
+                .error("Consulta conexiones IA: dominio=\(diagnostic.domain, privacy: .public) código=\(diagnostic.code, privacy: .public)")
+            connectionsError = "No se han podido comprobar tus conexiones. Conservamos el último estado conocido; pulsa Reintentar."
         }
     }
 
