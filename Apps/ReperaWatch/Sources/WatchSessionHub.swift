@@ -1127,7 +1127,9 @@ final class WatchSessionHub: NSObject {
                 elapsedSeconds: elapsed, distanceMeters: distance,
                 averageSpeedKmh: speed, nextTurn: nil,
                 nextTurnMeters: nil, capturedAt: now,
-                heartRateBpm: health.pulseBpm,
+                heartRateBpm: health.pulseCapturedAt.map {
+                    now.timeIntervalSince($0) <= 60
+                } == true ? health.pulseBpm : nil,
                 activeEnergyKcal: health.kcal,
                 sportID: sport.rawValue, kind: .sport
             ), durable: force)
@@ -1148,7 +1150,9 @@ final class WatchSessionHub: NSObject {
             elapsedSeconds: TimeInterval(max(0, sessionElapsed)),
             distanceMeters: 0, averageSpeedKmh: nil, nextTurn: nil,
             nextTurnMeters: nil, capturedAt: now,
-            heartRateBpm: health.pulseBpm,
+            heartRateBpm: health.pulseCapturedAt.map {
+                    now.timeIntervalSince($0) <= 60
+                } == true ? health.pulseBpm : nil,
             activeEnergyKcal: health.kcal,
             kind: .planned,
             subtitle: exercise.map { $0.blockHeader ?? $0.exercise.name }
