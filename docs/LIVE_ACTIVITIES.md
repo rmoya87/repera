@@ -55,6 +55,14 @@ Los botones de **Pausar / Reanudar / Abrir** en bloqueo e isla usan `LiveActivit
 - Comprobar coexistencia con la Live Activity del descanso (que sigue siendo independiente).
 - Salir de la app durante una actividad y restaurar la sesión sin perder tiempo o distancia; si se restauró en pausa no contar el tiempo de interrupción.
 
+## Espejo nativo y permisos de Watch (07/11/2026)
+
+- Se eliminan de las Live Activities los textos «Registrando en Apple Watch» y «Control desde Apple Watch». «Abrir Repera» desde el iPhone abre `repera://live` y una vista nativa para la sesión Watch-owned; la Smart Stack del reloj usa `repera-watch://active`.
+- El iPhone puede consultar las métricas reales Watch (tiempo, GPS, ritmo, FC y kcal) y enviar pausa, reanudación o finalización al propietario de la sesión, pero **no** registrar otro `HKWorkout`, GPS ni inventar métricas. WatchConnectivity verifica ámbito de cuenta y UUID; el reloj sigue siendo propietario de HealthKit.
+- Si Salud ha denegado escritura de distancia, se conserva el entrenamiento y el GPS local; se omite la muestra de distancia no autorizada y se comunica el permiso requerido. El refresco de permisos del iPhone incluye compartir los tipos numéricos de distancia.
+- El check verde del editor permite guardar también caminatas y otras actividades completadas sin bloques de ejercicios.
+- Requiere validación con pareja física iPhone/Watch y compilación Xcode antes de certificar el comportamiento en TestFlight.
+
 ## Ajustes de bloqueo y apertura del Watch (06/11/2026)
 
 - La tarjeta de bloqueo utiliza una distribución con título, tres métricas, parcial corto opcional y **botones siempre al final**, con margen superior, inferior y lateral homogéneo. Ya no existe una segunda línea «TRAMO». Si el texto del parcial ocupa demasiado, se oculta en lugar de recortar las métricas o acciones.
