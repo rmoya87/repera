@@ -10,6 +10,19 @@ import WatchConnectivity
 final class ReperaStore: NSObject {
     var state: AppState
     var isWatchReachable = false
+    /// iPhone UI mirror only. A Watch-owned workout always keeps its sensor,
+    /// route and HealthKit writer on the Watch, regardless of the open screen.
+    private(set) var watchOwnedLive: WatchLiveActivitySnapshot?
+    @ObservationIgnored private var closedWatchOwnedLiveIDs: Set<UUID> = []
+
+    @discardableResult
+    func controlWatchOwnedLive(_ command: String) -> Bool {
+        guard let live = watchOwnedLive, live.phase != .review,
+              !closedWatchOwnedLiveIDs.contains(live.id) else { return false }
+        return connectivity.sendWatchOwnedLiveCommand(
+            sessionId: live.id, command: command
+        )
+    }
     private(set) var watchTimerMirror: WatchTimerMirror?
     private var watchTimerLastUpdate = Date.distantPast
     var iCloudStatus: ICloudStatus = .temporarilyUnavailable
@@ -4287,11 +4300,21 @@ extension ReperaStore: PhoneConnectivityDelegate {
     ) {
         Task { @MainActor in
             if snapshot.phase == .review {
+                self.closedWatchOwnedLiveIDs.insert(snapshot.id)
+                if self.watchOwnedLive?.id == snapshot.id {
+                    self.watchOwnedLive = nil
+                }
                 await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
                     sessionID: snapshot.id, saved: false
                 )
                 return
             }
+            guard !self.closedWatchOwnedLiveIDs.contains(snapshot.id),
+                  WatchOwnedLiveDeliveryPolicy.isNewer(
+                    snapshot,
+                    than: self.watchOwnedLive?.id == snapshot.id
+                        ? self.watchOwnedLive?.capturedAt : nil
+                  ) else { return }
             // Do not revive an already archived workout, nor replace an
             // unrelated phone-owned workout in the Dynamic Island.
             // The same UUID may already be activeSession after sendCurrent.
@@ -4315,6 +4338,7 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 active.appleHealthProvenance = "watchHealthKitPending"
                 self.state.activeSession = active
             }
+            self.watchOwnedLive = snapshot
             await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
         }
     }
