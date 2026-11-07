@@ -100,15 +100,20 @@ class AIAccessStore(
                 val body = response.body?.string().orEmpty()
                 authorize()
                 if (!response.isSuccessful) {
-                    // Incluir el cuerpo: PostgREST devuelve {"code":"42703",...}
-                    return LoadResult.Failed("No se pudieron obtener los tokens: HTTP " +
-                        response.code + " " + body.take(200))
+                    // Solo la migración 42703 permite el reintento sin la
+                    // columna aditiva. No mostrar mensajes crudos de PostgREST.
+                    if (response.code == 400 && body.contains("42703")) {
+                        return LoadResult.Failed("42703")
+                    }
+                    return LoadResult.Failed(
+                        "No se han podido comprobar tus conexiones (HTTP ${response.code}). Pulsa Reintentar."
+                    )
                 }
                 LoadResult.Loaded(parseTokens(JSONArray(body)))
             }
         } catch (error: Exception) {
-            LoadResult.Failed("No se pudieron obtener los tokens: " +
-                (error.localizedMessage ?: ""))
+            android.util.Log.w("ReperaAI", "Consulta de conexiones: ${error.javaClass.simpleName}")
+            LoadResult.Failed("No se han podido comprobar tus conexiones. Pulsa Reintentar.")
         }
     }
 
