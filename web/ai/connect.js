@@ -6,7 +6,8 @@ const auth = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 const params = new URLSearchParams(location.search);
 const authorizationId = params.get('authorization_id') || sessionStorage.getItem('repera-ai-authorization');
-const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Supabase Auth issues opaque authorization IDs: 32 lowercase base32 chars (a-z2-7), not UUIDs.
+const validId = /^[a-z2-7]{32}$/;
 const status = document.querySelector('#status');
 function message(text, error = false) { status.textContent = text; status.classList.toggle('error', error); }
 function busy(value) { document.querySelectorAll('button').forEach(button => { button.disabled = value; }); }
