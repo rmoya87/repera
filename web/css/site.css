@@ -659,7 +659,7 @@ h3 {
 }
 
 .prose {
-  max-width: 42rem;
+  max-width: none;
   color: var(--label-2);
 }
 
@@ -1429,58 +1429,69 @@ body.cookie-open {
   margin-top: 1.25rem;
 }
 
-.legal-page {
-  width: min(100% - 2.5rem, 44rem);
+/* FAQ / legales alineados al chrome de producto */
+.wrap.narrow {
+  width: min(100%, 42rem);
   margin-inline: auto;
-  padding: clamp(2.5rem, 6vw, 4rem) 0 4rem;
 }
 
-.legal-page .page-hero {
-  padding: 0 0 1.75rem;
+.faq .section-head {
+  margin-bottom: 1.25rem;
 }
 
-.legal-page .faq {
-  max-width: none;
-  padding-bottom: 1rem;
-}
-
-.legal-page .faq details {
-  background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 1.05rem 1.2rem;
-  margin-bottom: 0.75rem;
-}
-
-.legal-page .faq summary {
-  cursor: pointer;
-  font-weight: 600;
-  list-style: none;
+.faq summary {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
 }
 
-.legal-page .faq summary::-webkit-details-marker {
-  display: none;
-}
-
-.legal-page .faq summary::after {
-  content: "+";
-  color: var(--accent);
-  font-weight: 700;
+.faq summary::after {
+  float: none;
   flex: none;
 }
 
-.legal-page .faq details[open] summary::after {
-  content: "–";
+.faq details p {
+  line-height: 1.55;
 }
 
-.legal-page .faq details p {
-  color: var(--label-2);
-  margin: 0.85rem 0 0;
-  line-height: 1.55;
+.faq-more {
+  margin: 1.25rem 0 0;
+  font-weight: 600;
+}
+
+.faq-more a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.faq-more a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+.legal-nav a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.legal-nav a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.section--tight {
+  padding-top: 1.5rem;
 }
 
 /* —— Casos visuales + mega menú (2026-11-08) —— */

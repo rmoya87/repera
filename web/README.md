@@ -210,6 +210,8 @@ Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, co
 
 FX de casos: `mascot_fx` / `mascot_fx_markup` en `scripts/build_site.py` (ancla `%` al objeto del webp + capa `mascot-fx-layer--front|back`). Estilos en `css/site.css` (`.fx-focus`, `.fx-lead`, nieve, viento, etc.). Regenerar con `python3 web/scripts/build_site.py`.
 
+FAQ / Privacidad / Términos / Soporte: mismos `header_html` + `footer_html` que el resto. Contenido en `content/faq.json`, `content/privacy_body.html`, `content/terms_body.html`; se escriben con `python3 web/scripts/write_product_pages.py`.
+
 ## Pendiente editorial
 
 - ID real de App Store / enlace de Google Play.

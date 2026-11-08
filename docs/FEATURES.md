@@ -612,9 +612,9 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 3 favorit
 - Casos: mascotas en `assets/mascots/`, chips de grupo, mega-menú de actividades en nav, iconos tipo deporte alineados al selector de la app. FX por slug (`mascot_fx` en `build_site.py`): ancla al objeto real del arte, capa `front`/`back` (p. ej. pádel/golf/hockey delante; basket/voleibol detrás del balón), sin dibujar una segunda pelota.
 - Sin biblioteca pública de ejercicios en la web.
 - Outdoor: mismo diario gym+salidas (GPS, ritmo, zonas, avisos). Recuperación: sueño/VFC como contexto, no coach clínico.
-- Contenido: `web/content/casos.json` + `modes.json`; build `web/scripts/build_site.py`.
-- Páginas clave regenerables con `web/scripts/write_product_pages.py` (chrome compartido).
-- Legales: `privacy`, `terms`, `faq` (JSON-LD FAQPage). Cookies opt-in. SEO: meta/OG/canonical, sitemap, robots, JSON-LD Organization/WebSite/SoftwareApplication.
+- Contenido: `web/content/casos.json` + `modes.json` + `faq.json` / cuerpos legales; build `web/scripts/build_site.py`.
+- Páginas clave regenerables con `web/scripts/write_product_pages.py` (chrome compartido: nav, footer, cookies, CTA).
+- Legales y FAQ (`privacy`, `terms`, `faq`, `soporte`): mismo header/footer que producto; FAQ con acordeón `wrap narrow faq` y JSON-LD FAQPage. Cookies opt-in. SEO: meta/OG/canonical, sitemap, robots, JSON-LD Organization/WebSite/SoftwareApplication.
 - Hosting IONOS: `./pack-ionos.sh` regenera HTML y empaqueta zip. Detalle en [`web/README.md`](../web/README.md).
 - Spec: [`docs/superpowers/specs/2026-11-08-repera-web-static-redesign-design.md`](superpowers/specs/2026-11-08-repera-web-static-redesign-design.md).
 

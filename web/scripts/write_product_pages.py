@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -804,7 +805,10 @@ def main() -> None:
 
     <section class="section section--alt">
       <div class="wrap narrow faq" data-reveal>
-        <h2>Preguntas frecuentes</h2>
+        <div class="section-head">
+          <p class="eyebrow">Ayuda</p>
+          <h2>Preguntas frecuentes</h2>
+        </div>
         <details open>
           <summary>¿Qué incluye la versión gratuita?</summary>
           <p>Registro ilimitado de entrenos, catálogo, timers, Watch, Salud e iCloud, con límites en rutinas, ejercicios propios y escaneos de pizarra.</p>
@@ -817,6 +821,7 @@ def main() -> None:
           <summary>¿Hay versión para Android?</summary>
           <p>Está en preparación. No hay fecha anunciada.</p>
         </details>
+        <p class="faq-more"><a href="/faq">Ver todas las preguntas →</a></p>
       </div>
     </section>
 
@@ -838,6 +843,7 @@ def main() -> None:
         "Ayuda con Repera: contacto, FAQ, privacidad y gestión de la suscripción en App Store.",
         f"""    <section class="hero hero--sm">
       <div class="wrap" data-reveal>
+        <p class="eyebrow">Ayuda</p>
         <h1>Soporte y contacto</h1>
         {contact}
         <div class="btn-row">
@@ -851,6 +857,119 @@ def main() -> None:
         <a class="tile" href="/privacy"><h3>Privacidad</h3><p>Datos, Salud e iCloud.</p><span class="more">Abrir</span></a>
         <a class="tile" href="/terms"><h3>Términos</h3><p>Uso de la app y suscripción.</p><span class="more">Abrir</span></a>
         <a class="tile" href="https://apps.apple.com/account/subscriptions" rel="noopener noreferrer"><h3>Suscripción</h3><p>Gestionar o cancelar en Apple.</p><span class="more">Abrir</span></a>
+      </div>
+    </section>
+{cta_band("¿Listo para entrenar?", "Descarga Repera en App Store. El soporte de suscripción lo gestiona Apple.")}""",
+    )
+
+    # —— FAQ / Privacidad / Términos (mismo chrome que el resto del sitio) ——
+    faq_items = json.loads((ROOT / "content" / "faq.json").read_text(encoding="utf-8"))
+    faq_details = []
+    faq_ld_entities = []
+    for item in faq_items:
+        open_attr = " open" if item.get("open") else ""
+        faq_details.append(
+            f"""        <details{open_attr}>
+          <summary>{item["q"]}</summary>
+          <p>{item["a"]}</p>
+        </details>"""
+        )
+        # Strip tags for JSON-LD plain text
+        plain = re.sub(r"<[^>]+>", "", item["a"])
+        plain = plain.replace("\xa0", " ").replace("&nbsp;", " ")
+        faq_ld_entities.append(
+            {
+                "@type": "Question",
+                "name": item["q"],
+                "acceptedAnswer": {"@type": "Answer", "text": plain},
+            }
+        )
+    faq_ld = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faq_ld_entities,
+    }
+    page(
+        "/faq",
+        "",
+        "FAQ — Repera Pro y suscripciones",
+        "Preguntas frecuentes sobre Repera Gratis, Repera Pro, precios, prueba, cancelación y restauración.",
+        f"""    <section class="hero hero--sm">
+      <div class="wrap" data-reveal>
+        <p class="eyebrow">Ayuda</p>
+        <h1>Preguntas frecuentes</h1>
+        <p class="lede">Suscripción, límites del plan gratuito y gestión en App Store o Google Play.</p>
+        <div class="btn-row">
+          <a class="btn btn-ghost" href="/precios">Ver precios</a>
+          <a class="btn btn-ghost" href="/soporte">Soporte</a>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="wrap narrow faq" data-reveal>
+{chr(10).join(faq_details)}
+      </div>
+    </section>
+{cta_band("Prueba Repera gratis", "Descárgala en App Store. Cancela Pro cuando quieras desde Apple.")}""",
+        json_ld=faq_ld,
+    )
+
+    privacy_body = (ROOT / "content" / "privacy_body.html").read_text(encoding="utf-8")
+    page(
+        "/privacy",
+        "",
+        "Privacidad — Repera",
+        "Política de privacidad de Repera: datos locales, iCloud, Apple Salud, compras y cookies del sitio web.",
+        f"""    <section class="hero hero--sm">
+      <div class="wrap" data-reveal>
+        <p class="eyebrow">Legal</p>
+        <h1>Política de privacidad</h1>
+        <p class="lede">Última actualización: 8 de noviembre de 2026</p>
+        <div class="btn-row">
+          <a class="btn btn-ghost" href="/terms">Términos de uso</a>
+          <a class="btn btn-ghost" href="/faq">FAQ</a>
+        </div>
+      </div>
+    </section>
+    <section class="section section--tight">
+      <div class="wrap narrow">
+        <article class="prose" data-reveal>
+{privacy_body}        </article>
+        <p class="legal-nav" data-reveal>
+          <a href="/terms">Términos de uso</a>
+          <a href="/faq">FAQ</a>
+          <a href="/soporte">Soporte</a>
+        </p>
+      </div>
+    </section>""",
+    )
+
+    terms_body = (ROOT / "content" / "terms_body.html").read_text(encoding="utf-8")
+    page(
+        "/terms",
+        "",
+        "Términos de uso — Repera",
+        "Términos de uso y condiciones de suscripción de Repera Pro (App Store y Google Play).",
+        f"""    <section class="hero hero--sm">
+      <div class="wrap" data-reveal>
+        <p class="eyebrow">Legal</p>
+        <h1>Términos de uso</h1>
+        <p class="lede">Última actualización: 8 de noviembre de 2026</p>
+        <div class="btn-row">
+          <a class="btn btn-ghost" href="/privacy">Privacidad</a>
+          <a class="btn btn-ghost" href="/faq">FAQ</a>
+        </div>
+      </div>
+    </section>
+    <section class="section section--tight">
+      <div class="wrap narrow">
+        <article class="prose" data-reveal>
+{terms_body}        </article>
+        <p class="legal-nav" data-reveal>
+          <a href="/privacy">Privacidad</a>
+          <a href="/faq">FAQ</a>
+          <a href="/soporte">Soporte</a>
+        </p>
       </div>
     </section>""",
     )

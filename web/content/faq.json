@@ -1,0 +1,62 @@
+[
+  {
+    "q": "¿Puedo usar Repera sin pagar?",
+    "a": "Sí. Repera Gratis te permite registrar entrenamientos, series, WOD, usar el Watch, Apple Salud e iCloud. Hay límites en rutinas reutilizables (3), ejercicios propios (5), escaneos de pizarra (4 al mes) y en el análisis avanzado de progreso.",
+    "open": true
+  },
+  {
+    "q": "¿Qué incluye Repera Pro?",
+    "a": "Rutinas, ejercicios personalizados y escaneos ilimitados; historial y evolución por ejercicio; estadísticas y periodos largos; mapa muscular; comparativas de marcas WOD; y progresión avanzada. El detalle está en la <a href=\"/precios\">página de precios</a>.",
+    "open": false
+  },
+  {
+    "q": "¿Cuánto cuesta Pro?",
+    "a": "Orientativo en España: <strong>5,99&nbsp;€/mes</strong> o <strong>39,99&nbsp;€/año</strong>. Puede existir oferta introductoria anual (p. ej. 29,99&nbsp;€ el primer año) si la tienda te la muestra. El precio definitivo aparece en App Store o Google Play en tu moneda.",
+    "open": false
+  },
+  {
+    "q": "¿Hay prueba gratuita?",
+    "a": "Sí, cuando seas elegible: normalmente <strong>14 días</strong> gestionados por Apple como oferta introductoria de la suscripción. Si no eres elegible, la App no te promete una prueba falsa. Al terminar la prueba, se aplica el precio de renovación indicado en la compra salvo que canceles antes.",
+    "open": false
+  },
+  {
+    "q": "¿Cómo cancelo o gestiono la suscripción?",
+    "a": "En iPhone: Ajustes → [tu nombre] → Suscripciones, o <a href=\"https://apps.apple.com/account/subscriptions\" rel=\"noopener noreferrer\">apps.apple.com/account/subscriptions</a>. En Android (cuando exista Repera en Play): <a href=\"https://play.google.com/store/account/subscriptions\" rel=\"noopener noreferrer\">Suscripciones de Google Play</a>. Cancela al menos 24 horas antes del fin del periodo para evitar el siguiente cobro.",
+    "open": false
+  },
+  {
+    "q": "¿Qué pasa si cancelo Pro?",
+    "a": "Conservas el acceso Pro hasta que termine el periodo ya pagado (salvo revocación de la tienda). Después vuelves a Gratis: tus entrenos, rutinas y ejercicios <strong>no se borran</strong>. Si tienes más de 3 rutinas o 5 ejercicios custom, puedes seguir usándolos y editándolos, pero no crear nuevos hasta bajar del límite o volver a Pro.",
+    "open": false
+  },
+  {
+    "q": "¿Cómo restauro una compra?",
+    "a": "En la App: Ajustes → Repera Pro → Restaurar compras, o desde el paywall. No necesitas una cuenta Repera: la restauración usa tu cuenta de Apple o Google.",
+    "open": false
+  },
+  {
+    "q": "¿Necesito Internet para Pro?",
+    "a": "Puedes entrenar sin conexión. Si ya tenías Pro verificado, un fallo temporal de red no debería quitarte el acceso de inmediato; la App respeta la caducidad conocida. Sin verificación previa, no se desbloquea Pro solo por estar offline.",
+    "open": false
+  },
+  {
+    "q": "¿Mis datos de Salud se usan para anuncios?",
+    "a": "No. Los datos de Apple Salud / HealthKit (y equivalentes futuros en Android) no se usan para publicidad. Ver la <a href=\"/privacy\">Política de privacidad</a>.",
+    "open": false
+  },
+  {
+    "q": "¿Habrá versión Android?",
+    "a": "Está en preparación. Esta web y las páginas legales están pensadas para reutilizarse en Google Play. Mientras tanto, Repera está disponible en iPhone y Apple Watch.",
+    "open": false
+  },
+  {
+    "q": "¿Dónde leo los términos legales?",
+    "a": "<a href=\"/terms\">Términos de uso</a> (incluye renovación automática) y <a href=\"/privacy\">Privacidad</a>.",
+    "open": false
+  },
+  {
+    "q": "¿Qué cookies usa esta web?",
+    "a": "Solo almacenamiento esencial en el navegador para recordar tu decisión del banner. La analítica es opcional y está desactivada por defecto; no cargamos scripts de terceros hasta que configures un proveedor y des consentimiento. Puedes cambiarlo en <a href=\"#\" data-cookie-open>Preferencias de cookies</a> o leer el detalle en <a href=\"/privacy#cookies\">Privacidad → Cookies</a>.",
+    "open": false
+  }
+]
