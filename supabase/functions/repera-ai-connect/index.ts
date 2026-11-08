@@ -11,6 +11,10 @@ const headers = { 'content-type': 'application/json', 'cache-control': 'no-store
   'access-control-allow-methods': 'GET,POST,OPTIONS', 'vary': 'Origin' };
 const reply = (status: number, data: unknown) => new Response(JSON.stringify(data), { status, headers });
 
+// Supabase Auth hands the frontend an opaque authorization_id (crypto.SecureAlphanumeric(32):
+// 32 lowercase base32 chars, a-z2-7), not a UUID. uuidPattern stays for user/grant IDs.
+const authorizationIdPattern = /^[a-z2-7]{32}$/;
+
 async function authRequest(jwt: string, path: string, method = 'GET', body?: unknown) {
   const result = await fetch(`${projectURL}/auth/v1/${path}`, {
     method, headers: { authorization: `Bearer ${jwt}`, apikey: Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -61,7 +65,7 @@ Deno.serve(async request => {
       }
       return reply(200,{disconnected:true,reconnectRequired});
     }
-    if (!['details','approve','deny'].includes(action ?? '') || !uuidPattern.test(body.authorizationId ?? '') ||
+    if (!['details','approve','deny'].includes(action ?? '') || !authorizationIdPattern.test(body.authorizationId ?? '') ||
       Object.keys(body).some(k => !['authorizationId','canWrite'].includes(k)) ||
       (body.canWrite !== undefined && typeof body.canWrite !== 'boolean')) return reply(400,{error:'Solicitud inválida'});
     const path = `oauth/authorizations/${body.authorizationId}`;
