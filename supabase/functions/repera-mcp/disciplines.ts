@@ -234,7 +234,7 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
     inputSchema:z.strictObject({
       discipline,includeExercises:z.boolean().default(true),
       limit:z.number().int().min(5).max(350).default(250),
-    }),annotations:{readOnlyHint:true},
+    }),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({discipline:kind,includeExercises,limit})=>{
     const guide=disciplineGuides[kind];
     let exercises:unknown[]=[];
@@ -282,7 +282,7 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
       mainMovements:z.array(z.string().trim().min(2).max(120)).max(15).default([]),
       sessionMinutes:z.number().int().min(10).max(240).optional(),
       availableEquipment:z.array(z.string().trim().min(2).max(60)).max(20).optional(),
-    }),annotations:{readOnlyHint:true},
+    }),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({mainDiscipline,mainMovements,sessionMinutes,availableEquipment})=>{
     const patterns=warmupMovementFocus.filter(p=>
       mainMovements.some(m=>p.tokens.some(token=>folded(m).includes(token))));
@@ -329,7 +329,7 @@ export function registerDisciplinePlanningTools(server:McpServer,db:SupabaseClie
     inputSchema:z.strictObject({
       days:z.number().int().min(28).max(180).default(90),
       topExercises:z.number().int().min(5).max(30).default(15),
-    }),annotations:{readOnlyHint:true},
+    }),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({days,topExercises})=>{
     const now=Date.now(),start=new Date(now-days*DATE_MS).toISOString(),today=new Date(now).toISOString().slice(0,10);
     const [profile,workouts,plans,programs,calendar]=await Promise.all([

@@ -272,7 +272,7 @@ Deno.serve(async (request) => {
     server.registerTool("get_mcp_access_info", {
       title:"Comprobar conexión con Repera",
       description:"Check the authenticated Repera connection, permission scopes, expiry and disconnection instructions. No credential contents or workout data are exposed. Use this read-only tool to verify that setup succeeded.",
-      inputSchema:z.strictObject({}),annotations:{readOnlyHint:true},
+      inputSchema:z.strictObject({}),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
     },async()=>reply({
       token_id:token.id,
       scopes:token.scopes ?? ["training:read","training:write"],
@@ -285,7 +285,7 @@ Deno.serve(async (request) => {
     server.registerTool("get_hyrox_training_reference", {
       description:"Official HYROX solo race station sequence, stable Repera catalog keys, distances/reps and planning caveats. Read before preparing a HYROX training program; do not assume division loads, race date, available gear or fitness level.",
       inputSchema:z.strictObject({}),
-      annotations:{readOnlyHint:true},
+      annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
     },async()=>reply({
       event:"HYROX solo",source:"https://hyrox.com/the-fitness-race/",
       race_structure:"8 × 1 km runs alternating with 8 functional stations; 8 km total running",
@@ -305,7 +305,7 @@ Deno.serve(async (request) => {
     server.registerTool("get_wod_format_contract", {
       description: "Read the canonical Repera WOD result capture and timer rules for AMRAP, RFT/For Time, EMOM/Every X, Tabata, Chipper/AFAP/Ladder, Strength/Skill, Death By, Max Effort and other formats. Check this before creating or interpreting WOD scores.",
       inputSchema: z.strictObject({ format: wodFormat.optional() }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ format }) => reply({
       schema_version: 1,
       formats: format
@@ -321,7 +321,7 @@ Deno.serve(async (request) => {
     server.registerTool("get_workout_history", {
       description: "History of completed Repera exercises, logged sets and WOD results; no HealthKit, routes, GPS, energy, body weight or notes.",
       inputSchema: pagedInput,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ days, limit, cursor }) => {
       const offset=readOffset(cursor);
       const after=new Date(Date.now()-days*86400000).toISOString();
@@ -347,12 +347,12 @@ Deno.serve(async (request) => {
     server.registerTool("analyze_muscle_balance", {
       description: "Estimate muscle-region weighted set volume from the user's logged workouts, not measured fatigue.",
       inputSchema: z.strictObject({ days: z.number().int().min(7).max(90).default(28) }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ days }) => reply({ days, ...muscleBalance(await workouts(days, 500)) }));
     server.registerTool("get_exercise_progress", {
       description: "Exercise name search in completed sessions. Report metres, calories, repetitions and weight separately; never add unlike units.",
       inputSchema: z.strictObject({ name: z.string().trim().min(2).max(100), days: inputDays }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ name, days }) => {
       const needle = name.toLocaleLowerCase("es");
       const rows = await workouts(days, 500);
@@ -381,7 +381,7 @@ Deno.serve(async (request) => {
     server.registerTool("search_training_exercises", {
       description: "Search named movements in the Repera professional catalog. Do not invent unprovided anatomical metadata.",
       inputSchema: z.strictObject({ query: z.string().trim().min(2).max(100), limit: z.number().int().min(1).max(50).default(20) }),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ query, limit }) => {
       // 288 public rows: search display names and all known ES/EN + box abbreviations.
       // Do not rewrite catalog_key: it references historical workouts.
@@ -413,7 +413,7 @@ Deno.serve(async (request) => {
     server.registerTool("get_ai_training_plans", {
       description: "List future plans submitted to this user's Repera calendar and their sync status.",
       inputSchema: z.strictObject({limit:inputLimit,cursor:z.string().max(64).optional()}),
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     }, async ({ limit, cursor }) => {
       const offset=readOffset(cursor);
       const { data, error } = await db.from("ai_training_plans")
@@ -428,13 +428,13 @@ Deno.serve(async (request) => {
     server.registerTool("create_workout", {
       description: "Create one scheduled workout with Repera WOD semantics. AMRAP requires timeCapMinutes (countdown/rounds+partial reps); For Time/RFT, Chipper, AFAP and Ladder use elapsed time (countup); EMOM and Tabata track per-interval sets and work/rest; strength uses sets/weight/reps/RIR. Consult get_wod_format_contract. Explicit user-requested write; no overwrite.",
       inputSchema: workout.safeExtend({ idempotencyKey: z.string().uuid().optional() }),
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     }, async ({idempotencyKey,...args}) => reply(await saveWorkouts([args],undefined,idempotencyKey)));
     server.registerTool("create_training_plan", {
       description: "Create 1-14 dated workouts using format-specific Repera WOD blocks; preserve AMRAP rounds/reps, RFT elapsed-time goals, EMOM/Tabata per-interval sets and work/rest, and strength sets/RIR. Consult get_wod_format_contract before writing. Do this only at user request.",
       inputSchema: z.strictObject({ workouts: z.array(workout).min(1).max(14),
         programId: z.string().uuid().optional(), idempotencyKey: z.string().uuid().optional() }),
-      annotations: { readOnlyHint: false, destructiveHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     }, async ({ workouts: items, programId, idempotencyKey }) => reply(await saveWorkouts(items, programId, idempotencyKey)));
     }
     return server;

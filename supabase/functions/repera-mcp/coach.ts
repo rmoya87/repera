@@ -110,7 +110,7 @@ export function registerCoachTools(
   }
   server.registerTool("get_training_profile", {
     description: "Infer only observed training habits from the saved workout history. Return missing goals, material availability and duration as questions for conversation; do not assume equipment is available because it was used before.",
-    inputSchema: z.strictObject({}), annotations:{readOnlyHint:true},
+    inputSchema: z.strictObject({}), annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   }, async () => {
     const {data,error}=await db.from("athlete_training_profiles").select(
       "primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences,coaching_enabled,updated_at"
@@ -155,7 +155,7 @@ export function registerCoachTools(
       sessionMinutes: z.number().int().min(15).max(240).optional(),
       availableEquipment: z.array(z.string().trim().min(2).max(60)).max(20).optional(),
     }),
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async ({primaryGoal,trainingDaysPerWeek,preferredWeekdays,sessionMinutes,availableEquipment})=>{
     const {data:old,error:readError}=await db.from("athlete_training_profiles")
       .select("primary_goal,experience_level,training_days_per_week,preferred_weekdays,session_minutes,equipment,preferences")
@@ -181,7 +181,7 @@ export function registerCoachTools(
   server.registerTool("get_training_calendar", {
     description: "Read a current local-first snapshot of personal scheduled and recurring workouts, plus AI proposals; check freshness and never overwrite occupied days.",
     inputSchema: z.strictObject({days:z.number().int().min(7).max(180).default(90)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   }, async ({days})=>{
     const [snapshot, ai]=await Promise.all([
       db.from("athlete_training_calendar_snapshots").select("items,horizon_start,horizon_end,time_zone,updated_at")
@@ -201,7 +201,7 @@ export function registerCoachTools(
   server.registerTool("get_training_analysis",{
     description:"Reliable historical weekly volume, exercise progression and missing-data coverage. No Apple Health, location or medical readiness.",
     inputSchema:z.strictObject({days:z.number().int().min(7).max(365).default(90)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({days})=>result({days,...scoreSessions(await history(days))}));
   server.registerTool("get_exercise_performance",{
     description:"Exercise-specific progression by stable catalog key (preferred) or normalized name; includes Epley estimate and RIR coverage.",
@@ -210,7 +210,7 @@ export function registerCoachTools(
       .refine(v=>(v.catalogKey!=null)!==(v.name!=null),{
         message:"Use exactly one of catalogKey or name, never both",path:["catalogKey"],
       }),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({catalogKey,name,days})=>{
     const key=normalized(name||"");
     let nativeId: string|null = null;
@@ -249,7 +249,7 @@ export function registerCoachTools(
   server.registerTool("get_exercise_alternatives", {
     description:"Look up VERIFIED substitutions, metadata and ES/EN aliases. Return an empty list when metadata is not known; never hallucinate substitutions.",
     inputSchema:z.strictObject({catalogKey:z.string().min(3).max(160)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   }, async({catalogKey})=>{
     const {data,error}=await db.from("training_exercise_metadata")
       .select("catalog_key,native_catalog_id,metadata_source,aliases,primary_muscles,secondary_muscles,equipment,required_equipment,joint_demands,movement_pattern,skill_level,alternatives")
@@ -264,7 +264,7 @@ export function registerCoachTools(
       availableEquipment:z.array(z.string().min(2).max(80)).max(25),
       avoidJointDemands:z.array(z.enum(["shoulder","elbow","wrist","hip","knee","ankle","spine"])).max(7).default([]),
       limit:z.number().int().min(1).max(15).default(8),
-    }),annotations:{readOnlyHint:true},
+    }),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async ({catalogKey,availableEquipment,avoidJointDemands,limit})=>{
     const {data:origin,error:originError}=await db.from("training_exercise_metadata")
       .select("catalog_key,primary_muscles,required_equipment,joint_demands,movement_pattern")
@@ -304,7 +304,7 @@ export function registerCoachTools(
   server.registerTool("search_training_exercises_enriched",{
     description:"Find stable exercise IDs, localized alias matches and verified movement metadata in Repera's full exercise catalog.",
     inputSchema:z.strictObject({query:z.string().trim().min(2).max(100),limit:z.number().int().min(1).max(50).default(20)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({query,limit})=>{
     const raw=query.replace(/[%_\\]/g," ").trim(); const term=normalized(raw);
     const {data:all,error}=await db.from("business_exercise_catalog")
@@ -332,7 +332,7 @@ export function registerCoachTools(
       limit:z.number().int().min(1).max(50).default(20),
       cursor:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
     }),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({limit,cursor})=>{
     let offset=0;
     if(cursor) {
@@ -359,7 +359,7 @@ export function registerCoachTools(
       primaryGoal:z.string().trim().min(2).max(500),startDate:day,
       startTimeZone:z.string().trim().min(3).max(80),durationWeeks:weeks,
       phases:z.array(phase).min(1).max(12),idempotencyKey:z.string().uuid().optional()}),
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async({title,primaryGoal,startDate,startTimeZone,durationWeeks,phases,idempotencyKey})=>{
     try { new Intl.DateTimeFormat("en-US",{timeZone:startTimeZone}); }
     catch { throw Error("INVALID_TIME_ZONE: startTimeZone debe ser una zona IANA válida"); }
@@ -393,7 +393,7 @@ export function registerCoachTools(
   }
   server.registerTool("review_training_program",{
     description:"Review completion, gaps and weekly trends for a program, without inferring recovery, readiness or success from unlogged sessions.",
-    inputSchema:z.strictObject({programId:z.string().uuid()}),annotations:{readOnlyHint:true},
+    inputSchema:z.strictObject({programId:z.string().uuid()}),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({programId})=>{
     const {data:program,error}=await db.from("athlete_training_programs").select(
       "id,title,start_date,start_time_zone,duration_weeks,phases,primary_goal,status,revision"
@@ -420,7 +420,7 @@ export function registerCoachTools(
     description:"Explicit user-requested revision of a stored program's future phases; optimistic revision check. Does not modify completed workouts or already queued daily sessions.",
     inputSchema:z.strictObject({programId:z.string().uuid(),expectedRevision:z.number().int().min(1),
       phases:z.array(phase).min(1).max(12),reason:z.string().trim().min(3).max(500)}),
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async({programId,expectedRevision,phases,reason})=>{
     const {data:original,error:readError}=await db.from("athlete_training_programs")
       .select("duration_weeks,status").eq("id",programId).eq("owner_id",ownerId).maybeSingle();

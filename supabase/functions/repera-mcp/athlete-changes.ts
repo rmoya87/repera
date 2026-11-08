@@ -37,7 +37,7 @@ export function registerAthleteChangeTools(
     description:"Read private, locally confirmed custom exercise catalog (not global curated exercises).",
     inputSchema:z.strictObject({limit:z.number().int().min(1).max(100).default(100),
       offset:z.number().int().min(0).max(100000).default(0)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({limit,offset})=>{
     const {data,error}=await db.from("athlete_custom_exercise_mirror")
       .select("exercise_id,name,muscle_group,equipment,target_muscle,secondary_muscles,updated_at")
@@ -52,7 +52,7 @@ export function registerAthleteChangeTools(
     inputSchema:z.strictObject({status:z.enum(["pending","applied","rejected","conflict"]).optional(),
       limit:z.number().int().min(1).max(100).default(50),
       offset:z.number().int().min(0).max(100000).default(0)}),
-    annotations:{readOnlyHint:true},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
   },async({status,limit,offset})=>{
     let q=db.from("ai_athlete_change_requests")
       .select("id,operation,target_id,payload,status,created_at,decided_at,decision_message")
@@ -99,7 +99,7 @@ export function registerAthleteChangeTools(
       setChanges:z.array(setPatch).min(1).max(100).optional(),
     }).refine(x=>x.title!==undefined||(x.setChanges?.length??0)>0,
       {message:"Provide title or at least one set correction"}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({workoutId,expectedUpdatedAt,title,setChanges})=>{
     const {data:row,error}=await mirroredWorkout(workoutId);
     if(error)return fail("STORAGE_ERROR","workoutId","No se pudo consultar entrenamiento");
@@ -122,7 +122,7 @@ export function registerAthleteChangeTools(
   server.registerTool("delete_workout",{
     description:"Request deletion of a completed workout, requiring explicit athlete confirmation on device. Deletion may also affect linked Apple Health workout, exactly as native Delete Workout does.",
     inputSchema:z.strictObject({workoutId:uuid,expectedUpdatedAt:revision}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({workoutId,expectedUpdatedAt})=>{
     const {data:row,error}=await mirroredWorkout(workoutId);
     if(error)return fail("STORAGE_ERROR","workoutId","No se pudo consultar entrenamiento");
@@ -136,12 +136,12 @@ export function registerAthleteChangeTools(
   server.registerTool("create_custom_exercise",{
     description:"Propose a new PRIVATE exercise to athlete's iPhone catalog, subject to native subscription limits and confirmation.",
     inputSchema:exercise,
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async(args)=>stage("create_exercise",null,args));
   server.registerTool("update_custom_exercise",{
     description:"Propose edits to a private custom exercise, never the shared professionally curated exercise library.",
     inputSchema:z.strictObject({exerciseId:uuid,exercise}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({exerciseId,exercise:patch})=>{
     const {data,error}=await db.from("athlete_custom_exercise_mirror")
       .select("exercise_id,name").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();
@@ -152,7 +152,7 @@ export function registerAthleteChangeTools(
   server.registerTool("delete_custom_exercise",{
     description:"Propose deletion of a private custom exercise; app confirms before deletion. Never deletes global catalog or historic workout snapshots.",
     inputSchema:z.strictObject({exerciseId:uuid}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({exerciseId})=>{
     const {data,error}=await db.from("athlete_custom_exercise_mirror")
       .select("exercise_id,name").eq("owner_id",ownerId).eq("exercise_id",exerciseId).maybeSingle();

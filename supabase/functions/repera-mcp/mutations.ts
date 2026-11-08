@@ -32,7 +32,7 @@ export function registerMutationTools(
       planId:id,expectedRevision:rev,
       ...workout.shape,
     }),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({planId,expectedRevision,...candidate})=>{
     const {title,scheduledDate,scheduledTimeMinutes,scheduledTimeZone,scheduledUtcOffsetMinutes,blocks}=candidate;
     const valid=workout.safeParse(candidate);
@@ -62,7 +62,7 @@ export function registerMutationTools(
   server.registerTool("archive_ai_training_plan", {
     description:"Soft-delete a pending proposal (dismissed). Reversible with restore_ai_training_plan. An already applied plan cannot be deleted from the athlete's iPhone by MCP.",
     inputSchema:z.strictObject({planId:id,expectedRevision:rev}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({planId,expectedRevision})=>{
     const {data,error}=await db.from("ai_training_plans").update({
       status:"dismissed",revision:expectedRevision+1,
@@ -75,7 +75,7 @@ export function registerMutationTools(
   server.registerTool("restore_ai_training_plan", {
     description:"Undo a previous archive while the proposal has not been applied. Re-publish only the same authenticated athlete's proposal.",
     inputSchema:z.strictObject({planId:id,expectedRevision:rev}),
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async({planId,expectedRevision})=>{
     const {data,error}=await db.from("ai_training_plans").update({
       status:"pending",revision:expectedRevision+1,
@@ -90,7 +90,7 @@ export function registerMutationTools(
     inputSchema:z.strictObject({programId:id,expectedRevision:rev,
       title:z.string().trim().min(2).max(120),primaryGoal:z.string().trim().min(2).max(500),
       phases:z.array(phase).min(1).max(12)}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({programId,expectedRevision,title,primaryGoal,phases})=>{
     const {data:old,error:lookup}=await db.from("athlete_training_programs").select("duration_weeks,status")
       .eq("id",programId).eq("owner_id",ownerId).maybeSingle();
@@ -109,7 +109,7 @@ export function registerMutationTools(
   server.registerTool("archive_training_program", {
     description:"Cancel/archive a program without deleting its audit history or its already applied workout sessions. Reversible only if it was proposed or paused.",
     inputSchema:z.strictObject({programId:id,expectedRevision:rev}),
-    annotations:{readOnlyHint:false,destructiveHint:true},
+    annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({programId,expectedRevision})=>{
     const {data,error}=await db.from("athlete_training_programs").update({
       status:"cancelled",revision:expectedRevision+1,updated_at:new Date().toISOString(),
@@ -122,7 +122,7 @@ export function registerMutationTools(
   server.registerTool("restore_training_program", {
     description:"Restore a cancelled program to proposed. Queued sessions and athlete workouts are not re-created or overwritten.",
     inputSchema:z.strictObject({programId:id,expectedRevision:rev}),
-    annotations:{readOnlyHint:false,destructiveHint:false},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async({programId,expectedRevision})=>{
     const {data,error}=await db.from("athlete_training_programs").update({
       status:"proposed",revision:expectedRevision+1,updated_at:new Date().toISOString(),

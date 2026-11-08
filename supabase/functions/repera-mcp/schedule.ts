@@ -16,7 +16,7 @@ export function registerProfessionalScheduleTools(server: McpServer, db: Supabas
     description:
       "Upcoming classes/appointments the athlete has booked at linked Repera Business centers and sessions prescribed by their coach. Read before scheduling to avoid conflicts; an empty result does not prove free time.",
     inputSchema: z.strictObject({ days: z.number().int().min(1).max(90).default(28) }),
-    annotations: { readOnlyHint: true },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   }, async ({ days }) => {
     const now = new Date();
     const until = new Date(now.getTime() + days * 86_400_000);
