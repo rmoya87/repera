@@ -1,5 +1,6 @@
 import ReperaDomain
 import PhotosUI
+import StoreKit
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
@@ -684,6 +685,7 @@ private struct SettingsAccessSection: View {
     @Binding var restoreMessage: String?
     @Binding var accessFeedbackTitle: String
     @Binding var isVerifyingSubscription: Bool
+    @State private var showOfferCodeRedemption = false
 
     var body: some View {
         Section {
@@ -691,6 +693,7 @@ private struct SettingsAccessSection: View {
             if !subscriptions.businessSponsoredAccess {
                 verifyAccessButton
                 restorePurchasesButton
+                redeemOfferCodeButton
             }
             NavigationLink {
                 AIAccessView()
@@ -701,6 +704,26 @@ private struct SettingsAccessSection: View {
         } header: {
             Text("Acceso")
         }
+        .offerCodeRedemption(isPresented: $showOfferCodeRedemption) { _ in
+            Task {
+                await subscriptions.refreshEntitlementsForFeatureAction()
+                accessFeedbackTitle = "Canjear código"
+                restoreMessage = subscriptions.isPro
+                    ? "Código canjeado. Acceso Pro activo."
+                    : "Si el código era válido, pulsa «Restaurar compras» o vuelve a abrir la app."
+            }
+        }
+    }
+
+    private var redeemOfferCodeButton: some View {
+        Button {
+            showOfferCodeRedemption = true
+        } label: {
+            Label("Canjear código de oferta", systemImage: "giftcard")
+        }
+        .disabled(subscriptions.purchaseInFlight)
+        .foregroundStyle(OG.label)
+        .accessibilityIdentifier("settings-redeem-offer-code")
     }
 
     private var verifyAccessButton: some View {

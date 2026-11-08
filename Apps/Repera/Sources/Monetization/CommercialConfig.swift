@@ -11,4 +11,6 @@ enum CommercialConfig {
     static let termsOfUseURL = URL(string: "https://repera.app/terms")!
     /// Deep link de gestión de suscripciones de Apple.
     static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
+    /// Canje de códigos de oferta fuera de la app (App Store).
+    static let redeemOfferCodeURL = URL(string: "https://apps.apple.com/redeem")!
 }

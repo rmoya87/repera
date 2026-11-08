@@ -76,4 +76,6 @@ object CommercialConfig {
     /** Deep link de gestión de suscripciones de Google Play. */
     const val MANAGE_SUBSCRIPTIONS_URL =
         "https://play.google.com/store/account/subscriptions"
+    /** Canje de códigos promocionales en Google Play. */
+    const val REDEEM_CODE_URL = "https://play.google.com/redeem"
 }

@@ -27,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -122,6 +123,7 @@ fun PaywallScreen(
                         onSelect = { selectedProductID = it }
                     )
                 }
+                PaywallOfferCodeBox(openUrl = { uriHandler.openUri(it) })
                 PaywallSecondaryActions(
                     subscriptions = subscriptions,
                     mode = mode,
@@ -208,13 +210,6 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // R8 P2-6: eyebrow iOS «DESBLOQUEA MÁS».
-                Text(
-                    "DESBLOQUEA MÁS",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Text(
                     "Todo tu progreso.",
                     style = MaterialTheme.typography.headlineMedium,
@@ -251,9 +246,8 @@ private fun PaywallComparison() {
     // Debe coincidir con FeatureAccessPolicy / gates UI (no marketing inventado).
     val rows = listOf(
         Triple("Navegación mapa", "2D", "2D + 3D"),
-        Triple("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
+        Triple("Progreso", "Últimos 7 días", "Completo"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
-        Triple("Historial WOD", "Mejor + última", "Completo"),
         Triple("Progresión de carga", "Sugerida en ficha", "Automática"),
         Triple(
             "Rutinas / favoritos",
@@ -264,7 +258,6 @@ private fun PaywallComparison() {
         Triple("Escáner WOD", "${limits.MAX_BOARD_SCANS_PER_MONTH}/mes", "Ilimitado")
     )
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        PaywallSectionHeading("GRATIS VS PRO")
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("FUNCIÓN", modifier = Modifier.weight(1.1f),
                 fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
@@ -296,6 +289,48 @@ private fun PaywallComparison() {
                 color = MaterialTheme.colorScheme.outlineVariant,
                 thickness = 0.6.dp
             )
+        }
+    }
+}
+
+@Composable
+private fun PaywallOfferCodeBox(openUrl: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PaywallSectionHeading("¿TIENES UN CÓDIGO?")
+        ReperaCard(
+            onClick = { openUrl(CommercialConfig.REDEEM_CODE_URL) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { role = androidx.compose.ui.semantics.Role.Button }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CardGiftcard,
+                    contentDescription = null,
+                    tint = brandGreen,
+                    modifier = Modifier.size(22.dp)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Canjear código",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "Introduce el código aquí.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text("›", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

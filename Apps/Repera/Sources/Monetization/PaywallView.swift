@@ -1,4 +1,5 @@
 import ReperaDomain
+import StoreKit
 import SwiftUI
 
 /// Página de Repera Pro. Se integra en la navegación de la app sin sheet.
@@ -20,6 +21,7 @@ struct PaywallView: View {
     @State private var showError = false
     @State private var isLoadingPlans = false
     @State private var mascotRaised = false
+    @State private var showOfferCodeRedemption = false
 
     private var context: PaywallContext {
         mode == .onboarding ? .onboarding : subscriptions.paywall.context
@@ -33,9 +35,8 @@ struct PaywallView: View {
     private var comparisonRows: [(label: String, free: String, pro: String)] {
         [
             ("Navegación mapa", "2D", "2D + 3D"),
-            ("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
+            ("Progreso", "Últimos 7 días", "Completo"),
             ("Por ejercicio", "Última + récord", "Historial completo"),
-            ("Historial WOD", "Mejor + última", "Completo"),
             ("Progresión de carga", "Sugerida en ficha", "Automática"),
             ("Rutinas / favoritos", "\(FreePlanLimits.maxLibraryRoutines) / \(FreePlanLimits.maxFavoriteItems)", "Sin límites"),
             ("Ejercicios propios", "\(FreePlanLimits.maxCustomExercises)", "Sin límites"),
@@ -51,6 +52,7 @@ struct PaywallView: View {
                     hero
                     comparison
                     plansSection
+                    offerCodeBox
                     secondaryActions
                     legalFooter
                 }
@@ -65,6 +67,9 @@ struct PaywallView: View {
             }
             .background(OG.bg.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .offerCodeRedemption(isPresented: $showOfferCodeRedemption) { _ in
+                Task { await handleOfferCodeRedemptionFinished() }
+            }
             .task {
                 // El onboarding no debe disparar de nuevo el paywall global.
                 await subscriptions.start()
@@ -87,6 +92,57 @@ struct PaywallView: View {
         }
     }
 
+    /// Caja de canje: Apple muestra la hoja del sistema (el código se escribe ahí).
+    private var offerCodeBox: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeading("¿TIENES UN CÓDIGO?")
+            Button {
+                showOfferCodeRedemption = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "giftcard.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 28, alignment: .center)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Canjear código")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(OG.label)
+                        Text("Introduce el código aquí.")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label3)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, OG.pad)
+                .padding(.vertical, 12)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard))
+                .overlay {
+                    RoundedRectangle(cornerRadius: OG.radiusCard)
+                        .strokeBorder(OG.surface3, lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Canjear código de oferta")
+            .accessibilityIdentifier("pro-redeem-offer-code")
+            .disabled(subscriptions.purchaseInFlight)
+        }
+    }
+
+    @MainActor
+    private func handleOfferCodeRedemptionFinished() async {
+        await subscriptions.refreshEntitlementsForFeatureAction()
+        guard subscriptions.isPro else { return }
+        if mode == .sheet { subscriptions.dismissPaywall() }
+        onPurchaseSuccess?()
+    }
+
     private var navigationHeader: some View {
         HStack(spacing: 12) {
             if mode == .sheet {
@@ -106,10 +162,12 @@ struct PaywallView: View {
                 .font(.headline)
                 .foregroundStyle(OG.label)
             Spacer()
-            Text(mode == .onboarding ? "TU SIGUIENTE PASO" : "DESBLOQUEA MÁS")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .tracking(1.1)
-                .foregroundStyle(OG.label2)
+            if mode == .onboarding {
+                Text("TU SIGUIENTE PASO")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .tracking(1.1)
+                    .foregroundStyle(OG.label2)
+            }
         }
     }
 
@@ -148,7 +206,6 @@ struct PaywallView: View {
 
     private var comparison: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeading("GRATIS VS PRO")
             HStack(spacing: 8) {
                 Text("FUNCIÓN")
                     .frame(maxWidth: .infinity, alignment: .leading)
