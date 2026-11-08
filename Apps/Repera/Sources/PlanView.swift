@@ -43,25 +43,13 @@ private struct DayEditorChromeModifier: ViewModifier {
 
     @ViewBuilder
     private var confirmButton: some View {
-        if usesPageCloseHeader {
-            // La toolbar de iOS 27 dibuja el círculo; no aplicar otro glass manual.
-            OGDoneCheckButton(
-                accessibilityLabel: confirmTitle,
-                enabled: canConfirm,
-                action: onConfirm
-            )
-        } else {
-            OGToolbarGlassButton(
-                systemName: "checkmark",
-                accessibilityLabel: confirmTitle,
-                tint: OG.onDoneAccent,
-                appliesGlass: true,
-                glassTint: OG.accent,
-                action: onConfirm
-            )
-            .opacity(canConfirm ? 1 : 0.4)
-            .disabled(!canConfirm)
-        }
+        // Siempre el mismo ✓ verde (toolbar o cabecera fija): Liquid Glass
+        // no debe dejar un círculo transparente con check gris.
+        OGDoneCheckButton(
+            accessibilityLabel: confirmTitle,
+            enabled: canConfirm,
+            action: onConfirm
+        )
     }
 }
 

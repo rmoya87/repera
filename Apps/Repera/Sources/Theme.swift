@@ -1007,6 +1007,8 @@ struct CloseToolbarButton: View {
 }
 
 /// Confirmación «Listo»: ✓ en círculo verde acento (blanco día / negro noche).
+/// En `.toolbar` de iOS 26+ el `background` custom lo traga Liquid Glass →
+/// usar `borderedProminent` + `tint` (mismo patrón que terminar en Play).
 struct OGDoneCheckButton: View {
     var accessibilityLabel: String = "Listo"
     var enabled: Bool = true
@@ -1017,14 +1019,11 @@ struct OGDoneCheckButton: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(OG.onDoneAccent)
-                .frame(width: 36, height: 36)
-                .background(OG.accent, in: Circle())
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
+                .symbolRenderingMode(.monochrome)
         }
-        // A system toolbar can render borderedProminent as clear Liquid Glass.
-        // The explicit Repera fill remains green in both appearances.
-        .buttonStyle(.plain)
+        .buttonStyle(.borderedProminent)
+        .tint(OG.accent)
+        .buttonBorderShape(.circle)
         .accessibilityLabel(accessibilityLabel)
         .opacity(enabled ? 1 : 0.4)
         .disabled(!enabled)

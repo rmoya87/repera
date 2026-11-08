@@ -45,7 +45,15 @@ enum ExerciseCategorySymbols {
         if e.contains("lastre") || e.contains("chaleco") { return "scalemass" }
         if e.contains("comba") { return "figure.jumprope" }
         if e.contains("cuerda de trepa") { return "figure.climbing" }
-        if e.contains("paralela") || e.contains("parallete") { return "figure.strengthtraining.functional" }
+        if e.contains("paralela") || e.contains("parallete") || e.contains("parallette") {
+            return "figure.strengthtraining.functional"
+        }
+        if e.contains("abmat") || e.contains("ab mat") { return "figure.core.training" }
+        if e.contains("colchoneta") || e.contains("yoga mat") || e.contains("exercise mat")
+            || e.contains("superficie acolchada") || e.contains("padded surface")
+            || e == "mat" {
+            return "rectangle.portrait"
+        }
         if e.contains("rueda abdominal") || e.contains("ab wheel") { return "circle.circle" }
         if e.contains("rodillo") { return "circle" }
         if e.contains("banco") { return "chair.lounge" }
@@ -62,9 +70,28 @@ enum ExerciseCategorySymbols {
         if e.contains("ghd") { return "figure.core.training" }
         if e.contains("pegboard") { return "circle.grid.3x3" }
         if e.contains("polea") { return "gearshape.2" }
-        if e.contains("saco") || e.contains("sandbag") { return "bag" }
+        if e.contains("saco") || e.contains("sandbag") || e.contains("jerry") { return "bag" }
+        if e.contains("husafell") { return "shippingbox" }
         if e.contains("trineo") || e.contains("sled") { return "shippingbox" }
         if e.contains("yoke") { return "figure.strengthtraining.traditional" }
+        if e.contains("maza") || e.contains("sledgehammer") || e.contains("hammer") {
+            return "hammer"
+        }
+        if e.contains("neumatico") || e.contains("tire") || e.contains("tyre") {
+            return "circle.circle"
+        }
+        if e.contains("cuerda de batalla") || e.contains("battle rope") {
+            return "waveform.path"
+        }
+        if e.contains("piedra") || e.contains("atlas") { return "circle.fill" }
+        if e.contains("barril") || e.contains("barrel") { return "cylinder" }
+        if e.contains("tronco") || e.contains("log ") || e.hasPrefix("log") { return "tree" }
+        if e.contains("axle") || e.contains("safety bar") || e.contains("smith") {
+            return "figure.strengthtraining.traditional"
+        }
+        if e.contains("reverse hyper") { return "figure.core.training" }
+        if e.contains("diana") || e.contains("target") { return "target" }
+        if e.contains("anclaje") { return "link" }
         if e.contains("maquina") || e.contains("machine") { return "gearshape" }
         if e.contains("peso corporal") || e.contains("sin material") { return "figure.stand" }
         return equipment
@@ -625,10 +652,8 @@ struct ExerciseDetailView: View {
             seen.insert(key)
             secondaries.append(label)
         }
-        let equipments = (exercise.equipment ?? "")
-            .split(separator: ",")
-            .map { LocalizedMuscle.es(String($0).trimmingCharacters(in: .whitespacesAndNewlines)) }
-            .filter { !$0.isEmpty }
+        // Canonical short chips (Colchoneta, no frases ExerciseDB / «variante C»).
+        let equipments = ExerciseEquipmentDisplay.chips(from: exercise.equipment)
         let sports = exercise.disciplineTags.filter {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }

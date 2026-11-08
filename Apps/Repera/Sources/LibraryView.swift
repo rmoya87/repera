@@ -775,7 +775,10 @@ struct LibraryView: View {
         var parts: [String] = [doc.muscleGroup]
         parts.append(contentsOf: doc.disciplineTags.filter { !$0.isEmpty })
         if let eq = doc.equipment, !eq.isEmpty {
-            parts.append(LocalizedMuscle.es(eq))
+            let chips = ExerciseEquipmentDisplay.chips(from: eq)
+            if !chips.isEmpty {
+                parts.append(chips.joined(separator: ", "))
+            }
         }
         return parts.joined(separator: " · ")
     }

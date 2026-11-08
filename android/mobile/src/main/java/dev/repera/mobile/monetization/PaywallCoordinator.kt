@@ -51,13 +51,13 @@ val PaywallContext.subtitle: String
         PaywallContext.EXERCISE_EVOLUTION, PaywallContext.EXERCISE_HISTORY ->
             "Consulta todas tus marcas, compara entrenos y ve tu evolución."
         PaywallContext.WOD_HISTORY ->
-            "Compara intentos, mejoras y tu mejor marca histórica."
+            "Consulta todas tus marcas de este WOD, no solo la mejor y la última."
         PaywallContext.PROGRESS ->
             "Entrena como siempre. Descubre hasta dónde puedes llegar."
         PaywallContext.MUSCLE_ANALYSIS ->
             "Visualiza grupos musculares y cómo se reparte tu entrenamiento."
         PaywallContext.ADVANCED_PROGRESSION ->
-            "Recomendaciones de carga según tu historial y esfuerzo."
+            "Sugerencias de carga automáticas al iniciar según tu historial y esfuerzo."
         PaywallContext.SETTINGS, PaywallContext.GENERIC ->
             "Entrena como siempre. Descubre hasta dónde puedes llegar."
         PaywallContext.ONBOARDING ->
@@ -69,7 +69,7 @@ val PaywallContext.prioritizedBenefits: List<String>
         var base = listOf(
             "Historial y evolución por ejercicio",
             "Estadísticas completas de progreso",
-            "Marcas y comparativas de WOD",
+            "Historial completo de WOD",
             "Mapa muscular y análisis avanzado",
             "Escaneos ilimitados de pizarra",
             "Rutinas ilimitadas"
@@ -84,7 +84,7 @@ val PaywallContext.prioritizedBenefits: List<String>
             PaywallContext.EXERCISE_EVOLUTION, PaywallContext.EXERCISE_HISTORY ->
                 base = listOf("Historial y evolución por ejercicio") + base.filter { !it.contains("evolución") }
             PaywallContext.WOD_HISTORY ->
-                base = listOf("Marcas y comparativas de WOD") + base.filter { !it.contains("WOD") }
+                base = listOf("Historial completo de WOD") + base.filter { !it.contains("WOD") }
             PaywallContext.PROGRESS, PaywallContext.MUSCLE_ANALYSIS ->
                 base = listOf("Estadísticas completas de progreso", "Mapa muscular y análisis avanzado") +
                     base.filter { !it.contains("Estadísticas") && !it.contains("Mapa") }

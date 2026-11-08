@@ -12,7 +12,14 @@ final class ExerciseEquipmentGroupTests: XCTestCase {
             ("Burpee al cajón", "Peso corporal", "Cajones"),
             ("Box jump over", "Peso corporal", "Cajones"),
             ("Subida", "Box", "Cajones"),
-            ("Step-up al cajón con kettlebell goblet", "Kettlebell", "Cajones"),
+            ("Step-up al cajón con kettlebell goblet", "Cajón, Kettlebell", "Cajones"),
+            ("Box Squat", "Barra", "Barras"),
+            ("Dumbbell Box Step Up", "Cajón, Mancuernas", "Cajones"),
+            ("Tire Flip", "Neumático", "Neumáticos"),
+            ("Back lever tuck", "Anillas", "Anillas"),
+            ("Front lever tuck", "Barra de dominadas", "Barras de dominadas"),
+            ("Couch stretch", "Pared", "Paredes"),
+            ("Couch stretch", "Peso corporal", "Paredes"),
             ("Double-Under", "Comba", "Combas"),
             ("Simples de comba", "Comba", "Combas"),
             ("Remo máquina", "Máquina", "Remoergómetros"),
@@ -73,7 +80,7 @@ final class ExerciseEquipmentGroupTests: XCTestCase {
     func testRealCatalogAlwaysHasAGroupWithoutChangingIdentity() {
         let originals = Catalog.seed()
         let ids = originals.map(\.id)
-        XCTAssertEqual(originals.count, 302)
+        XCTAssertEqual(originals.count, 476)
         for exercise in originals {
             XCTAssertFalse(ExerciseEquipmentGroup.category(for: exercise).isEmpty)
         }
@@ -92,6 +99,59 @@ final class ExerciseEquipmentGroupTests: XCTestCase {
         XCTAssertEqual(
             ExerciseEquipmentGroup.category(name: "Remo en anillas", equipment: "Peso corporal"),
             "Anillas"
+        )
+    }
+
+    func testDeclaredEquipmentWinsOverNameHeuristics() {
+        // El nombre menciona «box» pero el material principal es la barra.
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(name: "Box Squat", equipment: "Barra"),
+            "Barras"
+        )
+        // «neumatico» contiene «mat»; no debe agruparse como colchoneta.
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(name: "Tire Flip", equipment: "Neumático"),
+            "Neumáticos"
+        )
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(name: "Ab Mat Sit-Up", equipment: "AbMat"),
+            "AbMats"
+        )
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(name: "Hollow hold", equipment: "Colchoneta"),
+            "Colchonetas"
+        )
+    }
+
+    func testCatalogPullUpBarAndBackLeverEquipment() {
+        let catalog = Catalog.seed()
+        let byName = Dictionary(uniqueKeysWithValues: catalog.map { ($0.name, $0) })
+        XCTAssertEqual(byName["Back lever tuck"]?.equipment, "Anillas")
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(for: byName["Back lever tuck"]),
+            "Anillas"
+        )
+        XCTAssertEqual(byName["Couch stretch"]?.equipment, "Pared")
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(for: byName["Couch stretch"]),
+            "Paredes"
+        )
+        for name in ["Jumping Pull-Up", "L Pull Up", "Negative Pull Up",
+                     "Dead Hang", "Hanging Knee Raise", "Strict Knees To Chest"] {
+            XCTAssertEqual(byName[name]?.equipment, "Barra de dominadas", name)
+            XCTAssertEqual(
+                ExerciseEquipmentGroup.category(for: byName[name]),
+                "Barras de dominadas",
+                name
+            )
+        }
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(for: byName["Tire Flip"]),
+            "Neumáticos"
+        )
+        XCTAssertEqual(
+            ExerciseEquipmentGroup.category(for: byName["Box Squat"]),
+            "Barras"
         )
     }
 }

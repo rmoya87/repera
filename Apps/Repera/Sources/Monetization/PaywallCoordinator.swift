@@ -50,13 +50,13 @@ extension PaywallContext {
         case .exerciseEvolution, .exerciseHistory:
             return "Consulta todas tus marcas, compara entrenos y ve tu evolución."
         case .wodHistory:
-            return "Compara intentos, mejoras y tu mejor marca histórica."
+            return "Consulta todas tus marcas de este WOD, no solo la mejor y la última."
         case .progress:
             return "Entrena como siempre. Descubre hasta dónde puedes llegar."
         case .muscleAnalysis:
             return "Visualiza grupos musculares y cómo se reparte tu entrenamiento."
         case .advancedProgression:
-            return "Recomendaciones de carga según tu historial y esfuerzo."
+            return "Sugerencias de carga automáticas al iniciar según tu historial y esfuerzo."
         case .settings, .generic:
             return "Entrena como siempre. Descubre hasta dónde puedes llegar."
         case .onboarding:
@@ -68,7 +68,7 @@ extension PaywallContext {
         var base = [
             "Historial y evolución por ejercicio",
             "Estadísticas completas de progreso",
-            "Marcas y comparativas de WOD",
+            "Historial completo de WOD",
             "Mapa muscular y análisis avanzado",
             "Escaneos ilimitados de pizarra",
             "Rutinas ilimitadas",
@@ -83,7 +83,7 @@ extension PaywallContext {
         case .exerciseEvolution, .exerciseHistory:
             base = ["Historial y evolución por ejercicio"] + base.filter { !$0.contains("evolución") }
         case .wodHistory:
-            base = ["Marcas y comparativas de WOD"] + base.filter { !$0.contains("WOD") }
+            base = ["Historial completo de WOD"] + base.filter { !$0.contains("WOD") }
         case .progress, .muscleAnalysis:
             base = ["Estadísticas completas de progreso", "Mapa muscular y análisis avanzado"]
                 + base.filter { !$0.contains("Estadísticas") && !$0.contains("Mapa") }

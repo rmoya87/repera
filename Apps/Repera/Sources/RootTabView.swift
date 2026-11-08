@@ -294,16 +294,19 @@ struct RootTabView: View {
                 value: AppTab.start
             ) {
                 if let watchLive = store.watchOwnedLive,
+                   watchLive.kind == .planned,
                    !LiveActivityRecorder.shared.isActive,
                    (store.state.activeSession == nil
                        || store.state.activeSession?.id == watchLive.id) {
-                    // Same native Comenzar tab, but the Watch owns sensors/HealthKit.
+                    // Plan/clase Watch-owned: espejo de bloques (no LiveActivityView).
                     WatchOwnedLiveMirrorView(
                         snapshot: watchLive,
                         sendCommand: store.controlWatchOwnedLive
                     )
                     .id(watchLive.id)
                 } else {
+                    // Deporte Watch-owned y phone-start: misma LiveActivityView
+                    // (métricas/mapa). El reloj sigue siendo dueño de Salud.
                     LiveActivityView(
                         onSaved: { date in
                             homeFocusDay = date

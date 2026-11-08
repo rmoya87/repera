@@ -1,6 +1,6 @@
 # Repera Watch — ejecución offline y HealthKit
 
-Última actualización: 2026-11-06 (ownership matriz: woke≠shell, wait-on-save, late handoff, orphan overlap)
+Última actualización: 2026-11-08 (Watch→iPhone misma LiveActivityView; botones hub; FC/kcal)
 
 ## Hub (31/10/2026)
 
@@ -55,10 +55,13 @@ historial del iPhone no se actualizaba hasta que terminase HealthKit.
 2. El iPhone valida `ownerScope`, formato, antigüedad y orden temporal.
    `WorkoutLiveActivityCoordinator` presenta una actividad local con
    identificador `watch:UUID` separado de `free:` y `planned:`.
-   El iPhone **no inicia otro workout HealthKit ni GPS**. La notificación
-   Watch-owned solo ofrece «Abrir Repera», que enlaza a Comenzar y muestra
-   el seguimiento nativo del mismo UUID. Desde esa pantalla se envían
-   pausa/reanudación/finalizar al reloj, sin crear otro registrador.
+   El iPhone **no inicia otro workout HealthKit ni GPS**. Al recibir el
+   primer snapshot **deporte** Watch-owned, adopta `LiveActivityRecorder`
+   en modo espejo (`isWatchOwnedMirror`) y abre la **misma** `LiveActivityView`
+   de Comenzar (métricas/mapa según preferencia) vía
+   `repera.openComenzarFromWatch`. Plan/clase Watch-owned sigue en
+   `WatchOwnedLiveMirrorView`. Pausa/reanudar/finalizar se envían al reloj;
+   no hay segundo registrador. Indoor: kcal/FC del snapshot en UI y Live Activity.
 3. Al terminar o cancelar desde el reloj se envía estado de revisión
    para cerrar exactamente el aviso de ese UUID. Al finalizar,
    `sendFinished(pending)` se encola **inmediatamente después de
@@ -164,9 +167,9 @@ de certificar el comportamiento de ActivityKit en segundo plano.
 - La transferencia de una sesión finalizada cierra también el espejo de iPhone por UUID aunque se pierda el snapshot terminal del reloj. Los reenvíos tardíos del resultado enriquecen la misma entrada, no crean un segundo entrenamiento.
 - Una actividad iniciada desde Apple Watch mantiene ese dispositivo como único escritor de `HKWorkout`, ruta y muestras HealthKit. La Live Activity elimina «Registrando en Apple Watch» / «Control desde Apple Watch» y ofrece «Abrir Repera». En iPhone abre `repera://live` y muestra un espejo nativo SwiftUI de ese UUID, sin crear otro workout; en Apple Watch, la Smart Stack sigue abriendo `repera-watch://active`.
 - El espejo iPhone presenta tiempo, distancia/ritmo, pulso y energía activa solo si existen métricas verificadas transmitidas por Watch. Pausar, reanudar y finalizar son comandos de WatchConnectivity con `ownerScope` y UUID, reenviados de forma duradera si es necesario. No se ejecuta una pausa falsa sobre el grabador del iPhone.
-- Para las caminatas y otros exteriores, Watch solicita escritura de `HKWorkoutRoute` y distancia numérica del deporte. La ruta GPS por sí sola no añade distancia/ritmo a Fitness. Antes de añadir una muestra se comprueba `sharingAuthorized`: si la distancia está denegada, el workout, FC y energía siguen guardándose y la ruta permanece en Repera; se muestra un aviso para revisar el permiso en Apple Salud.
+- Para las caminatas y otros exteriores, Watch solicita escritura de `HKWorkoutRoute` y distancia numérica del deporte. La ruta GPS por sí sola no añade distancia/ritmo a Fitness. Antes de añadir una muestra se comprueba `sharingAuthorized`; si falla o está denegada, el workout, FC y energía siguen guardándose y la distancia permanece en Repera. **No** se muestra aviso naranja en Resultado por ese fallo opcional (08/11/2026).
 - En iPhone, `ensureWorkoutRouteAccess` solicita también escritura de los tipos de distancia (andar/correr, bici, natación y nieve). Un permiso denegado anteriormente puede necesitar habilitarse manualmente en Salud/Ajustes.
-- La edición de entrenamientos terminados de cardio sin bloques de ejercicios habilita Guardar, cuyo check muestra el fondo verde Repera.
+- La edición de entrenamientos terminados de cardio sin bloques de ejercicios habilita Guardar; el check usa `borderedProminent` + verde Repera (blanco día / negro noche) para no quedar transparente bajo Liquid Glass.
 
 **Validación pendiente en hardware:** comprobar en Apple Watch + iPhone reales datos, permisos concedidos/denegados, apertura desde ambas Live Activities, fases y comandos en pausa, exportación GPS, sesiones offline, ausencia de duplicados y compilación iOS/watchOS.
 

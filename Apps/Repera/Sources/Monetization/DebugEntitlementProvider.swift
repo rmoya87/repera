@@ -85,8 +85,9 @@ final class DebugEntitlementProvider: EntitlementProviding, @unchecked Sendable 
                         localizedTitle: "Repera Pro Anual",
                         localizedDescription: "Facturación anual",
                         isAnnual: true,
-                        introductoryOfferSummary: "14 días gratis",
-                        hasFreeTrial: true,
+                        // Sin trial inventado: la intro real solo la devuelve StoreKit/ASC.
+                        introductoryOfferSummary: nil,
+                        hasFreeTrial: false,
                         priceValue: Decimal(string: "39.99"),
                         currencyCode: "EUR"
                     ),

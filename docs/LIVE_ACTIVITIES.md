@@ -1,6 +1,6 @@
 # En vivo (iOS 27)
 
-Última actualización: 2026-11-06 (handoff companion finish/kcal + controles duraderos + eje Y overlay).
+Última actualización: 2026-11-08 (Watch-start usa la misma LiveActivityView en Comenzar).
 
 ## Experiencia
 
@@ -57,7 +57,7 @@ Los botones de **Pausar / Reanudar / Abrir** en bloqueo e isla usan `LiveActivit
 
 ## Espejo nativo y permisos de Watch (07/11/2026)
 
-- Se eliminan de las Live Activities los textos «Registrando en Apple Watch» y «Control desde Apple Watch». «Abrir Repera» desde el iPhone abre `repera://live` y una vista nativa para la sesión Watch-owned; la Smart Stack del reloj usa `repera-watch://active`.
+- Se eliminan de las Live Activities los textos «Registrando en Apple Watch» y «Control desde Apple Watch». «Abrir Repera» desde el iPhone abre `repera://live` (Comenzar). Deporte iniciado en Watch → misma `LiveActivityView` que phone-start; plan/clase → espejo de bloques. Smart Stack del reloj: `repera-watch://active`.
 - El iPhone puede consultar las métricas reales Watch (tiempo, GPS, ritmo, FC y kcal) y enviar pausa, reanudación o finalización al propietario de la sesión, pero **no** registrar otro `HKWorkout`, GPS ni inventar métricas. WatchConnectivity verifica ámbito de cuenta y UUID; el reloj sigue siendo propietario de HealthKit.
 - Si Salud ha denegado escritura de distancia, se conserva el entrenamiento y el GPS local; se omite la muestra de distancia no autorizada y se comunica el permiso requerido. El refresco de permisos del iPhone incluye compartir los tipos numéricos de distancia.
 - El check verde del editor permite guardar también caminatas y otras actividades completadas sin bloques de ejercicios.

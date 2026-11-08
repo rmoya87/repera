@@ -569,15 +569,15 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     )
                     // Authorization requests can complete successfully even when
                     // sharing was denied. Never let an optional distance sample
-                    // break the saved workout, heart rate or energy measurements.
+                    // break the saved workout, heart rate or energy measurements,
+                    // and never surface it on Resultado: Repera already shows GPS
+                    // distance; Fitness may still get the route separately.
                     if self.store.authorizationStatus(for: type) == .sharingAuthorized {
                         do {
                             try await builder.addSamples([sample])
                         } catch {
-                            self.permissionIssue = "No se pudo guardar la distancia GPS en Salud: \(error.localizedDescription)"
+                            // Best-effort only — ignore Not authorized / write denials.
                         }
-                    } else {
-                        self.permissionIssue = "La distancia GPS se conserva en Repera, pero Salud no permite escribirla. Activa el permiso de distancia para Repera en Apple Salud (Apple Watch)."
                     }
                 }
             }

@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-11-06 (TestFlight Sandbox: restauración, catálogo y errores de StoreKit)
+Última actualización: 2026-11-08 (ofertas intro: campo dinámico tienda; sin promo hardcodeada)
 
 ## 1. Arquitectura
 
@@ -39,17 +39,20 @@ No hay SDK de terceros de suscripciones. iOS usa StoreKit 2; Android usa Play Bi
 | Catálogo, timers, Watch, Salud, iCloud, export/import | ✓ | ✓ |
 | Historial general de sesiones | ✓ | ✓ |
 | Mapa y navegación GPS 2D, GPX | ✓ | ✓ |
-| Navegación 3D | — | ✓ |
+| Navegación mapa 3D (Comenzar en vivo) | — | ✓ |
 | Favoritos | **3** | ilimitados |
 | Rutinas biblioteca sin estrella | **3** | ilimitadas |
 | Ejercicios `isCustom` | máx. **5** | ilimitados |
 | Escáner pizarra | **4**/mes UTC | ilimitados |
 | Progreso | **Últimos 7 días** + teaser | mes + a largo plazo |
-| Comparativas WOD / progresión de carga | básicas / no | avanzadas / sí |
+| Historial WOD (ficha catálogo) | mejor + última | completo |
+| Comparar intento actual vs anterior (ficha «Esta sesión») | ✓ | ✓ |
+| Progresión de carga | %1RM sugerida en ficha | + sugerencias automáticas al iniciar |
+| Mapa muscular / análisis avanzado | teaser | ✓ |
 
 Al perder Pro no se borran datos; solo se bloquea crear por encima del límite.
 
-La tabla del paywall (`PaywallView` / `PaywallScreen`) refleja estas filas (Mapa GPS, Progreso, Por ejercicio, Comparativas WOD, Progresión de carga, rutinas/favoritos, ejercicios propios, escáner).
+La tabla del paywall (`PaywallView` / `PaywallScreen`) refleja: Navegación mapa, Progreso, Por ejercicio, Historial WOD, Progresión de carga, rutinas/favoritos, ejercicios propios, escáner. No inventar «Comparativas WOD = solo Pro»: Gratis ya compara la sesión actual con el intento anterior.
 
 ## 3. Identificadores comerciales
 
@@ -59,7 +62,9 @@ La tabla del paywall (`PaywallView` / `PaywallScreen`) refleja estas filas (Mapa
 | Producto anual | `com.app.repera.premium.yearly` |
 | Bundle iOS | `com.app.repera` |
 
-Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o Play Billing. Sin importes hardcodeados. Scheme local: `Apps/Repera/Resources/StoreKit/ReperaProducts.storekit`.
+Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayPrice`) o Play Billing. Sin importes hardcodeados. Scheme local: `Apps/Repera/Resources/StoreKit/ReperaProducts.storekit` (precios de referencia 5,99 € / 39,99 €; **sin** introductory offer local — si ASC/Play configuran trial/intro, la app lo muestra al recibirlo).
+
+Debug Pro **no** inventa «14 días gratis» ni precios distintos a la referencia: solo placeholders para UI. TestFlight/producción = tienda real.
 
 ## 4. Proveedor iOS (StoreKit 2)
 
@@ -68,7 +73,7 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 - Sin productos ASC → paywall muestra indisponibilidad y permite **Reintentar**; nunca concede Pro por UI.
 - Si hay una compra Apple verificada, el paywall muestra el acceso Pro actual en vez de pedir comprar otra vez.
 - Un catálogo vacío no equivale a una suscripción caducada: los productos se validan de forma independiente de los derechos firmados.
-- Debug: sección «Debug Pro» en Ajustes (`#if DEBUG`).
+- Debug: sección «Debug Pro» en Ajustes (`#if DEBUG`). Con «Simular suscripción» ON, el estado forzado **gana** a la caché `verifiedPro` (misma idea que Android `DebugEntitlementController.applyTo` tras el merge). Al apagar la simulación se restaura `StoreKitEntitlementProvider`. La fila «Efectivo» refleja `isPro` real (incluye Pro patrocinado por Center).
 
 ## 5. App Store Connect / Play Console
 
@@ -78,6 +83,8 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 4. Opcional: archivo `.storekit` en el scheme Xcode **solo para pruebas locales**; TestFlight consulta App Store Connect/Sandbox y no ese archivo.
 5. TestFlight: confirmar que los dos IDs están disponibles para el bundle `com.app.repera`, con localización/precios/territorios y acuerdos al día. La suscripción de prueba se renueva diariamente hasta seis veces y posteriormente expira.
 6. Si `Product.products(for:)` devuelve `[]`, comprobar App Store Connect y el tester Sandbox: ningún reintento en la app puede fabricar productos que Apple no ofrece.
+7. Introductory offer / trial / descuento intro: **sí lo permiten** Apple y Google, pero se configuran en **App Store Connect / Play Console**, no en código. La UI ya tiene el campo dinámico `introductoryOfferSummary` (+ `hasFreeTrial`): iOS lo rellena desde `Product.subscription.introductoryOffer`; Android desde las fases de `subscriptionOfferDetails`. Sin promo hardcodeada en Debug. Si no hay oferta en tienda → el campo queda vacío y el paywall no inventa descuentos.
+8. Promos avanzadas (códigos Apple Offer Codes, promotional/win-back firmados, ofertas Play «developer determined»): las tiendas las permiten, pero exigen APIs/firma/eligibilidad aparte. **No** añadir un campo de marketing fijo en la app hasta que se active una campaña concreta; entonces cablear redención/selección de offer token.
 
 ## 6. Restaurar / gestionar
 
@@ -90,7 +97,7 @@ Precios UI: **siempre** desde App Store Connect vía StoreKit (`Product.displayP
 
 Si el refresh falla, se conserva un Pro **previamente verificado** un tiempo limitado (`lastVerifiedPro*`). Sin snapshot verificado → Gratis (fail-closed).
 
-iOS y Android persisten el último Pro verificado (`repera.commercial.verifiedPro.v1`) y lo rehidratan al arranque antes del refresh. Un `.free`/lista vacía **transitorio** (p. ej. tras actualizar la app) **no borra** la caché ni degrada a Gratis mientras la caducidad futura o la gracia offline (7 días) sigan válidas. Solo se limpia la caché con **caducada / revocada** confirmada.
+iOS y Android persisten el último Pro verificado (`repera.commercial.verifiedPro.v1`) y lo rehidratan al arranque antes del refresh. Un `.free`/lista vacía **transitorio** (p. ej. tras actualizar la app) **no borra** la caché ni degrada a Gratis mientras la caducidad futura o la gracia offline (7 días) sigan válidas. Solo se limpia la caché con **caducada / revocada** confirmada. Excepción Debug: simular Gratis/expired/revoked **sí** limpia esa caché para poder probar bloqueos.
 
 ## 8. Pro patrocinado (Center / B2B)
 

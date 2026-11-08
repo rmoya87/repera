@@ -95,8 +95,9 @@ struct WatchHomeHubView: View {
                 }
             }
             .padding(.horizontal, 12)
-            // Mantener los controles junto al bisel físico.
-            .offset(y: 10)
+            // Subir los círculos sobre el bisel redondo: un offset positivo
+            // hacia abajo los cortaba a medias (glass incompleto).
+            .padding(.bottom, 8)
             // Sonido y Temporizador siempre tienen prioridad de pulsación.
             .zIndex(1)
         }

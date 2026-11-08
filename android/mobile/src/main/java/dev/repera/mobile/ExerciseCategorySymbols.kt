@@ -67,7 +67,16 @@ object ExerciseCategorySymbols {
         if (e.contains("lastre") || e.contains("chaleco")) return Icons.Filled.Scale // scalemass
         if (e.contains("comba")) return Icons.Filled.DirectionsRun // figure.jumprope ≈
         if (e.contains("cuerda de trepa")) return Icons.Filled.Terrain // figure.climbing
-        if (e.contains("paralela") || e.contains("parallete")) return Icons.Filled.FitnessCenter // strengthtraining.functional
+        if (e.contains("paralela") || e.contains("parallete") || e.contains("parallette")) {
+            return Icons.Filled.FitnessCenter // strengthtraining.functional
+        }
+        if (e.contains("abmat") || e.contains("ab mat")) return Icons.Filled.SelfImprovement // figure.core.training
+        if (e.contains("colchoneta") || e.contains("yoga mat") || e.contains("exercise mat")
+            || e.contains("superficie acolchada") || e.contains("padded surface")
+            || e == "mat"
+        ) {
+            return Icons.Filled.Square // rectangle.portrait ≈
+        }
         if (e.contains("rueda abdominal") || e.contains("ab wheel")) return Icons.Filled.TripOrigin // circle.circle
         if (e.contains("rodillo")) return Icons.Filled.RadioButtonUnchecked // circle
         if (e.contains("banco")) return Icons.Filled.Chair // chair.lounge
@@ -84,9 +93,34 @@ object ExerciseCategorySymbols {
         if (e.contains("ghd")) return Icons.Filled.SelfImprovement // figure.core.training
         if (e.contains("pegboard")) return Icons.Filled.Apps // circle.grid.3x3
         if (e.contains("polea")) return Icons.Filled.Settings // gearshape.2
-        if (e.contains("saco") || e.contains("sandbag")) return Icons.Filled.ShoppingBag // bag
+        if (e.contains("saco") || e.contains("sandbag") || e.contains("jerry")) {
+            return Icons.Filled.ShoppingBag // bag
+        }
+        if (e.contains("husafell")) return Icons.Filled.LocalShipping // shippingbox
         if (e.contains("trineo") || e.contains("sled")) return Icons.Filled.LocalShipping // shippingbox
         if (e.contains("yoke")) return Icons.Filled.FitnessCenter // strengthtraining.traditional
+        if (e.contains("maza") || e.contains("sledgehammer") || e.contains("hammer")) {
+            return Icons.Filled.FitnessCenter // hammer ≈
+        }
+        if (e.contains("neumatico") || e.contains("tire") || e.contains("tyre")) {
+            return Icons.Filled.TripOrigin // circle.circle
+        }
+        if (e.contains("cuerda de batalla") || e.contains("battle rope")) {
+            return Icons.Filled.DonutLarge // waveform ≈
+        }
+        if (e.contains("piedra") || e.contains("atlas")) {
+            return Icons.Filled.RadioButtonUnchecked // circle.fill ≈
+        }
+        if (e.contains("barril") || e.contains("barrel")) return Icons.Filled.LocalShipping
+        if (e.contains("tronco") || e.startsWith("log") || e.contains(" log")) {
+            return Icons.Filled.Terrain // tree ≈
+        }
+        if (e.contains("axle") || e.contains("safety bar") || e.contains("smith")) {
+            return Icons.Filled.FitnessCenter
+        }
+        if (e.contains("reverse hyper")) return Icons.Filled.SelfImprovement
+        if (e.contains("diana") || e.contains("target")) return Icons.Filled.Apps // target ≈
+        if (e.contains("anclaje")) return Icons.Filled.Settings
         if (e.contains("maquina") || e.contains("machine")) return Icons.Filled.Settings // gearshape
         if (e.contains("peso corporal") || e.contains("sin material")) return Icons.Filled.AccessibilityNew // figure.stand
         return equipment

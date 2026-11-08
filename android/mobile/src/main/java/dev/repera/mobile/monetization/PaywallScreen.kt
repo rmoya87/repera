@@ -248,12 +248,13 @@ private fun PaywallHeader(mode: PaywallMode, onBack: () -> Unit) {
 @Composable
 private fun PaywallComparison() {
     val limits = dev.repera.domain.monetization.FreePlanLimits
+    // Debe coincidir con FeatureAccessPolicy / gates UI (no marketing inventado).
     val rows = listOf(
-        Triple("Mapa GPS", "2D", "2D + 3D"),
+        Triple("Navegación mapa", "2D", "2D + 3D"),
         Triple("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
         Triple("Por ejercicio", "Última + récord", "Historial completo"),
-        Triple("Comparativas WOD", "No", "Sí"),
-        Triple("Progresión de carga", "Básica", "Avanzada"),
+        Triple("Historial WOD", "Mejor + última", "Completo"),
+        Triple("Progresión de carga", "Sugerida en ficha", "Automática"),
         Triple(
             "Rutinas / favoritos",
             "${limits.MAX_LIBRARY_ROUTINES} / ${limits.MAX_FAVORITE_ITEMS}",
@@ -542,8 +543,13 @@ private fun PaywallLegalFooter(packages: List<CommercialPackageInfo>, selectedPr
     )
     packages.firstOrNull { it.productID == selectedProductID }?.let { pkg ->
         parts += "Precio de renovación: ${pkg.localizedPrice}${if (pkg.isAnnual) " al año" else " al mes"}."
-        if (pkg.hasFreeTrial && pkg.introductoryOfferSummary != null) {
-            parts += "${pkg.introductoryOfferSummary}. Tras la prueba se aplica el precio de renovación indicado."
+        pkg.introductoryOfferSummary?.let { intro ->
+            val suffix = if (pkg.hasFreeTrial) {
+                "Tras la prueba se aplica el precio de renovación indicado."
+            } else {
+                "Luego se aplica el precio de renovación indicado."
+            }
+            parts += "$intro. $suffix"
         }
     }
     parts += "Puedes gestionar o cancelar en Play Store > Pagos y suscripciones."

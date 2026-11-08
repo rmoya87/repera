@@ -23,6 +23,7 @@ data class CommercialPackageInfo(
     val localizedTitle: String,
     val localizedDescription: String,
     val isAnnual: Boolean,
+    /** Texto de oferta de tienda (trial / descuento intro). Null si no hay. Sin promos hardcodeadas. */
     val introductoryOfferSummary: String? = null,
     val hasFreeTrial: Boolean = false,
     /** Precio anual equivalente del mensual x12 (si aplica) para calcular ahorro. */

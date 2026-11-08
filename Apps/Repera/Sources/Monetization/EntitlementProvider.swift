@@ -17,6 +17,8 @@ struct CommercialPackageInfo: Sendable, Equatable, Identifiable {
     var localizedTitle: String
     var localizedDescription: String
     var isAnnual: Bool
+    /// Texto de oferta de tienda (trial gratis, intro con descuento, etc.). `nil` si no hay.
+    /// No hardcodear promociones: solo lo que StoreKit / Play Billing devuelven.
     var introductoryOfferSummary: String?
     var hasFreeTrial: Bool
     /// Precio anual equivalente del mensual × 12 (si aplica) para calcular ahorro.

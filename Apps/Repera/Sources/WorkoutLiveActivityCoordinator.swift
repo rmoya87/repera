@@ -98,18 +98,30 @@ final class WorkoutLiveActivityCoordinator {
             } else {
                 pace = sport?.displaysSpeed == true ? "—" : "—:—"
             }
+            let indoorHeart: String = {
+                if let bpm = snapshot.heartRateBpm, (25...250).contains(bpm) {
+                    return "\(bpm)"
+                }
+                return "—"
+            }()
+            let indoorEnergy: String = {
+                if let kcal = snapshot.activeEnergyKcal, kcal.isFinite, kcal >= 0 {
+                    return String(format: "%.0f", kcal)
+                }
+                return "—"
+            }()
             state = TrainingActivityAttributes.ContentState(
                 phase: phase, title: snapshot.sportTitle,
                 symbol: sport?.symbol ?? "figure.run",
                 subtitle: "",
                 timerAnchor: timerAnchor, elapsedSeconds: elapsed,
-                primaryValue: isGPS ? pace : "—",
+                primaryValue: isGPS ? pace : indoorHeart,
                 primaryLabel: isGPS
                     ? (sport?.displaysSpeed == true ? "Veloc. media" : "Ritmo medio")
                     : "FC (ppm)",
                 secondaryValue: isGPS
                     ? String(format: "%.2f", max(0, snapshot.distanceMeters) / 1000)
-                    : "—",
+                    : indoorEnergy,
                 secondaryLabel: isGPS ? "Distancia (km)" : "Kcal"
             )
         }

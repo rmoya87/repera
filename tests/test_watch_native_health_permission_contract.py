@@ -28,7 +28,11 @@ class WatchNativeHealthContracts(unittest.TestCase):
         button = theme.split("struct OGDoneCheckButton: View", 1)[1].split(
             "struct BackToolbarButton", 1
         )[0]
-        self.assertIn(".background(OG.accent, in: Circle())", button)
+        # Liquid Glass en toolbar traga `.background` custom; borderedProminent
+        # + tint verde (como terminar en Play) mantiene el círculo.
+        self.assertIn(".buttonStyle(.borderedProminent)", button)
+        self.assertIn(".tint(OG.accent)", button)
+        self.assertIn("OG.onDoneAccent", button)
         self.assertIn(".accessibilityLabel(accessibilityLabel)", button)
         self.assertIn(".disabled(!enabled)", button)
 
@@ -40,7 +44,9 @@ class WatchNativeHealthContracts(unittest.TestCase):
         self.assertNotIn('"Registrando en Apple Watch"', coord)
         self.assertIn('"repera://live"', widget)
         self.assertIn('"repera-watch://active"', widget)
+        # Plan Watch-owned sigue en espejo; deporte usa LiveActivityView.
         self.assertIn("WatchOwnedLiveMirrorView(", root)
+        self.assertIn("watchLive.kind == .planned", root)
         self.assertIn("sendCommand: store.controlWatchOwnedLive", root)
         self.assertNotIn("HKWorkoutSession(", root)
 
@@ -98,7 +104,10 @@ class WatchNativeHealthContracts(unittest.TestCase):
         )[0]
         self.assertIn("store.authorizationStatus(for: type) == .sharingAuthorized", distance)
         self.assertIn("try await builder.addSamples([sample])", distance)
-        self.assertIn("La distancia GPS se conserva en Repera", distance)
+        # Fallo opcional de distancia: no marcar permissionIssue ni alarmar Resultado.
+        self.assertNotIn("permissionIssue", distance)
+        self.assertNotIn("No se pudo guardar la distancia GPS", distance)
+        self.assertNotIn("La distancia GPS se conserva en Repera", distance)
         self.assertIn("share.insert(distanceType)", watch)
 
     def test_iphone_route_permission_refresh_includes_numeric_distance(self):

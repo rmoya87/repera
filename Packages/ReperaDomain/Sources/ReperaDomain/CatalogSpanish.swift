@@ -3787,11 +3787,11 @@ public enum CatalogSpanish {
             "Sal del hold bajando con control a cuelgue.",
         ],
         "Back lever tuck": [
-            "En anillas o barra: desde cuelgue, lleva rodillas al pecho y rota a espaldas al suelo, cadera a la altura de los hombros.",
+            "En anillas (progresión desde German hang / skin the cat); barra solo como alternativa de gimnasio.",
+            "Desde German hang, lleva rodillas al pecho y rota a espaldas al suelo, cadera a la altura de los hombros.",
             "Brazos extendidos o casi; hombros retraídos; cuerpo en tuck compacto.",
             "Mantén el tiempo objetivo sin abrir las caderas antes de tiempo.",
-            "Sal del hold con control (skin the cat asistido si hace falta).",
-            "Error típico: hombros abiertos o lumbar en exceso. Prioriza escápulas activas.",
+            "Sal del hold con control. Error típico: hombros abiertos o lumbar en exceso. Prioriza escápulas activas.",
             "Progresión: tuck → advanced tuck → straddle → full. Si no, German hang corto.",
         ],
         "Planche tuck": [

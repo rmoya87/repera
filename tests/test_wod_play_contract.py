@@ -140,7 +140,7 @@ class PlayWODContractTests(unittest.TestCase):
         self.assertNotIn("ToolbarItem(placement: .topBarLeading)", chrome)
         self.assertIn(".tint(Color.primary)", chrome)
         self.assertIn("OGDoneCheckButton(", chrome)
-        self.assertIn("glassTint: OG.accent", chrome)
+        self.assertNotIn("OGToolbarGlassButton(", chrome.split("confirmButton", 1)[-1])
 
     def test_play_score_persists_without_advancing_to_next_block(self):
         source = self.read("ReperaStore.swift")

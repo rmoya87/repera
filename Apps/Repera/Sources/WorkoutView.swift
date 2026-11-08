@@ -445,10 +445,12 @@ struct WorkoutView: View {
                     } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(OG.onAccent)
+                            .foregroundStyle(OG.onDoneAccent)
+                            .symbolRenderingMode(.monochrome)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(OG.accent)
+                    .buttonBorderShape(.circle)
                     .accessibilityLabel("Terminar entreno")
                 }
             }

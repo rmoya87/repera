@@ -1020,15 +1020,95 @@ final class LiveActivityRecorder: NSObject {
     static let shared = LiveActivityRecorder()
     /// Wired by ReperaStore: returns true when Watch owns HealthKit for this live UUID.
     @ObservationIgnored static var watchHandoffHandler: ((UUID, LiveSport) async -> Bool)?
+    /// Pause/resume/finish for a session that the Watch started and still owns.
+    @ObservationIgnored static var watchOwnedCommandHandler: ((String) -> Bool)?
 
     enum Phase: String { case idle, recording, paused, review }
     /// When true, phone keeps GPS/UI but must not write a second HKWorkout.
     private(set) var healthOwnedByWatch = false
+    /// Watch started Comenzar: phone shows the same LiveActivityView, no GPS/HK writer.
+    private(set) var isWatchOwnedMirror = false
+    private(set) var mirroredActiveEnergyKcal: Double?
+    private(set) var mirroredAverageSpeedKmh: Double?
 
     /// Mid-session Watch handoff: drop the phone HK builder; keep GPS/UI here.
     func adoptWatchHealthOwnership() {
         healthOwnedByWatch = true
         Task { await HealthKitStore.shared.discardLiveTracking() }
+    }
+
+    /// Espejo UI de un deporte iniciado en el Watch (misma Comenzar que phone-start).
+    func adoptWatchOwnedSportMirror(_ snapshot: WatchLiveActivitySnapshot) {
+        guard snapshot.kind == .sport,
+              snapshot.phase == .recording || snapshot.phase == .paused else { return }
+        if phase != .idle, gpsSessionID != snapshot.id { return }
+        cancelStartCountdown()
+        stopGPS()
+        if let sportID = snapshot.sportID, let resolved = LiveSport(rawValue: sportID) {
+            sport = resolved
+        }
+        gpsSessionID = snapshot.id
+        healthOwnedByWatch = true
+        isWatchOwnedMirror = true
+        applyWatchOwnedSportMirror(snapshot)
+    }
+
+    func applyWatchOwnedSportMirror(_ snapshot: WatchLiveActivitySnapshot) {
+        guard isWatchOwnedMirror, gpsSessionID == snapshot.id,
+              snapshot.kind == .sport else { return }
+        recordedDistanceMeters = max(0, snapshot.distanceMeters)
+        mirroredAverageSpeedKmh = snapshot.averageSpeedKmh
+        mirroredActiveEnergyKcal = snapshot.activeEnergyKcal
+        liveConditions = snapshot.conditions
+        if let bpm = snapshot.heartRateBpm {
+            receiveCompanionHeartRate(
+                sessionId: snapshot.id, bpm: bpm, capturedAt: snapshot.capturedAt
+            )
+        }
+        if let turn = snapshot.nextTurn {
+            upcomingTurn = turn
+            upcomingTurnMeters = snapshot.nextTurnMeters
+        }
+        switch snapshot.phase {
+        case .recording:
+            startedAt = snapshot.capturedAt.addingTimeInterval(-snapshot.elapsedSeconds)
+            pausedAt = nil
+            pausedSeconds = 0
+            finishedAt = nil
+            phase = .recording
+        case .paused:
+            startedAt = snapshot.capturedAt.addingTimeInterval(-snapshot.elapsedSeconds)
+            pausedAt = snapshot.capturedAt
+            pausedSeconds = 0
+            finishedAt = nil
+            phase = .paused
+        case .review:
+            clearWatchOwnedSportMirror()
+        }
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+        )
+    }
+
+    func clearWatchOwnedSportMirror() {
+        guard isWatchOwnedMirror else { return }
+        isWatchOwnedMirror = false
+        mirroredActiveEnergyKcal = nil
+        mirroredAverageSpeedKmh = nil
+        healthOwnedByWatch = false
+        companionHeart = nil
+        phase = .idle
+        startedAt = nil
+        finishedAt = nil
+        pausedAt = nil
+        pausedSeconds = 0
+        recordedDistanceMeters = 0
+        upcomingTurn = nil
+        upcomingTurnMeters = nil
+        liveConditions = nil
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.liveWatchStateChanged"), object: nil
+        )
     }
     private(set) var phase: Phase = .idle
     /// Cuenta atrás visual/sonora de tres segundos antes de abrir GPS y Salud.
@@ -1686,6 +1766,15 @@ final class LiveActivityRecorder: NSObject {
             "result": "success"
         ])
         guard phase == .recording else { return }
+        if isWatchOwnedMirror {
+            _ = Self.watchOwnedCommandHandler?("pause")
+            pausedAt = Date()
+            phase = .paused
+            stopGuidanceAudio()
+            currentSpeedMps = nil
+            updateLiveActivity()
+            return
+        }
         ensureRouteRestored()
         pausedAt = Date()
         phase = .paused
@@ -1702,6 +1791,21 @@ final class LiveActivityRecorder: NSObject {
         guard phase == .paused else { return }
         // Cancelar indicaciones antiguas: reanudar no emite voz ni sonido.
         stopGuidanceAudio()
+        if isWatchOwnedMirror {
+            _ = Self.watchOwnedCommandHandler?("resume")
+            if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
+            pausedAt = nil
+            previousFixActiveSeconds = nil
+            phase = .recording
+            updateLiveActivity()
+            ReperaAnalytics.track(.workoutResumed, parameters: [
+                "feature_area": "live_sport",
+                "workout_type": "live_sport",
+                "activity_type": sport.rawValue,
+                "result": "success"
+            ])
+            return
+        }
         if let pausedAt { pausedSeconds += Date().timeIntervalSince(pausedAt) }
         pausedAt = nil
         previousFixActiveSeconds = nil
@@ -1722,7 +1826,8 @@ final class LiveActivityRecorder: NSObject {
     var sessionID: UUID? { phase == .idle ? nil : gpsSessionID }
 
     func makeWatchSnapshot() -> WatchLiveActivitySnapshot? {
-        guard phase != .idle, startedAt != nil else { return nil }
+        // No reenviar al Watch un espejo de su propia sesión.
+        guard !isWatchOwnedMirror, phase != .idle, startedAt != nil else { return nil }
         let status: WatchLiveActivitySnapshot.Phase
         switch phase {
         case .recording: status = .recording
@@ -1791,6 +1896,9 @@ final class LiveActivityRecorder: NSObject {
     /// Recalcular a partir de distancia verificada y tiempo ACTIVO, nunca
     /// reutilizar una lectura de ritmo almacenada en la interfaz.
     var averageSpeedKmh: Double? {
+        if isWatchOwnedMirror {
+            return mirroredAverageSpeedKmh.flatMap { $0 > 0.1 ? $0 : nil }
+        }
         guard sport.usesGPS, routePoints.count >= 2, durationSeconds > 0 else { return nil }
         return max(0, recordedDistanceMeters / durationSeconds * 3.6)
     }
@@ -1810,6 +1918,13 @@ final class LiveActivityRecorder: NSObject {
 
     func finish() {
         guard phase == .recording || phase == .paused else { return }
+        if isWatchOwnedMirror {
+            _ = Self.watchOwnedCommandHandler?("finish")
+            stopGuidanceAudio()
+            RestFeedback.restComplete(sound: spokenGuidanceEnabled, haptic: true)
+            // El Watch envía review/finished; no abrir revisión phone-owned.
+            return
+        }
         ensureRouteRestored()
         let now = Date()
         if let pausedAt { pausedSeconds += now.timeIntervalSince(pausedAt) }
@@ -1862,6 +1977,13 @@ final class LiveActivityRecorder: NSObject {
 
     func discard(saved: Bool = false) {
         cancelStartCountdown()
+        if isWatchOwnedMirror {
+            // El Watch posee el HKWorkout: no borrar Salud desde el iPhone.
+            clearWatchOwnedSportMirror()
+            stopGuidanceAudio()
+            UserDefaults.standard.removeObject(forKey: snapshotKey)
+            return
+        }
         if !saved {
             let sessionID = gpsSessionID
             Task {
@@ -1881,6 +2003,11 @@ final class LiveActivityRecorder: NSObject {
         // del sintetizador; podemos liberar la locución al guardar o descartar.
         stopGuidanceAudio()
         phase = .idle
+        healthOwnedByWatch = false
+        isWatchOwnedMirror = false
+        mirroredActiveEnergyKcal = nil
+        mirroredAverageSpeedKmh = nil
+        companionHeart = nil
         needsInterruptedGPSRecovery = false
         estimatedRecoveryMeters = 0
         startedAt = nil
@@ -1922,6 +2049,8 @@ final class LiveActivityRecorder: NSObject {
     /// the shared GPS tracker is not already checkpointing this session
     /// (review, or a recovered route without a running sensor).
     private func persistSnapshot() {
+        // Espejo Watch-owned: no persistir como live phone (evitar cáscara HK).
+        guard !isWatchOwnedMirror else { return }
         guard let start = startedAt, phase != .idle else { return }
         ensureRouteRestored()
         let trackerOwnsRoute = WorkoutLocationTracker.shared.trackingSessionID == gpsSessionID
@@ -3703,7 +3832,7 @@ struct LiveActivityView: View {
             } else {
                 metricsIndoorHeartHero
                 Spacer(minLength: 14)
-                Text("—")
+                Text(mirroredEnergyLabel)
                     .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                 Text("Calorías activas (kcal)")
@@ -4595,6 +4724,14 @@ struct LiveActivityView: View {
         let seconds = Int(3600 / average)
         guard seconds < 3600 else { return "—:—" }
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    /// Indoor kcal: espejo Watch o «—» hasta que Salud aporte medición.
+    private var mirroredEnergyLabel: String {
+        if let kcal = recorder.mirroredActiveEnergyKcal, kcal.isFinite, kcal >= 0 {
+            return String(format: "%.0f", kcal)
+        }
+        return "—"
     }
 
     /// Horas solo si > 0; dígito de hora sin cero a la izquierda (1:05:09, no 01:05:09).

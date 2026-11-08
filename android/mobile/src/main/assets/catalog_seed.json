@@ -4608,14 +4608,14 @@
     "muscleGroup": "Hombros",
     "catalogId": null,
     "detailDescription": "Back lever agrupado.",
-    "equipment": "Barra de dominadas",
+    "equipment": "Anillas",
     "instructions": [
-      "En anillas o barra: desde cuelgue, lleva rodillas al pecho y rota a espaldas al suelo, cadera a la altura de los hombros.",
+      "En anillas (progresión desde German hang / skin the cat); barra solo como alternativa de gimnasio.",
+      "Desde German hang, lleva rodillas al pecho y rota a espaldas al suelo, cadera a la altura de los hombros.",
       "Brazos extendidos o casi; hombros retraídos; cuerpo en tuck compacto.",
       "Mantén el tiempo objetivo sin abrir las caderas antes de tiempo.",
-      "Sal del hold con control (skin the cat asistido si hace falta).",
-      "Error típico: hombros abiertos o lumbar en exceso. Prioriza escápulas activas.",
-      "Progresión: tuck → advanced tuck → straddle → full. Si no, German hang corto."
+      "Sal del hold con control. Error típico: hombros abiertos o lumbar en exceso.",
+      "Progresión: tuck → advanced tuck → straddle → full."
     ],
     "isCustom": false,
     "isFavorite": false,
@@ -4738,7 +4738,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Hollow body hold isométrico.",
-    "equipment": "Peso corporal",
+    "equipment": "Colchoneta",
     "instructions": [
       "Tumbado: lumbar pegada al suelo, hombros y piernas elevadas en hollow (forma de plátano invertido).",
       "Brazos arriba o a los lados; aprieta abdomen; respira corto.",
@@ -4768,7 +4768,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Balanceo en hollow manteniendo forma.",
-    "equipment": "Peso corporal",
+    "equipment": "Colchoneta",
     "instructions": [
       "Desde hollow hold, balancea de hombros a glúteos manteniendo la forma hollow rígida.",
       "No abras ni pierdas el contacto lumbar ‘imaginario’; el cuerpo se mueve como bloque.",
@@ -4799,7 +4799,7 @@
     "muscleGroup": "Espalda",
     "catalogId": null,
     "detailDescription": "Arch/superman hold boca abajo.",
-    "equipment": "Peso corporal",
+    "equipment": "Colchoneta",
     "instructions": [
       "Boca abajo o colgado: abre el pecho, eleva hombros y piernas en arco controlado (posición de arch).",
       "Glúteos y lumbar activos; mirada neutra; no hiperextiendas el cuello.",
@@ -4831,7 +4831,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Candlestick / shoulder stand controlado.",
-    "equipment": "Peso corporal",
+    "equipment": "Colchoneta",
     "instructions": [
       "Desde suelo o de pie: rueda a la espalda hasta quedar sobre hombros/nuca con piernas arriba (como vela), luego vuelve a pie o a la posición pedida.",
       "Manos pueden apoyar en el suelo cerca de las orejas para controlar.",
@@ -7147,7 +7147,7 @@
     "muscleGroup": "Antebrazos",
     "catalogId": null,
     "detailDescription": "Suspensión de la barra con brazos extendidos.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Agarra la barra con brazos extendidos y pies fuera del suelo desde el inicio.",
       "Elige hang activo (hombros empaquetados) o pasivo según lo que diga la pizarra.",
@@ -7804,7 +7804,7 @@
     "muscleGroup": "Espalda",
     "catalogId": null,
     "detailDescription": "Dominada asistida con salto de piernas hasta que la barbilla pase la barra.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Prepara el material (Barra) y la postura inicial de dominada con salto.",
       "Salta y tira a la vez.",
@@ -7839,7 +7839,7 @@
     "muscleGroup": "Espalda",
     "catalogId": null,
     "detailDescription": "Burpee seguido de muscle-up a barra (o anillas según WOD).",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Prepara el material (Barra) y la postura inicial de burpee a muscle-up.",
       "Burpee completo.",
@@ -8294,7 +8294,7 @@
     "muscleGroup": "Cardio",
     "catalogId": null,
     "detailDescription": "Burpee + muscle-up a barra.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Pecho y muslos al suelo (o estándar del WOD) en la parte baja.",
       "Tras el burpee, salta a la barra y completa el muscle-up.",
@@ -8668,7 +8668,7 @@
     "muscleGroup": "Piernas",
     "catalogId": null,
     "detailDescription": "Step-up al cajón con mancuernas.",
-    "equipment": "Mancuernas, Cajón",
+    "equipment": "Cajón, Mancuernas",
     "instructions": [
       "Mancuernas a los lados o en rack; pie completo en el cajón.",
       "Baja o sube con la rodilla delante alineada al pie; controla el tronco.",
@@ -9513,7 +9513,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Colgado, toque de mano a cadera/ilíaco (estándar de algunos WODs).",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Cuelga activo de la barra.",
       "Lleva una o ambas manos a tocar la cadera/ilíaco según el WOD.",
@@ -9545,7 +9545,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Elevación de rodillas colgado de la barra hasta arriba del ombligo/pecho.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Cuelga activo (hombros abajo) de la barra.",
       "Lleva las rodillas arriba sin balanceo excesivo.",
@@ -9989,7 +9989,7 @@
     "muscleGroup": "Espalda",
     "catalogId": null,
     "detailDescription": "Dominada manteniendo posición en L (piernas horizontales).",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Cuelga en L-sit (piernas extendidas a 90°).",
       "Tira hasta barbilla sobre la barra sin perder la L.",
@@ -10233,7 +10233,7 @@
     "muscleGroup": "Piernas",
     "catalogId": null,
     "detailDescription": "Step-over al cajón con medball.",
-    "equipment": "Balón medicinal, Cajón",
+    "equipment": "Cajón, Balón medicinal",
     "instructions": [
       "Sujeta el medball; pisa el cajón y cruza al otro lado.",
       "Baja o sube con la rodilla delante alineada al pie; controla el tronco.",
@@ -10364,7 +10364,7 @@
     "muscleGroup": "Espalda",
     "catalogId": null,
     "detailDescription": "Dominada negativa: solo la fase excéntrica controlada.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Salta o asistete hasta la barbilla por encima de la barra.",
       "Baja en 3–5 s hasta brazos extendidos.",
@@ -11422,7 +11422,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Elevación de rodillas estricta (sin kip) colgado.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Cuelga activo sin impulso de piernas.",
       "Sube rodillas solo con abdomen/flexores; sin balanceo.",
@@ -11454,7 +11454,7 @@
     "muscleGroup": "Core",
     "catalogId": null,
     "detailDescription": "Rodillas al pecho estrictas colgado de la barra.",
-    "equipment": "Barra",
+    "equipment": "Barra de dominadas",
     "instructions": [
       "Cuelga activo; sin balanceo previo.",
       "Lleva rodillas hasta tocar o acercar al pecho.",
@@ -12958,7 +12958,7 @@
     "detailDescription": "Apertura del cuádriceps y flexor de cadera. Ejercicio de movilidad controlada para piernas. Ajusta la amplitud a tus posibilidades, sin convertir el estiramiento en una competición ni aumentar la carga.",
     "equipment": "Pared",
     "instructions": [
-      "Apoya la espinilla posterior contra pared o banco.",
+      "Apoya la espinilla posterior contra la pared (el banco es solo alternativa si no hay pared).",
       "Eleva el tronco manteniendo glúteo activo.",
       "Antes de empezar, prepara Pared en una superficie estable. Comprueba que no se deslice, ajusta la posición corporal y empieza con una amplitud fácil de controlar.",
       "Inhala por la nariz y exhala con calma mientras mantienes la postura, sin bloquear la respiración. Cuenta solo los segundos que puedas sostener sin compensaciones ni molestias.",

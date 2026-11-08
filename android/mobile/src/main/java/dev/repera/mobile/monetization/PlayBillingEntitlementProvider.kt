@@ -124,17 +124,31 @@ class PlayBillingEntitlementProvider(
     }
 
     private fun ProductDetails.toPackageInfo(): CommercialPackageInfo? {
-        val offer = subscriptionOfferDetails?.firstOrNull() ?: return null
+        // Preferir una oferta con fases intro/descuento si Play devuelve varias;
+        // el precio recurrente sigue siendo la última fase de esa oferta.
+        val offer = subscriptionOfferDetails
+            ?.maxByOrNull { it.pricingPhases.pricingPhaseList.size }
+            ?: return null
         val phases = offer.pricingPhases.pricingPhaseList
         val recurring = phases.lastOrNull() ?: return null
-        val hasTrial = phases.dropLast(1).any { it.priceAmountMicros == 0L }
+        val intro = SubscriptionOfferCopy.summarize(
+            phases.dropLast(1).map { phase ->
+                SubscriptionOfferCopy.Phase(
+                    priceAmountMicros = phase.priceAmountMicros,
+                    formattedPrice = phase.formattedPrice,
+                    billingPeriod = phase.billingPeriod,
+                    billingCycleCount = phase.billingCycleCount
+                )
+            }
+        )
         return CommercialPackageInfo(
             productID = productId,
             localizedPrice = recurring.formattedPrice,
             localizedTitle = title,
             localizedDescription = description,
             isAnnual = productId == CommercialConfig.ANNUAL_PRODUCT_ID,
-            hasFreeTrial = hasTrial,
+            introductoryOfferSummary = intro.text,
+            hasFreeTrial = intro.hasFreeTrial,
             priceValue = recurring.priceAmountMicros / 1_000_000.0,
             currencyCode = recurring.priceCurrencyCode
         )

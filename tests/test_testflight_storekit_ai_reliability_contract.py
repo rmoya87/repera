@@ -73,6 +73,19 @@ class AIConnectionReliabilityTests(unittest.TestCase):
         providers = providers.split("private func refreshTokens() async", 1)[0]
         self.assertNotIn("providers = providers.map", providers)
 
+    def test_ai_instructions_are_per_provider_not_stacked(self):
+        view = source("AIAccessView.swift")
+        self.assertIn("instructionsProvider", view)
+        self.assertIn(".sheet(item: $instructionsProvider)", view)
+        self.assertIn("Solo instrucciones de", view)
+        self.assertNotIn('Button("Ver instrucciones")', view)
+        # No sheet that ForEach-es every provider into one scroll.
+        sheet = view.split(".sheet(item: $instructionsProvider)", 1)[1].split(
+            ".confirmationDialog(", 1
+        )[0]
+        self.assertNotIn("ForEach(providers)", sheet)
+        self.assertIn("AIProviderLaunch.instructions(for: provider)", sheet)
+
     def test_transient_mirror_failure_does_not_show_raw_network_error(self):
         mirror = source("AIChangeRequestStore.swift")
         sync = mirror.split("func syncCustomExercises(store:ReperaStore)", 1)[1]

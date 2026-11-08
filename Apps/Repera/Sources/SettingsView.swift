@@ -783,6 +783,18 @@ private struct SettingsDebugProSection: View {
                     Text(status.displayName).tag(status)
                 }
             }
+            LabeledContent("Efectivo") {
+                Text(subscriptions.isPro ? "Pro" : "Gratis")
+                    .foregroundStyle(subscriptions.isPro ? OG.accent : OG.label2)
+            }
+            if DebugEntitlementController.shared.overrideEnabled,
+               !DebugEntitlementController.shared.forcedStatus.grantsProAccess,
+               subscriptions.isPro,
+               subscriptions.businessSponsoredAccess {
+                Text("Center sigue concediendo Pro; desvincula el centro para ver bloqueos Free.")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+            }
             Toggle("Simular offline", isOn: Binding(
                 get: { DebugEntitlementController.shared.simulateOffline },
                 set: {

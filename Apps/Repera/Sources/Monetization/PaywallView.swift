@@ -29,13 +29,14 @@ struct PaywallView: View {
     private var monthly: CommercialPackageInfo? { packages.first(where: { !$0.isAnnual }) }
 
     /// Comparativa real: una única sección, sin ventajas duplicadas.
+    /// Debe coincidir con `FeatureAccessPolicy` / gates UI (no marketing inventado).
     private var comparisonRows: [(label: String, free: String, pro: String)] {
         [
-            ("Mapa GPS", "2D", "2D + 3D"),
+            ("Navegación mapa", "2D", "2D + 3D"),
             ("Progreso", "Últimos 7 días", "Mes + a largo plazo"),
             ("Por ejercicio", "Última + récord", "Historial completo"),
-            ("Comparativas WOD", "No", "Sí"),
-            ("Progresión de carga", "Básica", "Avanzada"),
+            ("Historial WOD", "Mejor + última", "Completo"),
+            ("Progresión de carga", "Sugerida en ficha", "Automática"),
             ("Rutinas / favoritos", "\(FreePlanLimits.maxLibraryRoutines) / \(FreePlanLimits.maxFavoriteItems)", "Sin límites"),
             ("Ejercicios propios", "\(FreePlanLimits.maxCustomExercises)", "Sin límites"),
             ("Escáner WOD", "\(FreePlanLimits.maxBoardScansPerMonth)/mes", "Ilimitado")
@@ -403,8 +404,11 @@ struct PaywallView: View {
         ]
         if let pkg = selectedPackage {
             parts.append("Renovación: \(pkg.localizedPrice) \(pkg.isAnnual ? "al año" : "al mes").")
-            if pkg.hasFreeTrial, let intro = pkg.introductoryOfferSummary {
-                parts.append("\(intro). Tras la prueba se aplicará el precio de renovación indicado.")
+            if let intro = pkg.introductoryOfferSummary {
+                let suffix = pkg.hasFreeTrial
+                    ? "Tras la prueba se aplicará el precio de renovación indicado."
+                    : "Luego se aplicará el precio de renovación indicado."
+                parts.append("\(intro). \(suffix)")
             }
         }
         parts.append("Puedes cancelar desde Ajustes → Apple ID → Suscripciones.")

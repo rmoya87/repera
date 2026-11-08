@@ -847,8 +847,8 @@ internal fun MuscleEquipmentCard(entry: ExerciseEntry) {
         if (key.isEmpty() || key in seen) return@mapNotNull null
         seen.add(key); label
     }
-    // detailMeta iOS: aparatos separados por coma, en chips propios.
-    val equipments = entry.equipment.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    // Chips cortos canónicos (Colchoneta; sin frases ExerciseDB / variante C).
+    val equipments = dev.repera.domain.ExerciseEquipmentDisplay.chips(entry.equipment)
     val sports = entry.disciplineTags.filter { it.isNotBlank() }
     if (primary.isBlank()) return
     ReperaCard(modifier = Modifier.fillMaxWidth()) {

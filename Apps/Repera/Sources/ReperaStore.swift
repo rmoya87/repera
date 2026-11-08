@@ -230,6 +230,9 @@ final class ReperaStore: NSObject {
             guard let self else { return false }
             return await self.handoffLiveSportToWatch(sessionID: sessionID, sport: sport)
         }
+        LiveActivityRecorder.watchOwnedCommandHandler = { [weak self] command in
+            self?.controlWatchOwnedLive(command) ?? false
+        }
         // Catalog merges + iCloud after hydrate — never on the LaunchScreen path.
         Task(priority: .utility) { @MainActor in
             await Task.yield()
@@ -2337,6 +2340,7 @@ final class ReperaStore: NSObject {
             closedWatchOwnedLiveIDs.insert(session.id)
             watchOwnedLive = nil
             watchOwnedLiveOwnerScope = nil
+            LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
         }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
@@ -3085,6 +3089,7 @@ final class ReperaStore: NSObject {
         if watchOwnedLive != nil, watchOwnerScope != watchOwnedLiveOwnerScope {
             watchOwnedLive = nil
             watchOwnedLiveOwnerScope = nil
+            LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
         }
         connectivity.send(
             session: state.activeSession,
@@ -4327,6 +4332,7 @@ extension ReperaStore: PhoneConnectivityDelegate {
                     self.watchOwnedLive = nil
                     self.watchOwnedLiveOwnerScope = nil
                 }
+                LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
                 await WorkoutLiveActivityCoordinator.shared.finishWatchOwned(
                     sessionID: snapshot.id, saved: false
                 )
@@ -4350,7 +4356,8 @@ extension ReperaStore: PhoneConnectivityDelegate {
             let phone = LiveActivityRecorder.shared
             // Phone-owned Comenzar keeps the island; Watch mirror must not steal it.
             if phone.phase == .recording || phone.phase == .paused || phone.phase == .review,
-               phone.sessionID != snapshot.id {
+               phone.sessionID != snapshot.id,
+               !phone.isWatchOwnedMirror {
                 return
             }
             // Mark the mirrored plan so publishSessionChrome skips planned: cards.
@@ -4361,9 +4368,23 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 active.appleHealthProvenance = "watchHealthKitPending"
                 self.state.activeSession = active
             }
+            let isNewWatchOwnedLive = self.watchOwnedLive?.id != snapshot.id
             self.watchOwnedLiveOwnerScope = self.currentWatchOwnerScope()
             self.watchOwnedLive = snapshot
+            if snapshot.kind == .sport {
+                // Misma UI Comenzar que phone-start; Watch sigue dueño de Salud.
+                phone.adoptWatchOwnedSportMirror(snapshot)
+            }
             await WorkoutLiveActivityCoordinator.shared.updateWatchOwned(snapshot)
+            // Paridad phone→watch: al arrancar en el reloj, abrir Comenzar
+            // (LiveActivityView + Live Activity) sin esperar a pulsar «Abrir».
+            if isNewWatchOwnedLive,
+               snapshot.phase == .recording || snapshot.phase == .paused {
+                NotificationCenter.default.post(
+                    name: Notification.Name("repera.openComenzarFromWatch"),
+                    object: nil
+                )
+            }
         }
     }
 

@@ -90,7 +90,10 @@ class WatchComplicationTests(unittest.TestCase):
         self.assertIn('label: hub.audioMuted ? "Activar audio" : "Silenciar audio"', home)
         self.assertIn('cornerCircleButton(systemName: "timer", label: "Temporizador")', home)
         self.assertIn(".zIndex(1)", home)
-        self.assertEqual(home.count(".offset(y: 10)"), 1)
+        # Circulos sónico/temporizador: padding superior al bisel, no offset
+        # positivo que los cortaba contra la curva del Watch.
+        self.assertNotIn(".offset(y: 10)", home)
+        self.assertIn(".padding(.bottom, 8)", home)
         self.assertIn("ToolbarItem(placement: .topBarLeading)", root)
         self.assertIn(".offset(y: -11)", root)
         self.assertIn('.navigationTitle("")', root)

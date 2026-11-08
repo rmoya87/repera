@@ -63,7 +63,7 @@ private struct AIFunctionError: Decodable {
     let error: String
 }
 
-private struct AIConnectionProvider: Decodable, Identifiable {
+private struct AIConnectionProvider: Decodable, Identifiable, Hashable {
     let id: String
     let name: String
     let directoryURL: String?
@@ -99,7 +99,7 @@ private struct AIConnectionProvider: Decodable, Identifiable {
         return hosts.contains(url.host ?? "") ? url : nil
     }
 }
-private struct AIConnectionSetup: Decodable {
+private struct AIConnectionSetup: Decodable, Hashable {
     let kind: String
     let clientID: UUID
 }
@@ -113,6 +113,19 @@ private enum AIProviderLaunch {
     static func url(for id: String) -> URL? {
         let values = ["chatgpt": "https://chatgpt.com/", "claude": "https://claude.ai/", "grok": "https://grok.com/"]
         return values[id].flatMap(URL.init(string:))
+    }
+
+    static func setupHint(for provider: AIConnectionProvider) -> String {
+        switch provider.id {
+        case "claude":
+            return "En Claude: Personalizar → Conectores → añadir conector web con los datos de arriba. No hace falta configurar nada en ChatGPT ni Grok."
+        case "chatgpt":
+            return "En ChatGPT (web): Configuración → Plugins / conectores MCP. Estas instrucciones no sirven en Claude ni Grok."
+        case "grok":
+            return "En Grok: busca la opción de conectores o servidores MCP remotos si tu cuenta la ofrece. No uses estas instrucciones en Claude ni ChatGPT."
+        default:
+            return "Configura el conector solo dentro de \(provider.name)."
+        }
     }
 
     static func instructions(for provider: AIConnectionProvider) -> String {
@@ -148,6 +161,13 @@ private enum AIProviderLaunch {
             URL del servidor MCP: \(server)
             No inventes un ID de cliente ni pidas tokens o contraseñas.
             """
+        } else if provider.id == "grok" {
+            connectorSteps = """
+            Comprueba si Grok permite añadir un servidor MCP remoto con autenticación OAuth.
+            Nombre: Repera
+            URL del servidor MCP: \(server)
+            Si Grok no ofrece conectores MCP en tu cuenta o plan, dímelo claramente; no inventes pasos de Claude o ChatGPT.
+            """
         } else {
             connectorSteps = """
             Comprueba si tu versión de \(name) permite añadir un servidor MCP remoto con autenticación OAuth.
@@ -157,7 +177,7 @@ private enum AIProviderLaunch {
             """
         }
         return """
-        Quiero conectar Repera (https://repera.app) con \(name) para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía.
+        Quiero conectar Repera (https://repera.app) solo con \(name) para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía. No menciones ni configures otros asistentes.
 
         Si tienes disponible la herramienta de Repera get_mcp_access_info, ejecútala únicamente para verificar la conexión, sin leer ni modificar mis entrenamientos. Si responde correctamente, confirma la conexión.
 
@@ -184,7 +204,8 @@ struct AIAccessView: View {
     @State private var showManualAccess = false
     @State private var launchMessage: String?
     @State private var disconnectingProvider: AIConnectionProvider?
-    @State private var showInstructions = false
+    /// Instrucciones de un solo asistente (nunca las tres apiladas).
+    @State private var instructionsProvider: AIConnectionProvider?
 
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(ReperaStore.self) private var store
@@ -300,38 +321,37 @@ struct AIAccessView: View {
             await changeRequests.refresh(store:store)
         }
         .ogScrollingTitleNav()
-        .sheet(isPresented: $showInstructions) {
+        .sheet(item: $instructionsProvider) { provider in
             NavigationStack {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        ForEach(providers) { provider in
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(provider.name)
-                                    .font(.headline)
-                                    .foregroundStyle(OG.label)
-                                Text(AIProviderLaunch.instructions(for: provider))
-                                    .font(.footnote)
-                                    .foregroundStyle(OG.label)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Button("Copiar instrucciones de \(provider.name)") {
-                                    UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                            .padding(16)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(AIProviderLaunch.instructions(for: provider))
+                            .font(.footnote)
+                            .foregroundStyle(OG.label)
+                            .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(OG.surface, in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+                        Button("Copiar instrucciones") {
+                            UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(OG.accent)
+                        Text(AIProviderLaunch.setupHint(for: provider))
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
                     }
                     .padding(OG.pad)
                 }
                 .background(OG.bg.ignoresSafeArea())
-                .navigationTitle("Instrucciones")
+                .navigationTitle(provider.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .ogTransparentNav()
-                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cerrar") { showInstructions = false } } }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Cerrar") { instructionsProvider = nil }
+                    }
+                }
             }
+            .presentationDetents([.medium, .large])
         }
         .confirmationDialog("Desconectar asistente", isPresented: Binding(
             get: { disconnectingProvider != nil },
@@ -432,37 +452,49 @@ struct AIAccessView: View {
                 .foregroundStyle(OG.label2)
                 .listRowSeparator(.hidden)
             ForEach(providers) { provider in
-                Button {
-                    if connectionVerified(for: provider) {
-                        disconnectingProvider = provider
-                    } else {
-                        launch(provider)
+                VStack(spacing: 6) {
+                    Button {
+                        if connectionVerified(for: provider) {
+                            disconnectingProvider = provider
+                        } else {
+                            launch(provider)
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
+                                .resizable()
+                                .renderingMode(provider.id == "claude" ? .original : .template)
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+                                .accessibilityHidden(true)
+                            Spacer(minLength: 0)
+                            Text(connectionVerified(for: provider) ? "\(provider.name) conectado" :
+                                 provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
+                                .fontWeight(.semibold)
+                            Spacer(minLength: 0)
+                            Color.clear.frame(width: 24, height: 1)
+                        }
+                        .foregroundStyle(OG.label)
+                        .frame(height: 48)
+                        .padding(.horizontal, 14)
+                        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
+                        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
                     }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
-                            .resizable()
-                            .renderingMode(provider.id == "claude" ? .original : .template)
-                            .scaledToFit()
-                            .frame(width: 22, height: 22)
-                            .accessibilityHidden(true)
-                        Spacer(minLength: 0)
-                        Text(connectionVerified(for: provider) ? "\(provider.name) conectado" :
-                             provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
-                            .fontWeight(.semibold)
-                        Spacer(minLength: 0)
-                        Color.clear.frame(width: 24, height: 1)
+                    .buttonStyle(.plain)
+                    .disabled(!auth.isConnected)
+                    if !connectionVerified(for: provider) {
+                        Button("Solo instrucciones de \(provider.name)") {
+                            UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+                            instructionsProvider = provider
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                        .buttonStyle(.borderless)
+                        .disabled(!auth.isConnected)
                     }
-                    .foregroundStyle(OG.label)
-                    .frame(height: 48)
-                    .padding(.horizontal, 14)
-                    .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
-                    .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
                 }
-                .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
-                .disabled(!auth.isConnected)
             }
             if !auth.isConnected {
                 Text("Inicia sesión en Repera para conectar tu asistente.")
@@ -471,8 +503,9 @@ struct AIAccessView: View {
             if let launchMessage {
                 Text(launchMessage).font(.footnote).foregroundStyle(.secondary)
             }
-            Button("Ver instrucciones") { showInstructions = true }
-                .buttonStyle(.borderless)
+            Text("La conexión se configura dentro de cada asistente (conectores MCP / plugins). Repera copia las instrucciones de ese asistente y lo abre; no hay un enlace que lo instale solo.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         } header: { Text("Elige tu asistente") }
     }
 
@@ -491,20 +524,23 @@ struct AIAccessView: View {
             "entry_point": provider.id,
             "result": "pending"
         ])
-        if provider.id == "chatgpt", !provider.isAvailable {
-            showInstructions = true
-            launchMessage = "ChatGPT aún no está disponible: falta registrar su cliente OAuth. Consulta las instrucciones."
-            return
-        }
+        // Solo instrucciones de este asistente — nunca apilar Claude+ChatGPT+Grok.
         UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
-        guard let url = AIProviderLaunch.url(for: provider.id) else {
-            launchMessage = "Las instrucciones están copiadas, pero no hay una dirección válida para este asistente."
+        if provider.id == "chatgpt", !provider.isAvailable {
+            instructionsProvider = provider
+            launchMessage = "ChatGPT aún no está disponible en Repera: falta su cliente OAuth. Revisa solo las instrucciones de ChatGPT."
             return
         }
-        launchMessage = "Instrucciones copiadas. Pégalas en \(provider.name) al abrirlo."
+        guard let url = AIProviderLaunch.url(for: provider.id) else {
+            instructionsProvider = provider
+            launchMessage = "Instrucciones de \(provider.name) listas. Ábrelo y pégalas en su configuración de conectores."
+            return
+        }
+        launchMessage = "Instrucciones de \(provider.name) copiadas. Pégalas solo en \(provider.name)."
         openURL(url) { accepted in
             if !accepted {
-                launchMessage = "No se pudo abrir \(provider.name). Las instrucciones permanecen copiadas."
+                instructionsProvider = provider
+                launchMessage = "No se pudo abrir \(provider.name). Las instrucciones de \(provider.name) permanecen copiadas."
             }
         }
     }

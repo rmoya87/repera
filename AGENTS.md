@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-07.
+Última actualización: 2026-11-08.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -145,14 +145,25 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Material / ordenación biblioteca (08/11/2026)
+
+- `ExerciseEquipmentGroup`: el **primer chip** de `equipment` gana; el nombre
+  solo infiere si el equipo es genérico (`Peso corporal` / `Máquina` / vacío).
+- No usar `contains("mat")` suelto: «neumático» acababa en Colchonetas. Token
+  seguro (`isMatEquipment`) + grupo `Neumáticos`.
+- Back lever tuck → `Anillas` (familia German hang); Couch stretch → `Pared`
+  (banco solo en coaching). Dominadas colgadas → `Barra de dominadas`, no `Barra`.
+- Contratos: `ExerciseEquipmentGroupTests`, `tests/test_equipment_symbol_contract.py`.
+  Migración remota: `20261108200000_fix_material_grouping_equipment.sql` (humano).
+
 #### Material alternativo y disponibilidad MCP (07/11/2026)
 
 - Un array plano `required_equipment` es AND, no OR. No añadir ambas ramas ni
-  vaciarlo para aparentar que «barra o mancuernas» está resuelto.
+ vaciarlo para aparentar que «barra o mancuernas» está resuelto.
 - Usar configuraciones OR de grupos AND; una máquina genérica no acredita una
-  máquina asistida concreta. Alternativas y calentamientos comparten evaluador.
+ máquina asistida concreta. Alternativas y calentamientos comparten evaluador.
 - Unificar alias de entrada no permite inferir aparatos. Probar ramas completas,
-  incompletas, legacy y datos malformados; conservar filtros musculares/articulares.
+ incompletas, legacy y datos malformados; conservar filtros musculares/articulares.
 - Código en main no equivale a migración/Edge desplegadas ni app instalada.
 
 
@@ -162,6 +173,14 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - TestFlight usa productos App Store Connect/Sandbox, **no** el catálogo local `.storekit` de Xcode. Una suscripción Sandbox vencida y `Product.products(for:)` vacío son incidencias diferentes. El paywall debe ofrecer reintento y no pedir comprar si ya hay Pro.
 - En IA, un fallo de `ai_access_tokens` **no** es una respuesta vacía. Solo mostrar «sin conexiones» tras lectura correcta; conservar configuración de proveedores ante fallo. La réplica best-effort de ejercicios no debe llenar la UI de errores internos.
 - Contrato: `tests/test_testflight_storekit_ai_reliability_contract.py`. Ningún contrato sustituye la prueba de compra real en TestFlight ni las sesiones OAuth en dispositivo.
+
+#### Debug Pro Free y espejo Watch→iPhone (08/11/2026)
+
+- Simular «Gratis» en Debug Pro **no** puede pasar por el hold de `verifiedPro` (`.free` transitorio de StoreKit). Con `overrideEnabled`, forzar el snapshot debug y limpiar la caché; al apagar, restaurar `StoreKitEntitlementProvider`. La UI del picker no es `isPro`: mostrar «Efectivo» (Center patrocinado sigue OR-eando Pro).
+- Contratos: `tests/test_debug_pro_simulation_contract.py`. Android ya aplicaba el override tras el merge.
+- Watch→iPhone: deporte Watch-owned → `LiveActivityRecorder.adoptWatchOwnedSportMirror` + misma `LiveActivityView` (no `WatchOwnedLiveMirrorView` de cards). Plan sigue en espejo. Postear `repera.openComenzarFromWatch`. Sin persistir snapshot phone ni segundo HK/GPS. Hub Watch: no `.offset(y: +N)` hacia el bisel; `padding(.bottom)`.
+- Material AbMat/parallettes/etc.: ampliar `equipmentSymbol` iOS+Android + grupo `AbMats`; contrato `tests/test_equipment_symbol_contract.py`.
+- Chips de equipo: nunca Title-Case palabra a palabra de frases ExerciseDB. Usar `ExerciseEquipmentDisplay.chips` («Colchoneta o superficie…» → `Colchoneta`; tirar «variante C»). Holds de suelo (Arch/Hollow/Candlestick) = `Colchoneta`. Remoto: migración `20261108190000_colchoneta_floor_holds_equipment.sql` (no desplegar sin confirmación).
 
 
 

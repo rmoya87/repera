@@ -65,7 +65,7 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
                 reason: .requiresPro,
                 context: .wodHistory,
                 title: "Supera tus marcas",
-                body: "Descubre cómo han evolucionado tus resultados cada vez que completas este WOD."
+                body: "Con Repera Gratis ves la mejor marca y la última. Desbloquea el historial completo de este WOD con Pro."
             )
         case .advancedProgress, .advancedReports, .progressPeriodBeyondWeek:
             return .deny(
@@ -86,7 +86,7 @@ public struct FeatureAccessPolicy: Sendable, Equatable {
                 reason: .requiresPro,
                 context: .advancedProgression,
                 title: "Progresión avanzada",
-                body: "Desbloquea recomendaciones de carga basadas en tu historial, RIR/RPE y políticas de progresión."
+                body: "La ficha ya sugiere %1RM. Con Pro, al iniciar un entreno se aplican sugerencias automáticas según historial, RIR/RPE y tu política de progresión."
             )
         }
     }

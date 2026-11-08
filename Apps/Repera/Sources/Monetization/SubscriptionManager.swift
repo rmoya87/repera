@@ -308,28 +308,40 @@ final class SubscriptionManager {
         } else if next.status == .free {
             // StoreKit a veces responde vacío en updates/arranque. Conservar
             // Pro verificado mientras caducidad futura o gracia offline (7 d).
-            let persisted = loadPersistedVerifiedPro()
-            let cachedStatus = previous.lastVerifiedProStatus
-                ?? persisted?.lastVerifiedProStatus
-            let cachedAt = previous.lastVerifiedProAt ?? persisted?.lastVerifiedProAt
-            let expiration = next.expirationDate
-                ?? previous.expirationDate
-                ?? persisted?.expirationDate
-            if let cachedStatus, cachedStatus.grantsProAccess {
-                let hold = CommercialSnapshot(
-                    status: .unknown,
-                    lastVerifiedProStatus: cachedStatus,
-                    lastVerifiedProAt: cachedAt ?? Date(),
-                    expirationDate: expiration,
-                    activeProductID: next.activeProductID
-                        ?? previous.activeProductID
-                        ?? persisted?.activeProductID,
-                    isConfigured: true,
-                    lastRefreshFailedOffline: true
-                )
-                if hold.grantsProAccess {
-                    next = hold
+            // Debug Pro debe poder forzar Gratis aunque exista caché local
+            // (p. ej. Mac Designed for iPad con historial .storekit).
+            #if DEBUG
+            let debugForcesCommercialStatus =
+                DebugEntitlementController.shared.overrideEnabled
+            #else
+            let debugForcesCommercialStatus = false
+            #endif
+            if !debugForcesCommercialStatus {
+                let persisted = loadPersistedVerifiedPro()
+                let cachedStatus = previous.lastVerifiedProStatus
+                    ?? persisted?.lastVerifiedProStatus
+                let cachedAt = previous.lastVerifiedProAt ?? persisted?.lastVerifiedProAt
+                let expiration = next.expirationDate
+                    ?? previous.expirationDate
+                    ?? persisted?.expirationDate
+                if let cachedStatus, cachedStatus.grantsProAccess {
+                    let hold = CommercialSnapshot(
+                        status: .unknown,
+                        lastVerifiedProStatus: cachedStatus,
+                        lastVerifiedProAt: cachedAt ?? Date(),
+                        expirationDate: expiration,
+                        activeProductID: next.activeProductID
+                            ?? previous.activeProductID
+                            ?? persisted?.activeProductID,
+                        isConfigured: true,
+                        lastRefreshFailedOffline: true
+                    )
+                    if hold.grantsProAccess {
+                        next = hold
+                    }
                 }
+            } else if !next.grantsProAccess {
+                UserDefaults.standard.removeObject(forKey: Self.verifiedProCacheKey)
             }
         }
         applySnapshot(next)
@@ -413,7 +425,13 @@ final class SubscriptionManager {
 
     #if DEBUG
     func applyDebugProvider() {
-        provider = DebugEntitlementController.shared.provider
+        if DebugEntitlementController.shared.overrideEnabled {
+            provider = DebugEntitlementController.shared.provider
+        } else {
+            // Al apagar la simulación, volver a StoreKit real (no dejar
+            // DebugEntitlementProvider emitiendo .free y rehidratando caché).
+            provider = StoreKitEntitlementProvider()
+        }
         Task { await refresh(reason: "debug") }
     }
     #endif
