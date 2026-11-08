@@ -629,7 +629,7 @@ class VisualVerificationInstrumentedTest {
                         inboxConflicts = listOf(
                             "2026-10-26: el ejercicio 'Pistol squat' no existe"),
                         onRefresh = {}, onCreate = { _, _, _ -> },
-                        onRevoke = {}, onDecide = { _, _ -> },
+                        onRevoke = {}, onDelete = {}, onDecide = { _, _ -> },
                         onDismissCreated = {}, onCopyCreated = {})
                 }
             }

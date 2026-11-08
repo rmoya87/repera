@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Entrenamiento outdoor con GPS | Repera</title>
+  <meta name="description" content="Ruta en el mapa, ritmo, zonas de pulso y avisos hablados por kilómetro para correr, ir en bici o caminar con Repera.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <link rel="canonical" href="https://repera.app/outdoor">
+  <link rel="icon" href="/assets/favicon-32.png?v=20261108" type="image/png" sizes="32x32">
+  <link rel="icon" href="/assets/icon.png?v=20261108" type="image/png" sizes="180x180">
+  <link rel="apple-touch-icon" href="/assets/icon.png?v=20261108">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Repera">
+  <meta property="og:title" content="Entrenamiento outdoor con GPS | Repera">
+  <meta property="og:description" content="Ruta en el mapa, ritmo, zonas de pulso y avisos hablados por kilómetro para correr, ir en bici o caminar con Repera.">
+  <meta property="og:url" content="https://repera.app/outdoor">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://repera.app/assets/og-default.png">
+  <meta property="og:image:alt" content="Repera — diario de entrenamiento">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Entrenamiento outdoor con GPS | Repera">
+  <meta name="twitter:description" content="Ruta en el mapa, ritmo, zonas de pulso y avisos hablados por kilómetro para correr, ir en bici o caminar con Repera.">
+  <meta name="twitter:image" content="https://repera.app/assets/og-default.png">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+  <header class="site-header">
+    <div class="wrap nav">
+      <a class="brand" href="/" aria-label="Repera inicio">
+        <img src="/assets/icon.png" width="28" height="28" alt="">
+        repera
+      </a>
+      <nav aria-label="Principal">
+        <ul class="nav-links">
+          <li><a href="/">Inicio</a></li>
+          <li><a href="/funcionalidades">Funcionalidades</a></li>
+          <li class="has-sub">
+            <div class="nav-sub-trigger">
+              <a href="/casos">Casos de uso</a>
+              <button type="button" class="sub-toggle" data-sub-toggle aria-expanded="false" aria-controls="casos-sub" aria-label="Menú de actividades">▾</button>
+            </div>
+            <div class="nav-sub" id="casos-sub" data-sub-panel hidden>
+              <div class="sub-head">
+                <p class="eyebrow">Casos de uso por actividad</p>
+                <a class="sub-all" href="/casos">Ver la página general →</a>
+              </div>
+              <div class="sub-in">
+            <div class="sub-col">
+              <p>A pie</p>
+              <a href="/casos/carrera"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 21l2-6 2 2 3 4M10 15l-2 2H5l3-7 4-1 2 3"/></svg><span>Carrera</span></a>
+              <a href="/casos/carrera-montana"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 21l2-6 2 2 3 4M10 15l-2 2H5l3-7 4-1 2 3"/></svg><span>Carrera de montaña</span></a>
+              <a href="/casos/caminata"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M9 21l2-7 2 2 2 5M11 14l-3 1-1-5 4-2 2 3"/></svg><span>Caminata</span></a>
+              <a href="/casos/senderismo"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 21l3-8 2 2 3 6M11 13l-4 7M14 13l3 3"/></svg><span>Senderismo</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Ciclismo</p>
+              <a href="/casos/ciclismo-carretera"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M6 16l4-8h4l4 8M10 8l2 4"/></svg><span>Ciclismo de carretera</span></a>
+              <a href="/casos/ciclismo-montana"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M6 16l4-8h4l4 8M10 8l2 4"/></svg><span>Ciclismo de montaña</span></a>
+              <a href="/casos/gravel"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M6 16l4-8h4l4 8M10 8l2 4"/></svg><span>Bicicleta de gravel</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Fuerza y fitness</p>
+              <a href="/casos/entrenamiento"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h12v4H6zM4 11v2M20 11v2M8 8v8M16 8v8"/></svg><span>Entrenamiento</span></a>
+              <a href="/casos/crossfit"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M6 9h12M8 15h8"/></svg><span>CrossFit</span></a>
+              <a href="/casos/hiit"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M9 3h6"/></svg><span>HIIT</span></a>
+              <a href="/casos/hyrox"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M6 9h12M8 15h8"/></svg><span>HYROX</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Deportes de raqueta</p>
+              <a href="/casos/tenis"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/></svg><span>Tenis</span></a>
+              <a href="/casos/padel"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/></svg><span>Pádel</span></a>
+              <a href="/casos/badminton"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/></svg><span>Bádminton</span></a>
+              <a href="/casos/pickleball"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/></svg><span>Pickleball</span></a>
+              <a href="/casos/squash"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/></svg><span>Squash</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Deportes acuáticos</p>
+              <a href="/casos/natacion"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0M4 10c1.5-3 4-5 8-5s6.5 2 8 5"/></svg><span>Natación</span></a>
+              <a href="/casos/surf"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16c4-6 12-6 16 0M8 16l4-8 4 8"/></svg><span>Surf</span></a>
+              <a href="/casos/windsurf"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v16M12 4c4 2 6 6 6 10H12M6 20h12"/></svg><span>Windsurf</span></a>
+              <a href="/casos/kitesurf"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16c4-6 12-6 16 0M8 16l4-8 4 8"/></svg><span>Kitesurf</span></a>
+              <a href="/casos/kayak"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16M6 14l2-4h8l2 4M8 18h8"/></svg><span>Kayak</span></a>
+              <a href="/casos/remo"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16M6 14l2-4h8l2 4M8 18h8"/></svg><span>Remo</span></a>
+              <a href="/casos/piragua"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16M6 14l2-4h8l2 4M8 18h8"/></svg><span>Piragua</span></a>
+              <a href="/casos/vela"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v16M12 4c4 2 6 6 6 10H12M6 20h12"/></svg><span>Vela</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Deportes de invierno</p>
+              <a href="/casos/esqui-alpino"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20l10-14M10 20l8-10M8 8l2 2"/></svg><span>Esquí alpino</span></a>
+              <a href="/casos/snowboard"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7l14 10M19 7L5 17"/></svg><span>Snowboard</span></a>
+              <a href="/casos/esqui-fondo"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20l10-14M10 20l8-10M8 8l2 2"/></svg><span>Esquí de fondo</span></a>
+              <a href="/casos/patinaje-hielo"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M5 14h14l-2-6H7z"/></svg><span>Patinaje sobre hielo</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Deportes de equipo</p>
+              <a href="/casos/futbol"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Fútbol</span></a>
+              <a href="/casos/baloncesto"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Baloncesto</span></a>
+              <a href="/casos/voleibol"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Voleibol</span></a>
+              <a href="/casos/futbol-americano"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Fútbol americano</span></a>
+              <a href="/casos/beisbol"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Béisbol</span></a>
+              <a href="/casos/hockey"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Hockey</span></a>
+              <a href="/casos/lacrosse"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Lacrosse</span></a>
+              <a href="/casos/rugby"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/></svg><span>Rugby</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Combate</p>
+              <a href="/casos/boxeo"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h3l2 2h5v3H8zM7 8l-2 2v5l2 2"/></svg><span>Boxeo</span></a>
+              <a href="/casos/kickboxing"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h3l2 2h5v3H8zM7 8l-2 2v5l2 2"/></svg><span>Kickboxing</span></a>
+              <a href="/casos/artes-marciales"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h3l2 2h5v3H8zM7 8l-2 2v5l2 2"/></svg><span>Artes marciales</span></a>
+              <a href="/casos/lucha"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h3l2 2h5v3H8zM7 8l-2 2v5l2 2"/></svg><span>Lucha</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Cardio y gimnasio</p>
+              <a href="/casos/fuerza-funcional"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h12v4H6zM4 11v2M20 11v2M8 8v8M16 8v8"/></svg><span>Fuerza funcional</span></a>
+              <a href="/casos/core"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 8v8M9 12h6"/></svg><span>Core</span></a>
+            </div>
+            <div class="sub-col">
+              <p>Otros deportes</p>
+              <a href="/casos/golf"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M10 21l2-10 6 3M12 11v10"/></svg><span>Golf</span></a>
+              <a href="/casos/escalada"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20l2-6 3 2 3-8M12 4l2 3"/></svg><span>Escalada</span></a>
+              <a href="/casos/baile"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M9 21l3-8 3 8M9 12h6"/></svg><span>Baile</span></a>
+              <a href="/casos/pilates"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 20c0-4 2-6 4-6s4 2 4 6M8 12h8"/></svg><span>Pilates</span></a>
+              <a href="/casos/skateboard"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M5 14h14l-2-6H7z"/></svg><span>Skateboard</span></a>
+              <a href="/casos/yoga"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 20c0-4 2-6 4-6s4 2 4 6M8 12h8"/></svg><span>Yoga</span></a>
+              <a href="/casos/movilidad"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M8 20c0-4 2-6 4-6s4 2 4 6M8 12h8"/></svg><span>Movilidad</span></a>
+              <a href="/casos/otra-actividad"><svg class="sport-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><span>Otra actividad</span></a>
+            </div>
+              </div>
+            </div>
+          </li>
+          <li><a href="/outdoor" aria-current="page">Outdoor</a></li>
+          <li><a href="/recuperacion">Recuperación</a></li>
+          <li><a href="/ia">Conecta tu IA</a></li>
+          <li><a href="/precios">Precios</a></li>
+          <li><a class="btn btn-primary btn-nav" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">App Store</a></li>
+        </ul>
+      </nav>
+      <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="menu-movil" aria-label="Abrir menú">☰</button>
+    </div>
+    <div class="wrap nav-drawer" id="menu-movil" data-nav-drawer>
+      <ul>
+        <li><a href="/">Inicio</a></li>
+        <li><a href="/funcionalidades">Funcionalidades</a></li>
+        <li class="drawer-casos">
+          <div class="mrow">
+            <a href="/casos">Casos de uso</a>
+            <button type="button" class="msub-t" data-msub-toggle aria-expanded="false" aria-label="Actividades de casos de uso">+</button>
+          </div>
+          <div class="msub" data-msub hidden>
+            <a href="/casos" class="msub-all">Página general de casos de uso</a>
+          <div class="msub-g"><p>A pie</p><a href="/casos/carrera">Carrera</a><a href="/casos/carrera-montana">Carrera de montaña</a><a href="/casos/caminata">Caminata</a><a href="/casos/senderismo">Senderismo</a></div>
+          <div class="msub-g"><p>Ciclismo</p><a href="/casos/ciclismo-carretera">Ciclismo de carretera</a><a href="/casos/ciclismo-montana">Ciclismo de montaña</a><a href="/casos/gravel">Bicicleta de gravel</a></div>
+          <div class="msub-g"><p>Fuerza y fitness</p><a href="/casos/entrenamiento">Entrenamiento</a><a href="/casos/crossfit">CrossFit</a><a href="/casos/hiit">HIIT</a><a href="/casos/hyrox">HYROX</a></div>
+          <div class="msub-g"><p>Deportes de raqueta</p><a href="/casos/tenis">Tenis</a><a href="/casos/padel">Pádel</a><a href="/casos/badminton">Bádminton</a><a href="/casos/pickleball">Pickleball</a><a href="/casos/squash">Squash</a></div>
+          <div class="msub-g"><p>Deportes acuáticos</p><a href="/casos/natacion">Natación</a><a href="/casos/surf">Surf</a><a href="/casos/windsurf">Windsurf</a><a href="/casos/kitesurf">Kitesurf</a><a href="/casos/kayak">Kayak</a><a href="/casos/remo">Remo</a><a href="/casos/piragua">Piragua</a><a href="/casos/vela">Vela</a></div>
+          <div class="msub-g"><p>Deportes de invierno</p><a href="/casos/esqui-alpino">Esquí alpino</a><a href="/casos/snowboard">Snowboard</a><a href="/casos/esqui-fondo">Esquí de fondo</a><a href="/casos/patinaje-hielo">Patinaje sobre hielo</a></div>
+          <div class="msub-g"><p>Deportes de equipo</p><a href="/casos/futbol">Fútbol</a><a href="/casos/baloncesto">Baloncesto</a><a href="/casos/voleibol">Voleibol</a><a href="/casos/futbol-americano">Fútbol americano</a><a href="/casos/beisbol">Béisbol</a><a href="/casos/hockey">Hockey</a><a href="/casos/lacrosse">Lacrosse</a><a href="/casos/rugby">Rugby</a></div>
+          <div class="msub-g"><p>Combate</p><a href="/casos/boxeo">Boxeo</a><a href="/casos/kickboxing">Kickboxing</a><a href="/casos/artes-marciales">Artes marciales</a><a href="/casos/lucha">Lucha</a></div>
+          <div class="msub-g"><p>Cardio y gimnasio</p><a href="/casos/fuerza-funcional">Fuerza funcional</a><a href="/casos/core">Core</a></div>
+          <div class="msub-g"><p>Otros deportes</p><a href="/casos/golf">Golf</a><a href="/casos/escalada">Escalada</a><a href="/casos/baile">Baile</a><a href="/casos/pilates">Pilates</a><a href="/casos/skateboard">Skateboard</a><a href="/casos/yoga">Yoga</a><a href="/casos/movilidad">Movilidad</a><a href="/casos/otra-actividad">Otra actividad</a></div>
+          </div>
+        </li>
+        <li><a href="/outdoor">Outdoor</a></li>
+        <li><a href="/recuperacion">Recuperación</a></li>
+        <li><a href="/ia">Conecta tu IA</a></li>
+        <li><a href="/precios">Precios</a></li>
+        <li><a href="/soporte">Soporte</a></li>
+        <li><a href="/faq">FAQ</a></li>
+        <li><a href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">Descargar en App Store</a></li>
+      </ul>
+    </div>
+  </header>
+  <main id="contenido">
+    <section class="hero hero--sm outdoor-hero">
+      <div class="wrap outdoor-hero-grid" data-reveal>
+        <div>
+          <p class="eyebrow">Outdoor</p>
+          <h1>Donde acaba el asfalto, <em>no acaba tu diario.</em></h1>
+          <p class="lede">GPS, ritmo y zonas de pulso en el mismo sitio que tus series del gym. El lunes de fuerza y el domingo de monte cuentan juntos.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">Descargar en App Store</a>
+            <a class="btn btn-ghost" href="/casos">Casos de carrera y ciclismo</a>
+          </div>
+        </div>
+        <div>
+<div class="pace-map pace-map--hero" role="img" aria-label="Mapa ilustrativo con recorrido coloreado por ritmo">
+  <div class="pace-hud" aria-hidden="true">
+    <span><strong>8,42</strong> km</span>
+    <span><strong>4:52</strong> /km</span>
+    <span class="pace-hud-zone">Z3</span>
+    <span><strong>+186</strong> m</span>
+  </div>
+  <svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="paceGradOut" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#30d158"/>
+        <stop offset="35%" stop-color="#a0e548"/>
+        <stop offset="65%" stop-color="#ffd60a"/>
+        <stop offset="100%" stop-color="#ff453a"/>
+      </linearGradient>
+      <filter id="paceGradOutGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g opacity="0.22" stroke="#5a6a5e" stroke-width="1" fill="none">
+      <path d="M30 50h580v260H30z"/>
+      <path d="M30 115h580M30 180h580M30 245h580M175 50v260M320 50v260M465 50v260"/>
+      <path d="M80 300 C 160 220, 200 140, 280 160 S 360 240, 420 200 S 500 90, 580 80" stroke-dasharray="4 6"/>
+    </g>
+    <path class="route-draw" d="M70 270 C 130 250, 160 210, 200 175 S 270 115, 320 135 S 390 215, 440 195 S 510 115, 570 95" fill="none" stroke="url(#paceGradOut)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#paceGradOutGlow)"/>
+    <path d="M70 270 C 130 250, 160 210, 200 175" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+    <path d="M200 175 S 270 115, 320 135" fill="none" stroke="#a0e548" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+    <path d="M320 135 S 390 215, 440 195" fill="none" stroke="#ffd60a" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+    <path d="M440 195 S 510 115, 570 95" fill="none" stroke="#ff453a" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+    <circle cx="70" cy="270" r="8" fill="#30d158"/><circle cx="70" cy="270" r="14" fill="none" stroke="#30d158" stroke-opacity="0.35"/>
+    <circle cx="570" cy="95" r="8" fill="#ff453a"/><circle cx="570" cy="95" r="14" fill="none" stroke="#ff453a" stroke-opacity="0.35"/>
+  </svg>
+  <div class="pace-legend">
+    <span><i style="background:#30d158"></i> Suave</span>
+    <span><i style="background:#a0e548"></i> Firme</span>
+    <span><i style="background:#ffd60a"></i> Medio</span>
+    <span><i style="background:#ff453a"></i> Rápido</span>
+  </div>
+</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section outdoor-journey">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Así es una salida</p>
+          <h2>De la puerta de casa al análisis</h2>
+        </div>
+        <div class="journey-track" data-reveal>
+          <article class="journey-card journey-card--before">
+            <span class="journey-kicker">01 · Antes</span>
+            <h3>Condiciones y cuenta atrás</h3>
+            <p>Clima del punto de salida. Si sopla fuerte, igual la ruta va por el interior. Tres segundos y sales.</p>
+            <ul class="journey-chips"><li>Clima</li><li>GPX</li><li>Cuenta atrás</li></ul>
+          </article>
+          <article class="journey-card journey-card--live">
+            <span class="journey-kicker">02 · Durante</span>
+            <h3>Sin mirar el móvil</h3>
+            <p>El GPS dibuja la ruta. Ritmo, desnivel y zona de pulso. Avisos hablados por km, también con pantalla bloqueada.</p>
+            <div class="live-pulse" aria-hidden="true"><i></i><i></i><i></i></div>
+          </article>
+          <article class="journey-card journey-card--after">
+            <span class="journey-kicker">03 · Después</span>
+            <h3>Queda en el diario</h3>
+            <p>Distancia, tiempo, ritmo y mapa junto al resto de tu semana. Sin exportar a otra app.</p>
+            <div class="after-spark" aria-hidden="true"></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--alt outdoor-caps">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="eyebrow">Qué incluye</p>
+          <h2>Pensado para la salida de hoy</h2>
+        </div>
+        <div class="cap-mosaic" data-reveal>
+          <article class="cap-panel cap-panel--map">
+            <h3>Ruta en el mapa</h3>
+            <p>Sigue el recorrido en directo y revísalo al terminar. Los cortes de señal no se rellenan con rectas inventadas.</p>
+          </article>
+          <article class="cap-panel">
+            <span class="cap-icon" aria-hidden="true">↗</span>
+            <h3>Ritmo y desnivel</h3>
+            <p>Los datos que importan mientras te mueves.</p>
+          </article>
+          <article class="cap-panel">
+            <span class="cap-icon" aria-hidden="true">♥</span>
+            <h3>Zonas de pulso</h3>
+            <p>Intensidad a la vista, con permiso de Salud.</p>
+          </article>
+          <article class="cap-panel">
+            <span class="cap-icon" aria-hidden="true">♪</span>
+            <h3>Avisos por km</h3>
+            <p>Tiempo del tramo en voz alta.</p>
+          </article>
+          <article class="cap-panel">
+            <span class="cap-icon" aria-hidden="true">⌖</span>
+            <h3>Guía GPX</h3>
+            <p>Giros anunciados si sigues una ruta guardada.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap editorial-split">
+        <div data-reveal>
+          <h2>En la app de hoy</h2>
+          <p class="lede">Cada salida guarda fecha, hora, duración y su lugar. Sustituye o amplía esta captura cuando tengas un mapa en directo.</p>
+        </div>
+        <figure class="phone-shot" data-reveal>
+          <img src="/assets/screens/cap-actividad.jpg" alt="Captura real: editar entreno con lugar en el mapa" width="589" height="1200" loading="lazy">
+        </figure>
+      </div>
+    </section>
+
+    <section class="cta-band" aria-labelledby="cta-title">
+      <div class="wrap" data-reveal>
+        <h2 id="cta-title">Sal y que quede registrado</h2>
+        <p class="lede">Repera en App Store — iPhone y Apple Watch.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">Descargar en App Store</a>
+          <span class="btn btn-disabled" aria-disabled="true">Google Play · Próximamente</span>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap footer-grid">
+      <div>
+        <a class="brand" href="/">
+          <img src="/assets/icon.png" width="28" height="28" alt="">
+          repera
+        </a>
+        <p class="muted footer-tag">Diario de entrenamiento local-first para iPhone y Apple Watch. Android en camino.</p>
+      </div>
+      <div>
+        <h3>Producto</h3>
+        <ul>
+          <li><a href="/funcionalidades">Funcionalidades</a></li>
+          <li><a href="/casos">Casos de uso</a></li>
+          <li><a href="/outdoor">Outdoor</a></li>
+          <li><a href="/recuperacion">Recuperación</a></li>
+          <li><a href="/ia">Conecta tu IA</a></li>
+          <li><a href="/precios">Precios</a></li>
+          <li><a href="/console/">Acceso profesional</a></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Legal y cuenta</h3>
+        <ul>
+          <li><a href="/privacy">Privacidad</a></li>
+          <li><a href="/terms">Términos de uso</a></li>
+          <li><a href="/faq">FAQ</a></li>
+          <li><a href="/soporte">Soporte</a></li>
+          <li><a href="#" data-cookie-open>Preferencias de cookies</a></li>
+          <li><a href="https://apps.apple.com/account/subscriptions" rel="noopener noreferrer">Gestionar suscripción (Apple)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer-copy">
+      <p>© <span id="y"></span> Repera. Apple, App Store y Apple Watch son marcas de Apple Inc.</p>
+    </div>
+  </footer>
+  <div class="cookie-banner" data-cookie-banner role="dialog" aria-labelledby="cookie-title" aria-live="polite" hidden>
+    <div class="cookie-inner">
+      <p id="cookie-title"><strong>Cookies y privacidad.</strong> Usamos almacenamiento local esencial para recordar tu elección. La analítica opcional solo se activa si la aceptas. <a href="/privacy#cookies">Más información</a>.</p>
+      <div class="cookie-actions">
+        <button type="button" class="btn btn-ghost" data-cookie-reject>Solo esenciales</button>
+        <button type="button" class="btn btn-ghost" data-cookie-customize>Configurar</button>
+        <button type="button" class="btn btn-primary" data-cookie-accept>Aceptar</button>
+      </div>
+    </div>
+  </div>
+  <div class="cookie-panel" data-cookie-panel role="dialog" aria-labelledby="cookie-panel-title" hidden>
+    <h2 id="cookie-panel-title">Preferencias</h2>
+    <p class="muted" style="margin:0;font-size:0.9rem">Elige qué categorías permitir. Las esenciales no se pueden desactivar.</p>
+    <fieldset>
+      <div class="cookie-option">
+        <label for="cookie-necessary">Esenciales</label>
+        <input id="cookie-necessary" type="checkbox" checked disabled>
+        <p>Necesarias para el sitio y para guardar esta preferencia.</p>
+      </div>
+      <div class="cookie-option">
+        <label for="cookie-analytics">Analítica</label>
+        <input id="cookie-analytics" name="analytics" type="checkbox">
+        <p>Ayuda a mejorar el sitio. Desactivada por defecto.</p>
+      </div>
+    </fieldset>
+    <div class="cookie-actions">
+      <button type="button" class="btn btn-ghost" data-cookie-close>Cerrar</button>
+      <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
+    </div>
+  </div>
+  <script src="/js/site.js" defer></script>
+</body>
+</html>

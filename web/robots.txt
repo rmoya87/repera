@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
 
+Disallow: /console/
+Disallow: /ai/
+
 Sitemap: https://repera.app/sitemap.xml

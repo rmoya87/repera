@@ -1,0 +1,14 @@
+{
+  "siteUrl": "https://repera.app",
+  "appStoreUrl": "https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509",
+  "ogImage": "https://repera.app/assets/og-default.png",
+  "themeColor": "#000000",
+  "locale": "es_ES",
+  "supportEmail": null,
+  "pricing": {
+    "monthlyEur": "5,99",
+    "yearlyEur": "39,99",
+    "disclaimer": "Importes orientativos para España. El precio final es el de App Store en tu país y moneda."
+  },
+  "androidStatus": "Próximamente en Google Play"
+}

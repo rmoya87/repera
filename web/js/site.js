@@ -5,11 +5,30 @@
   // —— Nav ——
   const toggle = document.querySelector("[data-nav-toggle]");
   const drawer = document.querySelector("[data-nav-drawer]");
+  const subToggle = document.querySelector("[data-sub-toggle]");
+  const subPanel = document.querySelector("[data-sub-panel]");
+  const msubToggle = document.querySelector("[data-msub-toggle]");
+  const msub = document.querySelector("[data-msub]");
+
+  const setSub = (open) => {
+    if (!subToggle || !subPanel) return;
+    subToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    subPanel.hidden = !open;
+  };
+
+  const setMsub = (open) => {
+    if (!msubToggle || !msub) return;
+    msubToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    msubToggle.textContent = open ? "−" : "+";
+    msub.hidden = !open;
+  };
+
   if (toggle && drawer) {
     const setOpen = (open) => {
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
       drawer.classList.toggle("is-open", open);
       document.body.classList.toggle("nav-open", open);
+      if (!open) setMsub(false);
     };
 
     toggle.addEventListener("click", () => {
@@ -21,7 +40,28 @@
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        setSub(false);
+      }
+    });
+  }
+
+  if (subToggle && subPanel) {
+    subToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setSub(subPanel.hidden);
+    });
+    document.addEventListener("click", (e) => {
+      const root = subToggle.closest(".has-sub");
+      if (root && !root.contains(e.target)) setSub(false);
+    });
+  }
+
+  if (msubToggle && msub) {
+    msubToggle.addEventListener("click", () => {
+      setMsub(msub.hidden);
     });
   }
 

@@ -109,6 +109,7 @@ fun AIAccessScreen(
     onRefresh: () -> Unit,
     onCreate: (String, String, Boolean) -> Unit,
     onRevoke: (String) -> Unit,
+    onDelete: (AIAccessStore.TokenInfo) -> Unit,
     onDecide: (AIChangeRequestStore.Change, Boolean) -> Unit,
     onDismissCreated: () -> Unit,
     onCopyCreated: () -> Unit,
@@ -180,6 +181,9 @@ fun AIAccessScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+                val context = androidx.compose.ui.platform.LocalContext.current
+                var launchHint by remember { mutableStateOf<String?>(null) }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     providers?.first?.forEach { provider ->
                         val verified = provider.oauthClientID != null && tokens.orEmpty().any {
@@ -197,7 +201,19 @@ fun AIAccessScreen(
                                             "result" to "pending"
                                         )
                                     )
-                                    instructionsFor = provider
+                                    val prompt = AIProviderLaunch.instructions(provider)
+                                    clipboard.setText(
+                                        androidx.compose.ui.text.AnnotatedString(prompt)
+                                    )
+                                    val opened = AIProviderLaunch.openProvider(
+                                        context, provider.id, prompt
+                                    )
+                                    launchHint = if (opened) {
+                                        "Abriendo ${provider.name} con las instrucciones en un chat nuevo (también copiadas)."
+                                    } else {
+                                        instructionsFor = provider
+                                        "No se pudo abrir ${provider.name}. Las instrucciones permanecen copiadas."
+                                    }
                                 }
                             },
                             enabled = connected,
@@ -220,7 +236,7 @@ fun AIAccessScreen(
                             )
                             Spacer(Modifier.width(12.dp))
                             Text(
-                                if (verified) "${provider.name} conectado"
+                                if (verified) "Desactivar ${provider.name}"
                                 else "Continuar con ${provider.name}"
                             )
                         }
@@ -233,14 +249,13 @@ fun AIAccessScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                TextButton(
-                    onClick = {
-                        instructionsFor = providers?.first?.firstOrNull()
-                            ?: AIAccessStore.AIProvider("grok", "Grok", null, null)
-                    },
-                    enabled = true,
-                    modifier = Modifier.testTag("ai_ver_instrucciones")
-                ) { Text("Ver instrucciones") }
+                launchHint?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         // Apple 0a640da8: confirmationDialog "Desconectar asistente".
@@ -260,7 +275,7 @@ fun AIAccessScreen(
             val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
             val context = androidx.compose.ui.platform.LocalContext.current
             AlertDialog(onDismissRequest = { instructionsFor = null },
-                title = { Text("Instrucciones") },
+                title = { Text(provider.name) },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         Text(text, style = MaterialTheme.typography.bodySmall)
@@ -269,11 +284,7 @@ fun AIAccessScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
-                        AIProviderLaunch.urlFor(provider.id)?.let { url ->
-                            context.startActivity(android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(url)))
-                        }
+                        AIProviderLaunch.openProvider(context, provider.id, text)
                         instructionsFor = null
                     }) { Text("Copiar y abrir ${provider.name}") }
                 },
@@ -367,63 +378,82 @@ fun AIAccessScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             else -> tokens.forEach { token ->
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(token.label,
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.weight(1f))
-                            // Apple: Conectado / Pendiente de conexión / Desconectado
-                            Text(if (token.isActive)
-                                    (if (token.hasConnected) "Conectado"
-                                     else "Pendiente de conexión")
-                                 else "Desconectado",
-                                style = MaterialTheme.typography.labelSmall,
-                                // Apple: caption en color secundario siempre
+                val openProvider = if (token.hasConnected && token.oauthClientID != null)
+                    providers?.first?.firstOrNull { it.name == token.label }
+                else null
+                ReperaSwipeDeleteRow(
+                    canDelete = !busy,
+                    onDelete = { onDelete(token) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(token.label,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f))
+                                Text(if (token.isActive)
+                                        (if (token.hasConnected) "Conectado"
+                                         else "Pendiente de conexión")
+                                     else "Desconectado",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(token.tokenPrefix + "…",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(token.tokenPrefix + "…",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        // Apple: scopes training:write
-                        Text(if (token.canWrite) "Puede consultar y preparar entrenamientos"
-                            else "Puede consultar tus entrenamientos",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        aiLastUseLabel(token)?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        // Apple: la caducidad se oculta en conexiones OAuth
-                        if (token.oauthClientID == null) {
-                            Text(aiExpiryLabel(token),
+                            Text(if (token.canWrite) "Puede consultar y preparar entrenamientos"
+                                else "Puede consultar tus entrenamientos",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (token.isActive) {
-                            // Apple: "Abrir {provider}" solo con hasConnected +
-                            // oauth_client_id y proveedor del catálogo por nombre
-                            val openProvider = if (token.hasConnected &&
-                                    token.oauthClientID != null)
-                                providers?.first?.firstOrNull { it.name == token.label }
-                            else null
-                            if (openProvider != null &&
-                                openProvider.id in listOf("chatgpt", "claude")) {
-                                val context = androidx.compose.ui.platform.LocalContext.current
-                                TextButton(onClick = {
-                                    val url = if (openProvider.id == "chatgpt")
-                                        "https://chatgpt.com/" else "https://claude.ai/"
-                                    context.startActivity(android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(url)))
-                                }, enabled = !busy) { Text("Abrir " + openProvider.name) }
+                            aiLastUseLabel(token)?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            TextButton(onClick = { onRevoke(token.id) },
-                                enabled = !busy) {
-                                Text("Desconectar",
-                                    color = MaterialTheme.colorScheme.error)
+                            if (token.oauthClientID == null) {
+                                Text(aiExpiryLabel(token),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (token.isActive) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    TextButton(
+                                        onClick = { onRevoke(token.id) },
+                                        enabled = !busy
+                                    ) {
+                                        Text(
+                                            "Desactivar",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    if (openProvider != null &&
+                                        openProvider.id in listOf("chatgpt", "claude", "grok")
+                                    ) {
+                                        val context =
+                                            androidx.compose.ui.platform.LocalContext.current
+                                        val clipboard =
+                                            androidx.compose.ui.platform.LocalClipboardManager.current
+                                        TextButton(
+                                            onClick = {
+                                                val prompt =
+                                                    AIProviderLaunch.instructions(openProvider)
+                                                clipboard.setText(
+                                                    androidx.compose.ui.text.AnnotatedString(prompt)
+                                                )
+                                                AIProviderLaunch.openProvider(
+                                                    context, openProvider.id, prompt
+                                                )
+                                            },
+                                            enabled = !busy
+                                        ) { Text("Abrir " + openProvider.name) }
+                                    }
+                                }
                             }
                         }
                     }
@@ -574,18 +604,17 @@ private fun setChangeLabel(change: JSONObject): String {
         parts.joinToString(" · ")
 }
 
-/** Apple 0a640da8: confirmationDialog "Desconectar asistente" (copy 1:1).
- *  Interno para render headless inspeccionable. */
+/** confirmationDialog «Desactivar asistente» (paridad iOS). */
 @Composable
 internal fun DisconnectAssistantDialog(providerName: String,
                                        onConfirm: () -> Unit,
                                        onDismiss: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss,
-        title = { Text("Desconectar asistente") },
+        title = { Text("Desactivar asistente") },
         text = { Text("Se revocará el acceso del asistente a tu cuenta de Repera.") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Desconectar " + providerName,
+                Text("Desactivar " + providerName,
                     color = MaterialTheme.colorScheme.error)
             }
         },

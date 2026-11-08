@@ -110,9 +110,45 @@ private struct AIConnectionCatalog: Decodable {
 private enum AIProviderLaunch {
     static let server = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 
-    static func url(for id: String) -> URL? {
-        let values = ["chatgpt": "https://chatgpt.com/", "claude": "https://claude.ai/", "grok": "https://grok.com/"]
-        return values[id].flatMap(URL.init(string:))
+    /// Chat nuevo con el prompt en `q` (Universal Links abren la app si está).
+    static func chatURL(for id: String, prompt: String) -> URL? {
+        let base: String
+        switch id {
+        case "chatgpt": base = "https://chatgpt.com/"
+        case "claude": base = "https://claude.ai/new"
+        case "grok": base = "https://grok.com/"
+        default: return nil
+        }
+        var components = URLComponents(string: base)
+        components?.queryItems = [URLQueryItem(name: "q", value: prompt)]
+        return components?.url
+    }
+
+    /// Claude: esquema nativo documentado primero; ChatGPT/Grok: HTTPS con `?q=`
+    /// (AASA / App Links abren la app instalada con el prompt; `chatgpt://` no lo garantiza).
+    static func preferredLaunchURLs(for id: String, prompt: String) -> [URL] {
+        var urls: [URL] = []
+        if id == "claude" {
+            var app = URLComponents(string: "claude://claude.ai/new")
+            app?.queryItems = [URLQueryItem(name: "q", value: prompt)]
+            if let appURL = app?.url { urls.append(appURL) }
+        }
+        if let web = chatURL(for: id, prompt: prompt) { urls.append(web) }
+        return urls
+    }
+
+    /// Elige URL instalable (esquema custom si `canOpenURL`, si no HTTPS). Solo MainActor.
+    @MainActor
+    static func preferredOpenURL(for id: String, prompt: String) -> URL? {
+        for url in preferredLaunchURLs(for: id, prompt: prompt) {
+            let isCustomScheme = url.scheme != "https" && url.scheme != "http"
+            if isCustomScheme {
+                if UIApplication.shared.canOpenURL(url) { return url }
+                continue
+            }
+            return url
+        }
+        return nil
     }
 
     static func setupHint(for provider: AIConnectionProvider) -> String {
@@ -222,6 +258,8 @@ struct AIAccessView: View {
     @State private var hasLoadedConnections = false
     @State private var isLoadingConnections = false
     @State private var connectionsError: String?
+    /// Filas ocultas tras swipe si el servidor aún no admite DELETE.
+    @State private var hiddenConnectionIDs: Set<UUID> = []
 
     var body: some View {
         Form {
@@ -353,12 +391,12 @@ struct AIAccessView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .confirmationDialog("Desconectar asistente", isPresented: Binding(
+        .confirmationDialog("Desactivar asistente", isPresented: Binding(
             get: { disconnectingProvider != nil },
             set: { if !$0 { disconnectingProvider = nil } }
         )) {
             if let provider = disconnectingProvider, let token = connectedToken(for: provider) {
-                Button("Desconectar \(provider.name)", role: .destructive) {
+                Button("Desactivar \(provider.name)", role: .destructive) {
                     disconnectingProvider = nil
                     Task { await revoke(token) }
                 }
@@ -451,61 +489,58 @@ struct AIAccessView: View {
             Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.")
                 .foregroundStyle(OG.label2)
                 .listRowSeparator(.hidden)
-            ForEach(providers) { provider in
-                VStack(spacing: 6) {
-                    Button {
-                        if connectionVerified(for: provider) {
-                            disconnectingProvider = provider
-                        } else {
-                            launch(provider)
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
-                                .resizable()
-                                .renderingMode(provider.id == "claude" ? .original : .template)
-                                .scaledToFit()
-                                .frame(width: 22, height: 22)
-                                .accessibilityHidden(true)
-                            Spacer(minLength: 0)
-                            Text(connectionVerified(for: provider) ? "\(provider.name) conectado" :
-                                 provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
-                                .fontWeight(.semibold)
-                            Spacer(minLength: 0)
-                            Color.clear.frame(width: 24, height: 1)
-                        }
-                        .foregroundStyle(OG.label)
-                        .frame(height: 48)
-                        .padding(.horizontal, 14)
-                        .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
-                        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!auth.isConnected)
-                    if !connectionVerified(for: provider) {
-                        Button("Solo instrucciones de \(provider.name)") {
-                            UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
-                            instructionsProvider = provider
-                        }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(OG.accent)
-                        .buttonStyle(.borderless)
-                        .disabled(!auth.isConnected)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
+            ForEach(Array(providers.enumerated()), id: \.element.id) { index, provider in
+                // Text+tap (no Button): Form no promociona filas sueltas.
+                HStack(spacing: 12) {
+                    Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
+                        .resizable()
+                        .renderingMode(provider.id == "claude" ? .original : .template)
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
+                    Spacer(minLength: 0)
+                    Text(connectionVerified(for: provider) ? "Desactivar \(provider.name)" :
+                         provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
+                        .fontWeight(.semibold)
+                    Spacer(minLength: 0)
+                    Color.clear.frame(width: 24, height: 1)
+                }
+                .foregroundStyle(OG.label)
+                .frame(height: 48)
+                .padding(.horizontal, 14)
+                .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
+                .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    guard auth.isConnected else { return }
+                    if connectionVerified(for: provider) {
+                        disconnectingProvider = provider
+                    } else {
+                        launch(provider)
                     }
                 }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(connectionVerified(for: provider) ? "Desactivar \(provider.name)" :
+                    provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
+                // Mismo aire abajo que arriba de la caja (último Continuar ↔ borde).
+                .listRowInsets(EdgeInsets(
+                    top: 3,
+                    leading: 16,
+                    bottom: index == providers.count - 1 ? 12 : 3,
+                    trailing: 16
+                ))
             }
             if !auth.isConnected {
                 Text("Inicia sesión en Repera para conectar tu asistente.")
                     .font(.footnote).foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
             }
             if let launchMessage {
                 Text(launchMessage).font(.footnote).foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
             }
-            Text("La conexión se configura dentro de cada asistente (conectores MCP / plugins). Repera copia las instrucciones de ese asistente y lo abre; no hay un enlace que lo instale solo.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         } header: { Text("Elige tu asistente") }
     }
 
@@ -524,24 +559,39 @@ struct AIAccessView: View {
             "entry_point": provider.id,
             "result": "pending"
         ])
-        // Solo instrucciones de este asistente — nunca apilar Claude+ChatGPT+Grok.
-        UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+        // Prompt de un solo asistente — nunca apilar Claude+ChatGPT+Grok.
+        let prompt = AIProviderLaunch.instructions(for: provider)
+        UIPasteboard.general.string = prompt
         if provider.id == "chatgpt", !provider.isAvailable {
             instructionsProvider = provider
             launchMessage = "ChatGPT aún no está disponible en Repera: falta su cliente OAuth. Revisa solo las instrucciones de ChatGPT."
             return
         }
-        guard let url = AIProviderLaunch.url(for: provider.id) else {
+        guard AIProviderLaunch.chatURL(for: provider.id, prompt: prompt) != nil else {
             instructionsProvider = provider
             launchMessage = "Instrucciones de \(provider.name) listas. Ábrelo y pégalas en su configuración de conectores."
             return
         }
-        launchMessage = "Instrucciones de \(provider.name) copiadas. Pégalas solo en \(provider.name)."
+        launchMessage = "Abriendo \(provider.name) con las instrucciones en un chat nuevo (también copiadas)."
+        openProviderChat(provider, prompt: prompt) {
+            instructionsProvider = provider
+            launchMessage = "No se pudo abrir \(provider.name). Las instrucciones de \(provider.name) permanecen copiadas."
+        }
+    }
+
+    @MainActor
+    private func openProviderChat(
+        _ provider: AIConnectionProvider,
+        prompt: String,
+        onFailure: @escaping @MainActor () -> Void
+    ) {
+        guard let url = AIProviderLaunch.preferredOpenURL(for: provider.id, prompt: prompt) else {
+            onFailure()
+            return
+        }
         openURL(url) { accepted in
-            if !accepted {
-                instructionsProvider = provider
-                launchMessage = "No se pudo abrir \(provider.name). Las instrucciones de \(provider.name) permanecen copiadas."
-            }
+            guard !accepted else { return }
+            Task { @MainActor in onFailure() }
         }
     }
 
@@ -564,35 +614,80 @@ struct AIAccessView: View {
                 Text("Inicia sesión para consultar tus conexiones.")
                     .foregroundStyle(.secondary)
             }
-            ForEach(tokens) { token in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(token.label).font(.headline)
-                        Spacer()
-                        Text(token.isActive ? (token.hasConnected ? "Conectado" : "Pendiente de conexión") : "Desconectado")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Text(token.scopes?.contains("training:write") == true
-                         ? "Puede consultar y preparar entrenamientos" : "Puede consultar tus entrenamientos")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if let lastUse = token.lastUseLabel {
-                        Text(lastUse).font(.caption).foregroundStyle(.secondary)
-                    }
-                    if token.oauthClientID == nil {
-                        Text(token.expiryLabel).font(.caption).foregroundStyle(.secondary)
-                    }
-                    if token.isActive {
-                        if token.hasConnected, let provider = providers.first(where: { $0.name == token.label }), token.oauthClientID != nil {
-                            Button("Abrir \(provider.name)") {
-                                openURL(URL(string: provider.id == "chatgpt" ? "https://chatgpt.com/" : "https://claude.ai/")!)
-                            }
+            ForEach(displayedTokens) { token in
+                connectionRow(token)
+                    // Sin full-swipe: en Form puede desincronizar filas vecinas.
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            Task { await deleteConnection(token) }
+                        } label: {
+                            Label("Borrar", systemImage: "trash")
                         }
-                        Button("Desconectar", role: .destructive) { Task { await revoke(token) } }
-                            .disabled(isBusy)
+                        .tint(OG.red)
+                        .accessibilityLabel("Borrar conexión")
                     }
-                }.padding(.vertical, 5)
             }
         } header: { Text("Mis conexiones") }
+    }
+
+    private var displayedTokens: [AIAccessTokenInfo] {
+        tokens.filter { !hiddenConnectionIDs.contains($0.id) }
+    }
+
+    @ViewBuilder
+    private func connectionRow(_ token: AIAccessTokenInfo) -> some View {
+        let openProvider = token.isActive && token.hasConnected && token.oauthClientID != nil
+            ? providers.first(where: { $0.name == token.label })
+            : nil
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(token.label).font(.headline)
+                Spacer()
+                Text(token.isActive ? (token.hasConnected ? "Conectado" : "Pendiente de conexión") : "Desconectado")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Text(token.scopes?.contains("training:write") == true
+                 ? "Puede consultar y preparar entrenamientos" : "Puede consultar tus entrenamientos")
+                .font(.caption).foregroundStyle(.secondary)
+            if let lastUse = token.lastUseLabel {
+                Text(lastUse).font(.caption).foregroundStyle(.secondary)
+            }
+            if token.oauthClientID == nil {
+                Text(token.expiryLabel).font(.caption).foregroundStyle(.secondary)
+            }
+            if token.isActive {
+                HStack {
+                    Text("Desactivar")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.red)
+                        .opacity(isBusy ? 0.4 : 1)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard !isBusy else { return }
+                            Task { await revoke(token) }
+                        }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel("Desactivar")
+                    Spacer(minLength: 8)
+                    if let provider = openProvider {
+                        Text("Abrir \(provider.name)")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(OG.accent)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                let prompt = AIProviderLaunch.instructions(for: provider)
+                                UIPasteboard.general.string = prompt
+                                openProviderChat(provider, prompt: prompt) {
+                                    launchMessage = "No se pudo abrir \(provider.name). Instrucciones copiadas."
+                                }
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityLabel("Abrir \(provider.name)")
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 5)
     }
 
     private var manualAccessFields: some View {
@@ -673,7 +768,10 @@ struct AIAccessView: View {
             }
             guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else { return }
             let previouslyVerified = Set(tokens.filter(\.hasConnected).map(\.id))
-            tokens = items
+            tokens = items.filter { !hiddenConnectionIDs.contains($0.id) }
+            // Si el servidor ya no tiene la fila, soltar el ocultado local.
+            let remoteIDs = Set(items.map(\.id))
+            hiddenConnectionIDs = hiddenConnectionIDs.filter { remoteIDs.contains($0) }
             hasLoadedConnections = true
             connectionsError = nil
             for token in items where token.hasConnected && !previouslyVerified.contains(token.id) {
@@ -753,9 +851,66 @@ struct AIAccessView: View {
                 .execute()
             }
             await refreshTokens()
-            successMessage = "Acceso desconectado. Ya no permite acceder a Repera."
+            successMessage = "Acceso desactivado. Ya no permite acceder a Repera."
         } catch {
-            errorMessage = "No se pudo desconectar: \(error.localizedDescription)"
+            errorMessage = "No se pudo desactivar: \(error.localizedDescription)"
+        }
+    }
+
+    /// Swipe: quita la fila. Edge `delete` (service role); si falla, oculta en UI.
+    @MainActor
+    private func deleteConnection(_ token: AIAccessTokenInfo) async {
+        guard !isBusy, auth.isConnected, let client = auth.apiClient else { return }
+        isBusy = true
+        defer { isBusy = false }
+        errorMessage = nil
+        successMessage = nil
+        // Quitar ya la fila para que el swipe no deje basura en el Form.
+        hiddenConnectionIDs.insert(token.id)
+        tokens.removeAll { $0.id == token.id }
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { throw AccessError.sessionExpired }
+            let url = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-connect/delete")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["id": token.id.uuidString])
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                successMessage = "Conexión eliminada."
+                await refreshTokens()
+                return
+            }
+            // Fallback: desactivar + DELETE REST (migración owner delete) o solo ocultar.
+            if token.isActive {
+                if token.oauthClientID != nil {
+                    let disconnect = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-connect/disconnect")!
+                    var disconnectRequest = URLRequest(url: disconnect)
+                    disconnectRequest.httpMethod = "POST"
+                    disconnectRequest.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+                    disconnectRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    disconnectRequest.httpBody = try JSONSerialization.data(withJSONObject: ["id": token.id.uuidString])
+                    _ = try await URLSession.shared.data(for: disconnectRequest)
+                } else {
+                    try await client.from("ai_access_tokens")
+                        .update(["revoked_at": ISO8601DateFormatter().string(from: Date())])
+                        .eq("id", value: token.id.uuidString)
+                        .eq("owner_id", value: session.user.id.uuidString)
+                        .execute()
+                }
+            }
+            _ = try? await client.from("ai_access_tokens")
+                .delete()
+                .eq("id", value: token.id.uuidString)
+                .eq("owner_id", value: session.user.id.uuidString)
+                .execute()
+            successMessage = "Conexión eliminada."
+            await refreshTokens()
+        } catch {
+            // La fila ya no se muestra; el acceso queda revocado si el fallback lo logró.
+            successMessage = "Conexión quitada de la lista."
         }
     }
 

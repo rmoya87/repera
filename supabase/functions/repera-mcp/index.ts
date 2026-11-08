@@ -278,7 +278,7 @@ Deno.serve(async (request) => {
       scopes:token.scopes ?? ["training:read","training:write"],
       expires_at:token.expires_at ?? null,
       expires:token.expires_at!=null,
-      revoke_in:"Repera iOS → Ajustes → Datos → Conecta tu IA → Mis conexiones → Desconectar",
+      revoke_in:"Repera → Ajustes → Datos → Conecta tu IA → Mis conexiones → Desactivar (o swipe para borrar)",
       protocol:isPersonalToken ? "Personal HTTPS Bearer token (PAT). Do not forward to third parties." : "OAuth with user consent and PKCE. Managed by your assistant; do not request or share tokens in chat.",
       date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
     }));

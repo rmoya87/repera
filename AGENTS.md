@@ -145,6 +145,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Conecta tu IA — desactivar / abrir / borrar (08/11/2026)
+
+- En Form, **Button** dentro de `VStack` se promociona a filas sueltas; el swipe
+  full puede desincronizar el Form. Usar Text+`onTapGesture`; `allowsFullSwipe: false`.
+- Hub sin «Solo instrucciones» ni pie largo: Continuar lleva el prompt al chat (`?q=`).
+- Desactivar izq. / Abrir der.; swipe → Edge `…/delete`. Contrato: `test_ai_provider_launch_contract`.
+
 #### Material / ordenación biblioteca (08/11/2026)
 
 - `ExerciseEquipmentGroup`: el **primer chip** de `equipment` gana; el nombre
@@ -177,6 +184,7 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 #### Debug Pro Free y espejo Watch→iPhone (08/11/2026)
 
 - Simular «Gratis» en Debug Pro **no** puede pasar por el hold de `verifiedPro` (`.free` transitorio de StoreKit). Con `overrideEnabled`, forzar el snapshot debug y limpiar la caché; al apagar, restaurar `StoreKitEntitlementProvider`. La UI del picker no es `isPro`: mostrar «Efectivo» (Center patrocinado sigue OR-eando Pro).
+- No usar `#else let flag = false` y luego `if !flag else`: en Release el compilador pliega el flag y marca el `else` («will never be executed» / condition always true). La limpieza de caché va solo en `#if DEBUG`. Con `status == .free`, `grantsProAccess` ya es falso: no volver a comprobarlo.
 - Contratos: `tests/test_debug_pro_simulation_contract.py`. Android ya aplicaba el override tras el merge.
 - Watch→iPhone: deporte Watch-owned → `LiveActivityRecorder.adoptWatchOwnedSportMirror` + misma `LiveActivityView` (no `WatchOwnedLiveMirrorView` de cards). Plan sigue en espejo. Postear `repera.openComenzarFromWatch`. Sin persistir snapshot phone ni segundo HK/GPS. Hub Watch: no `.offset(y: +N)` hacia el bisel; `padding(.bottom)`.
 - Material AbMat/parallettes/etc.: ampliar `equipmentSymbol` iOS+Android + grupo `AbMats`; contrato `tests/test_equipment_symbol_contract.py`.

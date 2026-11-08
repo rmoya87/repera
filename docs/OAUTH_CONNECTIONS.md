@@ -1,12 +1,14 @@
 # Conexión de ChatGPT y Claude
 
-Última actualización: 2026-11-06.
+Última actualización: 2026-11-08.
 
 ## Estado y alcance
 
 OAuth gestionado por Supabase Auth y consentimiento web. **ChatGPT tiene pendiente su cliente OAuth para conexión personalizada y, por separado, la verificación/publicación en su directorio. Claude dispone de conexión personalizada guiada por un prompt**, sin publicar en el directorio de Anthropic. El catálogo habilita cada recorrido solo cuando tiene su configuración real. Las instrucciones de Claude contienen únicamente direcciones e ID público de cliente; nunca tokens, secretos ni datos del deportista. No se utiliza la suscripción del asistente desde un chat embebido.
 
-El usuario abre **Ajustes → Datos → Conecta tu IA**. **No existe** un enlace profundo universal que configure el complemento dentro de ChatGPT, Claude o Grok: cada proveedor exige añadir el conector MCP en su propia app/web. Repera facilita el camino más corto: al pulsar un asistente copia **únicamente** las instrucciones de ese proveedor y abre su URL; «Solo instrucciones de …» muestra la ficha de ese asistente sin apilar Claude+ChatGPT+Grok. ChatGPT abrirá la ficha publicada cuando esté disponible. Claude usa guía OAuth pública (URL MCP + client ID, sin secretos). El chat no instala un MCP por leer una URL. El usuario autoriza con la misma cuenta Apple/Google de Repera. Los cambios de historial y ejercicios personalizados mantienen aprobación nativa. Los PAT existentes continúan en Configuración manual.
+El usuario abre **Ajustes → Datos → Conecta tu IA**. **No existe** un enlace profundo universal que configure el complemento MCP solo: cada proveedor exige añadirlo en su propia app/web. Repera facilita el camino más corto: «Continuar con…» copia las instrucciones de ese proveedor y abre un **chat nuevo** con el prompt (`?q=` / Claude `/new?q=`). App instalada → Universal Links / paquete; si no, web. Mis conexiones: **Desactivar** / **Abrir …**; swipe borra. Sin textos «Solo instrucciones» ni pie largo en el hub. ChatGPT pendiente de cliente OAuth. Claude usa guía OAuth pública. Los PAT siguen en Configuración manual.
+
+**Despliegue pendiente (humano):** Edge `repera-ai-connect` con acción `delete` (revoca grant OAuth + borra fila con service role). Migración opcional `20261108210000_ai_access_tokens_owner_delete.sql` como fallback REST. Sin el Edge actualizado el swipe oculta la fila en la app; Desactivar sigue funcionando.
 
 ## Conexión personalizada de ChatGPT (estado actual)
 
@@ -52,7 +54,7 @@ La ayuda oficial de Claude permite un conector personalizado en Free; publicar u
 
 ## Componentes
 
-- `AIAccessView.swift`: catálogo remoto, guía de Claude con instrucciones públicas y apertura de fichas ChatGPT HTTPS verificadas por dominio, último uso, estado pendiente hasta primera llamada autenticada y desconexión. Refresca al volver a primer plano. Conserva acceso manual si aún no está aplicada la migración.
+- `AIAccessView.swift` / `AIProviderLaunch.kt`: catálogo remoto, chat nuevo con instrucciones en `?q=`, preferencia app (esquemas / paquetes) con fallback web, desconexión in-place sin abrir el asistente, último uso y estado pendiente hasta primera llamada autenticada. Refresca al volver a primer plano. Conserva acceso manual si aún no está aplicada la migración.
 - `web/ai/`: consentimiento accesible, login PKCE mediante Supabase JS 2.118.0, estado en sessionStorage y autorización explícita. No escribe tokens en URLs, prompts ni localStorage. `pack-ionos.sh` incluye esta carpeta y su `.htaccess` sin caché ni referrer.
 - `repera-ai-connect`: catálogo con `setup.kind=claude_prompt` e ID público solo para Claude habilitado y registrado; detalles de autorización, consentimiento y desconexión. Solo una sesión personal verificada puede autorizar o revocar. El client ID se obtiene de Auth, nunca del cuerpo enviado por el navegador. Solo clientes habilitados por el operador.
 - `repera-mcp` / `_shared/ai-oauth.ts`: OAuth JWT firmado con claves asimétricas del proyecto, issuer y audiencia MCP exactos, role `repera_mcp`, propietario, client ID y sesión viva. Mantiene Bearer PAT. Publica resource metadata y desafío HTTP 401 `WWW-Authenticate`.

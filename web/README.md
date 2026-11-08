@@ -57,29 +57,51 @@ Las altas administrativas quedan pendientes hasta el primer inicio de sesión de
 Para desarrollo local: `cd web/console && npm test` y `python3 -m http.server 8080`; el modo de demostración ha sido retirado de la consola.
 
 
-Sitio HTML estático: producto, precios, FAQ de suscripción, privacidad y términos.
-Cumple enlaces requeridos por App Store / paywall y es reutilizable en Google Play.
+Sitio HTML estático: producto, casos de uso, outdoor, recuperación, IA, precios, FAQ, privacidad y términos.
+Cumple enlaces requeridos por App Store / paywall.
 
-Última actualización: 2026-10-19
+Última actualización: 2026-11-08
+
+**App Store (oficial):** https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509
 
 ## Páginas
 
 | URL canónica | Archivo |
 |--------------|---------|
 | `https://repera.app/` | `index.html` |
+| `https://repera.app/funcionalidades` | `funcionalidades.html` |
+| `https://repera.app/casos` | `casos.html` |
+| `https://repera.app/casos/{slug}` | `casos/{slug}.html` (generado) |
+| `https://repera.app/outdoor` | `outdoor.html` |
+| `https://repera.app/recuperacion` | `recuperacion.html` |
+| `https://repera.app/ia` | `ia.html` |
+| `https://repera.app/precios` | `precios.html` |
+| `https://repera.app/soporte` | `soporte.html` |
 | `https://repera.app/privacy` | `privacy.html` |
 | `https://repera.app/terms` | `terms.html` |
 | `https://repera.app/faq` | `faq.html` |
 
-La app iOS enlaza privacidad y términos desde `CommercialConfig` (`repera.app/privacy` y `/terms`).
+No hay `/ejercicios` público. La app iOS enlaza privacidad y términos desde `CommercialConfig`.
 
-## Vista local
+## Build de contenido
 
 ```bash
 cd web
+python3 scripts/build_site.py          # casos/*.html + sitemap.xml + robots.txt
+python3 scripts/write_product_pages.py  # home y páginas de producto (chrome compartido)
+```
+
+Datos: `content/site.json`, `content/casos.json`. Capturas: `assets/screens/` (sustituir placeholders).
+
+## Vista local
+
+**Recomendado (macOS):** doble clic en [`Repera-Web.command`](../Repera-Web.command) en la raíz del repo. Abre el navegador con un servidor local; las rutas `/css`, `/casos`, etc. funcionan (abrir `index.html` a pelo con `file://` **no** sirve por los paths absolutos).
+
+```bash
+# Alternativa manual
+cd web
 python3 -m http.server 8080
 # Abrir http://localhost:8080
-# Nota: las URLs sin .html (/privacy) requieren Apache; en local usa privacy.html
 ```
 
 ## Deploy en IONOS (recomendado)
@@ -98,10 +120,11 @@ El zip incluye:
 
 | Incluido | No incluido |
 |----------|-------------|
-| [`.htaccess`](.htaccess) | `README.md`, `pack-ionos.sh` |
-| `index.html`, `privacy.html`, `terms.html`, `faq.html` | `_redirects`, `_headers` (Netlify) |
-| `css/`, `js/`, `assets/` | `.DS_Store` |
+| [`.htaccess`](.htaccess) | `README.md`, `pack-ionos.sh`, `content/`, `scripts/` |
+| HTML de producto + `casos/` | `_redirects`, `_headers` (Netlify) |
+| `css/`, `js/`, `assets/` (incl. `screens/`) | `.DS_Store` |
 | `robots.txt`, `sitemap.xml` | |
+| `console/`, `ai/` | |
 | `LEEME-SUBIR.txt` (pasos en el zip) | |
 
 ### 2. Subir a IONOS
@@ -113,14 +136,13 @@ El zip incluye:
 5. Borra el `.zip` del servidor si lo dejaste subido.
 6. Comprueba:
    - `https://repera.app/`
-   - `https://repera.app/privacy`
-   - `https://repera.app/terms`
-   - `https://repera.app/faq`
-   - CSS e imágenes de la home
+   - `https://repera.app/funcionalidades`, `/casos`, `/outdoor`, `/recuperacion`
+   - `https://repera.app/privacy`, `/terms`, `/faq`
+   - CTA App Store en home
 
 ### Qué hace [`.htaccess`](.htaccess)
 
-- Pretty URLs: `/privacy` → `privacy.html` (igual `/terms`, `/faq`)
+- Pretty URLs de producto, casos, legales
 - Redirección SEO de `*.html` → URL limpia
 - Compresión gzip (HTML/CSS/JS)
 - Cabeceras de seguridad
@@ -147,7 +169,8 @@ Si `/privacy` da 404: `.htaccess` no está en la misma carpeta que `index.html`,
 
 - [ ] URL de Política de privacidad → `https://repera.app/privacy`
 - [ ] EULA / términos (o estándar Apple + enlace a `https://repera.app/terms`)
-- [ ] Sustituir placeholder App Store (`id0000000000`) en `index.html` por el ID real
+- [x] App Store URL oficial en CTAs (`id6824523509`)
+- [ ] URL de soporte en App Store Connect → `https://repera.app/soporte` (email cuando se confirme)
 - [ ] Revisar textos legales con asesoría si hace falta (base orientativa UE/ES)
 
 ## Google Play (futuro)
@@ -184,6 +207,8 @@ Tokens alineados a la app: fondo negro, acento `#30d158`, superficies `#1c1c1e`.
 Sin frameworks. CSS en `css/site.css`, interacción en `js/site.js`.
 
 Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, confianza, planes, precios, CTA.
+
+FX de casos: `mascot_fx` / `mascot_fx_markup` en `scripts/build_site.py` (ancla `%` al objeto del webp + capa `mascot-fx-layer--front|back`). Estilos en `css/site.css` (`.fx-focus`, `.fx-lead`, nieve, viento, etc.). Regenerar con `python3 web/scripts/build_site.py`.
 
 ## Pendiente editorial
 

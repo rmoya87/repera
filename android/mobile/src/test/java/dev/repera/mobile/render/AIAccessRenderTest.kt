@@ -69,7 +69,7 @@ class AIAccessRenderTest {
                         changeError = null, inboxPending = 0,
                         inboxConflicts = emptyList(),
                         onRefresh = {}, onCreate = { _, _, _ -> },
-                        onRevoke = {}, onDecide = { _, _ -> },
+                        onRevoke = {}, onDelete = {}, onDecide = { _, _ -> },
                         onDismissCreated = {}, onCopyCreated = {})
                 }
             }
@@ -127,10 +127,10 @@ class AIAccessRenderTest {
         val dir = File("build/reports/render").apply { mkdirs() }
         val out = File(dir, "ai_disconnect_dialog.png")
         FileOutputStream(out).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        composeRule.onNodeWithText("Desconectar asistente").assertIsDisplayed()
+        composeRule.onNodeWithText("Desactivar asistente").assertIsDisplayed()
         composeRule.onNodeWithText(
             "Se revocará el acceso del asistente a tu cuenta de Repera.").assertIsDisplayed()
-        composeRule.onNodeWithText("Desconectar ChatGPT").assertIsDisplayed()
+        composeRule.onNodeWithText("Desactivar ChatGPT").assertIsDisplayed()
         composeRule.onNodeWithText("Cancelar").assertIsDisplayed()
         println("RENDERED_AIDIALOG=" + out.absolutePath)
     }

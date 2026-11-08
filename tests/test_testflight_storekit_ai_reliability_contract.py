@@ -75,11 +75,16 @@ class AIConnectionReliabilityTests(unittest.TestCase):
 
     def test_ai_instructions_are_per_provider_not_stacked(self):
         view = source("AIAccessView.swift")
+        # Continuar abre el chat con el prompt; sin enlaces «Solo instrucciones»
+        # ni pie largo en Elige tu asistente. Sheet solo en fallos / ChatGPT pendiente.
+        section = view.split("private var connectionSection", 1)[1].split(
+            "private func connectionVerified", 1
+        )[0]
+        self.assertNotIn("Solo instrucciones", section)
+        self.assertNotIn("La conexión se configura dentro de cada asistente", section)
+        self.assertNotIn('Button("Ver instrucciones")', view)
         self.assertIn("instructionsProvider", view)
         self.assertIn(".sheet(item: $instructionsProvider)", view)
-        self.assertIn("Solo instrucciones de", view)
-        self.assertNotIn('Button("Ver instrucciones")', view)
-        # No sheet that ForEach-es every provider into one scroll.
         sheet = view.split(".sheet(item: $instructionsProvider)", 1)[1].split(
             ".confirmationDialog(", 1
         )[0]

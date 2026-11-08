@@ -7,7 +7,7 @@ DirectoryIndex index.html
 Options -Indexes
 
 # Bloquear basura / archivos de repo no públicos
-<FilesMatch "(?i)^(.*\.zip|README\.md|LEEME-SUBIR\.txt|_redirects|_headers|\.DS_Store|pack-ionos\.sh)$">
+<FilesMatch "(?i)^(.*\.zip|README\.md|LEEME-SUBIR\.txt|_redirects|_headers|\.DS_Store|pack-ionos\.sh|content/.*|scripts/.*|templates/.*)$">
   Require all denied
 </FilesMatch>
 <IfModule !mod_authz_core.c>
@@ -21,21 +21,42 @@ Options -Indexes
   RewriteEngine On
   RewriteBase /
 
-  # HTTPS: actívalo en el panel IONOS («Forzar HTTPS» / Let's Encrypt).
-  # No se fuerza aquí para que el sitio funcione aunque el certificado aún no esté listo.
-
-  # Pretty URLs canónicas (App Store / sitemap)
+  # Pretty URLs canónicas
   RewriteRule ^privacy/?$ privacy.html [L]
   RewriteRule ^terms/?$ terms.html [L]
   RewriteRule ^faq/?$ faq.html [L]
+  RewriteRule ^funcionalidades/?$ funcionalidades.html [L]
+  RewriteRule ^casos/?$ casos.html [L]
+  RewriteRule ^casos/([a-z0-9-]+)/?$ casos/$1.html [L]
+  RewriteRule ^outdoor/?$ outdoor.html [L]
+  RewriteRule ^recuperacion/?$ recuperacion.html [L]
+  RewriteRule ^ia/?$ ia.html [L]
+  RewriteRule ^precios/?$ precios.html [L]
+  RewriteRule ^soporte/?$ soporte.html [L]
 
-  # Redirigir .html → URL limpia (SEO / un solo canonical)
+  # Redirigir .html → URL limpia
   RewriteCond %{THE_REQUEST} \s/+privacy\.html[\s?] [NC]
   RewriteRule ^ /privacy [R=301,L]
   RewriteCond %{THE_REQUEST} \s/+terms\.html[\s?] [NC]
   RewriteRule ^ /terms [R=301,L]
   RewriteCond %{THE_REQUEST} \s/+faq\.html[\s?] [NC]
   RewriteRule ^ /faq [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+funcionalidades\.html[\s?] [NC]
+  RewriteRule ^ /funcionalidades [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+casos\.html[\s?] [NC]
+  RewriteRule ^ /casos [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+casos/([a-z0-9-]+)\.html[\s?] [NC]
+  RewriteRule ^ /casos/%1 [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+outdoor\.html[\s?] [NC]
+  RewriteRule ^ /outdoor [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+recuperacion\.html[\s?] [NC]
+  RewriteRule ^ /recuperacion [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+ia\.html[\s?] [NC]
+  RewriteRule ^ /ia [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+precios\.html[\s?] [NC]
+  RewriteRule ^ /precios [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+soporte\.html[\s?] [NC]
+  RewriteRule ^ /soporte [R=301,L]
   RewriteCond %{THE_REQUEST} \s/+index\.html[\s?] [NC]
   RewriteRule ^ / [R=301,L]
 </IfModule>
@@ -48,7 +69,6 @@ Options -Indexes
   Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
 </IfModule>
 
-# Tipos MIME habituales (por si el hosting no los declara)
 <IfModule mod_mime.c>
   AddType text/css .css
   AddType application/javascript .js
@@ -59,17 +79,14 @@ Options -Indexes
   AddType text/plain .txt
 </IfModule>
 
-# Compresión gzip (HTML/CSS/JS/XML/SVG/JSON)
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
   AddOutputFilterByType DEFLATE application/javascript application/x-javascript
   AddOutputFilterByType DEFLATE application/xml application/xhtml+xml
   AddOutputFilterByType DEFLATE application/json image/svg+xml
-  # No comprimir ya comprimidos
-  SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|webp|zip|gz)$ no-gzip dont-vary
+  SetEnvIfNoCase Request_URI "\.(?:gif|jpe?g|png|webp|zip|gz)$" no-gzip dont-vary
 </IfModule>
 
-# Caché ligera de estáticos
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType text/html "access plus 1 hour"

@@ -466,17 +466,39 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         val revision=centerGate.revision
         val authorized=accountWorkGuard(owner,session.userId)
         fun current()=authorized() && profile?.uniqueId==owner && centerGate.revision==revision
+        val token = aiTokens?.firstOrNull { it.id == tokenId } ?: return
         if (aiBusy) return
         aiBusy = true; aiError = null; aiSuccess = null
         lifecycleScope.launch {
             val failure = withContext(Dispatchers.IO) {
-                AIAccessStore(stillAuthorized=authorized).revoke(session, tokenId)
+                AIAccessStore(stillAuthorized=authorized).deactivate(session, token)
             }
             if(!current()) return@launch
             if (failure == null) {
-                // Apple 0a640da8: sin mensaje de exito; solo refresca la lista.
+                aiSuccess = "Acceso desactivado. Ya no permite acceder a Repera."
                 refreshAIAccess()
-            } else aiError = "No se pudo desconectar: " + failure
+            } else aiError = failure
+            aiBusy = false
+        }
+    }
+
+    private fun deleteAIToken(token: AIAccessStore.TokenInfo) {
+        val session = verifiedSupabase ?: return
+        val owner = profile?.uniqueId ?: return
+        val revision = centerGate.revision
+        val authorized = accountWorkGuard(owner, session.userId)
+        fun current() = authorized() && profile?.uniqueId == owner && centerGate.revision == revision
+        if (aiBusy) return
+        aiBusy = true; aiError = null; aiSuccess = null
+        lifecycleScope.launch {
+            val failure = withContext(Dispatchers.IO) {
+                AIAccessStore(stillAuthorized = authorized).deleteConnection(session, token)
+            }
+            if (!current()) return@launch
+            if (failure == null) {
+                aiSuccess = "Conexión eliminada."
+                refreshAIAccess()
+            } else aiError = failure
             aiBusy = false
         }
     }
@@ -1189,6 +1211,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onAIRefresh = ::refreshAIAccess,
                 onAICreate = ::createAIToken,
                 onAIRevoke = ::revokeAIToken,
+                onAIDelete = ::deleteAIToken,
                 onAIDecide = ::decideAIChange,
                 onAIDismissCreated = { aiCreatedToken = null },
                 onAICopyCreated = ::copyCreatedAIToken,

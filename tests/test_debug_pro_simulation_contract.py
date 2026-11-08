@@ -29,8 +29,16 @@ class DebugProSimulationContractTests(unittest.TestCase):
         free_hold = free_hold.split("applySnapshot(next)", 1)[0]
         self.assertIn("overrideEnabled", free_hold)
         self.assertIn("verifiedProCacheKey", free_hold)
-        # Debug Free must not keep the offline Pro hold.
-        self.assertIn("grantsProAccess", free_hold)
+        self.assertIn("#if DEBUG", free_hold)
+        # A Release `false` constant makes the else unreachable
+        # ("will never be executed" / condition always true).
+        self.assertNotIn("debugForcesCommercialStatus", free_hold)
+        override = free_hold.split("overrideEnabled", 1)[1].split("} else {", 1)[0]
+        self.assertIn("removeObject", override)
+        self.assertNotIn("applyingVerifiedProHold", override)
+        hold = manager.split("func applyingVerifiedProHold", 1)[1]
+        hold = hold.split("private struct PersistedVerifiedPro", 1)[0]
+        self.assertIn("grantsProAccess", hold)
 
     def test_debug_section_shows_effective_access(self):
         settings = source("SettingsView.swift")

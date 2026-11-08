@@ -48,20 +48,28 @@ Deno.serve(async request => {
     if (raw.length > 2048) return reply(413, { error: 'Solicitud demasiado grande' });
     const body = JSON.parse(raw);
     if (!body || typeof body !== 'object' || Array.isArray(body)) return reply(400, { error: 'Solicitud inválida' });
-    if (action === 'disconnect') {
+    if (action === 'disconnect' || action === 'delete') {
       if (!uuidPattern.test(body.id ?? '') || Object.keys(body).some(k => k !== 'id')) return reply(400, { error: 'Acceso inválido' });
-      const { data: grant, error: lookupError } = await db.from('ai_access_tokens').select('id,oauth_client_id')
+      const { data: grant, error: lookupError } = await db.from('ai_access_tokens').select('id,oauth_client_id,revoked_at')
         .eq('id',body.id).eq('owner_id',user.id).maybeSingle();
       if (lookupError) return reply(503,{error:'No se pudo comprobar el acceso'});
       if (!grant) return reply(404,{error:'Acceso no encontrado'});
-      const { error: revokeError } = await db.from('ai_access_tokens').update({revoked_at:new Date().toISOString()})
-        .eq('id',grant.id).eq('owner_id',user.id);
-      if (revokeError) return reply(503,{error:'No se pudo desconectar'});
+      if (!grant.revoked_at) {
+        const { error: revokeError } = await db.from('ai_access_tokens').update({revoked_at:new Date().toISOString()})
+          .eq('id',grant.id).eq('owner_id',user.id);
+        if (revokeError) return reply(503,{error: action === 'delete' ? 'No se pudo borrar' : 'No se pudo desconectar'});
+      }
       // Local grant revocation is immediate, even if Auth is temporarily down.
       let reconnectRequired = false;
       if (grant.oauth_client_id) {
         try { await authRequest(jwt,`user/oauth/grants?client_id=${encodeURIComponent(grant.oauth_client_id)}`,'DELETE'); }
         catch { reconnectRequired = true; }
+      }
+      if (action === 'delete') {
+        const { error: deleteError } = await db.from('ai_access_tokens').delete()
+          .eq('id',grant.id).eq('owner_id',user.id);
+        if (deleteError) return reply(503,{error:'No se pudo borrar'});
+        return reply(200,{deleted:true,reconnectRequired});
       }
       return reply(200,{disconnected:true,reconnectRequired});
     }

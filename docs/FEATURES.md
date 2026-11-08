@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-08 (paywall: canje código oferta; check verde Editar + IA/GPS Watch).
+Última actualización: 2026-11-08 (Conecta tu IA: desconectar in-place + chat con ?q=; paywall/código oferta).
 
 ## Android — splash de restauración (06/11/2026)
 
@@ -605,11 +605,18 @@ Ver [MONETIZATION.md](MONETIZATION.md). Resumen: 3 rutinas biblioteca, 3 favorit
 
 ## Sitio web (`web/` → repera.app)
 
-- Landing: hero (mascota en pose), pilares, cómo funciona, para quién, funciones, Apple Watch (otra pose), confianza/privacidad, Gratis vs Pro, precios, CTA.
-- Legales: `privacy` (incl. cookies), `terms`, `faq` (JSON-LD FAQPage).
-- Banner de cookies + preferencias (esenciales vs analítica opt-in); SEO (meta, OG, sitemap, robots).
-- Responsive móvil/tablet (nav &lt; 900px) y animaciones de reveal respetando `prefers-reduced-motion`.
-- Hosting IONOS (Apache): `web/pack-ionos.sh` genera `repera-ionos.zip` (incluye [`.htaccess`](../web/.htaccess): pretty URLs, gzip, cabeceras). Extraer en `htdocs`. Detalle en [`web/README.md`](../web/README.md).
+Última actualización de esta sección: 2026-11-08.
+
+- Look oscuro (negro + `#30D158`): home «Lo das todo. Que quede.» con CTA oficial App Store (`id6824523509`) y capturas reales de la app.
+- Páginas de producto: `/funcionalidades`, `/casos` (+ ~50 fichas con muñeco, journey y tiles), `/outdoor`, `/recuperacion`, `/ia`, `/precios`, `/soporte`.
+- Casos: mascotas en `assets/mascots/`, chips de grupo, mega-menú de actividades en nav, iconos tipo deporte alineados al selector de la app. FX por slug (`mascot_fx` en `build_site.py`): ancla al objeto real del arte, capa `front`/`back` (p. ej. pádel/golf/hockey delante; basket/voleibol detrás del balón), sin dibujar una segunda pelota.
+- Sin biblioteca pública de ejercicios en la web.
+- Outdoor: mismo diario gym+salidas (GPS, ritmo, zonas, avisos). Recuperación: sueño/VFC como contexto, no coach clínico.
+- Contenido: `web/content/casos.json` + `modes.json`; build `web/scripts/build_site.py`.
+- Páginas clave regenerables con `web/scripts/write_product_pages.py` (chrome compartido).
+- Legales: `privacy`, `terms`, `faq` (JSON-LD FAQPage). Cookies opt-in. SEO: meta/OG/canonical, sitemap, robots, JSON-LD Organization/WebSite/SoftwareApplication.
+- Hosting IONOS: `./pack-ionos.sh` regenera HTML y empaqueta zip. Detalle en [`web/README.md`](../web/README.md).
+- Spec: [`docs/superpowers/specs/2026-11-08-repera-web-static-redesign-design.md`](superpowers/specs/2026-11-08-repera-web-static-redesign-design.md).
 
 
 ## Sueño y ciclo (iOS 27)
@@ -664,7 +671,7 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 ### Acceso IA y planes entrantes (iOS 27)
 
-- **Ajustes → Conecta tu IA (08/11/2026):** al pulsar un asistente se copian **solo** sus instrucciones y se abre esa app/web; no hay deep link que instale el conector MCP solo (Claude/ChatGPT/Grok lo configuran en su propia UI). Sheet de instrucciones por proveedor (nunca las tres apiladas). ChatGPT sigue condicionado a su cliente OAuth. Conexiones, desconexión y acceso manual plegado. Crear un acceso no lo marca conectado hasta una llamada autenticada.
+- **Ajustes → Conecta tu IA (08/11/2026):** «Continuar con…» abre chat nuevo con `?q=` (sin enlaces «Solo instrucciones» ni pie largo). Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe borra vía Edge `delete`. ChatGPT condicionado a OAuth.
 - **Editar entreno (revisar/descartar):** el ✓ de confirmar usa `borderedProminent` + verde Repera (check blanco de día / negro de noche); Liquid Glass de la toolbar ya no deja un círculo transparente.
 - **Apple Watch Resultado:** un fallo al escribir la muestra opcional de distancia GPS en Salud **no** muestra aviso naranja; la distancia sigue en Repera y la sesión/kcal/FC no se abortan.
 - La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.

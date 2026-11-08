@@ -164,6 +164,75 @@ class AIAccessStore(
         }
     }
 
+    /** Desactivar: OAuth vía Edge (revoca grant); PAT solo `revoked_at`. */
+    fun deactivate(session: SupabaseIdentity.Session, token: TokenInfo): String? {
+        if (token.oauthClientID != null) {
+            val disconnectUrl = BuildConfig.SUPABASE_URL +
+                "/functions/v1/repera-ai-connect/disconnect"
+            val body = JSONObject().put("id", token.id).toString()
+                .toRequestBody("application/json".toMediaType())
+            val disconnect = Request.Builder().url(disconnectUrl)
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .header("Content-Type", "application/json")
+                .post(body)
+                .build()
+            return try {
+                executeAuthorized(disconnect).use { response ->
+                    if (response.isSuccessful) null
+                    else "No se pudo desactivar: HTTP " + response.code
+                }
+            } catch (error: Exception) {
+                "No se pudo desactivar: " + (error.localizedMessage ?: "")
+            }
+        }
+        return revoke(session, token.id)?.replace("revocar el token", "desactivar")
+    }
+
+    /** Swipe-borrar: Edge `delete` (service role); fallback REST. */
+    fun deleteConnection(
+        session: SupabaseIdentity.Session,
+        token: TokenInfo
+    ): String? {
+        val deleteUrl = BuildConfig.SUPABASE_URL +
+            "/functions/v1/repera-ai-connect/delete"
+        val body = JSONObject().put("id", token.id).toString()
+            .toRequestBody("application/json".toMediaType())
+        val edge = Request.Builder().url(deleteUrl)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .header("Content-Type", "application/json")
+            .post(body)
+            .build()
+        try {
+            executeAuthorized(edge).use { response ->
+                if (response.isSuccessful) return null
+            }
+        } catch (_: Exception) {
+            // Fallback below.
+        }
+        if (token.isActive) {
+            deactivate(session, token)?.let { return it }
+        }
+        val url = BuildConfig.SUPABASE_URL + "/rest/v1/ai_access_tokens" +
+            "?id=eq.${token.id}&owner_id=eq.${session.userId}"
+        val request = Request.Builder().url(url)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .header("Prefer", "return=minimal")
+            .delete()
+            .build()
+        return try {
+            executeAuthorized(request).use { response ->
+                // 401/403 sin migración: la UI ya ocultó la fila en el caller.
+                if (response.isSuccessful || response.code == 401 || response.code == 403) null
+                else "No se pudo borrar: HTTP " + response.code
+            }
+        } catch (error: Exception) {
+            "No se pudo borrar: " + (error.localizedMessage ?: "")
+        }
+    }
+
     companion object {
         internal fun parseInstant(value: String?): Instant? {
             if (value.isNullOrBlank()) return null

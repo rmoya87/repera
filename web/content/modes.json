@@ -1,0 +1,214 @@
+{
+  "gps": {
+    "title": "Cómo es una salida con Repera",
+    "steps": [
+      [
+        "Antes",
+        "Eliges la actividad y sales",
+        "Desde Comenzar: cuenta atrás de tres segundos y a entrenar. Si llevas una ruta GPX guardada, la sigues con indicaciones de giro habladas antes de llegar al cruce."
+      ],
+      [
+        "Durante",
+        "Todo a la vista, sin mirar el móvil",
+        "Mapa con tu posición, distancia, ritmo o velocidad y zonas de pulso en directo. Un aviso hablado marca cada kilómetro con su tiempo."
+      ],
+      [
+        "Después",
+        "La ruta queda en tu diario",
+        "Recorrido en el mapa, parciales, pulso y calorías medidos y las condiciones del día. Suma en tus récords del deporte: distancia, mejor km y duración."
+      ]
+    ],
+    "tiles": [
+      {
+        "icon": "route",
+        "title": "Distancia y ritmo verificados",
+        "text": "Solo puntos GPS válidos: los cortes de señal no se rellenan con rectas inventadas."
+      },
+      {
+        "icon": "heart",
+        "title": "Zonas de pulso en directo",
+        "text": "La barra de zonas, en el mapa y en métricas, para dosificar sobre la marcha."
+      },
+      {
+        "icon": "speak",
+        "title": "Aviso hablado por kilómetro",
+        "text": "Tiempo del tramo y velocidad media, también con el móvil bloqueado."
+      },
+      {
+        "icon": "nav",
+        "title": "Guía por rutas GPX",
+        "text": "Giros anunciados por voz siguiendo tus rutas guardadas."
+      },
+      {
+        "icon": "map",
+        "title": "Mapa y condiciones",
+        "text": "La ruta guardada con su mapa y el clima del día."
+      },
+      {
+        "icon": "trophy",
+        "title": "Récords del deporte",
+        "text": "Distancia, mejor km y duración, en Progreso."
+      }
+    ],
+    "note": "Outdoor con GPS en la app: ruta, ritmo, zonas y avisos. Las capturas de esta web muestran pantallas compartidas del diario; las salidas en directo usan el mismo registro."
+  },
+  "fuerza": {
+    "title": "Cómo es un entreno de fuerza con Repera",
+    "steps": [
+      [
+        "Antes",
+        "Tu rutina, lista",
+        "Abres la rutina del día —la tuya, la importada en CSV o la escaneada de la pizarra— y sabes qué toca antes de soltar la mochila."
+      ],
+      [
+        "Durante",
+        "Anotar sin soltar la barra",
+        "Series con kg, repeticiones y RIR/RPE en dos toques. Si falta material, el catálogo propone alternativas por movimiento."
+      ],
+      [
+        "Después",
+        "El progreso se ve solo",
+        "Evolución por ejercicio con tope estimado, mejor serie y récords. La semana y el historial, leídos de un vistazo en Progreso."
+      ]
+    ],
+    "tiles": [
+      {
+        "icon": "list",
+        "title": "Rutinas y programas",
+        "text": "Tus rutinas y programas por fases, con límites según el plan."
+      },
+      {
+        "icon": "strength",
+        "title": "Series con RIR/RPE",
+        "text": "Peso, repeticiones y esfuerzo percibido, en formato libre."
+      },
+      {
+        "icon": "chart",
+        "title": "Evolución por ejercicio",
+        "text": "Tope estimado, mejor serie y gráfica de progreso."
+      },
+      {
+        "icon": "scan",
+        "title": "Escáner de pizarra",
+        "text": "Fotografía la pizarra del gym y conviértela en entreno."
+      },
+      {
+        "icon": "import",
+        "title": "Alternativas por material",
+        "text": "Sustitutos por movimiento o equipo cuando falta una máquina."
+      },
+      {
+        "icon": "watch",
+        "title": "También en el Watch",
+        "text": "Confirma ejercicio y series desde la muñeca."
+      }
+    ],
+    "note": "Flujo de fuerza y registro de series tal como en la app publicada."
+  },
+  "wod": {
+    "title": "Cómo es una sesión con Repera",
+    "steps": [
+      [
+        "Antes",
+        "Configura el formato",
+        "EMOM, AMRAP o intervalos: rondas, trabajo y descanso. O abre la clase y dale a iniciar."
+      ],
+      [
+        "Durante",
+        "El reloj manda",
+        "Cuenta atrás sonora y reloj LED que se lee desde el otro lado de la sala. La sesión graba tiempo y pulso por zonas."
+      ],
+      [
+        "Después",
+        "El resultado, apuntado",
+        "Rondas y repeticiones del WOD al terminar, con marcas históricas y comparativas en Pro."
+      ]
+    ],
+    "tiles": [
+      {
+        "icon": "timer",
+        "title": "EMOM, AMRAP e intervalos",
+        "text": "El temporizador con los formatos del box."
+      },
+      {
+        "icon": "wod",
+        "title": "Reloj LED a la vista",
+        "text": "Pantalla grande que se lee desde cualquier rincón."
+      },
+      {
+        "icon": "trophy",
+        "title": "Resultado del WOD",
+        "text": "Rondas completas y repeticiones, registrado al terminar."
+      },
+      {
+        "icon": "scan",
+        "title": "Marcas y comparativas",
+        "text": "Tus históricos para saber si mejoras (Pro)."
+      },
+      {
+        "icon": "list",
+        "title": "Clase grabada con pulso",
+        "text": "Tiempo activo, zonas y calorías medidos durante la clase."
+      },
+      {
+        "icon": "watch",
+        "title": "Zonas en directo",
+        "text": "Para no fundirte en la primera ronda."
+      }
+    ],
+    "note": "AMRAP, EMOM y WOD se registran en el mismo diario que la fuerza."
+  },
+  "indoor": {
+    "title": "Cómo se registra con Repera",
+    "steps": [
+      [
+        "Antes",
+        "Eliges la actividad",
+        "Está en Comenzar, ordenada con su grupo en el mismo selector de la app. Cuenta atrás de tres segundos y listo."
+      ],
+      [
+        "Durante",
+        "Duración y pulso en directo",
+        "Tiempo activo, frecuencia cardiaca y la zona en la que estás. Sin distancias inventadas: donde no hay recorrido no hay GPS que medir."
+      ],
+      [
+        "Después",
+        "Suma en la misma semana",
+        "La sesión queda en tu diario con tiempo, pulso y calorías medidos, junto al gym, la carrera y todo lo demás."
+      ]
+    ],
+    "tiles": [
+      {
+        "icon": "energy",
+        "title": "Duración y esfuerzo",
+        "text": "Tiempo activo y estímulo estimado por zonas."
+      },
+      {
+        "icon": "heart",
+        "title": "Zonas de pulso en directo",
+        "text": "La misma barra de zonas que en los deportes con GPS."
+      },
+      {
+        "icon": "streak",
+        "title": "Sin distancia fabricada",
+        "text": "Donde no hay recorrido, Repera no inventa kilómetros."
+      },
+      {
+        "icon": "muscle",
+        "title": "Calorías y FC medidas",
+        "text": "Del Watch o de Apple Salud, solo con tu permiso."
+      },
+      {
+        "icon": "book",
+        "title": "Todo en el mismo diario",
+        "text": "Convive con fuerza, cardio y descanso."
+      },
+      {
+        "icon": "lock",
+        "title": "También en el Watch",
+        "text": "Inicia y controla la actividad desde la muñeca."
+      }
+    ],
+    "note": "Actividades indoor y de sala comparten el diario y el progreso."
+  }
+}

@@ -37,6 +37,10 @@
     <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- Conecta tu IA: preferir app instalada al abrir chat con instrucciones -->
+        <package android:name="com.openai.chatgpt" />
+        <package android:name="com.anthropic.claude" />
+        <package android:name="ai.x.grok" />
         <!-- Centro: abrir correo / marcador desde ficha de contacto -->
         <intent>
             <action android:name="android.intent.action.SENDTO" />
@@ -45,6 +49,10 @@
         <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
     </queries>
     <application

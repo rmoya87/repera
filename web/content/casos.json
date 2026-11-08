@@ -1,0 +1,876 @@
+{
+  "groups_order": [
+    "A pie",
+    "Ciclismo",
+    "Fuerza y fitness",
+    "Deportes de raqueta",
+    "Deportes acuáticos",
+    "Deportes de invierno",
+    "Deportes de equipo",
+    "Combate",
+    "Cardio y gimnasio",
+    "Otros deportes"
+  ],
+  "casos": [
+    {
+      "slug": "carrera",
+      "name": "Carrera",
+      "group": "A pie",
+      "mode": "gps",
+      "summary": "Ruta, ritmo y un aviso hablado por kilómetro.",
+      "body": "Sales a correr y Repera dibuja la ruta con GPS, te avisa en voz de cada kilómetro con su tiempo y te enseña en qué zona de pulso vas. Al terminar: parciales, mapa y tu mejor km guardados en el diario.",
+      "registers": [
+        "Sales a correr y Repera dibuja la ruta con GPS, te avisa en voz de cada kilómetro con su tiempo y te enseña en qué zona de pulso vas.",
+        "Al terminar: parciales, mapa y tu mejor km guardados en el diario.",
+        "Ruta, ritmo y un aviso hablado por kilómetro.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "carrera-montana",
+      "name": "Carrera de montaña",
+      "group": "A pie",
+      "mode": "gps",
+      "summary": "Desnivel, recorrido y zonas para dosificar.",
+      "body": "Trail con GPS real: distancia verificada, desnivel y zonas de pulso en directo para no reventar en la primera subida. La ruta queda con su mapa para comparar la próxima vez.",
+      "registers": [
+        "Trail con GPS real: distancia verificada, desnivel y zonas de pulso en directo para no reventar en la primera subida.",
+        "La ruta queda con su mapa para comparar la próxima vez.",
+        "Desnivel, recorrido y zonas para dosificar.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "caminata",
+      "name": "Caminata",
+      "group": "A pie",
+      "mode": "gps",
+      "summary": "También cuenta, con avisos de kilómetro a tu ritmo.",
+      "body": "Las caminatas suman sin disfrazarse de otra cosa: duración, distancia GPS y aviso hablado por kilómetro también a paso lento, sin etiquetar un paseo como entreno intenso.",
+      "registers": [
+        "Las caminatas suman sin disfrazarse de otra cosa: duración, distancia GPS y aviso hablado por kilómetro también a paso lento, sin etiquetar un paseo como entreno intenso.",
+        "También cuenta, con avisos de kilómetro a tu ritmo.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "senderismo",
+      "name": "Senderismo",
+      "group": "A pie",
+      "mode": "gps",
+      "summary": "Ruta larga con mapa, condiciones y avisos por kilómetro.",
+      "body": "Ruta con mochila: GPS, mapa con tu posición y las condiciones del punto de salida antes de salir. Los avisos de kilómetro también funcionan en senderismo.",
+      "registers": [
+        "Ruta con mochila: GPS, mapa con tu posición y las condiciones del punto de salida antes de salir.",
+        "Los avisos de kilómetro también funcionan en senderismo.",
+        "Ruta larga con mapa, condiciones y avisos por kilómetro.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "ciclismo-carretera",
+      "name": "Ciclismo de carretera",
+      "group": "Ciclismo",
+      "mode": "gps",
+      "summary": "Velocidad, parciales hablados y giros anunciados.",
+      "body": "Kilómetros en bici con velocidad media y avisos hablados por kilómetro. Siguiendo un GPX guardado, los giros se anuncian con antelación para no frenar a mirar el móvil.",
+      "registers": [
+        "Kilómetros en bici con velocidad media y avisos hablados por kilómetro.",
+        "Siguiendo un GPX guardado, los giros se anuncian con antelación para no frenar a mirar el móvil.",
+        "Velocidad, parciales hablados y giros anunciados.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "ciclismo-montana",
+      "name": "Ciclismo de montaña",
+      "group": "Ciclismo",
+      "mode": "gps",
+      "summary": "Recorrido y desnivel guardados con su mapa.",
+      "body": "MTB con GPS verificado: recorrido, desnivel y velocidad por tramos, guardados con su mapa para repetir la ruta o comparar marcas.",
+      "registers": [
+        "MTB con GPS verificado: recorrido, desnivel y velocidad por tramos, guardados con su mapa para repetir la ruta o comparar marcas.",
+        "Recorrido y desnivel guardados con su mapa.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "gravel",
+      "name": "Bicicleta de gravel",
+      "group": "Ciclismo",
+      "mode": "gps",
+      "summary": "Rutas largas mixtas guiadas por tu GPX.",
+      "body": "Salidas largas entre asfalto y pista: distancia verificada por GPS y guía por rutas GPX con giros hablados en cada cruce.",
+      "registers": [
+        "Salidas largas entre asfalto y pista: distancia verificada por GPS y guía por rutas GPX con giros hablados en cada cruce.",
+        "Rutas largas mixtas guiadas por tu GPX.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "entrenamiento",
+      "name": "Entrenamiento",
+      "group": "Fuerza y fitness",
+      "mode": "fuerza",
+      "summary": "Rutinas, series con RIR/RPE y evolución por ejercicio.",
+      "body": "El diario de fuerza clásico: rutinas, series con kg, reps y RIR/RPE, y evolución por ejercicio con tope estimado y récords. Lo que levantas hoy alimenta lo que decidirás mañana.",
+      "registers": [
+        "El diario de fuerza clásico: rutinas, series con kg, reps y RIR/RPE, y evolución por ejercicio con tope estimado y récords.",
+        "Lo que levantas hoy alimenta lo que decidirás mañana.",
+        "Rutinas, series con RIR/RPE y evolución por ejercicio.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "funcionalidades"
+      ],
+      "index": true
+    },
+    {
+      "slug": "crossfit",
+      "name": "CrossFit",
+      "group": "Fuerza y fitness",
+      "mode": "wod",
+      "summary": "EMOM, AMRAP y reloj LED; el resultado del WOD al acabar.",
+      "body": "Configura el EMOM o el AMRAP, deja el reloj LED a la vista de la sala y entrena. Al terminar registras el resultado del WOD: rondas, repeticiones y tus marcas históricas.",
+      "registers": [
+        "Configura el EMOM o el AMRAP, deja el reloj LED a la vista de la sala y entrena.",
+        "Al terminar registras el resultado del WOD: rondas, repeticiones y tus marcas históricas.",
+        "EMOM, AMRAP y reloj LED; el resultado del WOD al acabar.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "funcionalidades"
+      ],
+      "index": true
+    },
+    {
+      "slug": "hiit",
+      "name": "HIIT",
+      "group": "Fuerza y fitness",
+      "mode": "wod",
+      "summary": "Intervalos por rondas con zonas de pulso en directo.",
+      "body": "Intervalos de alta intensidad con el temporizador por rondas, trabajo y descanso. Las zonas de pulso en directo te dicen si vas al ritmo que toca o te estás pasando.",
+      "registers": [
+        "Intervalos de alta intensidad con el temporizador por rondas, trabajo y descanso.",
+        "Las zonas de pulso en directo te dicen si vas al ritmo que toca o te estás pasando.",
+        "Intervalos por rondas con zonas de pulso en directo.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "funcionalidades"
+      ],
+      "index": true
+    },
+    {
+      "slug": "hyrox",
+      "name": "HYROX",
+      "group": "Fuerza y fitness",
+      "mode": "wod",
+      "summary": "Estaciones y carrera conviven en el mismo diario.",
+      "body": "Fuerza y carrera en el mismo sitio: las estaciones con tu material como entreno de fuerza, los rodajes con GPS, y programas por fases que revisas y activas cuando te cuadran.",
+      "registers": [
+        "Fuerza y carrera en el mismo sitio: las estaciones con tu material como entreno de fuerza, los rodajes con GPS, y programas por fases que revisas y activas cuando te cuadran.",
+        "Estaciones y carrera conviven en el mismo diario.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "funcionalidades"
+      ],
+      "index": true
+    },
+    {
+      "slug": "tenis",
+      "name": "Tenis",
+      "group": "Deportes de raqueta",
+      "mode": "indoor",
+      "summary": "El partido, registrado: duración, pulso y zonas.",
+      "body": "Registras el partido o el entreno desde Comenzar: duración, frecuencia cardiaca y zonas en directo. La pista no fabrica kilómetros: solo queda lo medido, junto a tus pesas del lunes.",
+      "registers": [
+        "Registras el partido o el entreno desde Comenzar: duración, frecuencia cardiaca y zonas en directo.",
+        "La pista no fabrica kilómetros: solo queda lo medido, junto a tus pesas del lunes.",
+        "El partido, registrado: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "padel",
+      "name": "Pádel",
+      "group": "Deportes de raqueta",
+      "mode": "indoor",
+      "summary": "El partido, registrado: duración, pulso y zonas.",
+      "body": "El partido del martes cuenta como lo que es: duración, pulso y zonas en directo desde Comenzar, sin distancias inventadas. Y convive en el mismo diario con el gym.",
+      "registers": [
+        "El partido del martes cuenta como lo que es: duración, pulso y zonas en directo desde Comenzar, sin distancias inventadas.",
+        "Y convive en el mismo diario con el gym.",
+        "El partido, registrado: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "badminton",
+      "name": "Bádminton",
+      "group": "Deportes de raqueta",
+      "mode": "indoor",
+      "summary": "El partido, registrado: duración, pulso y zonas.",
+      "body": "Sesión o partido registrados desde Comenzar con duración y frecuencia cardiaca. Sin GPS que fabricar en pista cubierta: queda lo medido.",
+      "registers": [
+        "Sesión o partido registrados desde Comenzar con duración y frecuencia cardiaca.",
+        "Sin GPS que fabricar en pista cubierta: queda lo medido.",
+        "El partido, registrado: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "pickleball",
+      "name": "Pickleball",
+      "group": "Deportes de raqueta",
+      "mode": "indoor",
+      "summary": "El partido, registrado: duración, pulso y zonas.",
+      "body": "Registra la sesión desde Comenzar: tiempo activo, pulso y zonas. Todo suma en la misma semana que tus entrenos de fuerza.",
+      "registers": [
+        "Registra la sesión desde Comenzar: tiempo activo, pulso y zonas.",
+        "Todo suma en la misma semana que tus entrenos de fuerza.",
+        "El partido, registrado: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "squash",
+      "name": "Squash",
+      "group": "Deportes de raqueta",
+      "mode": "indoor",
+      "summary": "El partido, registrado: duración, pulso y zonas.",
+      "body": "Alta intensidad en pista: la sesión queda con su duración, pulso y zonas, sin distancias fabricadas, junto al resto de tu actividad.",
+      "registers": [
+        "Alta intensidad en pista: la sesión queda con su duración, pulso y zonas, sin distancias fabricadas, junto al resto de tu actividad.",
+        "El partido, registrado: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "natacion",
+      "name": "Natación",
+      "group": "Deportes acuáticos",
+      "mode": "indoor",
+      "summary": "Piscina sin GPS: duración, pulso y zonas.",
+      "body": "En piscina no hay GPS que medir y Repera no lo inventa: la sesión registra duración, frecuencia cardiaca y zonas, y convive con tu entreno de fuerza en el mismo diario.",
+      "registers": [
+        "En piscina no hay GPS que medir y Repera no lo inventa: la sesión registra duración, frecuencia cardiaca y zonas, y convive con tu entreno de fuerza en el mismo diario.",
+        "Piscina sin GPS: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "surf",
+      "name": "Surf",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Recorrido real sobre el agua, con marea consultada.",
+      "body": "La sesión en el agua con recorrido GPS real: distancia y velocidad sobre el mapa, y la previsión del lugar \\u2014con marea cuando aplica\\u2014 antes de entrar.",
+      "registers": [
+        "La sesión en el agua con recorrido GPS real: distancia y velocidad sobre el mapa, y la previsión del lugar \\u2014con marea cuando aplica\\u2014 antes de entrar.",
+        "Recorrido real sobre el agua, con marea consultada.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "windsurf",
+      "name": "Windsurf",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Distancia y velocidad sobre el agua, con su mapa.",
+      "body": "Salidas con recorrido GPS verificado: distancia, velocidad y el track guardado en tu diario con las condiciones del día.",
+      "registers": [
+        "Salidas con recorrido GPS verificado: distancia, velocidad y el track guardado en tu diario con las condiciones del día.",
+        "Distancia y velocidad sobre el agua, con su mapa.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "kitesurf",
+      "name": "Kitesurf",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Distancia y velocidad sobre el agua, con su mapa.",
+      "body": "La sesión queda con su recorrido real: distancia y velocidad por GPS y el mapa en el diario, con la previsión del spot consultada antes.",
+      "registers": [
+        "La sesión queda con su recorrido real: distancia y velocidad por GPS y el mapa en el diario, con la previsión del spot consultada antes.",
+        "Distancia y velocidad sobre el agua, con su mapa.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "kayak",
+      "name": "Kayak",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Travesías con distancia y recorrido verificados.",
+      "body": "Travesías con GPS: distancia verificada, ritmo y el recorrido dibujado en tu diario, con el aviso hablado por kilómetro si lo activas.",
+      "registers": [
+        "Travesías con GPS: distancia verificada, ritmo y el recorrido dibujado en tu diario, con el aviso hablado por kilómetro si lo activas.",
+        "Travesías con distancia y recorrido verificados.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "remo",
+      "name": "Remo",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Distancia y ritmo en el agua, guardados en el diario.",
+      "body": "Salidas de remo con recorrido GPS real: distancia, ritmo y mapa de la travesía junto al resto de tu semana de entreno.",
+      "registers": [
+        "Salidas de remo con recorrido GPS real: distancia, ritmo y mapa de la travesía junto al resto de tu semana de entreno.",
+        "Distancia y ritmo en el agua, guardados en el diario.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "piragua",
+      "name": "Piragua",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Travesías con distancia y recorrido verificados.",
+      "body": "Ríos y travesías con GPS verificado: el recorrido queda dibujado con su distancia y sus tiempos en el diario.",
+      "registers": [
+        "Ríos y travesías con GPS verificado: el recorrido queda dibujado con su distancia y sus tiempos en el diario.",
+        "Travesías con distancia y recorrido verificados.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "vela",
+      "name": "Vela",
+      "group": "Deportes acuáticos",
+      "mode": "gps",
+      "summary": "Recorrido y velocidad, con las condiciones del día.",
+      "body": "Salidas a vela con recorrido GPS y velocidad, guardadas con su mapa y las condiciones del lugar, sin fabricar ningún dato.",
+      "registers": [
+        "Salidas a vela con recorrido GPS y velocidad, guardadas con su mapa y las condiciones del lugar, sin fabricar ningún dato.",
+        "Recorrido y velocidad, con las condiciones del día.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "esqui-alpino",
+      "name": "Esquí alpino",
+      "group": "Deportes de invierno",
+      "mode": "gps",
+      "summary": "Día de nieve con recorrido GPS y condiciones.",
+      "body": "El día en pistas con GPS: distancia y recorrido por la montaña, con las condiciones del lugar \\u2014nieve incluida cuando aplica\\u2014 consultadas antes de subir.",
+      "registers": [
+        "El día en pistas con GPS: distancia y recorrido por la montaña, con las condiciones del lugar \\u2014nieve incluida cuando aplica\\u2014 consultadas antes de subir.",
+        "Día de nieve con recorrido GPS y condiciones.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "snowboard",
+      "name": "Snowboard",
+      "group": "Deportes de invierno",
+      "mode": "gps",
+      "summary": "Bajadas con recorrido y distancia en el diario.",
+      "body": "Cada bajada suma en el recorrido del día: distancia GPS y mapa de la jornada en la nieve, guardados con las condiciones del lugar.",
+      "registers": [
+        "Cada bajada suma en el recorrido del día: distancia GPS y mapa de la jornada en la nieve, guardados con las condiciones del lugar.",
+        "Bajadas con recorrido y distancia en el diario.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "esqui-fondo",
+      "name": "Esquí de fondo",
+      "group": "Deportes de invierno",
+      "mode": "gps",
+      "summary": "Distancia, ritmo y zonas en el recorrido nórdico.",
+      "body": "Recorridos de fondo con distancia GPS verificada, ritmo y zonas de pulso en directo, guardados con su mapa al terminar.",
+      "registers": [
+        "Recorridos de fondo con distancia GPS verificada, ritmo y zonas de pulso en directo, guardados con su mapa al terminar.",
+        "Distancia, ritmo y zonas en el recorrido nórdico.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "patinaje-hielo",
+      "name": "Patinaje sobre hielo",
+      "group": "Deportes de invierno",
+      "mode": "indoor",
+      "summary": "Sesión en pista registrada por duración y pulso.",
+      "body": "La sesión en la pista se registra por duración y frecuencia cardiaca, sin distancia fabricada, y suma en tu actividad de la semana.",
+      "registers": [
+        "La sesión en la pista se registra por duración y frecuencia cardiaca, sin distancia fabricada, y suma en tu actividad de la semana.",
+        "Sesión en pista registrada por duración y pulso.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "futbol",
+      "name": "Fútbol",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "El partido del jueves es actividad real: se registra desde Comenzar con duración, pulso y zonas, y convive con tus entrenos de fuerza en el mismo diario.",
+      "registers": [
+        "El partido del jueves es actividad real: se registra desde Comenzar con duración, pulso y zonas, y convive con tus entrenos de fuerza en el mismo diario.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "baloncesto",
+      "name": "Baloncesto",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "Partido o entreno registrado con tiempo activo, frecuencia cardiaca y zonas. Todo suma en la misma semana, sin cambiar de app.",
+      "registers": [
+        "Partido o entreno registrado con tiempo activo, frecuencia cardiaca y zonas.",
+        "Todo suma en la misma semana, sin cambiar de app.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "voleibol",
+      "name": "Voleibol",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "La sesión del equipo queda en el diario con su duración y su pulso, sin distancias inventadas, junto al resto de tu actividad.",
+      "registers": [
+        "La sesión del equipo queda en el diario con su duración y su pulso, sin distancias inventadas, junto al resto de tu actividad.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "futbol-americano",
+      "name": "Fútbol americano",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "Entreno o partido registrado desde Comenzar con duración y zonas de pulso, junto a tus sesiones de fuerza del resto de la semana.",
+      "registers": [
+        "Entreno o partido registrado desde Comenzar con duración y zonas de pulso, junto a tus sesiones de fuerza del resto de la semana.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "beisbol",
+      "name": "Béisbol",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "Registra la sesión con duración y frecuencia cardiaca medidos. Sin GPS fabricado: queda lo que de verdad pasó.",
+      "registers": [
+        "Registra la sesión con duración y frecuencia cardiaca medidos.",
+        "Sin GPS fabricado: queda lo que de verdad pasó.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "hockey",
+      "name": "Hockey",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "El partido se registra con duración, pulso y zonas en directo, y suma en la misma semana que el resto de tus entrenos.",
+      "registers": [
+        "El partido se registra con duración, pulso y zonas en directo, y suma en la misma semana que el resto de tus entrenos.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "lacrosse",
+      "name": "Lacrosse",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "Sesión registrada desde Comenzar con duración y pulso, sin inventar recorridos, dentro del mismo diario que tu fuerza.",
+      "registers": [
+        "Sesión registrada desde Comenzar con duración y pulso, sin inventar recorridos, dentro del mismo diario que tu fuerza.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "rugby",
+      "name": "Rugby",
+      "group": "Deportes de equipo",
+      "mode": "indoor",
+      "summary": "El partido cuenta: duración, pulso y zonas.",
+      "body": "Partido y entreno del equipo con duración, frecuencia cardiaca y zonas registradas, conviviendo con tus rutinas de gym.",
+      "registers": [
+        "Partido y entreno del equipo con duración, frecuencia cardiaca y zonas registradas, conviviendo con tus rutinas de gym.",
+        "El partido cuenta: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "boxeo",
+      "name": "Boxeo",
+      "group": "Combate",
+      "mode": "indoor",
+      "summary": "Asaltos con el temporizador y sesión registrada.",
+      "body": "Los asaltos se marcan con el temporizador por rondas \\u2014trabajo y descanso\\u2014 y la sesión queda registrada con duración, pulso y zonas.",
+      "registers": [
+        "Los asaltos se marcan con el temporizador por rondas \\u2014trabajo y descanso\\u2014 y la sesión queda registrada con duración, pulso y zonas.",
+        "Asaltos con el temporizador y sesión registrada.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "kickboxing",
+      "name": "Kickboxing",
+      "group": "Combate",
+      "mode": "indoor",
+      "summary": "Rondas con el temporizador y pulso en directo.",
+      "body": "Rondas de trabajo con el temporizador de intervalos y la sesión registrada con tiempo activo y zonas de pulso.",
+      "registers": [
+        "Rondas de trabajo con el temporizador de intervalos y la sesión registrada con tiempo activo y zonas de pulso.",
+        "Rondas con el temporizador y pulso en directo.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "artes-marciales",
+      "name": "Artes marciales",
+      "group": "Combate",
+      "mode": "indoor",
+      "summary": "La clase, registrada: duración, pulso y zonas.",
+      "body": "La clase queda en el diario con su duración y su esfuerzo por zonas, junto a la fuerza y la movilidad del resto de la semana.",
+      "registers": [
+        "La clase queda en el diario con su duración y su esfuerzo por zonas, junto a la fuerza y la movilidad del resto de la semana.",
+        "La clase, registrada: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "lucha",
+      "name": "Lucha",
+      "group": "Combate",
+      "mode": "indoor",
+      "summary": "La sesión, registrada: duración, pulso y zonas.",
+      "body": "Entreno registrado desde Comenzar con tiempo activo y frecuencia cardiaca, sin distancias fabricadas, dentro del mismo diario.",
+      "registers": [
+        "Entreno registrado desde Comenzar con tiempo activo y frecuencia cardiaca, sin distancias fabricadas, dentro del mismo diario.",
+        "La sesión, registrada: duración, pulso y zonas.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "fuerza-funcional",
+      "name": "Fuerza funcional",
+      "group": "Cardio y gimnasio",
+      "mode": "fuerza",
+      "summary": "Circuitos registrados como entreno de fuerza.",
+      "body": "Circuitos y trabajo funcional anotados como entreno de fuerza: ejercicios, series y descansos, con el temporizador para los intervalos y la evolución en Progreso.",
+      "registers": [
+        "Circuitos y trabajo funcional anotados como entreno de fuerza: ejercicios, series y descansos, con el temporizador para los intervalos y la evolución en Progreso.",
+        "Circuitos registrados como entreno de fuerza.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "core",
+      "name": "Core",
+      "group": "Cardio y gimnasio",
+      "mode": "fuerza",
+      "summary": "Sesiones de core dentro de tu rutina.",
+      "body": "El trabajo de core vive en tu rutina como cualquier otro entreno: ejercicios \\u2014propios si faltan en el catálogo\\u2014, series anotadas y su sitio en tu semana.",
+      "registers": [
+        "El trabajo de core vive en tu rutina como cualquier otro entreno: ejercicios \\u2014propios si faltan en el catálogo\\u2014, series anotadas y su sitio en tu semana.",
+        "Sesiones de core dentro de tu rutina.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "golf",
+      "name": "Golf",
+      "group": "Otros deportes",
+      "mode": "gps",
+      "summary": "La vuelta, a ritmo de caminata, con su mapa.",
+      "body": "El recorrido del campo registrado con GPS a ritmo de caminata: distancia de la vuelta y mapa en tu diario, junto a tus entrenos de fuerza.",
+      "registers": [
+        "El recorrido del campo registrado con GPS a ritmo de caminata: distancia de la vuelta y mapa en tu diario, junto a tus entrenos de fuerza.",
+        "La vuelta, a ritmo de caminata, con su mapa.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "escalada",
+      "name": "Escalada",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "Rocódromo por duración y esfuerzo, sin GPS fabricado.",
+      "body": "La escalada en rocódromo no fabrica distancia: la sesión registra duración, pulso y zonas, y queda junto a tu trabajo de fuerza y antagonistas.",
+      "registers": [
+        "La escalada en rocódromo no fabrica distancia: la sesión registra duración, pulso y zonas, y queda junto a tu trabajo de fuerza y antagonistas.",
+        "Rocódromo por duración y esfuerzo, sin GPS fabricado.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "baile",
+      "name": "Baile",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "Clase o sesión contada como actividad real.",
+      "body": "La clase de baile es actividad de verdad: duración, pulso y zonas registrados, sumando en tu semana como cualquier otro entreno.",
+      "registers": [
+        "La clase de baile es actividad de verdad: duración, pulso y zonas registrados, sumando en tu semana como cualquier otro entreno.",
+        "Clase o sesión contada como actividad real.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "pilates",
+      "name": "Pilates",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "Control y movilidad, junto a tu descanso.",
+      "body": "Tus sesiones registradas con duración y pulso, al lado del sueño y la VFC de Recuperación: el trabajo suave también se ve en el diario.",
+      "registers": [
+        "Tus sesiones registradas con duración y pulso, al lado del sueño y la VFC de Recuperación: el trabajo suave también se ve en el diario.",
+        "Control y movilidad, junto a tu descanso.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "skateboard",
+      "name": "Skateboard",
+      "group": "Otros deportes",
+      "mode": "gps",
+      "summary": "Sesión en la calle con recorrido GPS real.",
+      "body": "La sesión de skate en la calle registra recorrido y distancia con GPS verificado; en el skatepark, duración y pulso. Todo queda en el diario.",
+      "registers": [
+        "La sesión de skate en la calle registra recorrido y distancia con GPS verificado; en el skatepark, duración y pulso.",
+        "Todo queda en el diario.",
+        "Sesión en la calle con recorrido GPS real.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [
+        "outdoor"
+      ],
+      "index": true
+    },
+    {
+      "slug": "yoga",
+      "name": "Yoga",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "Duración y calma medida, junto a tu recuperación.",
+      "body": "La sesión de yoga registrada por duración y pulso, conviviendo con el sueño y la VFC que miras en Recuperación.",
+      "registers": [
+        "La sesión de yoga registrada por duración y pulso, conviviendo con el sueño y la VFC que miras en Recuperación.",
+        "Duración y calma medida, junto a tu recuperación.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "movilidad",
+      "name": "Movilidad",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "El trabajo de movilidad también queda en el diario.",
+      "body": "Las sesiones de movilidad registradas con su duración y su pulso, para que el trabajo invisible también cuente en tu semana.",
+      "registers": [
+        "Las sesiones de movilidad registradas con su duración y su pulso, para que el trabajo invisible también cuente en tu semana.",
+        "El trabajo de movilidad también queda en el diario.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    },
+    {
+      "slug": "otra-actividad",
+      "name": "Otra actividad",
+      "group": "Otros deportes",
+      "mode": "indoor",
+      "summary": "¿Tu deporte no está en la lista? Igualmente queda.",
+      "body": "Si tu deporte no está en el selector, «Otra actividad» registra duración, pulso y zonas como cualquier otra: nada queda fuera del diario.",
+      "registers": [
+        "Si tu deporte no está en el selector, «Otra actividad» registra duración, pulso y zonas como cualquier otra: nada queda fuera del diario.",
+        "¿Tu deporte no está en la lista? Igualmente queda.",
+        "Queda en el mismo diario que el resto de tus entrenos.",
+        "Compatible con iPhone y Apple Watch."
+      ],
+      "related": [],
+      "index": true
+    }
+  ]
+}

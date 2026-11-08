@@ -310,43 +310,51 @@ final class SubscriptionManager {
             // Pro verificado mientras caducidad futura o gracia offline (7 d).
             // Debug Pro debe poder forzar Gratis aunque exista caché local
             // (p. ej. Mac Designed for iPad con historial .storekit).
+            // `.free` no concede Pro: no comprobar `grantsProAccess` aquí
+            // (el compilador lo pliega) ni un flag Release constante en false
+            // (el `else` quedaría muerto).
             #if DEBUG
-            let debugForcesCommercialStatus =
-                DebugEntitlementController.shared.overrideEnabled
-            #else
-            let debugForcesCommercialStatus = false
-            #endif
-            if !debugForcesCommercialStatus {
-                let persisted = loadPersistedVerifiedPro()
-                let cachedStatus = previous.lastVerifiedProStatus
-                    ?? persisted?.lastVerifiedProStatus
-                let cachedAt = previous.lastVerifiedProAt ?? persisted?.lastVerifiedProAt
-                let expiration = next.expirationDate
-                    ?? previous.expirationDate
-                    ?? persisted?.expirationDate
-                if let cachedStatus, cachedStatus.grantsProAccess {
-                    let hold = CommercialSnapshot(
-                        status: .unknown,
-                        lastVerifiedProStatus: cachedStatus,
-                        lastVerifiedProAt: cachedAt ?? Date(),
-                        expirationDate: expiration,
-                        activeProductID: next.activeProductID
-                            ?? previous.activeProductID
-                            ?? persisted?.activeProductID,
-                        isConfigured: true,
-                        lastRefreshFailedOffline: true
-                    )
-                    if hold.grantsProAccess {
-                        next = hold
-                    }
-                }
-            } else if !next.grantsProAccess {
+            if DebugEntitlementController.shared.overrideEnabled {
                 UserDefaults.standard.removeObject(forKey: Self.verifiedProCacheKey)
+            } else {
+                next = applyingVerifiedProHold(to: next, previous: previous)
             }
+            #else
+            next = applyingVerifiedProHold(to: next, previous: previous)
+            #endif
         }
         applySnapshot(next)
         persistVerifiedPro(snapshot)
         _ = reason
+    }
+
+    /// Rehidrata Pro verificado cuando StoreKit responde `.free` en vacío.
+    /// Solo sustituye el snapshot si la política offline sigue concediendo Pro.
+    private func applyingVerifiedProHold(
+        to next: CommercialSnapshot,
+        previous: CommercialSnapshot
+    ) -> CommercialSnapshot {
+        let persisted = loadPersistedVerifiedPro()
+        let cachedStatus = previous.lastVerifiedProStatus
+            ?? persisted?.lastVerifiedProStatus
+        let cachedAt = previous.lastVerifiedProAt ?? persisted?.lastVerifiedProAt
+        let expiration = next.expirationDate
+            ?? previous.expirationDate
+            ?? persisted?.expirationDate
+        guard let cachedStatus, cachedStatus.grantsProAccess else { return next }
+        let hold = CommercialSnapshot(
+            status: .unknown,
+            lastVerifiedProStatus: cachedStatus,
+            lastVerifiedProAt: cachedAt ?? Date(),
+            expirationDate: expiration,
+            activeProductID: next.activeProductID
+                ?? previous.activeProductID
+                ?? persisted?.activeProductID,
+            isConfigured: true,
+            lastRefreshFailedOffline: true
+        )
+        guard hold.grantsProAccess else { return next }
+        return hold
     }
 
     private struct PersistedVerifiedPro: Codable {
