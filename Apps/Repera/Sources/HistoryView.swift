@@ -966,7 +966,12 @@ struct WorkoutDetailView: View {
                     .ogCardListRow(top: 0, bottom: 2)
                 }
 
-                // Métricas primero (antes mapa / ejercicios), sin título «Entreno».
+                // GPS outdoor: mapa justo tras los tiles (protagonista del detalle).
+                if !isEditing, sessionIsGPSSport(session) {
+                    detailMapSections(session)
+                }
+
+                // Métricas después del mapa / antes de ejercicios, sin título «Entreno».
                 let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
                 let extras = displayedMetrics(session)
                 let hasTrackedMetrics = displayedRoute(session).count >= 2
@@ -1034,11 +1039,6 @@ struct WorkoutDetailView: View {
                             .foregroundStyle(OG.accent)
                             .textCase(nil)
                     }
-                }
-
-                // GPS: mapa del recorrido junto a las métricas (protagonista).
-                if !isEditing, sessionIsGPSSport(session) {
-                    detailMapSections(session)
                 }
 
                 if isEditing {

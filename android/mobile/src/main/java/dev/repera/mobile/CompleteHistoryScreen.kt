@@ -417,7 +417,37 @@ internal fun WorkoutHistoryDetailScreen(
     workout.review?.let { SessionReviewCard(it) }
    }
   }
-  // Métricas primero (sin título «Entreno»), como HistoryView iOS.
+  // GPS outdoor: mapa justo tras los tiles (protagonista del detalle).
+  val sportForMap = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
+  if (sportForMap?.usesGPS == true && workout.routePoints.size >= 2) {
+   item {
+    CardioRouteSection(
+     workout.routePoints,
+     showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
+     waterSport = sportForMap.isWaterSport,
+     workoutEpochMs = workoutEpochMs(workout),
+     liveSportId = workout.liveSportID,
+     persistedConditions = workout.activityConditions,
+     prefetchedReading = weatherReading,
+     prefetchedFailure = weatherFailure,
+     weatherPrefetchReady = weatherReady
+    )
+    OutlinedButton(
+     onClick = {
+      val shared = runCatching {
+       WorkoutRouteShare.shareGPX(context, workout.routePoints)
+      }.getOrDefault(false)
+      if (!shared) android.widget.Toast.makeText(
+       context, "No se pudo compartir el recorrido", android.widget.Toast.LENGTH_SHORT
+      ).show()
+     },
+     modifier = Modifier.fillMaxWidth()
+    ) {
+     Text("Compartir recorrido GPX")
+    }
+   }
+  }
+  // Métricas después del mapa (sin título «Entreno»), como HistoryView iOS.
   // Solo card si hay algo que mostrar (evita el rectángulo vacío).
   item {
    val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
@@ -473,36 +503,6 @@ internal fun WorkoutHistoryDetailScreen(
      sectionTitle = null,
      prefetchedSeries = hrSeries
     )
-   }
-  }
-  // GPS: mapa tras métricas (antes de ejercicios).
-  val sportForMap = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
-  if (sportForMap?.usesGPS == true && workout.routePoints.size >= 2) {
-   item {
-    CardioRouteSection(
-     workout.routePoints,
-     showComputedSplits = workout.liveKilometerSplitsSeconds.isEmpty(),
-     waterSport = sportForMap.isWaterSport,
-     workoutEpochMs = workoutEpochMs(workout),
-     liveSportId = workout.liveSportID,
-     persistedConditions = workout.activityConditions,
-     prefetchedReading = weatherReading,
-     prefetchedFailure = weatherFailure,
-     weatherPrefetchReady = weatherReady
-    )
-    OutlinedButton(
-     onClick = {
-      val shared = runCatching {
-       WorkoutRouteShare.shareGPX(context, workout.routePoints)
-      }.getOrDefault(false)
-      if (!shared) android.widget.Toast.makeText(
-       context, "No se pudo compartir el recorrido", android.widget.Toast.LENGTH_SHORT
-      ).show()
-     },
-     modifier = Modifier.fillMaxWidth()
-    ) {
-     Text("Compartir recorrido GPX")
-    }
    }
   }
   // Bloques / ejercicios con thumb (paridad iOS exerciseCard).

@@ -2114,7 +2114,7 @@ private fun LiveReviewMapUnavailableCard(
     }
 }
 
-/** Resumen al finalizar: mapa hero + métricas + guardar (paridad Fitness / iOS review). */
+/** Resumen al finalizar: tiles + mapa GPS + métricas + guardar (paridad iOS review). */
 @Composable
 private fun LiveActivityReviewContent(
     state: LiveActivityState,
@@ -2158,46 +2158,6 @@ private fun LiveActivityReviewContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         ReperaPageHeader(title = stringResource(R.string.live_activity_screen_guardar_entreno))
-        if (state.sport.usesGPS && previewPoints.isNotEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .testTag("live_review_map_card")
-            ) {
-                RouteMapTapTarget(
-                    label = stringResource(R.string.live_activity_screen_abrir_recorrido_a_pantalla_completa),
-                    modifier = Modifier.fillMaxWidth().height(280.dp)
-                ) { interactive, mapModifier ->
-                    RouteMapView(
-                        previewPoints,
-                        isInteractive = interactive,
-                        modifier = mapModifier,
-                        waterSport = state.sport.isWaterSport,
-                        paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
-                        plannedRoute = !previewRecorded,
-                        plannedPoints = if (previewRecorded) chosenRoutePoints else emptyList(),
-                        controlsOverlay = true,
-                        cameraCenter = previewPoints.lastOrNull(),
-                        userPosition = previewPoints.lastOrNull(),
-                        onMapRendered = onMapRendered
-                    )
-                }
-                val weatherPoint = previewPoints.firstOrNull()
-                val weatherEpoch = state.startedMillis
-                if (weatherPoint != null && weatherEpoch != null) {
-                    RouteWeatherStrip(
-                        latitude = weatherPoint.latitude,
-                        longitude = weatherPoint.longitude,
-                        workoutEpochMs = weatherEpoch,
-                        modifier = Modifier.testTag("live_review_weather_under_map"),
-                        liveSportId = state.sport.id,
-                        persistedConditions = activityConditions
-                    )
-                }
-            }
-        }
         // Fecha fuera del bloque de tiles (paridad iOS).
         state.startedMillis?.let { started ->
             val zoned = java.time.Instant.ofEpochMilli(started)
@@ -2242,6 +2202,53 @@ private fun LiveActivityReviewContent(
                     compact = false
                 )
             }
+        }
+        // GPS outdoor: mapa justo tras los tiles (protagonista del resumen).
+        if (state.sport.usesGPS && previewPoints.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .testTag("live_review_map_card")
+            ) {
+                RouteMapTapTarget(
+                    label = stringResource(R.string.live_activity_screen_abrir_recorrido_a_pantalla_completa),
+                    modifier = Modifier.fillMaxWidth().height(280.dp)
+                ) { interactive, mapModifier ->
+                    RouteMapView(
+                        previewPoints,
+                        isInteractive = interactive,
+                        modifier = mapModifier,
+                        waterSport = state.sport.isWaterSport,
+                        paceMode = AdaptiveRoutePace.modeForSport(state.sport.name),
+                        plannedRoute = !previewRecorded,
+                        plannedPoints = if (previewRecorded) chosenRoutePoints else emptyList(),
+                        controlsOverlay = true,
+                        cameraCenter = previewPoints.lastOrNull(),
+                        userPosition = previewPoints.lastOrNull(),
+                        onMapRendered = onMapRendered
+                    )
+                }
+                val weatherPoint = previewPoints.firstOrNull()
+                val weatherEpoch = state.startedMillis
+                if (weatherPoint != null && weatherEpoch != null) {
+                    RouteWeatherStrip(
+                        latitude = weatherPoint.latitude,
+                        longitude = weatherPoint.longitude,
+                        workoutEpochMs = weatherEpoch,
+                        modifier = Modifier.testTag("live_review_weather_under_map"),
+                        liveSportId = state.sport.id,
+                        persistedConditions = activityConditions
+                    )
+                }
+            }
+        }
+        if (state.sport.usesGPS && previewPoints.isEmpty()) {
+            LiveReviewMapUnavailableCard(
+                hasDistance = state.distanceMeters > 0,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         // Wear Health Services reports CALORIES_TOTAL, not active kcal.
         // Show the wrist's measured total separately from verified Health
@@ -2288,12 +2295,6 @@ private fun LiveActivityReviewContent(
                     }
                 }
             }
-        }
-        if (state.sport.usesGPS && previewPoints.isEmpty()) {
-            LiveReviewMapUnavailableCard(
-                hasDistance = state.distanceMeters > 0,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
         ReperaSectionTitle("Detalles de la actividad")
         ReperaCard(Modifier.fillMaxWidth()) {

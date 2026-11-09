@@ -4290,7 +4290,7 @@ struct LiveActivityView: View {
         }
     }
 
-    /// Misma plantilla que el detalle de Historial: subtítulo, métricas, mapa, detalles.
+    /// Misma plantilla que el detalle de Historial: subtítulo, tiles, mapa GPS, métricas, detalles.
     private var review: some View {
         List {
             if let session = recorder.makeSession(title: title, notes: notes) {
@@ -4336,7 +4336,19 @@ struct LiveActivityView: View {
                     .ogCardListRow(top: 0, bottom: 2)
                 }
 
-                // Métricas primero, sin título «Entreno». Sin card vacía si no hay datos.
+                // GPS outdoor: mapa justo tras los tiles (protagonista del resumen).
+                if isGPS {
+                    reviewMapSections(
+                        session: session,
+                        route: route,
+                        previewPoints: previewPoints,
+                        isRecordedRoute: isRecordedRoute,
+                        placePin: placePin,
+                        distanceMeters: distanceMeters
+                    )
+                }
+
+                // Métricas después del mapa, sin título «Entreno». Sin card vacía si no hay datos.
                 let hasSportValues = (distanceMeters > 0
                     && (session.activeDurationSeconds ?? 0) > 0)
                     || !(session.liveKilometerSplitsSeconds ?? []).isEmpty
@@ -4391,18 +4403,6 @@ struct LiveActivityView: View {
                         ))
                         .ogCardListRow()
                     }
-                }
-
-                // GPS: mapa tras métricas.
-                if isGPS {
-                    reviewMapSections(
-                        session: session,
-                        route: route,
-                        previewPoints: previewPoints,
-                        isRecordedRoute: isRecordedRoute,
-                        placePin: placePin,
-                        distanceMeters: distanceMeters
-                    )
                 }
 
                 Section("Detalles de la actividad") {
