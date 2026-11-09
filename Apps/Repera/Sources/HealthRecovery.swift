@@ -1383,7 +1383,7 @@ struct HealthRecoveryProgressView: View {
                         ForEach(days.indices, id: \.self) { index in
                             AreaMark(
                                 x: .value("Día", days[index].date),
-                                yStart: .value("Base", 0),
+                                yStart: .value("Base", 0.0),
                                 yEnd: .value("Minutos", days[index].minutes)
                             )
                             .interpolationMethod(.catmullRom)
