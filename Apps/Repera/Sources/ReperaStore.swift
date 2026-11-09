@@ -16,15 +16,56 @@ final class ReperaStore: NSObject {
     @ObservationIgnored private var watchOwnedLiveOwnerScope: String?
     @ObservationIgnored private var closedWatchOwnedLiveIDs: Set<UUID> = []
 
+    // Only a finish explicitly requested on this iPhone navigates to Inicio
+    // after the Watch's workout has actually been persisted. Watch-only finishes
+    // keep their existing non-intrusive Descartar / Revisar card behavior.
+    private var phoneRequestedWatchFinishKey: String? {
+        AccountScopedDefaults.key("repera.watch.phoneRequestedFinish.v1")
+    }
+
+    private func isPhoneRequestedWatchFinish(_ id: UUID) -> Bool {
+        guard let key = phoneRequestedWatchFinishKey else { return false }
+        return UserDefaults.standard.string(forKey: key) == id.uuidString
+    }
+
+    private func revealPhoneRequestedWatchFinishIfPersisted(_ id: UUID) {
+        guard isPhoneRequestedWatchFinish(id),
+              let finished = state.workouts.first(where: {
+                  $0.id == id && $0.phase == .finished && $0.finishedAt != nil
+              }),
+              let key = phoneRequestedWatchFinishKey else { return }
+        // Never navigate for a stale offline import from days earlier.
+        UserDefaults.standard.removeObject(forKey: key)
+        guard let end = finished.finishedAt,
+              abs(end.timeIntervalSinceNow) < 10 * 60 else { return }
+        NotificationCenter.default.post(
+            name: Notification.Name("repera.phoneRequestedWatchFinishSaved"),
+            object: finished.startedAt ?? end
+        )
+    }
+
+    func restorePhoneRequestedWatchFinishIfSaved() {
+        guard let key = phoneRequestedWatchFinishKey,
+              let raw = UserDefaults.standard.string(forKey: key),
+              let id = UUID(uuidString: raw) else { return }
+        revealPhoneRequestedWatchFinishIfPersisted(id)
+    }
+
     @discardableResult
     func controlWatchOwnedLive(_ command: String) -> Bool {
         guard let live = watchOwnedLive, live.phase != .review,
               let scope = currentWatchOwnerScope(), !scope.isEmpty,
               scope == watchOwnedLiveOwnerScope,
               !closedWatchOwnedLiveIDs.contains(live.id) else { return false }
-        return connectivity.sendWatchOwnedLiveCommand(
+        let queued = connectivity.sendWatchOwnedLiveCommand(
             sessionId: live.id, command: command
         )
+        // A queued command is not a completed workout. Keep its UUID across
+        // process termination; only the durable Watch result can clear it.
+        if queued, command == "finish", let key = phoneRequestedWatchFinishKey {
+            UserDefaults.standard.set(live.id.uuidString, forKey: key)
+        }
+        return queued
     }
     private(set) var watchTimerMirror: WatchTimerMirror?
     private var watchTimerLastUpdate = Date.distantPast
@@ -2340,6 +2381,15 @@ final class ReperaStore: NSObject {
     }
 
     func applyWatchSession(_ session: WorkoutSession) {
+        var session = session
+        // For an iPhone-requested finish, retain the same durable review card
+        // used by Watch completions. No second workout or HealthKit writer.
+        // Never reopen an already edited/completed record on a late revision.
+        if session.phase == .finished,
+           isPhoneRequestedWatchFinish(session.id),
+           !state.workouts.contains(where: { $0.id == session.id }) {
+            session.awaitingResultEntry = true
+        }
         // The finished workout may arrive before the terminal Live Activity
         // snapshot (or after it is lost while the phone was offline).
         // Close the UI mirror by the same execution UUID. Its HealthKit data
@@ -2431,6 +2481,7 @@ final class ReperaStore: NSObject {
                     }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
+                    self.revealPhoneRequestedWatchFinishIfPersisted(session.id)
                 }
                 return
             }
@@ -2572,6 +2623,7 @@ final class ReperaStore: NSObject {
                 }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
+                self.revealPhoneRequestedWatchFinishIfPersisted(session.id)
                 if needsSync && BusinessAuthStore.shared.isConnected {
                     _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
                 }
