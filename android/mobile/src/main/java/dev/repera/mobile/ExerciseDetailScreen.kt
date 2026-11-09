@@ -208,6 +208,9 @@ internal fun ExerciseDetailScreen(
             }
         }
         item { MuscleEquipmentCard(entry) }
+        if (!isMobility && entry.loggingStyle == "loadAndReps" && strengthLiftForExerciseName(entry.name) != null) {
+            item { StrengthBenchmarkCard(exerciseName = entry.name, testedOneRM = testedOneRM) }
+        }
         // %1RM solo en fuerza kg×reps (paridad iOS ExerciseDetailView).
         if (!isMobility && entry.loggingStyle == "loadAndReps") {
             item { ReperaSectionTitle("Carga sugerida") }
