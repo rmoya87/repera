@@ -761,6 +761,9 @@ struct HealthRecoveryProgressView: View {
     private var recoveryCards: some View {
         trainingRecoveryCard
         if isPro {
+            trainingLoadWeekCard
+        }
+        if isPro {
             // Reservar siempre la misma celda. Al actualizar Apple Salud no
             // desaparece la gráfica ni se recolocan las tarjetas de sueño.
             if recoveryPoints.count >= 2 {
@@ -1320,6 +1323,69 @@ struct HealthRecoveryProgressView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
+    }
+
+    /// Advanced training-load trend is Pro only. Count completed workout time,
+    /// not prescribed minutes or an invented physiological stress score.
+    private var trainingLoadWeekCard: some View {
+        let now = Date()
+        let startCurrent = now.addingTimeInterval(-7 * 86400)
+        let startPrevious = now.addingTimeInterval(-14 * 86400)
+        let uniqueWorkouts = Array(Dictionary(
+            store.state.workouts.compactMap { workout -> (UUID, WorkoutSession)? in
+                guard let end = workout.finishedAt, end <= now,
+                      end > startPrevious, workout.durationMinutes > 0 else { return nil }
+                return (workout.id, workout)
+            }, uniquingKeysWith: { old, newer in
+                (newer.finishedAt ?? .distantPast) > (old.finishedAt ?? .distantPast) ? newer : old
+            }
+        ).values)
+        let external = HealthMuscleMapper.uniqueExternalActivities(
+            health.recentExternalActivities, workouts: store.state.workouts
+        )
+        let current = uniqueWorkouts.filter { ($0.finishedAt ?? .distantPast) > startCurrent }
+            .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+            + external.filter { $0.end > startCurrent && $0.end <= now }
+                .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        let previous = uniqueWorkouts.filter {
+            let date = $0.finishedAt ?? .distantPast
+            return date > startPrevious && date <= startCurrent
+        }.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+            + external.filter { $0.end > startPrevious && $0.end <= startCurrent }
+                .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        return VStack(alignment: .leading, spacing: 8) {
+            OGCardSectionTitle(title: "Carga · últimas dos semanas")
+            OGCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Minutos de entrenamiento registrados")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(current > 0 ? "\\(Int(current.rounded()))" : "—")
+                            .font(.system(size: 28, weight: .bold).monospacedDigit())
+                            .foregroundStyle(OG.accent)
+                        Text("min · últimos 7 días")
+                            .font(.footnote)
+                            .foregroundStyle(OG.label2)
+                        Spacer()
+                    }
+                    Text("7 días anteriores: \\(previous > 0 ? "\\(Int(previous.rounded())) min" : "sin sesiones con duración")")
+                        .font(.footnote)
+                        .foregroundStyle(OG.label2)
+                    if current > 0, previous > 0 {
+                        let change = Int(((current / previous) - 1) * 100)
+                        Text("Variación: \\(change > 0 ? "+" : "")\\(change)% · tiempo registrado, no intensidad fisiológica")
+                            .font(.caption)
+                            .foregroundStyle(OG.label3)
+                    }
+                    Text("Solo sesiones terminadas y actividades de Salud sin duplicar. No es una recomendación médica.")
+                        .font(.caption2)
+                        .foregroundStyle(OG.label3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
     }
 
     private var trainingRecoveryCard: some View {
