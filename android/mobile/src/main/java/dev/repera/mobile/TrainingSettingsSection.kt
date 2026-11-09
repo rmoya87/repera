@@ -30,7 +30,7 @@ import dev.repera.domain.ProgressionPolicy
                     DropdownMenuItem(text = { Text("Sin indicar") }, onClick = {
                         onChange(value.copy(birthYear = null)); yearMenuOpen = false
                     })
-                    for (year in java.time.Year.now().value downTo 1940) {
+                    for (year in java.time.Year.now().value downTo (java.time.Year.now().value - 100)) {
                         DropdownMenuItem(text = { Text(year.toString()) }, onClick = {
                             onChange(value.copy(birthYear = year)); yearMenuOpen = false
                         })
