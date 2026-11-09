@@ -96,6 +96,8 @@ targets:
         buildPhase: resources
       - path: Apps/Repera/Resources/BodyPaths.json
         buildPhase: resources
+      - path: Apps/Repera/Resources/strength_benchmarks.json
+        buildPhase: resources
       # The Firebase config is optional for local builds and bundled only when provided.
       - path: Apps/Repera/Resources
         includes:
