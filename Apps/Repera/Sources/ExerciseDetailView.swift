@@ -426,10 +426,7 @@ struct ExerciseDetailView: View {
                                 }
                             }
 
-                            StrengthBenchmarkCard(
-                                exercise: exercise,
-                                testedOneRMKg: loadPref.testedOneRMKg
-                            )\n\n                            if subscriptions.isPro {
+                            if subscriptions.isPro {
                                 ExerciseEvolutionPanel(
                                     exerciseId: resolvedId,
                                     highlightSessionId: highlightSessionId
