@@ -124,7 +124,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
             .flatMap { (120...230).contains($0) ? $0 : nil }
         competitionSex = try c.decodeIfPresent(StrengthBenchmarkSex.self, forKey: .competitionSex)
         birthYear = try c.decodeIfPresent(Int.self, forKey: .birthYear)
-            .flatMap { (1940...Calendar.current.component(.year, from: Date())).contains($0) ? $0 : nil }
+            .flatMap { ((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).contains($0) ? $0 : nil }
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear
