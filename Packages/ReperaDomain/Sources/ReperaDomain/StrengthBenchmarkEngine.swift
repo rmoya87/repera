@@ -93,8 +93,9 @@ public struct StrengthBenchmarkResult: Sendable {
 public enum StrengthBenchmarkEngine {
     public static let minimumSampleCount = 100
 
-    /// Returns nil instead of manufacturing a percentile from missing, sparse or
-    /// incompatible references. Caller must identify its input as an actual 1RM.
+    /// Places a numeric 1RM-equivalent against competitive quantiles, never
+    /// certifies it as a competition lift. The UI must label estimated e1RM
+    /// separately from a personally recorded 1RM; never extrapolate.
     public static func compareCompetitionOneRepMax(
         weightKg: Double,
         lift: StrengthBenchmarkLift,
