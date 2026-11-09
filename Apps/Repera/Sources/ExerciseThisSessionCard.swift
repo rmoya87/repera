@@ -5,6 +5,7 @@ import SwiftUI
 /// WOD de catálogo → marca global del benchmark; WOD libre / series → movimiento.
 struct ExerciseThisSessionCard: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(SubscriptionManager.self) private var subscriptions
     let exerciseId: UUID
     let highlightSessionId: UUID
     var highlightExerciseInstanceId: UUID? = nil
@@ -44,6 +45,50 @@ struct ExerciseThisSessionCard: View {
         ).first
     }
 
+    /// Only compare an explicitly RX/scaled result against the same exact
+    /// prescription. Unknown scale and legacy sessions remain incomparable.
+    private var verifiedWODComparison: WODComparison? {
+        guard let currentSession = store.state.workouts.first(where: { $0.id == highlightSessionId }),
+              let currentFinish = currentSession.finishedAt,
+              let currentBlocks = currentSession.routineBlocks else { return nil }
+        let blockId: UUID?
+        if let highlightExerciseInstanceId {
+            blockId = currentSession.exercises.first {
+                $0.id == highlightExerciseInstanceId
+            }?.blockId
+        } else {
+            blockId = currentSession.wodResults.count == 1
+                ? currentSession.wodResults.first?.id : nil
+        }
+        guard let blockId,
+              let currentBlock = currentBlocks.first(where: { $0.id == blockId }),
+              let currentResult = currentSession.wodResults.first(where: { $0.id == blockId }),
+              let currentRx = currentResult.isRx else { return nil }
+        let current = WODComparisonContext(
+            prescribed: currentBlock, result: currentResult, isRx: currentRx
+        )
+        let priorSessions = store.state.workouts
+            .filter { $0.id != currentSession.id && $0.finishedAt != nil
+                      && ($0.finishedAt ?? .distantPast) < currentFinish }
+            .sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
+        for prior in priorSessions {
+            guard let priorBlocks = prior.routineBlocks else { continue }
+            for priorResult in prior.wodResults {
+                guard let priorRx = priorResult.isRx,
+                      let block = priorBlocks.first(where: { $0.id == priorResult.id }) else {
+                    continue
+                }
+                let before = WODComparisonContext(
+                    prescribed: block, result: priorResult, isRx: priorRx
+                )
+                if let comparison = WODComparisonEngine.compare(previous: before, current: current) {
+                    return comparison
+                }
+            }
+        }
+        return nil
+    }
+
     var body: some View {
         if let thisAppearance {
             VStack(alignment: .leading, spacing: 8) {
@@ -51,6 +96,21 @@ struct ExerciseThisSessionCard: View {
                 OGCard {
                     VStack(alignment: .leading, spacing: 10) {
                         appearanceBlock(thisAppearance, emphasizeDate: true)
+
+                        if subscriptions.isPro, let comparison = verifiedWODComparison {
+                            Divider().opacity(0.35)
+                            HStack(spacing: 8) {
+                                Image(systemName: comparison.improvement > 0 ? "arrow.up.right" :
+                                    (comparison.improvement < 0 ? "arrow.down.right" : "equal"))
+                                    .foregroundStyle(OG.accent)
+                                Text(comparison.improvement == 0 ? "Misma marca" :
+                                     "\(comparison.improvement > 0 ? "+" : "")\(comparison.improvement) \(comparison.unit) frente al WOD comparable anterior")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(OG.label)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
 
                         if let prior {
                             Divider().opacity(0.35)
