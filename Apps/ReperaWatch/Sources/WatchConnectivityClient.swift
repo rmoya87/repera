@@ -35,7 +35,7 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     ) {}
-    func watchConnectivityDidRequestWatchOwnedLiveSnapshot()
+    func watchConnectivityDidRequestWatchOwnedLiveSnapshot() {}
     func watchConnectivityDidBecomeReachable() {}
     func watchConnectivityDidChangeReachability(_ reachable: Bool) {}
     func watchConnectivityDidChangeOwnerScope(hasOwner: Bool) {}
