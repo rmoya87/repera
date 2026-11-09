@@ -155,8 +155,15 @@ internal object WearOwnedLiveMirror {
         val paused = payload.optString("phase") == "paused"
         val seconds = payload.optDouble("elapsedSeconds", 0.0)
             .takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
-        val text = dev.repera.domain.LiveSportHistory.formatDuration(seconds) +
-            if (paused) " · En pausa" else ""
+        val distanceKm = payload.optDouble("distanceMeters", Double.NaN)
+            .takeIf { it.isFinite() && it > 0.0 }?.div(1000.0)
+        val text = buildList {
+            add(dev.repera.domain.LiveSportHistory.formatDuration(seconds))
+            distanceKm?.let {
+                add(dev.repera.domain.ReperaNumberFormat.decimal(it) + " km")
+            }
+            if (paused) add("En pausa")
+        }.joinToString(" · ")
         val open = PendingIntent.getActivity(
             context, 6207,
             Intent(context, MainActivity::class.java)
