@@ -1570,6 +1570,26 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         // Reconcile a recent Watch-owned notification after UI/process restart;
         // no phone sensor or Health Connect workout is started.
         WearOwnedLiveMirror.restore(this)
+        // Reconcile Wear's durable latest-state DataItem after reconnect or
+        // process restart, even if MessageClient delivery was missed.
+        Wearable.getDataClient(this).dataItems.addOnSuccessListener { items ->
+            try {
+                for (item in items) {
+                    if (item.uri.path != "/repera/watch-owned-live") continue
+                    val bytes = runCatching {
+                        com.google.android.gms.wearable.DataMapItem.fromDataItem(item)
+                            .dataMap.getByteArray("live")
+                    }.getOrNull() ?: continue
+                    if (!WearMessageBounds.withinLimit(bytes)) continue
+                    val snapshot = runCatching {
+                        JSONObject(String(bytes, Charsets.UTF_8))
+                    }.getOrNull() ?: continue
+                    runOnUiThread { WearOwnedLiveMirror.accept(this, snapshot) }
+                }
+            } finally {
+                items.release()
+            }
+        }
         if (verifiedSupabase != null && profile != null) aiPlansRealtime.start()
     }
 
