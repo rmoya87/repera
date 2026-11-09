@@ -64,6 +64,10 @@ object WearActiveSessionBridge {
             dataMap.putString("effortUnit", effortUnit)
             dataMap.putString("weightUnit", weightUnit)
             dataMap.putBoolean("signedOut", signedOut)
+            // Watch-owned mirrors must be bound to this exact authenticated
+            // account; stale sessions from another sign-in are never displayed.
+            dataMap.putString("ownerScope",
+                if (signedOut) "" else SessionStore(context).load()?.uniqueId.orEmpty())
             dataMap.putString("discardedSessionId", explicitlyDiscardedId ?: "")
             dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
