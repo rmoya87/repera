@@ -16,6 +16,39 @@ final class WorkoutLiveActivityCoordinator {
     /// después de finalizarla o descartarla.
     private var closedSessionIDs: Set<String> = []
 
+    // Persist only Watch transport ordering and closed UUIDs (no HealthKit data).
+    private struct WatchDeliveryMark: Codable {
+        let capture: Date
+        let closed: Bool
+        let observed: Date
+    }
+    private static let watchMarksKey = "repera.watch.liveDeliveryMarks.v1"
+    private var watchMarks: [String: WatchDeliveryMark] = {
+        guard let data = UserDefaults.standard.data(forKey: watchMarksKey),
+              let marks = try? JSONDecoder().decode(
+                [String: WatchDeliveryMark].self, from: data
+              ) else { return [:] }
+        return marks.filter { Date().timeIntervalSince($0.value.observed) < 172_800 }
+    }()
+
+    private func persistWatchMarks() {
+        let marks = watchMarks.filter {
+            Date().timeIntervalSince($0.value.observed) < 172_800
+        }.sorted { $0.value.observed > $1.value.observed }.prefix(200)
+        watchMarks = Dictionary(uniqueKeysWithValues: marks.map { ($0.key, $0.value) })
+        if let data = try? JSONEncoder().encode(watchMarks) {
+            UserDefaults.standard.set(data, forKey: Self.watchMarksKey)
+        }
+    }
+
+    func mayAcceptWatchOwned(_ snapshot: WatchLiveActivitySnapshot) -> Bool {
+        let key = "watch:" + snapshot.id.uuidString
+        guard !closedSessionIDs.contains(key),
+              WatchOwnedLiveDeliveryPolicy.accepts(snapshot) else { return false }
+        guard let mark = watchMarks[key] else { return true }
+        return !mark.closed && snapshot.capturedAt > mark.capture
+    }
+
     /// En vivo: métricas GPS verificadas. Pausas descontadas del tiempo activo.
     func updateFree(
         startedAt: Date, sport: LiveSport, phase: TrainingActivityAttributes.ContentState.Phase,
@@ -59,11 +92,13 @@ final class WorkoutLiveActivityCoordinator {
     /// GPS recording, or duplicate workout are started on the phone.
     func updateWatchOwned(_ snapshot: WatchLiveActivitySnapshot) async {
         let id = "watch:" + snapshot.id.uuidString
-        guard WatchOwnedLiveDeliveryPolicy.accepts(snapshot),
-              WatchOwnedLiveDeliveryPolicy.isNewer(
-                snapshot, than: lastWatchCaptureAt[id]
-              ) else { return }
+        guard mayAcceptWatchOwned(snapshot) else { return }
         lastWatchCaptureAt[id] = snapshot.capturedAt
+        watchMarks[id] = WatchDeliveryMark(
+            capture: snapshot.capturedAt, closed: snapshot.phase == .review,
+            observed: Date()
+        )
+        persistWatchMarks()
         if snapshot.phase == .review {
             await finishWatchOwned(sessionID: snapshot.id, saved: false)
             return
@@ -139,6 +174,11 @@ final class WorkoutLiveActivityCoordinator {
     func finishWatchOwned(sessionID: UUID, saved: Bool) async {
         let id = "watch:" + sessionID.uuidString
         closedSessionIDs.insert(id)
+        watchMarks[id] = WatchDeliveryMark(
+            capture: max(watchMarks[id]?.capture ?? .distantPast, Date()),
+            closed: true, observed: Date()
+        )
+        persistWatchMarks()
         if saved, var state = latestStates[id] {
             state.phase = .completed
             state.subtitle = "Entrenamiento guardado"
