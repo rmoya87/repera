@@ -96,7 +96,7 @@ internal fun RecoveryTrainingLoadCard(overview: StateOverview?) {
                 )
                 load.relativeChangePercent?.let { percent ->
                     Text(
-                        "Variación: " + (if (percent > 0) "+" else "") + "\u0024{percent}% · tiempo registrado, no intensidad fisiológica",
+                        "Variación: " + (if (percent > 0) "+" else "") + "$percent% · tiempo registrado, no intensidad fisiológica",
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
