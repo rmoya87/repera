@@ -983,7 +983,7 @@ private struct SettingsTrainingSection: View {
             }
             Picker("Año de nacimiento", selection: birthYearBinding) {
                 Text("Sin indicar").tag(nil as Int?)
-                ForEach((1940...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
+                ForEach(((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
                     Text(String(year)).tag(year as Int?)
                 }
             }
