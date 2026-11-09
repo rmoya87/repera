@@ -11,7 +11,34 @@ import dev.repera.domain.ProgressionPolicy
 /** Controls are offered only for settings with connected consumers. */
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    Text("Unidad", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("Género · referencia de fuerza", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(null to "Sin indicar", "female" to "Femenino", "male" to "Masculino").forEach { (sex, label) ->
+                ReperaFilterChip(selected = value.competitionSex == sex, enabled = !busy,
+                    onClick = { onChange(value.copy(competitionSex = sex)) }, label = { Text(label) })
+            }
+        }
+        var yearMenuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Año de nacimiento", style = MaterialTheme.typography.bodyLarge)
+            Box {
+                OutlinedButton(onClick = { yearMenuOpen = true }, enabled = !busy) {
+                    Text(value.birthYear?.toString() ?: "Sin indicar")
+                }
+                DropdownMenu(expanded = yearMenuOpen, onDismissRequest = { yearMenuOpen = false }) {
+                    DropdownMenuItem(text = { Text("Sin indicar") }, onClick = {
+                        onChange(value.copy(birthYear = null)); yearMenuOpen = false
+                    })
+                    for (year in java.time.Year.now().value downTo 1940) {
+                        DropdownMenuItem(text = { Text(year.toString()) }, onClick = {
+                            onChange(value.copy(birthYear = year)); yearMenuOpen = false
+                        })
+                    }
+                }
+            }
+        }
+        Text("Unidad", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             listOf("kg","lb").forEach {unit -> ReperaFilterChip(selected=value.weightUnit==unit,enabled=!busy,onClick={onChange(value.copy(weightUnit=unit))},label={Text(unit)})}
         }
