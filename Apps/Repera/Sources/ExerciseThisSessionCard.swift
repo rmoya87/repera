@@ -65,7 +65,8 @@ struct ExerciseThisSessionCard: View {
               let currentResult = currentSession.wodResults.first(where: { $0.id == blockId }),
               let currentRx = currentResult.isRx else { return nil }
         let current = WODComparisonContext(
-            prescribed: currentBlock, result: currentResult, isRx: currentRx
+            prescribed: currentBlock, result: currentResult, isRx: currentRx,
+            scalingFingerprint: scalingFingerprint(in: currentSession, blockId: blockId)
         )
         let priorSessions = store.state.workouts
             .filter { $0.id != currentSession.id && $0.finishedAt != nil
@@ -79,7 +80,8 @@ struct ExerciseThisSessionCard: View {
                     continue
                 }
                 let before = WODComparisonContext(
-                    prescribed: block, result: priorResult, isRx: priorRx
+                    prescribed: block, result: priorResult, isRx: priorRx,
+                    scalingFingerprint: scalingFingerprint(in: prior, blockId: block.id)
                 )
                 if let comparison = WODComparisonEngine.compare(previous: before, current: current) {
                     return comparison
@@ -87,6 +89,17 @@ struct ExerciseThisSessionCard: View {
             }
         }
         return nil
+    }
+
+    private func scalingFingerprint(in session: WorkoutSession, blockId: UUID) -> String? {
+        let modifications = session.exercises.filter { $0.blockId == blockId }
+            .compactMap { entry -> String? in
+                guard entry.adaptedReps != nil || entry.adaptedWeightKg != nil else { return nil }
+                return entry.exercise.id.uuidString + "|" +
+                    (entry.adaptedReps.map(String.init) ?? "") + "|" +
+                    (entry.adaptedWeightKg.map(String.init) ?? "")
+            }
+        return modifications.isEmpty ? nil : modifications.joined(separator: ";")
     }
 
     var body: some View {
