@@ -40,6 +40,8 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         publisher = read(PUBLISHER)
         self.assertIn('"/repera/watch-owned-live"', publisher)
         self.assertIn('now - lastSentAt < 12_000L', publisher)
+        self.assertIn('PutDataMapRequest.create("/repera/watch-owned-live")', publisher)
+        self.assertIn('Wearable.getDataClient(context).putDataItem(request)', publisher)
 
     def test_android_mirror_is_account_scoped_read_only_and_durable(self):
         mirror = read(PHONE_MIRROR)
@@ -74,6 +76,10 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         self.assertIn('if (!WearUiPresence.active)', listener)
         self.assertIn('WearOwnedLiveMirror.accept(this, payload)', listener)
         self.assertIn('WearOwnedLiveMirror.accept(this, payload)', main)
+        self.assertIn('override fun onDataChanged(events: DataEventBuffer)', listener)
+        self.assertIn('event.dataItem.uri.path != "/repera/watch-owned-live"', listener)
+        self.assertIn('Wearable.getDataClient(this).dataItems', main)
+        self.assertIn('WearOwnedLiveMirror.accept(this, snapshot)', main)
 
     def test_android_phone_owned_service_recovery_still_checks_uuid_and_account(self):
         service = read(PHONE_SERVICE)
