@@ -1,41 +1,80 @@
-# Comparativas de fuerza de Repera — fase de dominio (2026-11-09)
+# Comparativas deportivas y progresión adaptativa (Repera atleta)
 
-## Alcance aprobado
-- **A**: progresión adaptativa de cargas, sin incrementos indefinidos, con RIR/RPE, historial, fatiga y recuperación cuando sean fiables. Reutilizar la UI existente.
-- **B**: comparaciones de WOD con igualdad de estructura, modalidad y escalado.
-- **C**: recuperación/carga **solo Pro**.
-- **D**: récords personales, ampliando el sistema actual.
-- **E**: informe mensual **excluido**.
-- **F**: compartir resultados **aplazado**.
-- **Business fuera del alcance**.
+Última actualización: 2026-11-09.
 
-## Referencias externas: primera fase técnica
-`StrengthBenchmarkEngine` añade un motor puro al dominio Swift. Solo compara **1RM reales de competición** de sentadilla, banca y peso muerto con distribuciones agregadas previamente importadas de OpenPowerlifting. No confundir con e1RM de gimnasio. La comparación exige sexo/categoría, modalidad de equipamiento, intervalo de edad, intervalo de peso corporal y fuente/versionado. Muestra el tamaño de muestra y rechaza referencias con menos de 100 registros, cohortes solapadas, cuantiles inválidos y extrapolación fuera de los datos.
+## Alcance
+Solo la aplicación de deportistas, con vistas nativas en iOS/iPadOS y Android. Se conserva la
+arquitectura de watchOS y Wear OS (no se crean pantallas nuevas en los relojes). **Repera Business
+fuera de alcance.** E (informe mensual) y F (compartir resultados) no forman parte de este trabajo.
 
-**No hay dataset incluido todavía**: no presentar percentiles en UI hasta descargar el CSV oficial, depurarlo, deduplicar por atleta y ejercicio en cada cohorte, producir agregados trazables y verificar licencia/frescura. La app no debe descargar datos personales de competidores. No inventar percentiles para ejercicios sin fuente.
+## Implementado en la rama de integración
 
-Fuente: https://openpowerlifting.gitlab.io/opl-csv/introduction.html (datos de competición en dominio público; atribución recomendada).
+1. **Progresión A**: política opcional `adaptive` (Swift y Kotlin) sobre los
+   `ProgressionEngine` existentes, ya sujetos al acceso Pro. Emite recomendaciones
+   conservadoras basadas en al menos dos sesiones completadas, RIR realmente
+   registrado, cambios de e1RM, separación temporal y fallos reiterados. No
+   modifica entrenamiento ni escribe series hasta que el flujo ya existente
+   de iniciar una rutina aplica la política. Un aumento está limitado por el
+   incremento configurado y por el 5 % del peso. Nunca deducir RIR ausente.
+   La recuperación fisiológica no se utiliza todavía automáticamente como
+   entrada al engine; `AdaptiveLoadGuard` acepta ese dato para una integración
+   posterior cuando se disponga de evidencia fiable y permisos.
+2. **WOD B**: comparación de intentos con prescripción completa idéntica,
+   formato compatible, escala RX o modificaciones registradas equivalentes,
+   y resultado efectivo. AMRAP calcula rondas × reps/ronda + reps adicionales;
+   For Time compara segundos solamente cuando no se alcanza el cap.
+   En iOS la comparación se muestra en «Esta sesión», y en Android se deriva
+   del archivo de entrenamiento y se muestra en la ficha del ejercicio; ambas
+   vistas restringidas a Pro. Los WOD históricos sin RX/escalado explícito
+   no se comparan, sin inventar su modalidad. Los editores permiten registrar
+   RX/escala sin alterar el score original.
+3. **Recuperación C — Pro**: tarjeta de minutos reales de actividad de las
+   últimas dos ventanas de siete días en Recuperación. Reutiliza el hub actual
+   en iOS y Android; elimina coincidencias conocidas con Apple Salud y Health
+   Connect. No se presenta como carga fisiológica, sobreentrenamiento ni
+   recomendación clínica. El resto de métricas de recuperación previas
+   conserva sus controles comerciales.
+4. **Récords D**: mejores cargas realmente registradas en series de 3+, 5+
+   y 10+ repeticiones, en Evolución de cada ejercicio (Pro). No incluye
+   calentamientos, repeticiones prescritas pendientes, ni registros de
+   calorías/metros. Los e1RM y topes probados existentes no se sustituyen.
 
-## Próximas etapas antes de publicar
-1. Crear importador reproducible de CSV y tests con fixtures, filtrando marcas válidas, modalidad y resultados positivos; documentar sesgo competitivo.
-2. Distribuir agregados versionados sin PII, con control de muestras pequeñas, y añadir un mapper seguro desde ejercicios canónicos.
-3. Integrar «Tu nivel» en detalle de ejercicio/Progreso existentes con estado «sin referencia» y aclaración de que la cohorte son competidores, no población general.
-4. Llevar cálculo equivalente a Android; comprobar paridad de percentiles con fixtures compartidos.
-5. Reforzar `ProgressionEngine` sin sustituir políticas elegidas: evitar aumentos repetidos sin nuevas sesiones, considerar RIR/fatiga/recuperación y no modificar la prescripción sin confirmación.
-6. Añadir comparador de WOD y ampliar PRs; recuperar métricas Pro mediante los derechos existentes.
-7. Compilar iOS/Android, ejecutar tests y probar en dispositivos antes de integrar.
+## Dataset competitivo
 
-## Estado
-Implementado **solo el motor Swift y sus tests de unidad**. No integrado en UI, no importación de datos, no comparaciones en producción, no nuevas funciones Pro desplegadas. La aprobación del alcance no sustituye validación ni pruebas.
+La app incorpora el mismo archivo `strength_benchmarks.json` en Apple y
+Android (765 distribuciones). Origen primario **OpenPowerlifting** (CC0),
+con transformación reutilizada del proyecto **LiftGauge** (datos CC0).
+- Fuente: https://openpowerlifting.org/data
+- Transformación/metodología: https://github.com/arvidfcjarfalla-prog/liftgauge-strength-data
+- ID publicado: `openpowerlifting-2026-05-10-e97d116bb707065e-9dc7b0683085`.
+- Ventana de resultados del cubo de percentiles: 2025-05-10 a 2026-05-10.
+- Incluye sentadilla, press banca y peso muerto con equipamiento *raw*, categoría
+  de competición femenina/masculina y clases de peso. Se rechazan cohortes de
+  menos de 100 **resultados de competición**, datos erróneos y extrapolación.
+  Prefiere una edad exacta con muestra suficiente, en su defecto «todas las edades».
+- Pueden aparecer varias competiciones de la misma persona: `sampleCount`
+  cuenta observaciones, **no personas únicas**. No es una muestra de la población general.
+- Se almacenan solo cuantiles agregados; no nombres ni otros registros individuales.
+  Categoría, edad y peso del usuario se conservan localmente en preferencias.
+- Se compara la marca 1RM anotada por el usuario en Repera con resultados de
+  competición solo de modo *orientativo*. No es un 1RM certificado en torneo
+  ni un percentil de toda la población. **Nunca** usar e1RM calculado para
+  presentarlo como marca oficialmente medida de competición.
 
-## Implementaciones añadidas en la misma rama (2026-11-09)
+El script alternativo `scripts/build_strength_benchmarks.py` permite construir
+otros agregados desde CSV local oficial, pero su método de deduplicación por
+nombre es aproximado y sus cohortes no son intercambiables sin revisar la
+metodología y volver a validar el producto.
 
-- Importador reproducible `scripts/build_strength_benchmarks.py`: lee un CSV local de OpenPowerlifting, conserva únicamente la mejor marca válida por identidad normalizada y cohorte, elimina cohortes de menos de 100 registros y exporta únicamente cuantiles agregados. **No se ha importado ningún CSV real ni se ha publicado un dataset.** La identidad por nombre no resuelve homónimos ni cambios de nombre; revisar metodología antes de mostrar percentiles.
-- Paridad de cálculo Android: `StrengthBenchmarkEngine.kt`, con el mismo filtrado conservador de cohortes, muestras y límites que Swift. Todavía falta probar paridad numérica con fixtures comunes.
-- Comparación conservadora de WOD en dominio Swift: `WODComparisonEngine.swift`. Requiere formato, modalidad RX/escalado, prescripción, ejercicios ordenados, cargas y condiciones equivalentes. Solo calcula diferencias de repeticiones AMRAP o tiempo de WOD completados; sin UI y sin persistencia nueva.
-- Test de importación con atletas sintéticos: `tests/test_strength_benchmark_import.py`. No contiene datos reales.
+## Pruebas y distribución
 
-**Importante:** ni el motor Swift ni el Android distinguen por sí mismos una marca real de competición de un e1RM. Sus métodos aceptan únicamente valores que el llamador ya haya verificado como marcas de competición; bloquear la integración de UI hasta tener procedencia verificable. El motor de WOD tampoco debe usarse para resultados escalados sin registrar explícitamente RX/escalado.
+Hay tests de dominio Swift, Kotlin, prueba de importación con fixtures sintéticos
+y contratos de RX/escala. **La existencia de tests no equivale a ejecutarlos.**
+No se han efectuado compilaciones nativas ni pruebas físicas certificadas
+en esta sesión. En la PR se observan workflows de GitHub Actions fallidos
+con pasos vacíos/no disponibles: no demostrar que sea error de compilación,
+pero tampoco afirmar compilación superada. Ejecutar `swift test`,
+compilaciones XcodeGen y Gradle, emuladores y hardware antes de publicar.
 
-- Puerta de seguridad de progresión `AdaptiveLoadGuard.swift`: exige al menos dos sesiones comparables completadas y RIR >= 2 antes de proponer un aumento; bloquea subidas por recuperación insuficiente, sesiones demasiado próximas o descenso relevante del e1RM, y señala descarga tras tres fallos. Es una **capa de decisión aislada**, aún no conectada a `ProgressionEngine` ni a la UI. El llamador debe deduplicar sesiones por UUID y no volver a emitir la misma propuesta sin una sesión nueva. Incluye tests unitarios.
-- Tests Swift para el comparador de WOD: impiden comparar prescripciones distintas o escaladas. No existe todavía comparación visible en la app.
+Los cambios en el repositorio **no** despliegan Supabase, no actualizan
+App Store/TestFlight/Play y no ejecutan compras reales.
