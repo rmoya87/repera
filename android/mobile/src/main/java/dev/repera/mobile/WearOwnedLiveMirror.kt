@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import dev.repera.domain.LiveSport
+import dev.repera.domain.WearOwnedLiveDeliveryPolicy
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -32,13 +33,8 @@ internal object WearOwnedLiveMirror {
         if (runCatching { UUID.fromString(id) }.isFailure ||
             payload.optString("ownerScope") != account.uniqueId) return false
         val phase = payload.optString("phase")
-        if (phase !in setOf("recording", "paused", "finished")) return false
         val captured = payload.optLong("capturedAtMillis", 0L)
         val now = System.currentTimeMillis()
-        val age = now - captured
-        if (age !in -5_000L..(if (phase == "finished") 3_600_000L else 90_000L)) {
-            return false
-        }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getString("owner", null) != account.uniqueId ||
             prefs.getString("revision", null) != revision) {
@@ -51,6 +47,9 @@ internal object WearOwnedLiveMirror {
 
         val previousID = prefs.getString("sessionId", null)
         val previousAt = prefs.getLong("captured", 0L)
+        if (!WearOwnedLiveDeliveryPolicy.accepts(
+                phase, captured, now, previousAt, id in closed
+            )) return false
         if (phase == "finished") {
             markClosed(prefs, closed, id)
             if (previousID == id) {
@@ -60,7 +59,6 @@ internal object WearOwnedLiveMirror {
             }
             return true
         }
-        if (id in closed || captured <= previousAt) return false
         if (LiveSport.byId(payload.optString("sportId")) == null) return false
 
         // Preserve the phone's own recording and foreground notification.
