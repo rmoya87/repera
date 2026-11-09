@@ -1196,6 +1196,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     public var elapsedSeconds: Int?
     public var roundsCompleted: Int?
     public var wodTemplateId: String?
+    /// Explicit RX/scaled declaration. nil means unknown; never infer RX from template.
+    public var isRx: Bool?
 
     public init(
         id: UUID,
@@ -1203,7 +1205,8 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         totalReps: Int? = nil,
         elapsedSeconds: Int? = nil,
         roundsCompleted: Int? = nil,
-        wodTemplateId: String? = nil
+        wodTemplateId: String? = nil,
+        isRx: Bool? = nil
     ) {
         self.id = id
         self.format = format
@@ -1211,6 +1214,7 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.elapsedSeconds = elapsedSeconds
         self.roundsCompleted = roundsCompleted
         self.wodTemplateId = wodTemplateId
+        self.isRx = isRx
     }
 
     public var summaryLabel: String {
