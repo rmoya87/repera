@@ -46,6 +46,11 @@ class WearHealthMetricContracts(unittest.TestCase):
         self.assertIn("if (!plannedSessionActive) r.resumeInterruptedRecordingIfNeeded()", service)
         self.assertIn("identityRevision", service)
         self.assertIn("activitySessionID", service)
+        self.assertIn("return START_REDELIVER_INTENT", service)
+        # Invalid identities and terminal sessions must NOT be redelivered.
+        self.assertIn("return START_NOT_STICKY", service)
+        self.assertIn("incoming.matches(", service)
+        self.assertIn("Phase.IDLE || phase==LiveActivityState.Phase.REVIEW", service)
 
     def test_total_energy_never_masquerades_as_active(self):
         wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
