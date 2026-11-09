@@ -284,6 +284,20 @@ struct ExerciseEvolutionPanel: View {
                     evoTile("Reps máx.", h.bestReps.map(String.init) ?? "—")
                     evoTile("Veces", h.hasData ? "\(h.timesPerformed)" : "—")
                 }
+                let repRecords = StrengthRepRecordEngine.bestSets(
+                    exerciseId: exerciseId, workouts: store.state.workouts
+                )
+                if !repRecords.isEmpty {
+                    Text("Récords de series realmente registradas")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.label2)
+                    HStack(spacing: 10) {
+                        ForEach(repRecords, id: \.minimumReps) { record in
+                            evoTile("\(record.minimumReps)+ reps",
+                                "\(ReperaNumberFormat.decimal(record.bestWeightKg)) kg")
+                        }
+                    }
+                }
                 if !h.hasData, testedOneRMKg == nil {
                     Text("Pulsa Tope 1RM para fijar tu máxima, o entrena para ver la curva.")
                         .font(.system(size: 12))
