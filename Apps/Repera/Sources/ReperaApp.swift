@@ -267,6 +267,7 @@ struct ReperaApp: App {
                             )
                             await businessData.refresh()
                             await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                            await StrengthBenchmarkRemoteStore.shared.refresh()
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -345,6 +346,7 @@ struct ReperaApp: App {
                             if businessAuth.isConnected && !businessAuth.requiresReauthentication {
                                 await businessData.refresh()
                                 await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                                await StrengthBenchmarkRemoteStore.shared.refresh()
                                 await workoutSync.sync(store: store)
                                 _ = await aiInbox.sync(store: store)
                                 _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -372,6 +374,7 @@ struct ReperaApp: App {
                         CatalogBackgroundRefreshScheduler.schedule()
                         Task {
                             await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                            await StrengthBenchmarkRemoteStore.shared.refresh()
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -408,6 +411,7 @@ struct ReperaApp: App {
                     if finished && businessAuth.isConnected {
                         Task {
                             await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                            await StrengthBenchmarkRemoteStore.shared.refresh()
                             await workoutSync.sync(store: store)
                             _ = await aiInbox.sync(store: store)
                             _ = await AITrainingContextStore.shared.syncCalendar(store: store)
@@ -450,6 +454,7 @@ struct ReperaApp: App {
                         if businessAuth.isConnected {
                             await workoutSync.sync(store: store)
                             await RemoteExerciseCatalogStore.shared.refresh(store: store)
+                            await StrengthBenchmarkRemoteStore.shared.refresh()
                             _ = await aiInbox.sync(store: store)
                         }
                         await refreshHealthOnForeground(forceProgressiveIfNeeded: false)
@@ -667,6 +672,7 @@ private enum CatalogBackgroundRefreshScheduler {
         // Update ONLY the shared catalog disk cache. The personal/iCloud store
         // is not hydrated or modified during a background-only launch.
         await RemoteExerciseCatalogStore.shared.refresh(force: true)
+        await StrengthBenchmarkRemoteStore.shared.refresh(force: true)
     }
 }
 

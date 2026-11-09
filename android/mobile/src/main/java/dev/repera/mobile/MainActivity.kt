@@ -2761,6 +2761,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val feed = RemoteExerciseCatalog(this@MainActivity)
             runCatching { feed.refresh(token) }
                 .onFailure { catalogError = it.localizedMessage ?: "No se pudo actualizar el catálogo" }
+            runCatching {
+                StrengthBenchmarkRemoteStore.get(this@MainActivity).refresh(token)
+            }
             runCatching { feed.applyToAccount(accountId) }
                 .onFailure {
                     if (catalogError == null) {
@@ -2857,6 +2860,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     check(currentAccount()) {"La cuenta cambió durante la lectura del catálogo"}
                     val feed = RemoteExerciseCatalog(this@MainActivity)
                     feed.refresh(token)
+                    runCatching {
+                        StrengthBenchmarkRemoteStore.get(this@MainActivity).refresh(token)
+                    }
                     // iOS: applyAndRelink even when head == revision (no new events).
                     if (currentAccount()) feed.applyToAccount(accountId) else false
                 }

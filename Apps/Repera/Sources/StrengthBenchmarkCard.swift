@@ -175,14 +175,8 @@ struct StrengthBenchmarkVisual: View {
             .padding(.vertical, 4)
             .task {
                 guard !didLoad else { return }
-                let url = Bundle.main.url(forResource: "strength_benchmarks", withExtension: "json")
-                let loaded: [StrengthBenchmarkDistribution] = await Task.detached(priority: .utility) {
-                    guard let url, let data = try? Data(contentsOf: url) else { return [] }
-                    return (try? JSONDecoder().decode(
-                        [StrengthBenchmarkDistribution].self, from: data
-                    )) ?? []
-                }.value
-                distributions = loaded
+                await StrengthBenchmarkRemoteStore.shared.refresh()
+                distributions = await StrengthBenchmarkRemoteStore.shared.currentDistributions()
                 didLoad = true
             }
         }

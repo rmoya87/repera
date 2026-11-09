@@ -28,17 +28,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.repera.domain.StrengthBenchmarkCohort
 import dev.repera.domain.StrengthBenchmarkDistribution
 import dev.repera.domain.StrengthBenchmarkEngine
 import dev.repera.domain.StrengthBenchmarkEquipment
 import dev.repera.domain.StrengthBenchmarkLift
-import dev.repera.domain.StrengthBenchmarkQuantile
 import dev.repera.domain.StrengthBenchmarkSex
 import dev.repera.domain.StrengthReferenceFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import java.util.Locale
 import kotlin.math.exp
 
@@ -59,7 +56,11 @@ internal fun StrengthBenchmarkVisual(
     val lift = strengthLiftForExerciseName(exerciseName) ?: return
     val context = LocalContext.current
     val rows by produceState<List<StrengthBenchmarkDistribution>?>(null, context) {
-        value = withContext(Dispatchers.IO) { StrengthBenchmarkAssets.load(context) }
+        value = withContext(Dispatchers.IO) {
+            val store = StrengthBenchmarkRemoteStore.get(context)
+            // Prefer already-synced Supabase cache; asset seed only if still empty.
+            store.current()
+        }
     }
     val frame = StrengthReferenceFrame.fromWire(strengthReferenceFrame)
     val allowed = frame.allowedSources
@@ -237,55 +238,3 @@ internal fun strengthLiftForExerciseName(name: String): StrengthBenchmarkLift? {
     }
 }
 
-private object StrengthBenchmarkAssets {
-    @Volatile private var cache: List<StrengthBenchmarkDistribution>? = null
-
-    @Synchronized
-    fun load(context: Context): List<StrengthBenchmarkDistribution> {
-        cache?.let { return it }
-        val values = try {
-            val raw = context.assets.open("strength_benchmarks.json")
-                .bufferedReader(Charsets.UTF_8).use { it.readText() }
-            val rows = JSONArray(raw)
-            buildList {
-                for (index in 0 until rows.length()) {
-                    val row = rows.getJSONObject(index)
-                    val c = row.getJSONObject("cohort")
-                    val lift = when (c.getString("lift")) {
-                        "squat" -> StrengthBenchmarkLift.SQUAT
-                        "benchPress" -> StrengthBenchmarkLift.BENCH_PRESS
-                        "deadlift" -> StrengthBenchmarkLift.DEADLIFT
-                        else -> continue
-                    }
-                    val sex = when (c.getString("sex")) {
-                        "female" -> StrengthBenchmarkSex.FEMALE
-                        "male" -> StrengthBenchmarkSex.MALE
-                        else -> continue
-                    }
-                    val q = row.getJSONArray("quantiles")
-                    val points = buildList {
-                        for (i in 0 until q.length()) {
-                            val x = q.getJSONObject(i)
-                            add(StrengthBenchmarkQuantile(x.getDouble("percentile"), x.getDouble("weightKg")))
-                        }
-                    }
-                    add(StrengthBenchmarkDistribution(
-                        cohort = StrengthBenchmarkCohort(
-                            lift, sex, StrengthBenchmarkEquipment.RAW,
-                            c.getInt("ageMin"), c.getInt("ageMax"),
-                            c.getDouble("bodyWeightMinKg"), c.getDouble("bodyWeightMaxKg")
-                        ),
-                        source = row.getString("source"),
-                        sourceRevision = row.getString("sourceRevision"),
-                        sampleCount = row.getInt("sampleCount"),
-                        quantiles = points
-                    ))
-                }
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-        cache = values
-        return values
-    }
-}

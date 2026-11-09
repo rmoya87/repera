@@ -179,8 +179,8 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 #### Strength benchmarks remoto (09/11/2026)
 
 - Esquema + seed en Supabase Repera (`strength_benchmark_*`, 813 filas OPL+SS).
-- La UI de **Rendimiento** sigue leyendo el JSON empaquetado hasta cablear
-  `strength_benchmark_bootstrap` / delta en cliente. Solo sentadilla / banca /
+- UI de **Rendimiento**: `StrengthBenchmarkRemoteStore` desde Supabase
+  (bootstrap/delta); JSON bundle solo offline. Solo sentadilla / banca /
   peso muerto mapeados; sin lift o sin cohorte → no inventar Pxx.
 - Aportes Amateur: opt-in `contributeAnonymousStrengthStats` → RPC
   `submit_strength_benchmark_contribution` (bandas, rate limit, sin user id en

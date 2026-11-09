@@ -96,6 +96,7 @@ final class ReperaStore: NSObject {
                   BusinessAuthStore.shared.isConnected,
                   !BusinessAuthStore.shared.requiresReauthentication else { return }
             await RemoteExerciseCatalogStore.shared.refresh(store: self)
+            await StrengthBenchmarkRemoteStore.shared.refresh()
         }
     }
 

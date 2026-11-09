@@ -342,6 +342,7 @@ internal class RemoteExerciseCatalogWorker(
         if (session.expiresWithin(120)) return@withContext Result.success()
         runCatching {
             RemoteExerciseCatalog(applicationContext).refresh(session.accessToken)
+            StrengthBenchmarkRemoteStore.get(applicationContext).refresh(session.accessToken)
         }.fold(
             onSuccess = { Result.success() },
             onFailure = { if (runAttemptCount < 3) Result.retry() else Result.success() }

@@ -22,10 +22,8 @@
   `StrengthBenchmarkVisual` (**Rendimiento**) usa el marco de Ajustes tras la
   gráfica de Evolución; vacío = silueta + mensaje; sin pies bajo el eje X.
   Migraciones strength **aplicadas** + seed 813 filas (OPL+SS) en Supabase
-  Repera. RPC `submit_strength_benchmark_contribution` (authenticated, inbox
-  sin PII) + `strength_benchmark_aggregate_contributions` (service_role).
-  Clientes aún usan JSON empaquetado para la curva; sync bootstrap/delta
-  pendiente.
+  Repera. Clientes: `StrengthBenchmarkRemoteStore` (bootstrap/delta + caché);
+  bundle solo fallback offline. RPC aportes + aggregate service_role.
 - Ajustes → Entrenamiento: **Género**, **Nivel** (Amateur/Élite), año de
   nacimiento. Recuperación Pro: curva de minutos diarios 14 días. Sin
   escritores nuevos en Watch/Wear, HealthKit o Health Connect.

@@ -89,9 +89,10 @@ proyecto Repera (09/11/2026) junto con seed de **813** filas
 `strength_benchmark_bootstrap` / `strength_benchmark_delta` y inbox de
 contribuciones (`service_role` only) listos.
 
-**UI offline:** iOS/Android leen `strength_benchmarks.json` empaquetado
-(mismas 813 filas). El remoto ya tiene el seed; sync bootstrap/delta de
-clientes sigue pendiente.
+**Fuente de verdad:** Supabase (`strength_benchmark_bootstrap` / delta).
+iOS/Android sincronizan a caché local al iniciar sesión / foreground; el JSON
+empaquetado solo arranca offline la primera vez. Sin APIs a FitnessVolt ni OPL
+en runtime.
 
 **Opt-in Amateur:** Ajustes → «Mejorar Amateur (anónimo)» (default on). Al
 guardar un **1RM probado** de sentadilla/banca/peso muerto (con género, edad y
