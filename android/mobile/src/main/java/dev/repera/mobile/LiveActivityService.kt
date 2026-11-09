@@ -77,9 +77,12 @@ internal class LiveActivityService : Service() {
     }
     override fun onDestroy() {
         ticking=false;handler.removeCallbacks(tick)
-        runtime?.takeIf {binding?.sessionId==it.state.gpsSessionID}?.let {
-            if(it.state.phase==LiveActivityState.Phase.RECORDING) it.pause() else it.checkpoint(true)
-        }
+        // Service destruction is not an athlete pause. Preserve the original
+        // phase and checkpoint atomically; an explicit pause action is handled
+        // in onStartCommand. Otherwise Android could fabricate a PAUSED state
+        // during system teardown and prevent safe interrupted-session recovery.
+        runtime?.takeIf {binding?.sessionId==it.state.gpsSessionID}
+            ?.checkpoint(true)
         stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy()
     }
     private fun notification(r:LiveActivityRuntime):Notification {
