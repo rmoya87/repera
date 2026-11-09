@@ -109,6 +109,7 @@ internal fun ExercisesTab(
     ) -> Unit = { _, _, _ -> },
     heartSeriesProvider: suspend (String) -> List<Pair<Long,Int>> = { emptyList() },
     exerciseSummary:suspend (String)->dev.repera.domain.ExerciseHistorySummary? = { null },
+    repRecords:suspend (String)->List<dev.repera.domain.StrengthRepRecord> = { emptyList() },
     exerciseSeries:suspend (String,ExerciseProgressMetric,ExerciseProgressRange)->List<ExerciseProgressPoint> = {_,_,_->emptyList()},
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
     wodFavorites:Set<String> = emptySet(),
@@ -204,6 +205,7 @@ internal fun ExercisesTab(
                     onSetTestedOneRM={onSetTestedOneRM(entry.id,it)},busy=busy,onQuickLog={quickLogId=entry.id},
                     onToggleFavorite={onSetExerciseFavorite(entry.id,!entry.isFavorite)},
                     exerciseSummary=exerciseSummary,
+                    repRecords=repRecords,
                     exerciseSeries=exerciseSeries,onBack=close)
             })
         return
@@ -334,7 +336,7 @@ internal fun ExercisesTab(
                             estimatedOneRM=overview?.exerciseProgress?.get(selected.id)?.estimatedOneRM,
                             incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
                             onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
-                            onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,exerciseSeries=exerciseSeries,
+                            onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,repRecords=repRecords,exerciseSeries=exerciseSeries,
                             onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},
                             onBack={selectedExerciseId=null})
                     }
