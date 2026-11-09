@@ -45,8 +45,13 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         mirror = read(PHONE_MIRROR)
         self.assertIn('payload.optString("ownerScope") != account.uniqueId', mirror)
         self.assertIn('prefs.getString("revision", null) != revision', mirror)
-        self.assertIn('captured <= previousAt', mirror)
-        self.assertIn('if (id in closed', mirror)
+        self.assertIn('WearOwnedLiveDeliveryPolicy.accepts(', mirror)
+        self.assertIn('previousAt, id in closed', mirror)
+        policy = read(
+            "android/domain/src/main/java/dev/repera/domain/WearOwnedLiveDeliveryPolicy.kt"
+        )
+        self.assertIn('capturedAtMillis > previousCapturedAtMillis', policy)
+        self.assertIn('!isClosed', policy)
         self.assertIn('prefs.edit().putString("closed"', mirror)
         self.assertIn('WearOwnedLiveMirror', read(MAIN))
         self.assertNotIn('HealthConnectWriter(', mirror)
