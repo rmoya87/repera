@@ -504,6 +504,19 @@ internal fun ExerciseEvolutionSection(
                     }
                 }
             }
+            if (isStrengthLogging && repRecords.isNotEmpty()) {
+                Text("Récords de series realmente registradas",
+                    style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repRecords.forEach { record ->
+                        EvoTile(
+                            "${record.minimumReps}+ reps",
+                            ReperaNumberFormat.decimal(record.bestWeightKg) + " kg",
+                            Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
             if (isStrengthLogging && summary == null) {
                 TopeOneRMTile(
                     testedOneRM = testedOneRM,
