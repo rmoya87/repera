@@ -8,7 +8,7 @@ public enum StrengthBenchmarkLift: String, Codable, Sendable, CaseIterable {
     case deadlift
 }
 
-public enum StrengthBenchmarkSex: String, Codable, Sendable {
+public enum StrengthBenchmarkSex: String, Codable, Sendable, Hashable {
     case female
     case male
 }
