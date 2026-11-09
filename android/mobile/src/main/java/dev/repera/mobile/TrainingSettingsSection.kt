@@ -11,11 +11,27 @@ import dev.repera.domain.ProgressionPolicy
 /** Controls are offered only for settings with connected consumers. */
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    Text("Género · referencia de fuerza", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(null to "Sin indicar", "female" to "Femenino", "male" to "Masculino").forEach { (sex, label) ->
-                ReperaFilterChip(selected = value.competitionSex == sex, enabled = !busy,
-                    onClick = { onChange(value.copy(competitionSex = sex)) }, label = { Text(label) })
+    Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Género", style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("female" to "Femenino", "male" to "Masculino").forEach { (sex, label) ->
+                    ReperaFilterChip(
+                        selected = value.competitionSex == sex,
+                        enabled = !busy,
+                        onClick = {
+                            onChange(
+                                value.copy(
+                                    competitionSex = if (value.competitionSex == sex) null else sex
+                                )
+                            )
+                        },
+                        label = { Text(label) }
+                    )
+                }
             }
         }
         var yearMenuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -103,7 +119,7 @@ import dev.repera.domain.ProgressionPolicy
                 onClick={onChange(value.copy(defaultProgression=policy.wire))},label={Text(policy.displayName)})
         }
         Text("Incremento: ${dev.repera.domain.ReperaNumberFormat.decimal(value.weightIncrementKg)} kg")
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(enabled=!busy && value.weightIncrementKg>0.5,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg-0.5).coerceAtLeast(0.5)))}) {Text("Restar 0,5 kg")}
             OutlinedButton(enabled=!busy && value.weightIncrementKg<10,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg+0.5).coerceAtMost(10.0)))}) {Text("Añadir 0,5 kg")}
         }
