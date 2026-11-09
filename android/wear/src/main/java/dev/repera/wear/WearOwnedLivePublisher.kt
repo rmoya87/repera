@@ -23,7 +23,7 @@ internal object WearOwnedLivePublisher {
         if (id.isBlank() || scope.isBlank() ||
             phase !in setOf("recording", "paused", "finished")) return
         val now = System.currentTimeMillis()
-        if (!force && id == lastSentSession && now - lastSentAt < 12_000L) return
+        if (!force && id == lastSentSession && now - lastSentAt < 30_000L) return
 
         val base = live.optDouble("elapsedSeconds", 0.0).coerceAtLeast(0.0)
         val capturedAt = live.optLong("capturedAtMillis", now)
