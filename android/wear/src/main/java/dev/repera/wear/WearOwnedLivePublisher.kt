@@ -2,6 +2,7 @@ package dev.repera.wear
 
 import android.content.Context
 import com.google.android.gms.wearable.Wearable
+import com.google.android.gms.wearable.PutDataMapRequest
 import org.json.JSONObject
 
 /**
@@ -44,6 +45,13 @@ internal object WearOwnedLivePublisher {
         if (!WearPayload.withinLimit(bytes)) return
         lastSentSession = id
         lastSentAt = now
+        // Durable coalesced state survives a transient phone disconnect. Each
+        // fresh phase replaces the previous DataItem, including terminal state.
+        val request = PutDataMapRequest.create("/repera/watch-owned-live").apply {
+            dataMap.putByteArray("live", bytes)
+            dataMap.putLong("revision", now)
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
         Wearable.getNodeClient(context).connectedNodes.addOnSuccessListener { nodes ->
             nodes.forEach { node ->
                 Wearable.getMessageClient(context)
