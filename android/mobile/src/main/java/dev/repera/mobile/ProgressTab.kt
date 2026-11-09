@@ -726,6 +726,9 @@ internal fun ProgressTab(
                         outerHorizontalPaddingDp = 32f
                     )
                 }
+                if (pro) {
+                    item { RecoveryTrainingLoadCard(overview) }
+                }
                 if (!pro) {
                     item {
                         dev.repera.mobile.monetization.ProTeaserCard(
