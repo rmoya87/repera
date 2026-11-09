@@ -1,26 +1,26 @@
+import Charts
 import Foundation
 import ReperaDomain
 import SwiftUI
 
-/// Compares a recorded gym 1RM with competition *results*. This is an
-/// orientation, not a population ranking or verified competition result.
-/// Reference fields are stored only on this device.
-struct StrengthBenchmarkCard: View {
+/// Compact competitive-reference density inside the existing Evolution card.
+/// This is a Gaussian-style *illustration* calibrated from competition quantiles;
+/// it is NOT a fitted normal distribution, a population ranking, or a verified 1RM.
+struct StrengthBenchmarkVisual: View {
     @Environment(ReperaStore.self) private var store
     let exercise: Exercise
     let testedOneRMKg: Double?
+    let estimatedOneRMKg: Double?
 
-    @AppStorage("strengthBenchmarks.sexCategory") private var sexCategory = ""
-    @AppStorage("strengthBenchmarks.ageYears") private var ageYears = 0
-    @AppStorage("strengthBenchmarks.manualWeightKg") private var manualWeightKg = 0.0
-    @State private var reference: [StrengthBenchmarkDistribution] = []
+    @State private var distributions: [StrengthBenchmarkDistribution] = []
     @State private var didLoad = false
 
     static func lift(for name: String) -> StrengthBenchmarkLift? {
-        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "es_ES"))
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive],
+                     locale: Locale(identifier: "es_ES"))
             .lowercased()
-        switch normalized {
+        switch n {
         case "sentadilla", "sentadilla trasera", "back squat", "barbell back squat":
             return .squat
         case "press banca", "press de banca", "bench press", "barbell bench press":
@@ -32,121 +32,184 @@ struct StrengthBenchmarkCard: View {
         }
     }
 
-    private var latestWeightKg: Double? {
-        store.state.bodyWeights.max(by: { $0.date < $1.date })?.weightKg
+    private var weightKg: Double? {
+        store.state.bodyWeights
+            .filter { $0.weightKg.isFinite && $0.weightKg > 0 }
+            .max(by: { $0.date < $1.date })?.weightKg
     }
 
-    private var selectedWeightKg: Double {
-        let latest = latestWeightKg ?? 0
-        return latest > 0 ? latest : manualWeightKg
+    private var recordedResult: (kg: Double, estimated: Bool)? {
+        if let testedOneRMKg, testedOneRMKg.isFinite, testedOneRMKg > 0 {
+            return (testedOneRMKg, false)
+        }
+        if let estimatedOneRMKg, estimatedOneRMKg.isFinite, estimatedOneRMKg > 0 {
+            return (estimatedOneRMKg, true)
+        }
+        return nil
     }
 
-    private var match: StrengthBenchmarkResult? {
+    private var reference: StrengthBenchmarkDistribution? {
         guard let lift = Self.lift(for: exercise.name),
-              let sex = StrengthBenchmarkSex(rawValue: sexCategory),
-              let testedOneRMKg, testedOneRMKg.isFinite, testedOneRMKg > 0,
-              ageYears >= 14, selectedWeightKg > 0 else { return nil }
+              let sex = store.state.settings.competitionSex,
+              let birthYear = store.state.settings.birthYear,
+              let weightKg else { return nil }
+        let age = Calendar.current.component(.year, from: Date()) - birthYear
+        guard age >= 14 && age <= 100 else { return nil }
+        let eligible = distributions.filter {
+            $0.cohort.matches(lift: lift, sex: sex, equipment: .raw,
+                              age: age, bodyWeightKg: weightKg)
+                && $0.sampleCount >= StrengthBenchmarkEngine.minimumSampleCount
+                && $0.source == "OpenPowerlifting"
+        }
+        guard let width = eligible.map({ $0.cohort.ageMax - $0.cohort.ageMin }).min() else {
+            return nil
+        }
+        let matched = eligible.filter {
+            $0.cohort.ageMax - $0.cohort.ageMin == width
+        }
+        return matched.count == 1 ? matched.first : nil
+    }
+
+    private var percentile: StrengthBenchmarkResult? {
+        guard let lift = Self.lift(for: exercise.name),
+              let sex = store.state.settings.competitionSex,
+              let birthYear = store.state.settings.birthYear,
+              let weightKg, let result = recordedResult else { return nil }
         return StrengthBenchmarkEngine.compareCompetitionOneRepMax(
-            weightKg: testedOneRMKg, lift: lift, sex: sex, equipment: .raw,
-            age: ageYears, bodyWeightKg: selectedWeightKg,
-            distributions: reference
+            weightKg: result.kg, lift: lift, sex: sex, equipment: .raw,
+            age: Calendar.current.component(.year, from: Date()) - birthYear,
+            bodyWeightKg: weightKg, distributions: distributions
         )
+    }
+
+    private struct BellPoint: Identifiable {
+        let id: Int
+        let kg: Double
+        let height: Double
+    }
+
+    private var bell: [BellPoint] {
+        guard let reference else { return [] }
+        let q = reference.quantiles
+        guard let p25 = q.first(where: { abs($0.percentile - 25) < 1 }),
+              let p50 = q.first(where: { abs($0.percentile - 50) < 1 }),
+              let p75 = q.first(where: { abs($0.percentile - 75) < 1 }) else { return [] }
+        let sigma = (p75.weightKg - p25.weightKg) / 1.349
+        guard sigma.isFinite && sigma > 0 else { return [] }
+        let low = max(0, p50.weightKg - 3 * sigma)
+        let high = p50.weightKg + 3 * sigma
+        return (0...64).map { i in
+            let x = low + (high - low) * Double(i) / 64
+            let z = (x - p50.weightKg) / sigma
+            return BellPoint(id: i, kg: x, height: exp(-0.5 * z * z))
+        }
+    }
+
+    private var markerHeight: Double {
+        guard let median = reference?.quantiles.first(where: {
+            abs($0.percentile - 50) < 1
+        })?.weightKg, let low = reference?.quantiles.first(where: {
+            abs($0.percentile - 25) < 1
+        })?.weightKg, let high = reference?.quantiles.first(where: {
+            abs($0.percentile - 75) < 1
+        })?.weightKg, let result = recordedResult else { return 0 }
+        let sigma = (high - low) / 1.349
+        guard sigma > 0 else { return 0 }
+        let z = (result.kg - median) / sigma
+        return exp(-0.5 * z * z)
     }
 
     var body: some View {
         if Self.lift(for: exercise.name) != nil {
-            VStack(alignment: .leading, spacing: 8) {
-                OGCardSectionTitle(title: "Tu nivel · fuerza")
-                OGCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Referencia de competición")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(OG.label)
-                        Text("Compara tu 1RM registrado con marcas de competición OpenPowerlifting. Es una orientación: no mide tu posición entre la población ni equivale a una marca oficial.")
-                            .font(.footnote)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text("Tu nivel · fuerza")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                    Spacer()
+                    if let value = percentile {
+                        Text("P\(Int(value.percentile.rounded()))")
+                            .font(.title3.weight(.bold).monospacedDigit())
+                            .foregroundStyle(OG.accent)
+                    }
+                }
+                if let result = recordedResult, bell.count > 2 {
+                    Chart {
+                        ForEach(bell) { pt in
+                            AreaMark(
+                                x: .value("Peso", pt.kg),
+                                yStart: .value("Base", 0),
+                                yEnd: .value("Densidad orientativa", pt.height)
+                            )
+                            .foregroundStyle(OG.accent.opacity(0.13))
+                            .interpolationMethod(.catmullRom)
+                            LineMark(
+                                x: .value("Peso", pt.kg),
+                                y: .value("Densidad orientativa", pt.height)
+                            )
+                            .foregroundStyle(OG.accent.opacity(0.45))
+                            .interpolationMethod(.catmullRom)
+                        }
+                        RuleMark(x: .value("Tu referencia", result.kg))
+                            .foregroundStyle(OG.accent)
+                            .lineStyle(StrokeStyle(lineWidth: 2))
+                        PointMark(
+                            x: .value("Tu referencia", result.kg),
+                            y: .value("Posición", markerHeight)
+                        )
+                        .foregroundStyle(OG.accent)
+                        .symbolSize(85)
+                    }
+                    .chartYScale(domain: 0...1.08)
+                    .chartYAxis(.hidden)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                            AxisValueLabel()
+                        }
+                    }
+                    .frame(height: 126)
+                    .accessibilityLabel("Curva ilustrativa de marcas de competición. Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
+                    HStack(spacing: 4) {
+                        Text(result.estimated ? "e1RM estimado" : "1RM registrado")
                             .foregroundStyle(OG.label2)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        HStack(spacing: 12) {
-                            Picker("Categoría", selection: $sexCategory) {
-                                Text("Categoría").tag("")
-                                Text("Femenina").tag("female")
-                                Text("Masculina").tag("male")
-                            }
-                            .pickerStyle(.menu)
-                            .accessibilityLabel("Categoría competitiva")
-
-                            Picker("Edad", selection: $ageYears) {
-                                Text("Edad").tag(0)
-                                ForEach(14...80, id: \.self) { year in
-                                    Text("\(year) años").tag(year)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .accessibilityLabel("Edad para referencia")
-                        }
-                        if let latestWeightKg, latestWeightKg > 0 {
-                            Text("Peso corporal: \(ReperaNumberFormat.decimal(latestWeightKg)) kg · último registro")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        } else {
-                            TextField("Peso corporal (kg)", value: $manualWeightKg, format: .number)
-                                .keyboardType(.decimalPad)
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityLabel("Peso corporal en kilogramos")
-                        }
-
-                        if !didLoad {
-                            ProgressView("Preparando referencia…")
-                        } else if testedOneRMKg == nil {
-                            Text("Registra un 1RM probado en Evolución para ver una referencia. No se compara el e1RM estimado.")
-                                .font(.footnote)
-                                .foregroundStyle(OG.label3)
-                        } else if sexCategory.isEmpty || ageYears == 0 || selectedWeightKg <= 0 {
-                            Text("Selecciona categoría, edad y peso corporal para consultar tu referencia.")
-                                .font(.footnote)
-                                .foregroundStyle(OG.label3)
-                        } else if let match {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("P\(Int(match.percentile.rounded()))")
-                                    .font(.system(size: 28, weight: .bold).monospacedDigit())
-                                    .foregroundStyle(OG.accent)
-                                Text("orientativo")
-                                    .font(.footnote.weight(.medium))
-                                    .foregroundStyle(OG.label2)
-                                Spacer()
-                                if let testedOneRMKg {
-                                    Text("\(ReperaNumberFormat.decimal(testedOneRMKg)) kg")
-                                        .font(.title3.weight(.bold).monospacedDigit())
-                                        .foregroundStyle(OG.label)
-                                }
-                            }
-                            Text("Frente a \(match.sampleCount) resultados de competición \(match.ageSpecific ? "de tu edad" : "de todas las edades") en la categoría de peso correspondiente. Datos de mayo de 2026.")
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else {
-                            Text("Sin muestra suficiente o tu marca queda fuera del rango publicado. No se calcula un percentil.")
-                                .font(.footnote)
-                                .foregroundStyle(OG.label3)
-                        }
-                        Text("Fuente: OpenPowerlifting · CC0 · participantes de competiciones, no población general.")
-                            .font(.caption2)
+                        Text("· \(ReperaNumberFormat.decimal(result.kg)) kg")
+                            .foregroundStyle(OG.label)
+                        Spacer()
+                        Text("Referencia competitiva · orientativa")
                             .foregroundStyle(OG.label3)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                } else {
+                    Text(missingState)
+                        .font(.caption)
+                        .foregroundStyle(OG.label3)
                 }
             }
+            .padding(.vertical, 4)
             .task {
                 guard !didLoad else { return }
                 let url = Bundle.main.url(forResource: "strength_benchmarks", withExtension: "json")
                 let loaded: [StrengthBenchmarkDistribution] = await Task.detached(priority: .utility) {
                     guard let url, let data = try? Data(contentsOf: url) else { return [] }
-                    return (try? JSONDecoder().decode([StrengthBenchmarkDistribution].self, from: data)) ?? []
+                    return (try? JSONDecoder().decode(
+                        [StrengthBenchmarkDistribution].self, from: data
+                    )) ?? []
                 }.value
-                reference = loaded
+                distributions = loaded
                 didLoad = true
             }
         }
+    }
+
+    private var missingState: String {
+        if !didLoad { return "Preparando referencia…" }
+        if recordedResult == nil { return "Sin series suficientes para estimar tu marca." }
+        if store.state.settings.birthYear == nil || store.state.settings.competitionSex == nil {
+            return "Configura género y año de nacimiento en Ajustes · Entrenamiento."
+        }
+        if weightKg == nil { return "Registra tu peso corporal en Progreso." }
+        return "Sin referencia competitiva suficiente para esta categoría."
     }
 }
