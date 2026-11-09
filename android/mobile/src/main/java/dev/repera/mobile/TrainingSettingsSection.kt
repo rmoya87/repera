@@ -119,7 +119,7 @@ import dev.repera.domain.ProgressionPolicy
                 onClick={onChange(value.copy(defaultProgression=policy.wire))},label={Text(policy.displayName)})
         }
         Text("Incremento: ${dev.repera.domain.ReperaNumberFormat.decimal(value.weightIncrementKg)} kg")
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(enabled=!busy && value.weightIncrementKg>0.5,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg-0.5).coerceAtLeast(0.5)))}) {Text("Restar 0,5 kg")}
             OutlinedButton(enabled=!busy && value.weightIncrementKg<10,onClick={onChange(value.copy(weightIncrementKg=(value.weightIncrementKg+0.5).coerceAtMost(10.0)))}) {Text("Añadir 0,5 kg")}
         }
