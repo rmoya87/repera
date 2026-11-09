@@ -52,6 +52,17 @@ class WearHealthMetricContracts(unittest.TestCase):
         self.assertIn("incoming.matches(", service)
         self.assertIn("Phase.IDLE || phase==LiveActivityState.Phase.REVIEW", service)
 
+    def test_delayed_background_wear_callbacks_are_scoped_to_login_revision(self):
+        listener = read("android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt")
+        commands = listener.split('if (event.path != "/repera/live-command") return', 1)[1]
+        commands = commands.split("private fun handleBackgroundLiveHeartRate", 1)[0]
+        heart = listener.split("private fun handleBackgroundLiveHeartRate(", 1)[1]
+        heart = heart.split("private fun handleTimerState(", 1)[0]
+        for block in (commands, heart):
+            self.assertIn("val revision = sessionStore.identityRevision()", block)
+            self.assertIn("sessionStore.identityRevision() != revision", block)
+            self.assertIn("sessionStore.load()?.uniqueId != owner", block)
+
     def test_total_energy_never_masquerades_as_active(self):
         wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
         writer = read("android/mobile/src/main/java/dev/repera/mobile/HealthConnectWriter.kt")
