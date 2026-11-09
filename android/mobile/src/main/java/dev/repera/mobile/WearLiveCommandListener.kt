@@ -3,6 +3,9 @@ package dev.repera.mobile
 import android.os.Handler
 import android.os.Looper
 import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 import com.google.android.gms.wearable.Wearable
 import dev.repera.domain.LiveSport
@@ -22,6 +25,31 @@ internal object WearUiPresence {
 }
 
 class WearLiveCommandListener : WearableListenerService() {
+    override fun onDataChanged(events: DataEventBuffer) {
+        // Durable latest Watch-owned state, including reconnect after phone
+        // process death. The same id/time policy deduplicates MessageClient.
+        val sessions = SessionStore(this)
+        val owner = sessions.load()?.uniqueId ?: return
+        val revision = sessions.identityRevision()
+        for (event in events) {
+            if (event.type != DataEvent.TYPE_CHANGED ||
+                event.dataItem.uri.path != "/repera/watch-owned-live") continue
+            val bytes = runCatching {
+                DataMapItem.fromDataItem(event.dataItem).dataMap.getByteArray("live")
+            }.getOrNull() ?: continue
+            if (!WearMessageBounds.withinLimit(bytes)) continue
+            val packet = runCatching {
+                JSONObject(String(bytes, Charsets.UTF_8))
+            }.getOrNull() ?: continue
+            Handler(Looper.getMainLooper()).post {
+                if (sessions.identityRevision() == revision &&
+                    sessions.load()?.uniqueId == owner) {
+                    WearOwnedLiveMirror.accept(this, packet)
+                }
+            }
+        }
+    }
+
     override fun onMessageReceived(event: MessageEvent) {
         // Misma cota que WearPayload en el reloj: rechazar antes de JSONObject.
         if (!WearMessageBounds.withinLimit(event.data)) return
