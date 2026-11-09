@@ -35,4 +35,18 @@ object CatalogBootstrap {
             "Ya existe un historial; no se sobrescribirá"
         }
     }
+
+    /**
+     * Paridad iOS `Catalog.seed()` / `enrichCatalogMetadata`: si no hay snapshot
+     * local → semilla completa; si el shell está vacío o incompleto → merge del
+     * seed sin borrar historial.
+     */
+    fun ensureHydrated(context: Context, googleAccountId: String) {
+        val local = LocalSnapshotStore(context, googleAccountId)
+        if (local.read() == null) {
+            initializeEmptyAccount(context, googleAccountId)
+            return
+        }
+        CatalogRefreshMigration.ensure(context, googleAccountId)
+    }
 }

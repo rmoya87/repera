@@ -182,9 +182,19 @@ internal fun ProgressTab(
     val rawSnapshot = overview?.progressByRange?.get(selectedRange)
     val today = LocalDate.now()
     val monday = overview?.trainingSettings?.weekStartsOnMonday ?: true
-    val snapshot = remember(rawSnapshot, selectedRange, today, PROGRESS_DEMO_CHARTS) {
-        if (!PROGRESS_DEMO_CHARTS || rawSnapshot == null) rawSnapshot
-        else enrichSnapshotWithDemo(rawSnapshot, today)
+    val rangeForSnapshot = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }
+        ?: ProgressTimeRange.WEEK
+    // Free (paridad iOS freeHealthScoreCard / teasers): siempre hay snapshot de
+    // ejemplo + banners Pro aunque overview/progressByRange aún sea null.
+    val snapshot = remember(rawSnapshot, selectedRange, today, pro, PROGRESS_DEMO_CHARTS) {
+        when {
+            !pro -> enrichSnapshotWithDemo(
+                rawSnapshot ?: ProgressPreview.teaserSnapshot(today, rangeForSnapshot),
+                today
+            )
+            PROGRESS_DEMO_CHARTS && rawSnapshot != null -> enrichSnapshotWithDemo(rawSnapshot, today)
+            else -> rawSnapshot
+        }
     }
     val latestMeasuredWorkout = remember(overview, selectedRange, monday, today) {
         val selected = ProgressTimeRange.entries.firstOrNull { it.wire == selectedRange }

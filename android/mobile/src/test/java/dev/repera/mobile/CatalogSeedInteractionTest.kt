@@ -100,6 +100,34 @@ class CatalogSeedInteractionTest {
     }
 
     @Test
+    fun `shell con exercises vacio recibe el seed completo`() {
+        val state = JSONObject()
+            .put("exercises", JSONArray())
+            .put("workouts", JSONArray())
+            .put("routines", JSONArray())
+            .put("syncRevision", 0)
+            .put("updatedAt", "1970-01-01T00:00:00Z")
+            .put("lastWriterDeviceId", "")
+        assertTrue(CatalogRefreshMigration.mergeSeedIntoState(seed, state))
+        assertEquals(seed.length(), state.getJSONArray("exercises").length())
+    }
+
+    @Test
+    fun `catalogo solo archivado se desarchiva para no dejar la biblioteca vacia`() {
+        val state = stateFromSeed()
+        val catalog = state.getJSONArray("exercises")
+        for (i in 0 until catalog.length()) {
+            catalog.getJSONObject(i).put("isCatalogArchived", true)
+        }
+        assertTrue(CatalogRefreshMigration.restoreVisibleCatalog(catalog))
+        val visible = (0 until catalog.length()).count {
+            !catalog.getJSONObject(it).optBoolean("isCatalogArchived", false)
+        }
+        assertTrue(visible > 0)
+        assertFalse(CatalogRefreshMigration.restoreVisibleCatalog(catalog))
+    }
+
+    @Test
     fun migrationPreservesSupabaseAliasesOnExistingEntries() {
         // Apple 6552bd80: la hidratacion del catalogo empaquetado no puede borrar
         // los alias editoriales recibidos de Supabase. La migracion Android nunca

@@ -25,17 +25,74 @@ internal object CatalogRefreshMigration {
     fun ensure(context: Context, accountId: String): Boolean {
         val store = LocalSnapshotStore(context, accountId)
         val bytes = store.read() ?: return false
-        LocalSnapshotStore.validate(bytes)
         val state = JSONObject(String(bytes, Charsets.UTF_8))
+        // Shells incompletos (p.ej. borrado de cuenta) pueden omitir arrays:
+        // completar antes de validate para poder rehidratar el seed.
+        var structural = false
+        for (key in listOf("exercises", "workouts", "routines")) {
+            if (state.optJSONArray(key) == null) {
+                state.put(key, org.json.JSONArray())
+                structural = true
+            }
+        }
+        val repaired = if (structural) {
+            state.toString().toByteArray(Charsets.UTF_8)
+        } else {
+            bytes
+        }
+        LocalSnapshotStore.validate(repaired)
         val seed = context.assets.open("catalog_seed.json")
             .bufferedReader(Charsets.UTF_8).use { org.json.JSONArray(it.readText()) }
         check(seed.length() > 0) { "Catálogo semilla vacío" }
-        val changed = mergeSeedIntoState(seed, state)
+        val changed = mergeSeedIntoState(seed, state) || structural
         if (!changed) return false
-        check(store.replaceIfUnchanged(bytes,state.toString().toByteArray(Charsets.UTF_8))) {
+        check(store.replaceIfUnchanged(bytes, state.toString().toByteArray(Charsets.UTF_8))) {
             "El historial cambió durante la migración del catálogo; vuelve a intentarlo"
         }
         return true
+    }
+
+    /**
+     * Tras el merge remoto: si no queda ningún ejercicio visible, reincorpora el
+     * seed y desarchiva fichas no custom. Paridad con iOS (base local siempre
+     * disponible; Supabase enriquece después).
+     */
+    fun ensureVisibleBase(context: Context, accountId: String): Boolean {
+        val store = LocalSnapshotStore(context, accountId)
+        val bytes = store.read() ?: return false
+        val state = JSONObject(String(bytes, Charsets.UTF_8))
+        for (key in listOf("exercises", "workouts", "routines")) {
+            if (state.optJSONArray(key) == null) state.put(key, org.json.JSONArray())
+        }
+        val seed = context.assets.open("catalog_seed.json")
+            .bufferedReader(Charsets.UTF_8).use { org.json.JSONArray(it.readText()) }
+        check(seed.length() > 0) { "Catálogo semilla vacío" }
+        var changed = mergeSeedIntoState(seed, state)
+        changed = restoreVisibleCatalog(state.getJSONArray("exercises")) || changed
+        if (!changed) return false
+        LocalSnapshotStore.validate(state.toString().toByteArray(Charsets.UTF_8))
+        check(store.replaceIfUnchanged(bytes, state.toString().toByteArray(Charsets.UTF_8))) {
+            "El historial cambió durante la recuperación del catálogo; vuelve a intentarlo"
+        }
+        return true
+    }
+
+    /** Núcleo puro: si el catálogo visible está vacío, desarchiva no-custom. */
+    internal fun restoreVisibleCatalog(catalog: org.json.JSONArray): Boolean {
+        val visible = (0 until catalog.length()).count {
+            !catalog.getJSONObject(it).optBoolean("isCatalogArchived", false)
+        }
+        if (visible > 0 || catalog.length() == 0) return false
+        var changed = false
+        for (i in 0 until catalog.length()) {
+            val item = catalog.getJSONObject(i)
+            if (item.optBoolean("isCustom")) continue
+            if (item.optBoolean("isCatalogArchived", false)) {
+                item.put("isCatalogArchived", false)
+                changed = true
+            }
+        }
+        return changed
     }
 
     /** Núcleo puro (sin I/O) para pruebas JVM: aplica el seed sobre el estado.
@@ -45,7 +102,8 @@ internal object CatalogRefreshMigration {
         state: JSONObject,
         now: Instant = Instant.now()
     ): Boolean {
-        val catalog = state.getJSONArray("exercises")
+        val catalog = state.optJSONArray("exercises")
+            ?: org.json.JSONArray().also { state.put("exercises", it) }
         val byId = mutableMapOf<String, JSONObject>()
         for (i in 0 until catalog.length()) {
             val item = catalog.getJSONObject(i)

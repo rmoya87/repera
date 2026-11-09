@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (resumen outdoor: mapa tras tiles).
+Última actualización: 2026-11-09 (Android: seed catálogo + biblioteca nunca vacía).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -119,9 +119,11 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 
 ## Catálogo de ejercicios remoto y offline (2026-10-25; autoridad remota 2026-11-04)
 
+Última actualización: 2026-11-09 (Android: `ensureHydrated` + biblioteca nunca vacía tras lápidas).
+
 El enriquecimiento y altas desde bibliotecas abiertas (Free Exercise DB, Open WOD, OpenExerciseDB, RepDB, Kinetic, …) se preparan con `tools/catalog_ingest/` y se publican por el mismo canal editorial; las apps no consultan esas fuentes y el arte sigue el estilo ExerciseArt Repera ([CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md)). RepDB free: crédito «Exercise data by RepDB (repdb.co)» en Ajustes.
 
-**Autoridad viva = Supabase**; `Catalog.seed()` solo bootstrap (publicar no exige binario). Feed `mobile_exercise_catalog_events` con campos canónicos; cold-start / lag grande usa RPC `mobile_exercise_catalog_bootstrap()` (1 descarga del estado actual) y deltas en páginas de 500. `RemoteExerciseCatalogMerge` aplica sobre el seed; null/vacío no borra. Arte: `mobile_art_keys` + Storage `exercise-art` → caché disco. Sync invisible BGAppRefresh / WorkManager. Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
+**Autoridad viva = Supabase**; `Catalog.seed()` / `catalog_seed.json` es la **base local** (bootstrap). Feed `mobile_exercise_catalog_events` con campos canónicos; cold-start / lag grande usa RPC `mobile_exercise_catalog_bootstrap()` (1 descarga del estado actual) y deltas en páginas de 500. `RemoteExerciseCatalogMerge` / Android `RemoteExerciseCatalog.applyToAccount` aplican sobre el seed; null/vacío no borra. **Android:** `CatalogBootstrap.ensureHydrated` siembra o fusiona si falta el snapshot o el array `exercises`; tras el merge remoto, si no queda ningún ejercicio visible se desarchivan las fichas no custom (nunca biblioteca vacía). Arte: `mobile_art_keys` + Storage `exercise-art` → caché disco. Sync invisible BGAppRefresh / WorkManager. Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 
 ## Unidad de cardio en rutinas y sesiones
 

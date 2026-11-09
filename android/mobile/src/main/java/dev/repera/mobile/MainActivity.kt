@@ -2324,7 +2324,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
                     restoringSession = false
                     busy = false
-                    ensureLocalSeedIfMissing(stored.uniqueId) { current() }
+                    ensureCatalogHydrated(stored.uniqueId) { current() }
                     if (current()) reloadFor(stored.uniqueId)
                     return@launch
                 }
@@ -2751,13 +2751,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
     }
 
-    /** iOS ReperaStore seed + RemoteExerciseCatalogStore.refresh on first connect. */
-    private suspend fun ensureLocalSeedIfMissing(accountId: String, current: () -> Boolean) {
+    /** iOS ReperaStore seed + enrichCatalogMetadata: base local siempre, luego Supabase. */
+    private suspend fun ensureCatalogHydrated(accountId: String, current: () -> Boolean) {
         withContext(Dispatchers.IO) {
             if (!current()) return@withContext
-            if (LocalSnapshotStore(this@MainActivity, accountId).read() == null) {
-                CatalogBootstrap.initializeEmptyAccount(this@MainActivity, accountId)
-            }
+            CatalogBootstrap.ensureHydrated(this@MainActivity, accountId)
         }
     }
 
@@ -2787,7 +2785,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         var seedError: String? = null
         var catalogError: String? = null
         withContext(Dispatchers.IO) {
-            runCatching { ensureLocalSeedIfMissing(accountId, current) }
+            runCatching { ensureCatalogHydrated(accountId, current) }
                 .onFailure { seedError = it.localizedMessage ?: "No se pudo preparar el catálogo local" }
             if (!current()) return@withContext
             if (seedError == null) seedDisplayNameFromGoogle(accountId)
@@ -2811,10 +2809,14 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         catalogError = it.localizedMessage ?: "No se pudo aplicar el catálogo"
                     }
                 }
+            // Tras lápidas remotas: nunca dejar la biblioteca vacía (base seed).
+            runCatching { CatalogRefreshMigration.ensureVisibleBase(this@MainActivity, accountId) }
         }
-        if (!current()) return
+        // Hidratar UI si seguimos en la misma cuenta aunque el stamp de revisión
+        // haya rotado (refresh de sesión). Sin esto, ejercicios/progreso quedan null.
+        if (profile?.uniqueId != accountId) return
         reloadFor(accountId)
-        if (!current()) return
+        if (profile?.uniqueId != accountId) return
         when {
             seedError != null -> status = "Catálogo: $seedError"
             catalogError != null && (snapshot?.exercises ?: 0) == 0 ->
@@ -2928,6 +2930,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             MobilityCatalogMigration.ensure(this@MainActivity, id)
             CatalogRefreshMigration.ensure(this@MainActivity, id)
             RemoteExerciseCatalog(this@MainActivity).applyToAccount(id)
+            CatalogRefreshMigration.ensureVisibleBase(this@MainActivity, id)
             val repository = WorkoutRepository(this@MainActivity, id)
             // Artefactos de altas one-off interrumpidas (proceso muerto antes de
             // Guardar): iOS nunca persiste rutinas con todos los bloques vacíos.
@@ -3700,33 +3703,34 @@ data class StateOverview(
                     )
                 }
             }
-            val exerciseEntries = json.getJSONArray("exercises").let { array ->
-                (0 until array.length()).filterNot { n ->
-                    array.getJSONObject(n).optBoolean("isCatalogArchived", false)
-                }.map { n ->
-                    val ex = array.getJSONObject(n)
+            val exerciseEntries = (json.optJSONArray("exercises") ?: org.json.JSONArray()).let { array ->
+                (0 until array.length()).mapNotNull { n ->
+                    val ex = array.optJSONObject(n) ?: return@mapNotNull null
+                    if (ex.optBoolean("isCatalogArchived", false)) return@mapNotNull null
+                    val name = ex.optString("name").takeIf { it.isNotBlank() && it != "null" }
+                        ?: return@mapNotNull null
+                    val id = ex.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
                     val sportTag = ex.optJsonString("sportTag")
                     val muscleGroup = ex.optJsonString("muscleGroup").orEmpty()
                     val equipment = ex.optJsonString("equipment").orEmpty()
                     val targetMuscle = ex.optJsonString("targetMuscle").orEmpty()
                     val mode = ExerciseInput.mode(
-                        ex.getString("name"),
+                        name,
                         equipment,
                         targetMuscle,
                         muscleGroup,
                         sportTag
                     )
-                    ExerciseEntry(ex.getString("id"), ex.getString("name"),
+                    ExerciseEntry(id, name,
                         mode.basicRecorderAvailable, mode.showsWeight,
                         muscleGroup = muscleGroup,
                         sportTag = sportTag,
-                        hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(
-                            ex.getString("name")),
+                        hyroxTraining = ExerciseCatalogFilters.isHyroxTrainingMovement(name),
                         disciplineTags = dev.repera.domain.ExerciseDisciplineTags.forExercise(
-                            ex.getString("name"),
+                            name,
                             sportTag,
                             muscleGroup,
-                            ExerciseCatalogFilters.isHyroxTrainingMovement(ex.getString("name"))),
+                            ExerciseCatalogFilters.isHyroxTrainingMovement(name)),
                         loggingStyle = when (mode) {
                             dev.repera.domain.ExerciseInputMode.MACHINE_WORK -> "machineWork"
                             dev.repera.domain.ExerciseInputMode.REPS_AND_TIME -> "repsAndTime"

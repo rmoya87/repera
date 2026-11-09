@@ -303,6 +303,22 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         // Cache the resolved legacy UUID mapping before publishing private state.
         cached.put("localIDs", ids)
         commitCache(cached)
+        // Nunca publicar una biblioteca sin ejercicios visibles: el seed es la base
+        // (paridad iOS Catalog.seed). Si el feed solo trae lápidas, se mantienen
+        // las fichas no custom desarchivadas hasta que haya altas activas.
+        val visible = (0 until catalog.length()).count {
+            !catalog.getJSONObject(it).optBoolean("isCatalogArchived", false)
+        }
+        if (visible == 0 && catalog.length() > 0) {
+            for (i in 0 until catalog.length()) {
+                val item = catalog.getJSONObject(i)
+                if (item.optBoolean("isCustom")) continue
+                if (item.optBoolean("isCatalogArchived", false)) {
+                    item.put("isCatalogArchived", false)
+                    changed = true
+                }
+            }
+        }
         if (!changed) return false
         state.put("syncRevision", state.optInt("syncRevision", 0) + 1)
         state.put("updatedAt", Instant.now().toString())

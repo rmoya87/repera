@@ -3,6 +3,7 @@ package dev.repera.mobile
 import dev.repera.domain.HeartRatePlotPoint
 import dev.repera.domain.MuscleTaxonomy
 import dev.repera.domain.ProgressDayPoint
+import dev.repera.domain.ProgressHealthSummary
 import dev.repera.domain.ProgressPreparedCharts
 import dev.repera.domain.ProgressSeriesGranularity
 import dev.repera.domain.ProgressTimeRange
@@ -20,6 +21,52 @@ import kotlin.math.sin
  * Nunca deriva valores de mediciones privadas.
  */
 internal object ProgressPreview {
+    /** Snapshot de teaser cuando aún no hay `progressByRange` (cuenta Free / overview null). */
+    fun teaserSnapshot(
+        today: LocalDate,
+        range: ProgressTimeRange = ProgressTimeRange.WEEK
+    ): ProgressSnapshotData {
+        val loads = muscleLoads()
+        val fatigue = muscleFatigue()
+        val heat = heatmap(today)
+        return ProgressSnapshotData(
+            range = range,
+            summary = ProgressHealthSummary(
+                averageMinutes = 42.0,
+                totalKcal = 0.0,
+                averageCardioMinutes = null,
+                volumeKg = 12_400.0,
+                sessionCount = 4,
+                totalMinutes = 168.0
+            ),
+            previousSummary = null,
+            streak = 3,
+            previousStreak = 2,
+            records = emptyList(),
+            muscleStatuses = emptyList(),
+            hasHardSets = true,
+            includesEstimatedWodMuscles = false,
+            muscleLoadAll = loads,
+            muscleLoadHard = loads.mapValues { it.value * 0.6 },
+            muscleFatigueAll = fatigue,
+            muscleFatigueHard = fatigue.mapValues { it.value * 0.7 },
+            heatmapTime = heat,
+            heatmapVolume = heat.map { it.first to ((it.second + 1) % 5) },
+            cardioSeries = emptyList(),
+            weeklyVolume = emptyList(),
+            weeklySessions = emptyList(),
+            mobilitySessions = 3,
+            mobilitySeconds = 45 * 60,
+            weightPoints = weight(today),
+            weightDelta30d = null,
+            monthSessions = 8,
+            filteredWorkouts = 4,
+            chartExercises = chartExercises(),
+            strengthSessionCount = 3,
+            strengthExerciseCount = 5,
+            hubDailyVolumeKg = listOf(2_100.0, 0.0, 3_400.0, 2_800.0, 0.0, 3_100.0, 1_900.0)
+        )
+    }
     fun charts(today: LocalDate, monday: Boolean): ProgressPreparedCharts {
         val profile = listOf(108.0, 124.0, 118.0, 132.0, 115.0, 128.0, 112.0)
         val hr = (0..6).map { i ->
