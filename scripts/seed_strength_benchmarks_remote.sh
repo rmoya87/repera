@@ -36,6 +36,8 @@ for i, b in enumerate(batches):
     (out / f"batch_{i:03d}.sql").write_text(sql)
 print(f"batches={len(batches)} rows={len(rows)}")
 PY
+echo "Clearing previous distributions…"
+supabase db query --linked --yes "truncate public.strength_benchmark_events restart identity cascade; truncate public.strength_benchmark_distributions restart identity cascade;" >/dev/null
 for f in "$OUT"/batch_*.sql; do
   echo "=== $(basename "$f") ==="
   supabase db query --linked --yes -f "$f" >/dev/null

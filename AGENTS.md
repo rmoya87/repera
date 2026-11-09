@@ -178,10 +178,11 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 #### Strength benchmarks remoto (09/11/2026)
 
-- Esquema + seed en Supabase Repera (`strength_benchmark_*`, 813 filas OPL+SS).
+- Esquema + seed en Supabase Repera (`strength_benchmark_*`, 1132 filas:
+  914 OPL nov-2026 + 218 SS / 14 lifts).
 - UI de **Rendimiento**: `StrengthBenchmarkRemoteStore` desde Supabase
-  (bootstrap/delta); JSON bundle solo offline. Solo sentadilla / banca /
-  peso muerto mapeados; sin lift o sin cohorte → no inventar Pxx.
+  (bootstrap/delta); JSON bundle solo offline. Resolver de lifts gym (SBD +
+  front/sumo/OHP/etc.); sin lift o sin cohorte → no inventar Pxx.
 - Aportes Amateur: opt-in `contributeAnonymousStrengthStats` → RPC
   `submit_strength_benchmark_contribution` (bandas, rate limit, sin user id en
   inbox). Agregar con `strength_benchmark_aggregate_contributions` (service_role).

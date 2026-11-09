@@ -1,7 +1,12 @@
 package dev.repera.domain
 
 /** Competition percentile reference; never a percentile of the general population. */
-enum class StrengthBenchmarkLift { SQUAT, BENCH_PRESS, DEADLIFT }
+enum class StrengthBenchmarkLift {
+    SQUAT, BENCH_PRESS, DEADLIFT,
+    FRONT_SQUAT, SUMO_DEADLIFT, POWER_CLEAN,
+    INCLINE_BENCH_PRESS, OVERHEAD_PRESS, PUSH_PRESS, SNATCH_PRESS,
+    DIP, CHIN_UP, PULL_UP, PENDLAY_ROW
+}
 enum class StrengthBenchmarkSex { FEMALE, MALE }
 enum class StrengthBenchmarkEquipment { RAW, WRAPS, SINGLE_PLY, MULTI_PLY }
 
@@ -63,22 +68,71 @@ data class StrengthBenchmarkResult(
 )
 
 object StrengthBenchmarkLiftResolver {
-    fun liftForExerciseName(name: String): StrengthBenchmarkLift? = when (
-        name.trim().lowercase()
-    ) {
-        "sentadilla", "sentadilla trasera", "back squat", "barbell back squat" ->
-            StrengthBenchmarkLift.SQUAT
-        "press banca", "press de banca", "bench press", "barbell bench press" ->
-            StrengthBenchmarkLift.BENCH_PRESS
-        "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift" ->
-            StrengthBenchmarkLift.DEADLIFT
-        else -> null
+    fun liftForExerciseName(name: String): StrengthBenchmarkLift? {
+        val n = java.text.Normalizer.normalize(name.trim().lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "")
+        return when (n) {
+            "sentadilla", "sentadilla trasera", "back squat", "barbell back squat" ->
+                StrengthBenchmarkLift.SQUAT
+            "press banca", "press de banca", "bench press", "barbell bench press" ->
+                StrengthBenchmarkLift.BENCH_PRESS
+            "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift" ->
+                StrengthBenchmarkLift.DEADLIFT
+            "sentadilla frontal", "front squat", "barbell front squat" ->
+                StrengthBenchmarkLift.FRONT_SQUAT
+            "peso muerto sumo", "sumo deadlift" -> StrengthBenchmarkLift.SUMO_DEADLIFT
+            "power clean", "cargada de potencia" -> StrengthBenchmarkLift.POWER_CLEAN
+            "press inclinado", "press banca inclinado", "incline bench press",
+            "barbell incline bench press" -> StrengthBenchmarkLift.INCLINE_BENCH_PRESS
+            "press militar", "strict press", "overhead press", "shoulder press",
+            "military press" -> StrengthBenchmarkLift.OVERHEAD_PRESS
+            "push press", "press con impulso" -> StrengthBenchmarkLift.PUSH_PRESS
+            "snatch press", "press de arrancada", "snatch grip press" ->
+                StrengthBenchmarkLift.SNATCH_PRESS
+            "fondos", "fondos en paralelas", "dip", "dips", "ring dip",
+            "fondos en anillas" -> StrengthBenchmarkLift.DIP
+            "dominadas en supinacion", "dominada en supinacion", "chin-up", "chin up",
+            "chinup" -> StrengthBenchmarkLift.CHIN_UP
+            "dominadas", "dominada", "pull-up", "pull up", "pullup",
+            "dominadas lastradas" -> StrengthBenchmarkLift.PULL_UP
+            "remo pendlay", "pendlay row" -> StrengthBenchmarkLift.PENDLAY_ROW
+            else -> null
+        }
     }
 
     fun wire(lift: StrengthBenchmarkLift): String = when (lift) {
         StrengthBenchmarkLift.SQUAT -> "squat"
         StrengthBenchmarkLift.BENCH_PRESS -> "benchPress"
         StrengthBenchmarkLift.DEADLIFT -> "deadlift"
+        StrengthBenchmarkLift.FRONT_SQUAT -> "frontSquat"
+        StrengthBenchmarkLift.SUMO_DEADLIFT -> "sumoDeadlift"
+        StrengthBenchmarkLift.POWER_CLEAN -> "powerClean"
+        StrengthBenchmarkLift.INCLINE_BENCH_PRESS -> "inclineBenchPress"
+        StrengthBenchmarkLift.OVERHEAD_PRESS -> "overheadPress"
+        StrengthBenchmarkLift.PUSH_PRESS -> "pushPress"
+        StrengthBenchmarkLift.SNATCH_PRESS -> "snatchPress"
+        StrengthBenchmarkLift.DIP -> "dip"
+        StrengthBenchmarkLift.CHIN_UP -> "chinUp"
+        StrengthBenchmarkLift.PULL_UP -> "pullUp"
+        StrengthBenchmarkLift.PENDLAY_ROW -> "pendlayRow"
+    }
+
+    fun fromWire(raw: String): StrengthBenchmarkLift? = when (raw) {
+        "squat" -> StrengthBenchmarkLift.SQUAT
+        "benchPress" -> StrengthBenchmarkLift.BENCH_PRESS
+        "deadlift" -> StrengthBenchmarkLift.DEADLIFT
+        "frontSquat" -> StrengthBenchmarkLift.FRONT_SQUAT
+        "sumoDeadlift" -> StrengthBenchmarkLift.SUMO_DEADLIFT
+        "powerClean" -> StrengthBenchmarkLift.POWER_CLEAN
+        "inclineBenchPress" -> StrengthBenchmarkLift.INCLINE_BENCH_PRESS
+        "overheadPress" -> StrengthBenchmarkLift.OVERHEAD_PRESS
+        "pushPress" -> StrengthBenchmarkLift.PUSH_PRESS
+        "snatchPress" -> StrengthBenchmarkLift.SNATCH_PRESS
+        "dip" -> StrengthBenchmarkLift.DIP
+        "chinUp" -> StrengthBenchmarkLift.CHIN_UP
+        "pullUp" -> StrengthBenchmarkLift.PULL_UP
+        "pendlayRow" -> StrengthBenchmarkLift.PENDLAY_ROW
+        else -> null
     }
 }
 

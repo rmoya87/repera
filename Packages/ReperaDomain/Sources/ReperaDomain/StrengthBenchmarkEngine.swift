@@ -6,6 +6,17 @@ public enum StrengthBenchmarkLift: String, Codable, Sendable, CaseIterable {
     case squat
     case benchPress
     case deadlift
+    case frontSquat
+    case sumoDeadlift
+    case powerClean
+    case inclineBenchPress
+    case overheadPress
+    case pushPress
+    case snatchPress
+    case dip
+    case chinUp
+    case pullUp
+    case pendlayRow
 }
 
 public enum StrengthBenchmarkSex: String, Codable, Sendable, Hashable {
@@ -109,13 +120,38 @@ public struct StrengthBenchmarkResult: Sendable {
 
 public enum StrengthBenchmarkLiftResolver {
     public static func lift(forExerciseName name: String) -> StrengthBenchmarkLift? {
-        switch name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "es_ES"))
+            .lowercased()
+        switch n {
         case "sentadilla", "sentadilla trasera", "back squat", "barbell back squat":
             return .squat
         case "press banca", "press de banca", "bench press", "barbell bench press":
             return .benchPress
         case "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift":
             return .deadlift
+        case "sentadilla frontal", "front squat", "barbell front squat":
+            return .frontSquat
+        case "peso muerto sumo", "sumo deadlift":
+            return .sumoDeadlift
+        case "power clean", "cargada de potencia":
+            return .powerClean
+        case "press inclinado", "press banca inclinado", "incline bench press", "barbell incline bench press":
+            return .inclineBenchPress
+        case "press militar", "strict press", "overhead press", "shoulder press", "military press":
+            return .overheadPress
+        case "push press", "press con impulso":
+            return .pushPress
+        case "snatch press", "press de arrancada", "snatch grip press":
+            return .snatchPress
+        case "fondos", "fondos en paralelas", "dip", "dips", "ring dip", "fondos en anillas":
+            return .dip
+        case "dominadas en supinacion", "dominada en supinacion", "chin-up", "chin up", "chinup":
+            return .chinUp
+        case "dominadas", "dominada", "pull-up", "pull up", "pullup", "dominadas lastradas":
+            return .pullUp
+        case "remo pendlay", "pendlay row":
+            return .pendlayRow
         default:
             return nil
         }

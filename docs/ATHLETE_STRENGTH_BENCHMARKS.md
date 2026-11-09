@@ -1,6 +1,6 @@
 # Comparativas deportivas y progresión adaptativa (Repera atleta)
 
-Última actualización: 2026-11-09 (marcos Amateur/Élite + semilla gym CC BY).
+Última actualización: 2026-11-09 (Élite OPL nov-2026 + Amateur 14 lifts FV).
 
 ## Alcance
 Solo la aplicación de deportistas, con vistas nativas en iOS/iPadOS y Android. Se conserva la
@@ -43,32 +43,27 @@ Atribución legal pública (CC BY FitnessVolt + OPL): `/privacy#strength-referen
 y `/terms` en la web estática (ES/EN). Importación **única** del seed Amateur
 (`scripts/import_fitnessvolt_gym_seed.py`); **runtime sin llamadas a FitnessVolt**.
 
-La app incorpora el mismo archivo `strength_benchmarks.json` en Apple y
-Android (**813** distribuciones: **765** Élite + **48** Amateur). El ajuste
+Bundle + Supabase (**1132** distribuciones: **914** Élite + **218** Amateur).
 `strengthReferenceFrame` (default **Amateur**) filtra por `source` y nunca mezcla
-marcos en la misma campana/`Pxx`.
+marcos. Clientes sincronizan vía `StrengthBenchmarkRemoteStore`.
 
 ### Élite — OpenPowerlifting (CC0)
 
-- Origen primario **OpenPowerlifting**, transformación reutilizada del proyecto
-  **LiftGauge** (datos CC0).
-- Fuente: https://openpowerlifting.org/data
-- Transformación/metodología: https://github.com/arvidfcjarfalla-prog/liftgauge-strength-data
-- ID publicado: `openpowerlifting-2026-05-10-e97d116bb707065e-9dc7b0683085`.
-- Ventana de resultados del cubo de percentiles: 2025-05-10 a 2026-05-10.
-- Sentadilla, press banca y peso muerto *raw*, sexo y clases de peso.
-- Se rechazan cohortes de menos de 100 **resultados de competición**, datos
-  erróneos y extrapolación. Prefiere edad exacta con muestra suficiente; si no,
-  «todas las edades».
-- `sampleCount` cuenta observaciones de meet, **no personas únicas**. No es
-  muestra de la población general.
+- Rebuild offline desde CSV `openpowerlifting-latest` (dump 2026-11-07,
+  revisión `openpowerlifting-2026-11-09-…`) con script
+  `scripts/import_liftgauge_opl_seed.py --from-csv DOWNLOAD`.
+- Alternativa: cubo LiftGauge CC0 (`--liftgauge`).
+- Sentadilla / press banca / peso muerto *raw*, clases IPF, edad exacta +
+  «todas las edades»; ≥100 meets; sin extrapolación.
+- `sampleCount` = observaciones de meet (no personas únicas).
 
 ### Amateur — seed gym (SymmetricStrength / FitnessVolt CC BY)
 
-- 48 cohortes (3 lifts × 2 sexos × 8 clases de peso), edad 14–100, `equipment` raw.
-- `source` = `SymmetricStrength`, `sourceRevision` = `fitnessvolt-gym-seed-2026-11-09`.
-- Cuantiles de autoinforme de gimnasio; no certifica marcas oficiales.
-- Atribución CC BY en web; no hay API ni descarga en runtime.
+- **218** cohortes: 14 lifts × sexo × clases de peso (≥100), edad 14–100, raw.
+- Lifts: SBD + front squat, sumo, power clean, incline/OHP/push/snatch press,
+  dip, chin-up, pull-up, Pendlay row.
+- `sourceRevision` = `fitnessvolt-gym-seed-2026-11-09-all-lifts`.
+- Atribución CC BY en web; sin API FV en runtime.
 
 ### UI Rendimiento
 
@@ -83,11 +78,8 @@ marcos en la misma campana/`Pxx`.
 
 ### Supabase
 
-Migración `20261109160000_strength_benchmark_frames.sql` **aplicada** en el
-proyecto Repera (09/11/2026) junto con seed de **813** filas
-(765 OpenPowerlifting + 48 SymmetricStrength). RPCs
-`strength_benchmark_bootstrap` / `strength_benchmark_delta` y inbox de
-contribuciones (`service_role` only) listos.
+Esquema + seed **aplicados** en Repera: **914** OPL + **218** SS. RPCs
+bootstrap/delta, aportes autenticados e inbox; aggregate `service_role`.
 
 **Fuente de verdad:** Supabase (`strength_benchmark_bootstrap` / delta).
 iOS/Android sincronizan a caché local al iniciar sesión / foreground; el JSON

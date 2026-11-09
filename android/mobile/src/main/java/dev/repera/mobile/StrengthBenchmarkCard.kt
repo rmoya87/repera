@@ -32,11 +32,11 @@ import dev.repera.domain.StrengthBenchmarkDistribution
 import dev.repera.domain.StrengthBenchmarkEngine
 import dev.repera.domain.StrengthBenchmarkEquipment
 import dev.repera.domain.StrengthBenchmarkLift
+import dev.repera.domain.StrengthBenchmarkLiftResolver
 import dev.repera.domain.StrengthBenchmarkSex
 import dev.repera.domain.StrengthReferenceFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Locale
 import kotlin.math.exp
 
 /**
@@ -227,14 +227,6 @@ internal fun StrengthBenchmarkVisual(
     }
 }
 
-internal fun strengthLiftForExerciseName(name: String): StrengthBenchmarkLift? {
-    val normalized = java.text.Normalizer.normalize(name.trim().lowercase(Locale.ROOT),
-        java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
-    return when (normalized) {
-        "sentadilla", "sentadilla trasera", "back squat", "barbell back squat" -> StrengthBenchmarkLift.SQUAT
-        "press banca", "press de banca", "bench press", "barbell bench press" -> StrengthBenchmarkLift.BENCH_PRESS
-        "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift" -> StrengthBenchmarkLift.DEADLIFT
-        else -> null
-    }
-}
+internal fun strengthLiftForExerciseName(name: String): StrengthBenchmarkLift? =
+    StrengthBenchmarkLiftResolver.liftForExerciseName(name)
 

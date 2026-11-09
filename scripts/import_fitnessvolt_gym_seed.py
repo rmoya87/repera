@@ -18,14 +18,26 @@ import re
 import urllib.request
 from pathlib import Path
 
+# All gym lifts published by FitnessVolt Symmetric Strength (CC BY).
 LIFTS = {
     "squat": "squat",
     "bench-press": "benchPress",
     "deadlift": "deadlift",
+    "front-squat": "frontSquat",
+    "sumo-deadlift": "sumoDeadlift",
+    "power-clean": "powerClean",
+    "incline-bench-press": "inclineBenchPress",
+    "overhead-press": "overheadPress",
+    "push-press": "pushPress",
+    "snatch-press": "snatchPress",
+    "dip": "dip",
+    "chin-up": "chinUp",
+    "pull-up": "pullUp",
+    "pendlay-row": "pendlayRow",
 }
 SEXES = ("male", "female")
 SOURCE = "SymmetricStrength"
-REVISION = "fitnessvolt-gym-seed-2026-11-09"
+REVISION = "fitnessvolt-gym-seed-2026-11-09-all-lifts"
 UA = "ReperaSeed/1.0 (one-time CC BY import; https://repera.app/privacy#strength-reference)"
 BASE = "https://fitnessvolt.com/wp-json/rpe-training/v1/public/standards"
 MIN_SAMPLE = 100
@@ -59,7 +71,6 @@ def class_bounds(labels: list[str]) -> list[tuple[str, float, float]]:
         if limit is None:
             raise ValueError(f"Unrecognized weight class: {label}")
         parsed.append((label, limit, plus))
-    # Keep API order; verify ascending limits.
     limits = [item[1] for item in parsed]
     if limits != sorted(limits):
         raise ValueError(f"Weight classes not ascending: {labels}")
@@ -85,7 +96,6 @@ def quantiles_from(percentiles: dict) -> list[dict]:
             continue
         points.append({"percentile": pct, "weightKg": round(kg, 3)})
     points.sort(key=lambda row: row["percentile"])
-    # Engine requires strictly increasing kg with percentile.
     cleaned: list[dict] = []
     for row in points:
         if cleaned and row["weightKg"] <= cleaned[-1]["weightKg"]:
@@ -136,6 +146,7 @@ def build_amateur() -> list[dict]:
             if not chunk:
                 raise RuntimeError(f"No gym cohorts for {slug}/{sex}")
             rows.extend(chunk)
+            print(f"  {slug}/{sex}: {len(chunk)} cohorts")
     return rows
 
 
@@ -162,6 +173,8 @@ def main() -> None:
         for slug, lift in LIFTS.items():
             for sex in SEXES:
                 key = f"{slug}:{sex}"
+                if key not in fixture:
+                    continue
                 amateur.extend(gym_rows(fixture[key]["gym"], lift, sex))
     else:
         amateur = build_amateur()

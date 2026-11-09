@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (seed remoto + aportes Amateur anónimos).
+Última actualización: 2026-11-09 (Élite OPL nov-2026 + Amateur 14 lifts).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -15,15 +15,14 @@
   explícita no se compara.
 - `StrengthReferenceFrame` (`amateur` / `elite`) filtra `StrengthBenchmarkEngine`
   por `source` (`SymmetricStrength` vs `OpenPowerlifting`); default Amateur;
-  nunca mezcla marcos. JSON empaquetado: 813 filas (765 OPL + 48 seed gym).
-  El llamador distingue **1RM registrado frente a e1RM calculado**.
-  `AppSettings` / `TrainingSettings` sincronizan `competitionSex`, `birthYear`
-  y `strengthReferenceFrame`; cuerpo = última entrada de `bodyWeights`.
-  `StrengthBenchmarkVisual` (**Rendimiento**) usa el marco de Ajustes tras la
-  gráfica de Evolución; vacío = silueta + mensaje; sin pies bajo el eje X.
-  Migraciones strength **aplicadas** + seed 813 filas (OPL+SS) en Supabase
-  Repera. Clientes: `StrengthBenchmarkRemoteStore` (bootstrap/delta + caché);
-  bundle solo fallback offline. RPC aportes + aggregate service_role.
+  nunca mezcla marcos. Bundle + Supabase: **1132** filas (914 OPL nov-2026 +
+  218 SS / 14 lifts FV). El llamador distingue **1RM registrado frente a
+  e1RM calculado**. `AppSettings` / `TrainingSettings` sincronizan
+  `competitionSex`, `birthYear` y `strengthReferenceFrame`; cuerpo = última
+  entrada de `bodyWeights`. `StrengthBenchmarkVisual` (**Rendimiento**) usa el
+  marco de Ajustes tras la gráfica de Evolución; vacío = silueta + mensaje;
+  sin pies bajo el eje X. Clientes: `StrengthBenchmarkRemoteStore` (bootstrap/
+  delta); bundle solo offline. Aportes Amateur + aggregate `service_role`.
 - Ajustes → Entrenamiento: **Género**, **Nivel** (Amateur/Élite), año de
   nacimiento. Recuperación Pro: curva de minutos diarios 14 días. Sin
   escritores nuevos en Watch/Wear, HealthKit o Health Connect.

@@ -17,20 +17,7 @@ struct StrengthBenchmarkVisual: View {
     @State private var didLoad = false
 
     static func lift(for name: String) -> StrengthBenchmarkLift? {
-        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive],
-                     locale: Locale(identifier: "es_ES"))
-            .lowercased()
-        switch n {
-        case "sentadilla", "sentadilla trasera", "back squat", "barbell back squat":
-            return .squat
-        case "press banca", "press de banca", "bench press", "barbell bench press":
-            return .benchPress
-        case "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift":
-            return .deadlift
-        default:
-            return nil
-        }
+        StrengthBenchmarkLiftResolver.lift(forExerciseName: name)
     }
 
     private var weightKg: Double? {

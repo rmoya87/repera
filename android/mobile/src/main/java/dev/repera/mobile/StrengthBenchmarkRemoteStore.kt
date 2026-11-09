@@ -5,6 +5,7 @@ import dev.repera.domain.StrengthBenchmarkCohort
 import dev.repera.domain.StrengthBenchmarkDistribution
 import dev.repera.domain.StrengthBenchmarkEquipment
 import dev.repera.domain.StrengthBenchmarkLift
+import dev.repera.domain.StrengthBenchmarkLiftResolver
 import dev.repera.domain.StrengthBenchmarkQuantile
 import dev.repera.domain.StrengthBenchmarkSex
 import okhttp3.MediaType.Companion.toMediaType
@@ -190,12 +191,7 @@ internal class StrengthBenchmarkRemoteStore(private val context: Context) {
             row ?: return null
             if (row.has("isActive") && !row.optBoolean("isActive", true)) return null
             val c = row.optJSONObject("cohort") ?: return null
-            val lift = when (c.optString("lift")) {
-                "squat" -> StrengthBenchmarkLift.SQUAT
-                "benchPress" -> StrengthBenchmarkLift.BENCH_PRESS
-                "deadlift" -> StrengthBenchmarkLift.DEADLIFT
-                else -> return null
-            }
+            val lift = StrengthBenchmarkLiftResolver.fromWire(c.optString("lift")) ?: return null
             val sex = when (c.optString("sex")) {
                 "female" -> StrengthBenchmarkSex.FEMALE
                 "male" -> StrengthBenchmarkSex.MALE
@@ -224,11 +220,7 @@ internal class StrengthBenchmarkRemoteStore(private val context: Context) {
 
         private fun encode(row: StrengthBenchmarkDistribution): JSONObject {
             val c = row.cohort
-            val lift = when (c.lift) {
-                StrengthBenchmarkLift.SQUAT -> "squat"
-                StrengthBenchmarkLift.BENCH_PRESS -> "benchPress"
-                StrengthBenchmarkLift.DEADLIFT -> "deadlift"
-            }
+            val lift = StrengthBenchmarkLiftResolver.wire(c.lift)
             val sex = when (c.sex) {
                 StrengthBenchmarkSex.FEMALE -> "female"
                 StrengthBenchmarkSex.MALE -> "male"
