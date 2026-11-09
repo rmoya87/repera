@@ -2061,6 +2061,17 @@ final class ReperaStore: NSObject {
         )
     }
 
+    /// Descartar|Revisar en Inicio: deja de pedir resultados sin borrar el entreno.
+    /// Durable en AppState (iCloud / sync), no solo en UserDefaults local.
+    func clearAwaitingResultEntry(sessionID: UUID) {
+        guard let index = state.workouts.firstIndex(where: { $0.id == sessionID }),
+              state.workouts[index].awaitingResultEntry else { return }
+        state.workouts[index].awaitingResultEntry = false
+        state.updatedAt = Date()
+        persistWorkouts()
+        bumpWorkoutsEpoch()
+    }
+
     /// Actualiza un entreno ya terminado (detalle / edición desde Inicio).
     func saveWorkout(_ session: WorkoutSession) {
         let alreadyArchived = state.workouts.contains(where: { $0.id == session.id && $0.phase == .finished })

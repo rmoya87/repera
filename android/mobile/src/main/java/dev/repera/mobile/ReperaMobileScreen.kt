@@ -257,6 +257,7 @@ fun ReperaMobileScreen(
     heartSeriesProvider: suspend (String) -> List<Pair<Long, Int>> = { emptyList() },
     onDeleteFinishedSet: (String, String, String) -> Unit,
     onDeleteWorkout: (String) -> Unit,
+    onAcknowledgeWatchReview: (String) -> Unit = {},
     onLogBodyWeight: (Double) -> Unit,
     onDeleteBodyWeight:(String)->Unit = {},
     onSetRoutineProgression: (String, String) -> Unit,
@@ -822,6 +823,7 @@ fun ReperaMobileScreen(
                         onReviseFinishedSet = onReviseFinishedSet,
                         onDeleteFinishedSet = onDeleteFinishedSet,
                         onDeleteWorkout = onDeleteWorkout,
+                        onAcknowledgeWatchReview = onAcknowledgeWatchReview,
                         onOpenExerciseFromSession = { entryId, sessionId, instanceId ->
                             navController.navigate(
                                 "ejercicio/" + entryId + "?sesion=" + sessionId +

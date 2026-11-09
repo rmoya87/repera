@@ -457,8 +457,10 @@ struct HomeView: View {
         homeToolbarContent
             .onAppear {
                 LaunchTiming.mark("HomeView.onAppear")
-                // Recargar acks por si la cuenta ya está lista (fallback → scoped).
-                dismissedHomeReviewActions = HomeReviewActionDismissals.load()
+                // Fusionar acks (cuenta lista / fallback): nunca sustituir por un
+                // set más pequeño si ownerScope aún no está hidratado.
+                dismissedHomeReviewActions.formUnion(HomeReviewActionDismissals.load())
+                HomeReviewActionDismissals.save(dismissedHomeReviewActions)
                 refreshAvatarIfNeeded()
                 if let focusDay, focusDay != lastAppliedFocusDay {
                     lastAppliedFocusDay = focusDay
@@ -1687,12 +1689,13 @@ struct HomeView: View {
     }
 
     /// Solo Watch pendiente de resultado, en el día de hoy, y si aún no se descartó/revisó.
+    /// La señal durable es `awaitingResultEntry` (sincroniza entre dispositivos);
+    /// el set local solo acelera el ocultado en este aparato.
     private func showsHomeReviewActions(for session: WorkoutSession) -> Bool {
         guard session.timerDetails == nil else { return false }
         guard calendar.isDateInToday(selectedDay) else { return false }
         guard !dismissedHomeReviewActions.contains(session.id) else { return false }
         return session.awaitingResultEntry
-            || session.appleHealthProvenance == "watchHealthKitPending"
     }
 
     private static let homeReviewFooterHeight: CGFloat = 52
@@ -1700,6 +1703,8 @@ struct HomeView: View {
     private func acknowledgeHomeReviewActions(for sessionID: UUID) {
         dismissedHomeReviewActions.insert(sessionID)
         HomeReviewActionDismissals.save(dismissedHomeReviewActions)
+        // Persistir en el entreno: UserDefaults no cruza iPhone↔simulador ni iCloud.
+        store.clearAwaitingResultEntry(sessionID: sessionID)
     }
 
     @ViewBuilder

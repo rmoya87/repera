@@ -3416,6 +3416,18 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * [canCreateCustom] recibe el nº de ejercicios personalizados existentes y decide si se puede
      * crear uno más (cuota). Si se deniega, lanza ANTES de tocar nada: no se guarda ni se crea nada.
      */
+    /** Descartar|Revisar en Inicio: deja de pedir resultados sin borrar el entreno. */
+    @Synchronized fun clearAwaitingResultEntry(workoutId: String): Boolean {
+        val state = loadOrNull() ?: return false
+        val archive = state.optJSONArray("workouts") ?: return false
+        val target = (0 until archive.length()).mapNotNull { archive.optJSONObject(it) }
+            .firstOrNull { it.optString("id") == workoutId } ?: return false
+        if (!target.optBoolean("awaitingResultEntry")) return false
+        target.put("awaitingResultEntry", false)
+        save(state)
+        return true
+    }
+
     @Synchronized fun updateFinishedWorkout(
         workoutId: String, edit: FinishedWorkoutEdit,
         canSaveFavorite:(Int)->Boolean = {true},

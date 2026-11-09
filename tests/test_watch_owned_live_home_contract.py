@@ -226,6 +226,23 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("session.phase = .finished", free)
         self.assertNotIn("session.phase = .ready\n                session.awaitingResultEntry", free)
 
+    def test_home_review_actions_clear_awaiting_result_entry_durably(self):
+        """Descartar/Revisar must not rely only on local UserDefaults (iPhone≠sim)."""
+        home = source(HOME)
+        store = source(PHONE_STORE)
+        android_home = source(
+            "android/mobile/src/main/java/dev/repera/mobile/HomeTab.kt")
+        android_repo = source(
+            "android/mobile/src/main/java/dev/repera/mobile/WorkoutRepository.kt")
+        self.assertIn("return session.awaitingResultEntry", home)
+        self.assertNotIn(
+            'session.appleHealthProvenance == "watchHealthKitPending"', home)
+        self.assertIn("store.clearAwaitingResultEntry(sessionID: sessionID)", home)
+        self.assertIn("dismissedHomeReviewActions.formUnion(", home)
+        self.assertIn("func clearAwaitingResultEntry(sessionID: UUID)", store)
+        self.assertIn("onAcknowledgeWatchReview(workoutId)", android_home)
+        self.assertIn("fun clearAwaitingResultEntry(workoutId: String)", android_repo)
+
 
 if __name__ == "__main__":
     unittest.main()

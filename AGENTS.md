@@ -145,6 +145,17 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Inicio — Descartar|Revisar Watch (09/11/2026)
+
+- No ocultar solo con UserDefaults local: iPhone ≠ simulador y el ack no
+  viaja por iCloud. Descartar/Revisar debe poner `awaitingResultEntry = false`
+  en el entreno (`clearAwaitingResultEntry`).
+- La fila solo mira `awaitingResultEntry` (no `watchHealthKitPending` solo):
+  el pending de HK puede durar y reabrir la card tras un ack local perdido.
+- `onAppear` de Inicio: `formUnion` de dismissals, nunca sustituir por un set
+  vacío si `ownerScope` aún no está listo.
+- Contrato: `test_home_review_actions_clear_awaiting_result_entry_durably`.
+
 #### Apple — `Self.` en init de stored property + atributos sueltos (09/11/2026)
 
 - En un inicializador de propiedad almacenada, `Self.staticMember` falla:

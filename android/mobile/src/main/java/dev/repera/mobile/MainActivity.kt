@@ -1314,6 +1314,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         }
                     }) { deleteWorkout(workoutId) }
                 },
+                onAcknowledgeWatchReview = { workoutId ->
+                    val account = profile?.uniqueId ?: return@onAcknowledgeWatchReview
+                    runWorkoutAction {
+                        WorkoutRepository(this@MainActivity, account)
+                            .clearAwaitingResultEntry(workoutId)
+                    }
+                },
                 onDeleteBodyWeight = { id -> runWorkoutAction { deleteBodyWeight(id) } },
                 onLogBodyWeight = { kg ->
                     val owner=profile?.uniqueId

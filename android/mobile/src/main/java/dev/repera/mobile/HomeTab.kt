@@ -147,6 +147,8 @@ internal fun HomeTab(
     onOpenFinishedWorkout: (String) -> Unit = {},
     /** Swipe Editar → editor tipo crear (historial-editar), no solo el detalle. */
     onEditFinishedWorkout: (String) -> Unit = onOpenFinishedWorkout,
+    /** Descartar|Revisar: limpia awaitingResultEntry de forma durable (paridad iOS). */
+    onAcknowledgeWatchReview: (String) -> Unit = {},
     onSetRoutineFavorite: (String, Boolean) -> Unit = { _, _ -> },
     // «＋» del día seleccionado (DayPlusSheet iOS desde HomeView, c5aae1cc).
     onDayPlusCreate: (String, String) -> Unit = { _, _ -> },
@@ -344,6 +346,7 @@ internal fun HomeTab(
                         HomeReviewActionDismissals.save(
                             reviewDismissContext, next, accountId
                         )
+                        onAcknowledgeWatchReview(workoutId)
                     }
                     dayWorkouts.forEach { workout ->
                         val showActions = isToday &&

@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-09 (Rendimiento max+última; aportes siempre on).
+Última actualización: 2026-11-09 (Inicio: Descartar/Revisar limpia awaitingResultEntry).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -352,7 +352,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 
 ## Inicio (`HomeView`)
 
-- **Acciones en card de entreno guardado (04/11/2026, iOS y Android; ajuste noche):** **Descartar** | **Revisar** solo en el **día de hoy** y solo si el entreno viene del **reloj pendiente de resultado** (`awaitingResultEntry` / provenance Watch). No aparecen en entrenos del teléfono ni en días pasados. **Descartar** oculta la fila (no borra); **Revisar** abre el editor. Tras ack, la preferencia por cuenta **migra legacy** para no re-pedir tras actualizar la app. Chips: **kcal** / **FC** cuando hay datos medidos. Swipe eliminar/editar se mantiene.
+- **Acciones en card de entreno guardado (09/11/2026):** **Descartar** | **Revisar** solo hoy y solo si `awaitingResultEntry` (pendiente de resultado del reloj). No usan solo provenance Watch. **Descartar**/**Revisar** limpian `awaitingResultEntry` en el entreno (durable / sync) además del ack local; no borran el registro. Chips: **kcal** / **FC** medidos. Swipe eliminar/editar se mantiene.
 - **Tu estado de hoy (04/11/2026):** el toque abre **Progreso → Recuperación** (no Ajustes de Salud). Paridad Android.
 - **Android Inicio (`HomeTab`, 28/10/2026):** misma composición que iOS — cabecera «repera» + fecha + engranaje circular; carrusel de días con celda seleccionada verde sólido y texto `onAccent` negro; cards de registro («ENTRENO · hora», icono en círculo, chips); CTA verde «Añadir nuevo entreno»; banda blanca (calendario + entreno) sobre banda gris (`OG.bg`) con Progreso semanal («X de Y días», checks) y Actividad de hoy (Pasos/Calorías/Tiempo). Sin AccountSync ni historial completo en el scroll de Inicio.
 - **Android edge-to-edge (29/10/2026):** `MainActivity.enableEdgeToEdge` con barras transparentes; `Scaffold` con `contentWindowInsets = 0`. En Inicio la banda superior (`surface` blanca/oscuro) se prolonga bajo la status bar (sin franja de otro color). En Comenzar y mapas a pantalla completa el lienzo MapLibre/Google llena status + nav/tab bar; overlays y FABs usan `statusBarsPadding`. El resto de rutas aplican insets en el host o en cabeceras propias.
