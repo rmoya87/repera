@@ -40,8 +40,8 @@ struct StrengthBenchmarkVisual: View {
         let measured = health.latestWeightKg.flatMap {
             $0.isFinite && $0 > 0 ? $0 : nil
         }
-        if let measured, let date = health.latestWeightDate,
-           local == nil || date >= local!.date {
+        if let measured, let date = health.latestWeightDate {
+            if let local, local.date > date { return local.weightKg }
             return measured
         }
         return local?.weightKg ?? measured
