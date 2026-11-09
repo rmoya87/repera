@@ -28,7 +28,7 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         coordinator = source(COORDINATOR)
         store = source(PHONE_STORE)
         self.assertIn("private struct WatchDeliveryMark: Codable", coordinator)
-        self.assertIn("UserDefaults.standard.data(forKey: watchMarksKey)", coordinator)
+        self.assertIn("UserDefaults.standard.data(forKey: Self.watchMarksKey)", coordinator)
         self.assertIn("func mayAcceptWatchOwned(", coordinator)
         self.assertIn("snapshot.capturedAt > mark.capture", coordinator)
         self.assertIn("!mark.closed", coordinator)
