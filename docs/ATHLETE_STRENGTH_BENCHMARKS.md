@@ -36,3 +36,6 @@ Implementado **solo el motor Swift y sus tests de unidad**. No integrado en UI, 
 - Test de importación con atletas sintéticos: `tests/test_strength_benchmark_import.py`. No contiene datos reales.
 
 **Importante:** ni el motor Swift ni el Android distinguen por sí mismos una marca real de competición de un e1RM. Sus métodos aceptan únicamente valores que el llamador ya haya verificado como marcas de competición; bloquear la integración de UI hasta tener procedencia verificable. El motor de WOD tampoco debe usarse para resultados escalados sin registrar explícitamente RX/escalado.
+
+- Puerta de seguridad de progresión `AdaptiveLoadGuard.swift`: exige al menos dos sesiones comparables completadas y RIR >= 2 antes de proponer un aumento; bloquea subidas por recuperación insuficiente, sesiones demasiado próximas o descenso relevante del e1RM, y señala descarga tras tres fallos. Es una **capa de decisión aislada**, aún no conectada a `ProgressionEngine` ni a la UI. El llamador debe deduplicar sesiones por UUID y no volver a emitir la misma propuesta sin una sesión nueva. Incluye tests unitarios.
+- Tests Swift para el comparador de WOD: impiden comparar prescripciones distintas o escaladas. No existe todavía comparación visible en la app.
