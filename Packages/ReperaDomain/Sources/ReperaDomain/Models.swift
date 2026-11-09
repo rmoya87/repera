@@ -32,6 +32,10 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var dailyAverageHeartRateGoalBpm: Int?
     /// FC máxima personal opcional para zonas de esfuerzo; nil = estimación provisional.
     public var heartRateMaxBpm: Int?
+    /// Competitive grouping for strength references; never inferred from identity.
+    public var competitionSex: StrengthBenchmarkSex?
+    /// Only birth year is stored, not a full birth date.
+    public var birthYear: Int?
     public var dailyWorkoutMinutesGoal: Int?
     public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
@@ -58,6 +62,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
         dailyActiveEnergyGoalKcal: Int? = nil,
         dailyAverageHeartRateGoalBpm: Int? = nil,
         heartRateMaxBpm: Int? = nil,
+        competitionSex: StrengthBenchmarkSex? = nil,
+        birthYear: Int? = nil,
         dailyWorkoutMinutesGoal: Int? = nil,
         weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
@@ -80,6 +86,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.dailyActiveEnergyGoalKcal = dailyActiveEnergyGoalKcal
         self.dailyAverageHeartRateGoalBpm = dailyAverageHeartRateGoalBpm
         self.heartRateMaxBpm = heartRateMaxBpm
+        self.competitionSex = competitionSex
+        self.birthYear = birthYear
         self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
@@ -97,7 +105,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
-        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, competitionSex, birthYear, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -114,6 +122,9 @@ public struct AppSettings: Codable, Sendable, Equatable {
         dailyAverageHeartRateGoalBpm = try c.decodeIfPresent(Int.self, forKey: .dailyAverageHeartRateGoalBpm)
         heartRateMaxBpm = try c.decodeIfPresent(Int.self, forKey: .heartRateMaxBpm)
             .flatMap { (120...230).contains($0) ? $0 : nil }
+        competitionSex = try c.decodeIfPresent(StrengthBenchmarkSex.self, forKey: .competitionSex)
+        birthYear = try c.decodeIfPresent(Int.self, forKey: .birthYear)
+            .flatMap { (1940...Calendar.current.component(.year, from: Date())).contains($0) ? $0 : nil }
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear
