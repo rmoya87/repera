@@ -8,6 +8,7 @@ import SwiftUI
 /// it is NOT a fitted normal distribution, a population ranking, or a verified 1RM.
 struct StrengthBenchmarkVisual: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(HealthKitStore.self) private var health
     let exercise: Exercise
     let testedOneRMKg: Double?
     let estimatedOneRMKg: Double?
@@ -33,9 +34,17 @@ struct StrengthBenchmarkVisual: View {
     }
 
     private var weightKg: Double? {
-        store.state.bodyWeights
+        let local = store.state.bodyWeights
             .filter { $0.weightKg.isFinite && $0.weightKg > 0 }
-            .max(by: { $0.date < $1.date })?.weightKg
+            .max(by: { $0.date < $1.date })
+        let measured = health.latestWeightKg.flatMap {
+            $0.isFinite && $0 > 0 ? $0 : nil
+        }
+        if let measured, let date = health.latestWeightDate,
+           local == nil || date >= local!.date {
+            return measured
+        }
+        return local?.weightKg ?? measured
     }
 
     private var recordedResult: (kg: Double, estimated: Bool)? {
