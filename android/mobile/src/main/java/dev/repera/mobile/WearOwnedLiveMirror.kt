@@ -152,7 +152,7 @@ internal object WearOwnedLiveMirror {
         val paused = payload.optString("phase") == "paused"
         val seconds = payload.optDouble("elapsedSeconds", 0.0)
             .takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
-        val text = dev.repera.domain.LiveSportHistory.formatDuration(seconds.toInt()) +
+        val text = dev.repera.domain.LiveSportHistory.formatDuration(seconds) +
             if (paused) " · En pausa" else ""
         val open = PendingIntent.getActivity(
             context, 6207,
