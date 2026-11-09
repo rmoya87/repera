@@ -1,6 +1,6 @@
 # Monetización — Repera Gratis / Repera Pro
 
-Última actualización: 2026-11-08 (paywall: copy compacta + canje código)
+Última actualización: 2026-11-08 (Ajustes → Acceso a Pro; canje código solo sin Pro)
 
 ## 1. Arquitectura
 
@@ -84,7 +84,7 @@ Debug Pro **no** inventa «14 días gratis» ni precios distintos a la referenci
 5. TestFlight: confirmar que los dos IDs están disponibles para el bundle `com.app.repera`, con localización/precios/territorios y acuerdos al día. La suscripción de prueba se renueva diariamente hasta seis veces y posteriormente expira.
 6. Si `Product.products(for:)` devuelve `[]`, comprobar App Store Connect y el tester Sandbox: ningún reintento en la app puede fabricar productos que Apple no ofrece.
 7. Introductory offer / trial / descuento intro: **sí lo permiten** Apple y Google, pero se configuran en **App Store Connect / Play Console**, no en código. La UI ya tiene el campo dinámico `introductoryOfferSummary` (+ `hasFreeTrial`): iOS lo rellena desde `Product.subscription.introductoryOffer`; Android desde las fases de `subscriptionOfferDetails`. Sin promo hardcodeada en Debug. Si no hay oferta en tienda → el campo queda vacío y el paywall no inventa descuentos.
-8. **Offer codes Apple:** crear en App Store Connect y repartir. En app: caja «¿Tienes un código?» en el paywall y «Canjear código de oferta» en Ajustes → Acceso (`offerCodeRedemption`). Tras canjear se refrescan derechos; `Transaction.updates` ya estaba activo. Canje fuera de la app: App Store / URL de redención ASC.
+8. **Offer codes Apple:** crear en App Store Connect y repartir. En app: caja «¿Tienes un código?» en el paywall y «Canjear código de oferta» en Ajustes → Acceso a Pro (`offerCodeRedemption`) solo si aún no hay Pro comprado. Tras canjear se refrescan derechos; `Transaction.updates` ya estaba activo. Canje fuera de la app: App Store / URL de redención ASC.
 9. **Códigos Play:** la caja del paywall abre `https://play.google.com/redeem` (canje en Play). Ofertas developer-determined / selección de `offerToken` siguen siendo un cableado aparte si hace falta elegibilidad por usuario.
 
 ## 6. Restaurar / gestionar

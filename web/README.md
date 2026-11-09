@@ -78,6 +78,7 @@ Cumple enlaces requeridos por App Store / paywall.
 | `https://repera.app/precios` | `precios.html` |
 | `https://repera.app/soporte` | `soporte.html` |
 | `https://repera.app/privacy` | `privacy.html` |
+| `https://repera.app/privacy-en` | `privacy-en.html` |
 | `https://repera.app/terms` | `terms.html` |
 | `https://repera.app/faq` | `faq.html` |
 
@@ -197,7 +198,7 @@ Si `/privacy` da 404: `.htaccess` no está en la misma carpeta que `index.html`,
 Banner en todas las páginas + panel de preferencias:
 
 - Esenciales: `localStorage` (`repera_cookie_prefs_v1`) para recordar la elección
-- Analítica: opt-in; **no se carga ningún script de terceros** hasta que configures un proveedor en `js/site.js` (hook `repera:cookie-prefs`)
+- Analítica: opt-in GA4 (`G-954CPW717S`, proyecto Firebase `repera-mv`, misma propiedad que la app). Consent Mode denegado por defecto; gtag solo tras aceptar en el banner (`js/site.js`)
 - Reabrir: enlace «Cookies» / «Preferencias de cookies» en footer
 - Política: `privacy.html#cookies` (en producción: `/privacy#cookies`)
 
@@ -210,7 +211,7 @@ Secciones home: hero, pilares, cómo funciona, para quién, funciones, Watch, co
 
 FX de casos: `mascot_fx` / `mascot_fx_markup` en `scripts/build_site.py` (ancla `%` al objeto del webp + capa `mascot-fx-layer--front|back`). Estilos en `css/site.css` (`.fx-focus`, `.fx-lead`, nieve, viento, etc.). Regenerar con `python3 web/scripts/build_site.py`.
 
-FAQ / Privacidad / Términos / Soporte: mismos `header_html` + `footer_html` que el resto. Contenido en `content/faq.json`, `content/privacy_body.html`, `content/terms_body.html`; se escriben con `python3 web/scripts/write_product_pages.py`.
+FAQ / Privacidad (ES+EN) / Términos / Soporte: mismos `header_html` + `footer_html` que el resto. Contenido en `content/faq.json`, `content/privacy_body.html`, `content/privacy_body_en.html`, `content/terms_body.html`; se escriben con `python3 web/scripts/write_product_pages.py`. Verificación de afirmaciones IA/MCP: `docs/PRIVACY_POLICY_VERIFICATION_2026_11_08.md`.
 
 ## Pendiente editorial
 

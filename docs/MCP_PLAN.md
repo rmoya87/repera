@@ -140,7 +140,7 @@ Migración `20261021235000_complete_ai_catalog_muscle_mappings.sql` aplicada, re
 - [x] `repera-ai-tokens` Edge Function ACTIVE: emite tokens `rep_ai_…` de 32 bytes mediante RNG criptográfico, verifica JWT de usuario con Auth, y almacena **solo SHA-256 del token**, metadatos de vencimiento y prefijo en claro.
 - [x] `repera-mcp` Edge Function ACTIVE v3: verifica el hash del token en cada petición, comprueba caducidad/revocación y accede a Supabase exclusivamente en el backend, filtrando **TODAS** las consultas/escrituras privadas por `owner_id` derivado de la credencial.
 - [x] Herramientas MCP: `get_workout_history`, `analyze_muscle_balance`, `get_exercise_progress`, `search_training_exercises`, `get_ai_training_plans`, `create_workout`, `create_training_plan`.
-- [x] iOS: Ajustes → Datos → Conecta tu IA; crear token con nombre/7,30,90,365 días o ilimitado; mostrar una sola vez; copia de portapapeles con caducidad; listado enmascarado y revocación.
+- [x] iOS: Ajustes → Cuenta → Conecta tu IA; crear token con nombre/7,30,90,365 días o ilimitado; mostrar una sola vez; copia de portapapeles con caducidad; listado enmascarado y revocación.
 - [x] Receptor iOS `AITrainingInboxStore`: convierte bloques tipados de fuerza, RIR, series, WOD, EMOM, AMRAP, For Time, Tabata y otros formatos a `Routine`, `RoutineBlock` y `WODMovement`; importa una vez por ID, confirma recepción al backend, sincroniza con iCloud vía `saveRoutine`.
 - [x] Inicio ya soporta `Routine.scheduledDate`; Diario muestra ahora una sección «Entrenamientos con fecha».
 - [x] Si ya hay entrenamiento en esa fecha, NO reemplazar: mantener el plan IA pendiente e informar en Acceso IA.

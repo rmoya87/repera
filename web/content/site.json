@@ -4,6 +4,8 @@
   "ogImage": "https://repera.app/assets/og-default.png",
   "themeColor": "#000000",
   "locale": "es_ES",
+  "ga4MeasurementId": "G-954CPW717S",
+  "firebaseProjectId": "repera-mv",
   "supportEmail": null,
   "pricing": {
     "monthlyEur": "5,99",

@@ -409,6 +409,12 @@ private struct SettingsAccountSection: View {
                     .font(.caption)
                     .foregroundStyle(OG.label2)
             }
+            NavigationLink {
+                AIAccessView()
+            } label: {
+                Label("Conecta tu IA", systemImage: "brain.head.profile")
+                    .foregroundStyle(OG.label)
+            }
         } header: {
             Text("Cuenta")
         }
@@ -693,16 +699,12 @@ private struct SettingsAccessSection: View {
             if !subscriptions.businessSponsoredAccess {
                 verifyAccessButton
                 restorePurchasesButton
-                redeemOfferCodeButton
-            }
-            NavigationLink {
-                AIAccessView()
-            } label: {
-                Label("Conecta tu IA", systemImage: "brain.head.profile")
-                    .foregroundStyle(OG.label)
+                if !subscriptions.snapshot.grantsProAccess {
+                    redeemOfferCodeButton
+                }
             }
         } header: {
-            Text("Acceso")
+            Text("Acceso a Pro")
         }
         .offerCodeRedemption(isPresented: $showOfferCodeRedemption) { _ in
             Task {

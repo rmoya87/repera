@@ -1,4 +1,5 @@
 # Netlify / compatible static hosts
 /privacy   /privacy.html   200
+/privacy-en /privacy-en.html 200
 /terms     /terms.html     200
 /faq       /faq.html       200

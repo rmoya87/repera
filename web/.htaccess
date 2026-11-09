@@ -23,6 +23,7 @@ Options -Indexes
 
   # Pretty URLs canónicas
   RewriteRule ^privacy/?$ privacy.html [L]
+  RewriteRule ^privacy-en/?$ privacy-en.html [L]
   RewriteRule ^terms/?$ terms.html [L]
   RewriteRule ^faq/?$ faq.html [L]
   RewriteRule ^funcionalidades/?$ funcionalidades.html [L]
@@ -37,6 +38,8 @@ Options -Indexes
   # Redirigir .html → URL limpia
   RewriteCond %{THE_REQUEST} \s/+privacy\.html[\s?] [NC]
   RewriteRule ^ /privacy [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/+privacy-en\.html[\s?] [NC]
+  RewriteRule ^ /privacy-en [R=301,L]
   RewriteCond %{THE_REQUEST} \s/+terms\.html[\s?] [NC]
   RewriteRule ^ /terms [R=301,L]
   RewriteCond %{THE_REQUEST} \s/+faq\.html[\s?] [NC]

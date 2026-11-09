@@ -1,0 +1,245 @@
+<p>
+        Repera (“the App”) is a <strong>local-first</strong> training app for iPhone and Apple Watch
+        (Android in progress). Site: <a href="https://repera.app">repera.app</a>.
+        This policy describes what data is processed, for what purposes, and what control you have.
+        By using Repera you accept this policy. If you disagree, do not use the App or the site.
+      </p>
+      <p>
+        <strong>Important:</strong> if you connect an AI assistant (e.g. Claude or ChatGPT),
+        part of your training history is mirrored on Repera’s server infrastructure (Supabase)
+        so the assistant can read it or, if you allow writing, propose changes.
+        That flow is <strong>not</strong> required to train locally.
+      </p>
+
+      <h2>1. Controller</h2>
+      <p>
+        The controller for processing related to Repera is the App publisher
+        (Repera / repera.app project).
+        <strong>[CONFIRM]</strong> Full legal identity of the controller (individual developer in Spain or other form).
+      </p>
+      <p>
+        Channel for privacy rights:
+        <strong>[CONFIRM]</strong> definitive email or form
+        (<a href="/soporte">Support</a> does not yet publish a specific address).
+        Meanwhile you may use the App Store listing channel when available.
+      </p>
+
+      <h2>2. Training without an account (local mode)</h2>
+      <p>
+        You can log workouts on device <strong>without</strong> creating a Repera account
+        and without connecting an AI assistant. In that mode there is no mandatory multi-user social backend
+        and no Repera server mirror of your history merely because you train.
+      </p>
+      <p>
+        Optional features (iCloud, Apple Health, Pro purchases, Repera account, AI connection)
+        activate only if you use them.
+      </p>
+
+      <h2>3. Repera account (Supabase Auth)</h2>
+      <p>
+        Some features—especially the <strong>AI assistant connection</strong> and
+        Center / business features when you use them—require a Repera account
+        authenticated with Supabase Auth.
+      </p>
+      <p>Sign-in methods shown in the App and on <a href="/ai/">repera.app/ai</a>:</p>
+      <ul>
+        <li><strong>Apple</strong> Sign In.</li>
+        <li><strong>Google</strong> Sign In.</li>
+      </ul>
+      <p>
+        <strong>[CONFIRM]</strong> If the Supabase Auth dashboard also enables email+password
+        or other providers not exposed in the current UI, they are not described here as
+        user-facing until the App or repera.app/ai offers them.
+      </p>
+      <p>
+        Typical account data: user id, email (if shared by the provider), display name/avatar,
+        session tokens and auth metadata. Apple/Google process sign-in under their own policies;
+        Repera receives the sign-in result.
+      </p>
+
+      <h2>4. Data stored on your device</h2>
+      <p>Among other items, the App may store locally:</p>
+      <ul>
+        <li>Optional profile (display name, photo).</li>
+        <li>Exercises, routines, sessions, sets, loads, RIR/RPE and WOD results.</li>
+        <li>Preferences (units, week start, rest, progression, etc.).</li>
+        <li>Body-weight entries and goals you record.</li>
+        <li>Free-tier usage metadata (e.g. monthly board-scan counter), separate from workouts.</li>
+        <li>Technical caches (e.g. Health data already authorised).</li>
+        <li>If you use Connect your AI: connection state, plan inbox and imports.</li>
+      </ul>
+      <p>
+        This data stays under your control on device. You can export or delete it from App Settings
+        (depending on options in each version).
+      </p>
+
+      <h2>5. iCloud</h2>
+      <p>
+        If you enable iCloud sync, a copy of your training document may be stored in your
+        iCloud Documents container tied to your Apple ID. Apple processes that data under its own privacy policy.
+      </p>
+      <p>
+        iCloud is separate from the AI connection mirror. Enabling iCloud alone does
+        <strong>not</strong> mean Repera runs a server that reads your history.
+        If you also connect an AI assistant, server processing applies (section 9).
+      </p>
+
+      <h2>6. Apple Health / HealthKit (and future Android equivalents)</h2>
+      <p>
+        With your explicit permission, Repera may read and/or write health and activity data
+        (e.g. weight, active energy, workouts, heart rate or routes)
+        to show metrics and enrich progress in the App.
+      </p>
+      <ul>
+        <li>Health data is <strong>not used for advertising</strong> or commercial third-party tracking.</li>
+        <li>It is not sold or transferred to ad networks.</li>
+        <li>The AI assistant connection does <strong>not</strong> include Apple Health, sleep, HRV, GPS/routes or private notes under the current MCP contract.</li>
+        <li>You can revoke access in system Settings (Health / App permissions).</li>
+      </ul>
+
+      <h2>7. Camera and photos</h2>
+      <p>
+        If you use the whiteboard scanner, the App needs camera or photo-library access to read
+        text from the image on device. Photos are processed for the import flow; they are not sent
+        to a cloud AI service as part of the current scanner design.
+      </p>
+
+      <h2>8. Purchases and subscriptions (Repera Pro)</h2>
+      <p>
+        Subscriptions (Repera Pro) are handled via the App Store with <strong>StoreKit 2</strong> and,
+        when the Android version exists, Google Play Billing. The App verifies subscription status
+        with the stores. That flow does not need your workout history or HealthKit data.
+      </p>
+      <p>
+        Repera does <strong>not</strong> use RevenueCat or another third-party subscription SDK on iOS.
+        Apple and Google process payment data under their policies. Repera does not store card numbers.
+      </p>
+      <p>
+        Center-sponsored Pro access may exist via server checks distinct from store purchase;
+        it does not replace AI-connection history processing.
+      </p>
+
+      <h2>9. AI assistant connection (optional)</h2>
+      <p>
+        You may authorise an external assistant (e.g. Claude or ChatGPT; others as available)
+        to work with your journal via OAuth and consent at
+        <a href="/ai/">repera.app/ai</a>, or via a personal token from Settings → Connect your AI.
+        The AI connection <strong>requires a Repera account</strong>.
+      </p>
+
+      <h3>9.1 Infrastructure</h3>
+      <ul>
+        <li><strong>Supabase</strong> (Repera project): authentication, AI-related data mirror, tokens/consents and Edge Functions. Documented project region: <strong>eu-west-1</strong> (Ireland).</li>
+        <li>MCP server: Edge Function <code>repera-mcp</code> (read and write tools; verified in repo code: 39 tools — 22 read and 17 write). Consent distinguishes read vs write (“Allow creating and modifying my plan”).</li>
+      </ul>
+
+      <h3>9.2 Categories the assistant may use (aligned with MCP)</h3>
+      <p>Based on published tools, the assistant may access, among other items:</p>
+      <ul>
+        <li>Mirrored completed workout history (exercises, logged sets, WOD results), <strong>without</strong> HealthKit, GPS routes, energy, body weight or private notes.</li>
+        <li>Planning / calendar and AI plan proposals.</li>
+        <li>Per-exercise progress, muscle-balance estimates from mirrored history, and derived training analysis.</li>
+        <li>Exercise catalogue and equipment / discipline references.</li>
+        <li>Training preference profile you declare or confirm via the AI flow.</li>
+        <li>Custom exercises and pending change requests.</li>
+        <li>Programs / mesocycles created via the assistant, if you use that feature.</li>
+      </ul>
+      <p>
+        If you grant write permission, the assistant may create or modify plans and programs on the server,
+        and request changes to completed workouts or custom exercises.
+      </p>
+
+      <h3>9.3 How changes reach your App</h3>
+      <ul>
+        <li><strong>Plans / workouts proposed by the assistant:</strong> imported automatically when you open the App or sync (<code>ai_training_plans</code> inbox). There is currently no prior “approve plan” step before import.</li>
+        <li><strong>Changes to completed workouts and custom exercises:</strong> remain pending and require your <strong>explicit approval</strong> in the App.</li>
+      </ul>
+
+      <h3>9.4 Recipients in this flow</h3>
+      <ul>
+        <li><strong>Supabase:</strong> verified infrastructure for the mirror and MCP.</li>
+        <li><strong>OpenAI / Anthropic (or another assistant provider):</strong> only if <em>you</em> connect that assistant; they process what the connector sends under their policies and your contract with them. Repera does not operate those models.</li>
+      </ul>
+
+      <h3>9.5 Revocation (reliable path)</h3>
+      <p>
+        To cut the assistant’s access to Repera, disable or delete the connection in the App:
+        <strong>Settings → Connect your AI → My connections</strong> (Disable / delete).
+        That revokes authorisation on the Repera side.
+      </p>
+      <p>
+        Removing only the connector inside ChatGPT, Claude or another assistant
+        <strong>may not</strong> revoke authorisation in Repera and has caused “authorisation already used” errors.
+        Always use the in-App path (or account deletion) for a reliable cut-off.
+      </p>
+
+      <h2>10. Analytics</h2>
+      <p>
+        In the App, product metrics go to Firebase Analytics / Google Analytics 4
+        (Repera Firebase project), without IDFA or advertising identifiers, and without Health,
+        GPS, sets or free-text data. Details: project Analytics documentation.
+      </p>
+      <p>
+        On this website (repera.app) we use the same GA4 project via gtag only if you accept
+        the “Analytics” cookie category. Default is denied (Consent Mode).
+        We do not use that measurement for personalised advertising.
+      </p>
+
+      <h2>11. Retention and deletion</h2>
+      <ul>
+        <li><strong>Local:</strong> while the App is installed or until you delete / uninstall.</li>
+        <li><strong>iCloud:</strong> under Apple’s rules for your account.</li>
+        <li><strong>Pro:</strong> cancelling the subscription does not delete workouts; it only re-applies free-plan limits.</li>
+        <li><strong>Repera account / server:</strong> from Settings you can request account deletion. The server flow (<code>repera-delete-account</code>) deletes the Auth user and cascaded personal data (e.g. mirror, AI tokens, profile), with safeguards for already-authorised center histories (frozen read-only). <strong>[CONFIRM]</strong> exact purge timelines for Supabase backups/logs and Google Analytics after deletion.</li>
+      </ul>
+
+      <h2>12. Children</h2>
+      <p>
+        Repera is not directed at children under 16 (or the applicable digital age in your country).
+        We do not knowingly collect children’s data.
+        <strong>[CONFIRM]</strong> exact age threshold for store listings.
+      </p>
+
+      <h2>13. Your rights (EU/EEA and Spain)</h2>
+      <p>
+        Where the GDPR or other applicable laws grant rights of access, rectification, erasure,
+        restriction, portability or objection, you may exercise them via the channel in section 1 and,
+        where data lives only on your device or iCloud, manage it in the App or your Apple/Google account.
+      </p>
+      <p>
+        You may also revoke the AI connection (section 9.5) and request account deletion (section 11).
+        You may lodge a complaint with a supervisory authority (in Spain, the AEPD).
+      </p>
+
+      <h2>14. Changes</h2>
+      <p>
+        We may update this policy. We will publish the “Last updated” date on this page.
+        Continued use of the App after a material change means you are aware of the new version.
+      </p>
+
+      <h2 id="cookies">15. Website and cookies</h2>
+      <p>
+        The site <a href="https://repera.app">repera.app</a> may use:
+      </p>
+      <ul>
+        <li><strong>Essential browser storage</strong> to remember your cookie choice (localStorage).</li>
+        <li><strong>Optional analytics (GA4 / Firebase)</strong> only if you accept it in the banner. Default is denied; we do not load gtag or measurement cookies until you consent.</li>
+      </ul>
+      <p>
+        You can change your choice anytime via
+        <a href="#" data-cookie-open>Cookie preferences</a>.
+      </p>
+
+      <h2>16. Contact</h2>
+      <p>
+        <strong>[CONFIRM]</strong> support/privacy email.
+        Until published: <a href="/soporte">repera.app/soporte</a> and the App Store listing channel.
+      </p>
+      <p>
+        This page describes observed technical and organisational measures;
+        it is <strong>not</strong> a “GDPR compliance” guarantee or legal advice.
+        Professional review is recommended before treating it as final text for authorities or store/connector reviews.
+      </p>
+      <p>
+        Versión en español: <a href="/privacy">Política de privacidad (ES)</a>.
+      </p>

@@ -102,9 +102,26 @@ class MCPV2Contracts(unittest.TestCase):
         self.assertIn(".photosPicker(",settings)
         self.assertNotIn("Quitar foto",settings)
         self.assertNotIn("Compras no configuradas en este build",settings)
-        # Los planes entrantes aparecen en Inicio; la conexión de IA está en Ajustes.
+        # Los planes entrantes aparecen en Inicio; Conecta tu IA va en Cuenta (no Acceso).
         self.assertIn("Conecta tu IA", settings)
         self.assertIn("AIAccessView()", settings)
+        account = settings.split("private struct SettingsAccountSection", 1)[1].split(
+            "private struct SettingsAccessSection", 1
+        )[0]
+        access = settings.split("private struct SettingsAccessSection", 1)[1].split(
+            "private struct ", 1
+        )[0]
+        self.assertIn("AIAccessView()", account)
+        self.assertNotIn("AIAccessView()", access)
+        android = read("android/mobile/src/main/java/dev/repera/mobile/ReperaMobileScreen.kt")
+        android_account = android.split('ReperaSectionTitle("Cuenta"', 1)[1].split(
+            'ReperaSectionTitle("Centro y entrenador"', 1
+        )[0]
+        android_access = android.split('ReperaSectionTitle("Acceso a Pro"', 1)[1].split(
+            "if (dev.repera.mobile.BuildConfig.DEBUG)", 1
+        )[0]
+        self.assertIn("Conecta tu IA", android_account)
+        self.assertNotIn("Conecta tu IA", android_access)
         self.assertNotIn("AITrainingProgramsView()", settings)
         self.assertNotIn("AITrainingProgramsView()", plan)
         self.assertNotIn("syncFeedback", settings)

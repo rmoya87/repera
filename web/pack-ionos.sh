@@ -18,6 +18,7 @@ mkdir -p "${STAGE}/css" "${STAGE}/js" "${STAGE}/assets" "${STAGE}/assets/screens
 cp "${ROOT}/.htaccess" "${STAGE}/"
 cp "${ROOT}/index.html" \
   "${ROOT}/privacy.html" \
+  "${ROOT}/privacy-en.html" \
   "${ROOT}/terms.html" \
   "${ROOT}/faq.html" \
   "${ROOT}/funcionalidades.html" \
@@ -41,9 +42,10 @@ cp "${ROOT}/assets/"*.png "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.jpg "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.jpeg "${STAGE}/assets/" 2>/dev/null || true
 cp "${ROOT}/assets/"*.webp "${STAGE}/assets/" 2>/dev/null || true
-mkdir -p "${STAGE}/assets/mascots"
+mkdir -p "${STAGE}/assets/mascots" "${STAGE}/assets/sf-symbols"
 cp "${ROOT}/assets/screens/"* "${STAGE}/assets/screens/" 2>/dev/null || true
 cp "${ROOT}/assets/mascots/"*.webp "${STAGE}/assets/mascots/" 2>/dev/null || true
+cp "${ROOT}/assets/sf-symbols/"*.png "${STAGE}/assets/sf-symbols/" 2>/dev/null || true
 
 cat > "${STAGE}/LEEME-SUBIR.txt" <<'EOF'
 Repera — subir a IONOS

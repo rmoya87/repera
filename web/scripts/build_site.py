@@ -20,59 +20,115 @@ MODE_CAPS = {
     "indoor": ("cap-progreso-entreno.jpg", "Progreso de la semana"),
 }
 
-# SF Symbol–aligned short labels for chips (visual cue; mascot is primary art)
+# SF Symbol names — same mapping as LiveSport.symbol (LiveActivityView.swift)
+SPORT_SF = {
+    "carrera": "figure.run",
+    "carrera-montana": "figure.run",
+    "caminata": "figure.walk",
+    "senderismo": "figure.hiking",
+    "ciclismo-carretera": "figure.outdoor.cycle",
+    "ciclismo-montana": "bicycle",
+    "gravel": "bicycle",
+    "entrenamiento": "figure.strengthtraining.traditional",
+    "crossfit": "figure.cross.training",
+    "hiit": "timer",
+    "hyrox": "figure.run",
+    "tenis": "figure.tennis",
+    "padel": "figure.tennis",
+    "badminton": "figure.badminton",
+    "pickleball": "figure.pickleball",
+    "squash": "figure.squash",
+    "natacion": "figure.pool.swim",
+    "surf": "surfboard",
+    "windsurf": "figure.sailing",
+    "kitesurf": "figure.surfing",
+    "kayak": "figure.rower",
+    "remo": "figure.outdoor.rowing",
+    "piragua": "oar.2.crossed",
+    "vela": "sailboat",
+    "esqui-alpino": "figure.skiing.downhill",
+    "snowboard": "figure.snowboarding",
+    "esqui-fondo": "figure.skiing.crosscountry",
+    "patinaje-hielo": "figure.ice.skating",
+    "futbol": "figure.indoor.soccer",
+    "baloncesto": "figure.basketball",
+    "voleibol": "figure.volleyball",
+    "futbol-americano": "figure.american.football",
+    "beisbol": "figure.baseball",
+    "hockey": "figure.field.hockey",
+    "lacrosse": "figure.lacrosse",
+    "rugby": "figure.rugby",
+    "boxeo": "figure.boxing",
+    "kickboxing": "figure.kickboxing",
+    "artes-marciales": "figure.martial.arts",
+    "lucha": "figure.wrestling",
+    "fuerza-funcional": "dumbbell",
+    "core": "figure.core.training",
+    "golf": "figure.golf",
+    "escalada": "figure.climbing",
+    "baile": "figure.dance",
+    "pilates": "figure.pilates",
+    "skateboard": "figure.skating",
+    "yoga": "figure.yoga",
+    "movilidad": "figure.flexibility",
+    "otra-actividad": "figure.mixed.cardio",
+}
+
+# Stroke fallback kinds for record tiles / icon_for_text
 SPORT_ICON = {
     "carrera": "run",
-    "carrera-montana": "run",
+    "carrera-montana": "trail",
     "caminata": "walk",
     "senderismo": "hike",
-    "ciclismo-carretera": "bike",
-    "ciclismo-montana": "bike",
-    "gravel": "bike",
-    "entrenamiento": "strength",
-    "crossfit": "cross",
+    "ciclismo-carretera": "bike-road",
+    "ciclismo-montana": "bike-mtb",
+    "gravel": "bike-gravel",
+    "entrenamiento": "barbell",
+    "crossfit": "kettlebell",
     "hiit": "timer",
-    "hyrox": "cross",
-    "fuerza-funcional": "strength",
-    "core": "core",
-    "tenis": "racket",
-    "padel": "racket",
-    "badminton": "racket",
-    "pickleball": "racket",
-    "squash": "racket",
+    "hyrox": "sled",
+    "tenis": "tennis",
+    "padel": "padel",
+    "badminton": "shuttle",
+    "pickleball": "pickleball",
+    "squash": "squash",
     "natacion": "swim",
-    "surf": "surf",
-    "windsurf": "sail",
-    "kitesurf": "surf",
-    "kayak": "row",
-    "remo": "row",
-    "piragua": "row",
-    "vela": "sail",
-    "esqui-alpino": "ski",
-    "snowboard": "snow",
-    "esqui-fondo": "ski",
-    "patinaje-hielo": "skate",
-    "futbol": "ball",
-    "baloncesto": "ball",
-    "voleibol": "ball",
-    "futbol-americano": "ball",
-    "beisbol": "ball",
-    "hockey": "ball",
-    "lacrosse": "ball",
-    "rugby": "ball",
-    "boxeo": "fight",
-    "kickboxing": "fight",
-    "artes-marciales": "fight",
-    "lucha": "fight",
+    "surf": "surfboard",
+    "windsurf": "windsurf",
+    "kitesurf": "kite",
+    "kayak": "kayak",
+    "remo": "rowing",
+    "piragua": "canoe",
+    "vela": "sailboat",
+    "esqui-alpino": "ski-down",
+    "snowboard": "snowboard",
+    "esqui-fondo": "ski-xc",
+    "patinaje-hielo": "ice-skate",
+    "futbol": "soccer",
+    "baloncesto": "basketball",
+    "voleibol": "volleyball",
+    "futbol-americano": "football",
+    "beisbol": "baseball",
+    "hockey": "hockey",
+    "lacrosse": "lacrosse",
+    "rugby": "rugby",
+    "boxeo": "boxing",
+    "kickboxing": "kickboxing",
+    "artes-marciales": "martial",
+    "lucha": "wrestling",
+    "fuerza-funcional": "dumbbell",
+    "core": "core",
+    "golf": "golf",
     "escalada": "climb",
     "baile": "dance",
-    "pilates": "flex",
-    "yoga": "flex",
-    "movilidad": "flex",
-    "skateboard": "skate",
-    "golf": "golf",
+    "pilates": "pilates",
+    "skateboard": "skateboard",
+    "yoga": "yoga",
+    "movilidad": "mobility",
     "otra-actividad": "other",
 }
+
+
 
 
 def load_json(name: str):
@@ -88,56 +144,464 @@ def esc(text: str) -> str:
     )
 
 
+
+def sf_symbol_file(name: str) -> str:
+    return name.replace(".", "-") + ".png"
+
+
+def sport_sf_icon(slug: str, size: int = 22) -> str:
+    """Apple SF Symbol glyph (exported PNG), tinted via CSS mask."""
+    symbol = SPORT_SF.get(slug, "figure.mixed.cardio")
+    src = f"/assets/sf-symbols/{sf_symbol_file(symbol)}"
+    return (
+        f'<span class="sport-icon sport-icon--sf" style="'
+        f"-webkit-mask-image:url('{src}');mask-image:url('{src}');"
+        f'width:{size}px;height:{size}px" aria-hidden="true"></span>'
+    )
+
+
 def icon_svg(kind: str, size: int = 20) -> str:
-    """Minimal inline icons inspired by app sport symbols (not Apple trademarked artwork)."""
+    """SF-Symbol-like sport icons (figure silhouettes), shared stroke style."""
+    h = '<circle cx="{cx}" cy="{cy}" r="1.85" fill="currentColor" stroke="none"/>'
     paths = {
-        "run": '<circle cx="12" cy="5" r="2"/><path d="M8 21l2-6 2 2 3 4M10 15l-2 2H5l3-7 4-1 2 3"/>',
-        "walk": '<circle cx="12" cy="5" r="2"/><path d="M9 21l2-7 2 2 2 5M11 14l-3 1-1-5 4-2 2 3"/>',
-        "hike": '<circle cx="12" cy="5" r="2"/><path d="M8 21l3-8 2 2 3 6M11 13l-4 7M14 13l3 3"/>',
-        "bike": '<circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M6 16l4-8h4l4 8M10 8l2 4"/>',
-        "strength": '<path d="M6 10h12v4H6zM4 11v2M20 11v2M8 8v8M16 8v8"/>',
+        # —— A pie (figure.run / walk / hiking) ——
+        "run": (
+            h.format(cx="14.2", cy="4.2")
+            + '<path d="M9.2 21.2 11.5 13.2l3.2 1.6 1.8 6.4"/>'
+            + '<path d="M11.5 13.2 7.8 14.5 6.5 9.8l4.6-2.1 2.4 3"/>'
+            + '<path d="M14.8 8.2 18 10.5"/>'
+        ),
+        "trail": (
+            h.format(cx="13.5", cy="4.2")
+            + '<path d="M8.5 21 11 13.2l3 1.5 2 6.3"/>'
+            + '<path d="M11 13.2 7.2 15 6 10l4.2-2 2.3 2.8"/>'
+            + '<path d="M3.5 19.5 7 12.5 10 15.5 14 8l6.5 11.5"/>'
+        ),
+        "walk": (
+            h.format(cx="12.2", cy="4.2")
+            + '<path d="M9.2 21.2 11.2 14l2.1 2 1.7 5.2"/>'
+            + '<path d="M11.2 14 8.2 15 7.2 10.2l3.8-1.7 1.8 2.7"/>'
+        ),
+        "hike": (
+            h.format(cx="11.2", cy="4.2")
+            + '<path d="M8 21.2 10.6 13.2l2 2 3.2 6"/>'
+            + '<path d="M10.6 13.2 6.8 20"/>'
+            + '<path d="M15.5 7.5 18.8 12"/>'
+            + '<path d="M14.2 8.5h3"/>'
+        ),
+        # —— Ciclismo (figure.outdoor.cycle / bicycle) ——
+        "bike-road": (
+            '<circle cx="6.2" cy="16.2" r="3.3"/>'
+            '<circle cx="17.8" cy="16.2" r="3.3"/>'
+            + h.format(cx="13.2", cy="5.2")
+            + '<path d="M6.2 16.2 10.2 9.2h4.5L17.8 16.2"/>'
+            + '<path d="M10.2 9.2 12.5 13.5"/>'
+            + '<path d="M12.8 7.2 15.2 5.8"/>'
+        ),
+        "bike-mtb": (
+            '<circle cx="6.2" cy="16.2" r="3.3"/>'
+            '<circle cx="17.8" cy="16.2" r="3.3"/>'
+            + h.format(cx="12.8", cy="5")
+            + '<path d="M6.2 16.2 9.5 10h5.2L17.8 16.2"/>'
+            + '<path d="M9.5 10 11.5 6.2"/>'
+            + '<path d="M3.2 20.2 7 17"/>'
+            + '<path d="M16.2 4.2 18.2 6.5 20 4.5"/>'
+        ),
+        "bike-gravel": (
+            '<circle cx="6.2" cy="16.2" r="3.2"/>'
+            '<circle cx="17.8" cy="16.2" r="3.2"/>'
+            + h.format(cx="13", cy="5.2")
+            + '<path d="M6.2 16.2 10.2 9.5h4.2L17.8 16.2"/>'
+            + '<path d="M10.2 9.5 12.4 13.5"/>'
+            + '<path d="M4 20.8h2.8M10.8 21.4h2.8M17.2 20.8h2.8"/>'
+        ),
+        "barbell": (
+            h.format(cx="12", cy="5")
+            + '<path d="M12 7.2v4.5"/>'
+            + '<path d="M7.2 11.5h9.6v3.2H7.2z" fill="currentColor" stroke="none"/>'
+            + '<path d="M5 10.2v5.6M19 10.2v5.6"/>'
+            + '<path d="M9.5 16.8 8 21.2M14.5 16.8 16 21.2"/>'
+        ),
+        "kettlebell": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M12 6.8v2"/>'
+            + '<path d="M9.2 8.8h5.6v1.3a4.7 4.7 0 1 1-5.6 0V8.8z"/>'
+            + '<path d="M9.2 19.5h5.6"/>'
+        ),
+        "timer": (
+            '<circle cx="12" cy="13.2" r="6.6"/>'
+            '<path d="M12 13.2V9.4M9.2 3.5h5.6"/>'
+            '<path d="M16.6 7.2 18 5.8"/>'
+        ),
+        "sled": (
+            h.format(cx="6.5", cy="6.5")
+            + '<path d="M6.5 8.6 8.5 13.5l4.5.8"/>'
+            + '<path d="M8.2 13.8 6.2 20.5M11.5 14.5 10.2 20.5"/>'
+            + '<path d="M12.5 14.2V8.2M16.2 14.2V8.2"/>'
+            + '<path d="M11.2 14.2h6.5v5.8H5.5l-.8-2.2h7.5z"/>'
+            + '<circle cx="14.5" cy="11" r="1.8"/>'
+        ),
+        # —— Raqueta (figure.tennis / squash / badminton / pickleball) ——
+        "tennis": (
+            h.format(cx="10.5", cy="4")
+            + '<path d="M9.2 6.2 7.5 12.5 4.8 15.5"/>'
+            + '<path d="M9.5 12.2 12.5 11.5 15.2 20.5"/>'
+            + '<path d="M7.8 12.8 11.2 16.5"/>'
+            + '<ellipse cx="16.5" cy="7.5" rx="3.6" ry="4.2" transform="rotate(-28 16.5 7.5)"/>'
+            + '<path d="M18.8 10.8 20.5 14.5"/>'
+        ),
+        "padel": (
+            h.format(cx="9.5", cy="4")
+            + '<path d="M8.5 6.2 7 12.2 4.5 16"/>'
+            + '<path d="M8.8 12 12 11.2 14.5 20.5"/>'
+            + '<rect x="13.2" y="3.2" width="6.2" height="9.2" rx="1.6" transform="rotate(18 16.3 7.8)"/>'
+            + '<circle cx="15.2" cy="6.5" r="0.7" fill="currentColor" stroke="none"/>'
+            + '<circle cx="17.4" cy="7.2" r="0.7" fill="currentColor" stroke="none"/>'
+            + '<circle cx="15.6" cy="9" r="0.7" fill="currentColor" stroke="none"/>'
+        ),
+        "shuttle": (
+            h.format(cx="9", cy="4.2")
+            + '<path d="M8 6.5 6.5 13 3.8 17"/>'
+            + '<path d="M8.2 12.5 11.5 11.5 13.5 20.5"/>'
+            + '<path d="M14.5 4.2 17.2 8.8h-5.4z" fill="currentColor" stroke="none"/>'
+            + '<path d="M12.5 8.8 11 16.5h6.5l-1.5-7.7"/>'
+        ),
+        "pickleball": (
+            h.format(cx="9", cy="4")
+            + '<path d="M8 6.2 6.5 12.5 4 16.5"/>'
+            + '<path d="M8.2 12.2 11.5 11.2 13.8 20.5"/>'
+            + '<rect x="13" y="3.5" width="5.8" height="8.8" rx="1.2" transform="rotate(12 15.9 7.9)"/>'
+            + '<circle cx="18.5" cy="15.5" r="2.8"/>'
+            + '<circle cx="17.5" cy="14.7" r=".45" fill="currentColor" stroke="none"/>'
+            + '<circle cx="19.3" cy="15" r=".45" fill="currentColor" stroke="none"/>'
+            + '<circle cx="18.4" cy="16.5" r=".45" fill="currentColor" stroke="none"/>'
+        ),
+        "squash": (
+            h.format(cx="9.5", cy="4")
+            + '<path d="M8.5 6.2 7 12.5 4.5 16.2"/>'
+            + '<path d="M8.8 12.2 12 11.5 14.2 20.5"/>'
+            + '<ellipse cx="16.2" cy="7.2" rx="3.2" ry="3.8" transform="rotate(-22 16.2 7.2)"/>'
+            + '<path d="M18.2 10.2 19.8 13.5"/>'
+            + '<circle cx="19.2" cy="16.8" r="1.8"/>'
+            + '<path d="M3.5 5.5v6.5h5"/>'
+        ),
+        # —— Agua ——
+        "swim": (
+            h.format(cx="8.2", cy="6.5")
+            + '<path d="M9.5 8.5 14.2 11.2 11.5 14"/>'
+            + '<path d="M6.5 11 3.5 12.5"/>'
+            + '<path d="M3 17c2-1.7 3.7-1.7 5.4 0s3.7 1.7 5.4 0 3.7-1.7 5.4 0"/>'
+            + '<path d="M3 20c2-1.7 3.7-1.7 5.4 0s3.7 1.7 5.4 0 3.7-1.7 5.4 0"/>'
+        ),
+        # figure.surfing / surfboard — rider on board + wave
+        "surfboard": (
+            h.format(cx="11", cy="5")
+            + '<path d="M11 7.2 10.2 12.5 7.5 15"/>'
+            + '<path d="M10.5 12.2 14.5 11.2 16.5 15.5"/>'
+            + '<path d="M4.5 18c3.2-2.8 7.2-4.2 12.2-3.2 1.6 3.5 2 6.2 1.2 7.5-3.5.2-8.2-.8-11.5-2.8z"/>'
+            + '<path d="M3 20.5c2.8-1 5.8-1.2 8.8-.4"/>'
+        ),
+        # figure.sailing-ish windsurf — board + mast sail + figure
+        "windsurf": (
+            h.format(cx="10", cy="6.5")
+            + '<path d="M10 8.5 9.2 14.5"/>'
+            + '<path d="M9.2 14.5 6.5 18.5M9.5 14.5 12 18.5"/>'
+            + '<path d="M12.2 4.2v12.5"/>'
+            + '<path d="M12.2 5c3.5 1.2 5.5 4.5 5.5 8.2H12.2"/>'
+            + '<path d="M4 20.2 12 17.5 20 20.2"/>'
+        ),
+        # figure.surfing + kite overhead
+        "kite": (
+            h.format(cx="10", cy="10.5")
+            + '<path d="M10 12.5 8.5 17.5 5.5 20"/>'
+            + '<path d="M10.2 17.2 13.5 20"/>'
+            + '<path d="M10 12.5 14.5 7.5"/>'
+            + '<path d="M14.5 3.2 20 7.2 14.5 11.2 9 7.2z"/>'
+            + '<path d="M3.5 20.5c2.5-1.2 5-1.2 7.5 0"/>'
+        ),
+        # figure.rower — seated kayak
+        "kayak": (
+            h.format(cx="12", cy="7")
+            + '<path d="M12 9.2v4.5"/>'
+            + '<path d="M8.5 11.5h7"/>'
+            + '<path d="M9.5 13.8 7.5 18.5M14.5 13.8 16.5 18.5"/>'
+            + '<path d="M2.5 16.2c3.2-2.2 6.5-2.2 9.5 0s6.3 2.2 9.5 0"/>'
+            + '<ellipse cx="12" cy="15.2" rx="5.2" ry="2.2"/>'
+            + '<path d="M5.5 8.5 12 11.5 18.5 8.5"/>'
+        ),
+        # figure.outdoor.rowing — longer shell + oars
+        "rowing": (
+            h.format(cx="11", cy="7.5")
+            + '<path d="M11 9.5v4"/>'
+            + '<path d="M8.5 12h5.5"/>'
+            + '<path d="M9.2 13.5 7.5 18.5M14 13.5 15.5 18.5"/>'
+            + '<path d="M3 17.5c4.2-1.5 8.5-1.5 12.8 0"/>'
+            + '<path d="M5.5 17.5V13h9.5l1.8 2.8"/>'
+            + '<path d="M2.5 10.5h19"/>'
+            + '<path d="M4.5 10.5 2.8 7.2M19.5 10.5 21.2 7.2"/>'
+        ),
+        # canoe + crossed paddle (oar.2.crossed feel)
+        "canoe": (
+            h.format(cx="12", cy="7")
+            + '<path d="M12 9v4.2"/>'
+            + '<path d="M9 12.5h6"/>'
+            + '<path d="M9.5 13.8 7.8 18.5M14.5 13.8 16.2 18.5"/>'
+            + '<path d="M2.5 17c4.5-3.2 14.5-3.2 19 0"/>'
+            + '<path d="M5.5 17 8 12.5h8l2.5 4.5"/>'
+            + '<path d="M5 6.5 19 14.5M5 14.5 19 6.5"/>'
+        ),
+        "sailboat": (
+            '<path d="M4.5 20h15"/>'
+            '<path d="M6.2 20 12 16.5 17.8 20"/>'
+            '<path d="M12 4v12.5"/>'
+            + '<path d="M12 5c3.8 1.8 6 5.5 6 9.5H12" fill="currentColor" stroke="none"/>'
+            + h.format(cx="9.5", cy="12")
+        ),
+        # —— Invierno (figure.skiing.downhill / snowboarding / crosscountry / ice.skating) ——
+        "ski-down": (
+            h.format(cx="11.5", cy="4.5")
+            + '<path d="M10.5 6.8 9.2 12.2 5.5 15.5"/>'
+            + '<path d="M9.8 12 13.5 11 16.5 16"/>'
+            + '<path d="M12.8 8.5 16.5 6.2"/>'
+            + '<path d="M4 20.5 14.5 8"/>'
+            + '<path d="M8.5 20.5 19.5 8.5"/>'
+        ),
+        "snowboard": (
+            h.format(cx="11", cy="4.5")
+            + '<path d="M10.2 6.8 9.5 12.5 6.5 16"/>'
+            + '<path d="M9.8 12.2 13.2 11.5 15.5 16.5"/>'
+            + '<path d="M4.2 18.5c3.5-6.5 12.2-6.5 15.6 0"/>'
+            + '<path d="M7.5 18.8h9"/>'
+        ),
+        "ski-xc": (
+            h.format(cx="10.5", cy="4.2")
+            + '<path d="M9.8 6.5 9 12.5 6 16.5"/>'
+            + '<path d="M9.2 12.2 12.8 11.5 14.5 16.5"/>'
+            + '<path d="M13.5 8.2 17.5 5.5"/>'
+            + '<path d="M3 19.5h18"/>'
+            + '<path d="M3 16.8h18"/>'
+        ),
+        "ice-skate": (
+            h.format(cx="11", cy="4.2")
+            + '<path d="M11 6.4v4.2"/>'
+            + '<path d="M8.5 10.5h5.5l-.8 3.8H9z" fill="currentColor" stroke="none"/>'
+            + '<path d="M8.8 14.5v3.2M14.2 14.5v3.2"/>'
+            + '<path d="M6.5 18h11"/>'
+            + '<path d="M7.2 18v2M16.5 18v2"/>'
+            + '<path d="M9.2 8.5 6.5 11M13 8.5 15.5 11"/>'
+        ),
+        "soccer": (
+            h.format(cx="12", cy="4")
+            + '<path d="M12 6.2v5.5"/>'
+            + '<path d="M8.5 9.5h7"/>'
+            + '<path d="M9 12 6.5 20.5M15 12l2.5 8.5"/>'
+            + '<circle cx="12" cy="16.5" r="3.2"/>'
+        ),
+        "basketball": (
+            '<circle cx="12" cy="12" r="8"/>'
+            '<path d="M12 4v16M4 12h16"/>'
+            '<path d="M6.5 6.5c3 3 8 3 11 0M6.5 17.5c3-3 8-3 11 0"/>'
+        ),
+        "volleyball": (
+            '<circle cx="12" cy="12" r="8"/>'
+            '<path d="M4.5 10c4 1 7 4 8.5 8M12 4c1 4 4 7 8 8.5M8 5.5c2 3 3 7 2.5 11"/>'
+        ),
+        "football": (
+            '<ellipse cx="12" cy="12" rx="9" ry="5.8"/>'
+            '<path d="M8 12h8M10 10l2 2 2-2M10 14l2-2 2 2"/>'
+        ),
+        "baseball": (
+            '<circle cx="12" cy="12" r="8"/>'
+            '<path d="M7 6.5c2.5 2 2.5 9 0 11M17 6.5c-2.5 2-2.5 9 0 11"/>'
+        ),
+        "hockey": (
+            h.format(cx="10", cy="4")
+            + '<path d="M10 6.2v5"/>'
+            + '<path d="M7.5 9.5h5"/>'
+            + '<path d="M8.5 11.5 6 20.5M12 11.5l1.5 4.5 4 1"/>'
+            + '<path d="M5 20.5h6"/>'
+            + '<circle cx="17.5" cy="18.5" r="2.2" fill="currentColor" stroke="none"/>'
+        ),
+        "lacrosse": (
+            h.format(cx="10", cy="4.2")
+            + '<path d="M10 6.5v5"/>'
+            + '<path d="M7.5 9.8h5.5"/>'
+            + '<path d="M9 11.8 6.5 20.5"/>'
+            + '<path d="M12 11.5 14.5 14"/>'
+            + '<ellipse cx="15.5" cy="7" rx="3.6" ry="2.8"/>'
+            + '<path d="M13.5 6h4M14 8h3.2"/>'
+        ),
+        "rugby": (
+            '<ellipse cx="12" cy="12" rx="8" ry="5.2" transform="rotate(-32 12 12)"/>'
+            '<path d="M8.2 10.2 15.8 13.8M9 13.8l6.2-3"/>'
+        ),
+        "boxing": (
+            h.format(cx="12", cy="4")
+            + '<path d="M12 6.2v3.5"/>'
+            + '<path d="M7.5 9.5h9"/>'
+            + '<path d="M8 9.8 5.5 14.5h4.2L8 9.8z" fill="currentColor" stroke="none"/>'
+            + '<path d="M16 9.8 18.5 14.5h-4.2L16 9.8z" fill="currentColor" stroke="none"/>'
+            + '<path d="M8.5 15.2 7 21M15.5 15.2 17 21"/>'
+        ),
+        "kickboxing": (
+            h.format(cx="13.5", cy="4")
+            + '<path d="M12.5 6.2 10.5 12.5 5 18.5"/>'
+            + '<path d="M10.8 12.5 16.5 13.5 19.5 19"/>'
+            + '<path d="M12.2 8.5h4"/>'
+            + '<path d="M14.5 13.2 12 20.5"/>'
+        ),
+        "martial": (
+            h.format(cx="12", cy="4")
+            + '<path d="M12 6.2v4"/>'
+            + '<path d="M6.8 9.8h10.4"/>'
+            + '<path d="M7.8 9.8 4.2 15.5"/>'
+            + '<path d="M16.2 9.8 20 8.2"/>'
+            + '<path d="M9 14.2 12 21 15 14.2"/>'
+        ),
+        "wrestling": (
+            h.format(cx="8", cy="4.5")
+            + h.format(cx="16.2", cy="5.2")
+            + '<path d="M6.2 8.8h5.2l2.2 2.2h3.8"/>'
+            + '<path d="M7.2 11 5.2 20.5"/>'
+            + '<path d="M15.2 12 16.8 20.5"/>'
+        ),
+        "dumbbell": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M12 6.8v3.5"/>'
+            + '<path d="M8 10.2h8v3.6H8z" fill="currentColor" stroke="none"/>'
+            + '<path d="M5.2 9v6M18.8 9v6"/>'
+            + '<path d="M9.5 14.5 8 21M14.5 14.5 16 21"/>'
+        ),
+        "core": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M12 6.8v3"/>'
+            + '<circle cx="12" cy="14.5" r="5.2"/>'
+            + '<path d="M12 11.2v6.6M9.2 14.5h5.6"/>'
+        ),
+        "golf": (
+            h.format(cx="11", cy="4")
+            + '<path d="M11 6.2v8.5"/>'
+            + '<path d="M8.5 9.5h5"/>'
+            + '<path d="M9.5 14.8 7.5 21M13 14.8 16.5 18.5"/>'
+            + '<path d="M16.5 18.5h3.5"/>'
+            + '<circle cx="18.5" cy="20.2" r="1.3" fill="currentColor" stroke="none"/>'
+        ),
+        # figure.climbing — climber on holds/wall
+        "climb": (
+            '<path d="M5.5 21.5V3.5h13"/>'
+            + h.format(cx="11.5", cy="6.5")
+            + '<path d="M11.5 8.5 10 13.5 7.5 16"/>'
+            + '<path d="M10.2 13.2 14.5 12 16.5 16.5"/>'
+            + '<path d="M13.5 9.5 16 8"/>'
+            + '<circle cx="8" cy="10.5" r="1.2" fill="currentColor" stroke="none"/>'
+            + '<circle cx="16.5" cy="14" r="1.2" fill="currentColor" stroke="none"/>'
+            + '<circle cx="9.5" cy="18" r="1.2" fill="currentColor" stroke="none"/>'
+        ),
+        "dance": (
+            h.format(cx="12", cy="4")
+            + '<path d="M12 6.2v5"/>'
+            + '<path d="M8 9.5h8"/>'
+            + '<path d="M9 11.5 6.5 16M15 11.5 17.5 16"/>'
+            + '<path d="M9.5 21.2 12 13.5l2.5 7.7"/>'
+        ),
+        "pilates": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M12 6.8v3.5"/>'
+            + '<path d="M7.5 10.5h9"/>'
+            + '<path d="M8.5 20.5c1-5 2.8-7.2 3.5-7.2s2.5 2.2 3.5 7.2"/>'
+        ),
+        "skateboard": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M12 6.8v5"/>'
+            + '<path d="M8.5 9.8h7"/>'
+            + '<path d="M9.5 12 7.5 16.5M14.5 12 16.5 16.5"/>'
+            + '<path d="M4 17.5h16l-1.5-3.8H5.5z" fill="currentColor" stroke="none"/>'
+            + '<circle cx="7.2" cy="19.5" r="1.5"/>'
+            + '<circle cx="16.8" cy="19.5" r="1.5"/>'
+        ),
+        "yoga": (
+            h.format(cx="12", cy="4")
+            + '<path d="M12 6.2v4"/>'
+            + '<path d="M6.5 13.5h11"/>'
+            + '<path d="M8.5 21.2 12 10.5l3.5 10.7"/>'
+        ),
+        "mobility": (
+            h.format(cx="12", cy="4")
+            + '<path d="M8.5 11.5c0-2 1.8-3.2 3.5-3.2s3.5 1.2 3.5 3.2-1.6 3.8-3.5 5.8"/>'
+            + '<path d="M7 20.5h10"/>'
+        ),
+        # legacy aliases
+        "bike": (
+            '<circle cx="6.2" cy="16.2" r="3.3"/><circle cx="17.8" cy="16.2" r="3.3"/>'
+            + h.format(cx="13.2", cy="5.2")
+            + '<path d="M6.2 16.2 10.2 9.2h4.5L17.8 16.2"/>'
+        ),
+        "strength": (
+            '<path d="M7.2 11.5h9.6v3.2H7.2z" fill="currentColor" stroke="none"/>'
+            '<path d="M5 10.2v5.6M19 10.2v5.6"/>'
+        ),
         "cross": '<path d="M12 3v18M6 9h12M8 15h8"/>',
-        "timer": '<circle cx="12" cy="13" r="7"/><path d="M12 13V9M9 3h6"/>',
-        "racket": '<circle cx="10" cy="10" r="5"/><path d="M14 14l6 6"/>',
-        "swim": '<path d="M3 16c2-2 4-2 6 0s4 2 6 0 4-2 6 0M4 10c1.5-3 4-5 8-5s6.5 2 8 5"/>',
-        "surf": '<path d="M4 16c4-6 12-6 16 0M8 16l4-8 4 8"/>',
-        "sail": '<path d="M12 3v16M12 4c4 2 6 6 6 10H12M6 20h12"/>',
-        "row": '<path d="M4 14h16M6 14l2-4h8l2 4M8 18h8"/>',
-        "ski": '<path d="M6 20l10-14M10 20l8-10M8 8l2 2"/>',
-        "snow": '<path d="M12 3v18M5 7l14 10M19 7L5 17"/>',
-        "skate": '<circle cx="8" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M5 14h14l-2-6H7z"/>',
+        "racket": (
+            h.format(cx="10.5", cy="4")
+            + '<ellipse cx="16.5" cy="7.5" rx="3.6" ry="4.2" transform="rotate(-28 16.5 7.5)"/>'
+            + '<path d="M18.8 10.8 20.5 14.5"/>'
+        ),
+        "surf": (
+            h.format(cx="11", cy="5")
+            + '<path d="M4.5 18c3.2-2.8 7.2-4.2 12.2-3.2 1.6 3.5 2 6.2 1.2 7.5-3.5.2-8.2-.8-11.5-2.8z"/>'
+        ),
+        "sail": (
+            '<path d="M12 4v12.5"/><path d="M12 5c3.8 1.8 6 5.5 6 9.5H12" fill="currentColor" stroke="none"/><path d="M4.5 20h15"/>'
+        ),
+        "row": (
+            h.format(cx="11", cy="7.5")
+            + '<path d="M3 17.5c4.2-1.5 8.5-1.5 12.8 0"/><path d="M2.5 10.5h19"/>'
+        ),
+        "ski": '<path d="M4 20.5 14.5 8"/><path d="M8.5 20.5 19.5 8.5"/>',
+        "snow": '<path d="M12 3v18M5 7l14 10M19 7 5 17"/>',
+        "skate": (
+            '<path d="M4 17.5h16l-1.5-3.8H5.5z" fill="currentColor" stroke="none"/>'
+            '<circle cx="7.2" cy="19.5" r="1.5"/><circle cx="16.8" cy="19.5" r="1.5"/>'
+        ),
         "ball": '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/>',
-        "fight": '<path d="M8 10h3l2 2h5v3H8zM7 8l-2 2v5l2 2"/>',
-        "climb": '<path d="M8 20l2-6 3 2 3-8M12 4l2 3"/>',
-        "dance": '<circle cx="12" cy="5" r="2"/><path d="M9 21l3-8 3 8M9 12h6"/>',
-        "flex": '<circle cx="12" cy="5" r="2"/><path d="M8 20c0-4 2-6 4-6s4 2 4 6M8 12h8"/>',
-        "golf": '<circle cx="12" cy="5" r="2"/><path d="M10 21l2-10 6 3M12 11v10"/>',
-        "core": '<circle cx="12" cy="12" r="7"/><path d="M12 8v8M9 12h6"/>',
-        "route": '<path d="M4 18c3-8 6-8 8-2s5 6 8 0"/><circle cx="4" cy="18" r="1.5"/><circle cx="20" cy="16" r="1.5"/>',
-        "heart": '<path d="M12 20s-7-4.5-7-10a4 4 0 017-2 4 4 0 017 2c0 5.5-7 10-7 10z"/>',
-        "speak": '<path d="M4 10v4h3l4 3V7L7 10H4zM16 9a4 4 0 010 6M18.5 7a7 7 0 010 10"/>',
-        "nav": '<path d="M12 3l7 18-7-3-7 3 7-18z"/>',
+        "fight": (
+            h.format(cx="12", cy="4")
+            + '<path d="M8 9.8 5.5 14.5h4.2L8 9.8z" fill="currentColor" stroke="none"/>'
+        ),
+        "flex": (
+            h.format(cx="12", cy="4.5")
+            + '<path d="M8 20.5c0-4 2-6 4-6s4 2 4 6M8 12h8"/>'
+        ),
+        "route": (
+            '<path d="M4 18c3-8 6-8 8-2s5 6 8 0"/>'
+            '<circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/>'
+            '<circle cx="20" cy="16" r="1.5" fill="currentColor" stroke="none"/>'
+        ),
+        "heart": '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.5-7 10-7 10z" fill="currentColor" stroke="none"/>',
+        "speak": '<path d="M4 10v4h3l4 3V7L7 10H4zM16 9a4 4 0 0 1 0 6M18.5 7a7 7 0 0 1 0 10"/>',
+        "nav": '<path d="M12 3l7 18-7-3-7 3 7-18z" fill="currentColor" stroke="none"/>',
         "map": '<path d="M9 4l6 2 5-2v16l-5 2-6-2-5 2V6l5-2zM9 4v16M15 6v16"/>',
-        "trophy": '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM7 5H4a3 3 0 003 5M17 5h3a3 3 0 01-3 5"/>',
+        "trophy": '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5"/>',
         "list": '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
         "chart": '<path d="M4 19h16M7 16V9M12 16V5M17 16v-6"/>',
         "scan": '<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 12h8"/>',
         "import": '<path d="M12 3v12M8 11l4 4 4-4M5 19h14"/>',
         "watch": '<rect x="7" y="3" width="10" height="18" rx="3"/><path d="M12 8v4l2 1"/>',
         "wod": '<path d="M5 19h14M7 19l2-10h6l2 10M10 9V5h4v4"/>',
-        "energy": '<path d="M13 2L4 14h7l-1 8 10-14h-7l1-6z"/>',
-        "streak": '<path d="M12 3c2 4 6 5 6 10a6 6 0 11-12 0c0-3 2-5 4-7"/>',
+        "energy": '<path d="M13 2 4 14h7l-1 8 10-14h-7l1-6z" fill="currentColor" stroke="none"/>',
+        "streak": '<path d="M12 3c2 4 6 5 6 10a6 6 0 1 1-12 0c0-3 2-5 4-7" fill="currentColor" stroke="none"/>',
         "muscle": '<path d="M5 14c0-3 2-5 4-5 1 0 2 .5 3 1.5S14 9 15 9c2 0 4 2 4 5v5H5v-5z"/>',
-        "book": '<path d="M4 5a3 3 0 013-2h11v16H7a3 3 0 00-3 3V5z"/>',
-        "lock": '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/>',
+        "book": '<path d="M4 5a3 3 0 0 1 3-2h11v16H7a3 3 0 0 0-3 3V5z"/>',
+        "lock": '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 1 1 8 0v3"/>',
         "other": '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
     }
     d = paths.get(kind, paths["other"])
     return (
         f'<svg class="sport-icon" viewBox="0 0 24 24" width="{size}" height="{size}" '
-        f'aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" '
+        f'aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" '
         f'stroke-linecap="round" stroke-linejoin="round">{d}</svg>'
     )
+
 
 
 def icon_for_text(text: str) -> str:
@@ -181,7 +645,7 @@ def casos_mega_html(data: dict) -> str:
         if not items:
             continue
         links = "\n".join(
-            f'              <a href="/casos/{esc(c["slug"])}">{icon_svg(SPORT_ICON.get(c["slug"], "other"))}'
+            f'              <a href="/casos/{esc(c["slug"])}">{sport_sf_icon(c["slug"])}'
             f'<span>{esc(c["name"])}</span></a>'
             for c in items
         )
@@ -206,26 +670,33 @@ def nav_html(active: str, data: dict | None = None) -> str:
     for href, label, key in items:
         cur = ' aria-current="page"' if active == key else ""
         if key == "casos" and data is not None:
+            # El panel mega vive como hijo directo de .site-header (mismo cristal).
             links.append(
                 f'''<li class="has-sub">
             <div class="nav-sub-trigger">
               <a href="{href}"{cur}>{esc(label)}</a>
               <button type="button" class="sub-toggle" data-sub-toggle aria-expanded="false" aria-controls="casos-sub" aria-label="Menú de actividades">▾</button>
             </div>
-            <div class="nav-sub" id="casos-sub" data-sub-panel hidden>
-              <div class="sub-head">
-                <p class="eyebrow">Casos de uso por actividad</p>
-                <a class="sub-all" href="/casos">Ver la página general →</a>
-              </div>
-              <div class="sub-in">
-{casos_mega_html(data)}
-              </div>
-            </div>
           </li>'''
             )
         else:
             links.append(f'<li><a href="{href}"{cur}>{esc(label)}</a></li>')
     return "\n          ".join(links)
+
+
+def casos_mega_panel_html(data: dict) -> str:
+    """Mega menú: hermano del .nav dentro de .site-header → hereda su cristal."""
+    return f'''    <div class="nav-sub" id="casos-sub" data-sub-panel hidden>
+      <div class="nav-sub-inner wrap">
+        <div class="sub-head">
+          <p class="eyebrow">Casos de uso por actividad</p>
+          <a class="sub-all" href="/casos">Ver la página general →</a>
+        </div>
+        <div class="sub-in">
+{casos_mega_html(data)}
+        </div>
+      </div>
+    </div>'''
 
 
 def mobile_casos_html(data: dict) -> str:
@@ -266,6 +737,7 @@ def header_html(active: str = "", data: dict | None = None) -> str:
       </nav>
       <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="menu-movil" aria-label="Abrir menú">☰</button>
     </div>
+{casos_mega_panel_html(data)}
     <div class="wrap nav-drawer" id="menu-movil" data-nav-drawer>
       <ul>
         <li><a href="/"{" aria-current=\"page\"" if active=="home" else ""}>Inicio</a></li>
@@ -359,7 +831,7 @@ def footer_html() -> str:
       <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
     </div>
   </div>
-  <script src="/js/site.js" defer></script>"""
+  <script src="/js/site.js?v=20261108-mega" defer></script>"""
 
 
 def head_html(*, title: str, description: str, canonical: str, og_image: str, json_ld=None) -> str:
@@ -370,8 +842,25 @@ def head_html(*, title: str, description: str, canonical: str, og_image: str, js
             + json.dumps(json_ld, ensure_ascii=False, indent=2)
             + "\n  </script>"
         )
+    site = load_json("site.json")
+    ga4 = (site.get("ga4MeasurementId") or "").strip()
+    ga_attr = f' data-ga4="{esc(ga4)}"' if ga4 else ""
+    # Consent Mode v2 defaults: denied until the cookie banner grants analytics.
+    consent_boot = """
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    window.gtag = gtag;
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      wait_for_update: 500
+    });
+  </script>"""
     return f"""<!DOCTYPE html>
-<html lang="es">
+<html lang="es"{ga_attr}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -396,10 +885,50 @@ def head_html(*, title: str, description: str, canonical: str, og_image: str, js
   <meta name="twitter:title" content="{esc(title)}">
   <meta name="twitter:description" content="{esc(description)}">
   <meta name="twitter:image" content="{esc(og_image)}">
-  <link rel="stylesheet" href="/css/site.css">{ld}
+    <link rel="stylesheet" href="/css/site.css?v=20261108-artpos">
+{consent_boot}{ld}
 </head>
 <body>
 """
+
+
+def scene_panel_hero(
+    kicker: str,
+    title_html: str,
+    lede: str,
+    metrics: list[tuple[str, str]],
+    *,
+    image: str = "/assets/mascot-hero.png",
+    image_alt: str = "Mascota de Repera",
+    tone: str = "green",
+    art: str = "right",
+) -> str:
+    """Hero en caja estilo Recuperación, con acento distinto al violeta nocturno.
+
+    art: right | left | bottom — posición del muñeco dentro de la caja.
+    """
+    cards = "\n".join(
+        f'          <div class="scene-metric"><strong>{esc(label)}</strong><p>{body}</p></div>'
+        for label, body in metrics
+    )
+    art_pos = art if art in {"right", "left", "bottom"} else "right"
+    return f"""    <section class="hero hero--panel">
+      <div class="wrap">
+        <div class="scene-panel scene-panel--{esc(tone)} scene-panel--split scene-panel--art-{art_pos}" data-reveal>
+          <div class="scene-copy">
+            <p class="eyebrow">{esc(kicker)}</p>
+            <h1>{title_html}</h1>
+            <p class="lede">{lede}</p>
+            <div class="scene-metrics">
+{cards}
+            </div>
+          </div>
+          <div class="scene-art">
+            <img src="{esc(image)}" alt="{esc(image_alt)}" width="640" height="640" loading="eager">
+          </div>
+        </div>
+      </div>
+    </section>"""
 
 
 def cta_band(title: str, lede: str, *, light: bool = False) -> str:
@@ -971,16 +1500,20 @@ def render_casos_index(site: dict, data: dict) -> str:
         + header_html("casos", data)
         + f"""
   <main id="contenido">
-    <section class="hero hero--sm casos-hero">
-      <div class="wrap" data-reveal>
-        <p class="eyebrow">Casos de uso</p>
-        <h1>Cada actividad, <em>su caso de uso.</em></h1>
-        <p class="lede">Los grupos son los del selector de la app. Elige un deporte: verás el muñeco, el flujo Antes/Durante/Después y lo que queda en tu diario.</p>
-        <div class="casos-hero-pills" aria-hidden="true">
-          <span>GPS</span><span>Fuerza</span><span>WOD</span><span>Indoor</span><span>Watch</span>
-        </div>
-      </div>
-    </section>
+{scene_panel_hero(
+        "Casos de uso",
+        "Cada actividad, <em>su caso de uso.</em>",
+        "Los grupos son los del selector de la app. Elige un deporte: verás el muñeco, el flujo Antes/Durante/Después y lo que queda en tu diario.",
+        [
+            ("Antes", "Preparación y contexto según el deporte."),
+            ("Durante", "Registro en vivo: GPS, series o WOD."),
+            ("Después", "Lo que queda en tu diario y el progreso."),
+        ],
+        image="/assets/mascots/entrenamiento.webp",
+        image_alt="Mascota de Repera lista para entrenar",
+        tone="green",
+        art="right",
+    )}
 {chr(10).join(sections)}
     <section class="section casos-multi">
       <div class="wrap trust-strip" data-reveal>
@@ -1013,6 +1546,7 @@ def write_sitemap(site: dict, data: dict) -> None:
         ("/soporte", "0.6", "monthly"),
         ("/faq", "0.6", "monthly"),
         ("/privacy", "0.5", "monthly"),
+        ("/privacy-en", "0.4", "monthly"),
         ("/terms", "0.5", "monthly"),
     ]
     for c in data["casos"]:

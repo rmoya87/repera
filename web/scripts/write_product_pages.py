@@ -18,6 +18,7 @@ from build_site import (  # noqa: E402
     head_html,
     header_html,
     load_json,
+    scene_panel_hero,
 )
 
 
@@ -154,9 +155,6 @@ def main() -> None:
             <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
             <a class="btn btn-ghost" href="/precios">Ver planes</a>
           </div>
-          <div class="casos-hero-pills" style="margin-top:1rem">
-            <span>iPhone</span><span>Apple Watch</span><span>Local-first</span>
-          </div>
         </div>
         <div class="hero-visual" data-reveal>
           <img src="/assets/mascot-hero.png" alt="Mascota de Repera celebrando con mancuernas" width="1024" height="1024" fetchpriority="high" decoding="async">
@@ -214,8 +212,8 @@ def main() -> None:
         <p class="lede">Repera es local-first: el diario se guarda en el iPhone. iCloud solo si tú lo activas. Apple Salud solo con tu permiso. No hay red social ni acceso de terceros a tu entrenamiento.</p>
         <div class="privacy-grid">
           <article class="privacy-card"><strong>Local en el teléfono</strong><p>Pesos, repeticiones, rutas GPS, kcal y marcas quedan en tu dispositivo.</p></article>
-          <article class="privacy-card"><strong>Sin audiencia</strong><p>Nadie más ve tu diario. No hay feed, ni ranking, ni perfil público.</p></article>
-          <article class="privacy-card"><strong>Tú autorizas</strong><p>Salud e iCloud son opcionales. Exporta o borra desde Ajustes cuando quieras.</p></article>
+          <article class="privacy-card"><strong>Sin red social</strong><p>No hay feed, ranking ni perfil público. Si conectas un asistente de IA, el espejo es solo para esa conexión.</p></article>
+          <article class="privacy-card"><strong>Tú autorizas</strong><p>Salud, iCloud y Conecta tu IA son opcionales. Exporta, revoca o borra desde Ajustes.</p></article>
         </div>
         <div class="lock-mark">Solo tú tienes la llave</div>
       </div>
@@ -271,16 +269,20 @@ def main() -> None:
         "funcionalidades",
         "Funcionalidades | Repera",
         "Diario de series, temporizadores, progreso, rutas y recuperación: lo que hace Repera para registrar y entender tu entrenamiento.",
-        f"""    <section class="hero hero--sm feat-hero">
-      <div class="wrap" data-reveal>
-        <p class="eyebrow">Funcionalidades</p>
-        <h1>Todo lo que hace Repera, <em>pieza a pieza.</em></h1>
-        <p class="lede">Registro, progreso, Watch, outdoor, recuperación e IA — con el catálogo de ejercicios dentro de la app.</p>
-        <div class="casos-hero-pills" aria-hidden="true">
-          <span>01 Registro</span><span>02 Progreso</span><span>03 Timer</span><span>04 Watch</span><span>05 Outdoor</span>
-        </div>
-      </div>
-    </section>
+        f"""{scene_panel_hero(
+        "Funcionalidades",
+        "Todo lo que hace Repera, <em>pieza a pieza.</em>",
+        "Registro, progreso, Watch, outdoor, recuperación e IA — con el catálogo de ejercicios dentro de la app.",
+        [
+            ("Registro", "Series, RIR/RPE, EMOM, AMRAP y pizarra."),
+            ("Progreso", "Racha, zonas y evolución por ejercicio."),
+            ("Watch y outdoor", "Series en la muñeca y GPS en el mismo diario."),
+        ],
+        image="/assets/mascot-hero.png",
+        image_alt="Mascota de Repera con mancuernas",
+        tone="green",
+        art="right",
+    )}
 
     <section class="section feat-block feat-block--registro" id="registro">
       <div class="wrap editorial-split">
@@ -394,8 +396,8 @@ def main() -> None:
             <p class="muted">Conector MCP en Claude.</p>
             <ul>
               <li>Consultar historial y series</li>
-              <li>Proponer planes que revisas tú</li>
-              <li>Enviar entrenos al Diario</li>
+              <li>Planes que se importan al sync</li>
+              <li>Edits de historial: OK en App</li>
             </ul>
           </article>
           <article class="ai-card ai-card--gpt">
@@ -405,7 +407,7 @@ def main() -> None:
             <ul>
               <li>Preguntas sobre tu progreso</li>
               <li>Sesiones o planes fechados</li>
-              <li>Cambios solo con tu OK</li>
+              <li>Planes: importación automática</li>
             </ul>
           </article>
           <article class="ai-card ai-card--grok">
@@ -415,7 +417,7 @@ def main() -> None:
             <ul>
               <li>Mismo diario y permisos</li>
               <li>Sin pegar secretos en el chat</li>
-              <li>Activas tú en la app</li>
+              <li>Revoca en Conecta tu IA</li>
             </ul>
           </article>
         </div>
@@ -607,12 +609,12 @@ def main() -> None:
         "/ia",
         "ia",
         "Conecta tu IA con Repera | Repera",
-        "Conecta tu propio asistente de IA para consultar tu historial y, con tu permiso, crear entrenos y planes que aparecen en Repera.",
+        "Conecta tu propio asistente de IA para consultar tu historial y, con tu permiso, crear planes que se importan a Repera al sincronizar.",
         f"""    <section class="hero hero--sm ia-hero">
       <div class="wrap" data-reveal>
         <p class="eyebrow">Conecta tu IA</p>
         <h1>Tu asistente. Tu historial. Tu siguiente plan.</h1>
-        <p class="lede" style="margin-inline:auto;text-align:center;max-width:38rem">No es un coach integrado. Es Claude, ChatGPT o Grok — el que tú elijas — trabajando con tu diario y con tus permisos.</p>
+        <p class="lede" style="margin-inline:auto;text-align:center;max-width:38rem">No es un coach integrado. Es Claude, ChatGPT o Grok — el que tú elijas — con tu diario. Requiere cuenta Repera; el espejo vive en servidor solo si conectas la IA.</p>
         <div class="btn-row" style="justify-content:center">
           <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
           <a class="btn btn-ghost" href="/ai/">Abrir consentimiento web</a>
@@ -642,8 +644,8 @@ def main() -> None:
             <p class="muted">Conector web MCP desde Personalizar → Conectores.</p>
             <ul>
               <li>Consultar historial y series</li>
-              <li>Proponer planes que revisas tú</li>
-              <li>Enviar entrenos al Diario como tarjeta</li>
+              <li>Crear planes que se importan al sincronizar</li>
+              <li>Edits de historial / custom: aprobación en App</li>
             </ul>
           </article>
           <article class="ai-card ai-card--gpt">
@@ -653,7 +655,7 @@ def main() -> None:
             <ul>
               <li>Preguntas sobre tu progreso</li>
               <li>Sesiones sueltas o planes fechados</li>
-              <li>Cambios solo tras tu aprobación</li>
+              <li>Planes: importación automática al sync</li>
             </ul>
           </article>
           <article class="ai-card ai-card--grok">
@@ -663,7 +665,7 @@ def main() -> None:
             <ul>
               <li>Mismo diario, mismos permisos</li>
               <li>Sin pegar secretos en el chat</li>
-              <li>Tú activas lo propuesto en la app</li>
+              <li>Revoca en Ajustes → Conecta tu IA</li>
             </ul>
           </article>
         </div>
@@ -680,19 +682,19 @@ def main() -> None:
           <div class="flow-step">
             <div class="flow-badge">1</div>
             <h3>Autorizas</h3>
-            <p>Consentimiento web o token personal con caducidad desde Ajustes.</p>
+            <p>Cuenta Repera + consentimiento web (lectura / escritura) o token personal.</p>
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="flow-step">
             <div class="flow-badge">2</div>
             <h3>Preguntas</h3>
-            <p>Historial, series, progreso y material — no plantillas genéricas.</p>
+            <p>Historial espejado, series, progreso y material — no Salud ni GPS.</p>
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="flow-step">
             <div class="flow-badge">3</div>
-            <h3>Revisas</h3>
-            <p>Las propuestas llegan al Diario; las activas tú.</p>
+            <h3>Importación</h3>
+            <p>Los planes llegan al Diario al abrir o sincronizar; los cambios de historial piden tu OK.</p>
           </div>
         </div>
       </div>
@@ -729,14 +731,20 @@ def main() -> None:
         "precios",
         "Precios y planes | Repera",
         "Plan gratuito y Repera Pro: precios orientativos, comparativa y preguntas frecuentes sobre la suscripción.",
-        f"""    <section class="hero hero--sm price-glow">
-      <div class="wrap pricing-hero" data-reveal>
-        <p class="eyebrow">Planes</p>
-        <h1>Precios claros, <em>sin sorpresas.</em></h1>
-        <p class="lede" style="margin-inline:auto">Entrena gratis desde el primer día. Pro quita límites y abre el análisis largo. El importe final es el de App Store.</p>
-        <div class="price-save-pill" aria-hidden="true">Anual ≈ 2 meses de ahorro frente a pagar mes a mes</div>
-      </div>
-    </section>
+        f"""{scene_panel_hero(
+        "Precios",
+        "Precios claros, <em>sin sorpresas.</em>",
+        "Entrena gratis desde el primer día. Pro quita límites y abre el análisis largo. El importe final es el de App Store.",
+        [
+            ("Gratis", "Registro completo sin fricción."),
+            ("Pro", "Historial largo, cuotas ilimitadas y más."),
+            ("App Store", "Cobro y cancelación con tu cuenta de Apple."),
+        ],
+        image="/assets/mascot-watch.png",
+        image_alt="Mascota de Repera con Apple Watch",
+        tone="amber",
+        art="right",
+    )}
 
     <section class="section">
       <div class="wrap plan-compare plan-compare--rich plan-compare--stage">
@@ -919,13 +927,14 @@ def main() -> None:
         "/privacy",
         "",
         "Privacidad — Repera",
-        "Política de privacidad de Repera: datos locales, iCloud, Apple Salud, compras y cookies del sitio web.",
+        "Política de privacidad de Repera: datos locales, cuenta, conexión IA, iCloud, Apple Salud, compras y cookies.",
         f"""    <section class="hero hero--sm">
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Política de privacidad</h1>
         <p class="lede">Última actualización: 8 de noviembre de 2026</p>
         <div class="btn-row">
+          <a class="btn btn-ghost" href="/privacy-en">English</a>
           <a class="btn btn-ghost" href="/terms">Términos de uso</a>
           <a class="btn btn-ghost" href="/faq">FAQ</a>
         </div>
@@ -936,9 +945,42 @@ def main() -> None:
         <article class="prose" data-reveal>
 {privacy_body}        </article>
         <p class="legal-nav" data-reveal>
+          <a href="/privacy-en">English</a>
           <a href="/terms">Términos de uso</a>
           <a href="/faq">FAQ</a>
           <a href="/soporte">Soporte</a>
+        </p>
+      </div>
+    </section>""",
+    )
+
+    privacy_body_en = (ROOT / "content" / "privacy_body_en.html").read_text(encoding="utf-8")
+    page(
+        "/privacy-en",
+        "",
+        "Privacy Policy — Repera",
+        "Repera privacy policy: local data, account, AI connection, iCloud, Apple Health, purchases and cookies.",
+        f"""    <section class="hero hero--sm">
+      <div class="wrap" data-reveal>
+        <p class="eyebrow">Legal</p>
+        <h1>Privacy policy</h1>
+        <p class="lede">Last updated: 8 November 2026</p>
+        <div class="btn-row">
+          <a class="btn btn-ghost" href="/privacy">Español</a>
+          <a class="btn btn-ghost" href="/terms">Terms</a>
+          <a class="btn btn-ghost" href="/faq">FAQ</a>
+        </div>
+      </div>
+    </section>
+    <section class="section section--tight">
+      <div class="wrap narrow">
+        <article class="prose" data-reveal>
+{privacy_body_en}        </article>
+        <p class="legal-nav" data-reveal>
+          <a href="/privacy">Español</a>
+          <a href="/terms">Terms</a>
+          <a href="/faq">FAQ</a>
+          <a href="/soporte">Support</a>
         </p>
       </div>
     </section>""",

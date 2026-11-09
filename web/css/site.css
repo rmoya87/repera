@@ -110,6 +110,158 @@ body.nav-open {
   margin: 0 0 0.75rem;
 }
 
+/* Hero en caja (mismo patrón que night-scene de Recuperación, otro acento) */
+.hero--panel {
+  padding: clamp(1.5rem, 4vw, 2.5rem) 0 clamp(1.25rem, 3vw, 2rem);
+}
+
+.scene-panel {
+  position: relative;
+  border-radius: 28px;
+  padding: 2rem 1.5rem;
+  overflow: hidden;
+}
+
+.scene-panel--green {
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(48, 209, 88, 0.22), transparent 60%),
+    linear-gradient(180deg, #0a120e 0%, #050805 100%);
+  border: 1px solid rgba(48, 209, 88, 0.28);
+}
+
+.scene-panel--amber {
+  background:
+    radial-gradient(ellipse 80% 60% at 70% 20%, rgba(255, 159, 10, 0.22), transparent 60%),
+    linear-gradient(180deg, #14100a 0%, #080603 100%);
+  border: 1px solid rgba(255, 159, 10, 0.3);
+}
+
+.scene-panel--split {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+  text-align: left;
+}
+
+.scene-panel--split .scene-copy .lede {
+  margin: 0.75rem 0 1.25rem;
+  max-width: 36rem;
+}
+
+.scene-panel--split .scene-art {
+  justify-self: center;
+}
+
+.scene-panel--split .scene-art img {
+  display: block;
+  width: min(300px, 70vw);
+  height: auto;
+  margin: 0;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.55));
+}
+
+/* Muñeco a la derecha (default, como Recuperación) */
+.scene-panel--art-right .scene-copy { grid-area: copy; }
+.scene-panel--art-right .scene-art { grid-area: art; }
+
+/* Muñeco a la izquierda */
+.scene-panel--art-left {
+  background:
+    radial-gradient(ellipse 80% 60% at 28% 22%, rgba(48, 209, 88, 0.22), transparent 60%),
+    linear-gradient(180deg, #0a120e 0%, #050805 100%);
+}
+.scene-panel--art-left .scene-copy { grid-area: copy; }
+.scene-panel--art-left .scene-art { grid-area: art; }
+
+/* Muñeco abajo a la derecha */
+.scene-panel--art-bottom {
+  background:
+    radial-gradient(ellipse 70% 55% at 82% 88%, rgba(255, 159, 10, 0.24), transparent 58%),
+    linear-gradient(180deg, #14100a 0%, #080603 100%);
+}
+.scene-panel--art-bottom .scene-copy { grid-area: copy; }
+.scene-panel--art-bottom .scene-art { grid-area: art; }
+.scene-panel--art-bottom .scene-art img {
+  width: min(260px, 62vw);
+  transform: translateY(0.35rem);
+}
+
+@media (min-width: 860px) {
+  .scene-panel--split {
+    padding: 2.25rem 2rem;
+  }
+
+  .scene-panel--art-right {
+    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-areas: "copy art";
+  }
+
+  .scene-panel--art-left {
+    grid-template-columns: 0.8fr 1.2fr;
+    grid-template-areas: "art copy";
+  }
+
+  .scene-panel--art-bottom {
+    grid-template-columns: 1.35fr 0.65fr;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "copy copy"
+      "copy art";
+    align-items: end;
+  }
+
+  .scene-panel--art-bottom .scene-copy {
+    align-self: start;
+  }
+
+  .scene-panel--art-bottom .scene-art {
+    justify-self: end;
+    align-self: end;
+    margin-top: -4.5rem;
+  }
+
+  .scene-panel--art-bottom .scene-art img {
+    width: min(280px, 28vw);
+  }
+}
+
+.scene-metrics {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (min-width: 700px) {
+  .scene-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.scene-metric {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+}
+
+.scene-metric strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.scene-panel--green .scene-metric strong {
+  color: var(--accent);
+}
+
+.scene-panel--amber .scene-metric strong {
+  color: #ff9f0a;
+}
+
+.scene-metric p {
+  margin: 0;
+  color: var(--label-2);
+  font-size: 0.9rem;
+}
+
 h1,
 h2,
 h3 {
@@ -199,14 +351,30 @@ h3 {
   padding: 0;
 }
 
-.nav-links a {
+.nav-links a:not(.btn) {
   color: var(--label-2);
   font-size: 0.9375rem;
   text-decoration: none;
+  text-underline-offset: 0.28em;
+  text-decoration-thickness: 1.5px;
+  transition: color 0.15s var(--ease);
 }
 
-.nav-links a:hover {
+.nav-links a:not(.btn):hover {
   color: var(--label);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+}
+
+.nav-links a:not(.btn)[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-links a:not(.btn)[aria-current="page"]:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
 }
 
 .nav-toggle {
@@ -1181,11 +1349,6 @@ body.cookie-open {
 }
 
 /* —— Redesign 2026-11-08: editorial extras —— */
-.nav-links a[aria-current="page"] {
-  color: var(--label);
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
-
 .btn-nav {
   min-height: 2.25rem;
   padding: 0.45rem 0.95rem;
@@ -1516,28 +1679,37 @@ body.cookie-open {
 }
 
 .sub-toggle:hover,
-.sub-toggle[aria-expanded="true"] {
+.sub-toggle[aria-expanded="true"],
+.has-sub.is-open .sub-toggle,
+.site-header.is-mega-open .sub-toggle {
   color: var(--label);
   background: rgba(255, 255, 255, 0.06);
 }
 
+/*
+ * Mega menú = extensión del .site-header (mismo background + backdrop-filter).
+ * No lleva cristal propio: si va absolute fuera del alto del header, Safari
+ * no pinta el frosted glass y se ve transparente.
+ */
 .nav-sub {
-  position: absolute;
-  top: calc(100% + 0.65rem);
-  left: 50%;
-  transform: translateX(-40%);
-  width: min(92vw, 920px);
-  max-height: min(70vh, 520px);
+  display: block;
+  width: 100%;
+  max-height: min(72vh, 560px);
   overflow: auto;
-  padding: 1.1rem 1.25rem 1.35rem;
-  border-radius: 18px;
-  background: #0c0c0e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 60;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  padding: 0.85rem 0 1.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
 }
 
 .nav-sub[hidden] {
+  display: none !important;
+}
+
+.nav-sub-inner {
+  padding-top: 0.15rem;
+}
+
+.nav-sub-glass {
   display: none !important;
 }
 
@@ -1603,8 +1775,23 @@ body.cookie-open {
 
 .sub-col .sport-icon {
   flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
   color: var(--accent);
-  opacity: 0.9;
+  opacity: 1;
+}
+
+.sport-icon--sf {
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+  color: var(--accent);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .mrow {

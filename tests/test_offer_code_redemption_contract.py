@@ -29,6 +29,19 @@ class OfferCodeRedemptionContractTests(unittest.TestCase):
         self.assertIn("Canjear código de oferta", settings)
         self.assertIn(".offerCodeRedemption(isPresented: $showOfferCodeRedemption)", settings)
         self.assertIn('accessibilityIdentifier("settings-redeem-offer-code")', settings)
+        self.assertIn("Text(\"Acceso a Pro\")", settings)
+        # Con Pro comprado no se muestran Descubrir Pro ni Canjear código.
+        self.assertIn("if !subscriptions.snapshot.grantsProAccess", settings)
+        self.assertIn("redeemOfferCodeButton", settings)
+        membership = settings.split("private struct SettingsMembershipRows", 1)[1]
+        locked = membership.split("private var lockedProRow", 1)[1].split(
+            "// MARK: - Rotación", 1
+        )[0]
+        active = membership.split("private var activeProRow", 1)[1].split(
+            "private var lockedProRow", 1
+        )[0]
+        self.assertIn('Button("Descubrir Pro")', locked)
+        self.assertNotIn('Button("Descubrir Pro")', active)
 
     def test_android_paywall_opens_play_redeem(self):
         paywall = read(

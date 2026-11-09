@@ -1,6 +1,6 @@
 # Configuración Firebase / GA4 — Repera
 
-**Última actualización:** 2026-11-04 (dSYM embed: inputFiles + soft-fail; evita Operation not permitted).
+**Última actualización:** 2026-11-08 (stream web GA4 `G-954CPW717S` + gtag opt-in en marketing).
 
 ## Modelo
 
@@ -82,11 +82,11 @@ Luego abrir la app y mirar DebugView.
 2. Sustituir `PROJECT.DATASET` en `analytics/bigquery/*.sql` y ejecutar en BigQuery.
 3. Plantillas: workouts, sports, funnel Center, plataformas/reloj.
 
-### E. Business web (opcional)
+### E. Marketing web + Business console
 
-1. Crear measurement ID GA4 web (o stream web).
-2. Cargar `gtag` en la consola (`web/console`) con ese ID.
-3. El módulo `web/console/src/core/product-analytics.js` ya emite eventos allowlisted si `window.gtag` existe.
+1. App Firebase **WEB** `repera.app` (`1:163124096036:web:2d864fd8c43b482d9f7cb1`) → measurement ID `G-954CPW717S` (propiedad GA4 del proyecto `repera-mv`).
+2. Marketing: `web/content/site.json` → `ga4MeasurementId`; `build_site` / `write_product_pages` ponen `data-ga4` en `<html>`; `web/js/site.js` carga gtag **solo** si el usuario acepta analítica (Consent Mode v2, default denied).
+3. Consola Business: el módulo `web/console/src/core/product-analytics.js` emite eventos allowlisted si `window.gtag` existe (puedes reutilizar el mismo `G-954CPW717S`).
 
 ### F. Textos legales / tiendas
 

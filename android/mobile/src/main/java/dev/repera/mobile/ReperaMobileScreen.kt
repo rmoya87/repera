@@ -2014,6 +2014,13 @@ internal fun SettingsTab(
                     onRequestSignOut = { confirmSignOut = true },
                     profileEditable = !busy && overview != null
                 )
+                SettingsCardDivider()
+                SettingsListRow(
+                    title = "Conecta tu IA",
+                    leadingIcon = Icons.Outlined.Psychology,
+                    enabled = !busy,
+                    onClick = onOpenAIAccess
+                )
             }
         }
         ReperaSectionTitle("Centro y entrenador", uppercase = false)
@@ -2026,7 +2033,7 @@ internal fun SettingsTab(
                 onClick = onOpenCenter
             )
         }
-        ReperaSectionTitle("Acceso", uppercase = false)
+        ReperaSectionTitle("Acceso a Pro", uppercase = false)
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column {
                 when {
@@ -2143,13 +2150,6 @@ internal fun SettingsTab(
                         }
                     )
                 }
-                SettingsCardDivider()
-                SettingsListRow(
-                    title = "Conecta tu IA",
-                    leadingIcon = Icons.Outlined.Psychology,
-                    enabled = !busy,
-                    onClick = onOpenAIAccess
-                )
             }
         }
         if (dev.repera.mobile.BuildConfig.DEBUG) {

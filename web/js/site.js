@@ -14,6 +14,8 @@
     if (!subToggle || !subPanel) return;
     subToggle.setAttribute("aria-expanded", open ? "true" : "false");
     subPanel.hidden = !open;
+    const root = subToggle.closest(".has-sub");
+    if (root) root.classList.toggle("is-open", open);
   };
 
   const setMsub = (open) => {
@@ -48,14 +50,63 @@
   }
 
   if (subToggle && subPanel) {
+    const subRoot = subToggle.closest(".has-sub");
+    const header = subToggle.closest(".site-header");
+    let closeTimer = 0;
+    const canHover =
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+    const insideMega = (node) =>
+      Boolean(
+        node &&
+          ((subRoot && subRoot.contains(node)) ||
+            subPanel.contains(node) ||
+            (node === subToggle))
+      );
+
+    const openSub = () => {
+      window.clearTimeout(closeTimer);
+      setSub(true);
+      if (subRoot) subRoot.classList.add("is-open");
+      if (header) header.classList.add("is-mega-open");
+    };
+    const closeSub = () => {
+      setSub(false);
+      if (subRoot) subRoot.classList.remove("is-open");
+      if (header) header.classList.remove("is-mega-open");
+    };
+    const scheduleClose = () => {
+      window.clearTimeout(closeTimer);
+      closeTimer = window.setTimeout(closeSub, 180);
+    };
+
+    // Desktop: hover en trigger o en el panel (el panel ya no está dentro de .has-sub).
+    if (canHover && subRoot) {
+      subRoot.addEventListener("mouseenter", openSub);
+      subRoot.addEventListener("mouseleave", (e) => {
+        if (!insideMega(e.relatedTarget)) scheduleClose();
+      });
+      subPanel.addEventListener("mouseenter", openSub);
+      subPanel.addEventListener("mouseleave", (e) => {
+        if (!insideMega(e.relatedTarget)) scheduleClose();
+      });
+      subRoot.addEventListener("focusin", openSub);
+      subPanel.addEventListener("focusin", openSub);
+      const onFocusOut = (e) => {
+        if (!insideMega(e.relatedTarget)) scheduleClose();
+      };
+      subRoot.addEventListener("focusout", onFocusOut);
+      subPanel.addEventListener("focusout", onFocusOut);
+    }
+
     subToggle.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      setSub(subPanel.hidden);
+      if (subPanel.hidden) openSub();
+      else closeSub();
     });
     document.addEventListener("click", (e) => {
-      const root = subToggle.closest(".has-sub");
-      if (root && !root.contains(e.target)) setSub(false);
+      if (!insideMega(e.target)) closeSub();
     });
   }
 
@@ -127,11 +178,49 @@
     }
   };
 
+  // GA4 (mismo proyecto Firebase que la app: repera-mv). Solo tras opt-in de cookies.
+  const GA4_ID = (document.documentElement.dataset.ga4 || "").trim();
+  let ga4ScriptLoaded = false;
+
+  const ensureGtag = () => {
+    window.dataLayer = window.dataLayer || [];
+    if (typeof window.gtag !== "function") {
+      window.gtag = function gtag() {
+        window.dataLayer.push(arguments);
+      };
+    }
+  };
+
+  const loadAnalytics = () => {
+    if (!GA4_ID) return;
+    ensureGtag();
+    window.gtag("consent", "update", { analytics_storage: "granted" });
+    if (!ga4ScriptLoaded) {
+      ga4ScriptLoaded = true;
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA4_ID)}`;
+      document.head.appendChild(script);
+      window.gtag("js", new Date());
+      window.gtag("config", GA4_ID, {
+        anonymize_ip: true,
+        send_page_view: true,
+        transport_type: "beacon",
+      });
+    }
+  };
+
+  const revokeAnalytics = () => {
+    ensureGtag();
+    window.gtag("consent", "update", { analytics_storage: "denied" });
+  };
+
   const writePrefs = (prefs) => {
     const next = { ...defaultPrefs(), ...prefs, necessary: true, updatedAt: new Date().toISOString() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     document.documentElement.dataset.analytics = next.analytics ? "1" : "0";
-    // Hook futuro: if (next.analytics) loadAnalytics();
+    if (next.analytics) loadAnalytics();
+    else revokeAnalytics();
     window.dispatchEvent(new CustomEvent("repera:cookie-prefs", { detail: next }));
     return next;
   };

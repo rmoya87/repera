@@ -95,9 +95,11 @@ struct ExerciseThisSessionCard: View {
         let modifications = session.exercises.filter { $0.blockId == blockId }
             .compactMap { entry -> String? in
                 guard entry.adaptedReps != nil || entry.adaptedWeightKg != nil else { return nil }
-                return entry.exercise.id.uuidString + "|" +
-                    (entry.adaptedReps.map(String.init) ?? "") + "|" +
-                    (entry.adaptedWeightKg.map(String.init) ?? "")
+                // String.init as a function ref is ambiguous for Double? and can
+                // collapse the whole View body into "Failed to produce diagnostic".
+                let reps = entry.adaptedReps.map { String($0) } ?? ""
+                let kg = entry.adaptedWeightKg.map { String($0) } ?? ""
+                return "\(entry.exercise.id.uuidString)|\(reps)|\(kg)"
             }
         return modifications.isEmpty ? nil : modifications.joined(separator: ";")
     }
