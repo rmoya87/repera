@@ -118,7 +118,7 @@ fun AIAccessScreen(
     if (onBack != null) BackHandler(onBack = onBack)
     var tokenName by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("90d") }
-    var canWrite by remember { mutableStateOf(true) }
+    var canWrite by remember { mutableStateOf(false) }
     var expiryMenu by remember { mutableStateOf(false) }
     var showManual by remember { mutableStateOf(false) }
 
