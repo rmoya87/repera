@@ -76,6 +76,25 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
     /// Remote controls for a Watch-owned activity. The Watch remains the only
     /// HealthKit writer; iPhone sends only a scoped command for the same UUID.
     @discardableResult
+    /// After iPhone relaunch ask for a fresh Watch-owned snapshot, without
+    /// starting, stopping, or changing the HealthKit workout on either device.
+    func requestWatchOwnedLiveSnapshot() {
+        guard WCSession.isSupported(),
+              WCSession.default.activationState == .activated,
+              WCSession.default.isReachable,
+              let owner = latestPayloadLock.withLock({
+                  latestPayload?["ownerScope"] as? String
+              }), !owner.isEmpty else { return }
+        WCSession.default.sendMessage(
+            ["ownerScope": owner, "action": "requestWatchOwnedLiveSnapshot"],
+            replyHandler: nil
+        ) { [weak self] error in
+            self?.logger.debug(
+                "Watch live recovery request deferred: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
     func sendWatchOwnedLiveCommand(sessionId: UUID, command: String) -> Bool {
         guard ["pause", "resume", "finish"].contains(command),
               WCSession.isSupported(), WCSession.default.activationState == .activated,
