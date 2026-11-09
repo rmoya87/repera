@@ -192,7 +192,10 @@ struct RootTabView: View {
             if let id = note.object as? UUID { openNotifiedCompletedWorkout(id) }
         }
         .task(id: store.isHydrated) {
-            if store.isHydrated { openPendingCompletedWorkoutNotification() }
+            if store.isHydrated {
+                openPendingCompletedWorkoutNotification()
+                store.restorePhoneRequestedWatchFinishIfSaved()
+            }
         }
         .onChange(of: store.workoutsEpoch) { _, _ in
             openPendingCompletedWorkoutNotification()
@@ -360,6 +363,16 @@ struct RootTabView: View {
                     forKey: WorkoutCompletionNotifier.pendingLiveReviewKey
                 )
             }
+        }
+        // Navigate only after the Watch's result is durably written on iPhone.
+        // A finish performed entirely on Watch must NOT force navigation.
+        .onReceive(NotificationCenter.default.publisher(
+            for: Notification.Name("repera.phoneRequestedWatchFinishSaved")
+        )) { notification in
+            guard let day = notification.object as? Date else { return }
+            homeFocusDay = day
+            flowPath = []
+            tab = .home
         }
         .onReceive(NotificationCenter.default.publisher(
             for: Notification.Name("repera.openProgressRecovery")
