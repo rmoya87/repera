@@ -79,3 +79,37 @@ teléfono). Sin nodos Wearable, ACK negativo o timeout, Wear arranca
 - android/mobile/src/main/java/dev/repera/mobile/WearLiveCommandListener.kt
 - android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt
 - android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt
+
+
+## 2026-11-09 — Continuidad de Live Wear OS → Android (sin segundo escritor de Salud)
+
+- El móvil envía `ownerScope` en el DataItem de sesión activa. Wear OS fija esa
+  identidad al iniciar una sesión propia; no la reasigna tras cambiar de cuenta.
+- `WearOwnedLivePublisher` transmite el mismo UUID y fase de la sesión mediante
+  MessageClient para respuesta inmediata y un DataItem coalescente para recuperar
+  el último estado tras desconexión/reinicio. El servicio Health Services sigue
+  publicándolo (máximo cada 30 s) aunque la Activity del reloj no esté visible.
+- `WearOwnedLiveMirror` valida identidad, revisión de login, UUID, antigüedad,
+  orden temporal y tombstones persistentes. Solo publica una notificación Android
+  de lectura, sin abrir Health Connect, GPS ni otro entrenamiento en el teléfono.
+  La notificación caduca si pasan 180 s sin refresco; en ausencia de conectividad
+  **no se promete actualización en tiempo real**.
+- El guardado idempotente `/repera/live-save` cierra por UUID la notificación,
+  incluso si la finalización llega antes de la primera actualización live.
+  Cierre de sesión/cambio de identidad también cancela el espejo.
+- `LiveActivityService` (teléfono) guarda checkpoint sin convertir destrucción
+  del servicio en pausa y permite redelivery solo para la sesión ya iniciada,
+  validada por cuenta/revisión/UUID. `WearHealthService` permite reenganchar
+  el ejercicio original tras recreación de proceso; `WearHealthSession` exige
+  propiedad OWNED y binding previo antes de reanudar sensores.
+- Los paquetes retrasados de FC y FC media no pueden retroceder a una lectura
+  más antigua; los totales verificados de energía siguen siendo monotónicos.
+- Pruebas: `WearOwnedLiveDeliveryPolicyTest` (dominio JVM);
+  `test_android_wear_owned_live_parity_contract.py` y
+  `test_android_wear_health_metrics_contract.py` (contratos de código).
+  Pendientes obligatorios en hardware: Android con Wear OS emparejado,
+  notificaciones concedidas/denegadas, reconexión, cierre de procesos,
+  pausa/reanudación, finalización y cambio de cuenta.
+- Alcance: espejo de `Comenzar` Wear-owned. **Los planes/clases iniciados desde
+  Wear OS todavía requieren una auditoría específica de paridad de notificación
+  activa**. No atribuir a este mecanismo capacidades que no incorpora.
