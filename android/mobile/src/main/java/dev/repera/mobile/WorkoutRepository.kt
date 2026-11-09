@@ -3393,10 +3393,12 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val saveAsFavorite: Boolean = false,
         /** Ediciones de la marca WOD completada (Apple changingScore), reproducidas en orden tras el contenido. */
         val scoreEdits: List<ScoreEdit> = emptyList(),
+        val scoreScaleEdits: List<ScoreScaleEdit> = emptyList(),
         /** Solo si el usuario confirma que las series añadidas se realizaron. */
         val recordNewSetsAsPerformed: Boolean = false
     )
     data class ScoreEdit(val blockId: String, val field: CompletedWorkoutEditing.ScoreField, val value: Int)
+    data class ScoreScaleEdit(val blockId: String, val isRx: Boolean?)
 
     /**
      * [canCreateCustom] recibe el nº de ejercicios personalizados existentes y decide si se puede
@@ -3446,12 +3448,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             for (key in listOf("exercises", "routineBlocks", "wodResults", "currentIndex"))
                 target.put(key, applied.get(key))
         }
-        if (edit.scoreEdits.isNotEmpty()) {
+        if (edit.scoreEdits.isNotEmpty() || edit.scoreScaleEdits.isNotEmpty()) {
             val blocksNow = CompletedWorkoutEditing.blocksFrom(target, null)
             var working: JSONObject = target
             for (e in edit.scoreEdits) {
                 val b = (0 until blocksNow.length()).map { blocksNow.getJSONObject(it) }.firstOrNull { it.optString("id") == e.blockId } ?: continue
                 working = CompletedWorkoutEditing.changingScore(working, b, e.field, e.value)
+            }
+            for (e in edit.scoreScaleEdits.distinctBy { it.blockId }) {
+                val b = (0 until blocksNow.length()).map { blocksNow.getJSONObject(it) }
+                    .firstOrNull { it.optString("id") == e.blockId } ?: continue
+                working = CompletedWorkoutEditing.changingScoreScale(working, b, e.isRx)
             }
             target.put("wodResults", working.optJSONArray("wodResults") ?: JSONArray())
         }
