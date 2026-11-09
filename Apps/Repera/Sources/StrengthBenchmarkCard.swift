@@ -138,7 +138,7 @@ struct StrengthBenchmarkVisual: View {
                         ForEach(bell) { pt in
                             AreaMark(
                                 x: .value("Peso", pt.kg),
-                                yStart: .value("Base", 0),
+                                yStart: .value("Base", 0.0),
                                 yEnd: .value("Densidad orientativa", pt.height)
                             )
                             .foregroundStyle(OG.accent.opacity(0.13))
