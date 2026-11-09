@@ -115,9 +115,8 @@ internal object WearOwnedLiveMirror {
             cancelNotification(context)
             return
         }
-        val state = runCatching {
-            JSONObject(prefs.getString("state", null) ?: return)
-        }.getOrNull() ?: return
+        val raw = prefs.getString("state", null) ?: return
+        val state = runCatching { JSONObject(raw) }.getOrNull() ?: return
         val age = System.currentTimeMillis() - state.optLong("capturedAtMillis")
         if (age in 0L..90_000L &&
             prefs.getString("sessionId", null) == state.optString("sessionId")) {
