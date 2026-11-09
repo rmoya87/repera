@@ -30,7 +30,7 @@ data class TrainingSettings(
                 s.optString("weightUnit","kg").takeIf {it in listOf("kg","lb")} ?: "kg",
                 s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230},
                 s.optString("competitionSex").takeIf { it == "female" || it == "male" },
-                s.optInt("birthYear",0).takeIf { it in 1940..java.time.Year.now().value })
+                s.optInt("birthYear",0).takeIf { it in (java.time.Year.now().value - 100)..java.time.Year.now().value })
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
