@@ -606,8 +606,12 @@ struct HealthRecoveryProgressView: View {
         let nights = recovery.sleepEnabled ? recovery.nights : []
         let vitalHistory = physiology.days
         let workouts = store.state.workouts.filter { $0.finishedAt != nil }
-        // HealthKit ya excluye UUID y solapes con entrenamientos Repera.
-        let external = health.recentExternalActivities.map { activity in
+        // La colección de Salud puede contener el mismo workout espejado
+        // desde Watch/iPhone: deduplicar contra el ID y ventanas Repera.
+        let uniqueExternal = HealthMuscleMapper.uniqueExternalActivities(
+            health.recentExternalActivities, workouts: store.state.workouts
+        )
+        let external = uniqueExternal.map { activity in
             RecoveryEngine.ObservedActivity(
                 // Contar la carga cuando el HKWorkout terminó, no al
                 // empezar: un entreno 06:00–08:00 no puede influir a las 07:00.
@@ -1252,7 +1256,9 @@ struct HealthRecoveryProgressView: View {
             let age = now.timeIntervalSince(end)
             return age >= 0 && age <= 96 * 3600
         }
-        let external = health.recentExternalActivities.filter {
+        let external = HealthMuscleMapper.uniqueExternalActivities(
+            health.recentExternalActivities, workouts: store.state.workouts
+        ).filter {
             let age = now.timeIntervalSince($0.end)
             return age >= 0 && age <= 96 * 3600
         }
