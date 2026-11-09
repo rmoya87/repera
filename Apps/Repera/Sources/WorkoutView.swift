@@ -3445,6 +3445,8 @@ struct WODResultInlineEditor: View {
     @State private var repsText: String
     @State private var timeText: String
     @State private var hasEditedResult = false
+    /// 0 unknown, 1 RX, 2 scaled. A legacy result never defaults to RX.
+    @State private var rxSelection: Int
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
@@ -3465,6 +3467,7 @@ struct WODResultInlineEditor: View {
         self.suggestedElapsedSeconds = suggestedElapsedSeconds
         self.wodTemplateId = wodTemplateId
         self.onSave = onSave
+        _rxSelection = State(initialValue: existing?.isRx.map { $0 ? 1 : 2 } ?? 0)
         _roundsText = State(initialValue: String(existing?.roundsCompleted ?? 0))
         _repsText = State(initialValue: String(existing?.totalReps ?? 0))
         _timeText = State(initialValue: DurationText.format(
@@ -3487,11 +3490,19 @@ struct WODResultInlineEditor: View {
                 numericField("Tiempo · m:ss", text: $timeText, field: .time)
             }
 
+            Picker("Modalidad del resultado", selection: $rxSelection) {
+                Text("Sin indicar").tag(0)
+                Text("RX").tag(1)
+                Text("Escalado").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Modalidad del WOD para comparar marcas")
         }
+        .onChange(of: rxSelection) { _, _ in hasEditedResult = true }
         .onChange(of: roundsText) { _, _ in hasEditedResult = true }
         .onChange(of: repsText) { _, _ in hasEditedResult = true }
         .onChange(of: timeText) { _, _ in hasEditedResult = true }
-        .task(id: "\(roundsText)|\(repsText)|\(timeText)") {
+        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(rxSelection)") {
             guard hasEditedResult else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
@@ -3525,7 +3536,8 @@ struct WODResultInlineEditor: View {
                 ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
             roundsCompleted: format == .amrap || format == .deathBy
                 ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
-            wodTemplateId: wodTemplateId ?? existing?.wodTemplateId
+            wodTemplateId: wodTemplateId ?? existing?.wodTemplateId,
+            isRx: rxSelection == 0 ? nil : (rxSelection == 1)
         ))
     }
 
