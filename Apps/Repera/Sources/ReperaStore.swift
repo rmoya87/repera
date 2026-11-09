@@ -35,13 +35,31 @@ final class ReperaStore: NSObject {
               }),
               let key = phoneRequestedWatchFinishKey else { return }
         // Never navigate for a stale offline import from days earlier.
-        UserDefaults.standard.removeObject(forKey: key)
+        // Drop the token only once that decision is made: deleting it first
+        // burned a valid retry when the freshness check then failed.
         guard let end = finished.finishedAt,
-              abs(end.timeIntervalSinceNow) < 10 * 60 else { return }
+              abs(end.timeIntervalSinceNow) < 10 * 60 else {
+            UserDefaults.standard.removeObject(forKey: key)
+            return
+        }
+        UserDefaults.standard.removeObject(forKey: key)
         NotificationCenter.default.post(
             name: Notification.Name("repera.phoneRequestedWatchFinishSaved"),
             object: finished.startedAt ?? end
         )
+    }
+
+    /// The Comenzar mirror stays up until this UUID is on disk. Then Home.
+    private func releasePhoneRequestedWatchMirror(sessionID: UUID) {
+        guard watchOwnedLive?.id == sessionID
+            || LiveActivityRecorder.shared.sessionID == sessionID else { return }
+        if watchOwnedLive?.id == sessionID {
+            watchOwnedLive = nil
+            watchOwnedLiveOwnerScope = nil
+        }
+        if LiveActivityRecorder.shared.sessionID == sessionID {
+            LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
+        }
     }
 
     func restorePhoneRequestedWatchFinishIfSaved() {
@@ -2400,9 +2418,16 @@ final class ReperaStore: NSObject {
                 || session.liveSportID != nil),
            watchOwnedLive?.id == session.id {
             closedWatchOwnedLiveIDs.insert(session.id)
-            watchOwnedLive = nil
-            watchOwnedLiveOwnerScope = nil
-            LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
+            if isPhoneRequestedWatchFinish(session.id) {
+                // Keep Comenzar on screen until persistAndFlush confirms the save.
+                WorkoutLiveActivityCoordinator.shared.retainWatchOwnedUntilSaved(
+                    sessionID: session.id
+                )
+            } else {
+                watchOwnedLive = nil
+                watchOwnedLiveOwnerScope = nil
+                LiveActivityRecorder.shared.clearWatchOwnedSportMirror()
+            }
         }
         if session.timerDetails != nil, watchTimerMirror?.id == session.id {
             watchTimerMirror = nil
@@ -2448,7 +2473,7 @@ final class ReperaStore: NSObject {
                     }
                 }
                 upsertWorkout(pending)
-                if session.finishedAt != nil {
+                if session.finishedAt != nil, !isPhoneRequestedWatchFinish(session.id) {
                     completeImportedWatchActivity(session)
                 }
                 if state.activeSession?.id == pending.id {
@@ -2481,6 +2506,10 @@ final class ReperaStore: NSObject {
                     }
                     self.lastWatchAcknowledgedSession = session.id
                     self.pushActiveToWatch(immediate: true)
+                    if self.isPhoneRequestedWatchFinish(session.id) {
+                        self.completeImportedWatchActivity(session)
+                        self.releasePhoneRequestedWatchMirror(sessionID: session.id)
+                    }
                     self.revealPhoneRequestedWatchFinishIfPersisted(session.id)
                 }
                 return
@@ -2594,7 +2623,7 @@ final class ReperaStore: NSObject {
                     Task { await refineSessionReviewWithHealth(sessionId: id) }
                 }
             }
-            if session.finishedAt != nil {
+            if session.finishedAt != nil, !isPhoneRequestedWatchFinish(session.id) {
                 completeImportedWatchActivity(session)
             }
             let snapshot = state
@@ -2623,6 +2652,10 @@ final class ReperaStore: NSObject {
                 }
                 self.lastWatchAcknowledgedSession = session.id
                 self.pushActiveToWatch(immediate: true)
+                if self.isPhoneRequestedWatchFinish(session.id) {
+                    self.completeImportedWatchActivity(session)
+                    self.releasePhoneRequestedWatchMirror(sessionID: session.id)
+                }
                 self.revealPhoneRequestedWatchFinishIfPersisted(session.id)
                 if needsSync && BusinessAuthStore.shared.isConnected {
                     _ = await BusinessWorkoutSyncStore.shared.sync(store: self)
@@ -4412,6 +4445,14 @@ extension ReperaStore: PhoneConnectivityDelegate {
                 else { return }
             if snapshot.phase == .review {
                 self.closedWatchOwnedLiveIDs.insert(snapshot.id)
+                if self.isPhoneRequestedWatchFinish(snapshot.id) {
+                    // The Watch publishes .review before sendFinished. Keep the
+                    // mirror until that workout is persisted, then go to Home.
+                    WorkoutLiveActivityCoordinator.shared.retainWatchOwnedUntilSaved(
+                        sessionID: snapshot.id
+                    )
+                    return
+                }
                 if self.watchOwnedLive?.id == snapshot.id {
                     self.watchOwnedLive = nil
                     self.watchOwnedLiveOwnerScope = nil

@@ -42,7 +42,18 @@ class WatchPhoneFinishReviewContractTests(unittest.TestCase):
         self.assertIn("isPhoneRequestedWatchFinish(id)", helper)
         self.assertIn("$0.phase == .finished && $0.finishedAt != nil", helper)
         self.assertIn('name: Notification.Name("repera.phoneRequestedWatchFinishSaved")', helper)
-        self.assertIn("UserDefaults.standard.removeObject(forKey: key)", helper)
+        self.assertLess(
+            helper.index("abs(end.timeIntervalSinceNow) < 10 * 60"),
+            helper.index("UserDefaults.standard.removeObject(forKey: key)"),
+        )
+        self.assertLess(
+            store.index("await LocalStore.shared.persistAndFlush(snapshot)"),
+            store.index("self.releasePhoneRequestedWatchMirror(sessionID: session.id)"),
+        )
+        self.assertLess(
+            store.index("self.releasePhoneRequestedWatchMirror(sessionID: session.id)"),
+            store.index("self.revealPhoneRequestedWatchFinishIfPersisted(session.id)"),
+        )
         self.assertIn('for: Notification.Name("repera.phoneRequestedWatchFinishSaved")', root)
         self.assertIn("homeFocusDay = day", root)
         self.assertIn("tab = .home", root)
@@ -74,6 +85,27 @@ class WatchPhoneFinishReviewContractTests(unittest.TestCase):
         self.assertIn("var saved = state.workouts[index]", store)
         self.assertIn("if changed { upsertWorkout(saved) }", store)
         self.assertIn("closedWatchOwnedLiveIDs.insert(session.id)", store)
+        receive = store.split("func phoneConnectivityDidReceiveWatchOwnedLive(", 1)[1].split(
+            "func phoneConnectivityDidReceive(session:", 1
+        )[0]
+        review = receive.split("if snapshot.phase == .review", 1)[1].split(
+            "guard !self.closedWatchOwnedLiveIDs", 1
+        )[0]
+        self.assertLess(
+            review.index("isPhoneRequestedWatchFinish(snapshot.id)"),
+            review.index("clearWatchOwnedSportMirror()"),
+        )
+        self.assertIn("retainWatchOwnedUntilSaved(", review)
+        self.assertIn("sessionID: snapshot.id", review)
+        early = store.split("Close the UI mirror", 1)[1].split("if session.timerDetails", 1)[0]
+        self.assertLess(
+            early.index("isPhoneRequestedWatchFinish(session.id)"),
+            early.index("clearWatchOwnedSportMirror()"),
+        )
+        self.assertIn(
+            "if session.finishedAt != nil, !isPhoneRequestedWatchFinish(session.id)",
+            store,
+        )
 
 
 if __name__ == "__main__":

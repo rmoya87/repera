@@ -99,6 +99,10 @@ final class WorkoutLiveActivityCoordinator {
     func updateWatchOwned(_ snapshot: WatchLiveActivitySnapshot) async {
         let id = "watch:" + snapshot.id.uuidString
         guard mayAcceptWatchOwned(snapshot) else { return }
+        // Record the attempt so an older capture cannot overtake this one while
+        // ActivityKit is in flight. Roll it back if no card was actually created:
+        // the same snapshot must be able to retry.
+        let previousMark = watchMarks[id]
         lastWatchCaptureAt[id] = snapshot.capturedAt
         watchMarks[id] = WatchDeliveryMark(
             capture: snapshot.capturedAt, closed: snapshot.phase == .review,
@@ -171,7 +175,44 @@ final class WorkoutLiveActivityCoordinator {
             )
         }
         // Always watch:UUID so widget hides phone-side controls for Watch-owned work.
-        await upsert(id: id, isPlanned: false, state: state)
+        let shown = await upsert(id: id, isPlanned: false, state: state)
+        guard shown else {
+            rollbackWatchDeliveryMark(
+                id: id, capture: snapshot.capturedAt, previous: previousMark
+            )
+            return
+        }
+    }
+
+    /// A failed ActivityKit request must not consume this capture. A newer mark
+    /// or a closed session is left untouched.
+    private func rollbackWatchDeliveryMark(
+        id: String, capture: Date, previous: WatchDeliveryMark?
+    ) {
+        guard let current = watchMarks[id],
+              !current.closed,
+              current.capture == capture else { return }
+        if let previous {
+            watchMarks[id] = previous
+            lastWatchCaptureAt[id] = previous.capture
+        } else {
+            watchMarks.removeValue(forKey: id)
+            lastWatchCaptureAt.removeValue(forKey: id)
+        }
+        persistWatchMarks()
+    }
+
+    /// Phone asked the Watch to finish this UUID. Further live snapshots must
+    /// not rewind it, but the ActivityKit card stays until the workout is saved.
+    func retainWatchOwnedUntilSaved(sessionID: UUID) {
+        let id = "watch:" + sessionID.uuidString
+        closedSessionIDs.insert(id)
+        watchMarks[id] = WatchDeliveryMark(
+            capture: max(watchMarks[id]?.capture ?? .distantPast, Date()),
+            closed: true,
+            observed: Date()
+        )
+        persistWatchMarks()
     }
 
     /// Terminal events close the exact Watch UUID. A delayed recording
@@ -295,19 +336,18 @@ final class WorkoutLiveActivityCoordinator {
         }
     }
 
+    @discardableResult
     private func upsert(
         id: String,
         isPlanned: Bool,
         state: TrainingActivityAttributes.ContentState
-    ) async {
+    ) async -> Bool {
         guard ActivityAuthorizationInfo().areActivitiesEnabled,
-              !closedSessionIDs.contains(id) else { return }
+              !closedSessionIDs.contains(id) else { return false }
         // A cached attempt is not proof ActivityKit actually created a card.
         // Retry even identical Watch snapshots if the previous request failed.
-        let exists = Activity<TrainingActivityAttributes>.activities.contains {
-            $0.attributes.sessionID == id
-        }
-        if let previous = latestStates[id], previous == state, exists { return }
+        let exists = activityExists(id)
+        if let previous = latestStates[id], previous == state, exists { return true }
         latestStates[id] = state
 
         // No heredar una Live Activity huérfana de otro entrenamiento del mismo tipo.
@@ -319,12 +359,14 @@ final class WorkoutLiveActivityCoordinator {
 
         // An awaited ActivityKit operation may interleave with a Watch finish
         // or a newer snapshot; neither should resurrect an older state.
-        guard !closedSessionIDs.contains(id), latestStates[id] == state else { return }
+        guard !closedSessionIDs.contains(id), latestStates[id] == state else {
+            return activityExists(id)
+        }
         if let activity = Activity<TrainingActivityAttributes>.activities.first(where: {
             $0.attributes.sessionID == id
         }) {
             await activity.update(ActivityContent(state: state, staleDate: nil))
-            return
+            return true
         }
         do {
             // `.token` enables remote updates / push-to-start once APNs is wired.
@@ -335,6 +377,7 @@ final class WorkoutLiveActivityCoordinator {
                 pushType: .token
             )
             LiveActivityPushTokenStore.startObservingIfNeeded()
+            return true
         } catch {
             // Local-only activities do not require an APNs push token. If the
             // remote-update variant is rejected by provisioning, still show
@@ -345,10 +388,22 @@ final class WorkoutLiveActivityCoordinator {
                     content: ActivityContent(state: state, staleDate: nil),
                     pushType: nil
                 )
+                return true
             } catch {
-                latestStates.removeValue(forKey: id)
+                // Only the failed attempt is forgotten. A newer snapshot that
+                // replaced `latestStates` during the request must stay cached.
+                if latestStates[id] == state {
+                    latestStates.removeValue(forKey: id)
+                }
                 logger.error("Training Live Activity: \(String(describing: error), privacy: .public)")
+                return activityExists(id)
             }
+        }
+    }
+
+    private func activityExists(_ id: String) -> Bool {
+        Activity<TrainingActivityAttributes>.activities.contains {
+            $0.attributes.sessionID == id
         }
     }
 

@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-08.
+Última actualización: 2026-11-09.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -144,6 +144,20 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Live Activity y fin Watch pedido en el iPhone (09/11/2026)
+
+- No dar por aceptado un snapshot Watch antes de que ActivityKit cree la
+  tarjeta. `watchMarks` con `capturedAt > mark.capture` bloquea el reintento
+  del mismo dato si la marca se queda tras un `Activity.request` fallido.
+  Revertir solo esa captura (`rollbackWatchDeliveryMark`); no pisar una marca
+  más nueva ni una sesión `closed`.
+- El reloj publica `.review` antes de `sendFinished`. Ese snapshot no puede
+  hacer `clearWatchOwnedSportMirror` si el fin lo pidió el iPhone: Comenzar
+  sigue hasta `persistAndFlush` y solo entonces Inicio. Borrar el UUID de
+  `phoneRequestedFinish` antes del chequeo de 10 min quema la recuperación.
+- Contratos: `tests/test_watch_live_activity_retry_contract.py`,
+  `tests/test_watch_phone_finish_review_contract.py`.
 
 #### Inicio — Descartar|Revisar Watch (09/11/2026)
 
