@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import dev.repera.domain.LiveSport
@@ -109,7 +110,7 @@ internal object SessionSummaryTilesBuilder {
             return listOf(
                 time,
                 SessionSummaryTileSpec("Kcal", kcalValue, Icons.Outlined.LocalFireDepartment, orange),
-                SessionSummaryTileSpec("Pasos", stepsValue, Icons.Outlined.DirectionsWalk, accent)
+                SessionSummaryTileSpec("Pasos", stepsValue, Icons.AutoMirrored.Outlined.DirectionsWalk, accent)
             )
         }
 
@@ -125,7 +126,7 @@ internal object SessionSummaryTilesBuilder {
             val third = if (averageHeartRateBpm != null && averageHeartRateBpm > 0) {
                 SessionSummaryTileSpec("FC media", hrValue, Icons.Outlined.Favorite, red)
             } else {
-                SessionSummaryTileSpec("Pasos", stepsValue, Icons.Outlined.DirectionsWalk, accent)
+                SessionSummaryTileSpec("Pasos", stepsValue, Icons.AutoMirrored.Outlined.DirectionsWalk, accent)
             }
             return listOf(
                 time,

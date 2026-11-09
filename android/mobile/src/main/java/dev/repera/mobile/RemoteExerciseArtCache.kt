@@ -58,7 +58,7 @@ internal object RemoteExerciseArtCache {
         runCatching {
             http.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return
-                val bytes = response.body?.bytes() ?: return
+                val bytes = response.body.bytes()
                 if (bytes.isEmpty()) return
                 val dest = fileFor(context, stem)
                 val tmp = File(dest.path + ".tmp")

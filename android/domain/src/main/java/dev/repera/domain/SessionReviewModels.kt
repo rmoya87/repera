@@ -165,7 +165,8 @@ data class ReviewIndicator(
 
 /** Informe post-entreno (WOD + movimientos). La nota queda acotada 1..10
  *  como en el init/decodificador iOS. */
-data class SessionReview private constructor(
+@ConsistentCopyVisibility
+data class SessionReview internal constructor(
     val overallScore: Int,
     val level: AthleteLevel? = null,
     val headline: String,

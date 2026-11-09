@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -469,7 +470,7 @@ private fun PlaySessionPlanFooter(
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 PlanEditorActionRow(
-                    icon = Icons.Outlined.List,
+                    icon = Icons.AutoMirrored.Outlined.List,
                     label = "Elegir WOD",
                     modifier = Modifier.testTag("play_pick_wod"),
                     onClick = { showWods = true },
@@ -682,7 +683,7 @@ private fun ActiveWorkoutReviewScreen(
                 WorkoutSummaryTile(
                     title = "Ejercicios",
                     value = "${workout.total}",
-                    icon = Icons.Outlined.List,
+                    icon = Icons.AutoMirrored.Outlined.List,
                     modifier = Modifier.weight(1f),
                     iconTint = brandGreen
                 )

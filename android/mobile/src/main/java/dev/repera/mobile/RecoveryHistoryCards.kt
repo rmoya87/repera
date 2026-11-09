@@ -354,7 +354,7 @@ private fun CycleHistoryCard(recovery: RecoveryState, monday: Boolean) {
                     Text(
                         start.plusDays(offset.toLong()).dayOfWeek.getDisplayName(
                             java.time.format.TextStyle.NARROW,
-                            java.util.Locale("es")
+                            java.util.Locale.forLanguageTag("es")
                         ),
                         Modifier.weight(1f)
                     )

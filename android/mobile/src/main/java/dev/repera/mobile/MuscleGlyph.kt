@@ -52,7 +52,7 @@ enum class BodyPartGlyphArea {
 }
 
 private fun Path.quad(cx: Float, cy: Float, x: Float, y: Float) =
-    quadraticBezierTo(cx, cy, x, y)
+    quadraticTo(cx, cy, x, y)
 private fun Path.oval(x: Float, y: Float, w: Float, h: Float) =
     addOval(Rect(x, y, x + w, y + h))
 

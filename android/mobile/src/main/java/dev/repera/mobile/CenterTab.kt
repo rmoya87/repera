@@ -58,7 +58,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-private enum class CenterSection(val kind: String?, @StringRes val label: Int) {
+private enum class CenterSection(val kind: String?, @param:StringRes val label: Int) {
     CLASSES("class", R.string.center_section_classes),
     APPOINTMENTS("appointment", R.string.center_section_appointments),
     OPEN_ACCESS("open_access", R.string.center_section_open_access),
@@ -109,7 +109,7 @@ internal fun CenterTab(
     val now = remember { Instant.now() }
     val zone = remember { ZoneId.systemDefault() }
     val dayFmt = remember {
-        DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale("es")).withZone(zone)
+        DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.forLanguageTag("es")).withZone(zone)
     }
     val hasLinkedCenters = connected && snapshot?.athleteCenterIds.orEmpty().isNotEmpty()
     val showOpenAccess = snapshot?.centers.orEmpty().any { snapshot?.openAccessEnabled(it.id) == true }
@@ -551,8 +551,8 @@ private fun LazyListScope.centerAgendaItems(
                 today -> stringResource(R.string.center_agenda_today)
                 today.plusDays(1) -> stringResource(R.string.center_agenda_tomorrow)
                 else -> remember(day) {
-                    DateTimeFormatter.ofPattern("EEEE, d MMM", Locale("es")).format(day)
-                        .replaceFirstChar { it.titlecase(Locale("es")) }
+                    DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.forLanguageTag("es")).format(day)
+                        .replaceFirstChar { it.titlecase(Locale.forLanguageTag("es")) }
                 }
             }
             ReperaSectionTitle(label, modifier = Modifier.semantics { heading() })
@@ -730,7 +730,7 @@ private fun InvitationFound(
     }
     preview.expiresAt?.let { raw -> runCatching { Instant.parse(raw) }.getOrNull() }?.let { expires ->
         Text(stringResource(R.string.invitation_expires,
-            DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale("es"))
+            DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag("es"))
                 .withZone(ZoneId.systemDefault()).format(expires)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)

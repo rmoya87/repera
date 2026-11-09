@@ -212,7 +212,7 @@ internal fun RouteMapView(
     }
     // Lifecycle MapLibre: onStart/Resume/... atados al ciclo del composable
     // (sin ello el mapa pierde GL o gasta batería en segundo plano).
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->

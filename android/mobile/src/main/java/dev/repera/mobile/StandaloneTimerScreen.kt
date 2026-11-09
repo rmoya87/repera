@@ -81,7 +81,6 @@ private object TimerFeedback {
     fun complete(context: android.content.Context) {
         beep(500)
         runCatching {
-            @Suppress("DEPRECATION")
             val vibrator = context.getSystemService(Vibrator::class.java)
             vibrator?.vibrate(
                 VibrationEffect.createOneShot(250, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -527,7 +526,9 @@ internal fun StandaloneTimerScreen(
             androidx.compose.runtime.SideEffect {
                 (clockView.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window?.let { w ->
                     androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
+                    @Suppress("DEPRECATION")
                     w.statusBarColor = android.graphics.Color.TRANSPARENT
+                    @Suppress("DEPRECATION")
                     w.navigationBarColor = android.graphics.Color.TRANSPARENT
                     androidx.core.view.WindowInsetsControllerCompat(w, clockView).apply {
                         isAppearanceLightStatusBars = false

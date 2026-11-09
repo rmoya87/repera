@@ -48,7 +48,7 @@ class AccountDeletionClient(
             .post(body)
             .build()
         http.newCall(request).execute().use { response ->
-            val payload = response.body?.string().orEmpty()
+            val payload = response.body.string().orEmpty()
             val json = runCatching { JSONObject(payload) }.getOrNull()
             if (response.code !in 200..299 || json?.optBoolean("ok") != true) {
                 throw AccountDeletionException(

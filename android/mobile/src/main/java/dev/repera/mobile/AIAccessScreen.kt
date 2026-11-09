@@ -1,5 +1,8 @@
 package dev.repera.mobile
 
+import android.content.ClipData
+import android.content.ClipboardManager
+
 import dev.repera.mobile.analytics.ReperaAnalytics
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -31,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -77,7 +81,7 @@ internal fun aiLastUseLabel(token: AIAccessStore.TokenInfo): String? {
             java.time.OffsetDateTime.parse(raw).toInstant() }.getOrNull()
         ?: return null
     val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm",
-        java.util.Locale("es", "ES"))
+        java.util.Locale.forLanguageTag("es-ES"))
     return "Último uso: " + fmt.format(
         date.atZone(java.time.ZoneId.systemDefault()))
 }
@@ -89,8 +93,14 @@ internal fun aiExpiryLabel(token: AIAccessStore.TokenInfo): String {
         raw.take(10)
     val day = instant.atZone(ZoneId.systemDefault()).toLocalDate()
     return "Caduca el " + day.format(
-        DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "ES")))
+        DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-ES")))
 }
+
+private fun copyAiPromptToClipboard(context: android.content.Context, text: String) {
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText("repera-ai", text))
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,7 +191,6 @@ fun AIAccessScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
                 val context = androidx.compose.ui.platform.LocalContext.current
                 var launchHint by remember { mutableStateOf<String?>(null) }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -202,9 +211,7 @@ fun AIAccessScreen(
                                         )
                                     )
                                     val prompt = AIProviderLaunch.instructions(provider)
-                                    clipboard.setText(
-                                        androidx.compose.ui.text.AnnotatedString(prompt)
-                                    )
+                                    copyAiPromptToClipboard(context, prompt)
                                     val opened = AIProviderLaunch.openProvider(
                                         context, provider.id, prompt
                                     )
@@ -272,7 +279,6 @@ fun AIAccessScreen(
         }
         instructionsFor?.let { provider ->
             val text = AIProviderLaunch.instructions(provider)
-            val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
             val context = androidx.compose.ui.platform.LocalContext.current
             AlertDialog(onDismissRequest = { instructionsFor = null },
                 title = { Text(provider.name) },
@@ -283,7 +289,7 @@ fun AIAccessScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
+                        copyAiPromptToClipboard(context, text)
                         AIProviderLaunch.openProvider(context, provider.id, text)
                         instructionsFor = null
                     }) { Text("Copiar y abrir ${provider.name}") }
@@ -329,7 +335,11 @@ fun AIAccessScreen(
                             label = { Text("Caducidad") },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(expiryMenu) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth())
+                            modifier = Modifier
+                                .menuAnchor(
+                                    type = ExposedDropdownMenuAnchorType.PrimaryNotEditable
+                                )
+                                .fillMaxWidth())
                         ExposedDropdownMenu(expanded = expiryMenu,
                             onDismissRequest = { expiryMenu = false }) {
                             aiExpiryOptions.forEach { (value, label) ->
@@ -437,15 +447,11 @@ fun AIAccessScreen(
                                     ) {
                                         val context =
                                             androidx.compose.ui.platform.LocalContext.current
-                                        val clipboard =
-                                            androidx.compose.ui.platform.LocalClipboardManager.current
                                         TextButton(
                                             onClick = {
                                                 val prompt =
                                                     AIProviderLaunch.instructions(openProvider)
-                                                clipboard.setText(
-                                                    androidx.compose.ui.text.AnnotatedString(prompt)
-                                                )
+                                                copyAiPromptToClipboard(context, prompt)
                                                 AIProviderLaunch.openProvider(
                                                     context, openProvider.id, prompt
                                                 )

@@ -17,7 +17,7 @@ object ExerciseDisciplineTags {
     internal fun normalized(name: String): String {
         val stripped = Normalizer.normalize(name.trim(), Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
-        return stripped.lowercase(Locale("es", "ES"))
+        return stripped.lowercase(Locale.forLanguageTag("es-ES"))
     }
 
     private val crossFitGeneral = setOf(

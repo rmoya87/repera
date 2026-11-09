@@ -169,6 +169,12 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - `onAppear` de Inicio: `formUnion` de dismissals, nunca sustituir por un set
   vacío si `ownerScope` aún no está listo.
 - Contrato: `test_home_review_actions_clear_awaiting_result_entry_durably`.
+- Android (paridad): `return@paramName` en un lambda de parámetro nombrado
+  (`onAcknowledgeWatchReview = { … }`) es «Unresolved label». Usar label
+  explícito (`acknowledge@{ …; return@acknowledge }`), como `sendChat@` /
+  `loadThread@` en `MainActivity`. `var x by remember { mutableStateOf(…) }`
+  exige `import androidx.compose.runtime.getValue` + `setValue` (FQN de
+  `remember`/`mutableStateOf` no basta).
 
 #### Apple — `Self.` en init de stored property + atributos sueltos (09/11/2026)
 

@@ -20,8 +20,8 @@ internal val LocalEditPendingSet = staticCompositionLocalOf<(String, Int, Double
 
 internal object SessionMovementText {
     fun lines(m: dev.repera.domain.SessionMovement): List<String> = buildList {
-        m.steps?.let { add("Pasos: %,d".format(java.util.Locale("es", "ES"), it)) }
-        m.distanceMeters?.let { add("${m.distanceLabel ?: "Distancia"}: %.2f km".format(java.util.Locale("es", "ES"), it / 1000)) }
+        m.steps?.let { add("Pasos: %,d".format(java.util.Locale.forLanguageTag("es-ES"), it)) }
+        m.distanceMeters?.let { add("${m.distanceLabel ?: "Distancia"}: %.2f km".format(java.util.Locale.forLanguageTag("es-ES"), it / 1000)) }
         if (m.usesTimeWindow) add("Muestras de Salud dentro del horario de la sesión, no ligadas a ella")
     }
 }

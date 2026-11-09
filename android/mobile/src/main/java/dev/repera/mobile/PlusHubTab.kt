@@ -99,7 +99,7 @@ internal fun PlusHubTab(
         mutableStateOf<BusinessCenterStore.Booking?>(null)
     }
     val zone = remember { ZoneId.systemDefault() }
-    val es = remember { Locale("es", "ES") }
+    val es = remember { Locale.forLanguageTag("es-ES") }
     val dayFmt = remember {
         DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
     }
@@ -485,7 +485,7 @@ internal fun ClassDetailPage(
     }
     val hasPlan = planInfos.isNotEmpty() && associatedSession != null
     val shortDateFmt = remember {
-        DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "ES")).withZone(ZoneId.systemDefault())
+        DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es-ES")).withZone(ZoneId.systemDefault())
     }
     val subtitle = if (start != null) {
         "${shortDateFmt.format(start)} · ${dayFmt.format(start)}"
@@ -525,8 +525,9 @@ internal fun ClassDetailPage(
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
                         .clickable(role = androidx.compose.ui.semantics.Role.Button) {
-                            if (hasPlan && associatedSession != null) {
-                                onStartClassPlan(associatedSession)
+                            val planSession = associatedSession
+                            if (planSession != null && planInfos.isNotEmpty()) {
+                                onStartClassPlan(planSession)
                             } else {
                                 val training = occurrence.trainingTitle?.trim().orEmpty()
                                 val title = training.ifEmpty { occurrence.title }
@@ -606,7 +607,7 @@ internal fun ClassDetailPage(
 
                 // Bloques como entreno programado (RoutinePlanBreakdown); solo si hay ejercicios.
                 if (hasPlan) {
-                    associatedSession?.instructions?.takeIf { it.isNotBlank() }?.let { notes ->
+                    associatedSession.instructions.takeIf { it.isNotBlank() }?.let { notes ->
                         Text(
                             notes,
                             style = MaterialTheme.typography.bodyMedium,
@@ -1085,7 +1086,7 @@ private fun PaymentRow(snapshot: BusinessCenterStore.Snapshot?, pass: BusinessCe
         }
         pass.paidAmountCents?.let { cents ->
             Text(
-                String.format(Locale("es"), "%.2f €", cents / 100.0),
+                String.format(Locale.forLanguageTag("es"), "%.2f €", cents / 100.0),
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -1362,10 +1363,10 @@ private fun PlanCard(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    pass.validUntil?.let { raw ->
+                    pass.validUntil.let { raw ->
                         val formatted = runCatching {
                             Instant.parse(raw).atZone(ZoneId.systemDefault()).toLocalDate()
-                                .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es")))
+                                .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es")))
                         }.getOrDefault(raw)
                         Text("Hasta $formatted", style = MaterialTheme.typography.labelSmall)
                     }

@@ -587,7 +587,7 @@ object SportExerciseNames {
 
     private fun key(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "")
-        .lowercase(Locale("es", "ES"))
+        .lowercase(Locale.forLanguageTag("es-ES"))
 
     private fun aliasKey(raw: String): String {
         val folded = key(raw)

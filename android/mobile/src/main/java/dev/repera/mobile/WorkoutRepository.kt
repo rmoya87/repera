@@ -2234,7 +2234,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             if (rid in finishedRoutineIDs) continue
             val preview = runCatching { assembleSession(state, routine) }.getOrNull()
             if (preview?.optJSONArray("exercises")?.length()?.let { it > 0 } != true) continue
-            if (bestPersonal == null || day.isAfter(bestPersonal!!.first)) {
+            if (bestPersonal == null || day.isAfter(bestPersonal.first)) {
                 bestPersonal = day to routine
             }
         }
@@ -2248,7 +2248,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             val day = runCatching { LocalDate.parse(assigned.scheduledDate.take(10)) }.getOrNull()
                 ?: continue
             if (!day.isBefore(today)) continue
-            if (bestBusiness == null || day.isAfter(bestBusiness!!.first)) {
+            if (bestBusiness == null || day.isAfter(bestBusiness.first)) {
                 bestBusiness = day to assigned
             }
         }

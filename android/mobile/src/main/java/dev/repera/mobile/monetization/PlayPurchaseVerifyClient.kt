@@ -60,7 +60,7 @@ class PlayPurchaseVerifyClient(
             .build()
         try {
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 val json = runCatching { JSONObject(body) }.getOrNull()
                 when (response.code) {
                     in 200..299 -> {

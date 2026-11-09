@@ -63,6 +63,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -608,7 +609,7 @@ fun ReperaMobileScreen(
         val showTabBar = currentRoute != "mensajes" &&
             (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)) &&
             !liveSessionHidesTab
-        val showChromeTopBar = currentRoute != null && currentRoute !in tabRoutes && !hideAppShell
+        val showChromeTopBar = currentRoute !in tabRoutes && !hideAppShell
         var tabBarChromeHeightDp by remember { mutableStateOf(0.dp) }
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -666,13 +667,13 @@ fun ReperaMobileScreen(
                         ?: session.title.takeIf { it.isNotBlank() }
                         ?: "Entreno"
                     livePending && !onComenzarTab ->
-                        liveRuntime?.state?.sport?.title ?: "Actividad en vivo"
+                        liveRuntime.state.sport.title
                     else -> null
                 }
                 val continueProgress = when {
                     session != null && session.total > 0 ->
                         "${session.index + 1}/${session.total}"
-                    livePending && liveRuntime != null -> {
+                    livePending -> {
                         val now = if (liveClock > 0L) liveClock else System.currentTimeMillis()
                         val st = liveRuntime.state
                         val secs = st.durationSeconds(now).toInt().coerceAtLeast(0)
@@ -716,7 +717,7 @@ fun ReperaMobileScreen(
                     }
                 ) {
                     val liveSportIcon = if (livePending && session == null) {
-                        liveRuntime?.state?.sport?.materialIcon
+                        liveRuntime.state.sport.materialIcon
                     } else null
                     ReperaTabBarChrome(
                         showTabBar = showTabBar,
@@ -1343,9 +1344,9 @@ fun ReperaMobileScreen(
                 }
                 composable("reloj") {
                     val clockWorkout = activeWorkout
-                    val canShowClock = clockWorkout != null &&
+                    if (clockWorkout != null &&
                         (clockWorkout.wod != null || manualClockConfig != null)
-                    if (canShowClock && clockWorkout != null) {
+                    ) {
                         WodClockScreen(
                             active = clockWorkout,
                             busy = busy,
@@ -1672,8 +1673,9 @@ fun ReperaMobileScreen(
                     arguments = listOf(navArgument("routineId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val routineId = backStackEntry.arguments?.getString("routineId").orEmpty()
-                    val routine = overview?.routineEntries?.firstOrNull { it.id == routineId }
-                    if (routine == null) {
+                    val editorOverview = overview
+                    val routine = editorOverview?.routineEntries?.firstOrNull { it.id == routineId }
+                    if (editorOverview == null || routine == null) {
                         LaunchedEffect(Unit) { navController.popBackStack() }
                     } else {
                         // Editor sobre borrador local (RoutineBlocksEditorScreen):
@@ -1690,13 +1692,13 @@ fun ReperaMobileScreen(
                             )
                         }
                         RoutineBlocksEditorScreen(accountId=accountId,
-                            effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                            effortUnit = editorOverview.trainingSettings.effortUnit,
                             routine = routine,
                             saveStatus=editorSaveStatus(status),
-                            exercises = overview?.exerciseEntries.orEmpty(),
+                            exercises = editorOverview.exerciseEntries,
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
-                            importableRoutines = overview?.routineEntries.orEmpty(),
+                            importableRoutines = editorOverview.routineEntries,
                             // Misma maqueta que Crear cuando es entreno del día.
                             oneOffEditor = routine.scheduledDate != null,
                             pageTitle = if (routine.scheduledDate != null) "Editar entreno" else null,
@@ -1967,7 +1969,7 @@ internal fun SettingsTab(
             confirmTitle = "Cerrar sesión",
             onConfirm = { confirmSignOut = false; onSignOut() },
             onCancel = { confirmSignOut = false },
-            icon = Icons.Outlined.Logout,
+            icon = Icons.AutoMirrored.Outlined.Logout,
             confirmDestructive = true
         )
     }
@@ -2064,7 +2066,7 @@ internal fun SettingsTab(
                                     append(
                                         java.text.SimpleDateFormat(
                                             "d MMM yyyy",
-                                            java.util.Locale("es", "ES")
+                                            java.util.Locale.forLanguageTag("es-ES")
                                         ).format(java.util.Date(exp))
                                     )
                                 }

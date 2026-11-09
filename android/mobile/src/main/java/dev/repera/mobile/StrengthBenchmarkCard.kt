@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -118,10 +119,10 @@ internal fun StrengthBenchmarkVisual(
     }
     val emptyIcon = when {
         rows == null -> Icons.Outlined.Info
-        peakKg == null -> Icons.Outlined.ShowChart
+        peakKg == null -> Icons.AutoMirrored.Outlined.ShowChart
         sex == null || birthYear == null -> Icons.Outlined.Person
         bodyWeightKg == null || bodyWeightKg <= 0 -> Icons.Outlined.Info
-        else -> Icons.Outlined.ShowChart
+        else -> Icons.AutoMirrored.Outlined.ShowChart
     }
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -133,8 +134,8 @@ internal fun StrengthBenchmarkVisual(
             }
         }
         if (valid) {
-            val score = peakKg!!
-            val median = p50!!.weightKg
+            val score = peakKg
+            val median = p50.weightKg
             val marks = listOfNotNull(score, lastKg?.takeUnless { coincide })
             val lo = (kotlin.math.min(median - 3 * sigma, marks.minOrNull() ?: score))
                 .coerceAtLeast(0.0)

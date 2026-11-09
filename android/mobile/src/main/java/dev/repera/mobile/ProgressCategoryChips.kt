@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,11 +42,11 @@ internal enum class ProgressCategory(
     val title: String,
     val icon: ImageVector,
     val accent: Color,
-    @StringRes val titleRes: Int
+    @param:StringRes val titleRes: Int
 ) {
     TRAINING("Entreno", Icons.Outlined.Bolt, ReperaAccents.training, R.string.progress_category_training),
     STRENGTH("Fuerza", Icons.Outlined.FitnessCenter, ReperaAccents.strength, R.string.progress_category_strength),
-    FITNESS("Físico", Icons.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
+    FITNESS("Físico", Icons.AutoMirrored.Outlined.DirectionsWalk, ReperaAccents.fitness, R.string.progress_category_fitness),
     HEART("Corazón", Icons.Outlined.MonitorHeart, ReperaAccents.heart, R.string.progress_category_heart),
     RECOVERY("Recuperación", Icons.Outlined.DarkMode, ReperaAccents.recovery, R.string.progress_category_recovery),
     SPORTS("Deportes", Icons.Outlined.Flag, ReperaAccents.sports, R.string.progress_category_sports);

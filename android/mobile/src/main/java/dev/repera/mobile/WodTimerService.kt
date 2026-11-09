@@ -36,7 +36,7 @@ internal class WodTimerService : Service() {
             val key=lastStoreKey
             if(key==null || !serviceIdentityCurrent(key.owner,identityRevision)) {stopSelf();return}
             val state = key.read(this@WodTimerService)
-            if (specData == null || state == null || !state.running) {
+            if (specData == null || !state.running) {
                 stopSelf()
                 return
             }

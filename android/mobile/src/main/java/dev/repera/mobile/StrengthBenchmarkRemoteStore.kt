@@ -95,7 +95,7 @@ internal class StrengthBenchmarkRemoteStore(private val context: Context) {
             .build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("head HTTP ${response.code}")
-            val arr = JSONArray(response.body?.string().orEmpty().ifBlank { "[]" })
+            val arr = JSONArray(response.body.string().orEmpty().ifBlank { "[]" })
             if (arr.length() == 0) return 0L
             return arr.getJSONObject(0).optLong("id", 0)
         }
@@ -112,7 +112,7 @@ internal class StrengthBenchmarkRemoteStore(private val context: Context) {
             .build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("bootstrap HTTP ${response.code}")
-            return JSONObject(response.body?.string() ?: error("bootstrap vacío"))
+            return JSONObject(response.body.string())
         }
     }
 
@@ -128,7 +128,7 @@ internal class StrengthBenchmarkRemoteStore(private val context: Context) {
             .build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("delta HTTP ${response.code}")
-            return JSONObject(response.body?.string() ?: error("delta vacío"))
+            return JSONObject(response.body.string())
         }
     }
 

@@ -476,7 +476,7 @@ object ProgressSnapshotBuilder {
                 .toSet()
                 .size,
             hubDailyVolumeKg = run {
-                val start = range.startDate(now, monday) ?: now
+                val start = range.startDate(now, monday)
                 generateSequence(start) { it.plusDays(1) }
                     .takeWhile { !it.isAfter(now) }
                     .map { day ->

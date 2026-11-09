@@ -623,14 +623,14 @@ object BoardScanLiteParser {
         }
         val loadSuffix=Regex("(?<!\\S)#?\\s*\\d+(?:[.,]\\d+)?\\s*/\\s*\\d+(?:[.,]\\d+)?\\s*kg\\s*$",RegexOption.IGNORE_CASE).find(annotated)?.takeUnless {annotated.substring(0,it.range.first).trimEnd().endsWith("-") || annotated.substring(0,it.range.first).trimEnd().endsWith("–")}
         val parentLoad=loadSuffix?.let {CrossFitGlossary.parseMaleFemaleWeights(it.value)?.takeIf {pair ->pair.first.isFinite() && pair.second.isFinite() && pair.second>0}}
-        val unloaded=if(parentLoad!=null) annotated.removeRange(loadSuffix!!.range).trim() else annotated
+        val unloaded=if(parentLoad!=null) annotated.removeRange(loadSuffix.range).trim() else annotated
         val waveMatch=Regex("^(\\d+(?:\\s*[-–]\\s*\\d+)+)\\s+").find(unloaded)
         val wave=waveMatch?.groupValues?.get(1)?.split(Regex("\\s*[-–]\\s*"))?.mapNotNull {it.toIntOrNull()}
         val validWave=wave?.takeIf {it.size>=2 && it.size==waveMatch.groupValues[1].split(Regex("[-–]")).size && it.all {n ->n in 1..100000} && !CrossFitGlossary.isAscendingRepRange(it)}
         val multiplierMatch=Regex("^(\\d+)\\s*[x×X]\\s*").find(unloaded)
         val multiplier=multiplierMatch?.groupValues?.get(1)?.toIntOrNull()
         if(multiplierMatch!=null && (multiplier==null || multiplier !in 1..200)) return listOf(movement(raw,aliases))
-        val body=when {validWave!=null ->unloaded.removeRange(waveMatch!!.range);multiplierMatch!=null ->unloaded.removeRange(multiplierMatch.range);else ->unloaded}
+        val body=when {validWave!=null ->unloaded.removeRange(waveMatch.range);multiplierMatch!=null ->unloaded.removeRange(multiplierMatch.range);else ->unloaded}
         val parts=body.split(Regex("\\s*\\+\\s*")).map {it.trim()}
         val explicit=Regex("^(\\d+)\\s+[^0-9].*")
         // Bounded full-parser matching for one explicit unloaded movement with

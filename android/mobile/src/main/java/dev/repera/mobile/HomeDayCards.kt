@@ -95,7 +95,7 @@ private val HomeRegisterChipsLeadingInset = 70.dp
 
 /** «ENTRENO · 7:11» (hoy) o «VIERNES · 7:11» (iOS WorkoutListCaption / RegisterSessionChrome). */
 internal fun homeDayTimeCaption(day: LocalDate, timeLabel: String?): String {
-    val locale = Locale("es", "ES")
+    val locale = Locale.forLanguageTag("es-ES")
     val dayLabel = if (day == LocalDate.now()) "ENTRENO"
     else day.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(locale)
     return if (timeLabel.isNullOrBlank()) dayLabel else "$dayLabel · $timeLabel"

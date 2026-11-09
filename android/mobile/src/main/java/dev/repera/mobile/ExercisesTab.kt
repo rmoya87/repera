@@ -331,25 +331,33 @@ internal fun ExercisesTab(
             Row(Modifier.fillMaxSize().testTag("library_split"),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 androidx.compose.foundation.layout.Box(Modifier.weight(1f).testTag("library_selector")) {listContent {selectedExerciseId=it}}
                 androidx.compose.foundation.layout.Box(Modifier.weight(1f).testTag("library_detail")) {
-                    val selected=overview?.exerciseEntries?.firstOrNull {it.id==selectedExerciseId}
-                    if(selected==null) Column(Modifier.fillMaxWidth().padding(24.dp),
-                        verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
-                        Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
-                    } else key(selected.id) {
-                        ExerciseDetailScreen(selected,
-                            testedOneRM=overview?.testedOneRMByExercise?.get(selected.id),
-                            estimatedOneRM=overview?.exerciseProgress?.get(selected.id)?.estimatedOneRM,
-                            incrementKg=overview?.trainingSettings?.weightIncrementKg ?: 2.5,
-                            competitionSex=overview?.trainingSettings?.competitionSex,
-                            birthYear=overview?.trainingSettings?.birthYear,
-                            bodyWeightKg=overview?.bodyWeightHistory?.firstOrNull()?.kg,
-                            strengthReferenceFrame=overview?.trainingSettings?.strengthReferenceFrame
-                                ?: StrengthReferenceFrame.AMATEUR.wire,
-                            onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
-                            onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,repRecords=repRecords,exerciseSeries=exerciseSeries,
-                            onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},
-                            onBack={selectedExerciseId=null})
+                    val detailOverview = overview
+                    val selected = detailOverview?.exerciseEntries?.firstOrNull {
+                        it.id == selectedExerciseId
+                    }
+                    if (detailOverview == null || selected == null) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
+                            Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
+                        }
+                    } else {
+                        key(selected.id) {
+                            ExerciseDetailScreen(selected,
+                                testedOneRM=detailOverview.testedOneRMByExercise[selected.id],
+                                estimatedOneRM=detailOverview.exerciseProgress[selected.id]?.estimatedOneRM,
+                                incrementKg=detailOverview.trainingSettings.weightIncrementKg,
+                                competitionSex=detailOverview.trainingSettings.competitionSex,
+                                birthYear=detailOverview.trainingSettings.birthYear,
+                                bodyWeightKg=detailOverview.bodyWeightHistory.firstOrNull()?.kg,
+                                strengthReferenceFrame=detailOverview.trainingSettings.strengthReferenceFrame,
+                                onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
+                                onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,repRecords=repRecords,exerciseSeries=exerciseSeries,
+                                onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},
+                                onBack={selectedExerciseId=null})
+                        }
                     }
                 }
             }
@@ -385,6 +393,6 @@ private fun ExerciseLibraryRow(
  * español).
  */
 internal object LibraryCollator {
-    private val es = java.text.Collator.getInstance(java.util.Locale("es", "ES"))
+    private val es = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("es-ES"))
     fun compare(a: String, b: String): Int = es.compare(a, b)
 }

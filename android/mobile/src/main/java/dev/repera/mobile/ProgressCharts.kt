@@ -126,7 +126,7 @@ internal data class HeatmapGridModel(
 internal fun buildHeatmapGrid(
     levels: List<Pair<java.time.LocalDate, Int>>,
     range: dev.repera.domain.ProgressTimeRange,
-    locale: java.util.Locale = java.util.Locale("es", "ES")
+    locale: java.util.Locale = java.util.Locale.forLanguageTag("es-ES")
 ): HeatmapGridModel {
     val es = locale
     val dayFmt = java.time.format.DateTimeFormatter.ofPattern("EEE", es)
@@ -150,7 +150,6 @@ internal fun buildHeatmapGrid(
         dev.repera.domain.ProgressTimeRange.DAYS_90 -> 13
         dev.repera.domain.ProgressTimeRange.DAYS_180 -> 26
         dev.repera.domain.ProgressTimeRange.DAYS_360 -> 52
-        else -> 0
     }
     val offsetInWeek = today.dayOfWeek.value - 1 // lunes = 0, como iOS (firstWeekday 2)
     val endOfWeek = today.minusDays(offsetInWeek.toLong())
@@ -400,7 +399,7 @@ internal fun DayPointLineChart(
     val midDay = DayChartPositions.midpoint(points)
     val lastDay = points.last().day
     val shortFormatter = java.time.format.DateTimeFormatter
-        .ofPattern("d MMM", java.util.Locale("es", "ES"))
+        .ofPattern("d MMM", java.util.Locale.forLanguageTag("es-ES"))
     val description = if(readinessPreview) "Ejemplo de recuperación, días 1 a 7; datos ficticios; último punto ${valueFormat(points.last().value)}" else "Gráfica de ${firstDay.format(reperaDayFormatter)} a " +
         "${lastDay.format(reperaDayFormatter)}; " +
         "valores entre ${valueFormat(axisMin)} y ${valueFormat(axisMax)}; " +

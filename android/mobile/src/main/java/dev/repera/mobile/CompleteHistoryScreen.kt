@@ -162,7 +162,7 @@ internal fun CompleteHistoryScreen(overview:StateOverview?,busy:Boolean,accountI
 }
 
 private val historyDayFmt: DateTimeFormatter =
- DateTimeFormatter.ofPattern("EEEE d MMMM", Locale("es", "ES"))
+ DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.forLanguageTag("es-ES"))
 private val historyTimeFmt: DateTimeFormatter =
  DateTimeFormatter.ofPattern("H:mm")
 
@@ -217,7 +217,7 @@ internal fun WorkoutHistoryDetailScreen(
     }
     val weatherJob = async {
      val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
-     val epoch = workoutEpochMs(workout) ?: return@async
+     val epoch = workoutEpochMs(workout)
      val latLon: Pair<Double, Double>? = when {
       sport?.usesGPS == true && workout.routePoints.size >= 2 -> {
        val p = workout.routePoints.first()
@@ -261,7 +261,7 @@ internal fun WorkoutHistoryDetailScreen(
  val subtitle = buildString {
   if (startZ != null) {
    append(startZ.format(historyDayFmt).replaceFirstChar {
-    if (it.isLowerCase()) it.titlecase(Locale("es", "ES")) else it.toString()
+    if (it.isLowerCase()) it.titlecase(Locale.forLanguageTag("es-ES")) else it.toString()
    })
    append(" · ")
    append(startZ.format(historyTimeFmt))
@@ -541,7 +541,7 @@ internal fun WorkoutHistoryDetailScreen(
        WodExerciseThumbnail(resolved, aliases, size = 44.dp)
        Column(Modifier.weight(1f)) {
         Text(
-         resolved?.displayName ?: movement.name.ifBlank { "Ejercicio" },
+         resolved.displayName.ifBlank { movement.name.ifBlank { "Ejercicio" } },
          style = MaterialTheme.typography.titleMedium,
          fontWeight = FontWeight.SemiBold
         )

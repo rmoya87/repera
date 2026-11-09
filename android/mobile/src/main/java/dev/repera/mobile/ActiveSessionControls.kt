@@ -13,6 +13,8 @@ import androidx.compose.material.icons.outlined.Notes
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -75,7 +77,7 @@ internal fun ActiveSessionControls(
                 enabled = !busy && active.navigationEntries.isNotEmpty(),
                 onClick = { choosing = true }
             ) {
-                Icon(Icons.Outlined.List, contentDescription = "Ejercicios")
+                Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "Ejercicios")
             }
             if (showExerciseNav) {
                 IconButton(
@@ -93,7 +95,7 @@ internal fun ActiveSessionControls(
                 }
             }
             IconButton(enabled = !busy, onClick = { editingNotes = true }) {
-                Icon(Icons.Outlined.Notes, contentDescription = if (active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")
+                Icon(Icons.AutoMirrored.Outlined.Notes, contentDescription = if (active.notes.isNullOrBlank()) "Añadir notas" else "Editar notas")
             }
             IconButton(
                 enabled = !busy && !active.isFavorite,

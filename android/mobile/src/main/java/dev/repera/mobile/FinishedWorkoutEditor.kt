@@ -1192,6 +1192,7 @@ internal fun handleItemDrop(
 
 
 /** Deslizar para quitar (OGSwipeDeleteButton de Apple). El estado va ligado al id para no reutilizarse con otra fila. */
+@Suppress("DEPRECATION")
 @Composable
 internal fun SwipeRemove(id: String, tag: String, onRemove: () -> Unit, content: @Composable () -> Unit) {
     androidx.compose.runtime.key(id) {

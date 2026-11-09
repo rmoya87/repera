@@ -132,7 +132,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
             if(exercise==null) Column(Modifier.fillMaxWidth().padding(24.dp)) {
                 Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
                 Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
-            } else key(exercise.id) {exerciseDetail?.invoke(exercise) {selectedExerciseId=null}}
+            } else key(exercise.id) {exerciseDetail.invoke(exercise) {selectedExerciseId=null}}
         }
     } else listContent(Modifier)
     }

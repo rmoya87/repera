@@ -178,7 +178,7 @@ fun SessionPreviewSheet(
 
 /** Etiqueta de día 1:1 con SessionPreviewView.dayLabel iOS. */
 private fun dayLabel(routine: RoutineEntry): String {
-    val locale = Locale("es")
+    val locale = Locale.forLanguageTag("es")
     val day = routine.scheduledDate?.let {
         runCatching { LocalDate.parse(it).dayOfWeek }.getOrNull()
     }?.getDisplayName(TextStyle.FULL, locale)?.replaceFirstChar { it.uppercase(locale) }

@@ -422,21 +422,18 @@ object CompletedWorkoutEditing {
                         val reps = maxOf(0, set.optInt("targetReps"))
                         val tw = if (set.has("targetWeightKg") && !set.isNull("targetWeightKg")) set.getDouble("targetWeightKg") else null
                         val rir = if (set.has("targetRir") && !set.isNull("targetRir")) set.getDouble("targetRir") else null
-                        val ls = prev?.let { JSONObject(it.toString()) } ?: JSONObject().put("id", set.getString("id"))
-                            .put("completedAt", finishedAt ?: java.time.Instant.now().toString())
-                            .put("phase", "work").put("kind", "straight").put("toFailure", false)
-                            .put("drops", JSONArray()).put("clusters", JSONArray())
+                        val ls = JSONObject(prev.toString())
                         ls.put("reps", reps)
                         if (deficit) { if (tw != null) ls.put("deficitCm", Math.round(tw).toInt()) else ls.remove("deficitCm"); ls.remove("weightKg") }
                         else { if (tw != null) ls.put("weightKg", tw) else ls.remove("weightKg"); ls.remove("deficitCm") }
                         if (set.has("targetDurationSeconds") && !set.isNull("targetDurationSeconds")) ls.put("durationSeconds", set.getInt("targetDurationSeconds")) else ls.remove("durationSeconds")
                         if (rir != null) ls.put("rir", rir) else ls.remove("rir")
-                        if (prev != null) ls.put("toFailure", rir == 0.0 && prev.optBoolean("toFailure"))
+                        ls.put("toFailure", rir == 0.0 && prev.optBoolean("toFailure"))
                         // Apple f7109bd7 (editableSetRow): la unidad editada por
                         // serie manda sobre la del ejercicio y la previa.
                         val unit = set.optString("targetQuantityUnit")
                             .takeIf { it == "reps" || it == "meters" || it == "calories" }
-                            ?: item.unit ?: prev?.optString("quantityUnit")?.ifBlank { null }
+                            ?: item.unit ?: prev.optString("quantityUnit").ifBlank { null }
                         if (unit != null) ls.put("quantityUnit", unit)
                         rebuilt.put(ls)
                     }

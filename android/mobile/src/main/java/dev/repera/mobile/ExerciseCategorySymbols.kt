@@ -4,10 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.Chair
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DonutLarge
 import androidx.compose.material.icons.filled.DoorFront
 import androidx.compose.material.icons.filled.DownhillSkiing
@@ -28,6 +25,9 @@ import androidx.compose.material.icons.filled.Square
 import androidx.compose.material.icons.filled.Terrain
 import androidx.compose.material.icons.filled.TripOrigin
 import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -47,7 +47,7 @@ object ExerciseCategorySymbols {
             "crossfit", "cross fit" -> Icons.Filled.FitnessCenter   // figure.cross.training
             "gimnasia", "gimnasticos", "gymnastics", "gymnastic" ->
                 Icons.Filled.SportsGymnastics                       // figure.play
-            "hyrox" -> Icons.Filled.DirectionsRun                   // figure.run
+            "hyrox" -> Icons.AutoMirrored.Filled.DirectionsRun                   // figure.run
             "movilidad", "mobility" -> Icons.Filled.SelfImprovement // figure.flexibility
             "halterofilia", "weightlifting" ->
                 Icons.Filled.FitnessCenter                          // figure.strengthtraining.traditional
@@ -65,7 +65,7 @@ object ExerciseCategorySymbols {
         if (e.contains("mancuerna") || e.contains("dumbbell")) return Icons.Filled.FitnessCenter // dumbbell
         if (e.contains("kettlebell") || e.contains("pesa rusa")) return Icons.Filled.Scale // scalemass
         if (e.contains("lastre") || e.contains("chaleco")) return Icons.Filled.Scale // scalemass
-        if (e.contains("comba")) return Icons.Filled.DirectionsRun // figure.jumprope ≈
+        if (e.contains("comba")) return Icons.AutoMirrored.Filled.DirectionsRun // figure.jumprope ≈
         if (e.contains("cuerda de trepa")) return Icons.Filled.Terrain // figure.climbing
         if (e.contains("paralela") || e.contains("parallete") || e.contains("parallette")) {
             return Icons.Filled.FitnessCenter // strengthtraining.functional
@@ -83,13 +83,13 @@ object ExerciseCategorySymbols {
         if (e.contains("pared") || e.contains("muro")) return Icons.Filled.GridOn // square.grid.3x3
         if (e.contains("puerta")) return Icons.Filled.DoorFront // door.left.hand.closed
         if (e.contains("banda") || e.contains("goma")) return Icons.Filled.DonutLarge // circle.dashed
-        if (e.contains("pica")) return Icons.Filled.CallMade // line.diagonal ≈
+        if (e.contains("pica")) return Icons.AutoMirrored.Filled.CallMade // line.diagonal ≈
         if (e.contains("disco")) return Icons.Filled.Adjust // circle.dotted.circle
         if (e.contains("balon") || e.contains("ball")) return Icons.Filled.SportsBasketball // basketball
         if (e.contains("ski") || e.contains("esqui")) return Icons.Filled.DownhillSkiing // figure.skiing.crosscountry
         if (e.contains("remo") || e.contains("rowerg")) return Icons.Filled.Rowing // figure.rower
-        if (e.contains("cinta de correr") || e.contains("treadmill")) return Icons.Filled.DirectionsRun // figure.run
-        if (e.contains("bicicleta") || e.contains("bike")) return Icons.Filled.DirectionsBike // bicycle
+        if (e.contains("cinta de correr") || e.contains("treadmill")) return Icons.AutoMirrored.Filled.DirectionsRun // figure.run
+        if (e.contains("bicicleta") || e.contains("bike")) return Icons.AutoMirrored.Filled.DirectionsBike // bicycle
         if (e.contains("ghd")) return Icons.Filled.SelfImprovement // figure.core.training
         if (e.contains("pegboard")) return Icons.Filled.Apps // circle.grid.3x3
         if (e.contains("polea")) return Icons.Filled.Settings // gearshape.2

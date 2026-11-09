@@ -122,7 +122,7 @@ internal data class ReperaTabSpec(
     val label: String,
     val icon: ImageVector,
     val selectedIcon: ImageVector = icon,
-    @StringRes val labelRes: Int = 0
+    @param:StringRes val labelRes: Int = 0
 ) {
     fun iconFor(selected: Boolean): ImageVector = if (selected) selectedIcon else icon
 

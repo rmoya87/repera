@@ -703,7 +703,7 @@ class HealthConnectReader(private val context: Context) {
                 HeartRateVariabilityRmssdRecord::class,
                 TimeRangeFilter.between(start, now))
             for (record in response) {
-                hrv.add(record.time.toEpochMilli() to record.heartRateVariabilityMillis.toDouble())
+                hrv.add(record.time.toEpochMilli() to record.heartRateVariabilityMillis)
             }
         }
         val rest = mutableListOf<Pair<Long, Double>>()

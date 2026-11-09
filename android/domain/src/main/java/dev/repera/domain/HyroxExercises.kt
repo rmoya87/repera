@@ -27,7 +27,7 @@ object HyroxExercises {
     private fun foldName(name: String): String =
         Normalizer.normalize(name, Normalizer.Form.NFD)
             .replace(Regex("\\p{Mn}+"), "")
-            .lowercase(Locale("es", "ES"))
+            .lowercase(Locale.forLanguageTag("es-ES"))
 
     fun isMovement(name: String): Boolean = foldName(name) in matchingNames
 }

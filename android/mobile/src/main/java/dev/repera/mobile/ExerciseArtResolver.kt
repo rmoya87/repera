@@ -58,7 +58,7 @@ internal object ExerciseArtResolver {
             if (nk.length < 3) continue
             if (!haystack.contains(nk) && !nk.contains(haystack)) continue
             val hit = accepted(base) ?: continue
-            if (best == null || nk.length > best!!.first) best = nk.length to hit
+            if (best == null || nk.length > best.first) best = nk.length to hit
         }
         return best?.second
     }

@@ -36,7 +36,7 @@ object KilometerVoiceAnnouncement {
     }
 
     private fun spokenSpeed(kmh: Double): String =
-        "%.1f".format(java.util.Locale("es", "ES"), kmh)
+        "%.1f".format(java.util.Locale.forLanguageTag("es-ES"), kmh)
 
     private fun spokenDuration(duration: Double): String {
         val rounded = max(1, duration.roundToInt())

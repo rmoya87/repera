@@ -99,8 +99,11 @@ internal fun WodClockScreen(
     // Negro bajo status bar: sin franja blanca.
     androidx.compose.runtime.SideEffect {
         val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
-        window.statusBarColor = android.graphics.Color.BLACK
-        window.navigationBarColor = android.graphics.Color.BLACK
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = android.graphics.Color.BLACK
+            window.navigationBarColor = android.graphics.Color.BLACK
+        }
         WindowInsetsControllerCompat(window, view).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
@@ -187,9 +190,7 @@ internal fun WodClockScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    moveExercise?.let { exercise ->
-                        WodExerciseThumbnail(exercise, aliases, size = thumbSize)
-                    }
+                    WodExerciseThumbnail(moveExercise, aliases, size = thumbSize)
                     exerciseDisplayName?.let { moveName ->
                         Text(
                             moveName,

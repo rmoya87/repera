@@ -335,7 +335,7 @@ private fun FavoriteSwipeRow(
     onClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { true })
+    val state = rememberSwipeToDismissBoxState()
     SwipeToDismissBox(
         state = state,
         enableDismissFromStartToEnd = enabled,

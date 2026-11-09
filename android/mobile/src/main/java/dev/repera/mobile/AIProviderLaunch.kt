@@ -33,7 +33,7 @@ object AIProviderLaunch {
                 .get().build()
             okhttp3.OkHttpClient().newCall(request).execute().use { response ->
                 if (response.code != 200) return base to true
-                val root = org.json.JSONObject(response.body?.string() ?: return base to true)
+                val root = org.json.JSONObject(response.body.string())
                 val arr = root.optJSONArray("providers") ?: return base to true
                 val parsed = (0 until arr.length()).map { i ->
                     val p = arr.getJSONObject(i)

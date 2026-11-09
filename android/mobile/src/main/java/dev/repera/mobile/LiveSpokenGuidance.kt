@@ -33,7 +33,7 @@ internal class LiveSpokenGuidance(context: Context) {
     /** [queue]: la frase se añade a la cola en vez de rechazarse si ya hay voz (kilómetro tras un giro). */
     @Synchronized fun speak(message:String,queue:Boolean=false):Boolean {
         if(!ready || (!queue && tts.isSpeaking)) return false
-        val language=tts.setLanguage(Locale("es","ES"))
+        val language=tts.setLanguage(Locale.forLanguageTag("es-ES"))
         if(language==TextToSpeech.LANG_MISSING_DATA || language==TextToSpeech.LANG_NOT_SUPPORTED) return false
         // Preferir voz española local, pero aceptar la voz predeterminada del
         // sintetizador si el dispositivo todavía no descargó una voz offline.

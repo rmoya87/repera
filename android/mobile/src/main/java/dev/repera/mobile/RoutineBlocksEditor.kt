@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -404,7 +405,7 @@ fun RoutineBlocksEditorScreen(
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 PlanEditorActionRow(
-                    icon = Icons.Outlined.List,
+                    icon = Icons.AutoMirrored.Outlined.List,
                     label = "Elegir WOD",
                     modifier = Modifier.testTag("plan_pick_wod"),
                     onClick = { showWods = true },
@@ -611,7 +612,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
         info?.sourceJson?.let {
             runCatching { JSONObject(it).optInt("restBetweenRoundsSeconds") }
                 .getOrNull()?.takeIf { s ->
-                    JSONObject(info.sourceJson!!).has("restBetweenRoundsSeconds")
+                    JSONObject(info.sourceJson).has("restBetweenRoundsSeconds")
                 }?.toString()
         } ?: ""
     )

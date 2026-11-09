@@ -61,22 +61,23 @@ internal fun LiveSportsLibraryScreen(
         }
     }
     Column(modifier.fillMaxSize()) {
-        val detail = overview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
-        if (detail != null && editingLiveSession) {
+        val liveOverview = overview
+        val detail = liveOverview?.completeHistory?.firstOrNull { it.id == selectedLiveSessionID }
+        if (liveOverview != null && detail != null && editingLiveSession) {
             FinishedWorkoutEditorScreen(
                 workout = detail,
                 accountId = accountId,
                 busy = busy,
-                exerciseCatalog = overview?.exerciseEntries.orEmpty(),
-                effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
-                importableRoutines = overview?.routineEntries.orEmpty(),
+                exerciseCatalog = liveOverview.exerciseEntries,
+                effortUnit = liveOverview.trainingSettings.effortUnit,
+                importableRoutines = liveOverview.routineEntries,
                 onBack = { editingLiveSession = false },
                 onSave = { edit, drafts ->
                     onUpdateFinishedWorkout(detail.id, edit, drafts)
                     editingLiveSession = false
                 }
             )
-        } else if (detail != null) {
+        } else if (liveOverview != null && detail != null) {
             val dragListState = androidx.compose.foundation.lazy.rememberLazyListState()
             ProvideLazyDragAutoScroll(dragListState) {
             LazyColumn(state = dragListState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -84,7 +85,7 @@ internal fun LiveSportsLibraryScreen(
                 item {
                     Text(detail.title, style = MaterialTheme.typography.headlineMedium)
                     Text(detail.startedAt, style = MaterialTheme.typography.bodySmall)
-                    overview?.liveSportSessions?.firstOrNull { it.id == detail.id }?.let { session ->
+                    liveOverview.liveSportSessions.firstOrNull { it.id == detail.id }?.let { session ->
                         Text(dev.repera.domain.LiveSportHistory.formatDuration(session.activeDurationSeconds ?: 0.0))
                         session.recordedDistanceMeters?.takeIf { it > 0 }?.let { Text(dev.repera.domain.ReperaNumberFormat.decimal(it / 1000)+" km") }
                         session.averageHeartRateBpm?.takeIf { it > 0 }?.let { Text("Pulso medio medido: %.0f lpm".format(dev.repera.domain.ReperaNumberFormat.displayLocale, it)) }
@@ -121,8 +122,8 @@ internal fun LiveSportsLibraryScreen(
                         workout = detail,
                         accountId = accountId,
                         busy = busy,
-                        exerciseCatalog = overview?.exerciseEntries.orEmpty(),
-                        effortUnit = overview?.trainingSettings?.effortUnit ?: "rir",
+                        exerciseCatalog = liveOverview.exerciseEntries,
+                        effortUnit = liveOverview.trainingSettings.effortUnit,
                         onOpenFullEditor = { editingLiveSession = true },
                         onSave = { edit -> onUpdateFinishedWorkout(detail.id, edit, null) }
                     )
@@ -131,7 +132,7 @@ internal fun LiveSportsLibraryScreen(
             }
         } else if (selected != null && evolutionRouteID != null && savedRoutes.any { it.id == evolutionRouteID }) {
             LiveRouteEvolutionScreen(savedRoutes.first { it.id == evolutionRouteID }, selected,
-                overview?.liveSportSessions.orEmpty(), onBack = { evolutionRouteID = null },
+                liveOverview?.liveSportSessions.orEmpty(), onBack = { evolutionRouteID = null },
                 onOpenSession = { selectedLiveSessionID = it })
         } else if (selected != null) {
             routeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }

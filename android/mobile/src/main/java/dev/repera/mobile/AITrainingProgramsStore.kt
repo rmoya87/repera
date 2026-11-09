@@ -70,7 +70,7 @@ class AITrainingProgramsStore(
             authorize()
             http.newCall(request).execute().use { response ->
                 authorize()
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 authorize()
                 if (!response.isSuccessful) {
                     return LoadResult.Failed(

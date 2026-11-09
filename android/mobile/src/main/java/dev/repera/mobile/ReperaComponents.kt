@@ -408,10 +408,7 @@ fun ReperaSwipeDeleteRow(
         Box(modifier) { content() }
         return
     }
-    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
-        // Permite revelar la papelera; el borrado es al pulsar el círculo rojo.
-        confirmValueChange = { true }
-    )
+    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState()
     androidx.compose.material3.SwipeToDismissBox(
         state = dismissState,
         modifier = modifier,
@@ -467,8 +464,10 @@ fun ReperaFullscreenDialog(
         SideEffect {
             (dialogView.parent as? DialogWindowProvider)?.window?.let { w ->
                 WindowCompat.setDecorFitsSystemWindows(w, false)
-                w.statusBarColor = android.graphics.Color.TRANSPARENT
-                w.navigationBarColor = android.graphics.Color.TRANSPARENT
+                @Suppress("DEPRECATION")
+                    w.statusBarColor = android.graphics.Color.TRANSPARENT
+                @Suppress("DEPRECATION")
+                    w.navigationBarColor = android.graphics.Color.TRANSPARENT
             }
         }
         content()
@@ -627,7 +626,7 @@ fun ReperaScrollableTopicTabs(
 ) {
     if (options.isEmpty()) return
     val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
-    androidx.compose.material3.ScrollableTabRow(
+    androidx.compose.material3.PrimaryScrollableTabRow(
         selectedTabIndex = selectedIndex,
         modifier = modifier.fillMaxWidth().testTag("repera_scrollable_tabs"),
         edgePadding = 0.dp,

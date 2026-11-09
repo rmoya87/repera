@@ -343,7 +343,7 @@ class WorkoutMirrorStore(
         authorize()
         http.newCall(request).execute().use { response ->
             authorize()
-            val body = response.body?.string().orEmpty()
+            val body = response.body.string().orEmpty()
             authorize()
             if (!response.isSuccessful) throw IllegalStateException("HTTP " + response.code)
             return JSONArray(body)
@@ -391,7 +391,7 @@ class WorkoutMirrorStore(
             authorize()
             if (!response.isSuccessful)
                 throw IllegalStateException("HTTP " + response.code)
-            val rows = JSONArray(response.body?.string().orEmpty())
+            val rows = JSONArray(response.body.string().orEmpty())
             val map = mutableMapOf<String, Boolean>()
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i)

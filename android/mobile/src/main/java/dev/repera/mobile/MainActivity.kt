@@ -908,9 +908,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         val thisAppearance = scoped?.let {
                             ExerciseSessionAppearances.appearance(exerciseId, it, catalog)
                         }?.let { row ->
-                            row.copy(wodComparisonLabel = highlight?.let { session ->
-                                CompletedWODComparator.comparisonLabel(session, all, instanceId)
-                            })
+                            row.copy(wodComparisonLabel = CompletedWODComparator.comparisonLabel(
+                                highlight, all, instanceId
+                            ))
                         }
                         val prior = ExerciseSessionAppearances.priorAppearances(
                             exerciseId, all, catalog,
@@ -1314,8 +1314,8 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         }
                     }) { deleteWorkout(workoutId) }
                 },
-                onAcknowledgeWatchReview = { workoutId ->
-                    val account = profile?.uniqueId ?: return@onAcknowledgeWatchReview
+                onAcknowledgeWatchReview = acknowledge@{ workoutId ->
+                    val account = profile?.uniqueId ?: return@acknowledge
                     runWorkoutAction {
                         WorkoutRepository(this@MainActivity, account)
                             .clearAwaitingResultEntry(workoutId)

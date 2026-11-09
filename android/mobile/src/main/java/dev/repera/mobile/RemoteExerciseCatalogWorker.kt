@@ -70,7 +70,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful)
                 throw IllegalStateException("Catálogo remoto HTTP ${response.code}")
-            return JSONArray(response.body?.string() ?: error("Respuesta vacía"))
+            return JSONArray(response.body.string())
         }
     }
 
@@ -86,7 +86,7 @@ internal class RemoteExerciseCatalog(private val context: Context) {
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful)
                 throw IllegalStateException("Bootstrap catálogo HTTP ${response.code}")
-            return JSONObject(response.body?.string() ?: error("Bootstrap vacío"))
+            return JSONObject(response.body.string())
         }
     }
 

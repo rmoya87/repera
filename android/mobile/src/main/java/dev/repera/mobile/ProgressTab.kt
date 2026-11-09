@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -356,7 +357,7 @@ internal fun ProgressTab(
                             ?.map { it.value }
                             ?.takeIf { it.isNotEmpty() }
                             ?.let { values ->
-                                String.format(java.util.Locale("es", "ES"), "%.1f", values.average())
+                                String.format(java.util.Locale.forLanguageTag("es-ES"), "%.1f", values.average())
                             } ?: "—"
                         ProgressTrainingGlanceGrid(
                             monthSnap ?: snapshot,
@@ -529,7 +530,7 @@ internal fun ProgressTab(
                     )
                     ProgressSaludInsightCard(
                         title = stringResource(R.string.progress_tab_estimulo_activo),
-                        icon = Icons.Outlined.DirectionsWalk,
+                        icon = Icons.AutoMirrored.Outlined.DirectionsWalk,
                         tint = ProgressCategory.FITNESS.accent,
                         narrative = if (averageDaily > 0) "" else activeDurationNarrative(averageDaily, period),
                         heroValue = hero.first,
@@ -585,7 +586,7 @@ internal fun ProgressTab(
                     )
                     ProgressMonthSummaryCard(
                         title = "Actividad del mes",
-                        icon = Icons.Outlined.DirectionsWalk,
+                        icon = Icons.AutoMirrored.Outlined.DirectionsWalk,
                         tint = ProgressCategory.FITNESS.accent,
                         narrative = if (monthMins > 0) "" else {
                             "Cuando registres actividad este mes, verás aquí el resumen."
@@ -760,7 +761,7 @@ internal fun ProgressTab(
                             "Cuando Salud registre sueño este mes, verás aquí el resumen de descanso."
                         },
                         heroValue = avgHours?.let {
-                            String.format(java.util.Locale("es", "ES"), "%.1f", it)
+                            String.format(java.util.Locale.forLanguageTag("es-ES"), "%.1f", it)
                         } ?: "—",
                         heroCaption = if (nights > 0) "media del mes" else "sin noches aún",
                         heroUnit = if (avgHours != null) "h" else null,
@@ -1094,7 +1095,7 @@ private fun fitnessDailyBarFractions(
     monday: Boolean,
     range: ProgressTimeRange
 ): List<Float> {
-    val start = range.startDate(today, monday) ?: today
+    val start = range.startDate(today, monday)
     val zone = java.time.ZoneId.systemDefault()
     val byDay = linkedMapOf<LocalDate, Double>()
     val history = overview?.completeHistory.orEmpty().ifEmpty { overview?.history.orEmpty() }
@@ -1133,7 +1134,7 @@ private fun recoveryMonthWeeklyRows(
     monday: Boolean
 ): List<Triple<String, String, Int>> {
     if (nights.isEmpty()) return emptyList()
-    val monthStart = ProgressTimeRange.MONTH.startDate(today, monday) ?: return emptyList()
+    val monthStart = ProgressTimeRange.MONTH.startDate(today, monday)
     val rows = mutableListOf<Triple<String, String, Int>>()
     var cursor = monthStart
     var weekIndex = 1
@@ -1144,7 +1145,7 @@ private fun recoveryMonthWeeklyRows(
             "—"
         } else {
             val h = inWeek.map { it.hours }.average()
-            "${String.format(java.util.Locale("es", "ES"), "%.1f", h)} h"
+            "${String.format(java.util.Locale.forLanguageTag("es-ES"), "%.1f", h)} h"
         }
         rows.add(Triple("Sem $weekIndex", avg, inWeek.size))
         cursor = cursor.plusDays(7)
@@ -1218,7 +1219,7 @@ private data class MonthActivityHighlightRow(
 private fun compactDistanceMeters(meters: Double): String {
     if (meters <= 0) return "—"
     if (meters < 1000) return "${meters.roundToInt()} m"
-    return String.format(java.util.Locale("es", "ES"), "%.1f km", meters / 1000.0)
+    return String.format(java.util.Locale.forLanguageTag("es-ES"), "%.1f km", meters / 1000.0)
 }
 
 private fun monthActivityHighlights(
@@ -2111,7 +2112,7 @@ private fun ProgressWeekConsistencyCard(
                                     .background(if (did) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
                             )
                             Text(
-                                day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale("es", "ES")),
+                                day.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale.forLanguageTag("es-ES")),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (day == today) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
                             )

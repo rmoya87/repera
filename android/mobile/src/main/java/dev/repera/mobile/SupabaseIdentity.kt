@@ -66,11 +66,11 @@ class SupabaseIdentity(
         http.newCall(request).execute().use { response ->
             // Do not echo auth responses or tokens into errors or device logs.
             if (!response.isSuccessful) {
-                val errorCode = runCatching { JSONObject(response.body?.string().orEmpty()).optString("error_code") }
+                val errorCode = runCatching { JSONObject(response.body.string().orEmpty()).optString("error_code") }
                     .getOrNull()?.takeIf { it.isNotBlank() }
                 throw AuthHttpException(response.code, errorCode)
             }
-            return parseSession(JSONObject(response.body?.string() ?: error("Respuesta vacía")))
+            return parseSession(JSONObject(response.body.string()))
         }
     }
 

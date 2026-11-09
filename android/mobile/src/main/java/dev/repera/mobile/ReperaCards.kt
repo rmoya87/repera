@@ -1353,11 +1353,11 @@ internal fun WeekTrainingBars(totals: List<Int>, monday:Boolean=true) {
 internal val reperaDayFormatter: java.time.format.DateTimeFormatter =
     java.time.format.DateTimeFormatter
         .ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
-        .withLocale(java.util.Locale("es", "ES"))
+        .withLocale(java.util.Locale.forLanguageTag("es-ES"))
 
 /** Fecha en editor Crear entreno (paridad PlanView): «Jueves 29 octubre». */
 internal val reperaPlanDayFormatter: java.time.format.DateTimeFormatter =
-    java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale("es", "ES"))
+    java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM", java.util.Locale.forLanguageTag("es-ES"))
 
 @Composable
 private fun WeekDayCell(day: LocalDate, label: String, isSelected: Boolean, hasCompleted: Boolean, modifier: Modifier, dotDescription: String, onSelect: (LocalDate) -> Unit) {
@@ -1436,7 +1436,7 @@ internal fun WeekCalendarStrip(selected: LocalDate, monday:Boolean=true, complet
     val weekStart = dev.repera.domain.StatsEngine.startOfWeek(selected,monday)
     // Mes dominante de la semana visible (p. ej. mid-week), no solo selected.month.
     val monthTitle = weekStart.plusDays(3).month
-        .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("es", "ES"))
+        .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.forLanguageTag("es-ES"))
         .replaceFirstChar { it.uppercase() }
     Column(
         modifier = Modifier.fillMaxWidth().testTag("week_calendar_card"),
@@ -2281,7 +2281,7 @@ internal fun LoadGuideSection(
 internal fun loadGuideShortDate(epochMillis: Long): String {
     if (epochMillis <= 0) return ""
     val fmt = java.time.format.DateTimeFormatter.ofPattern("d MMM",
-        java.util.Locale("es", "ES"))
+        java.util.Locale.forLanguageTag("es-ES"))
     return java.time.Instant.ofEpochMilli(epochMillis)
         .atZone(java.time.ZoneId.systemDefault()).format(fmt)
 }

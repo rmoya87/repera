@@ -16,7 +16,7 @@ class LiveSportSelectionTest {
         assertEquals("Entrenamiento",LiveSport.STRENGTH.title)
     }
     @Test fun selectableSportsAreAlphabeticWithinEverySection() {
-        val collator=java.text.Collator.getInstance(java.util.Locale("es"))
+        val collator=java.text.Collator.getInstance(java.util.Locale.forLanguageTag("es"))
         for(group in LiveSport.groups) {
             val list=LiveSport.selectableCases.filter {it.group==group}
             val withoutOther = list.filter { it != LiveSport.OTHER }

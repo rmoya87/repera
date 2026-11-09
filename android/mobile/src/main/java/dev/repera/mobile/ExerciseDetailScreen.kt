@@ -250,7 +250,7 @@ internal fun ExerciseDetailScreen(
                     cta = "Ver con Repera Pro",
                     appearance = dev.repera.mobile.monetization.ProTeaserAppearance.EVOLUTION
                 ) {
-                    subscriptions?.presentPaywall(
+                    subscriptions.presentPaywall(
                         dev.repera.domain.monetization.PaywallContext.EXERCISE_EVOLUTION,
                         feature = dev.repera.domain.monetization.ReperaFeature.EXERCISE_EVOLUTION
                     )
@@ -623,7 +623,7 @@ internal fun ExerciseEvolutionSection(
                         style=androidx.compose.ui.graphics.drawscope.Stroke(width=2.dp.toPx(),cap=androidx.compose.ui.graphics.StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    val monthFormatter=java.time.format.DateTimeFormatter.ofPattern("MMM",java.util.Locale("es","ES"))
+                    val monthFormatter=java.time.format.DateTimeFormatter.ofPattern("MMM",java.util.Locale.forLanguageTag("es-ES"))
                     val zone=java.time.ZoneId.systemDefault()
                     val firstMonth=java.time.Instant.ofEpochMilli(points.first().epochMillis).atZone(zone).format(monthFormatter)
                     val lastMonth=java.time.Instant.ofEpochMilli(points.last().epochMillis).atZone(zone).format(monthFormatter)
@@ -825,7 +825,7 @@ private fun ThisSessionCard(
             if (LocalSubscriptions.current?.isPro == true &&
                 !thisAppearance.wodComparisonLabel.isNullOrBlank()) {
                 HorizontalDivider()
-                Text(thisAppearance.wodComparisonLabel!!,
+                Text(thisAppearance.wodComparisonLabel,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
             }
@@ -849,7 +849,7 @@ private fun SessionAppearanceBlock(row: SessionAppearance, emphasizeDate: Boolea
     val day = java.time.Instant.ofEpochMilli(row.dateEpochMillis)
         .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy",
-            java.util.Locale("es", "ES")))
+            java.util.Locale.forLanguageTag("es-ES")))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically) {

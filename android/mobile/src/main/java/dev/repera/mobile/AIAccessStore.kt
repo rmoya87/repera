@@ -97,7 +97,7 @@ class AIAccessStore(
             .get().build()
         return try {
             executeAuthorized(request).use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 authorize()
                 if (!response.isSuccessful) {
                     // Incluir el cuerpo: PostgREST devuelve {"code":"42703",...}
@@ -126,7 +126,7 @@ class AIAccessStore(
             .build()
         return try {
             executeAuthorized(request).use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 authorize()
                 if (response.code !in 200..299) {
                     val issue = runCatching { JSONObject(body).optString("error") }

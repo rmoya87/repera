@@ -134,6 +134,6 @@ internal fun CenterMessagesScreen(
 
 private fun noticeTime(raw: String): String = runCatching {
     java.time.Instant.parse(raw).atZone(java.time.ZoneId.systemDefault()).format(
-        java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm", java.util.Locale("es"))
+        java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm", java.util.Locale.forLanguageTag("es"))
     )
 }.getOrElse { raw }

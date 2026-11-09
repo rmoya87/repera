@@ -220,7 +220,7 @@ enum class LiveSport(val id: String, val title: String, val symbol: String, val 
 
         val selectableCases: List<LiveSport>
             get() {
-                val collator = java.text.Collator.getInstance(java.util.Locale("es"))
+                val collator = java.text.Collator.getInstance(java.util.Locale.forLanguageTag("es"))
                 return entries.filter { it.isSelectable }.sortedWith { a, b ->
                     if (a == OTHER) return@sortedWith 1
                     if (b == OTHER) return@sortedWith -1

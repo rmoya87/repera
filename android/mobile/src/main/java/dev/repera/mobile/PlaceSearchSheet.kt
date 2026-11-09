@@ -120,7 +120,7 @@ internal fun PlacePinMap(
             onStyleLoaded, onMapClick, onCameraIdle)
         return
     }
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -414,7 +414,10 @@ fun PlaceSearchSheet(
                     LocationManager.NETWORK_PROVIDER
                 ).firstOrNull { it in enabled }
                 if (providerName == null) finish(null)
-                else mgr.requestSingleUpdate(providerName, listener, Looper.getMainLooper())
+                else {
+                    @Suppress("DEPRECATION")
+                    mgr.requestSingleUpdate(providerName, listener, Looper.getMainLooper())
+                }
             } catch (_: SecurityException) {
                 finish(null)
             } catch (_: IllegalArgumentException) {
@@ -513,8 +516,10 @@ fun PlaceSearchSheet(
                 w.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
                 // R8 P0: edge-to-edge real — sin bandas 156/72 px por decorFits.
                 androidx.core.view.WindowCompat.setDecorFitsSystemWindows(w, false)
-                w.statusBarColor = android.graphics.Color.TRANSPARENT
-                w.navigationBarColor = android.graphics.Color.TRANSPARENT
+                @Suppress("DEPRECATION")
+                    w.statusBarColor = android.graphics.Color.TRANSPARENT
+                @Suppress("DEPRECATION")
+                    w.navigationBarColor = android.graphics.Color.TRANSPARENT
                 WindowInsetsControllerCompat(w, dialogView).apply {
                     isAppearanceLightStatusBars = true
                     isAppearanceLightNavigationBars = true

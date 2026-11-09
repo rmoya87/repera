@@ -100,7 +100,7 @@ import kotlinx.coroutines.async
    } else if(detail==null) {
     ReperaEmptyState(title="Sin detalle", subtitle="No se pudo verificar el registro de Salud. Puede haber cambiado o faltar permiso.")
    } else {
-    val current=detail!!
+    val current=detail
     ReperaSectionTitle("Pulso")
     ReperaCard(modifier=Modifier.fillMaxWidth()) {
      Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {

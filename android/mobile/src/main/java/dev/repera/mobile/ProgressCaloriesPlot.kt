@@ -46,7 +46,7 @@ internal object ProgressPlotAxis {
    if (start==end) return start.toEpochDay()-pad to end.toEpochDay()+pad
    return start.toEpochDay()-pad to end.toEpochDay()+pad
   }
-  val start=range.startDate(today,monday) ?: days.minOrNull() ?: today
+  val start=range.startDate(today,monday)
   val end=today
   val edgePad=if(start==end || days.size<=1) pad else 0.0
   return start.toEpochDay()-edgePad to end.toEpochDay()+edgePad
@@ -57,7 +57,7 @@ internal object ProgressPlotAxis {
   if (!preview && granularity == ProgressSeriesGranularity.DAY &&
    (range == ProgressTimeRange.WEEK || range == ProgressTimeRange.TODAY)
   ) {
-   val start = range.startDate(today, monday) ?: today
+   val start = range.startDate(today, monday)
    return generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.toList()
   }
   val step=if(granularity==ProgressSeriesGranularity.DAY && (range==ProgressTimeRange.WEEK || range==ProgressTimeRange.TODAY)) 1 else maxOf(1,days.size/6)
@@ -183,7 +183,7 @@ internal fun progressPlotDatePattern(charts:ProgressPreparedCharts):String = if(
    val style=MaterialTheme.typography.labelSmall.copy(fontSize=androidx.compose.ui.unit.TextUnit(10f,androidx.compose.ui.unit.TextUnitType.Sp))
    val dateColor=MaterialTheme.colorScheme.onSurfaceVariant
    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(22.dp)) {
-    val fmt=java.time.format.DateTimeFormatter.ofPattern(progressPlotDatePattern(charts),java.util.Locale("es","ES"))
+    val fmt=java.time.format.DateTimeFormatter.ofPattern(progressPlotDatePattern(charts),java.util.Locale.forLanguageTag("es-ES"))
     val candidates=ticks.map {day ->
      val text=day.format(fmt)
      val width=with(density) {measurer.measure(androidx.compose.ui.text.AnnotatedString(text),style=style,maxLines=1,softWrap=false).size.width.toDp().value}+1f

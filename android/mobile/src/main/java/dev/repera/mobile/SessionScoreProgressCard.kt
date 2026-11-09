@@ -283,7 +283,7 @@ internal fun SessionScoreProgressCard(
                         ) {
                             val fmt = java.time.format.DateTimeFormatter.ofPattern(
                                 "d MMM",
-                                java.util.Locale("es", "ES")
+                                java.util.Locale.forLanguageTag("es-ES")
                             )
                             Text(values.first().day.format(fmt), style = MaterialTheme.typography.labelSmall)
                             if (values.size > 1) {

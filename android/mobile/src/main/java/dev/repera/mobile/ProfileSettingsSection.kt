@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (clickable) Modifier.clickable(onClick = onClick!!)
+                if (clickable) Modifier.clickable(onClick = onClick)
                 else Modifier
             )
             .padding(horizontal = 16.dp, vertical = 14.dp),

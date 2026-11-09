@@ -87,40 +87,44 @@ class DriveSnapshotService(
             create(localBytes)
             return Outcome.Uploaded
         }
-        check(localBytes != null && remoteBytes != null && remoteId != null)
-        LocalSnapshotStore.validate(localBytes)
-        LocalSnapshotStore.validate(remoteBytes)
-        if (localBytes.contentEquals(remoteBytes)) return Outcome.Unchanged
+        val localPayload = checkNotNull(localBytes)
+        val remotePayload = checkNotNull(remoteBytes)
+        val remoteFileId = checkNotNull(remoteId)
+        LocalSnapshotStore.validate(localPayload)
+        LocalSnapshotStore.validate(remotePayload)
+        if (localPayload.contentEquals(remotePayload)) return Outcome.Unchanged
         // A freshly created catalog cannot supersede an existing athlete history,
         // even if that history uses the legacy revision=0 or distant-past date.
-        if (isVirgin(localBytes) && !isVirgin(remoteBytes)) {
-            return applyDownload(localBytes,remoteBytes)
+        if (isVirgin(localPayload) && !isVirgin(remotePayload)) {
+            return applyDownload(localPayload, remotePayload)
         }
-        if (!isVirgin(localBytes) && isVirgin(remoteBytes)) {
-            local.preserveRemoteBackup(remoteBytes)
-            return uploadWithMatch(remoteId, localBytes, readEtag)
+        if (!isVirgin(localPayload) && isVirgin(remotePayload)) {
+            local.preserveRemoteBackup(remotePayload)
+            return uploadWithMatch(remoteFileId, localPayload, readEtag)
         }
         // Local = catálogo virgen + entrenos recuperados del espejo sin editar: no es historial independiente.
         // Cualquier otra diferencia local cae al camino normal (con su Conflict).
         when (MirrorRecoveryReconciler.reconcile(
-            localBytes, remoteBytes, local.readMirrorProvenance(), Instant.now().toString())) {
-            MirrorRecoveryReconciler.Result.UseRemote -> { return applyDownload(localBytes,remoteBytes) }
+            localPayload, remotePayload, local.readMirrorProvenance(), Instant.now().toString())) {
+            MirrorRecoveryReconciler.Result.UseRemote -> {
+                return applyDownload(localPayload, remotePayload)
+            }
             MirrorRecoveryReconciler.Result.NotApplicable -> Unit
         }
-        if (divergentTraining(localBytes, remoteBytes)) return Outcome.Conflict
+        if (divergentTraining(localPayload, remotePayload)) return Outcome.Conflict
 
-        val localVersion = version(localBytes)
-        val remoteVersion = version(remoteBytes)
+        val localVersion = version(localPayload)
+        val remoteVersion = version(remotePayload)
         // Preserve conflicting histories instead of overwriting distinct concurrent edits.
         if (localVersion == remoteVersion) return Outcome.Conflict
 
         val localWins = compareValues(localVersion, remoteVersion) > 0
         return if (localWins) {
-            local.preserveRemoteBackup(remoteBytes)
-            uploadWithMatch(remoteId, localBytes, readEtag)
+            local.preserveRemoteBackup(remotePayload)
+            uploadWithMatch(remoteFileId, localPayload, readEtag)
         } else {
             // Compare under the storage lock: never replace edits made during the Drive request.
-            applyDownload(localBytes,remoteBytes)
+            applyDownload(localPayload, remotePayload)
         }
     }
 

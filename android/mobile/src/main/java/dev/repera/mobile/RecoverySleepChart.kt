@@ -163,7 +163,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
                 drawCircle(glow, 5.dp.toPx(), Offset(x(i), y(ordered[i].hours)))
                 val tip = "${formatWeight(ordered[i].hours)} h · ${
                     ordered[i].day.format(
-                        java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES"))
+                        java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.forLanguageTag("es-ES"))
                     )
                 }"
                 val textPaint = android.graphics.Paint().apply {
@@ -200,7 +200,7 @@ internal fun RecoverySleepChart(nights: List<RecoverySleepNight>, height: Dp) {
         if (ordered.size > 1) {
             Row(Modifier.fillMaxWidth()) {
                 val axisDate =
-                    java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("es", "ES"))
+                    java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.forLanguageTag("es-ES"))
                 Text(ordered.first().day.format(axisDate), style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.weight(1f))
                 Text(ordered.last().day.format(axisDate), style = MaterialTheme.typography.labelSmall)

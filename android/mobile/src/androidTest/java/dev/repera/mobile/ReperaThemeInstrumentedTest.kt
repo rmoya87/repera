@@ -170,7 +170,7 @@ class ReperaThemeInstrumentedTest {
         compose.waitForIdle()
         val focusSubtitle = focusedDay!!.format(
             java.time.format.DateTimeFormatter.ofPattern(
-                "EEEE d MMMM", java.util.Locale("es", "ES")
+                "EEEE d MMMM", java.util.Locale.forLanguageTag("es-ES")
             )
         ).replaceFirstChar { it.uppercase() }
         compose.onNodeWithText(focusSubtitle).performScrollTo().assertIsDisplayed()

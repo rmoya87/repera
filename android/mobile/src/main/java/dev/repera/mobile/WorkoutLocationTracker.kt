@@ -80,7 +80,10 @@ class WorkoutLocationTracker(private val context: Context) {
                     val provider = listOf(LocationManager.FUSED_PROVIDER,LocationManager.GPS_PROVIDER,LocationManager.NETWORK_PROVIDER)
                         .firstOrNull { it in enabled }
                     if (provider == null) finish(null)
-                    else mgr.requestSingleUpdate(provider,pinListener,Looper.getMainLooper())
+                    else {
+                        @Suppress("DEPRECATION")
+                        mgr.requestSingleUpdate(provider, pinListener, Looper.getMainLooper())
+                    }
                 } catch (error: SecurityException) {
                     lastErrorMessage = error.localizedMessage;finish(null)
                 } catch (error: IllegalArgumentException) {

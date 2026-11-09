@@ -53,7 +53,7 @@ internal fun EffortMenuField(
     // Celda compacta como iOS «RIR —»; el menú sí muestra «Sin RIR».
     val display = when {
         storedRir == null -> "—"
-        isRpe -> "${(Effort.fromRIR(storedRir, "rpe") ?: storedRir).toInt()}"
+        isRpe -> "${Effort.fromRIR(storedRir, "rpe").toInt()}"
         else -> "${storedRir.toInt()}"
     }
     Box(modifier = Modifier.fillMaxWidth()) {

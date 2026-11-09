@@ -288,7 +288,7 @@ class BusinessCenterStore(
             .header("Authorization", "Bearer " + session.accessToken)
             .get().build()
         http.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
+            val body = response.body.string().orEmpty()
             if (!response.isSuccessful) {
                 throw IllegalStateException("HTTP " + response.code + " en " + table)
             }
@@ -306,7 +306,7 @@ class BusinessCenterStore(
             .post(params.toString().toRequestBody("application/json".toMediaType()))
             .build()
         http.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
+            val body = response.body.string().orEmpty()
             if (!response.isSuccessful) {
                 throw IllegalStateException("HTTP " + response.code + " en " + fn +
                     ": " + body.take(200))
@@ -398,7 +398,7 @@ class BusinessCenterStore(
                 .post("{}".toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 if (!response.isSuccessful || body.isBlank()) return null
                 val root = when {
                     body.trimStart().startsWith("{") -> JSONObject(body)
@@ -432,7 +432,7 @@ class BusinessCenterStore(
                     .toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 if (!response.isSuccessful || body.isBlank()) return null
                 val root = when {
                     body.startsWith("{") -> JSONObject(body)
@@ -460,7 +460,7 @@ class BusinessCenterStore(
                     .toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 if (!response.isSuccessful) {
                     return if (response.code in 400..499) InvitationPreviewResult.Unavailable
                     else InvitationPreviewResult.Failed
@@ -704,7 +704,7 @@ class BusinessCenterStore(
                     .toRequestBody("application/json".toMediaType()))
                 .build()
             http.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
+                val body = response.body.string().orEmpty()
                 if (!response.isSuccessful || body.isBlank()) return null
                 val root = when {
                     body.startsWith("{") -> JSONObject(body)
