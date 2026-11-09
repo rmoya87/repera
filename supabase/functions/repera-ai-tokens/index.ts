@@ -44,7 +44,7 @@ Deno.serve(async (request) => {
   }
   if (body.canWrite != null && typeof body.canWrite !== "boolean")
     return reply(400,{error:{code:"INVALID_SCOPE",field:"canWrite",message:"Debe ser un booleano"}});
-  const scopes=body.canWrite === false ? ["training:read"] : ["training:read","training:write"];
+  const scopes = body.canWrite === true ? ["training:read", "training:write"] : ["training:read"];
   const label = typeof body.label === "string" ? body.label.trim() : "";
   const options = new Set(["7d", "30d", "90d", "365d", "unlimited"]);
   const expiry = body.expiry;
