@@ -66,12 +66,15 @@ class WearLiveCommandListener : WearableListenerService() {
         val sessionId = command.optString("sessionId")
         val action = command.optString("command")
         if (sessionId.isBlank() || action !in setOf("pause", "resume", "finish")) return
-        val owner = SessionStore(this).load()?.uniqueId ?: return
+        val sessionStore = SessionStore(this)
+        val owner = sessionStore.load()?.uniqueId ?: return
+        val revision = sessionStore.identityRevision()
         Handler(Looper.getMainLooper()).post {
             // Do not start a new activity or sensor from a background command.
+            if (sessionStore.identityRevision() != revision ||
+                sessionStore.load()?.uniqueId != owner) return@post
             val runtime = LiveActivityRuntime.forAccount(this, owner)
-            if (SessionStore(this).load()?.uniqueId != owner ||
-                runtime.state.gpsSessionID != sessionId) return@post
+            if (runtime.state.gpsSessionID != sessionId) return@post
             when (action) {
                 "pause" -> runtime.pause()
                 "resume" -> runtime.resume()
@@ -88,12 +91,15 @@ class WearLiveCommandListener : WearableListenerService() {
     }
 
     private fun handleBackgroundLiveHeartRate(event: MessageEvent) {
-        val owner = SessionStore(this).load()?.uniqueId ?: return
+        val sessionStore = SessionStore(this)
+        val owner = sessionStore.load()?.uniqueId ?: return
+        val revision = sessionStore.identityRevision()
         val payload = runCatching {
             JSONObject(String(event.data, Charsets.UTF_8))
         }.getOrNull() ?: return
         Handler(Looper.getMainLooper()).post {
-            if (SessionStore(this).load()?.uniqueId != owner) return@post
+            if (sessionStore.identityRevision() != revision ||
+                sessionStore.load()?.uniqueId != owner) return@post
             WearLiveMetricsReceiver.accept(this, owner, payload)
         }
     }
