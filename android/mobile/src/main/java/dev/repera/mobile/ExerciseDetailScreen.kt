@@ -73,6 +73,9 @@ internal fun ExerciseDetailScreen(
     testedOneRM:Double? = null,
     estimatedOneRM:Double? = null,
     incrementKg:Double = 2.5,
+    competitionSex:String? = null,
+    birthYear:Int? = null,
+    bodyWeightKg:Double? = null,
     onSetTestedOneRM:(Double?)->Unit = {},
     busy:Boolean = false,
     onQuickLog:()->Unit = {},
@@ -213,9 +216,6 @@ internal fun ExerciseDetailScreen(
             }
         }
         item { MuscleEquipmentCard(entry) }
-        if (!isMobility && entry.loggingStyle == "loadAndReps" && strengthLiftForExerciseName(entry.name) != null) {
-            item { StrengthBenchmarkCard(exerciseName = entry.name, testedOneRM = testedOneRM) }
-        }
         // %1RM solo en fuerza kg×reps (paridad iOS ExerciseDetailView).
         if (!isMobility && entry.loggingStyle == "loadAndReps") {
             item { ReperaSectionTitle("Carga sugerida") }
@@ -234,7 +234,11 @@ internal fun ExerciseDetailScreen(
                     onSetTestedOneRM = onSetTestedOneRM,
                     busy = busy,
                     summary = historySummary,
-                    repRecords = actualRepRecords
+                    repRecords = actualRepRecords,
+                    estimatedOneRM = estimatedOneRM,
+                    competitionSex = competitionSex,
+                    birthYear = birthYear,
+                    bodyWeightKg = bodyWeightKg
                 )
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
@@ -383,7 +387,11 @@ internal fun ExerciseEvolutionSection(
         List<ExerciseProgressPoint>,
     testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean,
     summary: dev.repera.domain.ExerciseHistorySummary? = null,
-    repRecords: List<dev.repera.domain.StrengthRepRecord> = emptyList()
+    repRecords: List<dev.repera.domain.StrengthRepRecord> = emptyList(),
+    estimatedOneRM: Double? = null,
+    competitionSex: String? = null,
+    birthYear: Int? = null,
+    bodyWeightKg: Double? = null
 ) {
     val metrics = ExerciseProgressMetric.available(
         if (entry.loggingStyle == "machineWork") "machineWork"
@@ -503,6 +511,17 @@ internal fun ExerciseEvolutionSection(
                         }
                     }
                 }
+            }
+            if (isStrengthLogging && strengthLiftForExerciseName(entry.name) != null) {
+                HorizontalDivider()
+                StrengthBenchmarkVisual(
+                    exerciseName = entry.name,
+                    testedOneRM = testedOneRM,
+                    estimatedOneRM = summary?.estimatedOneRM ?: estimatedOneRM,
+                    competitionSex = competitionSex,
+                    birthYear = birthYear,
+                    bodyWeightKg = bodyWeightKg
+                )
             }
             if (isStrengthLogging && repRecords.isNotEmpty()) {
                 Text("Récords de series realmente registradas",
