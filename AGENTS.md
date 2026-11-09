@@ -145,6 +145,16 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Charts — ForEach por índice sin dejar `point` (09/11/2026)
+
+- `ChartContentBuilder` no tolera bien destructuring de tuplas en el closure
+  (`ForEach(days) { point in` / `(date, minutes)`). Preferir
+  `ForEach(days.indices)` + `let day = days[index]`.
+- Al migrar, actualizar **todos** los marks (`AreaMark` y `LineMark`). Dejar
+  `point.date` tras quitar el parámetro provoca «Cannot find 'point'» y a
+  menudo «unable to type-check this expression».
+- Contrato: `tests/test_strength_visual_contract.py::test_recovery_has_daily_line_and_pro_gate`.
+
 #### Conecta tu IA — desactivar / abrir / borrar (08/11/2026)
 
 - En Form, **Button** dentro de `VStack` se promociona a filas sueltas; el swipe

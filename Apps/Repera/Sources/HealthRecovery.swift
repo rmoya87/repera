@@ -1381,16 +1381,17 @@ struct HealthRecoveryProgressView: View {
                     }
                     Chart {
                         ForEach(days.indices, id: \.self) { index in
+                            let day = days[index]
                             AreaMark(
-                                x: .value("Día", days[index].date),
+                                x: .value("Día", day.date),
                                 yStart: .value("Base", 0.0),
-                                yEnd: .value("Minutos", days[index].minutes)
+                                yEnd: .value("Minutos", day.minutes)
                             )
                             .interpolationMethod(.catmullRom)
                             .foregroundStyle(OG.accent.opacity(0.12))
                             LineMark(
-                                x: .value("Día", point.date),
-                                y: .value("Minutos", point.minutes)
+                                x: .value("Día", day.date),
+                                y: .value("Minutos", day.minutes)
                             )
                             .interpolationMethod(.catmullRom)
                             .foregroundStyle(OG.accent)
