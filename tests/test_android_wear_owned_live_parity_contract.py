@@ -67,6 +67,7 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         self.assertIn('WearOwnedLiveMirror.closeSaved(this, id)', listener)
         self.assertIn('WearOwnedLiveMirror.closeSaved(this@MainActivity, sessionId)', main)
         self.assertIn('markClosed(prefs, closedIds(', mirror)
+        self.assertIn('prefs.edit().putLong("captured", maxOf(previousAt, captured))', mirror)
         self.assertIn('The durable live-save may arrive before the first live packet', mirror)
         self.assertIn('WearOwnedLiveMirror.clearForSignOut(this@MainActivity)', main)
 
