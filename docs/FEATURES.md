@@ -1,6 +1,25 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-08 (Conecta tu IA: desconectar in-place + chat con ?q=; paywall/código oferta).
+Última actualización: 2026-11-09 (comparativas deportivas y progresión adaptativa de atleta).
+
+## Progresión y comparativas deportivas (09/11/2026)
+
+- En fuerza, la política Pro `Adaptativa` añade una evaluación conservadora
+  de sesiones completadas y RIR real; no aumenta cargas continuamente ni
+  fabrica medidas de fatiga.
+- La ficha de Sentadilla, Press banca y Peso muerto ofrece «Tu nivel», usando
+  cohortes competitivas OpenPowerlifting CC0 publicadas en mayo de 2026.
+  Son resultados de competición, **no percentiles poblacionales**. Solo se
+  usan 1RM anotados, nunca e1RM presentados como oficiales.
+- WOD: la comparación Pro requiere mismo formato, prescripción y RX/escala
+  verificables; los score históricos sin modalidad no generan mejora ficticia.
+- Recuperación Pro: comparación de minutos observados en dos periodos de 7 días
+  (sin interpretar esos minutos como intensidad fisiológica).
+- En Evolución Pro, récords personales por carga con al menos 3/5/10 reps
+  efectivamente realizadas; calentamientos y planes pendientes excluidos.
+- Alcance exclusivo de deportistas iOS/iPadOS/Android. Repera Business intacto.
+  Ver `docs/ATHLETE_STRENGTH_BENCHMARKS.md`. **Pendiente de pruebas nativas y
+  hardware; no afirmar que esté distribuido.**
 
 ## Android — splash de restauración (06/11/2026)
 
