@@ -1,27 +1,26 @@
 package dev.repera.mobile
 
 import android.content.Context
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.StrengthBenchmarkCohort
 import dev.repera.domain.StrengthBenchmarkDistribution
@@ -34,107 +33,136 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.util.Locale
+import kotlin.math.exp
 
-/** Privacy: comparison category, age and bodyweight remain local preferences. */
+/**
+ * Gaussian-style illustrative band based on published competition quantiles.
+ * It is not an empirically fitted normal distribution nor a population ranking.
+ */
 @Composable
-internal fun StrengthBenchmarkCard(exerciseName: String, testedOneRM: Double?) {
-    val lift = remember(exerciseName) { strengthLiftForExerciseName(exerciseName) } ?: return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val prefs = remember(context) { context.getSharedPreferences("strength_benchmarks", Context.MODE_PRIVATE) }
-    var sexRaw by rememberSaveable { mutableStateOf(prefs.getString("sex", "") ?: "") }
-    var ageRaw by rememberSaveable { mutableStateOf(prefs.getString("age", "") ?: "") }
-    var weightRaw by rememberSaveable { mutableStateOf(prefs.getString("weight", "") ?: "") }
-    val references by produceState<List<StrengthBenchmarkDistribution>?>(null, context) {
+internal fun StrengthBenchmarkVisual(
+    exerciseName: String,
+    testedOneRM: Double?,
+    estimatedOneRM: Double?,
+    competitionSex: String?,
+    birthYear: Int?,
+    bodyWeightKg: Double?
+) {
+    val lift = strengthLiftForExerciseName(exerciseName) ?: return
+    val context = LocalContext.current
+    val rows by produceState<List<StrengthBenchmarkDistribution>?>(null, context) {
         value = withContext(Dispatchers.IO) { StrengthBenchmarkAssets.load(context) }
     }
-    val sex = when (sexRaw) {
+    val sex = when (competitionSex) {
         "female" -> StrengthBenchmarkSex.FEMALE
         "male" -> StrengthBenchmarkSex.MALE
         else -> null
     }
-    val age = ageRaw.toIntOrNull()
-    val bodyWeightKg = weightRaw.trim().replace(',', '.').toDoubleOrNull()
-    val comparison = if (sex != null && age != null && bodyWeightKg != null &&
-        testedOneRM != null && testedOneRM > 0 && references != null) {
+    val yearNow = java.time.Year.now().value
+    val age = birthYear?.let { yearNow - it }?.takeIf { it in 14..100 }
+    val kg = testedOneRM?.takeIf { it.isFinite() && it > 0 }
+        ?: estimatedOneRM?.takeIf { it.isFinite() && it > 0 }
+    val isEstimate = testedOneRM?.let { it.isFinite() && it > 0 } != true
+    val reference = if (sex != null && age != null && bodyWeightKg != null &&
+        bodyWeightKg.isFinite() && bodyWeightKg > 0) {
+        val eligible = rows.orEmpty().filter {
+            it.cohort.matches(lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg)
+                && it.sampleCount >= StrengthBenchmarkEngine.MINIMUM_SAMPLE_COUNT
+                && it.source == "OpenPowerlifting"
+        }
+        val span = eligible.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin }
+        eligible.filter { it.cohort.ageMax - it.cohort.ageMin == span }
+            .singleOrNull()
+    } else null
+    val pct = if (kg != null && sex != null && age != null && bodyWeightKg != null) {
         StrengthBenchmarkEngine.compareCompetitionOneRepMax(
-            weightKg = testedOneRM, lift = lift, sex = sex,
-            equipment = StrengthBenchmarkEquipment.RAW,
-            age = age, bodyWeightKg = bodyWeightKg, distributions = references!!
+            kg, lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg, rows.orEmpty()
         )
     } else null
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ReperaSectionTitle("Tu nivel · fuerza")
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Referencia de competición", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Compara tu 1RM registrado con resultados OpenPowerlifting. " +
-                        "Es orientativo: no mide tu nivel entre la población ni equivale a una marca oficial.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = sexRaw == "female",
-                        onClick = { sexRaw = "female"; prefs.edit().putString("sex", sexRaw).apply() },
-                        label = { Text("Femenina") }
-                    )
-                    FilterChip(
-                        selected = sexRaw == "male",
-                        onClick = { sexRaw = "male"; prefs.edit().putString("sex", sexRaw).apply() },
-                        label = { Text("Masculina") }
-                    )
+    val p25 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 25) < 1 }
+    val p50 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 50) < 1 }
+    val p75 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 75) < 1 }
+    val sigma = if (p25 != null && p75 != null)
+        (p75.weightKg - p25.weightKg) / 1.349 else 0.0
+    val valid = kg != null && p50 != null && sigma.isFinite() && sigma > 0
+    val accent = MaterialTheme.colorScheme.primary
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text("Tu nivel · fuerza", style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.weight(1f))
+            pct?.let {
+                Text("P${it.percentile.toInt()}", style = MaterialTheme.typography.titleMedium,
+                    color = accent, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (valid) {
+            val score = kg!!
+            val median = p50!!.weightKg
+            val lo = kotlin.math.min(median - 3 * sigma, score).coerceAtLeast(0.0)
+            val hi = kotlin.math.max(median + 3 * sigma, score)
+            Canvas(Modifier.fillMaxWidth().height(118.dp).semantics {
+                contentDescription = "Campana ilustrativa de competición. Tu " +
+                    (if (isEstimate) "e1RM estimado" else "1RM registrado") +
+                    ": ${score.toInt()} kilogramos"
+            }) {
+                val baseline = size.height - 10.dp.toPx()
+                val height = size.height - 20.dp.toPx()
+                val xFor: (Double) -> Float = { v ->
+                    (((v - lo) / (hi - lo)).coerceIn(0.0, 1.0) * size.width).toFloat()
                 }
-                OutlinedTextField(
-                    value = ageRaw,
-                    onValueChange = {
-                        ageRaw = it.filter(Char::isDigit).take(3)
-                        prefs.edit().putString("age", ageRaw).apply()
-                    },
-                    label = { Text("Edad") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                OutlinedTextField(
-                    value = weightRaw,
-                    onValueChange = {
-                        weightRaw = it.take(8)
-                        prefs.edit().putString("weight", weightRaw).apply()
-                    },
-                    label = { Text("Peso corporal (kg)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
-                when {
-                    references == null -> Text("Preparando referencia…", style = MaterialTheme.typography.bodySmall)
-                    testedOneRM == null || testedOneRM <= 0 ->
-                        Text("Registra un 1RM probado en Evolución. El e1RM estimado no se compara.")
-                    sex == null || age == null || bodyWeightKg == null || bodyWeightKg <= 0 ->
-                        Text("Introduce categoría competitiva, edad y peso corporal.")
-                    comparison == null ->
-                        Text("Sin muestra suficiente o fuera del rango publicado: no se calcula un percentil.")
-                    else -> {
-                        Text(
-                            "P${comparison.percentile.toInt()} orientativo",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            "1RM: ${String.format(Locale.ROOT, "%.1f", testedOneRM)} kg · " +
-                                "${comparison.sampleCount} resultados de competición " +
-                                (if (comparison.ageSpecific) "de tu edad" else "de todas las edades") +
-                                ". Datos de mayo de 2026.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                val gaussian: (Double) -> Double = { v ->
+                    val z = (v - median) / sigma
+                    exp(-0.5 * z * z)
+                }
+                val area = Path()
+                val stroke = Path()
+                for (index in 0..64) {
+                    val weight = lo + (hi - lo) * index / 64.0
+                    val x = xFor(weight)
+                    val y = baseline - (gaussian(weight) * height).toFloat()
+                    if (index == 0) {
+                        area.moveTo(x, baseline)
+                        area.lineTo(x, y)
+                        stroke.moveTo(x, y)
+                    } else {
+                        area.lineTo(x, y)
+                        stroke.lineTo(x, y)
                     }
                 }
+                area.lineTo(size.width, baseline)
+                area.close()
+                drawPath(area, accent.copy(alpha = 0.13f))
+                drawPath(stroke, accent.copy(alpha = 0.48f), style = Stroke(width = 2.dp.toPx()))
+                val x = xFor(score)
+                val y = baseline - (gaussian(score) * height).toFloat()
+                drawLine(accent, start = androidx.compose.ui.geometry.Offset(x, 0f),
+                    end = androidx.compose.ui.geometry.Offset(x, baseline),
+                    strokeWidth = 2.dp.toPx())
+                drawCircle(accent, radius = 4.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(x, y))
+            }
+            Row(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    "Fuente: OpenPowerlifting · CC0. Resultados competitivos, no población general.",
+                    (if (isEstimate) "e1RM estimado" else "1RM registrado") +
+                        " · ${String.format(Locale.ROOT, "%.1f", score)} kg",
                     style = MaterialTheme.typography.labelSmall
                 )
+                Spacer(Modifier.weight(1f))
+                Text("Competición · orientativo",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        } else {
+            Text(
+                when {
+                    rows == null -> "Preparando referencia…"
+                    kg == null -> "Sin marcas suficientes para estimar tu fuerza."
+                    sex == null || birthYear == null -> "Configura género y nacimiento en Ajustes · Entrenamiento."
+                    bodyWeightKg == null || bodyWeightKg <= 0 -> "Registra tu peso corporal en Progreso."
+                    else -> "Sin referencia competitiva suficiente."
+                }, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
