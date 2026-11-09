@@ -1361,7 +1361,7 @@ struct HealthRecoveryProgressView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
                     HStack(alignment: .firstTextBaseline) {
-                        Text(current > 0 ? "\\(Int(current.rounded()))" : "—")
+                        Text(current > 0 ? "\(Int(current.rounded()))" : "—")
                             .font(.system(size: 28, weight: .bold).monospacedDigit())
                             .foregroundStyle(OG.accent)
                         Text("min · últimos 7 días")
@@ -1369,12 +1369,12 @@ struct HealthRecoveryProgressView: View {
                             .foregroundStyle(OG.label2)
                         Spacer()
                     }
-                    Text("7 días anteriores: \\(previous > 0 ? "\\(Int(previous.rounded())) min" : "sin sesiones con duración")")
+                    Text("7 días anteriores: \(previous > 0 ? String(Int(previous.rounded())) + " min" : "sin sesiones con duración")")
                         .font(.footnote)
                         .foregroundStyle(OG.label2)
                     if current > 0, previous > 0 {
                         let change = Int(((current / previous) - 1) * 100)
-                        Text("Variación: \\(change > 0 ? "+" : "")\\(change)% · tiempo registrado, no intensidad fisiológica")
+                        Text("Variación: \(change > 0 ? "+" : "")\(change)% · tiempo registrado, no intensidad fisiológica")
                             .font(.caption)
                             .foregroundStyle(OG.label3)
                     }
