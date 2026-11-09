@@ -56,6 +56,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private var wearHeartSessionID: String? = null
     private var wearHeartBpm: Int? = null
     private var wearHeartCapturedAt = 0L
+    private var wearAverageCapturedAt = 0L
     private var wearTotalSessionID: String? = null
     /** Health Services CALORIES_TOTAL = active + basal, not active calories. */
     private var wearTotalEnergyKcal: Double? = null
@@ -96,10 +97,11 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             changed = true
         }
         val validAverage = averageHeartRateBpm?.takeIf { it.isFinite() && it in 25.0..250.0 }
-        if (validAverage != null && (wearTotalSessionID == null ||
-                wearTotalSessionID == sessionID)) {
+        if (validAverage != null && capturedAt > wearAverageCapturedAt &&
+            (wearTotalSessionID == null || wearTotalSessionID == sessionID)) {
             wearTotalSessionID = sessionID
             wearAverageHeartRateBpm = validAverage
+            wearAverageCapturedAt = capturedAt
             changed = true
         }
         if (changed) revisions.value += 1L
@@ -110,7 +112,8 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         val now = System.currentTimeMillis()
         if (state.gpsSessionID != sessionID ||
             state.phase !in setOf(LiveActivityState.Phase.RECORDING, LiveActivityState.Phase.PAUSED) ||
-            bpm !in 25..250 || capturedAt !in (now - 25_000L)..(now + 5_000L)) {
+            bpm !in 25..250 || capturedAt !in (now - 25_000L)..(now + 5_000L) ||
+            (wearHeartSessionID == sessionID && capturedAt <= wearHeartCapturedAt)) {
             return false
         }
         wearHeartSessionID = sessionID
@@ -238,6 +241,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         wearTotalSessionID = null
         wearTotalEnergyKcal = null
         wearAverageHeartRateBpm = null
+        wearAverageCapturedAt = 0L
         wearHeartSessionID = null
         wearHeartBpm = null
         state.start(System.currentTimeMillis(),UUID.randomUUID().toString());prepareRoute();startGPS();checkpoint(true);publish()
@@ -295,8 +299,9 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
         voice.stop();location.stop(state.gpsSessionID);state.discard();
-        wearHeartSessionID = null; wearHeartBpm = null
+        wearHeartSessionID = null; wearHeartBpm = null; wearHeartCapturedAt = 0L
         wearTotalSessionID = null; wearTotalEnergyKcal = null; wearAverageHeartRateBpm = null
+        wearAverageCapturedAt = 0L
         runCatching { startPinFile.delete() };recoveryBlocked=false;guidance=null;upcomingTurn=null;upcomingCue=null;latestKilometerReport=null;liveConditions=null;lastConditionsFetchMillis=0L;lastError=null;publish();return true
     }
     fun checkpoint(force: Boolean = false) {
