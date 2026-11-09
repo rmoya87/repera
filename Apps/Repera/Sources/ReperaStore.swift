@@ -4339,6 +4339,11 @@ extension ReperaStore: PhoneConnectivityDelegate {
         _ snapshot: WatchLiveActivitySnapshot
     ) {
         Task { @MainActor in
+            // Gate UI mirroring and terminal handling on the same durable
+            // ordering ledger as ActivityKit. Delayed WCSession deliveries after
+            // reconnect/relaunch cannot revive or rewind an already closed UUID.
+            guard WorkoutLiveActivityCoordinator.shared.mayAcceptWatchOwned(snapshot)
+                else { return }
             if snapshot.phase == .review {
                 self.closedWatchOwnedLiveIDs.insert(snapshot.id)
                 if self.watchOwnedLive?.id == snapshot.id {
