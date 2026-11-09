@@ -4194,6 +4194,9 @@ extension ReperaStore: PhoneConnectivityDelegate {
             self.isWatchReachable = reachable
             self.sendWatchContextNow()
             if reachable {
+                // A fresh scoped snapshot restores the ActivityKit mirror
+                // after iOS killed the phone app; never start a second workout.
+                self.connectivity.requestWatchOwnedLiveSnapshot()
                 await self.attemptLateLiveWatchHandoffIfNeeded()
             }
         }
