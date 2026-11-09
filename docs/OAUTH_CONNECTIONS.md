@@ -123,3 +123,9 @@ Pruebas nuevas: 4 casos SQL sobre PostgreSQL embebido y 3 casos Deno, correctos;
 Las suites históricas Python muestran 3 fallos que también se reproducen sobre el commit base: dos aserciones literales desactualizadas del MCP (filtro HYROX e import de workout) y una discrepancia de catálogo muscular (48 frente a 40). No se modifican esas funcionalidades en esta entrega.
 
 Comprobación HTTP local: discovery público devuelve el recurso esperado y una petición MCP sin credenciales devuelve 401 con `WWW-Authenticate`. Consentimiento web comprobado en Chromium a 390 px con respuestas simuladas: sin desbordamiento horizontal ni errores JavaScript, selección solo lectura conservada, error recuperable permite reintentar y autorización inválida no muestra el formulario. No sustituye el login real ni la prueba en los proveedores.
+
+## Tokens personales IA: mínimo privilegio (2026-11-09)
+
+La creación de tokens personales desde iOS y Android ofrece **solo lectura por defecto**. La función Edge `repera-ai-tokens` concede `training:write` únicamente cuando la solicitud contiene `canWrite: true` explícito. Los clientes anteriores que omitan `canWrite` reciben solo `training:read`. El usuario puede activar escritura conscientemente con el interruptor «Permitir enviar y editar entrenamientos».
+
+Este cambio no revoca ni reduce los permisos de tokens ya emitidos. Para comprobarlo, ejecutar `python3 -m unittest discover -s tests -p 'test_ai_token_least_privilege_contract.py'` y validar la emisión real en entorno de pruebas antes del despliegue. No se ha desplegado la función Edge ni publicado una versión de las apps.
