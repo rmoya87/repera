@@ -46,8 +46,24 @@ public enum WODComparisonEngine {
            templateA != templateB { return nil }
         switch format {
         case .amrap:
-            guard let old = previous.result.totalReps, let new = current.result.totalReps,
-                  old >= 0, new >= 0 else { return nil }
+            // The recording UI stores roundsCompleted + *extra* repetitions,
+            // not a flattened total. Comparing only extra reps reverses rankings.
+            // Only straightforward rep-count WODs can be flattened safely.
+            guard a.movements.allSatisfy({
+                !$0.isRest && ($0.reps ?? 0) > 0 && $0.repScheme == nil
+                    && $0.distanceMeters == nil && $0.calories == nil
+            }) else { return nil }
+            let repsPerRound = a.movements.reduce(0) { $0 + ($1.reps ?? 0) }
+            guard repsPerRound > 0,
+                  let previousRounds = previous.result.roundsCompleted,
+                  let currentRounds = current.result.roundsCompleted,
+                  let previousExtra = previous.result.totalReps,
+                  let currentExtra = current.result.totalReps,
+                  previousRounds >= 0, currentRounds >= 0,
+                  previousExtra >= 0, currentExtra >= 0,
+                  previousExtra < repsPerRound, currentExtra < repsPerRound else { return nil }
+            let old = previousRounds * repsPerRound + previousExtra
+            let new = currentRounds * repsPerRound + currentExtra
             return WODComparison(previousScore: previous.result.summaryLabel,
                                  currentScore: current.result.summaryLabel,
                                  improvement: new - old, unit: "reps")
