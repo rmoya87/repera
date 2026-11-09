@@ -976,6 +976,17 @@ private struct SettingsTrainingSection: View {
 
     var body: some View {
         Section("Entrenamiento") {
+            Picker("Género (referencia deportiva)", selection: competitionSexBinding) {
+                Text("Sin indicar").tag(StrengthBenchmarkSex?.none)
+                Text("Femenino").tag(StrengthBenchmarkSex?.some(.female))
+                Text("Masculino").tag(StrengthBenchmarkSex?.some(.male))
+            }
+            Picker("Año de nacimiento", selection: birthYearBinding) {
+                Text("Sin indicar").tag(Int?.none)
+                ForEach((1940...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
+                    Text(String(year)).tag(Int?.some(year))
+                }
+            }
             Stepper(value: heartRateBinding, in: 120...230, step: 1) {
                 HStack(spacing: 10) {
                     Label("FC máxima", systemImage: "heart")
@@ -1005,6 +1016,22 @@ private struct SettingsTrainingSection: View {
                 }
             }
         }
+    }
+
+    private var competitionSexBinding: Binding<StrengthBenchmarkSex?> {
+        Binding(get: { store.state.settings.competitionSex }, set: {
+            var settings = store.state.settings
+            settings.competitionSex = $0
+            store.updateSettings(settings)
+        })
+    }
+
+    private var birthYearBinding: Binding<Int?> {
+        Binding(get: { store.state.settings.birthYear }, set: {
+            var settings = store.state.settings
+            settings.birthYear = $0
+            store.updateSettings(settings)
+        })
     }
 
     private var heartRateBinding: Binding<Int> {
