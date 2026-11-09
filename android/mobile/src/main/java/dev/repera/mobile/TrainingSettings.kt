@@ -14,7 +14,9 @@ data class TrainingSettings(
     val restHapticEnabled:Boolean=true,
     val effortUnit:String="rir",
     val weightUnit:String="kg",
-    val heartRateMaxBpm:Int?=null
+    val heartRateMaxBpm:Int?=null,
+    val competitionSex:String?=null,
+    val birthYear:Int?=null
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -26,7 +28,9 @@ data class TrainingSettings(
                 s.optString("scheduleMode","fixedWeek").takeIf { it in listOf("fixedWeek","rotation") } ?: "fixedWeek",s.optBoolean("restSoundEnabled",true),s.optBoolean("restHapticEnabled",true),
                 s.optString("effortUnit","rir").takeIf {it in listOf("rir","rpe")} ?: "rir",
                 s.optString("weightUnit","kg").takeIf {it in listOf("kg","lb")} ?: "kg",
-                s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230})
+                s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230},
+                s.optString("competitionSex").takeIf { it == "female" || it == "male" },
+                s.optInt("birthYear",0).takeIf { it in 1940..java.time.Year.now().value })
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
@@ -35,6 +39,8 @@ data class TrainingSettings(
             require(value.effortUnit in listOf("rir","rpe") && value.weightUnit in listOf("kg","lb"))
             require(value.scheduleMode in listOf("fixedWeek","rotation"))
             require(value.heartRateMaxBpm == null || value.heartRateMaxBpm in 120..230)
+            require(value.competitionSex == null || value.competitionSex in setOf("female", "male"))
+            require(value.birthYear == null || value.birthYear in 1940..java.time.Year.now().value)
             val s=state.optJSONObject("settings") ?: JSONObject().also { state.put("settings",it) }
             s.put("weekStartsOn",if(value.weekStartsOnMonday) "monday" else "sunday")
             s.put("defaultRestSeconds",value.defaultRestSeconds)
@@ -43,6 +49,10 @@ data class TrainingSettings(
             s.put("effortUnit",value.effortUnit);s.put("weightUnit",value.weightUnit)
             s.put("scheduleMode",value.scheduleMode)
             s.put("restSoundEnabled",value.restSoundEnabled);s.put("restHapticEnabled",value.restHapticEnabled)
+            if (value.competitionSex == null) s.remove("competitionSex")
+            else s.put("competitionSex", value.competitionSex)
+            if (value.birthYear == null) s.remove("birthYear")
+            else s.put("birthYear", value.birthYear)
             if(value.heartRateMaxBpm == null) s.remove("heartRateMaxBpm")
             else s.put("heartRateMaxBpm",value.heartRateMaxBpm)
             if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {
