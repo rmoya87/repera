@@ -1,6 +1,6 @@
 # Comparativas deportivas y progresión adaptativa (Repera atleta)
 
-Última actualización: 2026-11-09.
+Última actualización: 2026-11-09 (bloque Rendimiento tras gráfica de Evolución).
 
 ## Alcance
 Solo la aplicación de deportistas, con vistas nativas en iOS/iPadOS y Android. Se conserva la
@@ -54,17 +54,15 @@ con transformación reutilizada del proyecto **LiftGauge** (datos CC0).
   cuenta observaciones, **no personas únicas**. No es una muestra de la población general.
 - Se almacenan solo cuantiles agregados; no nombres ni otros registros individuales.
   Categoría, edad y peso del usuario se conservan localmente en preferencias.
-- En **Evolución Pro**, un 1RM anotado por el usuario tiene prioridad; si no
-  existe, se coloca su **e1RM estimado a partir de series realmente registradas**
-  sobre la campana de referencia, etiquetándolo `e1RM estimado`. Nunca
-  se llama marca oficial ni se atribuye a una competición. La curva se
-  ilustra con mediana e IQR de los cuantiles, sin inferir una normalidad real;
-  el percentil se interpola **solo dentro** de los cuantiles disponibles.
-  La ausencia de referencia/datos genera un estado breve, no un número fabricado.
-- Categoría de competición y **año de nacimiento** se guardan únicamente en
-  Ajustes → Entrenamiento (snapshot sincronizado); el peso más reciente se
-  reutiliza del historial corporal existente en Progreso, sin entradas
-  duplicadas en la gráfica.
+- En **Evolución Pro**, el bloque se titula **Rendimiento** y va **después** de
+  la gráfica de registros del ejercicio. Un 1RM anotado tiene prioridad; si no
+  existe, se coloca el **e1RM estimado** de series reales (accesibilidad, no
+  pie bajo el eje). Nunca se llama marca oficial. La curva ilustra mediana/IQR
+  de cuantiles competitivos OpenPowerlifting (no solo élite profesional, ni
+  población de gimnasio). Sin cobertura: silueta apagada + mensaje, sin inventar
+  percentil.
+- **Género** y **año de nacimiento** solo en Ajustes → Entrenamiento (snapshot
+  sincronizado); el peso reciente se reutiliza de Progreso.
 
 El script alternativo `scripts/build_strength_benchmarks.py` permite construir
 otros agregados desde CSV local oficial, pero su método de deduplicación por
