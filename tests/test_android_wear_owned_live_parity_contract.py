@@ -81,6 +81,21 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         self.assertIn('Wearable.getDataClient(this).dataItems', main)
         self.assertIn('WearOwnedLiveMirror.accept(this, snapshot)', main)
 
+    def test_wear_exercise_service_restarts_by_reattaching_not_duplicating_health(self):
+        service = read(WEAR_SERVICE)
+        sensors = read("android/wear/src/main/java/dev/repera/wear/WearHealthSession.kt")
+        self.assertIn("return START_REDELIVER_INTENT", service)
+        self.assertIn("if(id.isNullOrBlank() || !isCurrent(id))", service)
+        self.assertIn('cache.getString("sensorEndedSessionId",null)==id', service)
+        self.assertIn("ExerciseOwnership.OWNED", sensors)
+        self.assertIn("Reattach, never replace our surviving exercise", sensors)
+        self.assertIn('binding.getString("sessionId",null)!=sessionId', sensors)
+        teardown = service.split("override fun onDestroy()", 1)[1].split(
+            "companion object", 1
+        )[0]
+        self.assertIn("sensors.detach()", teardown)
+        self.assertNotIn("sensors.stop(", teardown)
+
     def test_android_phone_owned_service_recovery_still_checks_uuid_and_account(self):
         service = read(PHONE_SERVICE)
         self.assertIn('return START_REDELIVER_INTENT', service)
