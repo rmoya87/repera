@@ -29,6 +29,23 @@ class WearLiveCommandListener : WearableListenerService() {
             handleAnalyticsEvent(event)
             return
         }
+        if (event.path == "/repera/watch-owned-live") {
+            if (!WearUiPresence.active) {
+                val payload = runCatching {
+                    JSONObject(String(event.data, Charsets.UTF_8))
+                }.getOrNull() ?: return
+                val sessions = SessionStore(this)
+                val owner = sessions.load()?.uniqueId ?: return
+                val revision = sessions.identityRevision()
+                Handler(Looper.getMainLooper()).post {
+                    if (sessions.identityRevision() == revision &&
+                        sessions.load()?.uniqueId == owner) {
+                        WearOwnedLiveMirror.accept(this, payload)
+                    }
+                }
+            }
+            return
+        }
         if (event.path == "/repera/live-heart-rate") {
             if (!WearUiPresence.active) handleBackgroundLiveHeartRate(event)
             return
@@ -194,6 +211,7 @@ class WearLiveCommandListener : WearableListenerService() {
                 ).isNotBlank()
         }.getOrDefault(false)
         if (!saved) return
+        WearOwnedLiveMirror.closeSaved(this, id)
         Wearable.getMessageClient(this).sendMessage(
             event.sourceNodeId, "/repera/live-save-ack",
             JSONObject().put("id", id).put("saved", true)
