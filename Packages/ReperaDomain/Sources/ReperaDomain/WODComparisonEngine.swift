@@ -6,11 +6,15 @@ public struct WODComparisonContext: Sendable, Equatable {
     public var prescribed: RoutineBlock
     public var result: WODBlockResult
     public var isRx: Bool
+    /// Required and identical between scaled attempts; nil for RX.
+    public var scalingFingerprint: String?
 
-    public init(prescribed: RoutineBlock, result: WODBlockResult, isRx: Bool) {
+    public init(prescribed: RoutineBlock, result: WODBlockResult, isRx: Bool,
+                scalingFingerprint: String? = nil) {
         self.prescribed = prescribed
         self.result = result
         self.isRx = isRx
+        self.scalingFingerprint = scalingFingerprint
     }
 }
 
@@ -40,6 +44,13 @@ public enum WODComparisonEngine {
               a.movements.count == b.movements.count, !a.movements.isEmpty,
               zip(a.movements, b.movements).allSatisfy({ equivalent($0.0, $0.1) }) else {
             return nil
+        }
+        // Unknown modifications are not equivalent scaled executions.
+        if previous.isRx {
+            guard previous.scalingFingerprint == nil, current.scalingFingerprint == nil else { return nil }
+        } else {
+            guard let earlier = previous.scalingFingerprint, !earlier.isEmpty,
+                  earlier == current.scalingFingerprint else { return nil }
         }
         // Comparing scores from different official templates is unsafe.
         if let templateA = a.wodTemplateId, let templateB = b.wodTemplateId,
