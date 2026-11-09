@@ -73,7 +73,11 @@ internal class LiveActivityService : Service() {
         }.getOrDefault(false)
         if (!plannedSessionActive) r.resumeInterruptedRecordingIfNeeded()
         if (!ticking) {ticking=true;handler.post(tick)}
-        return START_NOT_STICKY
+        // The user explicitly started this foreground service. Ask Android to
+        // redeliver its original, account/UUID-bound intent after process death;
+        // the guards above reject a finished, replaced or signed-out session.
+        // This does not restart a force-stopped app or bypass FGS restrictions.
+        return START_REDELIVER_INTENT
     }
     override fun onDestroy() {
         ticking=false;handler.removeCallbacks(tick)
