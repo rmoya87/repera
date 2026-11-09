@@ -33,7 +33,8 @@ data class StrengthBenchmarkResult(
     val percentile: Double,
     val sampleCount: Int,
     val source: String,
-    val sourceRevision: String
+    val sourceRevision: String,
+    val ageSpecific: Boolean
 )
 
 object StrengthBenchmarkEngine {
@@ -50,11 +51,14 @@ object StrengthBenchmarkEngine {
         val eligible = distributions.filter {
             it.cohort.matches(lift, sex, equipment, age, bodyWeightKg)
         }
-        if (eligible.size != 1) return null
-        val reference = eligible.single()
-        if (reference.sampleCount < MINIMUM_SAMPLE_COUNT ||
-            reference.source != "OpenPowerlifting" ||
-            reference.sourceRevision.isBlank() || reference.quantiles.size < 2) return null
+        val candidates = eligible.filter {
+            it.sampleCount >= MINIMUM_SAMPLE_COUNT && it.source == "OpenPowerlifting" &&
+                it.sourceRevision.isNotBlank() && it.quantiles.size >= 2
+        }
+        val minSpan = candidates.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin } ?: return null
+        val best = candidates.filter { it.cohort.ageMax - it.cohort.ageMin == minSpan }
+        if (best.size != 1) return null
+        val reference = best.single()
         val points = reference.quantiles.sortedBy { it.percentile }
         if (points.any { !it.percentile.isFinite() || !it.weightKg.isFinite() ||
                 it.percentile !in 0.0..100.0 || it.weightKg <= 0 } ||
@@ -67,7 +71,8 @@ object StrengthBenchmarkEngine {
             val fraction = (weightKg - lower.weightKg) / (upper.weightKg - lower.weightKg)
             return StrengthBenchmarkResult(
                 lower.percentile + fraction * (upper.percentile - lower.percentile),
-                reference.sampleCount, reference.source, reference.sourceRevision
+                reference.sampleCount, reference.source, reference.sourceRevision,
+                reference.cohort.ageMin == reference.cohort.ageMax
             )
         }
         return null
