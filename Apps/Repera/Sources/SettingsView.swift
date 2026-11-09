@@ -977,14 +977,14 @@ private struct SettingsTrainingSection: View {
     var body: some View {
         Section("Entrenamiento") {
             Picker("Género (referencia deportiva)", selection: competitionSexBinding) {
-                Text("Sin indicar").tag(StrengthBenchmarkSex?.none)
-                Text("Femenino").tag(StrengthBenchmarkSex?.some(.female))
-                Text("Masculino").tag(StrengthBenchmarkSex?.some(.male))
+                Text("Sin indicar").tag(nil as StrengthBenchmarkSex?)
+                Text("Femenino").tag(StrengthBenchmarkSex.female as StrengthBenchmarkSex?)
+                Text("Masculino").tag(StrengthBenchmarkSex.male as StrengthBenchmarkSex?)
             }
             Picker("Año de nacimiento", selection: birthYearBinding) {
-                Text("Sin indicar").tag(Int?.none)
+                Text("Sin indicar").tag(nil as Int?)
                 ForEach((1940...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
-                    Text(String(year)).tag(Int?.some(year))
+                    Text(String(year)).tag(year as Int?)
                 }
             }
             Stepper(value: heartRateBinding, in: 120...230, step: 1) {
