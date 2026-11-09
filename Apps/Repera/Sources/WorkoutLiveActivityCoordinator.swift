@@ -24,7 +24,7 @@ final class WorkoutLiveActivityCoordinator {
     }
     private static let watchMarksKey = "repera.watch.liveDeliveryMarks.v1"
     private var watchMarks: [String: WatchDeliveryMark] = {
-        guard let data = UserDefaults.standard.data(forKey: watchMarksKey),
+        guard let data = UserDefaults.standard.data(forKey: Self.watchMarksKey),
               let marks = try? JSONDecoder().decode(
                 [String: WatchDeliveryMark].self, from: data
               ) else { return [:] }
