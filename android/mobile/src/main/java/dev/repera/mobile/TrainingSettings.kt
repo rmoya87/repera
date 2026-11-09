@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import org.json.JSONObject
 import dev.repera.domain.ProgressionPolicy
+import dev.repera.domain.StrengthReferenceFrame
 
 /** Apple AppSettings wire keys. Unknown fields remain owned by the snapshot. */
 data class TrainingSettings(
@@ -16,7 +17,8 @@ data class TrainingSettings(
     val weightUnit:String="kg",
     val heartRateMaxBpm:Int?=null,
     val competitionSex:String?=null,
-    val birthYear:Int?=null
+    val birthYear:Int?=null,
+    val strengthReferenceFrame:String = StrengthReferenceFrame.AMATEUR.wire
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -30,7 +32,8 @@ data class TrainingSettings(
                 s.optString("weightUnit","kg").takeIf {it in listOf("kg","lb")} ?: "kg",
                 s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230},
                 s.optString("competitionSex").takeIf { it == "female" || it == "male" },
-                s.optInt("birthYear",0).takeIf { it in (java.time.Year.now().value - 100)..java.time.Year.now().value })
+                s.optInt("birthYear",0).takeIf { it in (java.time.Year.now().value - 100)..java.time.Year.now().value },
+                StrengthReferenceFrame.fromWire(s.optString("strengthReferenceFrame", "amateur")).wire)
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
@@ -41,6 +44,7 @@ data class TrainingSettings(
             require(value.heartRateMaxBpm == null || value.heartRateMaxBpm in 120..230)
             require(value.competitionSex == null || value.competitionSex in setOf("female", "male"))
             require(value.birthYear == null || value.birthYear in 1940..java.time.Year.now().value)
+            require(value.strengthReferenceFrame in setOf("amateur", "elite"))
             val s=state.optJSONObject("settings") ?: JSONObject().also { state.put("settings",it) }
             s.put("weekStartsOn",if(value.weekStartsOnMonday) "monday" else "sunday")
             s.put("defaultRestSeconds",value.defaultRestSeconds)
@@ -53,6 +57,7 @@ data class TrainingSettings(
             else s.put("competitionSex", value.competitionSex)
             if (value.birthYear == null) s.remove("birthYear")
             else s.put("birthYear", value.birthYear)
+            s.put("strengthReferenceFrame", value.strengthReferenceFrame)
             if(value.heartRateMaxBpm == null) s.remove("heartRateMaxBpm")
             else s.put("heartRateMaxBpm",value.heartRateMaxBpm)
             if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {

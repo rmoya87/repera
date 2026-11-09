@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (Rendimiento tras gráfica; Género en Ajustes).
+Última actualización: 2026-11-09 (Nivel Amateur/Élite; seed gym + migración local).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -13,18 +13,18 @@
   modificaciones realmente registradas y formatos/caps compatibles. No infiere
   comparabilidad del nombre de un WOD. WOD previo incompleto o sin escala
   explícita no se compara.
-- `StrengthBenchmarkEngine` compara una carga frente a cuantiles de resultados
-  competitivos OpenPowerlifting por categoría, edad, equipamiento y peso; el
-  llamador distingue **1RM registrado frente a e1RM calculado**, que solo es
-  una posición estimada. `AppSettings.competitionSex/birthYear` y
-  `TrainingSettings.competitionSex/birthYear` comparten claves de snapshot;
-  cuerpo = última entrada existente de `bodyWeights`, sin otro formulario.
-  Las dos apps incluyen el mismo JSON CC0; no son percentiles poblacionales.
-  `StrengthBenchmarkVisual` (**Rendimiento**) crea una campana *ilustrativa*
-  calibrada por cuantiles IQR tras la gráfica de Evolución; vacío = silueta
-  apagada + mensaje; sin pies bajo el eje X.
-- Ajustes → Entrenamiento: etiqueta corta **Género** con Femenino/Masculino
-  a la derecha. Recuperación Pro: curva de minutos diarios 14 días. Sin
+- `StrengthReferenceFrame` (`amateur` / `elite`) filtra `StrengthBenchmarkEngine`
+  por `source` (`SymmetricStrength` vs `OpenPowerlifting`); default Amateur;
+  nunca mezcla marcos. JSON empaquetado: 813 filas (765 OPL + 48 seed gym).
+  El llamador distingue **1RM registrado frente a e1RM calculado**.
+  `AppSettings` / `TrainingSettings` sincronizan `competitionSex`, `birthYear`
+  y `strengthReferenceFrame`; cuerpo = última entrada de `bodyWeights`.
+  `StrengthBenchmarkVisual` (**Rendimiento**) usa el marco de Ajustes tras la
+  gráfica de Evolución; vacío = silueta + mensaje; sin pies bajo el eje X.
+  Migración local `20261109160000_strength_benchmark_frames.sql` (bootstrap/
+  delta + inbox contribuciones) **sin aplicar en remoto** hasta confirmación.
+- Ajustes → Entrenamiento: **Género**, **Nivel** (Amateur/Élite), año de
+  nacimiento. Recuperación Pro: curva de minutos diarios 14 días. Sin
   escritores nuevos en Watch/Wear, HealthKit o Health Connect.
 - Progresión y cálculos deben pasar compilación y pruebas nativas antes de
   entregar una versión. Ver `ATHLETE_STRENGTH_BENCHMARKS.md`.

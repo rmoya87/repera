@@ -57,6 +57,10 @@ struct StrengthBenchmarkVisual: View {
         return nil
     }
 
+    private var frame: StrengthReferenceFrame {
+        store.state.settings.strengthReferenceFrame
+    }
+
     private var reference: StrengthBenchmarkDistribution? {
         guard let lift = Self.lift(for: exercise.name),
               let sex = store.state.settings.competitionSex,
@@ -64,11 +68,12 @@ struct StrengthBenchmarkVisual: View {
               let weightKg else { return nil }
         let age = Calendar.current.component(.year, from: Date()) - birthYear
         guard age >= 14 && age <= 100 else { return nil }
+        let allowed = frame.allowedSources
         let eligible = distributions.filter {
             $0.cohort.matches(lift: lift, sex: sex, equipment: .raw,
                               age: age, bodyWeightKg: weightKg)
                 && $0.sampleCount >= StrengthBenchmarkEngine.minimumSampleCount
-                && $0.source == "OpenPowerlifting"
+                && allowed.contains($0.source)
         }
         guard let width = eligible.map({ $0.cohort.ageMax - $0.cohort.ageMin }).min() else {
             return nil
@@ -87,7 +92,7 @@ struct StrengthBenchmarkVisual: View {
         return StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: result.kg, lift: lift, sex: sex, equipment: .raw,
             age: Calendar.current.component(.year, from: Date()) - birthYear,
-            bodyWeightKg: weightKg, distributions: distributions
+            bodyWeightKg: weightKg, distributions: distributions, frame: frame
         )
     }
 
@@ -216,7 +221,7 @@ struct StrengthBenchmarkVisual: View {
             }
         }
         .frame(height: 126)
-        .accessibilityLabel("Curva ilustrativa de marcas de competición. Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
+        .accessibilityLabel("Curva ilustrativa de referencia \(frame == .elite ? "de competición" : "de gimnasio"). Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
     }
 
     private var emptyBellVisual: some View {
@@ -278,6 +283,6 @@ struct StrengthBenchmarkVisual: View {
             return "Configura género y año de nacimiento en Ajustes · Entrenamiento."
         }
         if weightKg == nil { return "Registra tu peso corporal en Progreso." }
-        return "Sin referencia competitiva suficiente para esta categoría."
+        return "Sin referencia suficiente para esta categoría."
     }
 }

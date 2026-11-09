@@ -9,10 +9,11 @@ class StrengthBenchmarkProfileSettingsTest {
     @Test fun persistsInSingleSettingsSnapshot() {
         val state = JSONObject()
         TrainingSettings.apply(state, TrainingSettings(
-            competitionSex = "female", birthYear = 1987
+            competitionSex = "female", birthYear = 1987, strengthReferenceFrame = "elite"
         ))
         assertEquals("female", TrainingSettings.read(state).competitionSex)
         assertEquals(1987, TrainingSettings.read(state).birthYear)
+        assertEquals("elite", TrainingSettings.read(state).strengthReferenceFrame)
         assertNull(state.optJSONObject("settings")?.opt("bodyWeightKg"))
     }
 
@@ -22,6 +23,7 @@ class StrengthBenchmarkProfileSettingsTest {
         val read = TrainingSettings.read(legacy)
         assertNull(read.competitionSex)
         assertNull(read.birthYear)
+        assertEquals("amateur", read.strengthReferenceFrame)
     }
 
     @Test fun clearingProfileDoesNotKeepStaleBirthYear() {

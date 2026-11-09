@@ -2,6 +2,7 @@ package dev.repera.mobile
 
 import dev.repera.domain.FallbackActivityKind
 import dev.repera.domain.LiveActivityState
+import dev.repera.domain.StrengthReferenceFrame
 import dev.repera.mobile.monetization.LocalSubscriptions
 import dev.repera.mobile.analytics.ReperaAnalytics
 import android.net.Uri
@@ -1872,6 +1873,8 @@ fun ReperaMobileScreen(
                             competitionSex = overview?.trainingSettings?.competitionSex,
                             birthYear = overview?.trainingSettings?.birthYear,
                             bodyWeightKg = overview?.bodyWeightHistory?.firstOrNull()?.kg,
+                            strengthReferenceFrame = overview?.trainingSettings?.strengthReferenceFrame
+                                ?: StrengthReferenceFrame.AMATEUR.wire,
                             onSetTestedOneRM = {onSetTestedOneRM(entry.id,it)},
                             busy = busy,
                             exerciseSummary = exerciseSummary,

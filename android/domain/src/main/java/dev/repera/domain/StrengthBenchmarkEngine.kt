@@ -5,6 +5,31 @@ enum class StrengthBenchmarkLift { SQUAT, BENCH_PRESS, DEADLIFT }
 enum class StrengthBenchmarkSex { FEMALE, MALE }
 enum class StrengthBenchmarkEquipment { RAW, WRAPS, SINGLE_PLY, MULTI_PLY }
 
+/** Amateur = gym seed / Repera aggregates; Elite = competition meets. */
+enum class StrengthReferenceFrame {
+    AMATEUR, ELITE;
+
+    val allowedSources: Set<String>
+        get() = when (this) {
+            AMATEUR -> setOf("SymmetricStrength")
+            ELITE -> setOf("OpenPowerlifting")
+        }
+
+    val wire: String
+        get() = when (this) {
+            AMATEUR -> "amateur"
+            ELITE -> "elite"
+        }
+
+    companion object {
+        fun fromWire(raw: String?): StrengthReferenceFrame =
+            when (raw) {
+                "elite" -> ELITE
+                else -> AMATEUR
+            }
+    }
+}
+
 data class StrengthBenchmarkCohort(
     val lift: StrengthBenchmarkLift,
     val sex: StrengthBenchmarkSex,
@@ -45,15 +70,17 @@ object StrengthBenchmarkEngine {
     fun compareCompetitionOneRepMax(
         weightKg: Double, lift: StrengthBenchmarkLift, sex: StrengthBenchmarkSex,
         equipment: StrengthBenchmarkEquipment, age: Int, bodyWeightKg: Double,
-        distributions: List<StrengthBenchmarkDistribution>
+        distributions: List<StrengthBenchmarkDistribution>,
+        frame: StrengthReferenceFrame = StrengthReferenceFrame.AMATEUR
     ): StrengthBenchmarkResult? {
         if (!weightKg.isFinite() || weightKg <= 0 || !bodyWeightKg.isFinite() ||
             bodyWeightKg <= 0 || age !in 14..100) return null
+        val allowed = frame.allowedSources
         val eligible = distributions.filter {
             it.cohort.matches(lift, sex, equipment, age, bodyWeightKg)
         }
         val candidates = eligible.filter {
-            it.sampleCount >= MINIMUM_SAMPLE_COUNT && it.source == "OpenPowerlifting" &&
+            it.sampleCount >= MINIMUM_SAMPLE_COUNT && it.source in allowed &&
                 it.sourceRevision.isNotBlank() && it.quantiles.size >= 2
         }
         val minSpan = candidates.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin } ?: return null

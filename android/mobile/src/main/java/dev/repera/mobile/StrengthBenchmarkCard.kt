@@ -35,6 +35,7 @@ import dev.repera.domain.StrengthBenchmarkEquipment
 import dev.repera.domain.StrengthBenchmarkLift
 import dev.repera.domain.StrengthBenchmarkQuantile
 import dev.repera.domain.StrengthBenchmarkSex
+import dev.repera.domain.StrengthReferenceFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -52,13 +53,16 @@ internal fun StrengthBenchmarkVisual(
     estimatedOneRM: Double?,
     competitionSex: String?,
     birthYear: Int?,
-    bodyWeightKg: Double?
+    bodyWeightKg: Double?,
+    strengthReferenceFrame: String = StrengthReferenceFrame.AMATEUR.wire
 ) {
     val lift = strengthLiftForExerciseName(exerciseName) ?: return
     val context = LocalContext.current
     val rows by produceState<List<StrengthBenchmarkDistribution>?>(null, context) {
         value = withContext(Dispatchers.IO) { StrengthBenchmarkAssets.load(context) }
     }
+    val frame = StrengthReferenceFrame.fromWire(strengthReferenceFrame)
+    val allowed = frame.allowedSources
     val sex = when (competitionSex) {
         "female" -> StrengthBenchmarkSex.FEMALE
         "male" -> StrengthBenchmarkSex.MALE
@@ -74,7 +78,7 @@ internal fun StrengthBenchmarkVisual(
         val eligible = rows.orEmpty().filter {
             it.cohort.matches(lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg)
                 && it.sampleCount >= StrengthBenchmarkEngine.MINIMUM_SAMPLE_COUNT
-                && it.source == "OpenPowerlifting"
+                && it.source in allowed
         }
         val span = eligible.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin }
         eligible.filter { it.cohort.ageMax - it.cohort.ageMin == span }
@@ -82,7 +86,7 @@ internal fun StrengthBenchmarkVisual(
     } else null
     val pct = if (kg != null && sex != null && age != null && bodyWeightKg != null) {
         StrengthBenchmarkEngine.compareCompetitionOneRepMax(
-            kg, lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg, rows.orEmpty()
+            kg, lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg, rows.orEmpty(), frame
         )
     } else null
     val p25 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 25) < 1 }
@@ -99,7 +103,7 @@ internal fun StrengthBenchmarkVisual(
         sex == null || birthYear == null ->
             "Configura género y año de nacimiento en Ajustes · Entrenamiento."
         bodyWeightKg == null || bodyWeightKg <= 0 -> "Registra tu peso corporal en Progreso."
-        else -> "Sin referencia competitiva suficiente para esta categoría."
+        else -> "Sin referencia suficiente para esta categoría."
     }
     val emptyIcon = when {
         rows == null -> Icons.Outlined.Info
@@ -123,7 +127,9 @@ internal fun StrengthBenchmarkVisual(
             val lo = kotlin.math.min(median - 3 * sigma, score).coerceAtLeast(0.0)
             val hi = kotlin.math.max(median + 3 * sigma, score)
             Canvas(Modifier.fillMaxWidth().height(118.dp).semantics {
-                contentDescription = "Campana ilustrativa de competición. Tu " +
+                contentDescription = "Campana ilustrativa de referencia " +
+                    (if (frame == StrengthReferenceFrame.ELITE) "de competición" else "de gimnasio") +
+                    ". Tu " +
                     (if (isEstimate) "e1RM estimado" else "1RM registrado") +
                     ": ${score.toInt()} kilogramos"
             }) {

@@ -36,6 +36,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var competitionSex: StrengthBenchmarkSex?
     /// Only birth year is stored, not a full birth date.
     public var birthYear: Int?
+    /// Amateur (gym) vs Élite (competition) reference frame for Rendimiento.
+    public var strengthReferenceFrame: StrengthReferenceFrame
     public var dailyWorkoutMinutesGoal: Int?
     public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
@@ -64,6 +66,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         heartRateMaxBpm: Int? = nil,
         competitionSex: StrengthBenchmarkSex? = nil,
         birthYear: Int? = nil,
+        strengthReferenceFrame: StrengthReferenceFrame = .amateur,
         dailyWorkoutMinutesGoal: Int? = nil,
         weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
@@ -88,6 +91,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.heartRateMaxBpm = heartRateMaxBpm
         self.competitionSex = competitionSex
         self.birthYear = birthYear
+        self.strengthReferenceFrame = strengthReferenceFrame
         self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
@@ -105,7 +109,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
-        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, competitionSex, birthYear, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, competitionSex, birthYear, strengthReferenceFrame, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -125,6 +129,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         competitionSex = try c.decodeIfPresent(StrengthBenchmarkSex.self, forKey: .competitionSex)
         birthYear = try c.decodeIfPresent(Int.self, forKey: .birthYear)
             .flatMap { ((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).contains($0) ? $0 : nil }
+        strengthReferenceFrame = try c.decodeIfPresent(StrengthReferenceFrame.self, forKey: .strengthReferenceFrame) ?? .amateur
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear

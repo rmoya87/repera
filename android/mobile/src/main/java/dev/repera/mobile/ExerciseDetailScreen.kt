@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import dev.repera.domain.ReperaNumberFormat
+import dev.repera.domain.StrengthReferenceFrame
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -76,6 +77,7 @@ internal fun ExerciseDetailScreen(
     competitionSex:String? = null,
     birthYear:Int? = null,
     bodyWeightKg:Double? = null,
+    strengthReferenceFrame:String = StrengthReferenceFrame.AMATEUR.wire,
     onSetTestedOneRM:(Double?)->Unit = {},
     busy:Boolean = false,
     onQuickLog:()->Unit = {},
@@ -238,7 +240,8 @@ internal fun ExerciseDetailScreen(
                     estimatedOneRM = estimatedOneRM,
                     competitionSex = competitionSex,
                     birthYear = birthYear,
-                    bodyWeightKg = bodyWeightKg
+                    bodyWeightKg = bodyWeightKg,
+                    strengthReferenceFrame = strengthReferenceFrame
                 )
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
@@ -391,7 +394,8 @@ internal fun ExerciseEvolutionSection(
     estimatedOneRM: Double? = null,
     competitionSex: String? = null,
     birthYear: Int? = null,
-    bodyWeightKg: Double? = null
+    bodyWeightKg: Double? = null,
+    strengthReferenceFrame: String = StrengthReferenceFrame.AMATEUR.wire
 ) {
     val metrics = ExerciseProgressMetric.available(
         if (entry.loggingStyle == "machineWork") "machineWork"
@@ -644,7 +648,8 @@ internal fun ExerciseEvolutionSection(
                     estimatedOneRM = summary?.estimatedOneRM ?: estimatedOneRM,
                     competitionSex = competitionSex,
                     birthYear = birthYear,
-                    bodyWeightKg = bodyWeightKg
+                    bodyWeightKg = bodyWeightKg,
+                    strengthReferenceFrame = strengthReferenceFrame
                 )
             }
             summary?.takeIf { it.hasData }?.let { h ->

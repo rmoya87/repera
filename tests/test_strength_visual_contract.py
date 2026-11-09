@@ -13,7 +13,7 @@ class StrengthVisualContract(unittest.TestCase):
     def test_demographics_have_one_synced_source(self):
         swift = source("Packages/ReperaDomain/Sources/ReperaDomain/Models.swift")
         android = source("android/mobile/src/main/java/dev/repera/mobile/TrainingSettings.kt")
-        for field in ("competitionSex", "birthYear"):
+        for field in ("competitionSex", "birthYear", "strengthReferenceFrame"):
             self.assertIn(f"public var {field}:", swift)
             self.assertIn(f"val {field}:", android)
             self.assertIn(f'case ', swift)
@@ -23,11 +23,51 @@ class StrengthVisualContract(unittest.TestCase):
             "android/mobile/src/main/java/dev/repera/mobile/TrainingSettingsSection.kt")
         self.assertIn("Picker(\"Año de nacimiento\"", settings)
         self.assertIn("Picker(\"Género\"", settings)
+        self.assertIn("Picker(\"Nivel\"", settings)
+        self.assertIn("Amateur", settings)
+        self.assertIn("Élite", settings)
         self.assertNotIn("Género (referencia deportiva)", settings)
         self.assertIn('Text("Género"', android_settings)
+        self.assertIn('Text("Nivel"', android_settings)
+        self.assertIn('"Amateur"', android_settings)
+        self.assertIn('"Élite"', android_settings)
         self.assertNotIn("Género · referencia de fuerza", android_settings)
         self.assertIn('"Femenino"', android_settings)
         self.assertIn('"Masculino"', android_settings)
+
+    def test_rendimiento_filters_by_strength_reference_frame(self):
+        engine = source(
+            "Packages/ReperaDomain/Sources/ReperaDomain/StrengthBenchmarkEngine.swift")
+        android_engine = source(
+            "android/domain/src/main/java/dev/repera/domain/StrengthBenchmarkEngine.kt")
+        ios_visual = source("Apps/Repera/Sources/StrengthBenchmarkCard.swift")
+        android_visual = source(
+            "android/mobile/src/main/java/dev/repera/mobile/StrengthBenchmarkCard.kt")
+        self.assertIn("enum StrengthReferenceFrame", engine)
+        self.assertIn('case amateur', engine)
+        self.assertIn('case elite', engine)
+        self.assertIn('["SymmetricStrength"]', engine)
+        self.assertIn('["OpenPowerlifting"]', engine)
+        self.assertIn("frame: StrengthReferenceFrame = .amateur", engine)
+        self.assertIn("enum class StrengthReferenceFrame", android_engine)
+        self.assertIn('setOf("SymmetricStrength")', android_engine)
+        self.assertIn('setOf("OpenPowerlifting")', android_engine)
+        self.assertIn("frame: StrengthReferenceFrame = StrengthReferenceFrame.AMATEUR",
+                      android_engine)
+        self.assertIn("store.state.settings.strengthReferenceFrame", ios_visual)
+        self.assertIn("allowed.contains($0.source)", ios_visual)
+        self.assertIn("strengthReferenceFrame", android_visual)
+        self.assertIn("it.source in allowed", android_visual)
+        assets_ios = (ROOT / "Apps/Repera/Resources/strength_benchmarks.json").read_text(
+            encoding="utf-8")
+        self.assertIn("OpenPowerlifting", assets_ios)
+        self.assertIn("SymmetricStrength", assets_ios)
+        self.assertIn("fitnessvolt-gym-seed-2026-11-09", assets_ios)
+        migration = source(
+            "supabase/migrations/20261109160000_strength_benchmark_frames.sql")
+        self.assertIn("strength_benchmark_bootstrap", migration)
+        self.assertIn("strength_benchmark_delta", migration)
+        self.assertIn("strength_benchmark_contribution_inbox", migration)
 
     def test_strength_reference_is_embedded_in_evolution_not_separate_card(self):
         ios_detail = source("Apps/Repera/Sources/ExerciseDetailView.swift")

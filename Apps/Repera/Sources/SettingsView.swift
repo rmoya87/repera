@@ -984,6 +984,11 @@ private struct SettingsTrainingSection: View {
                 Text("Masculino").tag(StrengthBenchmarkSex.male as StrengthBenchmarkSex?)
             }
             .pickerStyle(.menu)
+            Picker("Nivel", selection: strengthFrameBinding) {
+                Text("Amateur").tag(StrengthReferenceFrame.amateur)
+                Text("Élite").tag(StrengthReferenceFrame.elite)
+            }
+            .pickerStyle(.menu)
             Picker("Año de nacimiento", selection: birthYearBinding) {
                 Text("Sin indicar").tag(nil as Int?)
                 ForEach(((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
@@ -1033,6 +1038,14 @@ private struct SettingsTrainingSection: View {
         Binding(get: { store.state.settings.birthYear }, set: {
             var settings = store.state.settings
             settings.birthYear = $0
+            store.updateSettings(settings)
+        })
+    }
+
+    private var strengthFrameBinding: Binding<StrengthReferenceFrame> {
+        Binding(get: { store.state.settings.strengthReferenceFrame }, set: {
+            var settings = store.state.settings
+            settings.strengthReferenceFrame = $0
             store.updateSettings(settings)
         })
     }

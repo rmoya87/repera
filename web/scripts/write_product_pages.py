@@ -932,7 +932,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Política de privacidad</h1>
-        <p class="lede">Última actualización: 8 de noviembre de 2026</p>
+        <p class="lede">Última actualización: 9 de noviembre de 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy-en">English</a>
           <a class="btn btn-ghost" href="/terms">Términos de uso</a>
@@ -964,7 +964,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Privacy policy</h1>
-        <p class="lede">Last updated: 8 November 2026</p>
+        <p class="lede">Last updated: 9 November 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy">Español</a>
           <a class="btn btn-ghost" href="/terms">Terms</a>
@@ -996,7 +996,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Términos de uso</h1>
-        <p class="lede">Última actualización: 8 de noviembre de 2026</p>
+        <p class="lede">Última actualización: 9 de noviembre de 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy">Privacidad</a>
           <a class="btn btn-ghost" href="/faq">FAQ</a>

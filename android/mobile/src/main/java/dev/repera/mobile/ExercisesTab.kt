@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import dev.repera.domain.SessionSportMetrics
+import dev.repera.domain.StrengthReferenceFrame
 import dev.repera.mobile.analytics.ReperaAnalytics
 import dev.repera.mobile.monetization.LocalSubscriptions
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -205,6 +206,8 @@ internal fun ExercisesTab(
                     competitionSex=overview?.trainingSettings?.competitionSex,
                     birthYear=overview?.trainingSettings?.birthYear,
                     bodyWeightKg=overview?.bodyWeightHistory?.firstOrNull()?.kg,
+                    strengthReferenceFrame=overview?.trainingSettings?.strengthReferenceFrame
+                        ?: StrengthReferenceFrame.AMATEUR.wire,
                     onSetTestedOneRM={onSetTestedOneRM(entry.id,it)},busy=busy,onQuickLog={quickLogId=entry.id},
                     onToggleFavorite={onSetExerciseFavorite(entry.id,!entry.isFavorite)},
                     exerciseSummary=exerciseSummary,
@@ -341,6 +344,8 @@ internal fun ExercisesTab(
                             competitionSex=overview?.trainingSettings?.competitionSex,
                             birthYear=overview?.trainingSettings?.birthYear,
                             bodyWeightKg=overview?.bodyWeightHistory?.firstOrNull()?.kg,
+                            strengthReferenceFrame=overview?.trainingSettings?.strengthReferenceFrame
+                                ?: StrengthReferenceFrame.AMATEUR.wire,
                             onSetTestedOneRM={onSetTestedOneRM(selected.id,it)},busy=busy,
                             onQuickLog={quickLogId=selected.id},exerciseSummary=exerciseSummary,repRecords=repRecords,exerciseSeries=exerciseSeries,
                             onToggleFavorite={onSetExerciseFavorite(selected.id,!selected.isFavorite)},

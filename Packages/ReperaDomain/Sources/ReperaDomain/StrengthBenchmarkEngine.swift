@@ -20,6 +20,19 @@ public enum StrengthBenchmarkEquipment: String, Codable, Sendable {
     case multiPly
 }
 
+/// Amateur = gym self-report seed / Repera aggregates; Élite = competition meets.
+public enum StrengthReferenceFrame: String, Codable, Sendable, CaseIterable, Hashable {
+    case amateur
+    case elite
+
+    public var allowedSources: Set<String> {
+        switch self {
+        case .amateur: return ["SymmetricStrength"]
+        case .elite: return ["OpenPowerlifting"]
+        }
+    }
+}
+
 public struct StrengthBenchmarkCohort: Codable, Sendable, Equatable {
     public var lift: StrengthBenchmarkLift
     public var sex: StrengthBenchmarkSex
@@ -86,8 +99,12 @@ public struct StrengthBenchmarkResult: Sendable {
     public var sourceRevision: String
     /// True when the reference is restricted to an exact integer age, rather than all ages.
     public var ageSpecific: Bool
-    /// Source counts competition appearances, not distinct lifters.
-    public var sampleUnit: String { "resultados de competición" }
+    /// Competition rows count meet appearances; gym rows count self-reported marks.
+    public var sampleUnit: String {
+        source == "SymmetricStrength"
+            ? "marcas de gimnasio (autoinforme)"
+            : "resultados de competición"
+    }
 }
 
 public enum StrengthBenchmarkEngine {
@@ -103,20 +120,20 @@ public enum StrengthBenchmarkEngine {
         equipment: StrengthBenchmarkEquipment,
         age: Int,
         bodyWeightKg: Double,
-        distributions: [StrengthBenchmarkDistribution]
+        distributions: [StrengthBenchmarkDistribution],
+        frame: StrengthReferenceFrame = .amateur
     ) -> StrengthBenchmarkResult? {
         guard weightKg.isFinite && weightKg > 0,
               bodyWeightKg.isFinite && bodyWeightKg > 0,
               age >= 14 && age <= 100 else { return nil }
+        let allowed = frame.allowedSources
         let eligible = distributions.filter {
             $0.cohort.matches(lift: lift, sex: sex, equipment: equipment,
                               age: age, bodyWeightKg: bodyWeightKg)
         }
-        // The packaged dataset intentionally contains both exact-age and all-age
-        // references. Prefer exact age; fail closed on ties within the most
-        // specific age band (never sum cohorts or count people twice).
+        // Prefer the narrowest age band; fail closed on ties (never blend frames).
         let candidates = eligible.filter {
-            $0.sampleCount >= minimumSampleCount && $0.source == "OpenPowerlifting"
+            $0.sampleCount >= minimumSampleCount && allowed.contains($0.source)
                 && !$0.sourceRevision.isEmpty && $0.quantiles.count >= 2
         }
         guard let bestRange = candidates.map({ $0.cohort.ageMax - $0.cohort.ageMin }).min() else { return nil }

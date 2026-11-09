@@ -4,11 +4,14 @@ import Testing
 
 struct StrengthBenchmarkProfileSettingsTests {
     @Test func persistsCompetitionProfileWithoutDuplicatedCardInputs() throws {
-        let settings = AppSettings(competitionSex: .male, birthYear: 1987)
+        let settings = AppSettings(
+            competitionSex: .male, birthYear: 1987, strengthReferenceFrame: .elite
+        )
         let bytes = try JSONEncoder().encode(settings)
         let loaded = try JSONDecoder().decode(AppSettings.self, from: bytes)
         #expect(loaded.competitionSex == .male)
         #expect(loaded.birthYear == 1987)
+        #expect(loaded.strengthReferenceFrame == .elite)
         #expect(loaded.bodyWeightGoalKg == nil)
     }
 
@@ -17,10 +20,12 @@ struct StrengthBenchmarkProfileSettingsTests {
         var json = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
         json.removeValue(forKey: "competitionSex")
         json.removeValue(forKey: "birthYear")
+        json.removeValue(forKey: "strengthReferenceFrame")
         let old = try JSONSerialization.data(withJSONObject: json)
         let loaded = try JSONDecoder().decode(AppSettings.self, from: old)
         #expect(loaded.competitionSex == nil)
         #expect(loaded.birthYear == nil)
+        #expect(loaded.strengthReferenceFrame == .amateur)
     }
 
     @Test func rejectsOutOfRangeBirthYearOnDecode() throws {

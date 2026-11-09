@@ -21,7 +21,7 @@ final class StrengthBenchmarkEngineTests: XCTestCase {
     func testInterpolatesWithinSameCohort() {
         let result = StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: [distribution()]
+            age: 37, bodyWeightKg: 85, distributions: [distribution()], frame: .elite
         )
         XCTAssertEqual(result?.percentile, 70)
         XCTAssertEqual(result?.sampleCount, 200)
@@ -31,18 +31,47 @@ final class StrengthBenchmarkEngineTests: XCTestCase {
         let args = [distribution(count: 10)]
         XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: args))
+            age: 37, bodyWeightKg: 85, distributions: args, frame: .elite))
         XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 175, lift: .benchPress, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: [distribution()]))
+            age: 37, bodyWeightKg: 85, distributions: [distribution()], frame: .elite))
     }
 
     func testDoesNotExtrapolateOrMixOverlappingCohorts() {
         XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 300, lift: .squat, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: [distribution()]))
+            age: 37, bodyWeightKg: 85, distributions: [distribution()], frame: .elite))
         XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: [distribution(), distribution()]))
+            age: 37, bodyWeightKg: 85, distributions: [distribution(), distribution()],
+            frame: .elite))
+    }
+
+    func testAmateurIgnoresEliteRowsAndEliteIgnoresAmateur() {
+        let elite = distribution()
+        let amateur = StrengthBenchmarkDistribution(
+            cohort: cohort, source: "SymmetricStrength",
+            sourceRevision: "gym-seed-v1", sampleCount: 500, quantiles: [
+                .init(percentile: 10, weightKg: 80),
+                .init(percentile: 50, weightKg: 120),
+                .init(percentile: 90, weightKg: 160)
+            ]
+        )
+        XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
+            weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
+            age: 37, bodyWeightKg: 85, distributions: [elite], frame: .amateur))
+        XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
+            weightKg: 140, lift: .squat, sex: .male, equipment: .raw,
+            age: 37, bodyWeightKg: 85, distributions: [amateur], frame: .elite))
+        let gym = StrengthBenchmarkEngine.compareCompetitionOneRepMax(
+            weightKg: 140, lift: .squat, sex: .male, equipment: .raw,
+            age: 37, bodyWeightKg: 85, distributions: [elite, amateur], frame: .amateur)
+        XCTAssertEqual(gym?.percentile, 70)
+        XCTAssertEqual(gym?.source, "SymmetricStrength")
+        let meet = StrengthBenchmarkEngine.compareCompetitionOneRepMax(
+            weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
+            age: 37, bodyWeightKg: 85, distributions: [elite, amateur], frame: .elite)
+        XCTAssertEqual(meet?.source, "OpenPowerlifting")
+        XCTAssertEqual(meet?.percentile, 70)
     }
 }

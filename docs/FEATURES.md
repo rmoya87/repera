@@ -1,23 +1,22 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-09 (Rendimiento tras gráfica de Evolución; Género en Ajustes).
+Última actualización: 2026-11-09 (Nivel Amateur/Élite en Rendimiento).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
 - En fuerza, la política Pro `Adaptativa` añade una evaluación conservadora
   de sesiones completadas y RIR real; no aumenta cargas continuamente ni
   fabrica medidas de fatiga.
-- En **Ajustes → Entrenamiento**, el campo se llama solo **Género** (Femenino /
-  Masculino a la derecha) y **año de nacimiento** sigue aparte. Preferencias
-  opcionales sincronizadas. El último peso corporal se lee de Progreso; no se
-  pide por duplicado en la ficha. En **Evolución Pro** de sentadilla, banca y
-  peso muerto, el bloque **Rendimiento** aparece **después** de la gráfica de
-  registros: campana compacta + marca vertical + `Pxx` frente a OpenPowerlifting
-  CC0. Sin pies «1RM registrado» / «referencia competitiva» bajo el eje; el
-  detalle queda en accesibilidad. Sin dato: silueta de campana apagada + icono
-  y mensaje corto. Si falta un 1RM registrado, se usa el **e1RM estimado** de
-  series (si existe). La campana es **ilustrativa desde cuantiles**, no una
-  normal poblacional; percentiles solo con cobertura suficiente.
+- En **Ajustes → Entrenamiento**: **Género**, **Nivel** (Amateur / Élite,
+  default Amateur) y **año de nacimiento**. Preferencias sincronizadas. El
+  último peso corporal se lee de Progreso; no se pide por duplicado en la ficha.
+  En **Evolución Pro** de sentadilla, banca y peso muerto, el bloque
+  **Rendimiento** aparece **después** de la gráfica: una campana + `Pxx` del
+  marco elegido (Amateur = seed gym SymmetricStrength/FitnessVolt CC BY;
+  Élite = OpenPowerlifting CC0). Nunca mezcla marcos. Sin pies bajo el eje; el
+  detalle queda en accesibilidad. Sin dato: silueta apagada + mensaje. Si falta
+  un 1RM registrado, se usa el **e1RM estimado** de series (si existe). La
+  campana es **ilustrativa desde cuantiles**, no una normal poblacional.
 - WOD: la comparación Pro requiere mismo formato, prescripción y RX/escala
   verificables; los score históricos sin modalidad no generan mejora ficticia.
 - Recuperación Pro: **línea de minutos diarios reales durante los últimos 14 días**, con

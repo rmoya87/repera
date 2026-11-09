@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.repera.domain.ProgressionPolicy
+import dev.repera.domain.StrengthReferenceFrame
 
 /** Controls are offered only for settings with connected consumers. */
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
@@ -29,6 +30,26 @@ import dev.repera.domain.ProgressionPolicy
                                 )
                             )
                         },
+                        label = { Text(label) }
+                    )
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Nivel", style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    StrengthReferenceFrame.AMATEUR.wire to "Amateur",
+                    StrengthReferenceFrame.ELITE.wire to "Élite"
+                ).forEach { (frame, label) ->
+                    ReperaFilterChip(
+                        selected = value.strengthReferenceFrame == frame,
+                        enabled = !busy,
+                        onClick = { onChange(value.copy(strengthReferenceFrame = frame)) },
                         label = { Text(label) }
                     )
                 }
