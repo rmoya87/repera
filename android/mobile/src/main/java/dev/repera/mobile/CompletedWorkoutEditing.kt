@@ -110,6 +110,31 @@ object CompletedWorkoutEditing {
         return updated.put("wodResults", next)
     }
 
+    /**
+     * Records an explicitly selected RX/scaled state only if a saved WOD score exists.
+     * Never manufactures a mark by toggling a selector.
+     */
+    fun changingScoreScale(session: JSONObject, block: JSONObject, isRx: Boolean?): JSONObject {
+        val format = fmtOf(block) ?: return session
+        val results = session.optJSONArray("wodResults") ?: return session
+        val blockId = block.optString("id")
+        val updated = JSONObject(session.toString())
+        val next = JSONArray()
+        var changed = false
+        for (i in 0 until results.length()) {
+            val row = results.getJSONObject(i)
+            if (row.optString("id") == blockId && scoreMatches(row, format)) {
+                val copy = JSONObject(row.toString())
+                if (isRx == null) copy.remove("isRx") else copy.put("isRx", isRx)
+                next.put(copy)
+                changed = true
+            } else {
+                next.put(row)
+            }
+        }
+        return if (changed) updated.put("wodResults", next) else session
+    }
+
     /** Series visibles (Apple visibleSets, live main 26 Oct): las realizadas se superponen por posición sobre las
      *  planificadas, conservando detrás las pendientes con sus valores; sin registros, las planificadas. */
     private fun visibleSets(entry: JSONObject): JSONArray {
