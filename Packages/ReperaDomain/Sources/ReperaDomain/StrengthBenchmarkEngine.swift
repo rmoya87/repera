@@ -84,8 +84,10 @@ public struct StrengthBenchmarkResult: Sendable {
     public var sampleCount: Int
     public var source: String
     public var sourceRevision: String
-    /// True only for a competition 1RM; estimates are not comparable.
-    public var competitionOnly: Bool { true }
+    /// True when the reference is restricted to an exact integer age, rather than all ages.
+    public var ageSpecific: Bool
+    /// Source counts competition appearances, not distinct lifters.
+    public var sampleUnit: String { "resultados de competición" }
 }
 
 public enum StrengthBenchmarkEngine {
@@ -109,12 +111,16 @@ public enum StrengthBenchmarkEngine {
             $0.cohort.matches(lift: lift, sex: sex, equipment: equipment,
                               age: age, bodyWeightKg: bodyWeightKg)
         }
-        // Overlapping cohorts cannot be merged safely or arbitrarily selected.
-        guard eligible.count == 1, let reference = eligible.first,
-              reference.sampleCount >= minimumSampleCount,
-              reference.source == "OpenPowerlifting",
-              !reference.sourceRevision.isEmpty,
-              reference.quantiles.count >= 2 else { return nil }
+        // The packaged dataset intentionally contains both exact-age and all-age
+        // references. Prefer exact age; fail closed on ties within the most
+        // specific age band (never sum cohorts or count people twice).
+        let candidates = eligible.filter {
+            $0.sampleCount >= minimumSampleCount && $0.source == "OpenPowerlifting"
+                && !$0.sourceRevision.isEmpty && $0.quantiles.count >= 2
+        }
+        guard let bestRange = candidates.map({ $0.cohort.ageMax - $0.cohort.ageMin }).min() else { return nil }
+        let best = candidates.filter { $0.cohort.ageMax - $0.cohort.ageMin == bestRange }
+        guard best.count == 1, let reference = best.first else { return nil }
         let points = reference.quantiles.sorted { $0.percentile < $1.percentile }
         guard points.allSatisfy({ $0.percentile.isFinite && $0.weightKg.isFinite
                                   && $0.percentile >= 0 && $0.percentile <= 100
@@ -133,7 +139,8 @@ public enum StrengthBenchmarkEngine {
                 percentile: lower.percentile + fraction * (upper.percentile - lower.percentile),
                 sampleCount: reference.sampleCount,
                 source: reference.source,
-                sourceRevision: reference.sourceRevision
+                sourceRevision: reference.sourceRevision,
+                ageSpecific: reference.cohort.ageMin == reference.cohort.ageMax
             )
         }
         return nil
