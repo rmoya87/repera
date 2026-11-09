@@ -777,6 +777,13 @@ private fun ThisSessionCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(sectionTitle, style = MaterialTheme.typography.titleSmall)
             SessionAppearanceBlock(thisAppearance, emphasizeDate = true)
+            if (LocalSubscriptions.current?.isPro == true &&
+                !thisAppearance.wodComparisonLabel.isNullOrBlank()) {
+                HorizontalDivider()
+                Text(thisAppearance.wodComparisonLabel!!,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+            }
             if (prior != null) {
                 Text(if (thisAppearance.isGlobalWodScore) "Intento anterior" else "Anterior",
                     style = MaterialTheme.typography.labelSmall)
