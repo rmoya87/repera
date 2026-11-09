@@ -28,6 +28,25 @@ class WearHealthMetricContracts(unittest.TestCase):
         self.assertIn("DataType.CALORIES_TOTAL", session)
         self.assertIn("averageHeartRateBpm", session)
 
+    def test_delayed_wear_metrics_cannot_rewind_current_heart_reading(self):
+        runtime = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityRuntime.kt")
+        self.assertIn("wearHeartSessionID == sessionID && capturedAt <= wearHeartCapturedAt", runtime)
+        self.assertIn("capturedAt > wearAverageCapturedAt", runtime)
+        self.assertIn("wearAverageCapturedAt = 0L", runtime)
+        self.assertIn("WearMeasuredEnergy.reconcileTotal(", runtime)
+        self.assertIn("state.gpsSessionID != sessionID", runtime)
+
+    def test_foreground_service_shutdown_does_not_fabricate_pause(self):
+        service = read("android/mobile/src/main/java/dev/repera/mobile/LiveActivityService.kt")
+        shutdown = service.split("override fun onDestroy()", 1)[1].split(
+            "private fun notification(", 1
+        )[0]
+        self.assertIn("checkpoint(true)", shutdown)
+        self.assertNotIn(".pause()", shutdown)
+        self.assertIn("if (!plannedSessionActive) r.resumeInterruptedRecordingIfNeeded()", service)
+        self.assertIn("identityRevision", service)
+        self.assertIn("activitySessionID", service)
+
     def test_total_energy_never_masquerades_as_active(self):
         wear = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
         writer = read("android/mobile/src/main/java/dev/repera/mobile/HealthConnectWriter.kt")
