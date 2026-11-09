@@ -23,7 +23,8 @@ data class SessionAppearance(
     val wodFormatName: String? = null,
     val wodTemplateId: String? = null,
     val wodTemplateName: String? = null,
-    val isGlobalWodScore: Boolean = false
+    val isGlobalWodScore: Boolean = false,
+    val wodComparisonLabel: String? = null
 ) {
     val hasContent: Boolean
         get() = setLines.isNotEmpty() || prescriptionLine != null || wodScoreLabel != null
