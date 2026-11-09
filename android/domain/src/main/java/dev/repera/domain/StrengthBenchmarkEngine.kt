@@ -40,7 +40,8 @@ data class StrengthBenchmarkResult(
 object StrengthBenchmarkEngine {
     const val MINIMUM_SAMPLE_COUNT = 100
 
-    /** Only an actual competition 1RM is admissible; estimated gym 1RM is not. */
+    /** Positions a 1RM-equivalent against competition quantiles. The UI must
+     * label an estimated e1RM explicitly and never imply an official lift. */
     fun compareCompetitionOneRepMax(
         weightKg: Double, lift: StrengthBenchmarkLift, sex: StrengthBenchmarkSex,
         equipment: StrengthBenchmarkEquipment, age: Int, bodyWeightKg: Double,

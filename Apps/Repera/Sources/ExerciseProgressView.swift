@@ -160,6 +160,15 @@ struct ExerciseEvolutionPanel: View {
                 VStack(alignment: .leading, spacing: 14) {
                     summaryTiles
 
+                    if isStrengthProgress, let exercise {
+                        Divider().opacity(0.35)
+                        StrengthBenchmarkVisual(
+                            exercise: exercise,
+                            testedOneRMKg: testedOneRMKg,
+                            estimatedOneRMKg: history.estimatedOneRM
+                        )
+                    }
+
                     Divider().opacity(0.35)
 
                     metricPicker

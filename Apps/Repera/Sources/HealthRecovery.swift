@@ -1325,16 +1325,19 @@ struct HealthRecoveryProgressView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Advanced training-load trend is Pro only. Count completed workout time,
-    /// not prescribed minutes or an invented physiological stress score.
+    /// Observed minutes per calendar day (not a fabricated physiological score).
+    /// The line shares the existing Progress Chart styling and Pro access gate.
     private var trainingLoadWeekCard: some View {
         let now = Date()
-        let startCurrent = now.addingTimeInterval(-7 * 86400)
-        let startPrevious = now.addingTimeInterval(-14 * 86400)
-        let uniqueWorkouts = Array(Dictionary(
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        let start = calendar.date(byAdding: .day, value: -13, to: today) ?? today
+        let native = Array(Dictionary(
             store.state.workouts.compactMap { workout -> (UUID, WorkoutSession)? in
-                guard let end = workout.finishedAt, end <= now,
-                      end > startPrevious, workout.durationMinutes > 0 else { return nil }
+                guard let end = workout.finishedAt, end <= now, end >= start,
+                      workout.durationMinutes.isFinite, workout.durationMinutes > 0 else {
+                    return nil
+                }
                 return (workout.id, workout)
             }, uniquingKeysWith: { old, newer in
                 (newer.finishedAt ?? .distantPast) > (old.finishedAt ?? .distantPast) ? newer : old
@@ -1342,46 +1345,72 @@ struct HealthRecoveryProgressView: View {
         ).values)
         let external = HealthMuscleMapper.uniqueExternalActivities(
             health.recentExternalActivities, workouts: store.state.workouts
-        )
-        let current = uniqueWorkouts.filter { ($0.finishedAt ?? .distantPast) > startCurrent }
-            .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
-            + external.filter { $0.end > startCurrent && $0.end <= now }
-                .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
-        let previous = uniqueWorkouts.filter {
-            let date = $0.finishedAt ?? .distantPast
-            return date > startPrevious && date <= startCurrent
-        }.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
-            + external.filter { $0.end > startPrevious && $0.end <= startCurrent }
-                .reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+        ).filter { $0.end >= start && $0.end <= now &&
+            $0.durationMinutes.isFinite && $0.durationMinutes > 0
+        }
+        let days: [(date: Date, minutes: Double)] = (0..<14).compactMap { i in
+            guard let date = calendar.date(byAdding: .day, value: i, to: start) else { return nil }
+            let own = native.filter {
+                guard let end = $0.finishedAt else { return false }
+                return calendar.isDate(end, inSameDayAs: date)
+            }.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+            let healthMinutes = external.filter {
+                calendar.isDate($0.end, inSameDayAs: date)
+            }.reduce(0.0) { $0 + max(0, $1.durationMinutes) }
+            return (date, own + healthMinutes)
+        }
+        let lastWeek = days.suffix(7).reduce(0.0) { $0 + $1.minutes }
+        let previousWeek = days.prefix(7).reduce(0.0) { $0 + $1.minutes }
         return VStack(alignment: .leading, spacing: 8) {
-            OGCardSectionTitle(title: "Carga · últimas dos semanas")
+            OGCardSectionTitle(title: "Carga · 14 días")
             OGCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Minutos de entrenamiento registrados")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(OG.label)
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(current > 0 ? "\(Int(current.rounded()))" : "—")
-                            .font(.system(size: 28, weight: .bold).monospacedDigit())
+                VStack(alignment: .leading, spacing: 9) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(lastWeek > 0 ? "\(Int(lastWeek.rounded()))" : "—")
+                            .font(.system(size: 27, weight: .bold).monospacedDigit())
                             .foregroundStyle(OG.accent)
                         Text("min · últimos 7 días")
-                            .font(.footnote)
+                            .font(.caption)
                             .foregroundStyle(OG.label2)
                         Spacer()
+                        Text(previousWeek > 0
+                            ? "\(Int(previousWeek.rounded())) min antes"
+                            : "— antes")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(OG.label2)
                     }
-                    Text("7 días anteriores: \(previous > 0 ? String(Int(previous.rounded())) + " min" : "sin sesiones con duración")")
-                        .font(.footnote)
-                        .foregroundStyle(OG.label2)
-                    if current > 0, previous > 0 {
-                        let change = Int(((current / previous) - 1) * 100)
-                        Text("Variación: \(change > 0 ? "+" : "")\(change)% · tiempo registrado, no intensidad fisiológica")
-                            .font(.caption)
+                    Chart {
+                        ForEach(days.indices, id: \.self) { index in
+                            AreaMark(
+                                x: .value("Día", days[index].date),
+                                yStart: .value("Base", 0.0),
+                                yEnd: .value("Minutos", days[index].minutes)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(OG.accent.opacity(0.12))
+                            LineMark(
+                                x: .value("Día", point.date),
+                                y: .value("Minutos", point.minutes)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(OG.accent)
+                            .lineStyle(StrokeStyle(lineWidth: 2.3, lineCap: .round))
+                        }
+                    }
+                    .chartYScale(domain: 0...max(30, (days.map(\.minutes).max() ?? 0) * 1.12))
+                    .chartYAxis(.hidden)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                            AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                        }
+                    }
+                    .frame(height: 116)
+                    .accessibilityLabel("Minutos diarios registrados en los últimos catorce días. Última semana \(Int(lastWeek.rounded())) minutos. Semana anterior \(Int(previousWeek.rounded())) minutos.")
+                    if lastWeek == 0 && previousWeek == 0 {
+                        Text("Sin sesiones registradas")
+                            .font(.caption2)
                             .foregroundStyle(OG.label3)
                     }
-                    Text("Solo sesiones terminadas y actividades de Salud sin duplicar. No es una recomendación médica.")
-                        .font(.caption2)
-                        .foregroundStyle(OG.label3)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

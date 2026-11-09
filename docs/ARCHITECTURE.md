@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (motores de progresión, WOD y referencias de fuerza).
+Última actualización: 2026-11-09 (fuerza visual y perfil de referencia competitivo sincronizado).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -13,13 +13,19 @@
   modificaciones realmente registradas y formatos/caps compatibles. No infiere
   comparabilidad del nombre de un WOD. WOD previo incompleto o sin escala
   explícita no se compara.
-- `StrengthBenchmarkEngine` compara un tope 1RM registrado frente a cuantiles
-  de resultados competitivos OpenPowerlifting, por categoría, edad, equipamiento
-  y peso. Las dos apps incluyen el mismo JSON CC0, sin datos individuales;
-  el dato de referencia es de mayo de 2026 y **no** representa a la población.
-- Las tarjetas se integran en Detalle/Evolución/Recuperación ya existentes,
-  con evaluación comercial Pro donde corresponde. No hay nuevos escritores de
-  sesiones en Watch/Wear, HealthKit ni Health Connect.
+- `StrengthBenchmarkEngine` compara una carga frente a cuantiles de resultados
+  competitivos OpenPowerlifting por categoría, edad, equipamiento y peso; el
+  llamador distingue **1RM registrado frente a e1RM calculado**, que solo es
+  una posición estimada. `AppSettings.competitionSex/birthYear` y
+  `TrainingSettings.competitionSex/birthYear` comparten claves de snapshot;
+  cuerpo = última entrada existente de `bodyWeights`, sin otro formulario.
+  Las dos apps incluyen el mismo JSON CC0; no son percentiles poblacionales.
+  `StrengthBenchmarkVisual` crea una campana *ilustrativa* calibrada por
+  cuantiles IQR, no afirma normalidad real ni extrapola percentiles.
+- La referencia se integra **dentro de Evolución Pro**, sin tarjeta ni
+  controles propios, y Recuperación Pro usa curva de minutos diarios durante
+  los últimos catorce días (Chart SwiftUI / Canvas Compose); sin escritores
+  nuevos en Watch/Wear, HealthKit o Health Connect.
 - Progresión y cálculos deben pasar compilación y pruebas nativas antes de
   entregar una versión. Ver `ATHLETE_STRENGTH_BENCHMARKS.md`.
 
