@@ -250,7 +250,7 @@ struct AIAccessView: View {
     @State private var tokens: [AIAccessTokenInfo] = []
     @State private var tokenName = ""
     @State private var expiry = "90d"
-    @State private var canWrite = true
+    @State private var canWrite = false
     @State private var createdToken: String?
     @State private var isBusy = false
     @State private var errorMessage: String?
