@@ -60,6 +60,24 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("publishWatchOwnedLiveToPhone(force: true)", watchHub)
         self.assertIn("func watchConnectivityDidBecomeReachable()", watchHub)
 
+    def test_relaunch_requests_fresh_watch_snapshot_without_healthkit_control(self):
+        phone = source(PHONE_TRANSPORT)
+        store = source(PHONE_STORE)
+        watch_transport = source(WATCH_TRANSPORT)
+        hub = source(WATCH_HUB)
+        self.assertIn("func requestWatchOwnedLiveSnapshot()", phone)
+        self.assertIn('"action": "requestWatchOwnedLiveSnapshot"', phone)
+        self.assertIn("connectivity.requestWatchOwnedLiveSnapshot()", store)
+        self.assertIn('payload["action"] as? String == "requestWatchOwnedLiveSnapshot"',
+                      watch_transport)
+        self.assertIn("watchConnectivityDidRequestWatchOwnedLiveSnapshot()", watch_transport)
+        callback = hub.split(
+            "nonisolated func watchConnectivityDidRequestWatchOwnedLiveSnapshot()", 1
+        )[1].split("nonisolated func watchConnectivityDidBecomeReachable()", 1)[0]
+        self.assertIn("publishWatchOwnedLiveToPhone(force: true)", callback)
+        self.assertNotIn("health.begin", callback)
+        self.assertNotIn("health.finish", callback)
+
     def test_watch_live_start_and_phase_are_transported(self):
         hub = source(WATCH_HUB)
         transport = source(WATCH_TRANSPORT)
