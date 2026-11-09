@@ -39,7 +39,7 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         self.assertIn('WearOwnedLivePublisher.publish(this, it)', service)
         publisher = read(PUBLISHER)
         self.assertIn('"/repera/watch-owned-live"', publisher)
-        self.assertIn('now - lastSentAt < 12_000L', publisher)
+        self.assertIn('now - lastSentAt < 30_000L', publisher)
         self.assertIn('PutDataMapRequest.create("/repera/watch-owned-live")', publisher)
         self.assertIn('Wearable.getDataClient(context).putDataItem(request)', publisher)
 
