@@ -747,6 +747,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         liveRetry.reset()
         resendPendingLiveSaves()
         flushPendingLiveCommands()
+        liveActivityJson?.takeIf { it.optBoolean("watchOwned") }?.let {
+            WearOwnedLivePublisher.publish(this, it, force = true)
+        }
         if (todayPlanJson != null) restoreCachedTodayPlan()
         scheduleMidnightPlanExpiry()
         dataClient.dataItems.addOnSuccessListener { items ->
@@ -1557,6 +1560,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         ensureHealthRecording()
         captureWatchOwnedStartLocation(id)
         if (sport.usesGPS) watchOwnedRouteTracker.start()
+        WearOwnedLivePublisher.publish(this, live, force = true)
         haptic(WearHaptic.CONFIRM)
         refreshWearSurfaces()
     }
@@ -1586,6 +1590,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         watchOwnedLive = true
         liveActivityJson = live
         persistWatchOwnedLive(live)
+        WearOwnedLivePublisher.publish(this, live, force = true)
         if (phase == "recording" &&
             LiveSport.byId(live.optString("sportId"))?.usesGPS == true
         ) {
@@ -1623,6 +1628,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     persistWatchOwnedLive(live)
                     liveActivityJson = JSONObject(live.toString())
                 }
+                WearOwnedLivePublisher.publish(this, live, force = true)
                 liveNotice = null
                 haptic(WearHaptic.TOGGLE_OFF)
             }
@@ -1636,6 +1642,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 if (LiveSport.byId(live.optString("sportId"))?.usesGPS == true) {
                     watchOwnedRouteTracker.start()
                 }
+                WearOwnedLivePublisher.publish(this, live, force = true)
                 liveNotice = null
                 haptic(WearHaptic.TOGGLE_ON)
             }
@@ -1720,6 +1727,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun clearWatchOwnedLiveState() {
         val previous = sessionCache.getString("watchOwnedLiveSessionId", null)
+        liveActivityJson?.takeIf { it.optBoolean("watchOwned") }?.let {
+            WearOwnedLivePublisher.close(this, it)
+        }
         watchOwnedLive = false
         liveActivityJson = null
         liveNotice = null
