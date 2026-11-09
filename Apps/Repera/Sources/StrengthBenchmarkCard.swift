@@ -81,7 +81,10 @@ struct StrengthBenchmarkVisual: View {
         let matched = eligible.filter {
             $0.cohort.ageMax - $0.cohort.ageMin == width
         }
-        return matched.count == 1 ? matched.first : nil
+        return matched.max(by: {
+            if $0.sampleCount != $1.sampleCount { return $0.sampleCount < $1.sampleCount }
+            return $0.sourceRevision < $1.sourceRevision
+        })
     }
 
     private var percentile: StrengthBenchmarkResult? {

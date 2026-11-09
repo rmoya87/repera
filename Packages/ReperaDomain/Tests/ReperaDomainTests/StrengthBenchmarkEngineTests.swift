@@ -37,14 +37,26 @@ final class StrengthBenchmarkEngineTests: XCTestCase {
             age: 37, bodyWeightKg: 85, distributions: [distribution()], frame: .elite))
     }
 
-    func testDoesNotExtrapolateOrMixOverlappingCohorts() {
+    func testDoesNotExtrapolateBeyondQuantiles() {
         XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 300, lift: .squat, sex: .male, equipment: .raw,
             age: 37, bodyWeightKg: 85, distributions: [distribution()], frame: .elite))
-        XCTAssertNil(StrengthBenchmarkEngine.compareCompetitionOneRepMax(
+    }
+
+    func testPrefersNewerRevisionWhenCohortsTie() {
+        let older = distribution()
+        let newer = StrengthBenchmarkDistribution(
+            cohort: cohort, source: "OpenPowerlifting",
+            sourceRevision: "sample-v2", sampleCount: 200, quantiles: [
+                .init(percentile: 10, weightKg: 100),
+                .init(percentile: 50, weightKg: 150),
+                .init(percentile: 90, weightKg: 200)
+            ]
+        )
+        let result = StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: 175, lift: .squat, sex: .male, equipment: .raw,
-            age: 37, bodyWeightKg: 85, distributions: [distribution(), distribution()],
-            frame: .elite))
+            age: 37, bodyWeightKg: 85, distributions: [older, newer], frame: .elite)
+        XCTAssertEqual(result?.sourceRevision, "sample-v2")
     }
 
     func testAmateurIgnoresEliteRowsAndEliteIgnoresAmateur() {

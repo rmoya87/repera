@@ -82,7 +82,10 @@ internal fun StrengthBenchmarkVisual(
         }
         val span = eligible.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin }
         eligible.filter { it.cohort.ageMax - it.cohort.ageMin == span }
-            .singleOrNull()
+            .maxWithOrNull(
+                compareBy<StrengthBenchmarkDistribution> { it.sampleCount }
+                    .thenBy { it.sourceRevision }
+            )
     } else null
     val pct = if (kg != null && sex != null && age != null && bodyWeightKg != null) {
         StrengthBenchmarkEngine.compareCompetitionOneRepMax(

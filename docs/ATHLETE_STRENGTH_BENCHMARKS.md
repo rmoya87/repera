@@ -89,11 +89,18 @@ proyecto Repera (09/11/2026) junto con seed de **813** filas
 `strength_benchmark_bootstrap` / `strength_benchmark_delta` y inbox de
 contribuciones (`service_role` only) listos.
 
-**La app aún no sincroniza ese feed:** iOS/Android leen
-`strength_benchmarks.json` empaquetado. El remoto sirve para deltas futuros.
-Rendimiento solo aparece en sentadilla / press banca / peso muerto (nombres
-mapeados); sin lift o sin cohorte del marco elegido → bloque oculto o vacío,
-nunca un percentil inventado.
+**UI offline:** iOS/Android leen `strength_benchmarks.json` empaquetado
+(mismas 813 filas). El remoto ya tiene el seed; sync bootstrap/delta de
+clientes sigue pendiente.
+
+**Opt-in Amateur:** Ajustes → «Mejorar Amateur (anónimo)» (default on). Al
+guardar un **1RM probado** de sentadilla/banca/peso muerto (con género, edad y
+peso), la app llama `submit_strength_benchmark_contribution` (bandas anónimas,
+sin user id en el inbox, rate limit 30/día). `service_role` puede ejecutar
+`strength_benchmark_aggregate_contributions` (≥100 muestras/cohorte) para
+publicar cuantiles `SymmetricStrength` con revisión `repera-optin-YYYY-MM-DD`.
+Élite (OPL) no se mezcla. Sin lift o sin cohorte → bloque oculto/vacío, nunca
+Pxx inventado.
 
 El script `scripts/build_strength_benchmarks.py` permite otros agregados OPL
 desde CSV local; su deduplicación por nombre es aproximada y no es

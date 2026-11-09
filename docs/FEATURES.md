@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-09 (Nivel Amateur/Élite en Rendimiento).
+Última actualización: 2026-11-09 (Amateur opt-in + seed Supabase).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -12,11 +12,11 @@
   último peso corporal se lee de Progreso; no se pide por duplicado en la ficha.
   En **Evolución Pro** de sentadilla, banca y peso muerto, el bloque
   **Rendimiento** aparece **después** de la gráfica: una campana + `Pxx` del
-  marco elegido (Amateur = seed gym SymmetricStrength/FitnessVolt CC BY;
-  Élite = OpenPowerlifting CC0). Nunca mezcla marcos. Sin pies bajo el eje; el
-  detalle queda en accesibilidad. Sin dato: silueta apagada + mensaje. Si falta
-  un 1RM registrado, se usa el **e1RM estimado** de series (si existe). La
-  campana es **ilustrativa desde cuantiles**, no una normal poblacional.
+  marco elegido (Amateur = seed gym + aportes anónimos Repera; Élite = OPL
+  CC0). Nunca mezcla marcos. Toggle **Mejorar Amateur (anónimo)** al guardar
+  1RM probado. Sin pies bajo el eje; detalle en accesibilidad. Sin dato:
+  silueta apagada + mensaje. Si falta 1RM, **e1RM estimado**. Campana
+  ilustrativa desde cuantiles, no normal poblacional.
 - WOD: la comparación Pro requiere mismo formato, prescripción y RX/escala
   verificables; los score históricos sin modalidad no generan mejora ficticia.
 - Recuperación Pro: **línea de minutos diarios reales durante los últimos 14 días**, con

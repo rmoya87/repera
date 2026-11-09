@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (Nivel Amateur/Élite; seed gym + migración local).
+Última actualización: 2026-11-09 (seed remoto + aportes Amateur anónimos).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -21,9 +21,11 @@
   y `strengthReferenceFrame`; cuerpo = última entrada de `bodyWeights`.
   `StrengthBenchmarkVisual` (**Rendimiento**) usa el marco de Ajustes tras la
   gráfica de Evolución; vacío = silueta + mensaje; sin pies bajo el eje X.
-  Migración `20261109160000_strength_benchmark_frames.sql` **aplicada** + seed
-  813 filas en Supabase Repera; clientes aún usan JSON empaquetado (sync
-  bootstrap/delta pendiente).
+  Migraciones strength **aplicadas** + seed 813 filas (OPL+SS) en Supabase
+  Repera. RPC `submit_strength_benchmark_contribution` (authenticated, inbox
+  sin PII) + `strength_benchmark_aggregate_contributions` (service_role).
+  Clientes aún usan JSON empaquetado para la curva; sync bootstrap/delta
+  pendiente.
 - Ajustes → Entrenamiento: **Género**, **Nivel** (Amateur/Élite), año de
   nacimiento. Recuperación Pro: curva de minutos diarios 14 días. Sin
   escritores nuevos en Watch/Wear, HealthKit o Health Connect.

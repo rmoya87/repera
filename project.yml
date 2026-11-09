@@ -64,6 +64,7 @@ targets:
           - SessionDetailSkeleton.swift
           - Analytics/ReperaAnalytics.swift
           - StrengthBenchmarkCard.swift
+          - StrengthContributionSubmitter.swift
       - path: Apps/Repera/Sources/RemoteExerciseCatalogStore.swift
       - path: Apps/Repera/Sources/RemoteExerciseArtCache.swift
       # Referencias explícitas: XcodeGen no puede omitir estas fuentes del target.
@@ -76,6 +77,7 @@ targets:
       - path: Apps/Repera/Sources/SessionDetailSkeleton.swift
       # GA4 adapter: new Analytics/ folder is easy for XcodeGen 2.46 to drop from Compile Sources.
       - path: Apps/Repera/Sources/StrengthBenchmarkCard.swift
+      - path: Apps/Repera/Sources/StrengthContributionSubmitter.swift
       - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift

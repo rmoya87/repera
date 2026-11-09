@@ -107,6 +107,43 @@ public struct StrengthBenchmarkResult: Sendable {
     }
 }
 
+public enum StrengthBenchmarkLiftResolver {
+    public static func lift(forExerciseName name: String) -> StrengthBenchmarkLift? {
+        switch name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "sentadilla", "sentadilla trasera", "back squat", "barbell back squat":
+            return .squat
+        case "press banca", "press de banca", "bench press", "barbell bench press":
+            return .benchPress
+        case "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift":
+            return .deadlift
+        default:
+            return nil
+        }
+    }
+}
+
+/// Anonymized bands for opt-in Amateur contributions (no exact age/weight published).
+public enum StrengthContributionBands {
+    /// Matches FitnessVolt / SymmetricStrength gym class edges used in the seed.
+    public static let bodyWeightClasses: [(min: Double, max: Double)] = [
+        (0, 59.0001), (59.0001, 66.0001), (66.0001, 74.0001), (74.0001, 83.0001),
+        (83.0001, 93.0001), (93.0001, 105.0001), (105.0001, 120.0001), (120, 400)
+    ]
+
+    public static func ageBand(age: Int) -> String? {
+        guard (14...100).contains(age) else { return nil }
+        return "14-100"
+    }
+
+    public static func bodyWeightBand(kg: Double) -> String? {
+        guard kg.isFinite, kg > 0 else { return nil }
+        guard let band = bodyWeightClasses.first(where: { kg >= $0.min && kg < $0.max }) else {
+            return nil
+        }
+        return "\(band.min)-\(band.max)"
+    }
+}
+
 public enum StrengthBenchmarkEngine {
     public static let minimumSampleCount = 100
 
@@ -137,8 +174,12 @@ public enum StrengthBenchmarkEngine {
                 && !$0.sourceRevision.isEmpty && $0.quantiles.count >= 2
         }
         guard let bestRange = candidates.map({ $0.cohort.ageMax - $0.cohort.ageMin }).min() else { return nil }
-        let best = candidates.filter { $0.cohort.ageMax - $0.cohort.ageMin == bestRange }
-        guard best.count == 1, let reference = best.first else { return nil }
+        let narrow = candidates.filter { $0.cohort.ageMax - $0.cohort.ageMin == bestRange }
+        // Prefer larger samples, then newer revision (Repera opt-in can supersede seed).
+        guard let reference = narrow.max(by: {
+            if $0.sampleCount != $1.sampleCount { return $0.sampleCount < $1.sampleCount }
+            return $0.sourceRevision < $1.sourceRevision
+        }) else { return nil }
         let points = reference.quantiles.sorted { $0.percentile < $1.percentile }
         guard points.allSatisfy({ $0.percentile.isFinite && $0.weightKg.isFinite
                                   && $0.percentile >= 0 && $0.percentile <= 100

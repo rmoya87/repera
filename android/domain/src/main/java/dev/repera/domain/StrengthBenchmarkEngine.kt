@@ -62,6 +62,42 @@ data class StrengthBenchmarkResult(
     val ageSpecific: Boolean
 )
 
+object StrengthBenchmarkLiftResolver {
+    fun liftForExerciseName(name: String): StrengthBenchmarkLift? = when (
+        name.trim().lowercase()
+    ) {
+        "sentadilla", "sentadilla trasera", "back squat", "barbell back squat" ->
+            StrengthBenchmarkLift.SQUAT
+        "press banca", "press de banca", "bench press", "barbell bench press" ->
+            StrengthBenchmarkLift.BENCH_PRESS
+        "peso muerto", "peso muerto convencional", "deadlift", "conventional deadlift" ->
+            StrengthBenchmarkLift.DEADLIFT
+        else -> null
+    }
+
+    fun wire(lift: StrengthBenchmarkLift): String = when (lift) {
+        StrengthBenchmarkLift.SQUAT -> "squat"
+        StrengthBenchmarkLift.BENCH_PRESS -> "benchPress"
+        StrengthBenchmarkLift.DEADLIFT -> "deadlift"
+    }
+}
+
+/** Anonymized bands for opt-in Amateur contributions (no exact age/weight published). */
+object StrengthContributionBands {
+    val bodyWeightClasses: List<Pair<Double, Double>> = listOf(
+        0.0 to 59.0001, 59.0001 to 66.0001, 66.0001 to 74.0001, 74.0001 to 83.0001,
+        83.0001 to 93.0001, 93.0001 to 105.0001, 105.0001 to 120.0001, 120.0 to 400.0
+    )
+
+    fun ageBand(age: Int): String? = if (age in 14..100) "14-100" else null
+
+    fun bodyWeightBand(kg: Double): String? {
+        if (!kg.isFinite() || kg <= 0) return null
+        val band = bodyWeightClasses.firstOrNull { kg >= it.first && kg < it.second } ?: return null
+        return "${band.first}-${band.second}"
+    }
+}
+
 object StrengthBenchmarkEngine {
     const val MINIMUM_SAMPLE_COUNT = 100
 
@@ -84,9 +120,12 @@ object StrengthBenchmarkEngine {
                 it.sourceRevision.isNotBlank() && it.quantiles.size >= 2
         }
         val minSpan = candidates.minOfOrNull { it.cohort.ageMax - it.cohort.ageMin } ?: return null
-        val best = candidates.filter { it.cohort.ageMax - it.cohort.ageMin == minSpan }
-        if (best.size != 1) return null
-        val reference = best.single()
+        val narrow = candidates.filter { it.cohort.ageMax - it.cohort.ageMin == minSpan }
+        // Prefer larger samples, then newer revision (Repera opt-in can supersede seed).
+        val reference = narrow.maxWithOrNull(
+            compareBy<StrengthBenchmarkDistribution> { it.sampleCount }
+                .thenBy { it.sourceRevision }
+        ) ?: return null
         val points = reference.quantiles.sortedBy { it.percentile }
         if (points.any { !it.percentile.isFinite() || !it.weightKg.isFinite() ||
                 it.percentile !in 0.0..100.0 || it.weightKg <= 0 } ||

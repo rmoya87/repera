@@ -863,7 +863,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 overview = snapshot,
                 wearTimerMirror = wearTimerMirror,
                 onWearTimerCommand = { command -> sendWearTimerCommand(command) },
-                onSetTestedOneRM = { id,value -> runWorkoutAction { setTestedOneRM(id,value) } },
+                onSetTestedOneRM = { id,value ->
+                    runWorkoutAction {
+                        setTestedOneRM(id, value, verifiedSupabase?.accessToken)
+                    }
+                },
                 exerciseSummary = { exerciseId ->
                     deriveFromSnapshot(listOf("summary", exerciseId)) { root ->
                         dev.repera.domain.StatsEngine.exerciseHistory(

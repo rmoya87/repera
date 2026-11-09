@@ -3905,6 +3905,18 @@ final class ReperaStore: NSObject {
     func setLoadPreference(_ pref: ExerciseLoadPreference, for exerciseId: UUID) {
         state.exerciseLoadPrefs[exerciseId.uuidString] = pref
         persist()
+        if let exercise = state.exercises.first(where: { $0.id == exerciseId }) {
+            let bodyKg = state.bodyWeights
+                .filter { $0.weightKg.isFinite && $0.weightKg > 0 }
+                .max(by: { $0.date < $1.date })?
+                .weightKg
+            StrengthContributionSubmitter.submitIfNeeded(
+                exerciseName: exercise.name,
+                testedOneRMKg: pref.testedOneRMKg,
+                settings: state.settings,
+                bodyWeightKg: bodyKg
+            )
+        }
     }
 
     /// Añade el ejercicio al entreno suelto de hoy (Inicio · Entreno del día). No modifica rutinas del plan semanal.

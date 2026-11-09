@@ -182,6 +182,10 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - La UI de **Rendimiento** sigue leyendo el JSON empaquetado hasta cablear
   `strength_benchmark_bootstrap` / delta en cliente. Solo sentadilla / banca /
   peso muerto mapeados; sin lift o sin cohorte → no inventar Pxx.
+- Aportes Amateur: opt-in `contributeAnonymousStrengthStats` → RPC
+  `submit_strength_benchmark_contribution` (bandas, rate limit, sin user id en
+  inbox). Agregar con `strength_benchmark_aggregate_contributions` (service_role).
+  Motor: ante empate de cohorte, preferir más muestras / revisión más nueva.
 
 #### Material alternativo y disponibilidad MCP (07/11/2026)
 

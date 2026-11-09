@@ -69,11 +69,23 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return count
     }
 
-    @Synchronized fun setTestedOneRM(exerciseId:String,value:Double?) {
+    @Synchronized fun setTestedOneRM(exerciseId:String,value:Double?,accessToken:String? = null) {
         val state=requireState()
         val catalog=state.getJSONArray("exercises")
-        require((0 until catalog.length()).any {catalog.getJSONObject(it).optString("id")==exerciseId})
+        val exercise = (0 until catalog.length())
+            .map { catalog.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == exerciseId }
+            ?: error("exercise missing")
         ExerciseLoadPreference.setTested(state,exerciseId,value);save(state)
+        val settings = TrainingSettings.read(state)
+        val bodyKg = BodyWeightHistory.entries(state).firstOrNull()?.kg
+        StrengthContributionSubmitter.submitIfNeeded(
+            exerciseName = exercise.optString("name"),
+            testedOneRMKg = value,
+            settings = settings,
+            bodyWeightKg = bodyKg,
+            accessToken = accessToken
+        )
     }
 
     @Synchronized internal fun updateTrainingSettings(value:TrainingSettings) {

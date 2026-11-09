@@ -38,6 +38,8 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var birthYear: Int?
     /// Amateur (gym) vs Élite (competition) reference frame for Rendimiento.
     public var strengthReferenceFrame: StrengthReferenceFrame
+    /// Opt-in: send anonymized tested 1RM bands to improve Amateur references.
+    public var contributeAnonymousStrengthStats: Bool
     public var dailyWorkoutMinutesGoal: Int?
     public var weeklyWorkoutGoal: Int?
     public var defaultProgression: ProgressionPolicy
@@ -67,6 +69,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         competitionSex: StrengthBenchmarkSex? = nil,
         birthYear: Int? = nil,
         strengthReferenceFrame: StrengthReferenceFrame = .amateur,
+        contributeAnonymousStrengthStats: Bool = true,
         dailyWorkoutMinutesGoal: Int? = nil,
         weeklyWorkoutGoal: Int? = nil,
         defaultProgression: ProgressionPolicy = .linear,
@@ -92,6 +95,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         self.competitionSex = competitionSex
         self.birthYear = birthYear
         self.strengthReferenceFrame = strengthReferenceFrame
+        self.contributeAnonymousStrengthStats = contributeAnonymousStrengthStats
         self.dailyWorkoutMinutesGoal = dailyWorkoutMinutesGoal
         self.weeklyWorkoutGoal = weeklyWorkoutGoal
         self.defaultProgression = defaultProgression
@@ -109,7 +113,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case weightUnit, weekStartsOn, defaultRestSeconds, bodyWeightGoalKg
-        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, competitionSex, birthYear, strengthReferenceFrame, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
+        case dailyStepsGoal, dailyActiveEnergyGoalKcal, dailyAverageHeartRateGoalBpm, heartRateMaxBpm, competitionSex, birthYear, strengthReferenceFrame, contributeAnonymousStrengthStats, dailyWorkoutMinutesGoal, weeklyWorkoutGoal
         case defaultProgression, weightIncrementKg, barbellKg, ownedPlatesKg, effortUnit
         case scheduleMode, restSoundEnabled, restHapticEnabled
         case profileAvatarJPEG, profileDisplayName, favoriteWODTemplateIds
@@ -130,6 +134,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
         birthYear = try c.decodeIfPresent(Int.self, forKey: .birthYear)
             .flatMap { ((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).contains($0) ? $0 : nil }
         strengthReferenceFrame = try c.decodeIfPresent(StrengthReferenceFrame.self, forKey: .strengthReferenceFrame) ?? .amateur
+        contributeAnonymousStrengthStats = try c.decodeIfPresent(Bool.self, forKey: .contributeAnonymousStrengthStats) ?? true
         dailyWorkoutMinutesGoal = try c.decodeIfPresent(Int.self, forKey: .dailyWorkoutMinutesGoal)
         weeklyWorkoutGoal = try c.decodeIfPresent(Int.self, forKey: .weeklyWorkoutGoal)
         defaultProgression = try c.decodeIfPresent(ProgressionPolicy.self, forKey: .defaultProgression) ?? .linear

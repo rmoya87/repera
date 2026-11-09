@@ -18,7 +18,8 @@ data class TrainingSettings(
     val heartRateMaxBpm:Int?=null,
     val competitionSex:String?=null,
     val birthYear:Int?=null,
-    val strengthReferenceFrame:String = StrengthReferenceFrame.AMATEUR.wire
+    val strengthReferenceFrame:String = StrengthReferenceFrame.AMATEUR.wire,
+    val contributeAnonymousStrengthStats:Boolean = true
 ) {
     companion object {
         fun read(state:JSONObject):TrainingSettings {
@@ -33,7 +34,8 @@ data class TrainingSettings(
                 s.optInt("heartRateMaxBpm",0).takeIf {it in 120..230},
                 s.optString("competitionSex").takeIf { it == "female" || it == "male" },
                 s.optInt("birthYear",0).takeIf { it in (java.time.Year.now().value - 100)..java.time.Year.now().value },
-                StrengthReferenceFrame.fromWire(s.optString("strengthReferenceFrame", "amateur")).wire)
+                StrengthReferenceFrame.fromWire(s.optString("strengthReferenceFrame", "amateur")).wire,
+                if (s.has("contributeAnonymousStrengthStats")) s.optBoolean("contributeAnonymousStrengthStats", true) else true)
         }
         fun apply(state:JSONObject,value:TrainingSettings) {
             require(value.defaultRestSeconds in 30..300)
@@ -58,6 +60,7 @@ data class TrainingSettings(
             if (value.birthYear == null) s.remove("birthYear")
             else s.put("birthYear", value.birthYear)
             s.put("strengthReferenceFrame", value.strengthReferenceFrame)
+            s.put("contributeAnonymousStrengthStats", value.contributeAnonymousStrengthStats)
             if(value.heartRateMaxBpm == null) s.remove("heartRateMaxBpm")
             else s.put("heartRateMaxBpm",value.heartRateMaxBpm)
             if(value.scheduleMode=="rotation" && state.optJSONObject("rotation")==null) {
