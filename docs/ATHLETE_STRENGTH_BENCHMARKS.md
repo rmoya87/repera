@@ -28,12 +28,10 @@ fuera de alcance.** E (informe mensual) y F (compartir resultados) no forman par
    vistas restringidas a Pro. Los WOD históricos sin RX/escalado explícito
    no se comparan, sin inventar su modalidad. Los editores permiten registrar
    RX/escala sin alterar el score original.
-3. **Recuperación C — Pro**: tarjeta de minutos reales de actividad de las
-   últimas dos ventanas de siete días en Recuperación. Reutiliza el hub actual
-   en iOS y Android; elimina coincidencias conocidas con Apple Salud y Health
-   Connect. No se presenta como carga fisiológica, sobreentrenamiento ni
-   recomendación clínica. El resto de métricas de recuperación previas
-   conserva sus controles comerciales.
+3. **Recuperación C — Pro**: gráfica de línea de **14 puntos diarios** de
+   minutos de entrenamiento registrados, dentro del hub de Recuperación.
+   Muestra dos resúmenes mínimos de siete días y elimina coincidencias
+   conocidas con Salud/Health Connect. No es carga fisiológica, ni diagnóstico.
 4. **Récords D**: mejores cargas realmente registradas en series de 3+, 5+
    y 10+ repeticiones, en Evolución de cada ejercicio (Pro). No incluye
    calentamientos, repeticiones prescritas pendientes, ni registros de
@@ -56,10 +54,17 @@ con transformación reutilizada del proyecto **LiftGauge** (datos CC0).
   cuenta observaciones, **no personas únicas**. No es una muestra de la población general.
 - Se almacenan solo cuantiles agregados; no nombres ni otros registros individuales.
   Categoría, edad y peso del usuario se conservan localmente en preferencias.
-- Se compara la marca 1RM anotada por el usuario en Repera con resultados de
-  competición solo de modo *orientativo*. No es un 1RM certificado en torneo
-  ni un percentil de toda la población. **Nunca** usar e1RM calculado para
-  presentarlo como marca oficialmente medida de competición.
+- En **Evolución Pro**, un 1RM anotado por el usuario tiene prioridad; si no
+  existe, se coloca su **e1RM estimado a partir de series realmente registradas**
+  sobre la campana de referencia, etiquetándolo `e1RM estimado`. Nunca
+  se llama marca oficial ni se atribuye a una competición. La curva se
+  ilustra con mediana e IQR de los cuantiles, sin inferir una normalidad real;
+  el percentil se interpola **solo dentro** de los cuantiles disponibles.
+  La ausencia de referencia/datos genera un estado breve, no un número fabricado.
+- Categoría de competición y **año de nacimiento** se guardan únicamente en
+  Ajustes → Entrenamiento (snapshot sincronizado); el peso más reciente se
+  reutiliza del historial corporal existente en Progreso, sin entradas
+  duplicadas en la gráfica.
 
 El script alternativo `scripts/build_strength_benchmarks.py` permite construir
 otros agregados desde CSV local oficial, pero su método de deduplicación por
