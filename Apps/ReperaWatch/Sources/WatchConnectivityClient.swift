@@ -19,6 +19,7 @@ protocol WatchConnectivityClientDelegate: AnyObject {
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     )
+    func watchConnectivityDidRequestWatchOwnedLiveSnapshot()
     func watchConnectivityDidBecomeReachable()
     func watchConnectivityDidChangeReachability(_ reachable: Bool)
     func watchConnectivityDidChangeOwnerScope(hasOwner: Bool)
@@ -34,6 +35,7 @@ extension WatchConnectivityClientDelegate {
     func watchConnectivityDidReceiveHandoffStart(
         session: WorkoutSession?, sessionID: UUID, sportID: String?
     ) {}
+    func watchConnectivityDidRequestWatchOwnedLiveSnapshot()
     func watchConnectivityDidBecomeReachable() {}
     func watchConnectivityDidChangeReachability(_ reachable: Bool) {}
     func watchConnectivityDidChangeOwnerScope(hasOwner: Bool) {}
@@ -642,6 +644,12 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         }
         if let incoming = payload["ownerScope"] as? String,
            incoming != currentOwnerScope { return }
+        if payload["action"] as? String == "requestWatchOwnedLiveSnapshot" {
+            // The scope was validated above. A read-only request must never
+            // start or mutate an HKWorkoutSession.
+            delegate?.watchConnectivityDidRequestWatchOwnedLiveSnapshot()
+            return
+        }
         if payload["action"] as? String == "watchOwnedLiveCommand" {
             guard let scope = payload["ownerScope"] as? String, !scope.isEmpty,
                   scope == currentOwnerScope,
