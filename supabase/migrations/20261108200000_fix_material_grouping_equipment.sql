@@ -4,8 +4,7 @@
 -- Aplicar en remoto solo con confirmación humana.
 
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Anillas',
-    updated_at = now()
+SET mobile_equipment = 'Anillas'
 WHERE catalog_key = 'catalog:Back lever tuck';
 
 UPDATE public.training_exercise_metadata m
@@ -16,8 +15,7 @@ WHERE m.catalog_key = c.catalog_key
   AND c.catalog_key = 'catalog:Back lever tuck';
 
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Barra de dominadas',
-    updated_at = now()
+SET mobile_equipment = 'Barra de dominadas'
 WHERE catalog_key IN (
   'catalog:Dead Hang',
   'catalog:Jumping Pull-Up',
@@ -50,8 +48,7 @@ WHERE m.catalog_key = c.catalog_key
   );
 
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Cajón, Mancuernas',
-    updated_at = now()
+SET mobile_equipment = 'Cajón, Mancuernas'
 WHERE catalog_key = 'catalog:Dumbbell Box Step Up';
 
 UPDATE public.training_exercise_metadata m
@@ -62,8 +59,7 @@ WHERE m.catalog_key = c.catalog_key
   AND c.catalog_key = 'catalog:Dumbbell Box Step Up';
 
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Cajón, Balón medicinal',
-    updated_at = now()
+SET mobile_equipment = 'Cajón, Balón medicinal'
 WHERE catalog_key = 'catalog:Medicine Ball Box Step Over';
 
 UPDATE public.training_exercise_metadata m
@@ -74,8 +70,7 @@ WHERE m.catalog_key = c.catalog_key
   AND c.catalog_key = 'catalog:Medicine Ball Box Step Over';
 
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Pared',
-    updated_at = now()
+SET mobile_equipment = 'Pared'
 WHERE catalog_key = 'catalog:Couch stretch';
 
 UPDATE public.training_exercise_metadata m

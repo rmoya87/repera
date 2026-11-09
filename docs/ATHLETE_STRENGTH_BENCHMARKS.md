@@ -81,13 +81,19 @@ marcos en la misma campana/`Pxx`.
 - **Género**, **Nivel** y **año de nacimiento** solo en Ajustes → Entrenamiento
   (snapshot sincronizado); el peso reciente se reutiliza de Progreso.
 
-### Supabase (pendiente de aplicar)
+### Supabase
 
-Migración local `supabase/migrations/20261109160000_strength_benchmark_frames.sql`:
-tablas de distribuciones + eventos, RPCs `strength_benchmark_bootstrap` /
-`strength_benchmark_delta`, inbox de contribuciones (solo `service_role`).
-**No aplicada en remoto** hasta confirmación humana. Mientras tanto el JSON
-empaquetado es la fuente offline.
+Migración `20261109160000_strength_benchmark_frames.sql` **aplicada** en el
+proyecto Repera (09/11/2026) junto con seed de **813** filas
+(765 OpenPowerlifting + 48 SymmetricStrength). RPCs
+`strength_benchmark_bootstrap` / `strength_benchmark_delta` y inbox de
+contribuciones (`service_role` only) listos.
+
+**La app aún no sincroniza ese feed:** iOS/Android leen
+`strength_benchmarks.json` empaquetado. El remoto sirve para deltas futuros.
+Rendimiento solo aparece en sentadilla / press banca / peso muerto (nombres
+mapeados); sin lift o sin cohorte del marco elegido → bloque oculto o vacío,
+nunca un percentil inventado.
 
 El script `scripts/build_strength_benchmarks.py` permite otros agregados OPL
 desde CSV local; su deduplicación por nombre es aproximada y no es

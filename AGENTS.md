@@ -171,7 +171,17 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Back lever tuck → `Anillas` (familia German hang); Couch stretch → `Pared`
   (banco solo en coaching). Dominadas colgadas → `Barra de dominadas`, no `Barra`.
 - Contratos: `ExerciseEquipmentGroupTests`, `tests/test_equipment_symbol_contract.py`.
-  Migración remota: `20261108200000_fix_material_grouping_equipment.sql` (humano).
+  Migración remota: `20261108200000_fix_material_grouping_equipment.sql`.
+- `business_exercise_catalog` **no** tiene `updated_at` (sí `training_exercise_metadata`).
+  Un `SET …, updated_at = now()` en el catálogo rompe `db push` (42703). Solo
+  tocar `mobile_equipment` ahí.
+
+#### Strength benchmarks remoto (09/11/2026)
+
+- Esquema + seed en Supabase Repera (`strength_benchmark_*`, 813 filas OPL+SS).
+- La UI de **Rendimiento** sigue leyendo el JSON empaquetado hasta cablear
+  `strength_benchmark_bootstrap` / delta en cliente. Solo sentadilla / banca /
+  peso muerto mapeados; sin lift o sin cohorte → no inventar Pxx.
 
 #### Material alternativo y disponibilidad MCP (07/11/2026)
 

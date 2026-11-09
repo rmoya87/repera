@@ -21,8 +21,9 @@
   y `strengthReferenceFrame`; cuerpo = última entrada de `bodyWeights`.
   `StrengthBenchmarkVisual` (**Rendimiento**) usa el marco de Ajustes tras la
   gráfica de Evolución; vacío = silueta + mensaje; sin pies bajo el eje X.
-  Migración local `20261109160000_strength_benchmark_frames.sql` (bootstrap/
-  delta + inbox contribuciones) **sin aplicar en remoto** hasta confirmación.
+  Migración `20261109160000_strength_benchmark_frames.sql` **aplicada** + seed
+  813 filas en Supabase Repera; clientes aún usan JSON empaquetado (sync
+  bootstrap/delta pendiente).
 - Ajustes → Entrenamiento: **Género**, **Nivel** (Amateur/Élite), año de
   nacimiento. Recuperación Pro: curva de minutos diarios 14 días. Sin
   escritores nuevos en Watch/Wear, HealthKit o Health Connect.

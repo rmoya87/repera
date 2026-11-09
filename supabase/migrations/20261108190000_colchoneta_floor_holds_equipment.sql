@@ -1,8 +1,7 @@
 -- Floor gymnastics holds: material = Colchoneta (no «Peso corporal» genérico
 -- ni frases largas tipo ExerciseDB). Aplicar en remoto con confirmación humana.
 UPDATE public.business_exercise_catalog
-SET mobile_equipment = 'Colchoneta',
-    updated_at = now()
+SET mobile_equipment = 'Colchoneta'
 WHERE catalog_key IN (
   'catalog:Arch hold',
   'catalog:Hollow hold',
