@@ -88,7 +88,13 @@ internal object WearOwnedLiveMirror {
         val revision = store.identityRevision() ?: return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getString("owner", null) != account.uniqueId ||
-            prefs.getString("revision", null) != revision) return
+            prefs.getString("revision", null) != revision) {
+            // The durable live-save may arrive before the first live packet.
+            // Still create a tombstone so a delayed recording cannot revive it.
+            prefs.edit().clear().putString("owner", account.uniqueId)
+                .putString("revision", revision).commit()
+            cancelNotification(context)
+        }
         markClosed(prefs, closedIds(prefs.getString("closed", null)), sessionId)
         if (prefs.getString("sessionId", null) == sessionId) {
             prefs.edit().remove("sessionId").remove("state")
