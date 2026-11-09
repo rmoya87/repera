@@ -1,20 +1,27 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-09 (comparativas deportivas y progresión adaptativa de atleta).
+Última actualización: 2026-11-09 (referencia gráfica de fuerza, perfil de entrenamiento y carga de 14 días).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
 - En fuerza, la política Pro `Adaptativa` añade una evaluación conservadora
   de sesiones completadas y RIR real; no aumenta cargas continuamente ni
   fabrica medidas de fatiga.
-- La ficha de Sentadilla, Press banca y Peso muerto ofrece «Tu nivel», usando
-  cohortes competitivas OpenPowerlifting CC0 publicadas en mayo de 2026.
-  Son resultados de competición, **no percentiles poblacionales**. Solo se
-  usan 1RM anotados, nunca e1RM presentados como oficiales.
+- En **Ajustes → Entrenamiento**, género/categoría competitiva y **año de nacimiento**
+  son preferencias opcionales sincronizadas. El último peso corporal se lee de
+  Progreso; no se pide por duplicado en la ficha. En **Evolución Pro** de
+  sentadilla, banca y peso muerto, «Tu nivel · fuerza» se presenta como una
+  curva de campana compacta y marca vertical sobre la referencia competitiva
+  OpenPowerlifting CC0, sin panel adicional ni párrafos extensos. Si falta un
+  1RM registrado, se muestra el **e1RM estimado** a partir de las series
+  (si existe) y se etiqueta claramente como estimación. La campana es
+  **ilustrativa desde cuantiles**, no una distribución normal demostrada;
+  percentiles solo cuando existe cobertura de referencia suficiente.
 - WOD: la comparación Pro requiere mismo formato, prescripción y RX/escala
   verificables; los score históricos sin modalidad no generan mejora ficticia.
-- Recuperación Pro: comparación de minutos observados en dos periodos de 7 días
-  (sin interpretar esos minutos como intensidad fisiológica).
+- Recuperación Pro: **línea de minutos diarios reales durante los últimos 14 días**, con
+  resumen mínimo de dos ventanas de 7 días, sin duplicar actividades espejo
+  Salud/Health Connect ni interpretar minutos como intensidad fisiológica.
 - En Evolución Pro, récords personales por carga con al menos 3/5/10 reps
   efectivamente realizadas; calentamientos y planes pendientes excluidos.
 - Alcance exclusivo de deportistas iOS/iPadOS/Android. Repera Business intacto.
