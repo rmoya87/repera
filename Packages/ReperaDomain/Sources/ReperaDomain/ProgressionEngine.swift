@@ -6,6 +6,7 @@ public enum ProgressionPolicy: String, Codable, Sendable, CaseIterable {
     case doubleProgression = "double"
     case greyskull
     case triple
+    case adaptive
 
     public var displayName: String {
         switch self {
@@ -14,6 +15,7 @@ public enum ProgressionPolicy: String, Codable, Sendable, CaseIterable {
         case .doubleProgression: "Doble (rango de reps)"
         case .greyskull: "Greyskull LP"
         case .triple: "Triple progresión"
+        case .adaptive: "Adaptativa · esfuerzo y recuperación"
         }
     }
 
@@ -29,6 +31,8 @@ public enum ProgressionPolicy: String, Codable, Sendable, CaseIterable {
             "Series fijas + última al fallo. Si bates el objetivo en la AMRAP, sube peso (el doble si doblas reps). Un fallo → deload 10%."
         case .triple:
             "Sube reps → luego añade series → luego peso, y reinicia reps/series."
+        case .adaptive:
+            "Solo sugiere subir tras 2 sesiones completadas con RIR ≥ 2. Mantiene, consolida o descarga según historial."
         }
     }
 }
@@ -119,6 +123,10 @@ public enum ProgressionEngine {
                 baselineSets: max(baselineSets, 3),
                 incrementKg: incrementKg
             )
+        case .adaptive:
+            return adaptiveSuggest(last: last, history: history, baselineWeight: baselineWeight,
+                                   baselineReps: baselineReps, baselineSets: baselineSets,
+                                   incrementKg: incrementKg)
         case .triple:
             return tripleSuggest(
                 last: last,
@@ -340,6 +348,51 @@ public enum ProgressionEngine {
         )
     }
 
+    // MARK: - Adaptive policy
+
+    private static func adaptiveSuggest(
+        last: Performance, history: [Performance], baselineWeight: Double?,
+        baselineReps: Int, baselineSets: Int, incrementKg: Double
+    ) -> ProgressionSuggestion {
+        let weight = last.averageWeight ?? baselineWeight
+        guard let weight, weight.isFinite, weight > 0 else {
+            return ProgressionSuggestion(weightKg: baselineWeight, reps: baselineReps,
+                                         setCount: baselineSets, reason: "Sin carga de trabajo válida.")
+        }
+        let observations = Array(history.prefix(4)).enumerated().map { index, item in
+            let previous = history.indices.contains(index + 1) ? history[index + 1] : nil
+            let delta: Double? = {
+                guard let current = item.bestE1RM, let prior = previous?.bestE1RM, prior > 0 else { return nil }
+                return (current / prior) - 1
+            }()
+            let elapsedHours: Double? = {
+                guard let current = item.completedAt, let prior = previous?.completedAt else { return nil }
+                return current.timeIntervalSince(prior) / 3600
+            }()
+            return AdaptiveLoadObservation(completed: item.hitAll, rir: item.meanRir,
+                                           relativeE1RMChange: delta,
+                                           hoursSincePreviousSession: elapsedHours)
+        }
+        let advice = AdaptiveLoadGuard.evaluate(recent: observations)
+        let nextWeight: Double = {
+            switch advice.decision {
+            case .increase:
+                // Do not exceed a 5% jump; the available plate increment is a hard limit.
+                guard incrementKg > 0, incrementKg / weight <= 0.05 else { return weight }
+                return snap(weight + incrementKg, step: incrementKg)
+            case .deload:
+                return snap(weight * deloadFactor, step: incrementKg)
+            case .maintain, .insufficientData:
+                return weight
+            }
+        }()
+        let reason = advice.decision == .increase && nextWeight == weight
+            ? "Incremento disponible demasiado grande para una progresión segura."
+            : advice.reason
+        return ProgressionSuggestion(weightKg: nextWeight, reps: baselineReps,
+                                     setCount: baselineSets, reason: reason)
+    }
+
     // MARK: - History
 
     private struct Performance {
@@ -349,12 +402,18 @@ public enum ProgressionEngine {
         var lastSetReps: Int?
         var setCount: Int
         var greyskullStraightHits: Bool
+        var meanRir: Double?
+        var bestE1RM: Double?
+        var completedAt: Date?
     }
 
     private static func recentPerformances(exerciseId: UUID, workouts: [WorkoutSession]) -> [Performance] {
-        workouts
+        var seen = Set<UUID>()
+        return workouts
+            .filter { $0.finishedAt != nil || $0.phase == .finished }
             .sorted { ($0.finishedAt ?? $0.startedAt ?? .distantPast) > ($1.finishedAt ?? $1.startedAt ?? .distantPast) }
             .compactMap { workout -> Performance? in
+                guard seen.insert(workout.id).inserted else { return nil }
                 guard let entry = workout.exercises.first(where: { $0.exercise.id == exerciseId })
                 else { return nil }
                 let workSets = entry.loggedSets.filter(\.countsForProgression)
@@ -366,6 +425,13 @@ public enum ProgressionEngine {
                 let weights = workSets.compactMap(\.weightKg).filter { $0 > 0 }
                 let avg = weights.isEmpty ? nil : weights.reduce(0, +) / Double(weights.count)
                 let minReps = workSets.map(\.reps).min()
+                let rirValues = workSets.compactMap(\.rir)
+                let meanRir = rirValues.count == workSets.count && !rirValues.isEmpty
+                    ? rirValues.reduce(0, +) / Double(rirValues.count) : nil
+                let e1RM = workSets.compactMap { set -> Double? in
+                    guard let kg = set.weightKg, kg > 0, set.reps > 0, set.reps <= 12 else { return nil }
+                    return kg * (1 + Double(set.reps) / 30)
+                }.max()
                 let lastReps = workSets.last?.reps
                 let straight: Bool = {
                     guard workSets.count >= 2 else {
@@ -380,7 +446,10 @@ public enum ProgressionEngine {
                     minRepsAcrossSets: minReps,
                     lastSetReps: lastReps,
                     setCount: workSets.count,
-                    greyskullStraightHits: straight
+                    greyskullStraightHits: straight,
+                    meanRir: meanRir,
+                    bestE1RM: e1RM,
+                    completedAt: workout.finishedAt ?? workout.startedAt
                 )
             }
     }
