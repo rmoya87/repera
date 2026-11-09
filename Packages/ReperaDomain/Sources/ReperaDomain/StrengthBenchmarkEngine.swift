@@ -1,0 +1,141 @@
+import Foundation
+
+/// Competition references are never a representative sample of the general population.
+/// No individual lifter data is required by the app; import only aggregate distributions.
+public enum StrengthBenchmarkLift: String, Codable, Sendable, CaseIterable {
+    case squat
+    case benchPress
+    case deadlift
+}
+
+public enum StrengthBenchmarkSex: String, Codable, Sendable {
+    case female
+    case male
+}
+
+public enum StrengthBenchmarkEquipment: String, Codable, Sendable {
+    case raw
+    case wraps
+    case singlePly
+    case multiPly
+}
+
+public struct StrengthBenchmarkCohort: Codable, Sendable, Equatable {
+    public var lift: StrengthBenchmarkLift
+    public var sex: StrengthBenchmarkSex
+    public var equipment: StrengthBenchmarkEquipment
+    public var ageMin: Int
+    public var ageMax: Int
+    public var bodyWeightMinKg: Double
+    public var bodyWeightMaxKg: Double
+
+    public init(lift: StrengthBenchmarkLift, sex: StrengthBenchmarkSex,
+                equipment: StrengthBenchmarkEquipment, ageMin: Int, ageMax: Int,
+                bodyWeightMinKg: Double, bodyWeightMaxKg: Double) {
+        self.lift = lift
+        self.sex = sex
+        self.equipment = equipment
+        self.ageMin = ageMin
+        self.ageMax = ageMax
+        self.bodyWeightMinKg = bodyWeightMinKg
+        self.bodyWeightMaxKg = bodyWeightMaxKg
+    }
+
+    public func matches(lift: StrengthBenchmarkLift, sex: StrengthBenchmarkSex,
+                        equipment: StrengthBenchmarkEquipment, age: Int,
+                        bodyWeightKg: Double) -> Bool {
+        self.lift == lift && self.sex == sex && self.equipment == equipment
+            && age >= ageMin && age <= ageMax
+            && bodyWeightKg >= bodyWeightMinKg && bodyWeightKg < bodyWeightMaxKg
+    }
+}
+
+/// Percentiles are computed offline from competition results; never inferred from labels.
+/// Quantiles are stored as (percentile, lifted kg), sorted by percentile.
+public struct StrengthBenchmarkDistribution: Codable, Sendable {
+    public var cohort: StrengthBenchmarkCohort
+    public var source: String
+    public var sourceRevision: String
+    public var sampleCount: Int
+    public var quantiles: [StrengthBenchmarkQuantile]
+
+    public init(cohort: StrengthBenchmarkCohort, source: String, sourceRevision: String,
+                sampleCount: Int, quantiles: [StrengthBenchmarkQuantile]) {
+        self.cohort = cohort
+        self.source = source
+        self.sourceRevision = sourceRevision
+        self.sampleCount = sampleCount
+        self.quantiles = quantiles
+    }
+}
+
+public struct StrengthBenchmarkQuantile: Codable, Sendable {
+    public var percentile: Double
+    public var weightKg: Double
+
+    public init(percentile: Double, weightKg: Double) {
+        self.percentile = percentile
+        self.weightKg = weightKg
+    }
+}
+
+public struct StrengthBenchmarkResult: Sendable {
+    public var percentile: Double
+    public var sampleCount: Int
+    public var source: String
+    public var sourceRevision: String
+    /// True only for a competition 1RM; estimates are not comparable.
+    public var competitionOnly: Bool { true }
+}
+
+public enum StrengthBenchmarkEngine {
+    public static let minimumSampleCount = 100
+
+    /// Returns nil instead of manufacturing a percentile from missing, sparse or
+    /// incompatible references. Caller must identify its input as an actual 1RM.
+    public static func compareCompetitionOneRepMax(
+        weightKg: Double,
+        lift: StrengthBenchmarkLift,
+        sex: StrengthBenchmarkSex,
+        equipment: StrengthBenchmarkEquipment,
+        age: Int,
+        bodyWeightKg: Double,
+        distributions: [StrengthBenchmarkDistribution]
+    ) -> StrengthBenchmarkResult? {
+        guard weightKg.isFinite && weightKg > 0,
+              bodyWeightKg.isFinite && bodyWeightKg > 0,
+              age >= 14 && age <= 100 else { return nil }
+        let eligible = distributions.filter {
+            $0.cohort.matches(lift: lift, sex: sex, equipment: equipment,
+                              age: age, bodyWeightKg: bodyWeightKg)
+        }
+        // Overlapping cohorts cannot be merged safely or arbitrarily selected.
+        guard eligible.count == 1, let reference = eligible.first,
+              reference.sampleCount >= minimumSampleCount,
+              reference.source == "OpenPowerlifting",
+              !reference.sourceRevision.isEmpty,
+              reference.quantiles.count >= 2 else { return nil }
+        let points = reference.quantiles.sorted { $0.percentile < $1.percentile }
+        guard points.allSatisfy({ $0.percentile.isFinite && $0.weightKg.isFinite
+                                  && $0.percentile >= 0 && $0.percentile <= 100
+                                  && $0.weightKg > 0 }),
+              zip(points, points.dropFirst()).allSatisfy({
+                  $0.0.percentile < $0.1.percentile && $0.0.weightKg < $0.1.weightKg
+              }) else { return nil }
+
+        // Do not extrapolate beyond observed quantiles.
+        guard let first = points.first, let last = points.last,
+              weightKg >= first.weightKg, weightKg <= last.weightKg else { return nil }
+        for (lower, upper) in zip(points, points.dropFirst()) {
+            guard weightKg >= lower.weightKg && weightKg <= upper.weightKg else { continue }
+            let fraction = (weightKg - lower.weightKg) / (upper.weightKg - lower.weightKg)
+            return StrengthBenchmarkResult(
+                percentile: lower.percentile + fraction * (upper.percentile - lower.percentile),
+                sampleCount: reference.sampleCount,
+                source: reference.source,
+                sourceRevision: reference.sourceRevision
+            )
+        }
+        return nil
+    }
+}
