@@ -36,6 +36,19 @@ final class WODComparisonEngineTests: XCTestCase {
             current: context(reps: 5, rounds: 11)))
     }
 
+    func testScaledAttemptsRequireIdenticalExplicitModifications() {
+        let previous = context(reps: 0, rounds: 10, rx: false)
+        let current = context(reps: 5, rounds: 11, rx: false)
+        XCTAssertNil(WODComparisonEngine.compare(previous: previous, current: current))
+        var left = previous
+        var right = current
+        left.scalingFingerprint = "reps:5|kg:40"
+        right.scalingFingerprint = "reps:5|kg:35"
+        XCTAssertNil(WODComparisonEngine.compare(previous: left, current: right))
+        right.scalingFingerprint = left.scalingFingerprint
+        XCTAssertEqual(WODComparisonEngine.compare(previous: left, current: right)?.improvement, 15)
+    }
+
     func testUnsupportedFormatDoesNotManufactureScore() {
         XCTAssertNil(WODComparisonEngine.compare(
             previous: context(reps: 100, format: .emom),
