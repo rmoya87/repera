@@ -799,6 +799,12 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                     return
                 }
                 val signedOut = data.getBoolean("signedOut")
+                val incomingScope = data.getString("ownerScope").orEmpty()
+                if (signedOut || incomingScope.isBlank()) {
+                    sessionCache.edit().remove("mobileOwnerScope").apply()
+                } else {
+                    sessionCache.edit().putString("mobileOwnerScope", incomingScope).apply()
+                }
                 val effort = data.getString("effortUnit")
                 val weight = data.getString("weightUnit")
                 val discardedId = data.getString("discardedSessionId")
@@ -1527,6 +1533,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             .put("capturedAtMillis", now)
             .put("startedAtMillis", now)
             .put("watchOwned", true)
+            .put("ownerScope", sessionCache.getString("mobileOwnerScope", "").orEmpty())
         if (!sessionCache.edit()
                 .putString("watchOwnedLive", live.toString())
                 .putString("watchOwnedLiveSessionId", id)
