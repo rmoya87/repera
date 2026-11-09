@@ -84,6 +84,17 @@ internal class WearHealthService:Service() {
     private fun publish() {
         observer?.invoke(snapshot())
         publishCompanionHeartRate()
+        // Keep the paired phone's read-only Wear-owned mirror fresh even when
+        // WearMainActivity is stopped. Never start phone Health/GPS here.
+        owner?.takeIf {
+            cache.getString("watchOwnedLiveSessionId", null) == it
+        }?.let { id ->
+            cache.getString("watchOwnedLive", null)?.let { raw ->
+                runCatching { JSONObject(raw) }.getOrNull()
+                    ?.takeIf { it.optString("sessionId") == id }
+                    ?.let { WearOwnedLivePublisher.publish(this, it) }
+            }
+        }
         refreshNotification()
         if(sensors.ended) {
             owner?.let {id ->
