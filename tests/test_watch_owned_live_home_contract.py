@@ -28,7 +28,14 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         coordinator = source(COORDINATOR)
         store = source(PHONE_STORE)
         self.assertIn("private struct WatchDeliveryMark: Codable", coordinator)
-        self.assertIn("UserDefaults.standard.data(forKey: Self.watchMarksKey)", coordinator)
+        # `Self.watchMarksKey` in a stored-property init fails to compile
+        # («Covariant 'Self' type cannot be referenced…»). Use the type name.
+        init_block = coordinator.split(
+            "private var watchMarks: [String: WatchDeliveryMark] = {", 1
+        )[1].split("}()", 1)[0]
+        self.assertIn(
+            "WorkoutLiveActivityCoordinator.watchMarksKey", init_block)
+        self.assertNotIn("Self.watchMarksKey", init_block)
         self.assertIn("func mayAcceptWatchOwned(", coordinator)
         self.assertIn("snapshot.capturedAt > mark.capture", coordinator)
         self.assertIn("!mark.closed", coordinator)
@@ -68,9 +75,19 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn("func requestWatchOwnedLiveSnapshot()", phone)
         self.assertIn('"action": "requestWatchOwnedLiveSnapshot"', phone)
         self.assertIn("connectivity.requestWatchOwnedLiveSnapshot()", store)
+        # `@discardableResult` belongs on sendWatchOwnedLiveCommand (Bool), not
+        # on the Void recovery request (inserted wrongly in fdb4f0641).
+        request_idx = phone.index("func requestWatchOwnedLiveSnapshot()")
+        command_idx = phone.index(
+            "func sendWatchOwnedLiveCommand(sessionId: UUID, command: String) -> Bool")
+        discard_idx = phone.rfind("@discardableResult", 0, command_idx + 1)
+        self.assertGreater(discard_idx, request_idx)
+        self.assertLess(discard_idx, command_idx)
         self.assertIn('payload["action"] as? String == "requestWatchOwnedLiveSnapshot"',
                       watch_transport)
-        self.assertIn("watchConnectivityDidRequestWatchOwnedLiveSnapshot()", watch_transport)
+        self.assertIn(
+            "func watchConnectivityDidRequestWatchOwnedLiveSnapshot() {}",
+            watch_transport)
         callback = hub.split(
             "nonisolated func watchConnectivityDidRequestWatchOwnedLiveSnapshot()", 1
         )[1].split("nonisolated func watchConnectivityDidBecomeReachable()", 1)[0]
@@ -100,7 +117,9 @@ class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
         self.assertIn('|| payload["watchOwnedLiveActivity"] != nil', phone)
         self.assertIn('payload["ownerScope"] as? String == expected', phone)
         self.assertIn("WatchOwnedLiveDeliveryPolicy.accepts(snapshot)", phone)
-        self.assertIn("WatchOwnedLiveDeliveryPolicy.isNewer(", coordinator)
+        # Ordering is ledger-based (capture/closed), not a separate isNewer helper.
+        self.assertIn("func mayAcceptWatchOwned(", coordinator)
+        self.assertIn("snapshot.capturedAt > mark.capture", coordinator)
         self.assertIn('let id = "watch:" + snapshot.id.uuidString', coordinator)
         self.assertIn("closedSessionIDs.insert(id)", coordinator)
         self.assertIn("return age <= 90", policy)

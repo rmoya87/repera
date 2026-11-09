@@ -145,6 +145,20 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Apple — `Self.` en init de stored property + atributos sueltos (09/11/2026)
+
+- En un inicializador de propiedad almacenada, `Self.staticMember` falla:
+  «Covariant 'Self' type cannot be referenced from a stored property
+  initializer». Usar el nombre de tipo (`WorkoutLiveActivityCoordinator.watchMarksKey`)
+  o un literal; no «arreglar» con `Self.`.
+- No insertar un método nuevo entre `@discardableResult` / atributos y la
+  función a la que pertenecen: el atributo se pega al siguiente `func` (p. ej.
+  recovery `requestWatchOwnedLiveSnapshot` Void robó el `@discardableResult`
+  de `sendWatchOwnedLiveCommand` → Bool).
+- Extensiones de protocolo con default vacío: siempre `func …() {}`, nunca
+  solo la firma (rompe el build Watch).
+- Contratos: `tests/test_watch_owned_live_home_contract.py`.
+
 #### Charts — ForEach por índice sin dejar `point` (09/11/2026)
 
 - `ChartContentBuilder` no tolera bien destructuring de tuplas en el closure

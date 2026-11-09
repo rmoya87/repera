@@ -73,9 +73,6 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         return true
     }
 
-    /// Remote controls for a Watch-owned activity. The Watch remains the only
-    /// HealthKit writer; iPhone sends only a scoped command for the same UUID.
-    @discardableResult
     /// After iPhone relaunch ask for a fresh Watch-owned snapshot, without
     /// starting, stopping, or changing the HealthKit workout on either device.
     func requestWatchOwnedLiveSnapshot() {
@@ -95,6 +92,9 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate, @unchecked Sendable 
         }
     }
 
+    /// Remote controls for a Watch-owned activity. The Watch remains the only
+    /// HealthKit writer; iPhone sends only a scoped command for the same UUID.
+    @discardableResult
     func sendWatchOwnedLiveCommand(sessionId: UUID, command: String) -> Bool {
         guard ["pause", "resume", "finish"].contains(command),
               WCSession.isSupported(), WCSession.default.activationState == .activated,

@@ -24,7 +24,11 @@ final class WorkoutLiveActivityCoordinator {
     }
     private static let watchMarksKey = "repera.watch.liveDeliveryMarks.v1"
     private var watchMarks: [String: WatchDeliveryMark] = {
-        guard let data = UserDefaults.standard.data(forKey: Self.watchMarksKey),
+        // No usar `Self.` aquí: el inicializador de stored property no admite
+        // Self covariante. Nombre de tipo explícito (final class).
+        guard let data = UserDefaults.standard.data(
+            forKey: WorkoutLiveActivityCoordinator.watchMarksKey
+        ),
               let marks = try? JSONDecoder().decode(
                 [String: WatchDeliveryMark].self, from: data
               ) else { return [:] }
@@ -37,7 +41,9 @@ final class WorkoutLiveActivityCoordinator {
         }.sorted { $0.value.observed > $1.value.observed }.prefix(200)
         watchMarks = Dictionary(uniqueKeysWithValues: marks.map { ($0.key, $0.value) })
         if let data = try? JSONEncoder().encode(watchMarks) {
-            UserDefaults.standard.set(data, forKey: Self.watchMarksKey)
+            UserDefaults.standard.set(
+                data, forKey: WorkoutLiveActivityCoordinator.watchMarksKey
+            )
         }
     }
 
