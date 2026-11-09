@@ -1,6 +1,27 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-06 (Android: sombra chrome menú más corta/clara).
+Última actualización: 2026-11-09 (motores de progresión, WOD y referencias de fuerza).
+
+## Motor de comparativas y progresión de atletas (2026-11-09)
+
+- `ReperaDomain` implementa `AdaptiveLoadGuard` y una política
+  `ProgressionPolicy.adaptive` dentro de `ProgressionEngine`. Kotlin
+  conserva la misma semántica. Sin un historial comparable de sesiones
+  completadas con RIR, no se sugiere aumentar peso. `StrengthRepRecordEngine`
+  identifica récords de series registradas con 3+/5+/10+ repeticiones.
+- `WODComparisonEngine` usa prescripciones de rutina, modalidad RX/escalada,
+  modificaciones realmente registradas y formatos/caps compatibles. No infiere
+  comparabilidad del nombre de un WOD. WOD previo incompleto o sin escala
+  explícita no se compara.
+- `StrengthBenchmarkEngine` compara un tope 1RM registrado frente a cuantiles
+  de resultados competitivos OpenPowerlifting, por categoría, edad, equipamiento
+  y peso. Las dos apps incluyen el mismo JSON CC0, sin datos individuales;
+  el dato de referencia es de mayo de 2026 y **no** representa a la población.
+- Las tarjetas se integran en Detalle/Evolución/Recuperación ya existentes,
+  con evaluación comercial Pro donde corresponde. No hay nuevos escritores de
+  sesiones en Watch/Wear, HealthKit ni Health Connect.
+- Progresión y cálculos deben pasar compilación y pruebas nativas antes de
+  entregar una versión. Ver `ATHLETE_STRENGTH_BENCHMARKS.md`.
 
 ## Comenzar: flujo nativo y propiedad de la sesión (2026-11-06)
 
