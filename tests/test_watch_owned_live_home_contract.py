@@ -24,6 +24,42 @@ WIDGET = "Apps/ReperaRestWidget/TrainingLiveActivityWidget.swift"
 
 
 class WatchOwnedActivityHomeRegressionTests(unittest.TestCase):
+    def test_watch_delivery_order_survives_phone_process_restart(self):
+        coordinator = source(COORDINATOR)
+        store = source(PHONE_STORE)
+        self.assertIn("private struct WatchDeliveryMark: Codable", coordinator)
+        self.assertIn("UserDefaults.standard.data(forKey: watchMarksKey)", coordinator)
+        self.assertIn("func mayAcceptWatchOwned(", coordinator)
+        self.assertIn("snapshot.capturedAt > mark.capture", coordinator)
+        self.assertIn("!mark.closed", coordinator)
+        self.assertIn("persistWatchMarks()", coordinator)
+        self.assertIn("closed: true, observed: Date()", coordinator)
+        receive = store.split(
+            "func phoneConnectivityDidReceiveWatchOwnedLive(", 1
+        )[1].split("func phoneConnectivityDidReceive(session:", 1)[0]
+        self.assertLess(
+            receive.index("mayAcceptWatchOwned(snapshot)"),
+            receive.index("if snapshot.phase == .review"),
+        )
+        self.assertLess(
+            receive.index("mayAcceptWatchOwned(snapshot)"),
+            receive.index("self.watchOwnedLive = snapshot"),
+        )
+
+    def test_watch_live_activity_reuses_system_activity_and_watch_origin(self):
+        coordinator = source(COORDINATOR)
+        watch = coordinator.split("func updateWatchOwned(", 1)[1].split(
+            "func finishWatchOwned(", 1
+        )[0]
+        self.assertIn('let id = "watch:" + snapshot.id.uuidString', watch)
+        self.assertIn("await upsert(id: id, isPlanned: false, state: state)", watch)
+        self.assertIn("Activity<TrainingActivityAttributes>.activities.first(where:", coordinator)
+        self.assertIn("await activity.update(ActivityContent(state: state, staleDate: nil))", coordinator)
+        self.assertIn("guard !LiveActivityRecorder.shared.isWatchOwnedMirror else { return }", coordinator)
+        watchHub = source(WATCH_HUB)
+        self.assertIn("publishWatchOwnedLiveToPhone(force: true)", watchHub)
+        self.assertIn("func watchConnectivityDidBecomeReachable()", watchHub)
+
     def test_watch_live_start_and_phase_are_transported(self):
         hub = source(WATCH_HUB)
         transport = source(WATCH_TRANSPORT)
