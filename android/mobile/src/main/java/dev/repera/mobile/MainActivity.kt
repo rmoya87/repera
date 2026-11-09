@@ -2312,6 +2312,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 LiveActivityRuntime.stopAll()
                 LiveActivityService.stop(this@MainActivity)
                 sessionStore.clearIfCurrent(storedRevision,stored.uniqueId,stored.userId)
+                WearOwnedLiveMirror.clearForSignOut(this@MainActivity)
                 PlannedWorkoutNotification.cancel(this@MainActivity)
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
@@ -3266,6 +3267,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 clearAIAccessState()
                 val signedOutAccount = sessionStore.load()?.userId
                 sessionStore.clear()
+                WearOwnedLiveMirror.clearForSignOut(this@MainActivity)
                 ClassBookingReminders.clear(this@MainActivity)
                 PlannedWorkoutNotification.cancel(this@MainActivity)
                 RemoteExerciseCatalogWorker.cancel(this@MainActivity)
