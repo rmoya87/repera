@@ -177,6 +177,9 @@ internal object WearOwnedLiveMirror {
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            // A lost terminal packet must not leave an orphan notification
+            // forever. New authenticated Watch updates refresh this timeout.
+            .setTimeoutAfter(180_000L)
             .setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_WORKOUT)
         if (!paused) {
