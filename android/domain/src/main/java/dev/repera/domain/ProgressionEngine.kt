@@ -14,7 +14,9 @@ enum class ProgressionPolicy(val wire: String, val displayName: String, val deta
         "Series fijas + última al fallo. Si bates el objetivo en la AMRAP, " +
             "sube peso (el doble si doblas reps). Un fallo → deload 10%."),
     TRIPLE("triple", "Triple progresión",
-        "Sube reps → luego añade series → luego peso, y reinicia reps/series.");
+        "Sube reps → luego añade series → luego peso, y reinicia reps/series."),
+    ADAPTIVE("adaptive", "Adaptativa · esfuerzo y recuperación",
+        "Solo sugiere subir tras 2 sesiones completas con RIR ≥ 2; si no, mantiene o descarga.");
 
     companion object {
         fun fromWire(wire: String): ProgressionPolicy? =
@@ -77,9 +79,39 @@ object ProgressionEngine {
                 last, baselineWeight, baselineSets, incrementKg)
             ProgressionPolicy.GREYSKULL -> greyskullSuggest(
                 last, baselineWeight, baselineReps, max(baselineSets, 3), incrementKg)
+            ProgressionPolicy.ADAPTIVE -> adaptiveSuggest(
+                last, history, baselineWeight, baselineReps, baselineSets, incrementKg)
             ProgressionPolicy.TRIPLE -> tripleSuggest(
                 last, baselineWeight, baselineReps, baselineSets, incrementKg)
         }
+    }
+
+    private fun adaptiveSuggest(
+        last: Performance, history: List<Performance>, baselineWeight: Double?,
+        baselineReps: Int, baselineSets: Int, incrementKg: Double
+    ): ProgressionSuggestion {
+        val weight = last.averageWeight ?: baselineWeight
+        if (weight == null || !weight.isFinite() || weight <= 0.0) {
+            return ProgressionSuggestion(baselineWeight, baselineReps, baselineSets,
+                "Sin carga de trabajo válida.")
+        }
+        val observations = history.take(4).mapIndexed { index, item ->
+            val previous = history.getOrNull(index + 1)
+            val delta = if (item.bestE1RM != null && previous?.bestE1RM != null && previous.bestE1RM > 0)
+                item.bestE1RM / previous.bestE1RM - 1 else null
+            val hours = previous?.let { (item.completedAtMillis - it.completedAtMillis) / 3_600_000.0 }
+            AdaptiveLoadObservation(item.hitAll, item.meanRir, delta, hours)
+        }
+        val advice = AdaptiveLoadGuard.evaluate(observations)
+        val next = when (advice.decision) {
+            AdaptiveLoadDecision.INCREASE -> if (incrementKg > 0 && incrementKg / weight <= 0.05)
+                snap(weight + incrementKg, incrementKg) else weight
+            AdaptiveLoadDecision.DELOAD -> snap(weight * deloadFactor, incrementKg)
+            AdaptiveLoadDecision.MAINTAIN, AdaptiveLoadDecision.INSUFFICIENT_DATA -> weight
+        }
+        val reason = if (advice.decision == AdaptiveLoadDecision.INCREASE && next == weight)
+            "Incremento disponible demasiado grande para una progresión segura." else advice.reason
+        return ProgressionSuggestion(next, baselineReps, baselineSets, reason)
     }
 
     // ---- Políticas ---------------------------------------------------------
@@ -203,14 +235,18 @@ object ProgressionEngine {
         val minRepsAcrossSets: Int?,
         val lastSetReps: Int?,
         val setCount: Int,
-        val greyskullStraightHits: Boolean
+        val greyskullStraightHits: Boolean,
+        val meanRir: Double?,
+        val bestE1RM: Double?,
+        val completedAtMillis: Long
     )
 
     private fun recentPerformances(
         exerciseId: String,
         workouts: List<StatsWorkout>
     ): List<Performance> =
-        workouts.sortedByDescending { it.epochMillis }
+        workouts.filter { it.finished }.sortedByDescending { it.epochMillis }
+            .distinctBy { it.sessionId ?: "legacy-" + it.epochMillis + "-" + it.exercises.hashCode() }
             .mapNotNull { workout ->
                 val entry = workout.exercises.firstOrNull {
                     it.exerciseId == exerciseId
@@ -228,6 +264,14 @@ object ProgressionEngine {
                     workSets.size >= setCountTarget
                 val weights = workSets.mapNotNull { it.weightKg }.filter { it > 0 }
                 val avg = if (weights.isEmpty()) null else weights.average()
+                val rirValues = workSets.mapNotNull { it.rir }
+                val meanRir = if (rirValues.size == workSets.size && rirValues.isNotEmpty())
+                    rirValues.average() else null
+                val bestE1RM = workSets.mapNotNull { set ->
+                    val kg = set.weightKg
+                    if (kg != null && kg > 0 && set.reps in 1..12)
+                        kg * (1 + set.reps / 30.0) else null
+                }.maxOrNull()
                 val straight = if (workSets.size < 2) {
                     workSets.firstOrNull()?.let { it.reps >= target } ?: false
                 } else {
@@ -239,7 +283,10 @@ object ProgressionEngine {
                     minRepsAcrossSets = workSets.minOf { it.reps },
                     lastSetReps = workSets.lastOrNull()?.reps,
                     setCount = workSets.size,
-                    greyskullStraightHits = straight
+                    greyskullStraightHits = straight,
+                    meanRir = meanRir,
+                    bestE1RM = bestE1RM,
+                    completedAtMillis = workout.epochMillis
                 )
             }
 
