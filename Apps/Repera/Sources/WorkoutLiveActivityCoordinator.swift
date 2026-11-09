@@ -302,7 +302,12 @@ final class WorkoutLiveActivityCoordinator {
     ) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled,
               !closedSessionIDs.contains(id) else { return }
-        if let previous = latestStates[id], previous == state { return }
+        // A cached attempt is not proof ActivityKit actually created a card.
+        // Retry even identical Watch snapshots if the previous request failed.
+        let exists = Activity<TrainingActivityAttributes>.activities.contains {
+            $0.attributes.sessionID == id
+        }
+        if let previous = latestStates[id], previous == state, exists { return }
         latestStates[id] = state
 
         // No heredar una Live Activity huérfana de otro entrenamiento del mismo tipo.
@@ -341,6 +346,7 @@ final class WorkoutLiveActivityCoordinator {
                     pushType: nil
                 )
             } catch {
+                latestStates.removeValue(forKey: id)
                 logger.error("Training Live Activity: \(String(describing: error), privacy: .public)")
             }
         }
