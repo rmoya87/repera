@@ -33,6 +33,29 @@ class WatchStartLiveActivityParityTests(unittest.TestCase):
         self.assertIn('watchOwnedCommandHandler?("finish")', live)
         self.assertIn("guard !isWatchOwnedMirror else { return }", live)
 
+    def test_watch_owned_mirror_cannot_replace_its_live_activity_on_foreground(self):
+        coordinator = read("Apps/Repera/Sources/WorkoutLiveActivityCoordinator.swift")
+        free = coordinator.split("func updateFree(", 1)[1].split(
+            "func updateWatchOwned(", 1
+        )[0]
+        self.assertIn(
+            "guard !LiveActivityRecorder.shared.isWatchOwnedMirror else { return }",
+            free,
+        )
+        self.assertLess(
+            free.index("guard !LiveActivityRecorder.shared.isWatchOwnedMirror"),
+            free.index("await upsert(id: key, isPlanned: false, state: state)"),
+        )
+        # Watch snapshots must retain their own ActivityKit session identity.
+        watch = coordinator.split("func updateWatchOwned(", 1)[1].split(
+            "func finishWatchOwned(", 1
+        )[0]
+        self.assertIn('let id = "watch:" + snapshot.id.uuidString', watch)
+        self.assertIn("await upsert(id: id, isPlanned: false, state: state)", watch)
+        recorder = read("Apps/Repera/Sources/LiveActivityView.swift")
+        self.assertIn("if isWatchOwnedMirror {", recorder)
+        self.assertIn("healthOwnedByWatch = true", recorder)
+
     def test_store_wires_mirror_and_commands(self):
         store = read("Apps/Repera/Sources/ReperaStore.swift")
         self.assertIn("watchOwnedCommandHandler", store)
