@@ -236,7 +236,11 @@ internal class WearHealthService:Service() {
             publish()
             if(releasable && owner==id && !ending) {owner=null;stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;stopSelfResult(lastStartId)}
         }
-        return START_NOT_STICKY
+        // A system-killed foreground service can reattach to the same owned
+        // ExerciseClient session. WearHealthSession.start checks OWNED and
+        // the persisted session binding before it can ever start a new one.
+        // Explicit stop/terminal and changed-owner guards above remain nonsticky.
+        return START_REDELIVER_INTENT
     }
     private fun endOwned(id:String) {
         if(owner!=id || ending) return
