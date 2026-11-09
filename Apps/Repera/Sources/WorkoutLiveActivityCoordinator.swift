@@ -23,6 +23,10 @@ final class WorkoutLiveActivityCoordinator {
         navigation: TrainingActivityAttributes.ContentState.NavigationCue? = nil,
         lastSplit: String? = nil
     ) async {
+        // Watch-owned Comenzar is mirrored on the phone, not recorded here.
+        // Its watch:UUID ActivityKit notification must never be replaced by a
+        // competing free:timestamp notification on foreground refresh/pause.
+        guard !LiveActivityRecorder.shared.isWatchOwnedMirror else { return }
         let key = "free:" + String(Int64(startedAt.timeIntervalSince1970 * 1000))
         let elapsed = max(0, Int(elapsedSeconds.rounded(.down)))
         let pace: String
