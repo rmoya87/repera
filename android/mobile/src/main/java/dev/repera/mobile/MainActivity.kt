@@ -870,6 +870,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                             exerciseId, workouts = ProgressSnapshotBuilder.statsWorkouts(root))
                     }
                 },
+                repRecords = { exerciseId ->
+                    deriveFromSnapshot(listOf("repRecords", exerciseId)) { root ->
+                        dev.repera.domain.StrengthRepRecordEngine.bestSets(
+                            exerciseId, ProgressSnapshotBuilder.statsWorkouts(root))
+                    }.orEmpty()
+                },
                 exerciseSeries = { exerciseId, metric, range ->
                     deriveFromSnapshot(listOf("series", exerciseId, metric, range)) { root ->
                         ExerciseProgressSeries.compute(
