@@ -52,10 +52,14 @@ internal object WearOwnedLiveMirror {
             )) return false
         if (phase == "finished") {
             markClosed(prefs, closed, id)
+            // A terminal for another UUID must not erase a newer workout, but
+            // its timestamp still protects against older unrelated replays.
             if (previousID == id) {
                 prefs.edit().remove("state").remove("sessionId")
                     .putLong("captured", maxOf(previousAt, captured)).commit()
                 cancelNotification(context)
+            } else {
+                prefs.edit().putLong("captured", maxOf(previousAt, captured)).commit()
             }
             return true
         }
