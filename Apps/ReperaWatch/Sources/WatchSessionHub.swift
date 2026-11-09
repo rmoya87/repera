@@ -2501,6 +2501,13 @@ final class WatchSessionHub: NSObject {
 }
 
 extension WatchSessionHub: WatchConnectivityClientDelegate {
+    nonisolated func watchConnectivityDidRequestWatchOwnedLiveSnapshot() {
+        Task { @MainActor in
+            // Read-only refresh; the Watch remains the sole HealthKit owner.
+            self.publishWatchOwnedLiveToPhone(force: true)
+        }
+    }
+
     nonisolated func watchConnectivityDidBecomeReachable() {
         Task { @MainActor in
             self.publishCompanionHeartRateIfNeeded(force: true)
