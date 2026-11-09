@@ -512,17 +512,6 @@ internal fun ExerciseEvolutionSection(
                     }
                 }
             }
-            if (isStrengthLogging && strengthLiftForExerciseName(entry.name) != null) {
-                HorizontalDivider()
-                StrengthBenchmarkVisual(
-                    exerciseName = entry.name,
-                    testedOneRM = testedOneRM,
-                    estimatedOneRM = summary?.estimatedOneRM ?: estimatedOneRM,
-                    competitionSex = competitionSex,
-                    birthYear = birthYear,
-                    bodyWeightKg = bodyWeightKg
-                )
-            }
             if (isStrengthLogging && repRecords.isNotEmpty()) {
                 Text("Récords de series realmente registradas",
                     style = MaterialTheme.typography.labelMedium)
@@ -646,6 +635,17 @@ internal fun ExerciseEvolutionSection(
                     "${points.size} registros",
                     style = MaterialTheme.typography.bodyMedium)
             }
+            }
+            if (isStrengthLogging && strengthLiftForExerciseName(entry.name) != null) {
+                HorizontalDivider()
+                StrengthBenchmarkVisual(
+                    exerciseName = entry.name,
+                    testedOneRM = testedOneRM,
+                    estimatedOneRM = summary?.estimatedOneRM ?: estimatedOneRM,
+                    competitionSex = competitionSex,
+                    birthYear = birthYear,
+                    bodyWeightKg = bodyWeightKg
+                )
             }
             summary?.takeIf { it.hasData }?.let { h ->
                 Column(

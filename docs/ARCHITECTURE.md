@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (fuerza visual y perfil de referencia competitivo sincronizado).
+Última actualización: 2026-11-09 (Rendimiento tras gráfica; Género en Ajustes).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -20,12 +20,12 @@
   `TrainingSettings.competitionSex/birthYear` comparten claves de snapshot;
   cuerpo = última entrada existente de `bodyWeights`, sin otro formulario.
   Las dos apps incluyen el mismo JSON CC0; no son percentiles poblacionales.
-  `StrengthBenchmarkVisual` crea una campana *ilustrativa* calibrada por
-  cuantiles IQR, no afirma normalidad real ni extrapola percentiles.
-- La referencia se integra **dentro de Evolución Pro**, sin tarjeta ni
-  controles propios, y Recuperación Pro usa curva de minutos diarios durante
-  los últimos catorce días (Chart SwiftUI / Canvas Compose); sin escritores
-  nuevos en Watch/Wear, HealthKit o Health Connect.
+  `StrengthBenchmarkVisual` (**Rendimiento**) crea una campana *ilustrativa*
+  calibrada por cuantiles IQR tras la gráfica de Evolución; vacío = silueta
+  apagada + mensaje; sin pies bajo el eje X.
+- Ajustes → Entrenamiento: etiqueta corta **Género** con Femenino/Masculino
+  a la derecha. Recuperación Pro: curva de minutos diarios 14 días. Sin
+  escritores nuevos en Watch/Wear, HealthKit o Health Connect.
 - Progresión y cálculos deben pasar compilación y pruebas nativas antes de
   entregar una versión. Ver `ATHLETE_STRENGTH_BENCHMARKS.md`.
 

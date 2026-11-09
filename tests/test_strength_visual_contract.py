@@ -18,9 +18,16 @@ class StrengthVisualContract(unittest.TestCase):
             self.assertIn(f"val {field}:", android)
             self.assertIn(f'case ', swift)
             self.assertIn(f's.put("{field}"', android)
-        self.assertIn("Picker(\"Año de nacimiento\"", source("Apps/Repera/Sources/SettingsView.swift"))
-        self.assertIn("Género · referencia de fuerza", source(
-            "android/mobile/src/main/java/dev/repera/mobile/TrainingSettingsSection.kt"))
+        settings = source("Apps/Repera/Sources/SettingsView.swift")
+        android_settings = source(
+            "android/mobile/src/main/java/dev/repera/mobile/TrainingSettingsSection.kt")
+        self.assertIn("Picker(\"Año de nacimiento\"", settings)
+        self.assertIn("Picker(\"Género\"", settings)
+        self.assertNotIn("Género (referencia deportiva)", settings)
+        self.assertIn('Text("Género"', android_settings)
+        self.assertNotIn("Género · referencia de fuerza", android_settings)
+        self.assertIn('"Femenino"', android_settings)
+        self.assertIn('"Masculino"', android_settings)
 
     def test_strength_reference_is_embedded_in_evolution_not_separate_card(self):
         ios_detail = source("Apps/Repera/Sources/ExerciseDetailView.swift")
@@ -31,6 +38,24 @@ class StrengthVisualContract(unittest.TestCase):
         self.assertIn("StrengthBenchmarkVisual(", ios_evolution)
         self.assertIn("StrengthBenchmarkVisual(", android_detail)
         self.assertIn("summary?.estimatedOneRM ?: estimatedOneRM", android_detail)
+        # After the personal records chart, not above metric pickers.
+        self.assertLess(
+            ios_evolution.index("chartBlock"),
+            ios_evolution.index("StrengthBenchmarkVisual("),
+        )
+        self.assertLess(
+            android_detail.index('testTag("exercise_evolution_chart")'),
+            android_detail.index("StrengthBenchmarkVisual("),
+        )
+        self.assertIn('"Rendimiento"', source("Apps/Repera/Sources/StrengthBenchmarkCard.swift"))
+        self.assertIn('"Rendimiento"', source(
+            "android/mobile/src/main/java/dev/repera/mobile/StrengthBenchmarkCard.kt"))
+        self.assertNotIn("Tu nivel · fuerza", source(
+            "Apps/Repera/Sources/StrengthBenchmarkCard.swift"))
+        self.assertNotIn("Referencia competitiva · orientativa", source(
+            "Apps/Repera/Sources/StrengthBenchmarkCard.swift"))
+        self.assertNotIn("Competición · orientativo", source(
+            "android/mobile/src/main/java/dev/repera/mobile/StrengthBenchmarkCard.kt"))
 
     def test_no_redundant_demographic_inputs_or_long_warning_card(self):
         for path in (

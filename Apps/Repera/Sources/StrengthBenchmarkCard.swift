@@ -98,6 +98,22 @@ struct StrengthBenchmarkVisual: View {
     }
 
     private var bell: [BellPoint] {
+        Self.bellPoints(from: reference)
+    }
+
+    /// Faint illustrative curve when demographics/marks are incomplete.
+    private var placeholderBell: [BellPoint] {
+        if !bell.isEmpty { return bell }
+        let median = 180.0
+        let sigma = 45.0
+        return (0...48).map { i in
+            let x = median - 3 * sigma + (6 * sigma) * Double(i) / 48
+            let z = (x - median) / sigma
+            return BellPoint(id: i, kg: x, height: exp(-0.5 * z * z))
+        }
+    }
+
+    private static func bellPoints(from reference: StrengthBenchmarkDistribution?) -> [BellPoint] {
         guard let reference else { return [] }
         let q = reference.quantiles
         guard let p25 = q.first(where: { abs($0.percentile - 25) < 1 }),
@@ -132,7 +148,7 @@ struct StrengthBenchmarkVisual: View {
         if Self.lift(for: exercise.name) != nil {
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
-                    Text("Tu nivel · fuerza")
+                    Text("Rendimiento")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(OG.label)
                     Spacer()
@@ -143,57 +159,9 @@ struct StrengthBenchmarkVisual: View {
                     }
                 }
                 if let result = recordedResult, bell.count > 2 {
-                    Chart {
-                        ForEach(bell) { pt in
-                            AreaMark(
-                                x: .value("Peso", pt.kg),
-                                yStart: .value("Base", 0.0),
-                                yEnd: .value("Densidad orientativa", pt.height)
-                            )
-                            .foregroundStyle(OG.accent.opacity(0.13))
-                            .interpolationMethod(.catmullRom)
-                            LineMark(
-                                x: .value("Peso", pt.kg),
-                                y: .value("Densidad orientativa", pt.height)
-                            )
-                            .foregroundStyle(OG.accent.opacity(0.45))
-                            .interpolationMethod(.catmullRom)
-                        }
-                        RuleMark(x: .value("Tu referencia", result.kg))
-                            .foregroundStyle(OG.accent)
-                            .lineStyle(StrokeStyle(lineWidth: 2))
-                        PointMark(
-                            x: .value("Tu referencia", result.kg),
-                            y: .value("Posición", markerHeight)
-                        )
-                        .foregroundStyle(OG.accent)
-                        .symbolSize(85)
-                    }
-                    .chartYScale(domain: 0...1.08)
-                    .chartYAxis(.hidden)
-                    .chartXAxis {
-                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                            AxisValueLabel()
-                        }
-                    }
-                    .frame(height: 126)
-                    .accessibilityLabel("Curva ilustrativa de marcas de competición. Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
-                    HStack(spacing: 4) {
-                        Text(result.estimated ? "e1RM estimado" : "1RM registrado")
-                            .foregroundStyle(OG.label2)
-                        Text("· \(ReperaNumberFormat.decimal(result.kg)) kg")
-                            .foregroundStyle(OG.label)
-                        Spacer()
-                        Text("Referencia competitiva · orientativa")
-                            .foregroundStyle(OG.label3)
-                    }
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    filledBellChart(result: result)
                 } else {
-                    Text(missingState)
-                        .font(.caption)
-                        .foregroundStyle(OG.label3)
+                    emptyBellVisual
                 }
             }
             .padding(.vertical, 4)
@@ -210,6 +178,97 @@ struct StrengthBenchmarkVisual: View {
                 didLoad = true
             }
         }
+    }
+
+    @ViewBuilder
+    private func filledBellChart(result: (kg: Double, estimated: Bool)) -> some View {
+        Chart {
+            ForEach(bell) { pt in
+                AreaMark(
+                    x: .value("Peso", pt.kg),
+                    yStart: .value("Base", 0.0),
+                    yEnd: .value("Densidad orientativa", pt.height)
+                )
+                .foregroundStyle(OG.accent.opacity(0.13))
+                .interpolationMethod(.catmullRom)
+                LineMark(
+                    x: .value("Peso", pt.kg),
+                    y: .value("Densidad orientativa", pt.height)
+                )
+                .foregroundStyle(OG.accent.opacity(0.45))
+                .interpolationMethod(.catmullRom)
+            }
+            RuleMark(x: .value("Tu referencia", result.kg))
+                .foregroundStyle(OG.accent)
+                .lineStyle(StrokeStyle(lineWidth: 2))
+            PointMark(
+                x: .value("Tu referencia", result.kg),
+                y: .value("Posición", markerHeight)
+            )
+            .foregroundStyle(OG.accent)
+            .symbolSize(85)
+        }
+        .chartYScale(domain: 0...1.08)
+        .chartYAxis(.hidden)
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisValueLabel()
+            }
+        }
+        .frame(height: 126)
+        .accessibilityLabel("Curva ilustrativa de marcas de competición. Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
+    }
+
+    private var emptyBellVisual: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Chart {
+                ForEach(placeholderBell) { pt in
+                    AreaMark(
+                        x: .value("Peso", pt.kg),
+                        yStart: .value("Base", 0.0),
+                        yEnd: .value("Densidad orientativa", pt.height)
+                    )
+                    .foregroundStyle(OG.label3.opacity(0.12))
+                    .interpolationMethod(.catmullRom)
+                    LineMark(
+                        x: .value("Peso", pt.kg),
+                        y: .value("Densidad orientativa", pt.height)
+                    )
+                    .foregroundStyle(OG.label3.opacity(0.35))
+                    .interpolationMethod(.catmullRom)
+                }
+            }
+            .chartYScale(domain: 0...1.08)
+            .chartYAxis(.hidden)
+            .chartXAxis(.hidden)
+            .frame(height: 88)
+            .accessibilityHidden(true)
+
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: emptyIconName)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(OG.accent)
+                    .frame(width: 22, alignment: .center)
+                    .accessibilityHidden(true)
+                Text(missingState)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(missingState)
+        }
+    }
+
+    private var emptyIconName: String {
+        if !didLoad { return "hourglass" }
+        if recordedResult == nil { return "chart.line.uptrend.xyaxis" }
+        if store.state.settings.birthYear == nil || store.state.settings.competitionSex == nil {
+            return "person.crop.circle.badge.questionmark"
+        }
+        if weightKg == nil { return "scalemass" }
+        return "chart.bar.xaxis"
     }
 
     private var missingState: String {

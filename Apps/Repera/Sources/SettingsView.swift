@@ -978,11 +978,12 @@ private struct SettingsTrainingSection: View {
 
     var body: some View {
         Section("Entrenamiento") {
-            Picker("Género (referencia deportiva)", selection: competitionSexBinding) {
+            Picker("Género", selection: competitionSexBinding) {
                 Text("Sin indicar").tag(nil as StrengthBenchmarkSex?)
                 Text("Femenino").tag(StrengthBenchmarkSex.female as StrengthBenchmarkSex?)
                 Text("Masculino").tag(StrengthBenchmarkSex.male as StrengthBenchmarkSex?)
             }
+            .pickerStyle(.menu)
             Picker("Año de nacimiento", selection: birthYearBinding) {
                 Text("Sin indicar").tag(nil as Int?)
                 ForEach(((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in

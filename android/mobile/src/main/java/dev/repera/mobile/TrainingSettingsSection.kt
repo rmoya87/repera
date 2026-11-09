@@ -11,11 +11,27 @@ import dev.repera.domain.ProgressionPolicy
 /** Controls are offered only for settings with connected consumers. */
 @Composable internal fun TrainingSettingsSection(value:TrainingSettings,busy:Boolean,onChange:(TrainingSettings)->Unit) {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    Text("Género · referencia de fuerza", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(null to "Sin indicar", "female" to "Femenino", "male" to "Masculino").forEach { (sex, label) ->
-                ReperaFilterChip(selected = value.competitionSex == sex, enabled = !busy,
-                    onClick = { onChange(value.copy(competitionSex = sex)) }, label = { Text(label) })
+    Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Género", style = MaterialTheme.typography.bodyLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("female" to "Femenino", "male" to "Masculino").forEach { (sex, label) ->
+                    ReperaFilterChip(
+                        selected = value.competitionSex == sex,
+                        enabled = !busy,
+                        onClick = {
+                            onChange(
+                                value.copy(
+                                    competitionSex = if (value.competitionSex == sex) null else sex
+                                )
+                            )
+                        },
+                        label = { Text(label) }
+                    )
+                }
             }
         }
         var yearMenuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
