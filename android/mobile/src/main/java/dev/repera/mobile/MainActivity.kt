@@ -1567,6 +1567,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         super.onStart()
         WearUiPresence.active = true
         wearMessages.addListener(this)
+        // Reconcile a recent Watch-owned notification after UI/process restart;
+        // no phone sensor or Health Connect workout is started.
+        WearOwnedLiveMirror.restore(this)
         if (verifiedSupabase != null && profile != null) aiPlansRealtime.start()
     }
 
@@ -1597,6 +1600,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         if (!WearMessageBounds.withinLimit(event.data)) return
         if (event.path == "/repera/analytics-event") {
             handleWearAnalyticsEvent(event)
+            return
+        }
+        if (event.path == "/repera/watch-owned-live") {
+            val payload = runCatching {
+                JSONObject(String(event.data, Charsets.UTF_8))
+            }.getOrNull() ?: return
+            runOnUiThread {
+                WearOwnedLiveMirror.accept(this, payload)
+            }
             return
         }
         if (event.path == "/repera/live-heart-rate") {
@@ -1772,6 +1784,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         }.getOrDefault(false)
                     }
                     if (ok && profile?.uniqueId == account) {
+                        WearOwnedLiveMirror.closeSaved(this@MainActivity, sessionId)
                         reloadFor(account)
                         DriveSyncWorker.syncNow(this@MainActivity)
                         if (verifiedSupabase != null) syncWorkoutMirror()
