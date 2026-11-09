@@ -81,6 +81,7 @@ internal fun ExerciseDetailScreen(
     exerciseSeries: suspend (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint> = { _, _, _ -> emptyList() },
     exerciseSummary: suspend (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
+    repRecords: suspend (String) -> List<dev.repera.domain.StrengthRepRecord> = { emptyList() },
     highlightSessionId: String? = null,
     highlightInstanceId: String? = null,
     sessionAppearances: suspend (exerciseId: String, highlightSessionId: String,
@@ -99,6 +100,10 @@ internal fun ExerciseDetailScreen(
     }
     val historySummary by produceState<dev.repera.domain.ExerciseHistorySummary?>(null, entry.id) {
         value = exerciseSummary(entry.id)
+    }
+    val actualRepRecords by produceState<List<dev.repera.domain.StrengthRepRecord>>(
+        emptyList(), entry.id) {
+        value = repRecords(entry.id)
     }
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second
@@ -228,7 +233,8 @@ internal fun ExerciseDetailScreen(
                     testedOneRM = testedOneRM,
                     onSetTestedOneRM = onSetTestedOneRM,
                     busy = busy,
-                    summary = historySummary
+                    summary = historySummary,
+                    repRecords = actualRepRecords
                 )
             } else {
                 dev.repera.mobile.monetization.ProTeaserCard(
@@ -376,7 +382,8 @@ internal fun ExerciseEvolutionSection(
     exerciseSeries: suspend (String, ExerciseProgressMetric, ExerciseProgressRange) ->
         List<ExerciseProgressPoint>,
     testedOneRM:Double?,onSetTestedOneRM:(Double?)->Unit,busy:Boolean,
-    summary: dev.repera.domain.ExerciseHistorySummary? = null
+    summary: dev.repera.domain.ExerciseHistorySummary? = null,
+    repRecords: List<dev.repera.domain.StrengthRepRecord> = emptyList()
 ) {
     val metrics = ExerciseProgressMetric.available(
         if (entry.loggingStyle == "machineWork") "machineWork"
