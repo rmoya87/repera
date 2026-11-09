@@ -102,6 +102,7 @@ internal fun FinishedWorkoutEditorSection(
         mutableStateOf(workout.scoreSessionJson?.let { runCatching { org.json.JSONObject(it) }.getOrNull() })
     }
     val scoreEdits = remember(accountId, workout.id) { mutableStateListOf<WorkoutRepository.ScoreEdit>() }
+    val scoreScaleEdits = remember(accountId, workout.id) { mutableStateListOf<WorkoutRepository.ScoreScaleEdit>() }
     var contentVersion by remember(accountId, workout.id) { mutableIntStateOf(0) }
     var contentDirty by remember(accountId, workout.id) { mutableStateOf(false) }
     var showBoardScanner by remember(accountId, workout.id) { mutableStateOf(false) }
@@ -135,6 +136,7 @@ internal fun FinishedWorkoutEditorSection(
                 notes = notes, pinEdited = pinEdited && !hasRoute, pin = pin,
                 blocksJson = if (contentDirty) blocks?.toString() else null,
                 saveAsFavorite = saveAsFavorite, scoreEdits = scoreEdits.toList(),
+                scoreScaleEdits = scoreScaleEdits.toList(),
                 recordNewSetsAsPerformed = recordNewSetsAsPerformed
             )
         )
@@ -284,6 +286,37 @@ internal fun FinishedWorkoutEditorSection(
                                 }
                             )
                         }
+                    }
+                }
+                val blockScore = CompletedWorkoutEditing.editableScore(b, scoreSession!!)
+                var rxSelection by remember(accountId, workout.id, b.optString("id")) {
+                    mutableIntStateOf(when {
+                        blockScore == null || !blockScore.has("isRx") || blockScore.isNull("isRx") -> 0
+                        blockScore.optBoolean("isRx") -> 1
+                        else -> 2
+                    })
+                }
+                Text("Modalidad de la marca (para comparaciones)", style = MaterialTheme.typography.labelSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to "Sin indicar", 1 to "RX", 2 to "Escalado").forEach { (mode, label) ->
+                        FilterChip(
+                            selected = rxSelection == mode,
+                            onClick = {
+                                rxSelection = mode
+                                scoreScaleEdits.removeAll { it.blockId == b.optString("id") }
+                                val value = when (mode) {
+                                    1 -> true
+                                    2 -> false
+                                    else -> null
+                                }
+                                scoreScaleEdits.add(WorkoutRepository.ScoreScaleEdit(b.optString("id"), value))
+                                scoreSession = scoreSession?.let {
+                                    CompletedWorkoutEditing.changingScoreScale(it, b, value)
+                                }
+                            },
+                            label = { Text(label) },
+                            modifier = Modifier.testTag("edit_wod_rx_${b.optString("id")}_${mode}")
+                        )
                     }
                 }
                 if (cap == "ELAPSED_TIME") Text("Tiempo real empleado (no el time cap).", style = MaterialTheme.typography.bodySmall)
