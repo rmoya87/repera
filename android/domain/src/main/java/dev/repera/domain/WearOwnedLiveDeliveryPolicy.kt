@@ -15,7 +15,7 @@ object WearOwnedLiveDeliveryPolicy {
     ): Boolean {
         if (phase !in setOf("recording", "paused", "finished")) return false
         val age = nowMillis - capturedAtMillis
-        if (age < -5_000L || age > if (phase == "finished") 3_600_000L else 90_000L) {
+        if (age < -5_000L || age > (if (phase == "finished") 3_600_000L else 90_000L)) {
             return false
         }
         // A terminal packet is allowed even if its initial live notification
