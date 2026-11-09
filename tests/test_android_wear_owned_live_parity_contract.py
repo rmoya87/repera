@@ -60,6 +60,7 @@ class WearOwnedLiveParityTests(unittest.TestCase):
         self.assertNotIn('startForegroundService(', mirror)
         self.assertNotIn('.startGPS(', mirror)
         self.assertIn('val phone = LiveActivityRuntime.forAccount(', mirror)
+        self.assertIn('.setTimeoutAfter(180_000L)', mirror)
 
     def test_final_save_closes_mirror_even_if_final_state_arrived_first(self):
         listener, main, mirror = read(PHONE_LISTENER), read(MAIN), read(PHONE_MIRROR)
