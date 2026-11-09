@@ -1,6 +1,5 @@
 package dev.repera.mobile
 
-import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,13 +20,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import dev.repera.domain.ReperaNumberFormat
 import dev.repera.domain.StrengthBenchmarkDistribution
 import dev.repera.domain.StrengthBenchmarkEngine
 import dev.repera.domain.StrengthBenchmarkEquipment
@@ -37,6 +40,7 @@ import dev.repera.domain.StrengthBenchmarkSex
 import dev.repera.domain.StrengthReferenceFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.exp
 
 /**
@@ -51,14 +55,14 @@ internal fun StrengthBenchmarkVisual(
     competitionSex: String?,
     birthYear: Int?,
     bodyWeightKg: Double?,
-    strengthReferenceFrame: String = StrengthReferenceFrame.AMATEUR.wire
+    strengthReferenceFrame: String = StrengthReferenceFrame.AMATEUR.wire,
+    lastMarkKg: Double? = null,
 ) {
     val lift = strengthLiftForExerciseName(exerciseName) ?: return
     val context = LocalContext.current
     val rows by produceState<List<StrengthBenchmarkDistribution>?>(null, context) {
         value = withContext(Dispatchers.IO) {
             val store = StrengthBenchmarkRemoteStore.get(context)
-            // Prefer already-synced Supabase cache; asset seed only if still empty.
             store.current()
         }
     }
@@ -71,9 +75,11 @@ internal fun StrengthBenchmarkVisual(
     }
     val yearNow = java.time.Year.now().value
     val age = birthYear?.let { yearNow - it }?.takeIf { it in 14..100 }
-    val kg = testedOneRM?.takeIf { it.isFinite() && it > 0 }
+    val peakKg = testedOneRM?.takeIf { it.isFinite() && it > 0 }
         ?: estimatedOneRM?.takeIf { it.isFinite() && it > 0 }
     val isEstimate = testedOneRM?.let { it.isFinite() && it > 0 } != true
+    val lastKg = lastMarkKg?.takeIf { it.isFinite() && it > 0 }
+    val coincide = peakKg != null && lastKg != null && abs(peakKg - lastKg) < 0.51
     val reference = if (sex != null && age != null && bodyWeightKg != null &&
         bodyWeightKg.isFinite() && bodyWeightKg > 0) {
         val eligible = rows.orEmpty().filter {
@@ -88,9 +94,9 @@ internal fun StrengthBenchmarkVisual(
                     .thenBy { it.sourceRevision }
             )
     } else null
-    val pct = if (kg != null && sex != null && age != null && bodyWeightKg != null) {
+    val pct = if (peakKg != null && sex != null && age != null && bodyWeightKg != null) {
         StrengthBenchmarkEngine.compareCompetitionOneRepMax(
-            kg, lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg, rows.orEmpty(), frame
+            peakKg, lift, sex, StrengthBenchmarkEquipment.RAW, age, bodyWeightKg, rows.orEmpty(), frame
         )
     } else null
     val p25 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 25) < 1 }
@@ -98,12 +104,13 @@ internal fun StrengthBenchmarkVisual(
     val p75 = reference?.quantiles?.firstOrNull { kotlin.math.abs(it.percentile - 75) < 1 }
     val sigma = if (p25 != null && p75 != null)
         (p75.weightKg - p25.weightKg) / 1.349 else 0.0
-    val valid = kg != null && p50 != null && sigma.isFinite() && sigma > 0
+    val valid = peakKg != null && p50 != null && sigma.isFinite() && sigma > 0
     val accent = MaterialTheme.colorScheme.primary
+    val blue = Color(0xFF0A84FF)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val missingMessage = when {
         rows == null -> "Preparando referencia…"
-        kg == null -> "Sin series suficientes para estimar tu marca."
+        peakKg == null -> "Sin series suficientes para estimar tu marca."
         sex == null || birthYear == null ->
             "Configura género y año de nacimiento en Ajustes · Entrenamiento."
         bodyWeightKg == null || bodyWeightKg <= 0 -> "Registra tu peso corporal en Progreso."
@@ -111,7 +118,7 @@ internal fun StrengthBenchmarkVisual(
     }
     val emptyIcon = when {
         rows == null -> Icons.Outlined.Info
-        kg == null -> Icons.Outlined.ShowChart
+        peakKg == null -> Icons.Outlined.ShowChart
         sex == null || birthYear == null -> Icons.Outlined.Person
         bodyWeightKg == null || bodyWeightKg <= 0 -> Icons.Outlined.Info
         else -> Icons.Outlined.ShowChart
@@ -126,19 +133,27 @@ internal fun StrengthBenchmarkVisual(
             }
         }
         if (valid) {
-            val score = kg!!
+            val score = peakKg!!
             val median = p50!!.weightKg
-            val lo = kotlin.math.min(median - 3 * sigma, score).coerceAtLeast(0.0)
-            val hi = kotlin.math.max(median + 3 * sigma, score)
+            val marks = listOfNotNull(score, lastKg?.takeUnless { coincide })
+            val lo = (kotlin.math.min(median - 3 * sigma, marks.minOrNull() ?: score))
+                .coerceAtLeast(0.0)
+            val hi = kotlin.math.max(median + 3 * sigma, marks.maxOrNull() ?: score)
+            val a11y = buildString {
+                append("Campana ilustrativa de referencia ")
+                append(if (frame == StrengthReferenceFrame.ELITE) "de competición" else "de gimnasio")
+                append(". Tu ")
+                append(if (isEstimate) "e1RM estimado" else "1RM registrado")
+                append(" máximo: ${score.toInt()} kilogramos")
+                if (!coincide && lastKg != null) {
+                    append(". Última marca: ${lastKg.toInt()} kilogramos")
+                }
+            }
             Canvas(Modifier.fillMaxWidth().height(118.dp).semantics {
-                contentDescription = "Campana ilustrativa de referencia " +
-                    (if (frame == StrengthReferenceFrame.ELITE) "de competición" else "de gimnasio") +
-                    ". Tu " +
-                    (if (isEstimate) "e1RM estimado" else "1RM registrado") +
-                    ": ${score.toInt()} kilogramos"
+                contentDescription = a11y
             }) {
                 val baseline = size.height - 10.dp.toPx()
-                val height = size.height - 20.dp.toPx()
+                val height = size.height - 28.dp.toPx()
                 val xFor: (Double) -> Float = { v ->
                     (((v - lo) / (hi - lo)).coerceIn(0.0, 1.0) * size.width).toFloat()
                 }
@@ -165,13 +180,47 @@ internal fun StrengthBenchmarkVisual(
                 area.close()
                 drawPath(area, accent.copy(alpha = 0.13f))
                 drawPath(stroke, accent.copy(alpha = 0.48f), style = Stroke(width = 2.dp.toPx()))
-                val x = xFor(score)
-                val y = baseline - (gaussian(score) * height).toFloat()
-                drawLine(accent, start = androidx.compose.ui.geometry.Offset(x, 0f),
-                    end = androidx.compose.ui.geometry.Offset(x, baseline),
-                    strokeWidth = 2.dp.toPx())
-                drawCircle(accent, radius = 4.dp.toPx(),
-                    center = androidx.compose.ui.geometry.Offset(x, y))
+
+                fun drawMark(kg: Double, color: Color) {
+                    val x = xFor(kg)
+                    val y = baseline - (gaussian(kg) * height).toFloat()
+                    drawLine(
+                        color,
+                        start = Offset(x, 0f),
+                        end = Offset(x, baseline),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                    drawCircle(color, radius = 4.dp.toPx(), center = Offset(x, y))
+                    val label = "${ReperaNumberFormat.decimal(kg)} kg"
+                    val paint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        textSize = 11.dp.toPx()
+                        this.color = android.graphics.Color.argb(
+                            255,
+                            (color.red * 255).toInt(),
+                            (color.green * 255).toInt(),
+                            (color.blue * 255).toInt()
+                        )
+                        typeface = android.graphics.Typeface.create(
+                            android.graphics.Typeface.DEFAULT,
+                            android.graphics.Typeface.BOLD
+                        )
+                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        x,
+                        (y - 8.dp.toPx()).coerceAtLeast(12.dp.toPx()),
+                        paint
+                    )
+                }
+
+                if (coincide || lastKg == null) {
+                    drawMark(score, accent)
+                } else {
+                    drawMark(score, accent)
+                    drawMark(lastKg, blue)
+                }
             }
         } else {
             val median = p50?.weightKg ?: 180.0
@@ -230,3 +279,8 @@ internal fun StrengthBenchmarkVisual(
 internal fun strengthLiftForExerciseName(name: String): StrengthBenchmarkLift? =
     StrengthBenchmarkLiftResolver.liftForExerciseName(name)
 
+internal fun lastSessionMarkKg(lastWeightKg: Double?, lastReps: Int?): Double? {
+    val w = lastWeightKg?.takeIf { it.isFinite() && it > 0 } ?: return null
+    val r = lastReps?.takeIf { it > 0 }
+    return if (r != null) w * (1.0 + r / 30.0) else w
+}

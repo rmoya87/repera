@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-09 (Élite OPL nov-2026 + Amateur 14 lifts).
+Última actualización: 2026-11-09 (Rendimiento max+última; aportes siempre on).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -13,9 +13,10 @@
   En **Evolución Pro** de sentadilla, banca y peso muerto, el bloque
   **Rendimiento** aparece **después** de la gráfica: una campana + `Pxx` del
   marco elegido (Amateur = 14 lifts gym FV/SS + aportes; Élite = OPL raw
-  nov-2026). Sync desde Supabase. Nunca mezcla marcos. Toggle **Mejorar
-  Amateur (anónimo)** al guardar 1RM. Sin pies bajo el eje. Sin dato: silueta
-  + mensaje. Si falta 1RM, **e1RM estimado**.
+  nov-2026). Sync desde Supabase. Nunca mezcla marcos. Línea verde = máximo
+  1RM/e1RM; azul = última marca; si coinciden, solo verde; peso en el punto.
+  Aportes Amateur anónimos siempre activos al guardar 1RM. Sin pies bajo el
+  eje. Sin dato: silueta + mensaje. Si falta 1RM, **e1RM estimado**.
 - WOD: la comparación Pro requiere mismo formato, prescripción y RX/escala
   verificables; los score históricos sin modalidad no generan mejora ficticia.
 - Recuperación Pro: **línea de minutos diarios reales durante los últimos 14 días**, con

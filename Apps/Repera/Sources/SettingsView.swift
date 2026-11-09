@@ -989,7 +989,6 @@ private struct SettingsTrainingSection: View {
                 Text("Élite").tag(StrengthReferenceFrame.elite)
             }
             .pickerStyle(.menu)
-            Toggle("Mejorar Amateur (anónimo)", isOn: contributeStrengthBinding)
             Picker("Año de nacimiento", selection: birthYearBinding) {
                 Text("Sin indicar").tag(nil as Int?)
                 ForEach(((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
@@ -1047,14 +1046,6 @@ private struct SettingsTrainingSection: View {
         Binding(get: { store.state.settings.strengthReferenceFrame }, set: {
             var settings = store.state.settings
             settings.strengthReferenceFrame = $0
-            store.updateSettings(settings)
-        })
-    }
-
-    private var contributeStrengthBinding: Binding<Bool> {
-        Binding(get: { store.state.settings.contributeAnonymousStrengthStats }, set: {
-            var settings = store.state.settings
-            settings.contributeAnonymousStrengthStats = $0
             store.updateSettings(settings)
         })
     }

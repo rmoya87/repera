@@ -649,7 +649,8 @@ internal fun ExerciseEvolutionSection(
                     competitionSex = competitionSex,
                     birthYear = birthYear,
                     bodyWeightKg = bodyWeightKg,
-                    strengthReferenceFrame = strengthReferenceFrame
+                    strengthReferenceFrame = strengthReferenceFrame,
+                    lastMarkKg = lastSessionMarkKg(summary?.lastWeightKg, summary?.lastReps)
                 )
             }
             summary?.takeIf { it.hasData }?.let { h ->

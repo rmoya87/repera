@@ -1,6 +1,6 @@
 # Comparativas deportivas y progresión adaptativa (Repera atleta)
 
-Última actualización: 2026-11-09 (Élite OPL nov-2026 + Amateur 14 lifts FV).
+Última actualización: 2026-11-09 (aportes siempre on; max+última en campana).
 
 ## Alcance
 Solo la aplicación de deportistas, con vistas nativas en iOS/iPadOS y Android. Se conserva la
@@ -86,10 +86,10 @@ iOS/Android sincronizan a caché local al iniciar sesión / foreground; el JSON
 empaquetado solo arranca offline la primera vez. Sin APIs a FitnessVolt ni OPL
 en runtime.
 
-**Opt-in Amateur:** Ajustes → «Mejorar Amateur (anónimo)» (default on). Al
-guardar un **1RM probado** de sentadilla/banca/peso muerto (con género, edad y
-peso), la app llama `submit_strength_benchmark_contribution` (bandas anónimas,
-sin user id en el inbox, rate limit 30/día). `service_role` puede ejecutar
+**Aportes Amateur (siempre activos):** al guardar un **1RM probado** de
+sentadilla/banca/peso muerto (con género, edad y peso), la app llama
+`submit_strength_benchmark_contribution` (bandas anónimas, sin user id en el
+inbox, rate limit 30/día). Sin toggle en Ajustes. `service_role` puede ejecutar
 `strength_benchmark_aggregate_contributions` (≥100 muestras/cohorte) para
 publicar cuantiles `SymmetricStrength` con revisión `repera-optin-YYYY-MM-DD`.
 Élite (OPL) no se mezcla. Sin lift o sin cohorte → bloque oculto/vacío, nunca

@@ -183,10 +183,12 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - UI de **Rendimiento**: `StrengthBenchmarkRemoteStore` desde Supabase
   (bootstrap/delta); JSON bundle solo offline. Resolver de lifts gym (SBD +
   front/sumo/OHP/etc.); sin lift o sin cohorte → no inventar Pxx.
-- Aportes Amateur: opt-in `contributeAnonymousStrengthStats` → RPC
+- Aportes Amateur: siempre activos al guardar 1RM → RPC
   `submit_strength_benchmark_contribution` (bandas, rate limit, sin user id en
-  inbox). Agregar con `strength_benchmark_aggregate_contributions` (service_role).
-  Motor: ante empate de cohorte, preferir más muestras / revisión más nueva.
+  inbox; sin toggle en Ajustes). Agregar con
+  `strength_benchmark_aggregate_contributions` (service_role). Motor: ante
+  empate de cohorte, preferir más muestras / revisión más nueva. UI
+  Rendimiento: máx. 1RM/e1RM + última marca (azul); verde si coinciden.
 
 #### Material alternativo y disponibilidad MCP (07/11/2026)
 

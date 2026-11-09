@@ -25,8 +25,8 @@ internal object StrengthContributionSubmitter {
         bodyWeightKg: Double?,
         accessToken: String?
     ) {
+        // Aportes Amateur anónimos siempre activos (sin toggle en Ajustes).
         val kg = testedOneRMKg?.takeIf { it.isFinite() && it > 0 } ?: return
-        if (!settings.contributeAnonymousStrengthStats) return
         val token = accessToken?.takeIf { it.isNotBlank() } ?: return
         val lift = StrengthBenchmarkLiftResolver.liftForExerciseName(exerciseName) ?: return
         val sex = settings.competitionSex ?: return

@@ -103,7 +103,8 @@ final class StrengthBenchmarkRemoteStore {
         lastProbeAt = Date()
         defer { isRefreshing = false }
 
-        var working = memory ?? (await disk.read()) ?? Cache(revision: 0, rows: [])
+        let diskCache = await disk.read()
+        var working = memory ?? diskCache ?? Cache(revision: 0, rows: [])
         if working.rows.isEmpty {
             working.rows = Self.bundleSeed()
         }

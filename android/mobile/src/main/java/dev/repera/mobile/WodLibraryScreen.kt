@@ -81,7 +81,13 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
 
         } else {
             item { ReperaPageHeader(title = "WODs") }
-            item {OutlinedTextField(value=query,onValueChange={query=it},label={Text("Nombre o formato")},modifier=Modifier.fillMaxWidth())}
+            item {
+                ReperaSearchField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = "Nombre o formato"
+                )
+            }
             item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 listOf("Alfabético","Músculo").forEach {mode ->ReperaFilterChip(selected=sort==mode,onClick={sort=mode},label={Text(mode)})}
             }}

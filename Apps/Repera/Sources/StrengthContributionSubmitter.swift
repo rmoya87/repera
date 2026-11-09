@@ -2,6 +2,7 @@ import Foundation
 import ReperaDomain
 
 /// Best-effort anonymous Amateur contribution when the athlete saves a tested 1RM.
+@MainActor
 enum StrengthContributionSubmitter {
     static func submitIfNeeded(
         exerciseName: String,
@@ -9,8 +10,8 @@ enum StrengthContributionSubmitter {
         settings: AppSettings,
         bodyWeightKg: Double?
     ) {
-        guard settings.contributeAnonymousStrengthStats,
-              let kg = testedOneRMKg, kg.isFinite, kg > 0,
+        // Aportes Amateur anónimos siempre activos (sin toggle en Ajustes).
+        guard let kg = testedOneRMKg, kg.isFinite, kg > 0,
               let lift = StrengthBenchmarkLiftResolver.lift(forExerciseName: exerciseName),
               let sex = settings.competitionSex,
               let birthYear = settings.birthYear,
@@ -25,7 +26,7 @@ enum StrengthContributionSubmitter {
               StrengthContributionBands.bodyWeightBand(kg: bodyWeightKg) != nil
         else { return }
 
-        Task.detached(priority: .utility) {
+        Task(priority: .utility) {
             struct Params: Encodable {
                 let p_lift: String
                 let p_sex: String

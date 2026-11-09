@@ -135,6 +135,15 @@ struct ExerciseEvolutionPanel: View {
         loadPref.testedOneRMKg.flatMap { $0 > 0 ? $0 : nil }
     }
 
+    /// e1RM de la última serie con carga (misma escala que 1RM / e1RM máximo).
+    private var lastSessionMarkKg: Double? {
+        guard let w = history.lastWeightKg, w > 0 else { return nil }
+        if let r = history.lastReps, r > 0 {
+            return w * (1 + Double(r) / 30.0)
+        }
+        return w
+    }
+
     private var isStrengthProgress: Bool {
         !isMobility && progressStyle == .loadAndReps
     }
@@ -178,7 +187,8 @@ struct ExerciseEvolutionPanel: View {
                         StrengthBenchmarkVisual(
                             exercise: exercise,
                             testedOneRMKg: testedOneRMKg,
-                            estimatedOneRMKg: history.estimatedOneRM
+                            estimatedOneRMKg: history.estimatedOneRM,
+                            lastMarkKg: lastSessionMarkKg
                         )
                     }
 

@@ -172,7 +172,7 @@ struct LibraryView: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 44)
         .background(Color.clear)
-        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        .glassEffect(.regular, in: Capsule(style: .continuous))
         .padding(.horizontal, OG.pad)
         .padding(.vertical, 10)
     }

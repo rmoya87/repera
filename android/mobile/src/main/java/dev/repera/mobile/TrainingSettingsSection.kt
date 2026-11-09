@@ -55,18 +55,6 @@ import dev.repera.domain.StrengthReferenceFrame
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Mejorar Amateur (anónimo)", style = MaterialTheme.typography.bodyLarge)
-            Switch(
-                checked = value.contributeAnonymousStrengthStats,
-                enabled = !busy,
-                onCheckedChange = { onChange(value.copy(contributeAnonymousStrengthStats = it)) }
-            )
-        }
         var yearMenuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {

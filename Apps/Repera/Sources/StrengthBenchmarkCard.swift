@@ -12,6 +12,8 @@ struct StrengthBenchmarkVisual: View {
     let exercise: Exercise
     let testedOneRMKg: Double?
     let estimatedOneRMKg: Double?
+    /// Última marca hecha (e1RM de la última serie con carga), en la misma escala.
+    let lastMarkKg: Double?
 
     @State private var distributions: [StrengthBenchmarkDistribution] = []
     @State private var didLoad = false
@@ -34,7 +36,7 @@ struct StrengthBenchmarkVisual: View {
         return local?.weightKg ?? measured
     }
 
-    private var recordedResult: (kg: Double, estimated: Bool)? {
+    private var peakResult: (kg: Double, estimated: Bool)? {
         if let testedOneRMKg, testedOneRMKg.isFinite, testedOneRMKg > 0 {
             return (testedOneRMKg, false)
         }
@@ -42,6 +44,16 @@ struct StrengthBenchmarkVisual: View {
             return (estimatedOneRMKg, true)
         }
         return nil
+    }
+
+    private var lastResultKg: Double? {
+        guard let lastMarkKg, lastMarkKg.isFinite, lastMarkKg > 0 else { return nil }
+        return lastMarkKg
+    }
+
+    private var marksCoincide: Bool {
+        guard let peak = peakResult?.kg, let last = lastResultKg else { return false }
+        return abs(peak - last) < 0.51
     }
 
     private var frame: StrengthReferenceFrame {
@@ -78,7 +90,7 @@ struct StrengthBenchmarkVisual: View {
         guard let lift = Self.lift(for: exercise.name),
               let sex = store.state.settings.competitionSex,
               let birthYear = store.state.settings.birthYear,
-              let weightKg, let result = recordedResult else { return nil }
+              let weightKg, let result = peakResult else { return nil }
         return StrengthBenchmarkEngine.compareCompetitionOneRepMax(
             weightKg: result.kg, lift: lift, sex: sex, equipment: .raw,
             age: Calendar.current.component(.year, from: Date()) - birthYear,
@@ -125,17 +137,17 @@ struct StrengthBenchmarkVisual: View {
         }
     }
 
-    private var markerHeight: Double {
+    private func markerHeight(at kg: Double) -> Double {
         guard let median = reference?.quantiles.first(where: {
             abs($0.percentile - 50) < 1
         })?.weightKg, let low = reference?.quantiles.first(where: {
             abs($0.percentile - 25) < 1
         })?.weightKg, let high = reference?.quantiles.first(where: {
             abs($0.percentile - 75) < 1
-        })?.weightKg, let result = recordedResult else { return 0 }
+        })?.weightKg else { return 0 }
         let sigma = (high - low) / 1.349
         guard sigma > 0 else { return 0 }
-        let z = (result.kg - median) / sigma
+        let z = (kg - median) / sigma
         return exp(-0.5 * z * z)
     }
 
@@ -153,8 +165,8 @@ struct StrengthBenchmarkVisual: View {
                             .foregroundStyle(OG.accent)
                     }
                 }
-                if let result = recordedResult, bell.count > 2 {
-                    filledBellChart(result: result)
+                if let peak = peakResult, bell.count > 2 {
+                    filledBellChart(peak: peak)
                 } else {
                     emptyBellVisual
                 }
@@ -170,7 +182,9 @@ struct StrengthBenchmarkVisual: View {
     }
 
     @ViewBuilder
-    private func filledBellChart(result: (kg: Double, estimated: Bool)) -> some View {
+    private func filledBellChart(peak: (kg: Double, estimated: Bool)) -> some View {
+        let last = lastResultKg
+        let coincide = marksCoincide
         Chart {
             ForEach(bell) { pt in
                 AreaMark(
@@ -187,17 +201,27 @@ struct StrengthBenchmarkVisual: View {
                 .foregroundStyle(OG.accent.opacity(0.45))
                 .interpolationMethod(.catmullRom)
             }
-            RuleMark(x: .value("Tu referencia", result.kg))
-                .foregroundStyle(OG.accent)
-                .lineStyle(StrokeStyle(lineWidth: 2))
-            PointMark(
-                x: .value("Tu referencia", result.kg),
-                y: .value("Posición", markerHeight)
-            )
-            .foregroundStyle(OG.accent)
-            .symbolSize(85)
+
+            if coincide || last == nil {
+                markSeries(
+                    kg: peak.kg,
+                    color: OG.accent,
+                    label: weightLabel(peak.kg)
+                )
+            } else if let last {
+                markSeries(
+                    kg: peak.kg,
+                    color: OG.accent,
+                    label: weightLabel(peak.kg)
+                )
+                markSeries(
+                    kg: last,
+                    color: OG.blue,
+                    label: weightLabel(last)
+                )
+            }
         }
-        .chartYScale(domain: 0...1.08)
+        .chartYScale(domain: 0...1.18)
         .chartYAxis(.hidden)
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
@@ -205,7 +229,41 @@ struct StrengthBenchmarkVisual: View {
             }
         }
         .frame(height: 126)
-        .accessibilityLabel("Curva ilustrativa de referencia \(frame == .elite ? "de competición" : "de gimnasio"). Tu \(result.estimated ? "e1RM estimado" : "1RM probado"): \(Int(result.kg.rounded())) kilogramos.")
+        .accessibilityLabel(accessibilityText(peak: peak, last: last, coincide: coincide))
+    }
+
+    @ChartContentBuilder
+    private func markSeries(kg: Double, color: Color, label: String) -> some ChartContent {
+        RuleMark(x: .value("Marca", kg))
+            .foregroundStyle(color)
+            .lineStyle(StrokeStyle(lineWidth: 2))
+        PointMark(
+            x: .value("Marca", kg),
+            y: .value("Posición", markerHeight(at: kg))
+        )
+        .foregroundStyle(color)
+        .symbolSize(85)
+        .annotation(position: .top, spacing: 4) {
+            Text(label)
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(color)
+        }
+    }
+
+    private func weightLabel(_ kg: Double) -> String {
+        "\(ReperaNumberFormat.decimal(kg, maximumFractionDigits: kg.rounded() == kg ? 0 : 1)) kg"
+    }
+
+    private func accessibilityText(
+        peak: (kg: Double, estimated: Bool),
+        last: Double?,
+        coincide: Bool
+    ) -> String {
+        let peakText = "Tu \(peak.estimated ? "e1RM estimado" : "1RM probado") máximo: \(Int(peak.kg.rounded())) kilogramos"
+        if coincide || last == nil {
+            return "Curva ilustrativa de referencia \(frame == .elite ? "de competición" : "de gimnasio"). \(peakText)."
+        }
+        return "Curva ilustrativa de referencia \(frame == .elite ? "de competición" : "de gimnasio"). \(peakText). Última marca: \(Int(last!.rounded())) kilogramos."
     }
 
     private var emptyBellVisual: some View {
@@ -252,7 +310,7 @@ struct StrengthBenchmarkVisual: View {
 
     private var emptyIconName: String {
         if !didLoad { return "hourglass" }
-        if recordedResult == nil { return "chart.line.uptrend.xyaxis" }
+        if peakResult == nil { return "chart.line.uptrend.xyaxis" }
         if store.state.settings.birthYear == nil || store.state.settings.competitionSex == nil {
             return "person.crop.circle.badge.questionmark"
         }
@@ -262,7 +320,7 @@ struct StrengthBenchmarkVisual: View {
 
     private var missingState: String {
         if !didLoad { return "Preparando referencia…" }
-        if recordedResult == nil { return "Sin series suficientes para estimar tu marca." }
+        if peakResult == nil { return "Sin series suficientes para estimar tu marca." }
         if store.state.settings.birthYear == nil || store.state.settings.competitionSex == nil {
             return "Configura género y año de nacimiento en Ajustes · Entrenamiento."
         }

@@ -36,7 +36,12 @@ struct FindCenterTrainerView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.vertical, 5)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(minHeight: 44)
+                .glassEffect(.regular, in: Capsule(style: .continuous))
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
             }
             if !businessAuth.isConnected {
                 Section {
