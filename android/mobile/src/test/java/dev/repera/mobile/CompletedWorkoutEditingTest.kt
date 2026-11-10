@@ -74,9 +74,12 @@ class CompletedWorkoutEditingTest {
         val result = CompletedWorkoutEditing.applying(
             "Caminata", blocks, source, JSONArray().put(ex("bu", "Burpees")))
         for (field in listOf("id", "liveSportID", "liveRouteID", "startedAt", "finishedAt",
-            "healthKitWorkoutUUID", "appleActiveEnergyKcal", "appleAverageHeartRateBpm",
-            "appleDurationSeconds", "activeDurationSeconds", "recordedDistanceMeters")) {
+            "healthKitWorkoutUUID")) {
             assertEquals(field, source.get(field), result.get(field))
+        }
+        for (field in listOf("appleActiveEnergyKcal", "appleAverageHeartRateBpm",
+            "appleDurationSeconds", "activeDurationSeconds", "recordedDistanceMeters")) {
+            assertEquals(field, source.getDouble(field), result.getDouble(field), 1e-6)
         }
         assertEquals(source.getJSONArray("routePoints").toString(),
             result.getJSONArray("routePoints").toString())
