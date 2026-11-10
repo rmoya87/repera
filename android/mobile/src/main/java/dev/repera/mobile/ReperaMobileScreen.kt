@@ -527,9 +527,9 @@ fun ReperaMobileScreen(
             if (activeWorkout == null) {
                 clockMinimized = false
                 manualClockConfig = null
-                ManualClockServiceStore.clear(context)
+                ManualClockServiceStore.clear(activityContext)
             } else if (activeWorkout.wod == null) {
-                manualClockConfig = ManualClockServiceStore.read(context, accountId, activeWorkout)
+                manualClockConfig = ManualClockServiceStore.read(activityContext, accountId, activeWorkout)
             }
         }
         // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
@@ -1301,7 +1301,7 @@ fun ReperaMobileScreen(
                             overview = overview,
                             onLaunchManualClock = { config ->
                                 manualClockConfig = config
-                                ManualClockServiceStore.save(context, accountId, workout.id, workout.index, config)
+                                ManualClockServiceStore.save(activityContext, accountId, workout.id, workout.index, config)
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
