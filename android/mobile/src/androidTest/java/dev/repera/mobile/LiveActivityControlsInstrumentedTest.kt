@@ -38,7 +38,7 @@ class LiveActivityControlsInstrumentedTest {
         var opened = false
         LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
-            LiveActivityScreen(account, {}, {}, hasActiveWorkout = true, onOpenWorkout = { opened = true })
+            LiveActivityScreen(account, {}, {}, onOpenTools = {}, hasActiveWorkout = true, onOpenWorkout = { opened = true })
         } }
         compose.onNodeWithText("Continuar entrenamiento").assertIsDisplayed()
         capture("comenzar_entreno_clasico_activo.png")
@@ -53,7 +53,7 @@ class LiveActivityControlsInstrumentedTest {
         val account = "test-picker-${UUID.randomUUID()}"
         LiveActivityRuntime.forAccount(context,account).choose(LiveSport.RUNNING)
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
-            LiveActivityScreen(account, {}, {})
+            LiveActivityScreen(account, {}, {}, onOpenTools = {})
         } }
         compose.onNodeWithTag("live_sport_picker").performClick()
         compose.onNodeWithTag("choose_sport_running").assertIsDisplayed()
@@ -88,7 +88,7 @@ class LiveActivityControlsInstrumentedTest {
             Thread.sleep(1_000)
         }
         compose.setContent { MaterialTheme(colorScheme = reperaColorScheme(false)) {
-            LiveActivityScreen(account, {}, {}, onMapRendered={rendered.incrementAndGet()})
+            LiveActivityScreen(account, {}, {}, onOpenTools = {}, onMapRendered={rendered.incrementAndGet()})
         } }
         compose.onNodeWithText("Sin ubicación. Pulsa Centrar para situarte.").assertIsDisplayed()
         awaitMapAfter(0)
@@ -140,7 +140,7 @@ class LiveActivityControlsInstrumentedTest {
         runtime.state.finish(start+60_000);runtime.publish()
         var savedDay:Long?=null;var saves=0
         compose.setContent { MaterialTheme(colorScheme=reperaColorScheme(false)) {
-            LiveActivityScreen(account,{saves++},{},onSavedDay={savedDay=it})
+            LiveActivityScreen(account,{saves++},{},onOpenTools={},onSavedDay={savedDay=it})
         } }
         compose.onNodeWithText("Nombre de la actividad").performTextInput("Partido antiguo")
         compose.onNodeWithTag("live_save").performScrollTo().performClick()
