@@ -612,6 +612,8 @@ jobs:
           REPERA_UPLOAD_KEY_ALIAS: repera-upload
           # PKCS12: la password de clave ES la del almacen (un solo secret).
           REPERA_UPLOAD_KEY_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+      - name: Verify merged release manifest contains no advertising identifiers
+        run: python3 android/scripts/verify_play_permissions.py android/mobile/build/intermediates
       - name: Diagnose native .so symbol packaging (non-mutating)
         run: |
           python3 android/scripts/inspect_native_symbols.py \
