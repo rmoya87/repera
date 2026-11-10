@@ -11,6 +11,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import dev.repera.domain.ExerciseHistorySummary
 import dev.repera.mobile.ExerciseEntry
 import dev.repera.mobile.ExerciseEvolutionSection
