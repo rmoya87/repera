@@ -155,7 +155,7 @@ class LiveMapLandscapeRenderTest {
   }
   composeRule.onNodeWithTag("live_options").performClick()
   composeRule.onNodeWithTag("live_load_route").performClick()
-  composeRule.onNodeWithText("Ruta de prueba").performScrollTo().assertIsDisplayed()
+  composeRule.onAllNodesWithText("Ruta de prueba")[0].assertIsDisplayed()
   composeRule.onNodeWithText("Eliminar").performScrollTo().assertIsDisplayed()
   val bmp=composeRule.onNodeWithTag("populated_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
