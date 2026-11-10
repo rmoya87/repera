@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -29,6 +30,7 @@ import dev.repera.mobile.RecoveryState
 import dev.repera.mobile.RoutineBlocksEditorScreen
 import dev.repera.mobile.RoutineEntry
 import dev.repera.mobile.reperaColorScheme
+import dev.repera.mobile.replaceReperaNumericField
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -260,7 +262,7 @@ class ReviewSpacingRenderTest {
             }
         }
         composeRule.onNodeWithTag("progress_list")
-            .performScrollToNode(hasText("Ver historial completo"))
+            .performScrollToNode(hasTestTag("progress_history_link"))
         composeRule.waitForIdle()
         save(composeRule.onNodeWithTag("progresswrap").captureToImage().asAndroidBitmap(),
             "progress-history-training.png")
@@ -505,7 +507,7 @@ class ReviewSpacingRenderTest {
         composeRule.setContent {MaterialTheme {Surface {
             dev.repera.mobile.ProgressWeightCard(listOf(dev.repera.domain.ProgressDayPoint(LocalDate.of(2026,10,27),75.0)),null,74.0,"test-owner",false,{received=it})
         }}}
-        composeRule.onNodeWithText("Peso de hoy (kg)").performTextInput("76,2")
+        composeRule.replaceReperaNumericField("Peso (kg)", "76,2")
         composeRule.onNodeWithText("Registrar").performClick()
         org.junit.Assert.assertEquals(76.2,received!!,0.001)
     }
