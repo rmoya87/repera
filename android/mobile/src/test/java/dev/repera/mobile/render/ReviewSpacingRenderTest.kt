@@ -239,8 +239,8 @@ class ReviewSpacingRenderTest {
                 }
             }
         }
-        composeRule.onNodeWithContentDescription("Volver").assertExists()
-        composeRule.onNodeWithText("Guardar").assertExists()
+        composeRule.onNodeWithTag("editor_back").assertExists()
+        composeRule.onNodeWithTag("editor_confirm").assertExists()
         save(composeRule.onNodeWithTag("editorwrap").captureToImage().asAndroidBitmap(),
             "routine-editor-topbar.png")
     }
