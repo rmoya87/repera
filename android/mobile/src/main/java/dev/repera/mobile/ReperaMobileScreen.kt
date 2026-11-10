@@ -833,6 +833,7 @@ fun ReperaMobileScreen(
                                 animationSpec = detailSlide
                             )
                     }
+                }
             ) {
                 composable("inicio") {
                     HomeTab(
