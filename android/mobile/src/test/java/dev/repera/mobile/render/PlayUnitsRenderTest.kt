@@ -60,7 +60,7 @@ class PlayUnitsRenderTest {
   rule.onNodeWithText("Registrar serie").performScrollTo().performClick()
   rule.runOnIdle {assertEquals("meters",recordedUnit)}
   rule.onNodeWithText("Editar").performScrollTo().performClick()
-  rule.onNodeWithText("m").performScrollTo().performClick()
+  rule.onNodeWithTag("edit_unit_tab_1").performClick()
   rule.onNodeWithText("Guardar corrección").performScrollTo().performClick()
   rule.runOnIdle {assertEquals("meters",correctedUnit);assertEquals("saved",correctedId)}
  }
