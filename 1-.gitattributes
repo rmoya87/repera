@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# El proyecto de Xcode se mergea mejor con union: evita conflictos al regenerar
+*.pbxproj merge=union
