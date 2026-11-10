@@ -1,6 +1,6 @@
 # Despliegue Repera Android en Google Play (beta)
 
-**Última actualización:** 2026-11-06 — gate relajado activo otra vez (`needs: [android-native]`); sync `beta` ← `main` para internal.
+**Última actualización:** 2026-11-10 — gate estricto para Android estable, versión mensual AAAA.MM.VV y notas verificables en Google Play Internal.
 
 Autorizado por Ramon el 25/10/2026 ("Ok hazlo", tras plan presentado por chat):
 beta automatica SOLO de telefono a prueba INTERNA; produccion preparada pero
@@ -9,33 +9,70 @@ productos/suscripciones/precios/backend comercial en este alcance.
 
 ## Flujo
 
-1. Push a la rama `beta` (nace de `feat/android-wear-native-parity`).
-2. El workflow `.github/workflows/android-native-ci.yml` ejecuta JVM, emuladores
-   teléfono (API 30/35/37.2) y Wear (5.1/6.0). Los instrumentados **siguen
-   corriendo**; no se borran.
-3. **`deploy-internal-beta`** (solo rama `beta`, track **internal**):
-   - **Gate relajado (activo 2026-10-31):** `needs: [android-native]` — el AAB se
-     publica en cuanto JVM + compile están verdes; emuladores siguen corriendo en
-     paralelo.
-   - **Gate estricto (revertir):** en el workflow, `needs:
-     [android-native, android-instrumented, wear-instrumented]` y condición de
-     éxito en esos jobs (como antes del 2026-10-31).
-   - Disparo manual: `workflow_dispatch` en rama `beta` (input documentado para
-     futuro; el gate relajado no depende de emuladores).
-4. Tras el primer AAB, Play App Signing genera el certificado de firma de la
-   app: registrar su SHA-1 como SEGUNDO cliente OAuth Android en el proyecto
-   Cloud "Repera" (conservando el cliente debug de desarrollo).
+1. Push a `main`: compilar Android y Wear; ejecutar toda la suite JVM de `mobile`,
+   pruebas de dominio y Wear, y pruebas instrumentadas de Android.
+2. Sync / push a `beta` (cuando esté validado): el mismo workflow repite la
+   validación y despliega exclusivamente la aplicación de teléfono a Google
+   Play, pista **internal**. `main` y las pull requests jamás publican.
+3. **Gate de publicación**: compilación y tests JVM completos + instrumentación
+   estable Android API 30/35. Wear OS y Android 17 canary siguen probándose,
+   pero no bloquean la distribución del teléfono por sus problemas históricos
+   de arranque de imágenes. No se omite el gate mediante parámetros manuales.
+4. Se consulta el estado actual de Google Play antes de construir el AAB
+   firmado. Se aborta si es un commit obsoleto de `beta`.
+5. Se genera la versión y las notas en español con
+   `android/scripts/play_release_metadata.py` y se suben como artefacto
+   `play-release-metadata`. También se guarda el SHA256 del AAB firmado.
+6. La acción de publicación utiliza `releaseName` y `whatsNewDirectory`
+   (archivo `whatsnew-es-ES`), con estado `completed` en la pista
+   `internal` únicamente. Una subida completada no garantiza disponibilidad
+   instantánea para los probadores.
 
-## Versionado
+## Versionado mensual
 
-- `versionCode` = minutos desde 2026-01-01 UTC: monotonico por reloj de
-  pared, inmune a reejecuciones de runs antiguos (un re-run obtiene un codigo
-  nuevo y mayor), unico mientras los despliegues esten serializados por el
-  concurrency group del workflow. Limite de Play 2100000000: holgado.
-  No existian releases previos (verificado 25/10/2026).
-- `versionName` = tag exacto si el commit lo tiene; si no,
-  `0.1.0-beta.<run_number>`.
-- Builds locales: versionCode 1 / 0.1.0 (sin cambios).
+- **`versionName` visible**: `AAAA.MM.VV` con dos dígitos para el mes y
+  `VV` incremental desde `0` en cada mes:
+  `2026.11.0`, `2026.11.1`; en diciembre `2026.12.0`.
+  La fecha se calcula en la zona horaria `Europe/Madrid`.
+- El contador mensual se calcula comparando los nombres de todas las releases
+  disponibles en las pistas de Google Play. Las versiones antiguas de formato
+  `0.1.0-beta.*` no impiden comenzar por `2026.11.0`.
+- **`versionCode` interno**: entero positivo creciente, mayor que los códigos
+  encontrados en pistas y bundles de Play y como mínimo los minutos desde
+  2026-01-01 UTC. No puede ser `2026.11.0` porque Android exige un entero.
+  Se comprueba el máximo de 2.100.000.000.
+- Los valores se pasan al build release por
+  `-PREPERA_VERSION_NAME` / `-PREPERA_VERSION_CODE`. Los builds locales
+  siguen usando valores por defecto sin alterar el número de versión del código.
+- Para publicar varias versiones simultáneas hay que serializar los despliegues.
+  El workflow cancela runs antiguos de la misma rama y comprueba el HEAD antes
+  de subir. No habilitar otro publicador concurrente sin protección adicional.
+
+## Novedades: comparación con la última producción
+
+- Se consulta la pista `production` de Play. Si tiene una release efectiva
+  (`completed` / `inProgress`), se exige la versión y **fecha real de subida**
+  verificadas en Play Console mediante dos variables de GitHub Actions:
+  `REPERA_LAST_PRODUCTION_VERSION` (nombre exacto de la release actual,
+  por ejemplo `2026.10.5`) y `REPERA_LAST_PRODUCTION_DATE` (fecha y hora
+  ISO 8601, por ejemplo `2026-10-31T12:00:00+01:00`).
+  **No se deben inventar**: la API Publisher entrega nombre, códigos y estado,
+  pero no el instante histórico de subida. Si faltan, o no corresponden a la
+  última versión de producción, el deploy se detiene.
+- Se leen los títulos de los commits Android posteriores a dicha fecha, se
+  transforman señales identificables en beneficios para usuarios y se genera
+  un texto de hasta 500 caracteres, apto para Google Play, en español.
+  No se citan novedades que no aparezcan en el historial de Android.
+- Si **no hay publicación en producción** (estado documentado de Repera),
+  no se finge una fecha de producción: la primera versión del mes utiliza
+  los cambios Android desde su inicio. En el artefacto aparece la procedencia
+  `first-release-month`. Si no existen cambios Android verificables, el
+  proceso falla en lugar de inventar características.
+- Cuando se publique una nueva versión en producción **fuera de este CI**,
+  registrar inmediatamente sus dos variables con la fecha real de Play
+  antes del siguiente deploy interno.
+- Pruebas del generador: `python3 -m unittest discover -s android/scripts
+  -p 'test_play_release_metadata.py' -v`.
 
 ## Secrets de GitHub Actions (solo nombres; valores en vault/secret store)
 
