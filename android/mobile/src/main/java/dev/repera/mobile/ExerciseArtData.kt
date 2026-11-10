@@ -393,7 +393,7 @@ internal object ExerciseArtData {
         "Deficit Deadlift" to "art_peso_muerto",
         "Double Kettlebell Farmers Carry" to "art_cf_farmer_carry",
         "Double Kettlebell Front Rack Lunge" to "art_zancadas",
-        "Dumbbell Bench Press" to "art_press_militar",
+        "Dumbbell Bench Press" to "art_press_banca",
         "Dumbbell Box Step Up" to "art_press_mancuernas",
         "Dumbbell Burpee Deadlift" to "art_peso_muerto",
         "Dumbbell Carry" to "art_cf_farmer_carry",
