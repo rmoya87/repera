@@ -191,6 +191,30 @@ private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
     }
 }
 
+/// Aparición suave de gráficas (opacidad + ligera escala; solo fundido si reduceMotion).
+private struct OGChartAppearModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .scaleEffect(reduceMotion ? 1 : (visible ? 1 : 0.97), anchor: .center)
+            .onAppear {
+                guard !visible else { return }
+                OGMotion.run(OGMotion.appear, reduceMotion: reduceMotion) {
+                    visible = true
+                }
+            }
+    }
+}
+
+extension View {
+    func ogChartAppear() -> some View {
+        modifier(OGChartAppearModifier())
+    }
+}
+
 /// Tamaño de diseño que escala con Dynamic Type siguiendo `relativeTo`.
 /// Solo para tamaños sin estilo semántico equivalente (11 → `.caption2`,
 /// 12 → `.caption`, 13 → `.footnote`, 15 → `.subheadline`, 16 → `.callout`,

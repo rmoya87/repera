@@ -8,6 +8,7 @@ struct StatsView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var category: ProgressCategory = .training
@@ -1833,6 +1834,7 @@ struct StatsView: View {
                     }
                     .frame(height: 195)
                     .allowsHitTesting(false)
+                    .ogChartAppear()
                 }
             }
         }
@@ -2017,9 +2019,17 @@ struct StatsView: View {
                                     Text("\(ReperaNumberFormat.decimal(pr.weightKg))×\(pr.reps)")
                                         .monospacedDigit()
                                         .foregroundStyle(OG.label)
+                                        .ogNumericText(
+                                            value: "\(pr.weightKg)-\(pr.reps)",
+                                            reduceMotion: reduceMotion
+                                        )
                                     Text("~\(ReperaNumberFormat.decimal(pr.estimatedOneRM, maximumFractionDigits: 0)) kg")
                                         .font(.system(size: 12))
                                         .foregroundStyle(OG.label2)
+                                        .ogNumericText(
+                                            value: pr.estimatedOneRM,
+                                            reduceMotion: reduceMotion
+                                        )
                                 }
                             }
                             }

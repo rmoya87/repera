@@ -223,6 +223,7 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
     var valuePointSize: CGFloat = 44
     /// Meta apilada a la derecha del número (p. ej. tiempo encima de «salidas»), misma tipografía.
     var stackedMeta: (top: String, bottom: String)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewBuilder var accessory: () -> Accessory
 
     init(
@@ -252,12 +253,14 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
                             .foregroundStyle(OG.label)
                             .minimumScaleFactor(0.55)
                             .lineLimit(1)
+                            .ogNumericText(value: value, reduceMotion: reduceMotion)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(stackedMeta.top)
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(OG.label2)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
+                                .ogNumericText(value: stackedMeta.top, reduceMotion: reduceMotion)
                             Text(stackedMeta.bottom)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(OG.label2)
@@ -274,6 +277,7 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
                                 .foregroundStyle(OG.label)
                                 .minimumScaleFactor(0.55)
                                 .lineLimit(1)
+                                .ogNumericText(value: value, reduceMotion: reduceMotion)
                             if let unit {
                                 Text(unit)
                                     .font(.title3.weight(.semibold))
@@ -420,6 +424,7 @@ struct ProgressMetricGlanceCard: View {
     let value: String
     var tint: Color = OG.accent
     var footnote: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         OGCard {
@@ -434,6 +439,7 @@ struct ProgressMetricGlanceCard: View {
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .ogNumericText(value: value, reduceMotion: reduceMotion)
                 if let footnote {
                     Text(footnote)
                         .font(.caption.weight(.medium))

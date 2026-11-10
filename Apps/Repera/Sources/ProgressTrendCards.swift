@@ -313,6 +313,7 @@ struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
     var workouts: [WorkoutSession] = []
     var showZones: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDate: Date?
 
     private var points: [ProgressPreparedCharts.HeartRatePlotPoint] { prepared.heartRate }
@@ -499,6 +500,7 @@ struct ProgressCardioChartCard: View {
                 }
             }
         }
+        .ogChartAppear()
     }
 
     private static let minTint = OG.blue
@@ -513,6 +515,7 @@ struct ProgressCardioChartCard: View {
             Text("\(Int(value.rounded()))")
                 .font(.system(size: 18, weight: .semibold).monospacedDigit())
                 .foregroundStyle(tint)
+                .ogNumericText(value: Int(value.rounded()), reduceMotion: reduceMotion)
             Text("lpm")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(OG.label2)
@@ -526,6 +529,7 @@ struct ProgressCardioChartCard: View {
 /// Calorías: series ya preparadas.
 struct ProgressCaloriesChartCard: View {
     var prepared: ProgressPreparedCharts
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDate: Date?
 
     private var points: [ProgressDayPoint] { prepared.calories }
@@ -697,6 +701,7 @@ struct ProgressCaloriesChartCard: View {
                 }
             }
         }
+        .ogChartAppear()
     }
 
     private func calorieStat(title: String, value: String) -> some View {
@@ -709,6 +714,7 @@ struct ProgressCaloriesChartCard: View {
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)
@@ -728,6 +734,7 @@ struct ProgressWeightChartCard: View {
     var preparedPoints: [ProgressWeightPoint]? = nil
     /// Preview free: misma suavidad que cardio/kcal.
     var isTeaserPreview: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var yearScopedEntries: [BodyWeightEntry] {
         let now = Date()
@@ -947,6 +954,7 @@ struct ProgressWeightChartCard: View {
                 }
             }
         }
+        .ogChartAppear()
     }
 
     private func weightStat(label: String, value: String, valueColor: Color = OG.label) -> some View {
@@ -957,6 +965,7 @@ struct ProgressWeightChartCard: View {
             Text(value)
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(valueColor)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)

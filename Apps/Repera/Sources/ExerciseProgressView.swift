@@ -79,6 +79,7 @@ struct ExerciseProgressView: View {
                     .chartPlotStyle { $0.clipped() }
                     .frame(height: 205)
                     .allowsHitTesting(false)
+                    .ogChartAppear()
                 }
             }
         }
@@ -89,6 +90,7 @@ struct ExerciseProgressView: View {
 /// Historial + métricas + gráfica en un solo bloque («Evolución»).
 struct ExerciseEvolutionPanel: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let exerciseId: UUID
     var highlightSessionId: UUID? = nil
 
@@ -377,6 +379,10 @@ struct ExerciseEvolutionPanel: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity, alignment: .center)
+                        .ogNumericText(
+                            value: testedOneRMKg.map { ReperaNumberFormat.decimal($0) } ?? "—",
+                            reduceMotion: reduceMotion
+                        )
                         .contentShape(Rectangle())
                         .onTapGesture { beginTopeEdit() }
                 }
@@ -420,6 +426,7 @@ struct ExerciseEvolutionPanel: View {
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(OG.label3)
@@ -526,6 +533,7 @@ struct ExerciseEvolutionPanel: View {
         }
         .padding(12)
         .background(OG.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .ogChartAppear()
     }
 
     private var chartYDomain: ClosedRange<Double> {
