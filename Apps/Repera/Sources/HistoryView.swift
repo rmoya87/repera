@@ -135,6 +135,7 @@ struct HistoryView: View {
                                         WorkoutDetailView(sessionId: session.id)
                                     } label: {
                                         reperaHistoryRow(session)
+                                            .modifier(HistorySessionCardAppearModifier())
                                     }
                                     .navigationLinkIndicatorVisibility(.hidden)
                                     .listRowInsets(EdgeInsets(
@@ -148,6 +149,7 @@ struct HistoryView: View {
                                         HealthActivityDetailView(activityId: activity.id)
                                     } label: {
                                         healthHistoryRow(activity)
+                                            .modifier(HistorySessionCardAppearModifier())
                                     }
                                     .navigationLinkIndicatorVisibility(.hidden)
                                     .listRowInsets(EdgeInsets(
@@ -318,6 +320,24 @@ struct HistoryView: View {
     private static let chipsTitleLeading: CGFloat = historyRowPad + 44 + 12
 }
 
+/// Aparición suave de tarjetas de sesión (fundido; leve offset solo sin reduceMotion).
+private struct HistorySessionCardAppearModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .offset(y: reduceMotion || visible ? 0 : 6)
+            .onAppear {
+                guard !visible else { return }
+                OGMotion.run(OGMotion.appear, reduceMotion: reduceMotion) {
+                    visible = true
+                }
+            }
+    }
+}
+
 /// Primer resultado gana (hidratación o timeout). Evita `addTask { @MainActor in }`
 /// dentro de `withTaskGroup`, que el region isolation checker de Swift 6 no entiende.
 @MainActor
@@ -349,6 +369,7 @@ struct WorkoutDetailView: View {
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var routeZoomNamespace
 
     var sessionId: UUID
@@ -1381,6 +1402,7 @@ struct WorkoutDetailView: View {
                 Text(result.summaryLabel)
                     .font(.system(size: 22, weight: .bold).monospacedDigit())
                     .foregroundStyle(OG.label)
+                    .ogNumericText(value: result.summaryLabel, reduceMotion: reduceMotion)
             }
             Spacer(minLength: 0)
             if let format = result.format {
