@@ -31,7 +31,7 @@ TOPICS = (
      "Más privacidad: Repera no solicita permisos de identificación publicitaria."),
 )
 MAINTENANCE = re.compile(r"fix|correg|bug|crash|rendimiento|performance|optim|regresi[oó]n|stabil|error", re.I)
-NON_USER_FACING = re.compile(r"^(?:(?:test|tests|ci|docs|chore|build|style|refactor)(?:\\b|[(:])|fix\\((?:test|ci|docs)\\))", re.I)
+NON_USER_FACING = re.compile(r"^(?:test|tests|ci|docs|chore|build|style|refactor)\b|^fix\((?:test|ci|docs)\)", re.I)
 
 
 def all_releases(snapshot: dict) -> list[dict]:
