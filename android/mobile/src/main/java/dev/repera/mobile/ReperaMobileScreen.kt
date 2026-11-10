@@ -774,7 +774,7 @@ fun ReperaMobileScreen(
             val detailFadeOut = androidx.compose.animation.core.tween<Float>(
                 durationMillis = 100
             )
-            val detailSlide = androidx.compose.animation.core.tween<Int>(
+            val detailSlide = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(
                 durationMillis = 220,
                 easing = androidx.compose.animation.core.FastOutSlowInEasing
             )
