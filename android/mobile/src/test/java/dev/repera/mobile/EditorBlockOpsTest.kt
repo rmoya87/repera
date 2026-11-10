@@ -221,7 +221,7 @@ class DayEditorImportTest {
     @org.junit.Test fun templateKeepsRepeatedMovementsAndRejectsLadder() {
         val cat = listOf(ExerciseEntry("ex-t", "Thruster", true, true))
         val t = dev.repera.domain.CatalogWods.seed().first { it.format != dev.repera.domain.WodFormat.LADDER && it.movements.size > 1 }
-        val info = EditorBlockOps.templateToBlockInfo(t, cat)!!
+        val info = EditorBlockOps.templateToBlockInfo(t, cat)
         org.junit.Assert.assertEquals(t.movements.size, info.entries.size)
         val ladder = EditorBlockOps.templateToBlockInfo(dev.repera.domain.CatalogWods.template("21-15-9-thruster-bjo")!!, cat)
         org.junit.Assert.assertEquals(6, ladder.entries.size)
