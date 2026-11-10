@@ -348,13 +348,16 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     LaunchedEffect(showingMetrics) {
         if (touchLockAvailable) liveSessionPage = 1
     }
+    // El bloqueo táctil es independiente de mantener la pantalla encendida:
+    // una sesión en curso (también pausada) debe seguir visible sin candado.
     DisposableEffect(touchLocked, touchLockAvailable, rootView) {
-        val keepAwake = touchLocked && touchLockAvailable
-        LiveActivityTouchLockState.locked = keepAwake
+        val keepAwake = touchLockAvailable
+        val lockTouches = touchLocked && touchLockAvailable
+        LiveActivityTouchLockState.locked = lockTouches
         if (keepAwake) rootView.keepScreenOn = true
         onDispose {
             if (keepAwake) rootView.keepScreenOn = false
-            if (keepAwake) LiveActivityTouchLockState.locked = false
+            if (lockTouches) LiveActivityTouchLockState.locked = false
         }
     }
 
