@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -294,12 +295,11 @@ internal fun ExercisesTab(
                     Text(groupKey, style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                 }
-                items(
+                itemsIndexed(
                     items = groupEntries,
-                    key = { "grp-" + exerciseSort + "-" + groupKey + "-" + it.id },
-                    contentType = { "exercise_row" }
-                ) { entry ->
-                    val index = groupEntries.indexOf(entry)
+                    key = { _, entry -> "grp-" + exerciseSort + "-" + groupKey + "-" + entry.id },
+                    contentType = { _, _ -> "exercise_row" }
+                ) { index, entry ->
                     ExerciseLibraryGroupedRow(
                         entry = entry, aliases = englishAliases,
                         selected = selectedExerciseId == entry.id,
@@ -309,12 +309,11 @@ internal fun ExercisesTab(
                 }
             }
         } else {
-            items(
+            itemsIndexed(
                 items = entries,
-                key = { "exercise-" + it.id },
-                contentType = { "exercise_row" }
-            ) { entry ->
-                val index = entries.indexOf(entry)
+                key = { _, entry -> "exercise-" + entry.id },
+                contentType = { _, _ -> "exercise_row" }
+            ) { index, entry ->
                 ExerciseLibraryGroupedRow(
                     entry = entry, aliases = englishAliases,
                     selected = selectedExerciseId == entry.id,
