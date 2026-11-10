@@ -1,9 +1,6 @@
 package dev.repera.mobile
 
 import androidx.compose.ui.res.stringResource
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,16 +33,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -244,106 +236,52 @@ internal fun ReperaFloatingTabBar(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
         )
     ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp)
+        // NavigationBarItem gestiona el indicador y la transición de selección
+        // con la animación Material 3, sin desplazamientos personalizados.
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalRippleConfiguration provides null
         ) {
-            // Un único indicador se desplaza entre pestañas. Antes cada pestaña
-            // animaba su ancho independientemente y producía un salto entre estados.
-            val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }
-            val slotWidth = if (tabs.isEmpty()) 0.dp else maxWidth / tabs.size
-            val targetX = if (selectedIndex < 0) 0.dp
-                else slotWidth * selectedIndex + (slotWidth - 56.dp) / 2
-            val density = LocalDensity.current
-            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            val indicatorX by animateFloatAsState(
-                targetValue = with(density) { targetX.toPx() },
-                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                label = "tabSelectionPosition"
-            )
-            if (selectedIndex >= 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(top = 2.dp)
-                        .graphicsLayer {
-                            translationX = if (rtl) -indicatorX else indicatorX
-                        }
-                        .size(width = 56.dp, height = 32.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.reperaColors.tabSelectedFill)
-                )
-            }
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 tabs.forEach { tab ->
-                    ReperaFloatingTabItem(
-                        tab = tab,
-                        selected = selectedRoute == tab.route,
+                    val selected = selectedRoute == tab.route
+                    val label = stringResource(tab.accessibilityLabelRes)
+                    androidx.compose.material3.NavigationBarItem(
+                        selected = selected,
                         onClick = { onTabSelected(tab.route) },
+                        icon = {
+                            Icon(
+                                imageVector = tab.iconFor(selected),
+                                contentDescription = label,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        label = tab.visibleLabel?.let {
+                            {
+                                Text(
+                                    text = label,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        },
+                        alwaysShowLabel = true,
+                        colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                            selectedIconColor = brandGreen,
+                            selectedTextColor = brandGreen,
+                            indicatorColor = MaterialTheme.reperaColors.tabSelectedFill,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ReperaFloatingTabItem(
-    tab: ReperaTabSpec,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val scheme = MaterialTheme.colorScheme
-    val iconTint = if (selected) brandGreen else scheme.onSurfaceVariant
-    val labelColor = if (selected) brandGreen else scheme.onSurfaceVariant
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val a11yLabel = stringResource(tab.accessibilityLabelRes)
-    Column(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .selectable(
-                selected = selected,
-                interactionSource = interaction,
-                // El estado seleccionado ya tiene su propia cápsula verde.
-                // Evitar un segundo fondo gris durante la pulsación.
-                indication = null,
-                role = Role.Tab,
-                onClick = onClick
-            )
-            .semantics(mergeDescendants = true) { contentDescription = a11yLabel }
-            .padding(vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(width = 56.dp, height = 32.dp)
-        ) {
-            Icon(
-                imageVector = tab.iconFor(selected),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = iconTint
-            )
-        }
-        if (tab.visibleLabel != null) {
-            Text(
-                text = a11yLabel,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = labelColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clearAndSetSemantics {}
-            )
         }
     }
 }
