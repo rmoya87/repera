@@ -27,6 +27,7 @@
         </intent>
     </capability>
 
+    <!-- Adaptive verde Repera + glifo blanco (paridad visual con iOS Quick Actions). -->
     <shortcut android:shortcutId="repera_today" android:enabled="true"
         android:icon="@mipmap/ic_shortcut_today"
         android:shortcutShortLabel="@string/shortcut_repera_today"

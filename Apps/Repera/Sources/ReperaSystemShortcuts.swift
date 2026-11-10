@@ -104,6 +104,7 @@ struct ReperaBoardScanIntent: AppIntent {
 
 struct ReperaAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        // Icons match Android launcher shortcuts (strength / play / timer / dumbbell).
         AppShortcut(
             intent: ReperaTodayIntent(),
             phrases: [
@@ -111,7 +112,7 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
                 "Abrir mi entrenamiento en \(.applicationName)"
             ],
             shortTitle: "Entreno de hoy",
-            systemImageName: "dumbbell"
+            systemImageName: "figure.strengthtraining.traditional"
         )
         AppShortcut(
             intent: ReperaLiveIntent(),
@@ -120,7 +121,7 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
                 "Abrir Comenzar en \(.applicationName)"
             ],
             shortTitle: "Comenzar",
-            systemImageName: "figure.run"
+            systemImageName: "play.circle"
         )
         AppShortcut(
             intent: ReperaToolsIntent(),
@@ -136,7 +137,7 @@ struct ReperaAppShortcuts: AppShortcutsProvider {
                 "Buscar ejercicios en \(.applicationName)"
             ],
             shortTitle: "Ejercicios",
-            systemImageName: "magnifyingglass"
+            systemImageName: "dumbbell"
         )
         AppShortcut(
             intent: ReperaBoardScanIntent(),

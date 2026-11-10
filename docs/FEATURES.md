@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-10 (atajos Android con iconos; widget iOS retirado).
+Última actualización: 2026-11-10 (sin widget home iOS; Quick Actions = atajos Android).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -203,7 +203,7 @@ Las pestañas permanecen **Entreno / Actividad / Recuperación**, pero cada una 
 
 La tarjeta de nota de sesión presenta **Evolución personal / Rendimiento / Cobertura** a la izquierda del anillo, sin selector ni texto «Ver cómo se calcula». La **confianza** aparece debajo en cuatro segmentos coloreados y resalta el estado de evidencia real (Aprendiendo, Baja, Media, Alta). La gráfica **Último entreno** expone **Rendimiento (±% vs tú) / Referencias** de la última sesión con nota, el anillo de media del periodo, confianza **del último entrenamiento puntuado** y hasta **7 notas verificadas en eje 0–10** (no barras de duración); el plot se revela L→R (`ogChartReveal` / `progressChartReveal`). No se asignan puntuaciones a temporizadores o clases por el mero hecho de haber concluido.
 
-**Widgets de pantalla de inicio (10/11/2026):** retirados en iOS y Android. iOS mantiene el kind legacy `com.app.repera.launch` como stub desfavorecido (sin «Accesos rápidos») para retirar instancias antiguas tras actualizar. Android sin Glance. Siguen Live Activities / Dynamic Island, Control Center iOS y Quick Settings Tiles. **Atajos Android (icono largo):** Entreno de hoy = fuerza/FitnessCenter, Comenzar = play, temporizador = cronómetro, Ejercicios = mancuerna de la pestaña.
+**Widgets de pantalla de inicio (10/11/2026):** retirados en iOS y Android. En iOS el kind `com.app.repera.launch` **ya no se registra** (`disfavoredLocations` seguía ofreciendo un widget negro vacío). Tras actualizar, borra a mano cualquier instancia antigua en Inicio. Android sin Glance. Siguen Live Activities / Dynamic Island, Control Center iOS y Quick Settings Tiles. **Atajos icono largo (iOS Quick Actions + Android shortcuts, 10/11/2026):** Entreno de hoy, Comenzar, Temporizador, Ejercicios — solo navegación vía `ReperaSystemCommand` / `repera://…`. **Entreno de hoy** = persona con barra (`figure.strengthtraining.traditional` / `ReperaIcons.StrengthTraditional`, igual que el entreno programado de Inicio); Comenzar = play; Temporizador = cronómetro; Ejercicios = mancuerna. Android: adaptive `@mipmap` verde Repera + glifo blanco.
 
 ## Ajustes de Progreso, Clases y Mensajes (02/11/2026)
 

@@ -129,6 +129,49 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>figure.strengthtraining.traditional</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Abrir el entrenamiento de hoy</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Entreno de hoy</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.app.repera.quick.today</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>play.circle</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Abrir el registro de actividad</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Comenzar</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.app.repera.quick.live</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>timer</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Abrir el temporizador</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Temporizador</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.app.repera.quick.timer</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>dumbbell</string>
+			<key>UIApplicationShortcutItemSubtitle</key>
+			<string>Buscar en el catálogo de ejercicios</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Ejercicios</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.app.repera.quick.exercises</string>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

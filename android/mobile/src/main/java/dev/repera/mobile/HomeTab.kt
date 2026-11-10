@@ -444,7 +444,7 @@ internal fun HomeTab(
                         HomeDayRegisterCard(
                             caption = caption,
                             title = session.title,
-                            leadingIcon = Icons.Outlined.FitnessCenter,
+                            leadingIcon = ReperaIcons.StrengthTraditional,
                             chips = chips,
                             onClick = { onStartClassPlan(session) },
                             leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -492,7 +492,7 @@ internal fun HomeTab(
                             HomeDayRegisterCard(
                                 caption = caption,
                                 title = title,
-                                leadingIcon = Icons.Outlined.FitnessCenter,
+                                leadingIcon = ReperaIcons.StrengthTraditional,
                                 chips = chips,
                                 onClick = { detailOccurrence = occurrence },
                                 leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant

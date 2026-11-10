@@ -1,17 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Entreno programado → FitnessCenter (HomePlannedRoutineCard). -->
+<!-- Adaptive FG traced from SF figure.strengthtraining.traditional -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <group
-        android:translateX="30"
-        android:translateY="30"
-        android:scaleX="2"
-        android:scaleY="2">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M20.57,14.86L22,13.43 20.57,12 17,15.57 8.43,7 12,3.43 10.57,2 9.14,3.43 7.71,2 5.57,4.14 4.14,2.71 2.71,4.14l1.43,1.43L2,7.71l1.43,1.43L2,10.57 3.43,12 7,8.43 15.57,17 12,20.57 13.43,22l1.43,-1.43L16.29,22l2.14,-2.14 1.43,1.43 1.43,-1.43 -1.43,-1.43L22,16.29z" />
-    </group>
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M49.44,40.94L59.77,41.54L67.67,55.52L70.71,55.52L71.92,50.05L74.96,50.05L75.57,54.91L78.00,56.13L78.00,57.34L75.57,58.56L74.96,62.81L72.53,63.42L71.32,62.20L70.71,57.95L68.89,57.95L67.67,60.99L65.85,60.99L63.42,57.95L44.58,57.95L42.15,60.99L40.33,60.99L39.72,58.56L37.29,57.95L36.68,62.20L35.47,63.42L33.65,63.42L33.04,58.56L30.00,57.34L30.61,55.52L33.04,54.91L33.04,50.66L36.08,50.05L36.68,54.91L40.94,55.52L47.01,43.37L48.84,41.54L49.44,40.94Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M48.84,59.77L59.16,59.77L59.77,60.38L64.03,75.57L62.81,78.00L60.99,78.00L59.77,76.78L57.95,67.67L54.91,62.20L53.70,61.59L50.05,67.67L48.23,76.78L47.01,78.00L45.19,78.00L44.58,73.75L45.80,67.67L48.84,60.38L48.84,59.77Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M53.09,30.00L57.34,31.22L58.56,33.65L57.95,36.68L56.13,38.51L52.48,38.51L50.05,36.68L49.44,34.86L50.05,32.43L52.48,30.61L53.09,30.00Z" />
 </vector>

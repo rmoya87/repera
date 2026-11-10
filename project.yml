@@ -251,6 +251,25 @@ targets:
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
         ITSAppUsesNonExemptEncryption: false
+        # Home Screen Quick Actions — misma cuaterna que Android (icono largo).
+        # Solo navegación; sensores/HealthKit arrancan en la UI autenticada.
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: com.app.repera.quick.today
+            UIApplicationShortcutItemTitle: Entreno de hoy
+            UIApplicationShortcutItemSubtitle: Abrir el entrenamiento de hoy
+            UIApplicationShortcutItemIconSymbolName: figure.strengthtraining.traditional
+          - UIApplicationShortcutItemType: com.app.repera.quick.live
+            UIApplicationShortcutItemTitle: Comenzar
+            UIApplicationShortcutItemSubtitle: Abrir el registro de actividad
+            UIApplicationShortcutItemIconSymbolName: play.circle
+          - UIApplicationShortcutItemType: com.app.repera.quick.timer
+            UIApplicationShortcutItemTitle: Temporizador
+            UIApplicationShortcutItemSubtitle: Abrir el temporizador
+            UIApplicationShortcutItemIconSymbolName: timer
+          - UIApplicationShortcutItemType: com.app.repera.quick.exercises
+            UIApplicationShortcutItemTitle: Ejercicios
+            UIApplicationShortcutItemSubtitle: Buscar en el catálogo de ejercicios
+            UIApplicationShortcutItemIconSymbolName: dumbbell
         # CanOpenURL para «Conecta tu IA» (ChatGPT / Claude / Grok).
         LSApplicationQueriesSchemes:
           - chatgpt

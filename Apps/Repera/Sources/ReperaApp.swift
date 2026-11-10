@@ -25,6 +25,7 @@ enum ReperaLocale {
 
 @main
 struct ReperaApp: App {
+    @UIApplicationDelegateAdaptor(ReperaAppDelegate.self) private var appDelegate
     @State private var store = ReperaStore()
     @State private var subscriptions = SubscriptionManager()
     @State private var appleAuth = AppleAuthStore.shared

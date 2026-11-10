@@ -16,11 +16,36 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("AppShortcutsProvider", swift)
         self.assertIn("static let openAppWhenRun = true", swift)
         self.assertIn("ReperaSystemCommand.request(.today)", swift)
+        self.assertIn('systemImageName: "figure.strengthtraining.traditional"', swift)
+        self.assertIn('systemImageName: "play.circle"', swift)
+        self.assertIn('systemImageName: "dumbbell"', swift)
         self.assertNotIn("HKWorkoutSession(", swift)
         self.assertNotIn("startActivity(with:", swift)
         root = source("Apps/Repera/Sources/RootTabView.swift")
         self.assertIn("guard store.isHydrated else { return }", root)
         self.assertIn('case ("today", 0): self = .today', root)
+        # Home Screen Quick Actions = misma cuaterna que Android (icono largo).
+        home = source("Apps/Repera/Sources/ReperaHomeQuickActions.swift")
+        self.assertIn("com.app.repera.quick.today", home)
+        self.assertIn("com.app.repera.quick.live", home)
+        self.assertIn("com.app.repera.quick.timer", home)
+        self.assertIn("com.app.repera.quick.exercises", home)
+        self.assertIn("ReperaSystemCommand.request(destination)", home)
+        self.assertNotIn("HKWorkoutSession", home)
+        self.assertIn("ReperaAppDelegate", home)
+        self.assertIn("ReperaSceneDelegate", home)
+        app = source("Apps/Repera/Sources/ReperaApp.swift")
+        self.assertIn("UIApplicationDelegateAdaptor(ReperaAppDelegate.self)", app)
+        plist_props = source("project.yml")
+        self.assertIn("UIApplicationShortcutItems:", plist_props)
+        self.assertIn("com.app.repera.quick.today", plist_props)
+        self.assertIn("com.app.repera.quick.live", plist_props)
+        self.assertIn("com.app.repera.quick.timer", plist_props)
+        self.assertIn("com.app.repera.quick.exercises", plist_props)
+        self.assertIn("figure.strengthtraining.traditional", plist_props)
+        self.assertIn("UIApplicationShortcutItemIconSymbolName: play.circle", plist_props)
+        self.assertIn("UIApplicationShortcutItemIconSymbolName: timer", plist_props)
+        self.assertIn("UIApplicationShortcutItemIconSymbolName: dumbbell", plist_props)
 
     def test_control_center_scene_routing_cannot_start_sensors(self):
         control = source("Apps/ReperaRestWidget/ReperaControls.swift")
@@ -60,9 +85,11 @@ class NativeSystemEntryContractTests(unittest.TestCase):
 
     def test_apple_live_activity_controls_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
-        # Sin widget útil de home: Live Activities + Control Center + stub retired.
+        # Sin widget de home: solo Live Activities + Control Center.
+        # `disfavoredLocations` no ocultaba el stub; el kind ya no se registra.
         self.assertNotIn("ReperaHomeWidget()", bundle)
-        self.assertIn("ReperaHomeWidgetRetired()", bundle)
+        self.assertNotIn("ReperaHomeWidgetRetired()", bundle)
+        self.assertNotIn("com.app.repera.launch", bundle)
         self.assertIn("RestLiveActivityWidget()", bundle)
         self.assertIn("TrainingLiveActivityWidget()", bundle)
         self.assertIn("ReperaBeginControl()", bundle)
@@ -70,10 +97,10 @@ class NativeSystemEntryContractTests(unittest.TestCase):
             (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidget.swift").exists(),
             "home screen widget source must stay removed",
         )
-        retired = source("Apps/ReperaRestWidget/ReperaHomeWidgetRetired.swift")
-        self.assertIn('kind: "com.app.repera.launch"', retired)
-        self.assertIn(".disfavoredLocations([.homeScreen, .lockScreen]", retired)
-        self.assertNotIn("Accesos rápidos", retired)
+        self.assertFalse(
+            (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidgetRetired.swift").exists(),
+            "retired home stub must stay removed from the extension",
+        )
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn(".handGestureShortcut(.primaryAction", watch)
         self.assertIn("!hub.nextActionIsFinish", watch)
@@ -108,10 +135,23 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("repera_shortcuts", manifest)
         shortcuts = source("android/mobile/src/main/res/xml/repera_shortcuts.xml")
         self.assertIn("repera://exercises", shortcuts)
+        # Adaptive verde + glifo blanco (mipmap), no drawable plano negro.
         self.assertIn('@mipmap/ic_shortcut_today', shortcuts)
         self.assertIn('@mipmap/ic_shortcut_play', shortcuts)
         self.assertIn('@mipmap/ic_shortcut_timer', shortcuts)
         self.assertIn('@mipmap/ic_shortcut_exercises', shortcuts)
+        today_fg = source("android/mobile/src/main/res/drawable/ic_shortcut_today_fg.xml")
+        self.assertIn("figure.strengthtraining.traditional", today_fg)
+        self.assertIn("#FFFFFFFF", today_fg)
+        today_adaptive = source(
+            "android/mobile/src/main/res/mipmap-anydpi-v26/ic_shortcut_today.xml"
+        )
+        self.assertIn("repera_brand_green", today_adaptive)
+        self.assertIn("ic_shortcut_today_fg", today_adaptive)
+        icons_kt = source("android/mobile/src/main/java/dev/repera/mobile/ReperaIcons.kt")
+        self.assertIn("StrengthTraditional", icons_kt)
+        home_planned = source("android/mobile/src/main/java/dev/repera/mobile/HomeDayCards.kt")
+        self.assertIn("ReperaIcons.StrengthTraditional", home_planned)
         self.assertNotIn('@drawable/ic_timer"', shortcuts.replace(
             'android:icon="@drawable/ic_timer"', "USED_TIMER"
         ))

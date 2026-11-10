@@ -693,7 +693,7 @@ internal fun HomePlannedRoutineCard(
     HomeDayRegisterCard(
         caption = homeDayTimeCaption(day, time),
         title = routine.title,
-        leadingIcon = Icons.Outlined.FitnessCenter,
+        leadingIcon = ReperaIcons.StrengthTraditional,
         chips = chips,
         onClick = onClick,
         leadingIconTint = tint

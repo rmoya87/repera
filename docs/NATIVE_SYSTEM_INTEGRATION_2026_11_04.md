@@ -1,6 +1,6 @@
 # Integraciones nativas iOS / Android / Watch / Wear — 4 nov 2026
 
-Última actualización: 2026-11-04.
+Última actualización: 2026-11-10.
 
 Fase 5 (Share Extension, MediaSession, Focus, EventKit, board Control Widget, Wear tile, Watch Smart Stack): ver `NATIVE_OS_SURFACES_PHASE_5_2026_11_04.md`.
 
@@ -11,7 +11,7 @@ Implementación incremental sobre la PR #221. Distinguir **implementado / compil
 ### Implementado aquí
 
 - **Fase 1, entrada segura:** accesos externos de navegación, comprobación de hidratación e identidad; guardas de propiedad GPS idempotentes en Android; sin widget de pantalla de inicio (Glance retirado 10/11/2026).
-- **Fase 2, iOS:** App Intents/Siri Shortcuts; WidgetKit; Control Widgets (Centro de Control / Action Button iPhone); Live Activity / Dynamic Island con botones `LiveActivityIntent` de pausa/reanudación/abrir sesión que **solo encolan** comandos al proceso de la app (nunca confirman series ni escriben HealthKit desde la extensión).
+- **Fase 2, iOS:** App Intents/Siri Shortcuts; **Home Screen Quick Actions** (icono largo: Entreno de hoy / Comenzar / Temporizador / Ejercicios → `ReperaSystemCommand`, paridad Android); WidgetKit; Control Widgets (Centro de Control / Action Button iPhone); Live Activity / Dynamic Island con botones `LiveActivityIntent` de pausa/reanudación/abrir sesión que **solo encolan** comandos al proceso de la app (nunca confirman series ni escriben HealthKit desde la extensión).
 - **Fase 2, Android:** launcher shortcuts, Quick Settings Tiles; **Google Assistant App Actions** (`OPEN_APP_FEATURE` / `GET_THING`) enlazadas a deep links `repera://…` sin sensores. Sin App Widget / Glance de pantalla de inicio.
 - **Fase 2, Apple Watch:** doble toque condicionado en el avance de sesión (`handGestureShortcut`); Action Button del Ultra en iPhone vía Control Widgets (validación en hardware pendiente).
 - **Fase 3:** Spotlight solo catálogo público; **AppSearch Android opt-in** (consentimiento en Salud conectada, solo ejercicios públicos, borrado al cerrar sesión); dictado Watch/Wear con confirmación previa; recordatorios locales −60 min de reservas `booked`; sugerencias de lugar editables al revisar (sin inventar GPS).
