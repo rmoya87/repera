@@ -41,7 +41,8 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Rutas").performClick()
+  composeRule.onNodeWithTag("live_options").performClick()
+  composeRule.onNodeWithTag("live_load_route").performClick()
   composeRule.onNodeWithText("Mis rutas").assertExists()
   composeRule.onNodeWithText("Todavía no hay rutas").assertExists()
   val bmp=composeRule.onNodeWithTag("library_root").captureToImage().asAndroidBitmap()
@@ -49,7 +50,7 @@ class LiveMapLandscapeRenderTest {
   FileOutputStream("build/reports/render/route-library-empty-screen.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
   composeRule.onNodeWithContentDescription("Cerrar Mis rutas").performClick()
   composeRule.onNodeWithText("Mis rutas").assertDoesNotExist()
-  composeRule.onNodeWithText("Mapa del recorrido · guía GPX orientativa").assertExists()
+  composeRule.onNodeWithTag("live_activity_screen").assertExists()
  }
  @Test fun landscapeKeepsMapVisibleBesideControlsWithoutStartingGps() {
   val context=ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -61,7 +62,8 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Iniciar").assertExists()
+  composeRule.onNodeWithTag("live_start").assertExists()
+  composeRule.onNodeWithContentDescription("Comenzar").assertExists()
   composeRule.onNodeWithTag("live_activity_screen").assertExists()
   val bmp=composeRule.onNodeWithTag("landscape_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
@@ -82,7 +84,8 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Reanudar").assertExists()
+  composeRule.onNodeWithTag("live_pause_resume").assertExists()
+  composeRule.onNodeWithContentDescription("Reanudar").assertExists()
   val bmp=composeRule.onNodeWithTag("paused_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/live-map-landscape-paused.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
@@ -101,7 +104,8 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Pausar").assertExists()
+  composeRule.onNodeWithTag("live_pause_resume").assertExists()
+  composeRule.onNodeWithContentDescription("Pausar").assertExists()
   val bmp=composeRule.onNodeWithTag("recording_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/live-map-landscape-recording.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
@@ -123,12 +127,13 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Reanudar").assertExists()
+  composeRule.onNodeWithTag("live_pause_resume").assertExists()
+  composeRule.onNodeWithContentDescription("Reanudar").assertExists()
   val bmp=composeRule.onNodeWithTag("compact_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/live-map-landscape-compact.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
-  composeRule.onNodeWithText("Descartar").performScrollTo().assertIsDisplayed()
-  composeRule.onNodeWithText("Voz activada").performScrollTo().assertIsDisplayed()
+  composeRule.onNodeWithTag("live_finish").assertExists()
+  composeRule.onNodeWithTag("live_lock").assertExists()
  }
  @Test
  @Config(sdk=[35],qualifiers="w360dp-h900dp")
@@ -148,7 +153,8 @@ class LiveMapLandscapeRenderTest {
     }
    }
   }
-  composeRule.onNodeWithText("Rutas").performClick()
+  composeRule.onNodeWithTag("live_options").performClick()
+  composeRule.onNodeWithTag("live_load_route").performClick()
   composeRule.onNodeWithText("Ruta de prueba").performScrollTo().assertIsDisplayed()
   composeRule.onNodeWithText("Eliminar").performScrollTo().assertIsDisplayed()
   val bmp=composeRule.onNodeWithTag("populated_root").captureToImage().asAndroidBitmap()
