@@ -72,6 +72,18 @@ class RoutineEditorRestorationTest {
   assertNotNull(PlanEntryMoves.move(blocks,0,0,1,mapOf("e" to "Nombre"),listOf(ExerciseEntry("e","Nombre",true,true))))
   assertEquals(before,saveRoutineEditorBlocks(blocks))
  }
+ @Test fun legacyBlankFormatIsStrengthForCrossFormatSafety() {
+  val source = BlockDraftUi()
+  source.entries.add(EntryUi("e", "Nombre", 8, 1, 20.0))
+  source.entries.single().quantity = "-"
+  val destination = BlockDraftUi(RoutineBlockInfo("WOD", "forTime"))
+  val blocks = mutableListOf(source, destination)
+  val before = saveRoutineEditorBlocks(blocks)
+  val error = PlanEntryMoves.move(blocks, 0, 0, 1, mapOf("e" to "Nombre"),
+    listOf(ExerciseEntry("e", "Nombre", true, true)))
+  assertNotNull(error)
+  assertEquals(before, saveRoutineEditorBlocks(blocks))
+ }
  @Test fun invalidMovementDetailsCannotDisappearInCrossFormatConversionButSameFormatMovePreservesThem() {
   val a=BlockDraftUi(RoutineBlockInfo("WOD","forTime"));val e=EntryUi("e","Nombre",8,1,null);a.entries.add(e)
   e.setMovementText("weightMaleKg","-",true)
