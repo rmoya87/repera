@@ -1,13 +1,6 @@
 name: Android and Wear OS native
 on:
   workflow_dispatch:
-    inputs:
-      skip_instrumented_deploy_gate:
-        description: >-
-          Rama beta: ejecutar deploy-internal-beta tras android-native aunque
-          fallen los jobs de emulador (los tests siguen corriendo).
-        type: boolean
-        default: false
   push:
     branches:
       - main
@@ -24,11 +17,6 @@ on:
 concurrency:
   group: android-native-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-# Reversible: "false" = documentar intención de gate estricto (hoy el job solo
-# needs android-native; ver deploy-internal-beta).
-env:
-  REPERA_BETA_SKIP_INSTRUMENTED_DEPLOY_GATE: "true"
 
 jobs:
   android-native:
