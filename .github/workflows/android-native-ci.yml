@@ -484,7 +484,7 @@ jobs:
               snapshot = json.load(f)
           targets = testing_tracks(snapshot, os.getenv("REPERA_PLAY_CLOSED_TRACK", ""))
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
-              f.write("REPERA_PLAY_TRACKS=" + targets + "\\n")
+              f.write("REPERA_PLAY_TRACKS=" + targets + "\n")
           print("Validated Google Play testing tracks:", targets)
           PYSCRIPT
       - name: Versión mensual y novedades desde última producción verificada
