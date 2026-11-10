@@ -3,7 +3,7 @@ package dev.repera.mobile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -36,18 +36,18 @@ class ProgressHistoryEntryTest {
         show()
         // La lista es perezosa: hay que hacer scroll hasta el boton.
         composeRule.onNodeWithTag("progress_list")
-            .performScrollToNode(hasText("Ver historial completo"))
-        composeRule.onNodeWithText("Ver historial completo", useUnmergedTree = true)
+            .performScrollToNode(hasTestTag("progress_history_link"))
+        composeRule.onNodeWithTag("progress_history_link", useUnmergedTree = true)
             .assertExists()
     }
 
     @Test fun historyEntryHiddenUnderActivityAndRecovery() {
         show()
-        composeRule.onNodeWithTag("progress_topic_1", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("progress_chip_FITNESS", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Ver historial completo", useUnmergedTree = true)
             .assertDoesNotExist()
-        composeRule.onNodeWithTag("progress_topic_2", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithTag("progress_chip_RECOVERY", useUnmergedTree = true).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Ver historial completo", useUnmergedTree = true)
             .assertDoesNotExist()
