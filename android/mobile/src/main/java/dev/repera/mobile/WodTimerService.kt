@@ -133,7 +133,7 @@ internal class WodTimerService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW))
+                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC })
         }
         val open = PendingIntent.getActivity(
             this, 0,
@@ -147,6 +147,7 @@ internal class WodTimerService : Service() {
             .setContentText("%d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60) +
                 (label?.let { " · $it" } ?: ""))
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .build()
@@ -172,13 +173,15 @@ internal class WodTimerService : Service() {
         private const val EXTRA_STATIONS = "stations"
 
         /**
-         * Mantiene el servicio acorde al estado real: arranca solo con un WOD
-         * activo y el cronómetro en marcha; en cualquier otro caso lo detiene.
+         * Mantiene el servicio acorde al estado real: WOD o reloj manual de fuerza
+         * con cronómetro en marcha; en cualquier otro caso lo detiene.
          */
         fun sync(context: Context, active: ActiveWorkout?, timer: WodTimerState?,
                  googleUser: String?) {
             val wod = active?.wod
-            if (wod == null || timer?.running != true || googleUser == null) {
+            val manual = if (active != null && googleUser != null)
+                ManualClockServiceStore.read(context, googleUser, active) else null
+            if ((wod == null && manual == null) || timer?.running != true || googleUser == null) {
                 context.stopService(Intent(context, WodTimerService::class.java))
                 return
             }
@@ -193,15 +196,15 @@ internal class WodTimerService : Service() {
                 .putExtra(EXTRA_BLOCK_INDEX, active.index)
                 .putExtra(EXTRA_BLOCK_ID, active.navigationEntries.firstOrNull {it.index==active.index}?.blockId)
                 .putExtra(EXTRA_GOOGLE_USER, googleUser)
-                .putExtra(EXTRA_FORMAT, wod.format)
+                .putExtra(EXTRA_FORMAT, wod?.format ?: "tabata")
                 .putExtra(EXTRA_TITLE, active.title)
-                .putExtra(EXTRA_CAP, wod.timeCapMinutes ?: -1)
-                .putExtra(EXTRA_INTERVAL, wod.intervalSeconds ?: -1)
-                .putExtra(EXTRA_ROUNDS, wod.rounds ?: -1)
-                .putExtra(EXTRA_WORK, wod.workSeconds ?: -1)
-                .putExtra(EXTRA_REST, wod.restSeconds ?: -1)
-                .putExtra(EXTRA_REST_ROUNDS, wod.restBetweenRoundsSeconds ?: -1)
-                .putExtra(EXTRA_STATIONS, wod.movements.count { !it.isRest }.coerceAtLeast(1))
+                .putExtra(EXTRA_CAP, wod?.timeCapMinutes ?: -1)
+                .putExtra(EXTRA_INTERVAL, wod?.intervalSeconds ?: -1)
+                .putExtra(EXTRA_ROUNDS, wod?.rounds ?: manual?.rounds ?: -1)
+                .putExtra(EXTRA_WORK, wod?.workSeconds ?: manual?.workSeconds ?: -1)
+                .putExtra(EXTRA_REST, wod?.restSeconds ?: manual?.restSeconds ?: -1)
+                .putExtra(EXTRA_REST_ROUNDS, wod?.restBetweenRoundsSeconds ?: -1)
+                .putExtra(EXTRA_STATIONS, wod?.movements?.count { !it.isRest }?.coerceAtLeast(1) ?: 1)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent)
             else context.startService(intent)
         }
