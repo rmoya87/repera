@@ -1,7 +1,7 @@
 package dev.repera.mobile
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
@@ -161,7 +161,7 @@ class EditorUiInstrumentedTest {
             down(center); advanceEventTime(700); moveBy(androidx.compose.ui.geometry.Offset(0f, -6000f)); advanceEventTime(50); up() }
         compose.clickEditorConfirm(); compose.waitForIdle()
         assertEquals(1, delivered!![0].entries.size)
-        assertEquals("it-1", delivered!![0].entries[0].itemId)
+        assertEquals("it-1", delivered[0].entries[0].itemId)
     }
 
     /** El selector de unidad de cardio (Calorías/Metros) llega al borrador. Solo compilado. */
@@ -193,7 +193,7 @@ class EditorUiInstrumentedTest {
         clickTag("plan_import_r-src")
         compose.clickEditorConfirm(); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
-        assertTrue(delivered!![1].blockId != "b-s" && delivered!![1].blockId != null)
+        assertTrue(delivered[1].blockId != "b-s" && delivered[1].blockId != null)
     }
 
     @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun planPickWodAddsTemplateBlock() {
@@ -207,7 +207,7 @@ class EditorUiInstrumentedTest {
         clickTag("plan_wod_pick_" + t.id)
         compose.clickEditorConfirm(); compose.waitForIdle()
         assertEquals(3, delivered!!.size)
-        assertEquals(t.movements.size, delivered!![2].entries.size)
+        assertEquals(t.movements.size, delivered[2].entries.size)
     }
 
     /** Plantilla ladder con movimientos repetidos: se añade íntegra y el título sugerido llega antes de Guardar. Solo compilado. */
@@ -236,7 +236,7 @@ class EditorUiInstrumentedTest {
         compose.onAllNodesWithTag("plan_entry_swipe")[0].performScrollTo().performTouchInput { swipeLeft() }
         compose.clickEditorConfirm(); compose.waitForIdle()
         assertEquals("b-w", delivered!![0].blockId)
-        assertEquals(0, delivered!![1].entries.size)
+        assertEquals(0, delivered[1].entries.size)
     }
 
     @Ignore("Instrumented UI drift vs product (2026-10-31); re-enable after parity pass") @Test fun sessionModeStartsWithFavoriteChoice() {

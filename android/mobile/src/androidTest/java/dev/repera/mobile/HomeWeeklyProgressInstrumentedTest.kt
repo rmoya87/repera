@@ -2,7 +2,7 @@ package dev.repera.mobile
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import dev.repera.domain.WeeklyWorkoutDay
 import java.time.LocalDate
 import org.junit.Rule

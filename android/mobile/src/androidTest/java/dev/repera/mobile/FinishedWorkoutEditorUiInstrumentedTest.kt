@@ -4,7 +4,7 @@ import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -278,7 +278,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         }
         compose.waitForIdle(); clickTag("edit_save")
         assertNotNull("el drop en el bloque vacío debe registrar el cambio", saved!!.blocksJson)
-        val arr = org.json.JSONArray(saved!!.blocksJson)
+        val arr = org.json.JSONArray(saved.blocksJson)
         assertEquals(0, arr.getJSONObject(0).getJSONArray("exercises").length())
         assertEquals("e1", arr.getJSONObject(1).getJSONArray("exercises").getJSONObject(0).getString("id"))
     }
@@ -339,7 +339,7 @@ class FinishedWorkoutEditorUiInstrumentedTest {
         assertNotNull("el arrastre con autoscroll debe registrar el cambio (scroll=${'$'}scrollState.value, " +
             "destino=${'$'}{compose.onNodeWithTag(\"block_title_11\").fetchSemanticsNode().boundsInRoot})",
             saved!!.blocksJson)
-        val arr = org.json.JSONArray(saved!!.blocksJson)
+        val arr = org.json.JSONArray(saved.blocksJson)
         val ids = (0 until arr.length()).flatMap { b -> val ex = arr.getJSONObject(b).getJSONArray("exercises")
             (0 until ex.length()).map { ex.getJSONObject(it).getString("id") } }
         assertEquals("ningún ejercicio se pierde ni se duplica", (1..12).map { "fe$it" }.toSet(), ids.toSet())
