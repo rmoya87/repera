@@ -12,6 +12,7 @@ class SupabaseAuthErrorsTest {
   assertFalse(SupabaseAuthErrors.isUnrecoverable(IllegalStateException("x")))
  }
  @Test fun messageNeverCarriesBodyOrTokens() {
-  assertEquals("Supabase Auth HTTP 400: revisa Google Client IDs",AuthHttpException(400,"refresh_token_not_found").message)
+  assertEquals("No se pudo autenticar (HTTP 400). Revisa la configuración de Google.",AuthHttpException(400,"refresh_token_not_found").message)
+  assertFalse(AuthHttpException(400,"refresh_token_not_found").message.orEmpty().contains("refresh_token_not_found"))
  }
 }
