@@ -80,11 +80,14 @@ class ConfirmedWorkSetsPrAndWorkloadTest {
   .apply {if(finished) put("phase","finished").put("finishedAt","2026-10-25T11:00:00Z") else put("phase","counting")}
   .put("exercises",JSONArray().put(e))
  private fun prs(w:JSONObject)=dev.repera.domain.StatsEngine.personalRecords(ProgressSnapshotBuilder.statsWorkouts(JSONObject().put("workouts",JSONArray().put(w))))
- @Test fun personalRecordFromPrescribedOnlyFinishedSessionOnlyWhenFinishedAndNotWarmupOnly() {
-  assertEquals(1,prs(w(true,ex(JSONArray()))).size)
-  assertEquals(100.0,prs(w(true,ex(JSONArray()))).single().weightKg,0.0)
+ @Test fun personalRecordsRequireConfirmedLoadNotOnlyPrescribedTargets() {
+  // A prescribed target contributes to finished-session volume, never to a measured PR.
+  assertTrue(prs(w(true,ex(JSONArray()))).isEmpty())
   assertTrue(prs(w(false,ex(JSONArray()))).isEmpty())
   assertTrue(prs(w(true,ex(JSONArray().put(JSONObject().put("id","s").put("reps",8).put("phase","warmup"))))).isEmpty())
+  val recorded = JSONArray().put(JSONObject().put("id","s").put("reps",5)
+   .put("weightKg",100.0).put("phase","work"))
+  assertEquals(100.0, prs(w(true,ex(recorded))).single().weightKg, 0.0)
  }
  @Test fun weeklyWorkloadCountsPrescribedSetsForFinishedOnlyAndNotWarmupOnly() {
   val today=java.time.LocalDate.of(2026,10,25);val zone=java.time.ZoneId.of("Europe/Madrid") // Sunday: the Mon 19 - Sun 25 week holds the 25th
