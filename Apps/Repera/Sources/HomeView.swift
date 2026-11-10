@@ -20,6 +20,7 @@ private struct HomeGoalProgressBar: View {
     var tint: Color
     var label: String
     var unit: String = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let value = measurement.flatMap { $0.isFinite ? max(0, $0) : nil } ?? 0
@@ -51,6 +52,14 @@ private struct HomeGoalProgressBar: View {
             .clipShape(Capsule())
         }
         .frame(height: 6)
+        .animation(
+            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
+            value: value
+        )
+        .animation(
+            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
+            value: safeGoal
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Progreso de \(label)")
         .accessibilityValue(
@@ -67,6 +76,7 @@ struct HomeView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(BusinessDataStore.self) private var businessData
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onOpenWorkout: () -> Void
     var focusDay: Date? = nil
     var onStart: () -> Void
@@ -1036,6 +1046,10 @@ struct HomeView: View {
                             Text("\(days.filter(\.hasWorkout).count) días entrenados")
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
+                                .ogNumericText(
+                                    value: days.filter(\.hasWorkout).count,
+                                    reduceMotion: reduceMotion
+                                )
                         }
                     }
                     Spacer(minLength: 8)
@@ -1043,6 +1057,10 @@ struct HomeView: View {
                         Text(weeklyProgressSummary(for: days))
                             .font(.caption)
                             .foregroundStyle(OG.label2)
+                            .ogNumericText(
+                                value: weeklyProgressSummary(for: days),
+                                reduceMotion: reduceMotion
+                            )
                     }
                 }
                 HStack(alignment: .center, spacing: 4) {
@@ -1188,6 +1206,7 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                     .layoutPriority(1)
+                    .ogNumericText(value: value, reduceMotion: reduceMotion)
                 if !unit.isEmpty {
                     Text(unit)
                         .font(.caption2)
