@@ -74,6 +74,34 @@ productos/suscripciones/precios/backend comercial en este alcance.
 - Pruebas del generador: `python3 -m unittest discover -s android/scripts
   -p 'test_play_release_metadata.py' -v`.
 
+## Mantenimiento y avisos de CI
+
+- El publicador queda fijado al commit verificado de `r0adkll/upload-google-play`
+  (`v1.1.5`, `e738b9dd8f2476ea806d921b64aacd24f34515a5`). No se
+  depende de la etiqueta móvil `v1`. Las advertencias Node.js `DEP0040`
+  (`punycode`) y `DEP0169` (`url.parse`) proceden de dependencias
+  del publicador y constan en
+  https://github.com/r0adkll/upload-google-play/issues/265. No se ocultan.
+  Antes de reemplazar esta acción se debe validar firma, mapping, notas en
+  español, versionCode, track internal, edición atómica y prohibición de
+  publicar a producción, en una prueba sin subir una segunda release.
+- La instalación de plataformas usa el Android CLI oficial con
+  `android sdk install --canary`, no `sdkmanager` obsoleto:
+  https://developer.android.com/tools/agents/android-cli/commands/sdk_install.
+- El job de release genera el artefacto `android-native-symbols-release`,
+  con un inventario no destructivo de bibliotecas `.so` y secciones de
+  símbolos presentes. El aviso `Unable to strip` no demuestra un defecto
+  funcional: nunca borrar bibliotecas, hacer `doNotStrip` global o manipular
+  el bundle solo para eliminar mensajes.
+- Los tests y el generador de novedades leen únicamente commits que hayan
+  modificado `src/main` de Android; las alteraciones exclusivas de tests,
+  workflows y documentación no se presentan como novedades de producto.
+  Los mensajes de marketing y las evidencias quedan registrados en
+  `release-metadata.json`. Si la pista production existe, su fecha real
+  y versión siguen siendo obligatorias y se verifican.
+- Para revisar estos cambios se usa solo `main`; no sincronizar `beta`
+  por mantenimiento del CI: un push a esa rama activa un nuevo release.
+
 ## Secrets de GitHub Actions (solo nombres; valores en vault/secret store)
 
 - `REPERA_UPLOAD_KEYSTORE_B64`: keystore de subida (PKCS12) en base64.

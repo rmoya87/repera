@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime, timezone
 
 from play_release_metadata import (
-    baseline_date, production_release, release_notes, version_code, version_for_month,
+    baseline_date, production_release, release_notes, version_code, version_for_month, prepare,
 )
 
 NOW = datetime(2026, 11, 10, 11, 0, tzinfo=timezone.utc)
@@ -63,8 +63,35 @@ class PlayReleaseMetadataTest(unittest.TestCase):
 
     def test_vague_internal_commits_do_not_invent_features(self):
         notes = release_notes(["refactor internal persistence"])
-        self.assertIn("Mejoras y ajustes", notes)
+        self.assertIn("Mejoras internas", notes)
         self.assertNotIn("rutas", notes)
+
+    def test_test_only_changes_do_not_claim_user_features(self):
+        notes = release_notes(["test(android): verify new GPS map",
+                               "ci(android): add timer job",
+                               "fix(test): notification fixture"])
+        self.assertIn("Mejoras internas", notes)
+        self.assertNotIn("rutas", notes)
+        self.assertNotIn("notificaciones", notes)
+
+    def test_real_shipping_changes_produce_marketing_benefits(self):
+        notes = release_notes([
+            "android: port contextual notification and manual strength clock helpers from beta",
+            "fix(android): remove transitive AdServices advertising permissions",
+            "test(android): describe new GPS route",
+        ])
+        self.assertIn("notificaciones", notes)
+        self.assertIn("fuerza", notes)
+        self.assertNotIn("rutas", notes)
+        self.assertLessEqual(len(notes), 500)
+
+    def test_real_changes_are_recorded_in_metadata(self):
+        snapshot = {"tracks": []}
+        details = prepare(snapshot, NOW, {}, [
+            "test(android): fake GPS features",
+            "fix(android): foreground WOD timer"
+        ])
+        self.assertEqual(["fix(android): foreground WOD timer"], details["evidence"])
 
     def test_zero_android_commits_fails_closed(self):
         with self.assertRaisesRegex(ValueError, "cambios Android"):

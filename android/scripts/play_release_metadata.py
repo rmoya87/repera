@@ -7,7 +7,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -15,20 +15,23 @@ VERSION_RE = re.compile(r"^(\d{4})\.(0[1-9]|1[0-2])\.(\d+)$")
 MADRID = ZoneInfo("Europe/Madrid")
 PLAY_MAX_CODE = 2_100_000_000
 TOPICS = (
-    (re.compile(r"notif|foreground|primer plano|bloqueo|lock.?screen", re.I),
-     "Consulta los controles de tus actividades y temporizadores desde las notificaciones."),
+    (re.compile(r"notif|foreground|primer plano|bloqueo|lock.?screen|permission", re.I),
+     "Controla tus actividades y temporizadores desde las notificaciones."),
     (re.compile(r"wod|cron[oó]metr|temporiz|timer|clock|fuerza", re.I),
-     "Disfruta de más control sobre tus tiempos y entrenamientos de fuerza."),
+     "Más control sobre tus tiempos y entrenamientos de fuerza."),
     (re.compile(r"gps|ruta|mapa|navega|location|ubicaci[oó]n", re.I),
-     "Sigue tus rutas y actividades con una experiencia más cómoda."),
+     "Mejoras para seguir tus rutas y actividades."),
     (re.compile(r"health|salud|cardio|pulso|calor[ií]as|heart.?rate", re.I),
-     "Visualiza mejor tu actividad y tus métricas de salud."),
+     "Consulta las métricas de tu actividad con más claridad."),
     (re.compile(r"ejercici|exercise|biblioteca|cat[aá]logo|movimiento", re.I),
-     "Encuentra tus ejercicios y organiza tus entrenamientos con mayor facilidad."),
+     "Organiza tus ejercicios con más facilidad."),
     (re.compile(r"progreso|evoluci[oó]n|estad[ií]stica|gr[aá]fic", re.I),
-     "Descubre tus avances con información de progreso más clara."),
+     "Visualiza tus avances con información más clara."),
+    (re.compile(r"advertis|adservices|ad.?id|publicidad", re.I),
+     "Más privacidad: Repera no solicita permisos de identificación publicitaria."),
 )
 MAINTENANCE = re.compile(r"fix|correg|bug|crash|rendimiento|performance|optim|regresi[oó]n|stabil|error", re.I)
+NON_USER_FACING = re.compile(r"^(?:(?:test|tests|ci|docs|chore|build|style|refactor)(?:\\b|[(:])|fix\\((?:test|ci|docs)\\))", re.I)
 
 
 def all_releases(snapshot: dict) -> list[dict]:
@@ -93,28 +96,38 @@ def baseline_date(snapshot: dict, now: datetime, settings: dict) -> tuple[str, s
 
 
 def git_subjects(since: str, *, root: Path = Path(".")) -> list[str]:
-    command = ["git", "log", "--no-merges", "--format=%s", f"--since={since}",
-               "HEAD", "--", "android/mobile", "android/domain", "android/wear"]
+    """Only commits touching shipping Android sources count as release evidence."""
+    command = [
+        "git", "log", "--no-merges", "--format=%s", f"--since={since}",
+        "HEAD", "--", "android/mobile/src/main", "android/domain/src/main",
+        "android/wear/src/main",
+    ]
     return [subject.strip() for subject in subprocess.check_output(
         command, cwd=root, text=True).splitlines() if subject.strip()]
+
+
+def user_facing_subjects(subjects: list[str]) -> list[str]:
+    return [s for s in subjects if not NON_USER_FACING.search(s)]
 
 
 def release_notes(subjects: list[str]) -> str:
     if not subjects:
         raise ValueError("No hay cambios Android verificables desde la última referencia")
+    relevant = user_facing_subjects(subjects)
+    if not relevant:
+        return "Mejoras internas para ofrecerte una experiencia más estable."
     lines = []
-    combined = "\n".join(subjects)
+    combined = "\n".join(relevant)
     for pattern, benefit in TOPICS:
         if pattern.search(combined):
             lines.append("• " + benefit)
         if len(lines) == 3:
             break
     if MAINTENANCE.search(combined):
-        lines.append("• Más estabilidad y mejoras para el día a día.")
+        lines.append("• Correcciones para entrenar con mayor estabilidad.")
     if not lines:
-        # Do not hallucinate features from vague technical commit messages.
-        lines.append("• Mejoras y ajustes para seguir entrenando con Repera.")
-    result = "¡Tu entrenamiento, cada vez mejor!\n" + "\n".join(lines[:4])
+        lines.append("• Ajustes para mejorar tu experiencia de entrenamiento.")
+    result = "¡Repera sigue mejorando!\n" + "\n".join(lines[:4])
     if len(result) > 500:
         raise ValueError("Las novedades superan los 500 caracteres permitidos")
     return result
@@ -128,6 +141,7 @@ def prepare(snapshot: dict, now: datetime, settings: dict, subjects: list[str]) 
         "baseline": baseline,
         "since": since,
         "notes": release_notes(subjects),
+        "evidence": user_facing_subjects(subjects)[:40],
         "commit": settings.get("GITHUB_SHA", ""),
     }
 
