@@ -180,6 +180,7 @@ internal fun SessionScoreProgressCard(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(205.dp)
+                                    .progressChartReveal(ProgressChartRevealStyle.LINE)
                                     .testTag("session_score_plot")
                                     .pointerInput(values, domain, preview) {
                                         if (preview) return@pointerInput
@@ -318,7 +319,9 @@ private fun SevenRecentWorkoutScoreChart(
     var selectedIndex by remember(recent) { mutableIntStateOf(recent.lastIndex) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Canvas(
-            Modifier.fillMaxWidth().height(180.dp).testTag("recent_workouts_plot")
+            Modifier.fillMaxWidth().height(180.dp)
+                .progressChartReveal(ProgressChartRevealStyle.LINE)
+                .testTag("recent_workouts_plot")
                 .semantics {
                     contentDescription = "Últimos ${recent.size} entrenos puntuados de 0 a 10"
                     customActions = listOf(

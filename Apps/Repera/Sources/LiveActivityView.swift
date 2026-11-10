@@ -2684,7 +2684,7 @@ struct LiveActivityView: View {
                     iconTint: OG.label,
                     title: "¿Finalizar actividad?",
                     message: "Puedes revisar y guardar tus datos al finalizar.",
-                    confirmTitle: "Finalizar y revisar",
+                    confirmTitle: "Finalizar",
                     confirmTint: OG.accent,
                     onConfirm: {
                         confirmFinish = false

@@ -744,7 +744,7 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         ReperaConfirmSheet(
             title = "¿Finalizar actividad?",
             message = "Puedes revisar y guardar tus datos al finalizar.",
-            confirmTitle = "Finalizar y revisar",
+            confirmTitle = "Finalizar",
             icon = Icons.Outlined.Flag,
             confirmDestructive = false,
             onConfirm = {

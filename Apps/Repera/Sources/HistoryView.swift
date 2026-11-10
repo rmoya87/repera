@@ -505,15 +505,15 @@ struct WorkoutDetailView: View {
                 didHydrateDetail = true
                 return
             }
-            // Skeleton al instante; diferir trabajo pesado tras la transición.
+            // Skeleton al instante; defer corto tras la transición de push (~1 frame+).
             do {
-                try await Task.sleep(for: .milliseconds(400))
+                try await Task.sleep(for: .milliseconds(100))
             } catch {
                 return
             }
             guard !Task.isCancelled else { return }
             // Race sin `addTask { @MainActor in }` (region isolation checker).
-            await raceDetailHydration(milliseconds: 2_500) {
+            await raceDetailHydration(milliseconds: 1_200) {
                 await hydrateWorkoutDetail()
             }
             guard !Task.isCancelled else { return }
@@ -785,52 +785,68 @@ struct WorkoutDetailView: View {
         let extras = await health.sessionHealthExtras(for: session)
         guard !Task.isCancelled else { return }
         healthExtras = extras
+        // No bloquear el reveal con un sync iCloud completo: el .task de
+        // workoutsEpoch refresca Salud cuando llegue la ruta.
         if session.routePoints.count < 2,
            (extras?.routePoints.count ?? 0) < 2,
            session.liveSportID.flatMap({ LiveSport(rawValue: $0)?.usesGPS }) == true,
            !store.isSyncingiCloud {
-            await store.refreshFromiCloud()
-            guard !Task.isCancelled else { return }
-            draft = store.state.workouts.first(where: { $0.id == sessionId })
+            Task { @MainActor in
+                await store.refreshFromiCloud()
+            }
         }
         await store.refineSessionReviewWithHealth(sessionId: sessionId)
         guard !Task.isCancelled else { return }
         draft = store.state.workouts.first(where: { $0.id == sessionId })
-        if let current = draft, !hasRecordedRoute(current),
-           current.locationPin?.hasChosenPlace != true {
-            let sport = current.liveSportID.flatMap(LiveSport.init(rawValue:))
-            let suggested = await SportNearbyPlaceSuggester.suggestForSession(
-                sport: sport,
-                routePoints: current.routePoints,
-                existingPin: current.locationPin
-            )
-            guard !Task.isCancelled else { return }
-            if let suggested, suggested.hasChosenPlace {
+
+        // POI + clima en paralelo (antes en serie alargaban el skeleton).
+        let currentForEnrichment = draft
+        async let suggestedPin = fetchPlaceSuggestion(for: currentForEnrichment)
+        async let weather = fetchWeatherPrefetch(for: currentForEnrichment, placeOverride: nil)
+        let suggested = await suggestedPin
+        guard !Task.isCancelled else { return }
+        if let current = draft, let suggested {
+            if suggested.hasChosenPlace {
                 placeSuggestion = suggested
-            } else if current.locationPin == nil, let suggested {
+            } else if current.locationPin == nil {
                 var updated = current
                 updated.locationPin = suggested
                 store.saveWorkout(updated)
                 draft = store.state.workouts.first(where: { $0.id == sessionId })
             }
         }
-        guard !Task.isCancelled else { return }
-        if let current = draft {
-            let displayPin = current.locationPin?.hasChosenPlace == true
-                ? current.locationPin
-                : (placeSuggestion ?? current.locationPin)
-            let coordinate = mapCoordinates(current)
-                ?? displayPin.map { (lat: $0.latitude, lon: $0.longitude) }
-            if let coordinate {
-                weatherPrefetch = await RouteWeatherPrefetch.load(
-                    latitude: coordinate.lat,
-                    longitude: coordinate.lon,
-                    workoutDate: current.startedAt ?? current.finishedAt ?? Date(),
-                    liveSportID: current.liveSportID,
-                    persistedConditions: current.activityConditions
-                )
-            }
-        }
+        weatherPrefetch = await weather
+    }
+
+    private func fetchPlaceSuggestion(for session: WorkoutSession?) async -> WorkoutLocationPin? {
+        guard let session, !hasRecordedRoute(session),
+              session.locationPin?.hasChosenPlace != true else { return nil }
+        let sport = session.liveSportID.flatMap(LiveSport.init(rawValue:))
+        return await SportNearbyPlaceSuggester.suggestForSession(
+            sport: sport,
+            routePoints: session.routePoints,
+            existingPin: session.locationPin
+        )
+    }
+
+    private func fetchWeatherPrefetch(
+        for session: WorkoutSession?,
+        placeOverride: WorkoutLocationPin?
+    ) async -> RouteWeatherPrefetch? {
+        guard let session else { return nil }
+        let displayPin = session.locationPin?.hasChosenPlace == true
+            ? session.locationPin
+            : (placeOverride ?? session.locationPin)
+        let coordinate = mapCoordinates(session)
+            ?? displayPin.map { (lat: $0.latitude, lon: $0.longitude) }
+        guard let coordinate else { return nil }
+        return await RouteWeatherPrefetch.load(
+            latitude: coordinate.lat,
+            longitude: coordinate.lon,
+            workoutDate: session.startedAt ?? session.finishedAt ?? Date(),
+            liveSportID: session.liveSportID,
+            persistedConditions: session.activityConditions
+        )
     }
 
     @ViewBuilder
@@ -2414,7 +2430,7 @@ struct HealthActivityDetailView: View {
         .background(OG.bg)
         .ogPinnedTransparentNav(detail?.activity.title ?? "Actividad")
         .task {
-            await raceDetailHydration(milliseconds: 2_500) {
+            await raceDetailHydration(milliseconds: 1_200) {
                 await hydrateExternalActivityDetail()
             }
             guard !Task.isCancelled else { return }
@@ -2436,12 +2452,14 @@ struct HealthActivityDetailView: View {
         let loaded = await health.activityDetail(for: activityId)
         guard !Task.isCancelled else { return }
         detail = loaded
+        // Clima en paralelo no aporta: ya tenemos el detalle; prefetch best-effort.
         if let loaded, let first = loaded.routePoints.first {
-            weatherPrefetch = await RouteWeatherPrefetch.load(
+            async let prefetch = RouteWeatherPrefetch.load(
                 latitude: first.latitude,
                 longitude: first.longitude,
                 workoutDate: loaded.activity.start
             )
+            weatherPrefetch = await prefetch
         }
     }
 

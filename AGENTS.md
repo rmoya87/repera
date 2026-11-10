@@ -590,7 +590,7 @@ fun setBusinessSponsoredAccess(enabled: Boolean) { … }
 |---|---|
 | iOS | SwiftUI, ActivityKit, App Intents, WorkoutKit preview/scheduler, UNUserNotificationCenter |
 | watchOS | SwiftUI watch, Digital Crown, handGestureShortcut, HealthKit watch-owned donde ya exista |
-| Android | Compose M3, Glance, WorkManager, AppSearch, App Actions XML |
+| Android | Compose M3, WorkManager, AppSearch, App Actions XML |
 | Wear OS | Compose for Wear, Tiles, Health Services |
 
 Si la API no existe: alternativa oficial documentada o bloqueo externo explícito — no fingir disponibilidad.

@@ -92,7 +92,9 @@ internal object ProgressPlotAxis {
   } else {
    BoxWithConstraints(Modifier.fillMaxWidth().height(210.dp)) {
     val topPadPx = with(LocalDensity.current) { ProgressChartYTopPadDp.toPx() }
-    Canvas(Modifier.fillMaxWidth().height(210.dp).testTag("calories_observed_plot")
+    Canvas(Modifier.fillMaxWidth().height(210.dp)
+     .progressChartReveal(ProgressChartRevealStyle.LINE)
+     .testTag("calories_observed_plot")
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width

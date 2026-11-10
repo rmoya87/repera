@@ -441,7 +441,7 @@ struct ProgressCardioChartCard: View {
                         ])
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: yDomain)
@@ -469,6 +469,7 @@ struct ProgressCardioChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 190)
                         .frame(maxWidth: .infinity)
+                        .ogChartReveal(.line)
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel(
                             selectedPoint.map {
@@ -500,7 +501,6 @@ struct ProgressCardioChartCard: View {
                 }
             }
         }
-        .ogChartAppear()
     }
 
     private static let minTint = OG.blue
@@ -646,7 +646,7 @@ struct ProgressCaloriesChartCard: View {
                         }
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: 0...yMax)
@@ -674,6 +674,7 @@ struct ProgressCaloriesChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 210)
                         .frame(maxWidth: .infinity)
+                        .ogChartReveal(.line)
                     } else {
                         ProgressEmptyChart(
                             message: "Sin kcal de Salud en \(range.title.lowercased()).",
@@ -701,7 +702,6 @@ struct ProgressCaloriesChartCard: View {
                 }
             }
         }
-        .ogChartAppear()
     }
 
     private func calorieStat(title: String, value: String) -> some View {
@@ -893,7 +893,7 @@ struct ProgressWeightChartCard: View {
                         }
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: yDomain)
@@ -925,6 +925,7 @@ struct ProgressWeightChartCard: View {
                         }
                         .chartYAxis(.hidden)
                         .frame(height: 210)
+                        .ogChartReveal(.line)
 
                     }
                     // Peso conserva la misma fila de estadísticas que Calorías,
@@ -954,7 +955,6 @@ struct ProgressWeightChartCard: View {
                 }
             }
         }
-        .ogChartAppear()
     }
 
     private func weightStat(label: String, value: String, valueColor: Color = OG.label) -> some View {

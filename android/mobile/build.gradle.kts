@@ -111,7 +111,6 @@ dependencies {
     implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("androidx.navigation:navigation-compose:2.10.2")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
-    implementation("androidx.glance:glance-appwidget:1.2.0")
     implementation("androidx.appsearch:appsearch:1.1.0")
     implementation("androidx.appsearch:appsearch-local-storage:1.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")

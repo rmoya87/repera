@@ -58,13 +58,17 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("LiveActivityRecorder.shared.pause()", root)
         self.assertIn("LiveActivityRecorder.shared.resume()", root)
 
-    def test_apple_widgets_and_watch_gesture_are_connected(self):
+    def test_apple_live_activity_controls_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
-        self.assertIn("ReperaHomeWidget()", bundle)
-        widget = source("Apps/ReperaRestWidget/ReperaHomeWidget.swift")
-        self.assertIn("repera://today", widget)
-        self.assertIn("repera://live", widget)
-        self.assertNotIn("HealthKit", widget)
+        # Sin widget de pantalla de inicio: Live Activities + Control Center.
+        self.assertNotIn("ReperaHomeWidget()", bundle)
+        self.assertIn("RestLiveActivityWidget()", bundle)
+        self.assertIn("TrainingLiveActivityWidget()", bundle)
+        self.assertIn("ReperaBeginControl()", bundle)
+        self.assertFalse(
+            (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidget.swift").exists(),
+            "home screen widget source must stay removed",
+        )
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn(".handGestureShortcut(.primaryAction", watch)
         self.assertIn("!hub.nextActionIsFinish", watch)
@@ -94,11 +98,20 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("startForegroundService", tile)
         manifest = source("android/mobile/src/main/AndroidManifest.xml")
         self.assertIn("BIND_QUICK_SETTINGS_TILE", manifest)
-        self.assertIn("repera_home_widget_info", manifest)
+        self.assertNotIn("repera_home_widget_info", manifest)
+        self.assertNotIn("ReperaHomeWidgetReceiver", manifest)
         self.assertIn("repera_shortcuts", manifest)
         self.assertIn("repera://exercises", source("android/mobile/src/main/res/xml/repera_shortcuts.xml"))
+        self.assertFalse(
+            (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaHomeWidget.kt").exists(),
+            "Glance home widget must stay removed",
+        )
+        self.assertFalse(
+            (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaWidgetRefreshWorker.kt").exists(),
+            "home widget refresh worker must stay removed",
+        )
 
-    def test_search_index_and_widget_invalidation_are_account_safe(self):
+    def test_search_index_is_account_safe_without_home_widget(self):
         spotlight = source("Apps/Repera/Sources/ExerciseSpotlightIndexer.swift")
         self.assertIn("!$0.isCustom && !$0.isCatalogArchived", spotlight)
         self.assertIn("lastIndexedSignature", spotlight)
@@ -106,14 +119,10 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("state.workouts", spotlight)
         app = source("Apps/Repera/Sources/ReperaApp.swift")
         self.assertIn("CSSearchableItemActionType", app)
-        widget = source("android/mobile/src/main/java/dev/repera/mobile/ReperaWidgetRefreshWorker.kt")
-        self.assertIn("ReperaHomeWidget().updateAll(applicationContext)", widget)
-        self.assertIn("ExistingWorkPolicy.KEEP", widget)
-        self.assertNotIn("ExerciseClient", widget)
         storage = source("android/mobile/src/main/java/dev/repera/mobile/LocalSnapshotStore.kt")
-        self.assertIn("ReperaWidgetRefresh.enqueue(appContext)", storage)
+        self.assertNotIn("ReperaWidgetRefresh", storage)
         session = source("android/mobile/src/main/java/dev/repera/mobile/SessionStore.kt")
-        self.assertIn("if (identityChanged) runCatching { ReperaWidgetRefresh.enqueue(appContext) }", session)
+        self.assertNotIn("ReperaWidgetRefresh", session)
 
     def test_watch_dictation_requires_manual_review_and_never_saves_on_speech(self):
         parser = source("Apps/ReperaWatch/Sources/WatchSpokenSet.swift")
@@ -141,7 +150,7 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertIn("WorkoutScheduler.shared", source_text)
         self.assertIn("scheduler.schedule(plan, at: when)", source_text)
         self.assertIn("case .running, .walking, .hiking", source_text)
-        self.assertIn("utiliza Entreno de Apple o Repera", source_text)
+        self.assertIn('accessibilityLabel("Enviar a Entreno del Apple Watch")', source_text)
         self.assertNotIn("HKWorkoutSession(", source_text)
         screen = source("Apps/Repera/Sources/LiveActivityView.swift")
         self.assertIn("if recorder.phase == .idle, !recorder.isStartCountingDown", screen)

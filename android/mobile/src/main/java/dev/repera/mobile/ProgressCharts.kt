@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -49,6 +51,59 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import dev.repera.domain.ProgressPreparedCharts
+
+/** Revelado del plot (no de la card): líneas L→R, barras abajo→arriba. */
+internal enum class ProgressChartRevealStyle { LINE, BARS }
+
+@Composable
+internal fun Modifier.progressChartReveal(style: ProgressChartRevealStyle): Modifier {
+    val contentResolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    val reduceMotion = remember(contentResolver) {
+        runCatching {
+            android.provider.Settings.Global.getFloat(
+                contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) == 0f
+        }.getOrDefault(false)
+    }
+    var progress by remember { androidx.compose.runtime.mutableFloatStateOf(if (reduceMotion) 1f else 0f) }
+    androidx.compose.runtime.LaunchedEffect(reduceMotion) {
+        if (reduceMotion) {
+            progress = 1f
+            return@LaunchedEffect
+        }
+        progress = 0f
+        androidx.compose.animation.core.animate(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = androidx.compose.animation.core.tween(
+                durationMillis = 420,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing
+            )
+        ) { value, _ -> progress = value }
+    }
+    return this.then(
+        Modifier
+            .graphicsLayer { clip = true }
+            .drawWithContent {
+                val w = size.width
+                val h = size.height
+                val p = progress.coerceIn(0f, 1f)
+                val scope = this
+                when (style) {
+                    ProgressChartRevealStyle.LINE ->
+                        clipRect(left = 0f, top = 0f, right = w * p, bottom = h) {
+                            scope.drawContent()
+                        }
+                    ProgressChartRevealStyle.BARS ->
+                        clipRect(left = 0f, top = h * (1f - p), right = w, bottom = h) {
+                            scope.drawContent()
+                        }
+                }
+            }
+    )
+}
 
 /** Margen superior del plot para que el tick máximo no recorte el dígito. */
 internal val ProgressChartYTopPadDp = 14.dp
@@ -420,6 +475,7 @@ internal fun DayPointLineChart(
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .height(plotHeight)
+                .progressChartReveal(ProgressChartRevealStyle.LINE)
                 .testTag(if(physiologyStyle) "physiology_observed_plot" else "day_point_plot")
                 .pointerInput(points,interactive) {
                     if(!interactive) return@pointerInput
@@ -540,7 +596,20 @@ internal fun DayPointLineChart(
                         }
                     }
                 } else {
-                    drawPath(path, color = line, style = Stroke(width = 4f))
+                    drawPath(
+                        path,
+                        color = line,
+                        style = Stroke(
+                            width = 4f,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            join = androidx.compose.ui.graphics.StrokeJoin.Round
+                        )
+                    )
+                    drawCircle(
+                        color = line,
+                        radius = 2f,
+                        center = Offset(x(0), y(points.first().value))
+                    )
                 }
                 if(!physiologyStyle && !readinessStyle) drawCircle(color = line, radius = 6f,
                     center = Offset(x(points.size - 1), y(points.last().value)))

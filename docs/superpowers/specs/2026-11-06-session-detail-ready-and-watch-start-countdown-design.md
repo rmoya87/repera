@@ -98,8 +98,8 @@ Si el timeout vence, se revela con lo disponible (valores `"—"` / secciones om
 
 ### Timeout y transición
 
-- El **skeleton se muestra al instante** en el push (no esperar 400 ms para aparecer).
-- En iOS se puede conservar el defer de ~400 ms solo para trabajo pesado de hidratación (evitar jank en la animación de navegación); el reloj de timeout (~2,5 s) cuenta desde el **inicio de esa hidratación**.
+- El **skeleton se muestra al instante** en el push (no esperar a que termine la hidratación).
+- En iOS: defer corto (~100 ms, 10/11/2026; antes ~400 ms) solo para no competir con la animación de push; timeout fail-open ~1,2 s (antes ~2,5 s) desde el inicio de la hidratación.
 - Cancelación al salir de la pantalla (`Task` / `coroutineScope` cancelable).
 
 ## Diseño — Cuenta atrás Watch + Wear

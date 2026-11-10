@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 
 internal object CompleteHistoryOrder {
  data class Row(val local:WorkoutHistoryEntry?=null,val external:ExternalHealthHistoryEntry?=null) {
@@ -207,7 +208,8 @@ internal fun WorkoutHistoryDetailScreen(
  LaunchedEffect(workout.id, workout.startedAtIso, workout.finishedAtIso) {
   detailReady = false
   weatherReady = false
-  kotlinx.coroutines.withTimeoutOrNull(2_500L) {
+  // Reveal cuando llegan movimiento + FC; el clima no debe alargar el skeleton.
+  kotlinx.coroutines.withTimeoutOrNull(1_200L) {
    kotlinx.coroutines.coroutineScope {
     val movementJob = async {
      runCatching { movementProvider(workout.id) }.getOrNull()
@@ -215,7 +217,7 @@ internal fun WorkoutHistoryDetailScreen(
     val hrJob = async {
      runCatching { heartSeries(workout.id) }.getOrDefault(emptyList())
     }
-    val weatherJob = async {
+    launch {
      val sport = workout.liveSportID?.let(dev.repera.domain.LiveSport::byId)
      val epoch = workoutEpochMs(workout)
      val latLon: Pair<Double, Double>? = when {
@@ -227,7 +229,11 @@ internal fun WorkoutHistoryDetailScreen(
        ?.takeIf { it.hasChosenPlace }
        ?.let { it.latitude to it.longitude }
      }
-     val coords = latLon ?: return@async
+     val coords = latLon
+     if (coords == null) {
+      weatherReady = true
+      return@launch
+     }
      OpenMeteoWeatherClient.fetch(coords.first, coords.second, epoch)
       .onSuccess { weatherReading = it; weatherFailure = null }
       .onFailure {
@@ -244,7 +250,6 @@ internal fun WorkoutHistoryDetailScreen(
     }
     movement = movementJob.await()
     hrSeries = hrJob.await()
-    weatherJob.await()
    }
   }
   if (!weatherReady) weatherReady = true

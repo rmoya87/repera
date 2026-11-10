@@ -2295,10 +2295,10 @@ private struct ProgressSessionScoreChartCard: View {
                 }
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
-            // 1…N a ancho completo: primer punto pegado a la izquierda, último a la derecha.
+            // 1…N con aire para caps redondos; revelado L→R del plot.
             .chartXScale(
                 domain: 1...max(1, recent.count),
-                range: .plotDimension(startPadding: 0, endPadding: 0)
+                range: .plotDimension(startPadding: 4, endPadding: 4)
             )
             .progressChartYScale(domain: 0.0...10.0)
             .progressChartSelectionBadge(
@@ -2317,6 +2317,7 @@ private struct ProgressSessionScoreChartCard: View {
                 AxisMarks(values: Array(1...recent.count))
             }
             .frame(height: 180)
+            .ogChartReveal(.line)
             .accessibilityLabel("Últimos \(recent.count) entrenos puntuados de 0 a 10")
         }
     }
@@ -2521,7 +2522,7 @@ private struct ProgressSessionScoreChartCard: View {
                                 weekStartsOnMonday: weekStartsOnMonday,
                                 isTeaserPreview: isTeaserPreview
                             ),
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .progressChartYScale(domain: 0.0...10.0)
                         .progressChartSelectionBadge(
@@ -2561,6 +2562,7 @@ private struct ProgressSessionScoreChartCard: View {
                             }
                         }
                         .frame(height: 205)
+                        .ogChartReveal(.line)
                         .allowsHitTesting(!isTeaserPreview)
                         if !isTeaserPreview {
                             Text("Media diaria de notas basadas en tu historial comparable.")

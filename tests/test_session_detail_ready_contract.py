@@ -24,6 +24,24 @@ class SessionDetailReadyContractTests(unittest.TestCase):
         self.assertIn("SessionDetailSkeleton()", body)
         # No pintar el listado real hasta ready (evita ejercicios→cardio a trozos).
         self.assertIn("if isDetailReady", body)
+        loading = detail.split(".task(id: sessionId)", 1)[1].split(
+            ".navigationDestination(isPresented: $showFullScreenRoute)", 1
+        )[0]
+        self.assertIn("milliseconds(100)", loading)
+        self.assertIn("milliseconds: 1_200", loading)
+        self.assertNotIn("milliseconds(400)", loading)
+        self.assertNotIn("milliseconds: 2_500", loading)
+        hydrate = detail.split("private func hydrateWorkoutDetail()", 1)[1].split(
+            "private func fetchPlaceSuggestion", 1
+        )[0]
+        # Sync iCloud en Task suelto (no en la ruta crítica await del reveal).
+        self.assertIn("Task { @MainActor in", hydrate)
+        self.assertIn("await store.refreshFromiCloud()", hydrate)
+        self.assertIn("async let suggestedPin", hydrate)
+        self.assertIn("async let weather", hydrate)
+        # El await de iCloud no va en serie antes de refine/POI/clima.
+        critical = hydrate.split("Task { @MainActor in", 1)[0]
+        self.assertNotIn("await store.refreshFromiCloud()", critical)
 
     def test_ios_session_detail_skeleton_exists(self):
         sk = read("Apps/Repera/Sources/SessionDetailSkeleton.swift")
@@ -46,6 +64,10 @@ class SessionDetailReadyContractTests(unittest.TestCase):
         self.assertIn("detailReady", fn)
         self.assertIn("SessionDetailSkeleton(", fn)
         self.assertIn("if (!detailReady)", fn)
+        self.assertIn("withTimeoutOrNull(1_200L)", fn)
+        self.assertNotIn("weatherJob.await()", fn)
+        self.assertIn("movementJob.await()", fn)
+        self.assertIn("hrJob.await()", fn)
 
     def test_android_session_detail_skeleton_exists(self):
         sk = read(

@@ -94,7 +94,7 @@ struct ReperaRestWidgetBundle: WidgetBundle {
     var body: some Widget {
         RestLiveActivityWidget()
         TrainingLiveActivityWidget()
-        ReperaHomeWidget()
+        // Sin widget de pantalla de inicio: solo Live Activities + Control Center.
         ReperaBeginControl()
         ReperaTodayControl()
         ReperaTimerControl()

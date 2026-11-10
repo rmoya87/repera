@@ -191,27 +191,46 @@ private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
     }
 }
 
-/// Aparición de gráficas/bloques: un frame oculto y luego spring visible.
-/// (Antes era 0.2 s / scale 0.97 — casi imperceptible al abrir Progreso.)
-private struct OGChartAppearModifier: ViewModifier {
+/// Revelado del trazo/barras de una gráfica (no de la card contenedora).
+enum OGChartRevealStyle {
+    /// Líneas / área: máscara izquierda → derecha.
+    case line
+    /// Barras: máscara abajo → arriba.
+    case bars
+}
+
+private struct OGChartRevealModifier: ViewModifier {
+    let style: OGChartRevealStyle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var visible = false
+    @State private var progress: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
-            .opacity(visible ? 1 : 0)
-            .scaleEffect(reduceMotion ? 1 : (visible ? 1 : 0.92), anchor: .center)
+            .mask {
+                GeometryReader { geo in
+                    switch style {
+                    case .line:
+                        Rectangle()
+                            .frame(width: max(geo.size.width * progress, 0.001))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    case .bars:
+                        Rectangle()
+                            .frame(height: max(geo.size.height * progress, 0.001))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    }
+                }
+            }
             .onAppear {
-                guard !visible else { return }
+                guard progress < 1 else { return }
                 if reduceMotion {
-                    visible = true
+                    progress = 1
                     return
                 }
-                // Un ciclo de layout en 0 para que el usuario vea el grow-in.
+                progress = 0
                 Task { @MainActor in
                     await Task.yield()
-                    OGMotion.run(OGMotion.reorder, reduceMotion: false) {
-                        visible = true
+                    withAnimation(.easeOut(duration: 0.42)) {
+                        progress = 1
                     }
                 }
             }
@@ -219,9 +238,13 @@ private struct OGChartAppearModifier: ViewModifier {
 }
 
 extension View {
-    func ogChartAppear() -> some View {
-        modifier(OGChartAppearModifier())
+    /// Dibuja la gráfica (línea L→R o barras abajo→arriba). No anima la card.
+    func ogChartReveal(_ style: OGChartRevealStyle) -> some View {
+        modifier(OGChartRevealModifier(style: style))
     }
+
+    /// Compat: ya no escala/fades la card; preferir `ogChartReveal` en el plot.
+    func ogChartAppear() -> some View { self }
 }
 
 /// Tamaño de diseño que escala con Dynamic Type siguiendo `relativeTo`.

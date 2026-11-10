@@ -1389,7 +1389,7 @@ private fun ProgressMiniChart(
         ProgressMiniChartStyle.FILL -> ProgressMiniBarRow(
             fractions = fractions,
             tint = tint,
-            modifier = modifier,
+            modifier = modifier.progressChartReveal(ProgressChartRevealStyle.BARS),
             fillFromBottom = true
         )
         ProgressMiniChartStyle.RANGE -> ProgressMiniLevitatingBars(
@@ -1401,17 +1401,21 @@ private fun ProgressMiniChart(
                 }
             },
             tint = tint,
-            modifier = modifier
+            modifier = modifier.progressChartReveal(ProgressChartRevealStyle.BARS)
         )
         ProgressMiniChartStyle.AREA -> {
             val smoothed = smoothFractions(fractions)
-            Canvas(modifier = modifier) {
+            Canvas(modifier = modifier.progressChartReveal(ProgressChartRevealStyle.LINE)) {
                 if (smoothed.isEmpty()) return@Canvas
+                val stroke = 4.8.dp.toPx()
+                val inset = stroke / 2f
                 val n = smoothed.size
-                val step = if (n == 1) 0f else size.width / (n - 1)
+                val usable = (size.width - inset * 2f).coerceAtLeast(1f)
+                val step = if (n == 1) 0f else usable / (n - 1)
                 val pts = smoothed.mapIndexed { i, v ->
-                    val x = i * step
-                    val y = size.height * (1f - v.coerceIn(0f, 1f))
+                    val x = inset + i * step
+                    val y = (size.height * (1f - v.coerceIn(0f, 1f)))
+                        .coerceIn(inset, size.height - inset)
                     x to y
                 }
                 fun cubicPath(closeBaseline: Boolean): androidx.compose.ui.graphics.Path {
@@ -1443,11 +1447,16 @@ private fun ProgressMiniChart(
                     cubicPath(closeBaseline = false),
                     color = tint,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 4.8.dp.toPx(),
+                        width = stroke,
                         cap = androidx.compose.ui.graphics.StrokeCap.Round,
                         join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
                 )
+                // Extremos totalmente redondeados (no recortados por el borde).
+                drawCircle(color = tint, radius = inset, center = androidx.compose.ui.geometry.Offset(pts.first().first, pts.first().second))
+                if (pts.size > 1) {
+                    drawCircle(color = tint, radius = inset, center = androidx.compose.ui.geometry.Offset(pts.last().first, pts.last().second))
+                }
             }
         }
     }
