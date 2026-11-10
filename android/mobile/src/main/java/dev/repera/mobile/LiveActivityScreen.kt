@@ -412,12 +412,13 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
     }
     val currentActiveWorkout by rememberUpdatedState(hasActiveWorkout)
     val currentOpenWorkout by rememberUpdatedState(onOpenWorkout)
+    val startWithNotificationPermission = rememberForegroundNotificationPermission()
     fun start() {
         // También comprobar tras volver del diálogo de permiso, no solo
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
         if (runtime.recoveryBlocked) { error=runtime.lastError;return }
-        runtime.start();startService()
+        startWithNotificationPermission { runtime.start();startService() }
     }
     fun cancelStartCountdown() {
         startCountdownToken++
@@ -461,7 +462,6 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
             }
         }
     }
-    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     var confirmRecordingWithoutGPS by remember(accountId) { mutableStateOf(false) }
     val permissions=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.any { it }) beginStartCountdown()
