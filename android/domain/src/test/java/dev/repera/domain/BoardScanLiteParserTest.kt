@@ -505,7 +505,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[0].reps)
         assertEquals(2,block.movements[1].reps)
         assertNull(block.movements[1].repScheme)
-        assertTrue(block.movements.all {it.notes!!.contains("Series 4-3-3-2")})
+        assertTrue(block.movements.all {it.notes.contains("Series 4-3-3-2")})
     }
     @Test fun ascendingRangeOrLoadedWaveComplexRemainsUnsplit() {
         for(line in listOf("5-10 PUSH PRESS + 2 AIR SQUAT","4-3-3-2 PUSH PRESS + 2 AIR SQUAT 40/25lb")) {
@@ -522,7 +522,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[1].weightFemaleKg)
         assertEquals(1,block.movements[0].reps)
         assertEquals(2,block.movements[1].reps)
-        assertTrue(block.movements.all {it.notes!!.contains("Complejo ×3")})
+        assertTrue(block.movements.all {it.notes.contains("Complejo ×3")})
     }
     @Test fun malformedOrNonPositiveParentKgPairNeverSplitsComplex() {
         for(load in listOf("-25/40kg","- 25/40kg","25/-40kg","0/40kg","25..5/40kg","1e3/40kg")) {
@@ -536,7 +536,7 @@ class BoardScanLiteParserTest {
             assertEquals(2,block.movements.size)
             assertEquals(1,block.movements[0].reps)
             assertEquals(2,block.movements[1].reps)
-            assertTrue(block.movements.all {it.notes!!.contains(percent.removePrefix("#").removePrefix("@")) && it.notes!!.contains("RPE 7-8")})
+            assertTrue(block.movements.all {it.notes.contains(percent.removePrefix("#").removePrefix("@")) && it.notes.contains("RPE 7-8")})
             assertTrue(block.movements.all {it.weightMaleKg==null && it.explicitPlannedSets==null})
         }
     }
@@ -546,7 +546,7 @@ class BoardScanLiteParserTest {
         assertEquals(listOf(4,3,2),block.movements[0].repScheme)
         assertEquals(50.0,block.movements[0].weightMaleKg!!,0.001)
         assertNull(block.movements[1].weightMaleKg)
-        assertTrue(block.movements.all {it.notes!!.contains("RPE 6–8")})
+        assertTrue(block.movements.all {it.notes.contains("RPE 6–8")})
     }
     @Test fun complexScaleAlternativesBelongOnlyToLastPart() {
         val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n3X 1 PUSH PRESS + 40 DU / 80 SU / 60 DU #70% @7-8",catalog=catalog).blocks.single()
@@ -554,7 +554,7 @@ class BoardScanLiteParserTest {
         assertNull(block.movements[0].scaleAlternative)
         assertEquals(CrossFitGlossary.expand("80 SU")+" / "+CrossFitGlossary.expand("60 DU"),block.movements[1].scaleAlternative)
         assertEquals(40,block.movements[1].reps)
-        assertTrue(block.movements.all {it.notes!!.contains("70%") && it.notes!!.contains("RPE 7-8")})
+        assertTrue(block.movements.all {it.notes.contains("70%") && it.notes.contains("RPE 7-8")})
         assertTrue(block.movements.all {it.weightMaleKg==null})
     }
     @Test fun complexSpacedKgPairRemainsLoadAndAmbiguousScaleStaysReview() {
@@ -570,7 +570,7 @@ class BoardScanLiteParserTest {
         assertEquals(2,block.movements.size)
         assertEquals(1,block.movements[0].reps)
         assertEquals(40,block.movements[1].reps)
-        assertTrue(block.movements.all {it.notes!!.contains("Series 1-2") && it.notes!!.contains("Complejo ×3") && it.notes!!.contains(">80%")})
+        assertTrue(block.movements.all {it.notes.contains("Series 1-2") && it.notes.contains("Complejo ×3") && it.notes.contains(">80%")})
         assertTrue(block.movements.all {it.explicitPlannedSets==null})
         assertNull(block.movements[0].scaleAlternative)
         assertNotNull(block.movements[1].scaleAlternative)
@@ -585,7 +585,7 @@ class BoardScanLiteParserTest {
         for(at in listOf("@7","@7.5","@7,5","@60")) {
             val block=BoardScanLiteParser.parse(ocrText="AMRAP 10'\n1 PUSH PRESS + 2 AIR SQUAT "+at,catalog=catalog).blocks.single()
             assertEquals(at,2,block.movements.size)
-            assertTrue(block.movements.all {it.notes!!.contains(at)})
+            assertTrue(block.movements.all {it.notes.contains(at)})
             assertTrue(block.movements.all {it.weightMaleKg==null && it.weightFemaleKg==null && it.explicitPlannedSets==null})
             assertEquals(1,block.movements[0].reps)
             assertEquals(2,block.movements[1].reps)
