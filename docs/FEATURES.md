@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-10 (MCP `mcp.repera.app`; Play upload 308; privacidad/margen Ajustes).
+Última actualización: 2026-11-10 (MCP `repera.app/mcp`; Play upload 308; privacidad/margen Ajustes).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -703,7 +703,7 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 ### Acceso IA y planes entrantes (iOS 27)
 
-- **Ajustes → Conecta tu IA (10/11/2026):** caja **Elige tu asistente** con ChatGPT / Claude / Grok + **Conexión manual** (4.º botón; sin copy «Usa tu asistente…»). Continuar abre chat con `?q=`. Manual = sheet: URL `https://mcp.repera.app` + copiar tras el toggle de escritura; **Crear token** gris hasta ≥3 letras. Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe → Edge `delete`. Contrato: `tests/test_ai_provider_launch_contract.py`.
+- **Ajustes → Conecta tu IA (10/11/2026):** caja **Elige tu asistente** con ChatGPT / Claude / Grok + **Conexión manual** (4.º botón; sin copy «Usa tu asistente…»). Continuar abre chat con `?q=`. Manual = sheet: URL `https://repera.app/mcp` + copiar tras el toggle de escritura; **Crear token** gris hasta ≥3 letras. Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe → Edge `delete`. Contrato: `tests/test_ai_provider_launch_contract.py`.
 - **Ajustes Android · FC máxima (10/11/2026):** valor entre botones − y +; guardado optimista sin `busy` global (`persistTrainingSettings`) para no bloquear el resto de Ajustes. Contrato: `tests/test_android_hr_max_settings_contract.py`.
 - **Editar entreno (revisar/descartar):** el ✓ de confirmar usa `borderedProminent` + verde Repera (check blanco de día / negro de noche); Liquid Glass de la toolbar ya no deja un círculo transparente.
 - **Apple Watch Resultado:** un fallo al escribir la muestra opcional de distancia GPS en Salud **no** muestra aviso naranja; la distancia sigue en Repera y la sesión/kcal/FC no se abortan.

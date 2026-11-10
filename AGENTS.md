@@ -242,7 +242,7 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Desactivar izq. / Abrir der.; swipe → Edge `…/delete`. Contrato: `test_ai_provider_launch_contract`.
 - **Conexión manual** = 4.º botón en «Elige tu asistente» → sheet (no fila
   aparte ni DisclosureGroup); sin copy «Usa tu asistente…» / «Para asistentes…»;
-  URL pública `https://mcp.repera.app` + copiar tras el toggle de escritura;
+  URL pública `https://repera.app/mcp` + copiar tras el toggle de escritura;
   «Crear token» gris hasta ≥3 letras. Ajustes/IA ocultan el menú principal.
 - **Android FC máxima:** no usar `runWorkoutAction`/`busy` para ±; persistencia
   optimista (`persistTrainingSettings`) o el stepper bloquea todo Ajustes.

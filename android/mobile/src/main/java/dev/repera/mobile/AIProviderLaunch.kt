@@ -9,7 +9,7 @@ import android.net.Uri
  *  chat nuevo con instrucciones en `q`, preferencia de paquete instalado. */
 object AIProviderLaunch {
     /** URL pública para pegar en asistentes (proxy canónico en repera.app). */
-    const val PUBLIC_SERVER = "https://mcp.repera.app"
+    const val PUBLIC_SERVER = "https://repera.app/mcp"
     /** Endpoint Edge real (OAuth / discovery / Bearer). */
     const val SERVER = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 

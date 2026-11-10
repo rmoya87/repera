@@ -109,7 +109,7 @@ private struct AIConnectionCatalog: Decodable {
 
 private enum AIProviderLaunch {
     /// URL pública para pegar en asistentes (proxy canónico en repera.app).
-    static let publicServer = "https://mcp.repera.app"
+    static let publicServer = "https://repera.app/mcp"
     /// Endpoint Edge real (OAuth / discovery / Bearer).
     static let server = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 
