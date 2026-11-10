@@ -1,6 +1,5 @@
 package dev.repera.mobile
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
