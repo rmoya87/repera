@@ -387,6 +387,7 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
                 }
             }
         }
+        .ogChartAppear()
     }
 
     private var heroValueBlock: some View {

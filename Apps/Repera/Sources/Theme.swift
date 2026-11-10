@@ -191,7 +191,8 @@ private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
     }
 }
 
-/// Aparición suave de gráficas (opacidad + ligera escala; solo fundido si reduceMotion).
+/// Aparición de gráficas/bloques: un frame oculto y luego spring visible.
+/// (Antes era 0.2 s / scale 0.97 — casi imperceptible al abrir Progreso.)
 private struct OGChartAppearModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = false
@@ -199,11 +200,19 @@ private struct OGChartAppearModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(visible ? 1 : 0)
-            .scaleEffect(reduceMotion ? 1 : (visible ? 1 : 0.97), anchor: .center)
+            .scaleEffect(reduceMotion ? 1 : (visible ? 1 : 0.92), anchor: .center)
             .onAppear {
                 guard !visible else { return }
-                OGMotion.run(OGMotion.appear, reduceMotion: reduceMotion) {
+                if reduceMotion {
                     visible = true
+                    return
+                }
+                // Un ciclo de layout en 0 para que el usuario vea el grow-in.
+                Task { @MainActor in
+                    await Task.yield()
+                    OGMotion.run(OGMotion.reorder, reduceMotion: false) {
+                        visible = true
+                    }
                 }
             }
     }
@@ -2035,8 +2044,9 @@ struct OGSetEntryRow: View {
                 .foregroundStyle(completed ? OG.onAccent : OG.label)
                 .frame(width: 30, height: 36)
                 .background(completed ? OG.accent : OG.surface2, in: Circle())
+                .scaleEffect(completed && !reduceMotion ? 1.08 : 1)
                 .animation(
-                    OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion),
+                    OGMotion.animation(OGMotion.reorder, reduceMotion: reduceMotion),
                     value: completed
                 )
             if indexTappable {

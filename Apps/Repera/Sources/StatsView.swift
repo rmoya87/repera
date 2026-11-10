@@ -467,27 +467,31 @@ struct StatsView: View {
 
     @ViewBuilder
     private var categoryContent: some View {
-        switch category {
-        case .training:
-            trainingCategoryContent
-        case .strength:
-            strengthCategoryContent
-        case .fitness:
-            fitnessCategoryContent
-        case .heart:
-            heartCategoryContent
-        case .recovery:
-            VStack(alignment: .leading, spacing: 12) {
-                HealthRecoveryProgressView(
-                    range: .week,
-                    weekStartsOnMonday: mondayFirst,
-                    usesExpandedLayout: isExpandedLayout
-                )
-                recoveryMonthSummaryCard
+        Group {
+            switch category {
+            case .training:
+                trainingCategoryContent
+            case .strength:
+                strengthCategoryContent
+            case .fitness:
+                fitnessCategoryContent
+            case .heart:
+                heartCategoryContent
+            case .recovery:
+                VStack(alignment: .leading, spacing: 12) {
+                    HealthRecoveryProgressView(
+                        range: .week,
+                        weekStartsOnMonday: mondayFirst,
+                        usesExpandedLayout: isExpandedLayout
+                    )
+                    recoveryMonthSummaryCard
+                }
+            case .sports:
+                sportsCategoryContent
             }
-        case .sports:
-            sportsCategoryContent
         }
+        .id(category)
+        .ogChartAppear()
     }
 
     @ViewBuilder

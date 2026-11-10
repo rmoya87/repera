@@ -2147,7 +2147,9 @@ struct WorkoutView: View {
     private func toggleLiveSetCompleted(at index: Int, current: SessionExercise) {
         guard liveSets.indices.contains(index) else { return }
         let markingDone = !liveSets[index].completed
-        liveSets[index].completed = markingDone
+        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
+            liveSets[index].completed = markingDone
+        }
         noteLiveDraftEdited()
         focusedSetField = nil
         guard markingDone else { return }
