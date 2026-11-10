@@ -2311,7 +2311,17 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
-                // Quitar splash YA: catálogo/espejos/fromBytes no deben bloquear Inicio.
+                // Local-first: antes de retirar splash, cargar la semilla y publicar
+                // el snapshot offline. Supabase se actualiza después en segundo plano.
+                val localReady = runCatching {
+                    ensureCatalogHydrated(stored.uniqueId) { current() }
+                    if (current()) reloadFor(stored.uniqueId)
+                }
+                if (!current()) return@launch
+                if (localReady.isFailure) {
+                    status = "Catálogo local: " +
+                        (localReady.exceptionOrNull()?.localizedMessage ?: "no disponible")
+                }
                 restoringSession = false
                 busy = false
                 if (current()) prepareAccountDataAfterAuth(stored.uniqueId) { current() }
@@ -2395,7 +2405,18 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     email = google.email ?: "",
                     displayName = google.displayName ?: "Deportista"
                 )
+                // Preparar biblioteca offline antes de mostrar la cuenta:
+                // nunca depender de la primera descarga de Supabase.
+                val localSeedError = withContext(Dispatchers.IO) {
+                    runCatching { CatalogBootstrap.ensureHydrated(this@MainActivity, id) }.exceptionOrNull()
+                }
                 profile = signedIn
+                if (localSeedError == null) {
+                    reloadFor(id)
+                } else {
+                    status = "No se pudo preparar el catálogo local: " +
+                        (localSeedError.localizedMessage ?: "error de almacenamiento")
+                }
                 SessionStore(this@MainActivity).setGooglePhotoUrl(
                     google.profilePictureUri?.toString()
                 )
@@ -2789,6 +2810,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 .onFailure { seedError = it.localizedMessage ?: "No se pudo preparar el catálogo local" }
             if (!current()) return@withContext
             if (seedError == null) seedDisplayNameFromGoogle(accountId)
+            if (!current()) return@withContext
+        }
+        // La biblioteca local aparece YA, sin esperar token, red, benchmark,
+        // ni descarga editorial. Si hay un fallo remoto se conserva intacta.
+        if (seedError == null && profile?.uniqueId == accountId) reloadFor(accountId)
+        withContext(Dispatchers.IO) {
             if (!current()) return@withContext
             val (token, rotated) = refreshedSessionBlocking(accountId) { current() }
             if (rotated != null) {

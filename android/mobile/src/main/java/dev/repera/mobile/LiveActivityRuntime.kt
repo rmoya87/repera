@@ -44,7 +44,19 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var lastWearPublishMillis = 0L
     private var lastWearPhase: LiveActivityState.Phase? = null
-    private val voice = LiveSpokenGuidance(app)
+    // Abrir «Comenzar» no puede requerir instalar/inicializar un motor TTS.
+    // La guía se crea únicamente al necesitar hablar; si no existe proveedor,
+    // la sesión y sus métricas siguen funcionando sin voz.
+    private val voiceHolder = lazy(LazyThreadSafetyMode.NONE) { LiveSpokenGuidance(app) }
+    private val voice get() = voiceHolder.value
+    private fun stopVoiceIfInitialized() {
+        if (voiceHolder.isInitialized()) runCatching { voice.stop() }
+    }
+    private fun closeVoiceIfInitialized() {
+        if (voiceHolder.isInitialized()) runCatching { voice.close() }
+    }
+    private fun speakGuidance(text: String, queue: Boolean = false): Boolean =
+        runCatching { voice.speak(text, queue) }.getOrDefault(false)
     private val voicePrefs = app.getSharedPreferences("repera.live.guidance", Context.MODE_PRIVATE)
     var spokenGuidanceEnabled = voicePrefs.getBoolean("enabled", true); private set
     /** Si está desactivado, Play arranca al instante (sin 3-2-1). Paridad iOS. */
@@ -137,7 +149,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     fun toggleSpokenGuidance() {
         spokenGuidanceEnabled = !spokenGuidanceEnabled
         voicePrefs.edit().putBoolean("enabled", spokenGuidanceEnabled).apply()
-        if (!spokenGuidanceEnabled) voice.stop()
+        if (!spokenGuidanceEnabled) stopVoiceIfInitialized()
         publish()
     }
 
@@ -177,7 +189,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                         km, seconds, elapsed)
                         ?: dev.repera.domain.LiveSpokenPhrases.kilometer(
                             km, seconds, state.sport.displaysSpeed)
-                    voice.speak(phrase, queue = true)
+                    speakGuidance(phrase, queue = true)
                 }
                 // El bloqueo muestra el resultado aunque haya música/voz;
                 // esta notificación es silenciosa y depende del permiso del sistema.
@@ -188,7 +200,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
                 upcomingCue = cue
                 cue.speech?.let {
                     if (spokenGuidanceEnabled) {
-                        val delivered = voice.speak(it, queue = true)
+                        val delivered = speakGuidance(it, queue = true)
                         if (!delivered) notifyGuidance("Giro orientativo del GPX", cue.display)
                     } else notifyGuidance("Giro orientativo del GPX", cue.display)
                 }
@@ -269,14 +281,14 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     }
     fun pause() {
         if (state.phase != LiveActivityState.Phase.RECORDING) return
-        state.pause(System.currentTimeMillis());voice.stop();location.stop(state.gpsSessionID,false);checkpoint(true);publish()
+        state.pause(System.currentTimeMillis());stopVoiceIfInitialized();location.stop(state.gpsSessionID,false);checkpoint(true);publish()
     }
     fun resume() {
         if (state.phase != LiveActivityState.Phase.PAUSED) return
         state.resume(System.currentTimeMillis());startGPS();checkpoint(true);publish()
     }
     fun finish() {
-        state.finish(System.currentTimeMillis());voice.stop();location.stop(state.gpsSessionID);checkpoint(true);publish()
+        state.finish(System.currentTimeMillis());stopVoiceIfInitialized();location.stop(state.gpsSessionID);checkpoint(true);publish()
     }
     fun updateLiveConditions(snap: dev.repera.domain.ActivityConditionsSnapshot?) {
         liveConditions = snap
@@ -298,7 +310,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         try { synchronized(store) { store.clear() } } catch (_: Exception) {
             lastError="No se pudo descartar la actividad guardada.";publish();return false
         }
-        voice.stop();location.stop(state.gpsSessionID);state.discard();
+        stopVoiceIfInitialized();location.stop(state.gpsSessionID);state.discard();
         wearHeartSessionID = null; wearHeartBpm = null; wearHeartCapturedAt = 0L
         wearTotalSessionID = null; wearTotalEnergyKcal = null; wearAverageHeartRateBpm = null
         wearAverageCapturedAt = 0L
@@ -359,7 +371,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
         @Synchronized fun forAccount(context: Context, accountID: String): LiveActivityRuntime {
             require(accountID.isNotBlank())
             current?.takeIf { it.accountID==accountID }?.let { return it }
-            current?.stopForAccountChange();current?.voice?.close()
+            current?.stopForAccountChange();current?.closeVoiceIfInitialized()
             return LiveActivityRuntime(context,accountID).also { current=it }
         }
         @Synchronized fun hasPendingActivity(context: Context, accountID: String): Boolean {
@@ -370,7 +382,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
             return try { LiveActivitySnapshotStore(File(folder,"live_activity.json")).read() != null }
                 catch (_: Exception) { true } // checkpoint dañado: no pisarlo con otro entreno.
         }
-        @Synchronized fun stopAll() { current?.stopForAccountChange();current?.voice?.close();current=null }
+        @Synchronized fun stopAll() { current?.stopForAccountChange();current?.closeVoiceIfInitialized();current=null }
         /** Apple f6f13169: checkpoint durable forzado al suspenderse la app;
          *  nunca perder los ultimos fixes por el throttling de 10s. */
         @Synchronized fun checkpointForBackground() { current?.checkpoint(true) }
