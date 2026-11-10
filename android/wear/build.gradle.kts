@@ -15,6 +15,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }
+    // Robolectric loads native runtime libraries in JVM test workers.
+    // Java's Foreign Function & Memory access warning is avoided by granting
+    // native access only to test workers, never to the released Wear APK.
+    testOptions {
+        unitTests.all {
+            it.jvmArgs("--enable-native-access=ALL-UNNAMED")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
