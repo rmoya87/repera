@@ -53,11 +53,9 @@ class OnboardingStoreTest {
     }
 
     @Test
-    fun `flujo v2 nuevo usuario signIn permisos precio done`() {
+    fun `flujo v2 nuevo usuario signIn precio done`() {
         val store = OnboardingStore.create(FakePrefs())
         store.reconcile(isSignedIn = true)
-        assertEquals(OnboardingStep.Permissions, store.step)
-        store.finishPermissions()
         assertEquals(OnboardingStep.ChoosePlan, store.step)
         store.finishPrices()
         assertEquals(OnboardingStep.Done, store.step)
@@ -75,7 +73,7 @@ class OnboardingStoreTest {
     fun `reconcile con precios vistos y paso a medias cierra el wizard`() {
         val prefs = FakePrefs()
         val store = OnboardingStore.create(prefs)
-        store.reconcile(isSignedIn = true)          // → permissions
+        store.reconcile(isSignedIn = true)          // → choosePlan
         store.finishPrices()                        // marca precios vistos y done
         store.advance(OnboardingStep.Permissions)   // simula estado a medias
         store.reconcile(isSignedIn = true)
