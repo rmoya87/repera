@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import dev.repera.domain.WorkoutRoutePoint
+import dev.repera.domain.AdaptiveRoutePace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -19,21 +20,23 @@ class RouteMapModelTest {
             listOf(pt(40.0, -3.7), pt(40.0001, -3.7, seconds=10), pt(40.0002, -3.7, seconds=20))).size)
     }
 
-    @Test fun speedColorMatchesIosGradient() {
-        // Apple HistoryView.speedColor (c04c7dd9): curva pow 0.72 y paradas
-        // (0,1,0.25)/(1,0.98,0)/(1,0.43,0)/(1,0.07,0.15); bytes truncados (v*255).toLong().
-        fun argb(r: Double, g: Double, b: Double) = 0xFF000000L or ((r*255).toLong() shl 16) or ((g*255).toLong() shl 8) or (b*255).toLong()
-        assertEquals(argb(0.0, 1.0, 0.25), RouteMapModel.speedColor(0.0, 0.0, 10.0))
-        assertEquals(argb(0.0, 1.0, 0.45), RouteMapModel.speedColor(0.0, 0.0, 10.0, water = true))
-        assertEquals(argb(1.0, 0.07, 0.15), RouteMapModel.speedColor(10.0, 0.0, 10.0))
-        assertEquals(argb(1.0, 0.07, 0.15), RouteMapModel.speedColor(10.0, 0.0, 10.0, water = true))
-        // t=(1/3)^0.72≈0.454: entre paradas 2 y 3, verde ≈ 0.78 (un byte de margen).
-        val third = RouteMapModel.speedColor(10.0 / 3, 0.0, 10.0)
-        assertTrue(kotlin.math.abs(((third shr 8) and 0xFF) - (0.782*255).toLong()) <= 1)
-        // t=0.5^0.72≈0.607: entre paradas 2 y 3 -> (1.0, 0.528, 0.0).
-        assertEquals(argb(1.0, 0.528, 0.0), RouteMapModel.speedColor(5.0, 0.0, 10.0))
-        // Span degenerado: se usa 0.1 como en iOS, sin NaN.
-        RouteMapModel.speedColor(3.0, 3.0, 3.0)
+    @Test fun speedColorMatchesAdaptiveRoutePacePalette() {
+        // The currently shipped iOS/Android gradient is the adaptive five-stop
+        // scale, not the older four-stop absolute speed ramp.
+        for (speed in listOf(0.0, 2.5, 5.0, 7.5, 10.0)) {
+            assertEquals(
+                AdaptiveRoutePace.color(speed / 10.0),
+                RouteMapModel.speedColor(speed, 0.0, 10.0)
+            )
+            assertEquals(
+                AdaptiveRoutePace.color(speed / 10.0, water = true),
+                RouteMapModel.speedColor(speed, 0.0, 10.0, water = true)
+            )
+        }
+        assertEquals(AdaptiveRoutePace.color(0.0),
+            RouteMapModel.speedColor(-5.0, 0.0, 10.0))
+        assertEquals(AdaptiveRoutePace.color(1.0),
+            RouteMapModel.speedColor(20.0, 0.0, 10.0))
     }
 
     @Test fun waterPaletteOnlyChangesTheSlowStop() {
@@ -91,7 +94,9 @@ class RouteMapModelTest {
         val segs = RouteMapModel.segments(listOf(
             pt(40.0, -3.7, speed = null), pt(40.0001, -3.7, speed = 4.0, seconds=10)))
         assertEquals(1, segs.size)
-        // Apple 5890215d: measured second speed preferred after validity gate.
-        assertEquals(RouteMapModel.speedColor(4.0, 4.0, 4.1), segs[0].argb)
+        // One real leg has no meaningful relative variation: adaptive pacing
+        // paints it at the median, not a fabricated minimum/maximum.
+        assertEquals(AdaptiveRoutePace.color(0.5), segs[0].argb)
+        assertTrue(!segs[0].estimated)
     }
 }
