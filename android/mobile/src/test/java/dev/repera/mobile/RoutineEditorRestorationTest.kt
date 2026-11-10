@@ -22,7 +22,7 @@ class RoutineEditorRestorationTest {
   val r=restoreRoutineEditorBlocks(saveRoutineEditorBlocks(listOf(b))).single()
   assertFalse(r.entries.single().untouchedUniform)
   assertEquals(sets,r.entries.single().plannedSets.toList())
-  assertNull(r.toDraft()!!.entries.single().plannedSets)
+  assertEquals(sets, r.toDraft()!!.entries.single().plannedSets)
   r.entries.single().quantity="8"
   assertTrue(r.entries.single().untouchedUniform)
   assertEquals(sets,r.toDraft()!!.entries.single().plannedSets)
