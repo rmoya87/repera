@@ -2948,6 +2948,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             val blockId = active.navigationEntries.firstOrNull { it.index == active.index }?.blockId
             wodTimer = store.update(active.id, active.index, action, blockId)
         }.onFailure { status = "Cronómetro: " + (it.localizedMessage ?: "error al guardar") }
+        refreshWodTimer()
         WearActiveSessionBridge.publishWodTimer(this, active.id, active.index,
             active.wod, wodTimer)
     }
