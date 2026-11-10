@@ -759,28 +759,80 @@ fun ReperaMobileScreen(
             androidx.compose.foundation.layout.Box(
                 Modifier.fillMaxSize().then(hostPadding).then(statusPad)
             ) {
+            // Material motion: fade-through para destinos hermanos; transición
+            // espacial corta para entrar/salir de pantallas de detalle.
+            // Las fases de entrada/salida usan el mismo reloj, incluido Back.
+            val tabFadeOut = androidx.compose.animation.core.tween<Float>(
+                durationMillis = 90
+            )
+            val tabFadeIn = androidx.compose.animation.core.tween<Float>(
+                durationMillis = 150, delayMillis = 60
+            )
+            val detailFadeIn = androidx.compose.animation.core.tween<Float>(
+                durationMillis = 180, delayMillis = 40
+            )
+            val detailFadeOut = androidx.compose.animation.core.tween<Float>(
+                durationMillis = 100
+            )
+            val detailSlide = androidx.compose.animation.core.tween<Int>(
+                durationMillis = 220,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing
+            )
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
                 modifier = Modifier.fillMaxSize(),
-                // Las pestañas son destinos del mismo nivel: cambio inmediato.
-                // Mantener el fundido habitual de Navigation Compose en detalles.
                 enterTransition = {
-                    if (initialState.destination.route in reperaTabRoutes &&
+                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
                         targetState.destination.route in reperaTabRoutes
-                    ) androidx.compose.animation.EnterTransition.None
-                    else androidx.compose.animation.fadeIn(
-                        animationSpec = androidx.compose.animation.core.tween(700)
-                    )
+                    if (betweenTabs) {
+                        androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
+                    } else {
+                        androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
+                            androidx.compose.animation.slideInHorizontally(
+                                initialOffsetX = { it / 12 },
+                                animationSpec = detailSlide
+                            )
+                    }
                 },
                 exitTransition = {
-                    if (initialState.destination.route in reperaTabRoutes &&
+                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
                         targetState.destination.route in reperaTabRoutes
-                    ) androidx.compose.animation.ExitTransition.None
-                    else androidx.compose.animation.fadeOut(
-                        animationSpec = androidx.compose.animation.core.tween(700)
-                    )
-                }
+                    if (betweenTabs) {
+                        androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
+                    } else {
+                        androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
+                            androidx.compose.animation.slideOutHorizontally(
+                                targetOffsetX = { -it / 12 },
+                                animationSpec = detailSlide
+                            )
+                    }
+                },
+                popEnterTransition = {
+                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
+                        targetState.destination.route in reperaTabRoutes
+                    if (betweenTabs) {
+                        androidx.compose.animation.fadeIn(animationSpec = tabFadeIn)
+                    } else {
+                        androidx.compose.animation.fadeIn(animationSpec = detailFadeIn) +
+                            androidx.compose.animation.slideInHorizontally(
+                                initialOffsetX = { -it / 12 },
+                                animationSpec = detailSlide
+                            )
+                    }
+                },
+                popExitTransition = {
+                    val betweenTabs = initialState.destination.route in reperaTabRoutes &&
+                        targetState.destination.route in reperaTabRoutes
+                    if (betweenTabs) {
+                        androidx.compose.animation.fadeOut(animationSpec = tabFadeOut)
+                    } else {
+                        androidx.compose.animation.fadeOut(animationSpec = detailFadeOut) +
+                            androidx.compose.animation.slideOutHorizontally(
+                                targetOffsetX = { it / 12 },
+                                animationSpec = detailSlide
+                            )
+                    }
             ) {
                 composable("inicio") {
                     HomeTab(
