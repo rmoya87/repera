@@ -30,10 +30,10 @@ class ExternalRouteSheetConsentTest {
         var launched: String? = null
         composeRule.setContent {
             MaterialTheme {
-                ExternalHealthDetailSheet(entry(),
-                    provider = { null },
-                    routeReader = { ExternalRouteRead.ConsentRequired },
-                    onConsentLaunch = { launched = it }) {}
+                ExternalHealthDetailColumn(entry(), detail = null, loading = false,
+                    routeRead = ExternalRouteRead.ConsentRequired,
+                    onConsentLaunch = { launched = it }, consentRequestedFor = null,
+                    onConsentRequested = {}, onClose = {})
             }
         }
         composeRule.onNodeWithTag("external_route_consent", useUnmergedTree = true)
@@ -44,25 +44,24 @@ class ExternalRouteSheetConsentTest {
     @Test fun routeSectionShownWithAuthorizedPoints() {
         composeRule.setContent {
             MaterialTheme {
-                ExternalHealthDetailSheet(entry(),
-                    provider = { null },
-                    routeReader = { ExternalRouteRead.Points(listOf(
+                ExternalHealthDetailColumn(entry(), detail = null, loading = false,
+                    routeRead = ExternalRouteRead.Points(listOf(
                         WorkoutRoutePoint(0, 40.0, -3.7, 1_100_000L),
-                        WorkoutRoutePoint(1, 40.001, -3.7, 1_160_000L))) },
-                    onConsentLaunch = {}) {}
+                        WorkoutRoutePoint(1, 40.001, -3.7, 1_160_000L))),
+                    onConsentLaunch = {}, consentRequestedFor = null,
+                    onConsentRequested = {}, onClose = {})
             }
         }
-        composeRule.onNodeWithText("Recorrido GPS de la fuente", useUnmergedTree = true)
+        composeRule.onNodeWithText("Recorrido", useUnmergedTree = true)
             .assertExists()
     }
 
     @Test fun noRouteSectionWhenUnavailableOrEmpty() {
         composeRule.setContent {
             MaterialTheme {
-                ExternalHealthDetailSheet(entry(),
-                    provider = { null },
-                    routeReader = { ExternalRouteRead.Unavailable },
-                    onConsentLaunch = {}) {}
+                ExternalHealthDetailColumn(entry(), detail = null, loading = false,
+                    routeRead = ExternalRouteRead.Unavailable, onConsentLaunch = {},
+                    consentRequestedFor = null, onConsentRequested = {}, onClose = {})
             }
         }
         composeRule.onNodeWithText("Recorrido GPS de la fuente", useUnmergedTree = true)
