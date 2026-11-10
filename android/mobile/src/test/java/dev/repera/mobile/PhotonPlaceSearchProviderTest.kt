@@ -95,10 +95,10 @@ class PhotonPlaceSearchProviderTest {
     @Test fun compositeFallsBackWhenPrimaryEmpty() = runBlocking {
         val fb = PlaceSearchResult("Dir", 1.0, 2.0, "geocoder:x")
         val primary = object : PlaceSearchProvider {
-            override suspend fun search(query: String, a: Double?, b: Double?, c: Double?, d: Double?) = emptyList<PlaceSearchResult>()
+            override suspend fun search(query: String, biasMinLat: Double?, biasMinLon: Double?, biasMaxLat: Double?, biasMaxLon: Double?) = emptyList<PlaceSearchResult>()
         }
         val fallback = object : PlaceSearchProvider {
-            override suspend fun search(query: String, a: Double?, b: Double?, c: Double?, d: Double?) = listOf(fb)
+            override suspend fun search(query: String, biasMinLat: Double?, biasMinLon: Double?, biasMaxLat: Double?, biasMaxLon: Double?) = listOf(fb)
         }
         assertEquals(listOf(fb), CompositePlaceSearchProvider(primary, fallback).search("abc"))
     }
@@ -107,10 +107,10 @@ class PhotonPlaceSearchProviderTest {
         val poi=PlaceSearchResult("Parque Norte",40.50,-3.65,"osm:N1")
         val addr=PlaceSearchResult("Calle Mayor",40.51,-3.65,"geocoder:street")
         val primary=object:PlaceSearchProvider {
-            override suspend fun search(query:String,a:Double?,b:Double?,c:Double?,d:Double?)=listOf(poi)
+            override suspend fun search(query:String,biasMinLat:Double?,biasMinLon:Double?,biasMaxLat:Double?,biasMaxLon:Double?)=listOf(poi)
         }
         val fallback=object:PlaceSearchProvider {
-            override suspend fun search(query:String,a:Double?,b:Double?,c:Double?,d:Double?)=
+            override suspend fun search(query:String,biasMinLat:Double?,biasMinLon:Double?,biasMaxLat:Double?,biasMaxLon:Double?)=
                 listOf(addr,poi.copy(providerId="geocoder:poi"))
         }
         assertEquals(listOf(poi,addr),CompositePlaceSearchProvider(primary,fallback).search("parque"))
