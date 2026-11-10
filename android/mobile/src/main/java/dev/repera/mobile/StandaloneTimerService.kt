@@ -135,7 +135,7 @@ internal class StandaloneTimerService : Service() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC }
             )
         }
         val open = PendingIntent.getActivity(
@@ -153,6 +153,7 @@ internal class StandaloneTimerService : Service() {
             .setContentTitle(if (finished) "Temporizador finalizado" else title)
             .setContentText("$label · %d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60))
             .setOngoing(!finished)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .build()
