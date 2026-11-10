@@ -31,13 +31,18 @@ class WearCIRunnerDiskBudgetContract(unittest.TestCase):
         self.assertIn("if [ \"$N\" -lt 1 ]; then exit 1; fi", WEAR)
         self.assertIn("if [ \"$OK\" = 0 ]; then exit 1; fi", WEAR)
 
-    def test_beta_deploy_still_gated_on_real_emulator_tests(self):
+    def test_push_ci_is_beta_only_not_main(self):
+        # main no debe disparar este workflow en push (sí PRs / workflow_dispatch).
+        push = WORKFLOW.split("on:", 1)[1].split("concurrency:", 1)[0]
+        self.assertIn("- beta", push)
+        self.assertNotIn("- main", push)
+
+    def test_beta_deploy_still_gated_on_phone_emulator_tests(self):
+        # Teléfono estable bloquea Play; Wear/canary dan señal sin frenar el AAB.
         deploy = WORKFLOW.split("  deploy-internal-beta:", 1)[1]
-        self.assertIn(
-            "needs: [android-native, android-instrumented, android-instrumented-android17, wear-instrumented]",
-            deploy,
-        )
+        self.assertIn("needs: [android-native, android-instrumented]", deploy)
         self.assertIn("github.ref == 'refs/heads/beta'", deploy)
+        self.assertNotIn("wear-instrumented", deploy.split("if:", 1)[0])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-09 (Android: seed catálogo + biblioteca nunca vacía).
+Última actualización: 2026-11-10 (Android: AGP ≥9.4.1 evita VerifyError R8 en Comenzar).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -33,6 +33,8 @@
 
 - iOS/iPadOS: idle = `bottomControls` en **overlay fijo** del root (mapa/métricas; no dentro del `ScrollView`). `idleBottomChromePad` ≈ **10 pt** (el safe area del menú ya los deja encima; no re-sumar ~altura de tab). En `.recording`/`.paused`, tab bar oculta + `liveSessionPager` (`TabView` page, `indexDisplayMode: .never`) = Opciones | Centro | Opuesto; indicadores `liveSessionPageDots` **debajo** de Play; chrome con `ignoresSafeArea(bottom)` + `liveChromeHomeIndicatorPad` (sin hueco fantasma del menú). En página mapa: `mapMetricStrip` en el **mismo chrome fijo** encima de Play (no dentro de `mapView`); `liveSessionChromeSwipeGesture` en el chrome porque MapKit se come el swipe del pager. Mapa a sangre (`.ignoresSafeArea` top+bottom, fondo clear). Centro = métricas o mapa según `showingMetrics`; héroe idle proporcional; en vivo `metricsKilometerSlot` + `metricsHeartRateSlot` con animación; `metricsBottomChromeReserve`; mapa siempre `OG.topBarTopInset`; parciales = `liveSplitsSection` en **2ª página** (`.scrollTargetBehavior(.paging)`, 1er bloque = 1 viewport), no `fullScreenCover`. Mapa: controles de sistema ocultos; solo 2D/3D.
 - Android: misma semántica con `HorizontalPager` + `LiveMapMetricStrip` encima del `LiveStartToolbar` cuando la página es mapa; swipe horizontal en el chrome (`detectHorizontalDragGestures` → `animateScrollToPage`). Parciales vacíos = `Column` tipográfica (sin `ReperaEmptyState`/card blanca). Tab bar oculta en sesión. Finalizar = `ReperaConfirmSheet`.
+- **Toolchain release:** AGP **≥ 9.4.1** (pin en `android/build.gradle.kts`). AGP 9.4.0 + R8 full mode podía rechazar el DEX de `LiveActivityScreen` al abrir Comenzar (`VerifyError` outliner, b/551348855). Contrato: `tests/test_android_r8_agp_contract.py`.
+- **CI Play:** `android-native-ci.yml` en push solo a **`origin/beta`** (no `main`). `deploy-internal-beta` sube el AAB a pistas internal + closed tras JVM + emuladores teléfono estables.
 - Cuenta atrás de arranque: `startCountdownEnabled` (`repera.live.startCountdown.enabled` / prefs `startCountdown`); off → `beginStartCountdown` llama a `start()` directo.
 - Bloqueo: candado derecho del chrome → fusión gota con Play (Play fijo); hold 1 s para desbloquear. Sin sensores nuevos. Relojes sin cambio de contrato Health.
 

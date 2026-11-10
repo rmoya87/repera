@@ -1,9 +1,10 @@
 name: Android and Wear OS native
 on:
   workflow_dispatch:
+  # CI + Play solo desde origin/beta. main recibe el código, pero no gasta
+  # runners ni publica AAB; el deploy-internal-beta también exige refs/heads/beta.
   push:
     branches:
-      - main
       - beta
     paths:
       - 'android/**'

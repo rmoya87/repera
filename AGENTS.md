@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-09.
+Última actualización: 2026-11-10.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -144,6 +144,22 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Android — Comenzar VerifyError R8 outliner / AGP 9.4.0 (10/11/2026)
+- Release minificado con **AGP 9.4.0** puede crashear al abrir Comenzar:
+  `java.lang.VerifyError` / `register vN has type Undefined but expected Integer`
+  sobre la clase ofuscada de `LiveActivityScreen` (firma Compose con
+  `onSavedAndEdit` + `autoStartAfterChoose`). No es un bug de UI ni de
+  permisos MIUI (`FrameInsert`/`miuilog` son ruido del OEM).
+- Causa: bug del **outliner de R8** (issuetracker `b/551348855`), corregido en
+  **AGP ≥ 9.4.1** (también listado en 9.3.3). Mantener
+  `android/build.gradle.kts` en 9.4.1+; no bajar.
+- Debug/`minifyEnabled false` no reproduce el fallo. Tras subir AGP: regenerar
+  AAB/APK release e instalar en dispositivo (no basta compileDebug).
+- Contrato: `tests/test_android_r8_agp_contract.py`.
+- **CI Play:** `android-native-ci.yml` en push solo `origin/beta` (no `main`).
+  Deploy Play = job `deploy-internal-beta`. Contrato:
+  `tests/test_android_wear_ci_disk_contract.py`.
 
 #### Android — suite JVM completa y advertencias de Robolectric (10/11/2026)
 - **Compilación verde no equivale a tests verdes**: `android-native` compila móvil/Wear y después ejecuta `:mobile:testDebugUnitTest`; una ejecución registró 814 tests y 60 fallos, agrupados en 31 clases. No eliminar aserciones ni excluir tests para acelerar la subida a Play.
