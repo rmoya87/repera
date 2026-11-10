@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.PaddingValues
@@ -251,7 +252,7 @@ internal fun ReperaFloatingTabBar(
                 tabs.forEach { tab ->
                     val selected = selectedRoute == tab.route
                     val label = stringResource(tab.accessibilityLabelRes)
-                    androidx.compose.material3.NavigationBarItem(
+                    NavigationBarItem(
                         selected = selected,
                         onClick = { onTabSelected(tab.route) },
                         icon = {
