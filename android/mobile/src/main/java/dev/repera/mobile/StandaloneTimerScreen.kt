@@ -365,6 +365,8 @@ internal fun StandaloneTimerScreen(
         showClock = true
     }
 
+    val startWithNotificationPermission = rememberForegroundNotificationPermission()
+
     fun toggleRun() {
         val nowMs = System.currentTimeMillis()
         if (isRunning || preCountdownEndMs > 0L) {
@@ -386,36 +388,39 @@ internal fun StandaloneTimerScreen(
                 )
             )
         } else {
-            val wasPaused = pausedDisplaySeconds != null || timerStartedAtMs != null
-            isRunning = true
-            pausedDisplaySeconds = null
-            if (timerStartedAtMs == null) timerStartedAtMs = nowMs
-            if (preCountdown > 0) {
-                preCountdownEndMs = nowMs + preCountdown * 1000L
-            } else when (config.mode) {
-                StandaloneTimerMode.UP ->
-                    phaseStartMs = nowMs - displaySeconds * 1000L
-                StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
-                    phaseEndMs = nowMs + displaySeconds.coerceAtLeast(1) * 1000L
-            }
-            val remainingOrElapsed = when (config.mode) {
-                StandaloneTimerMode.UP ->
-                    (config.durationTotalSeconds - displaySeconds).coerceAtLeast(1)
-                StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
-                    displaySeconds.coerceAtLeast(1)
-            }
-            StandaloneTimerService.sync(
-                context, true, config.mode, remainingOrElapsed, config.shortLabel
-            )
-            if (wasPaused) {
-                ReperaAnalytics.track(
-                    ReperaAnalytics.Event.TIMER_RESUMED,
-                    mapOf(
-                        "feature_area" to "timer",
-                        "timer_type" to "standalone",
-                        "result" to "success"
-                    )
+            startWithNotificationPermission {
+                val startMs = System.currentTimeMillis()
+                val wasPaused = pausedDisplaySeconds != null || timerStartedAtMs != null
+                isRunning = true
+                pausedDisplaySeconds = null
+                if (timerStartedAtMs == null) timerStartedAtMs = startMs
+                if (preCountdown > 0) {
+                    preCountdownEndMs = startMs + preCountdown * 1000L
+                } else when (config.mode) {
+                    StandaloneTimerMode.UP ->
+                        phaseStartMs = startMs - displaySeconds * 1000L
+                    StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
+                        phaseEndMs = startMs + displaySeconds.coerceAtLeast(1) * 1000L
+                }
+                val remainingOrElapsed = when (config.mode) {
+                    StandaloneTimerMode.UP ->
+                        (config.durationTotalSeconds - displaySeconds).coerceAtLeast(1)
+                    StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
+                        displaySeconds.coerceAtLeast(1)
+                }
+                StandaloneTimerService.sync(
+                    context, true, config.mode, remainingOrElapsed, config.shortLabel
                 )
+                if (wasPaused) {
+                    ReperaAnalytics.track(
+                        ReperaAnalytics.Event.TIMER_RESUMED,
+                        mapOf(
+                            "feature_area" to "timer",
+                            "timer_type" to "standalone",
+                            "result" to "success"
+                        )
+                    )
+                }
             }
         }
     }
