@@ -173,8 +173,8 @@ internal class WodTimerService : Service() {
         private const val EXTRA_STATIONS = "stations"
 
         /**
-         * Mantiene el servicio acorde al estado real: arranca solo con un WOD
-         * activo y el cronómetro en marcha; en cualquier otro caso lo detiene.
+         * Mantiene el servicio acorde al estado real: WOD o reloj manual de fuerza
+         * con cronómetro en marcha; en cualquier otro caso lo detiene.
          */
         fun sync(context: Context, active: ActiveWorkout?, timer: WodTimerState?,
                  googleUser: String?) {
