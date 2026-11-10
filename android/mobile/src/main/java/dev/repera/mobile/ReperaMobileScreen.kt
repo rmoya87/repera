@@ -762,7 +762,25 @@ fun ReperaMobileScreen(
             NavHost(
                 navController = navController,
                 startDestination = "inicio",
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                // Las pestañas son destinos del mismo nivel: cambio inmediato.
+                // Mantener el fundido habitual de Navigation Compose en detalles.
+                enterTransition = {
+                    if (initialState.destination.route in reperaTabRoutes &&
+                        targetState.destination.route in reperaTabRoutes
+                    ) androidx.compose.animation.EnterTransition.None
+                    else androidx.compose.animation.fadeIn(
+                        animationSpec = androidx.compose.animation.core.tween(700)
+                    )
+                },
+                exitTransition = {
+                    if (initialState.destination.route in reperaTabRoutes &&
+                        targetState.destination.route in reperaTabRoutes
+                    ) androidx.compose.animation.ExitTransition.None
+                    else androidx.compose.animation.fadeOut(
+                        animationSpec = androidx.compose.animation.core.tween(700)
+                    )
+                }
             ) {
                 composable("inicio") {
                     HomeTab(
