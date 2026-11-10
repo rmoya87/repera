@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.PlayCircle
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class ReperaTabIconsTest {
@@ -47,10 +48,10 @@ class ReperaTabIconsTest {
     }
 
     @Test
-    fun selectedTabDoesNotChangeIconsOnUnrelatedTabs() {
+    fun homeUsesFilledIconWhenSelectedAndExercisesKeepsSameDumbbell() {
         val home = reperaMainTabs.single { it.route == "inicio" }
         val exercises = reperaMainTabs.single { it.route == "ejercicios" }
-        assertEquals(home.iconFor(false), home.iconFor(true))
+        assertNotEquals(home.iconFor(false), home.iconFor(true))
         assertEquals(exercises.iconFor(false), exercises.iconFor(true))
     }
 }
