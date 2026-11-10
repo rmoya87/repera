@@ -3,7 +3,7 @@ import org.json.JSONObject
 
 /** Only the exact bundled catalog is disposable. Unknown legacy/content stays a conflict. */
 internal object PristineCatalogState {
- private const val SEED_DIGEST="3c4c525aabf82e0126f1ef53d156b548a3fa8a99cb941b300e695fc7318c82b2" // catalog_seed.json actual (d3592231/a3c66eae: aliases remotos + etiqueta equipo)
+ private const val SEED_DIGEST="eb3286b0bcd27404ce03cd9c9d7d0ba6dcb38988b719d79f797e429731b1bcf8" // canonically computed from the currently bundled catalog_seed.json; unit test guards drift
  private val keys=setOf("exercises","routines","workouts","bodyWeights","favoriteTimers",
   "favoriteSportActivities","settings","exerciseLoadPrefs","activeSession","syncRevision",
   "updatedAt","lastWriterDeviceId")
