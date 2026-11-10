@@ -47,7 +47,7 @@ abstract class FinishedEditorUnitPickerRenderBase {
     protected open fun pngName(): String = "finished-editor-unit-picker.png"
 
     @Test
-    fun unitPickerAndRepsMetersHeaderVisible() {
+    fun unitPickerAndRepsMetersFieldAndChipsPresent() {
         val workout = WorkoutHistoryEntry(
             id = "s1", title = "Fuerza", startedAt = "20 oct 2026, 10:00",
             results = emptyList(), movements = emptyList(),
@@ -62,7 +62,7 @@ abstract class FinishedEditorUnitPickerRenderBase {
                 }
             }
         }
-        composeRule.onNodeWithText("Reps / m", useUnmergedTree = true)
+        composeRule.onNodeWithTag("set_reps_0_0_0", useUnmergedTree = true)
             .assertExists()
         composeRule.onNodeWithTag("set_unit_reps_0_0_0", useUnmergedTree = true)
             .assertExists()
