@@ -76,6 +76,7 @@ struct DayEditorView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(SubscriptionManager.self) private var subscriptions
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State var routine: Routine
     var mode: DayEditorMode
     var onSessionStarted: (() -> Void)? = nil
@@ -521,7 +522,7 @@ struct DayEditorView: View {
                         draggedToken: $reorderDraggedToken,
                         accepts: { $0.hasPrefix("block:") }
                     ) { token in
-                        withAnimation(.smooth) { reorderBlockToken(token, before: block.id) }
+                        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { reorderBlockToken(token, before: block.id) }
                     }
                     reorderBlockBox(position: position, block: block)
                 }
@@ -529,7 +530,7 @@ struct DayEditorView: View {
                     draggedToken: $reorderDraggedToken,
                     accepts: { $0.hasPrefix("block:") }
                 ) { token in
-                    withAnimation(.smooth) { reorderBlockToken(token, before: nil) }
+                    OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { reorderBlockToken(token, before: nil) }
                 }
             }
             .padding(.horizontal, OG.pad)
@@ -573,7 +574,7 @@ struct DayEditorView: View {
                                 token: token, targetPosition: position, targetID: block.id
                             )
                             var changed = false
-                            withAnimation(.smooth) { changed = reorderBlockToken(token, before: before) }
+                            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { changed = reorderBlockToken(token, before: before) }
                             return changed
                         }
                     )
@@ -596,13 +597,13 @@ struct DayEditorView: View {
                                         token: token, targetPosition: position, targetID: block.id
                                     )
                                     var movedBlock = false
-                                    withAnimation(.smooth) {
+                                    OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                         movedBlock = reorderBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
                                 var changed = false
-                                withAnimation(.smooth) {
+                                OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                     changed = applyReorder(token, into: block.id, before: nil)
                                 }
                                 return changed
@@ -629,7 +630,7 @@ struct DayEditorView: View {
                                         token: token, targetPosition: position, targetID: block.id
                                     )
                                     var movedBlock = false
-                                    withAnimation(.smooth) {
+                                    OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                         movedBlock = reorderBlockToken(token, before: before)
                                     }
                                     return movedBlock
@@ -637,7 +638,7 @@ struct DayEditorView: View {
                                 // Mitad superior: antes. Mitad inferior: después.
                                 let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
                                 var changed = false
-                                withAnimation(.smooth) {
+                                OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                     changed = applyReorder(token, into: block.id, before: before)
                                 }
                                 return changed
@@ -827,7 +828,7 @@ struct DayEditorView: View {
 
     private func deleteReorderExercise(type: String, blockID: UUID, itemID: UUID) {
         guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-        withAnimation(.smooth) {
+        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
             if type == "exercise" {
                 routine.blocks[index].exercises.removeAll { $0.id == itemID }
             } else if type == "movement" {
@@ -877,14 +878,14 @@ struct DayEditorView: View {
         if type == "exercise" {
             guard let old = routine.blocks[blockIndex].exercises.firstIndex(where: { $0.id == itemID }),
                   routine.blocks[blockIndex].exercises.indices.contains(old + offset) else { return }
-            withAnimation(.smooth) {
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                 let item = routine.blocks[blockIndex].exercises.remove(at: old)
                 routine.blocks[blockIndex].exercises.insert(item, at: old + offset)
             }
         } else if type == "movement" {
             guard let old = routine.blocks[blockIndex].movements.firstIndex(where: { $0.id == itemID }),
                   routine.blocks[blockIndex].movements.indices.contains(old + offset) else { return }
-            withAnimation(.smooth) {
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                 let item = routine.blocks[blockIndex].movements.remove(at: old)
                 routine.blocks[blockIndex].movements.insert(item, at: old + offset)
             }
@@ -894,7 +895,7 @@ struct DayEditorView: View {
     private func moveBlock(_ id: UUID, offset: Int) {
         guard let old = routine.blocks.firstIndex(where: { $0.id == id }),
               routine.blocks.indices.contains(old + offset) else { return }
-        withAnimation(.smooth) {
+        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
             routine.blocks.move(
                 fromOffsets: IndexSet(integer: old),
                 toOffset: old + offset + (offset > 0 ? 1 : 0)
@@ -2363,6 +2364,7 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
     @Binding var openedSetID: UUID?
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isRevealed: Bool { openedSetID == setID }
     @State private var activeDrag: CGFloat = 0
@@ -2372,7 +2374,7 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
         ZStack(alignment: .trailing) {
             if canDelete && (isRevealed || activeDrag < -2) {
                 Button {
-                    withAnimation(.smooth(duration: 0.2)) {
+                    OGMotion.run(OGMotion.appear, reduceMotion: reduceMotion) {
                         openedSetID = nil
                         activeDrag = 0
                     }
@@ -2412,7 +2414,7 @@ struct OGSetSwipeDeleteRow<Content: View>: View {
                     guard canDelete else { return }
                     let projected = (isRevealed ? -revealWidth : 0)
                         + value.predictedEndTranslation.width
-                    withAnimation(.smooth(duration: 0.22)) {
+                    OGMotion.run(OGMotion.appear, reduceMotion: reduceMotion) {
                         openedSetID = projected < -revealWidth * 0.4 ? setID : nil
                         activeDrag = 0
                     }

@@ -2581,6 +2581,11 @@ struct LiveActivityView: View {
             }
             // En mapa a sangre no pintar OG.bg: genera franjas negras arriba/abajo.
             .background(liveMapFillsDisplay ? Color.clear : OG.bg)
+            // Morph desde Continuar; el tick de duración no anima numericText.
+            .ogContinueSessionMatchedGeometry(
+                id: OGContinueSessionGeometry.liveID,
+                reduceMotion: reduceMotion
+            )
             .allowsHitTesting(!isInteractionLocked)
             // Idle: Play/Opciones/actividad flotantes fijos encima del menú (no van con el scroll).
             // En vivo: liveSessionPager ya ancla bottomControls abajo con la tab bar oculta.

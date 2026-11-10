@@ -122,13 +122,71 @@ enum OGMotion {
     }
 
     /// Equivalente a `withAnimation` respetando la regla de reducir movimiento.
-    static func run(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
+    @discardableResult
+    static func run<Result>(
+        _ animation: Animation,
+        reduceMotion: Bool,
+        _ updates: () -> Result
+    ) -> Result {
         if let resolved = Self.animation(animation, reduceMotion: reduceMotion) {
-            withAnimation(resolved, updates)
+            return withAnimation(resolved, updates)
+        }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        return withTransaction(transaction, updates)
+    }
+}
+
+/// IDs estables para morph Continuar ↔ sesión completa (Play / Comenzar).
+enum OGContinueSessionGeometry {
+    static let playID = "continue-play-session"
+    static let liveID = "continue-live-session"
+}
+
+private struct OGContinueSessionNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    /// Namespace compartido entre la barra Continuar y Workout/Live.
+    var ogContinueSessionNamespace: Namespace.ID? {
+        get { self[OGContinueSessionNamespaceKey.self] }
+        set { self[OGContinueSessionNamespaceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Contador con `numericText` (sin movimiento bajo reducir movimiento).
+    func ogNumericText(value: some Equatable, reduceMotion: Bool) -> some View {
+        contentTransition(reduceMotion ? .identity : .numericText())
+            .animation(OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion), value: value)
+    }
+
+    /// Morph espacial Continuar ↔ vista completa; no-op si reduceMotion o sin namespace.
+    func ogContinueSessionMatchedGeometry(
+        id: String,
+        reduceMotion: Bool,
+        isSource: Bool = false
+    ) -> some View {
+        modifier(OGContinueSessionMatchedGeometryModifier(
+            id: id,
+            reduceMotion: reduceMotion,
+            isSource: isSource
+        ))
+    }
+}
+
+private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
+    var id: String
+    var reduceMotion: Bool
+    var isSource: Bool
+    @Environment(\.ogContinueSessionNamespace) private var namespace
+
+    func body(content: Content) -> some View {
+        if let namespace, !reduceMotion {
+            content.matchedGeometryEffect(id: id, in: namespace, isSource: isSource)
         } else {
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction, updates)
+            content
         }
     }
 }
@@ -1923,6 +1981,7 @@ struct OGSetEntryHeader: View {
 /// Misma retícula para editar objetivos y apuntar series reales. Sin +/-.
 struct OGSetEntryRow: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var rowID: UUID
     var index: Int
     var previous: String?
@@ -1952,6 +2011,10 @@ struct OGSetEntryRow: View {
                 .foregroundStyle(completed ? OG.onAccent : OG.label)
                 .frame(width: 30, height: 36)
                 .background(completed ? OG.accent : OG.surface2, in: Circle())
+                .animation(
+                    OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion),
+                    value: completed
+                )
             if indexTappable {
                 Button(action: onConfirm) { indexBadge }
                     .buttonStyle(.plain)

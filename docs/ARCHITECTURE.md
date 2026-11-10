@@ -294,6 +294,7 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 - Tokens `OG*` adaptativos (día/noche según sistema), acento verde `#30d158`
 - `OG.bg` = lienzo (día gris agrupado, noche negro); `OG.surface` = cards/filas (día blanco, noche gris) — mismo patrón de secciones en ambos modos
 - `OGMotion`: curvas estándar (`reorder` spring, `appear` ease-out 0.2, `highlight` ease-out 0.15) + `animation(_:reduceMotion:)` / `run` — con «Reducir movimiento» no hay movimiento (cambio instantáneo; fundidos solo vía `.opacity`)
+- Continuar ↔ Play/Comenzar: `ogContinueSessionMatchedGeometry` + namespace en `RootTabView` (sin morph si reduceMotion; sin `numericText` en ticks de 1 s del accesorio Live)
 - `OGCard`, `OGPageHeader`, `OGBackPageHeader` (legacy / sheets compactos)
 - `ogPinnedTransparentNav`: título large debajo de volver/acciones (subpáginas); fuerza `.toolbar(.visible)` porque roots con `ogFixedTopBar` ocultan la barra
 - `ogFixedTopBar` / `OGFixedTopBar`: título arriba del todo; acciones en la misma fila (roots sin franja vacía)

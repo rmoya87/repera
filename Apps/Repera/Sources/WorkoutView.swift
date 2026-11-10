@@ -458,10 +458,18 @@ struct WorkoutView: View {
 
     private var workoutPresentationView: some View {
         workoutCoreView
-        .animation(reduceMotion ? nil : .snappy, value: store.restCoordinator.isActive)
+        .animation(
+            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
+            value: store.restCoordinator.isActive
+        )
         .sensoryFeedback(.success, trigger: setCompletionPulse)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: restStartedPulse)
         .background(OG.bg)
+        // Morph desde la barra Continuar (Play); sin tick del reloj.
+        .ogContinueSessionMatchedGeometry(
+            id: OGContinueSessionGeometry.playID,
+            reduceMotion: reduceMotion
+        )
         // El nombre real del entreno vive en la barra superior (siempre visible).
         .navigationTitle(store.state.activeSession?.title ?? "Entreno")
         .navigationBarTitleDisplayMode(.inline)
@@ -718,7 +726,7 @@ struct WorkoutView: View {
                             accepts: { $0.hasPrefix("block:") }
                         ) { token in
                             var moved = false
-                            withAnimation(.smooth) { moved = movePlayBlockToken(token, before: block.id) }
+                            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { moved = movePlayBlockToken(token, before: block.id) }
                             return moved
                         }
                         playReorderBlockBox(position: position, block: block)
@@ -728,7 +736,7 @@ struct WorkoutView: View {
                         accepts: { $0.hasPrefix("block:") }
                     ) { token in
                         var moved = false
-                        withAnimation(.smooth) { moved = movePlayBlockToken(token, before: nil) }
+                        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { moved = movePlayBlockToken(token, before: nil) }
                         return moved
                     }
                 }
@@ -813,7 +821,7 @@ struct WorkoutView: View {
                                 token: token, targetPosition: position, targetID: block.id
                             )
                             var moved = false
-                            withAnimation(.smooth) { moved = movePlayBlockToken(token, before: before) }
+                            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { moved = movePlayBlockToken(token, before: before) }
                             return moved
                         }
                     )
@@ -836,13 +844,13 @@ struct WorkoutView: View {
                                         token: token, targetPosition: position, targetID: block.id
                                     )
                                     var movedBlock = false
-                                    withAnimation(.smooth) {
+                                    OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                         movedBlock = movePlayBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
                                 var moved = false
-                                withAnimation(.smooth) { moved = movePlayReorderToken(token, into: block.id) }
+                                OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) { moved = movePlayReorderToken(token, into: block.id) }
                                 return moved
                             }
                         )
@@ -867,14 +875,14 @@ struct WorkoutView: View {
                                         token: token, targetPosition: position, targetID: block.id
                                     )
                                     var movedBlock = false
-                                    withAnimation(.smooth) {
+                                    OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                         movedBlock = movePlayBlockToken(token, before: before)
                                     }
                                     return movedBlock
                                 }
                                 let before = location.y > 28 ? rows.dropFirst(index + 1).first?.id : row.id
                                 var moved = false
-                                withAnimation(.smooth) {
+                                OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
                                     moved = movePlayReorderToken(token, into: block.id, before: before)
                                 }
                                 return moved
@@ -2244,7 +2252,7 @@ struct WorkoutView: View {
                     Text("\(remaining)s")
                         .font(.system(size: 28, weight: .bold).monospacedDigit())
                         .foregroundStyle(OG.label)
-                        .contentTransition(.numericText())
+                        .ogNumericText(value: remaining, reduceMotion: reduceMotion)
                 }
                 Spacer()
                 Button("Saltar") {
@@ -3075,6 +3083,7 @@ struct WorkoutView: View {
                 Text("\(current.loggedSets.count)")
                     .font(.subheadline.monospacedDigit().weight(.semibold))
                     .foregroundStyle(OG.label2)
+                    .ogNumericText(value: current.loggedSets.count, reduceMotion: reduceMotion)
             }
 
             if current.loggedSets.isEmpty {
@@ -3094,6 +3103,10 @@ struct WorkoutView: View {
                                 Text("\(set.weightKg.map { ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0)) } ?? "—") \(store.state.settings.weightUnit.label) × \(set.reps)")
                                     .font(.system(size: 15, weight: .medium).monospacedDigit())
                                     .foregroundStyle(OG.accent)
+                                    .ogNumericText(
+                                        value: "\(set.weightKg.map(String.init(describing:)) ?? "")-\(set.reps)",
+                                        reduceMotion: reduceMotion
+                                    )
                             }
                             if let effort = Effort.label(rir: set.rir, unit: unit) {
                                 Text(effort)
@@ -3314,6 +3327,10 @@ struct WorkoutView: View {
                                             Text("\(item.loggedSets.count)/\(max(item.plannedSets.count, 1))")
                                                 .font(.system(size: 11).monospacedDigit())
                                                 .foregroundStyle(OG.label3)
+                                                .ogNumericText(
+                                                    value: item.loggedSets.count,
+                                                    reduceMotion: reduceMotion
+                                                )
                                         }
                                     }
                                     .frame(minWidth: 44)
