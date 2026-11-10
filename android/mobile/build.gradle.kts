@@ -58,6 +58,12 @@ android {
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            // Robolectric's FileDescriptorInterceptor reflects on SharedSecrets.
+            // Java 25+ requires an explicit export for JVM test workers only.
+            it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED",
+                "--enable-native-access=ALL-UNNAMED")
+        }
     }
 
     buildTypes {
