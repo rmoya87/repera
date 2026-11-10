@@ -1766,7 +1766,10 @@ internal object PlanEntryMoves {
         val src = blocks.getOrNull(from) ?: return null
         val dst = blocks.getOrNull(to) ?: return null
         val entry = src.entries.getOrNull(entryIndex) ?: return null
-        val srcStrength = src.format == "strength"; val dstStrength = dst.format == "strength"
+        // Blank format is the legacy/default strength block; treating it as WOD
+        // would bypass conversion validation and silently move invalid edits.
+        val srcStrength = src.format.isBlank() || src.format == "strength"
+        val dstStrength = dst.format.isBlank() || dst.format == "strength"
         if (srcStrength == dstStrength) {
             if (dstStrength && dst.entries.any { it.exerciseId == entry.exerciseId })
                 return "«" + (nameById[entry.exerciseId] ?: "Ejercicio") + "» ya está en ese bloque de fuerza"
