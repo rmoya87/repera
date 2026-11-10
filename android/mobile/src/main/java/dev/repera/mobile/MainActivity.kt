@@ -2976,13 +2976,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     /** Plan efectivo + recientes + audio para el hub Deportes del reloj. */
     private fun publishEffectiveWatchPlan(
-        userId: String,
+        googleId: String,
         professional: List<BusinessCenterStore.ProfessionalSession>? = null
     ) {
         lifecycleScope.launch {
             val pro = professional ?: centerSnapshot?.trainingSessions.orEmpty()
             val (plan, recents, muted) = withContext(Dispatchers.IO) {
-                val repo = WorkoutRepository(this@MainActivity, userId)
+                val repo = WorkoutRepository(this@MainActivity, googleId)
                 Triple(
                     run {
                         val plans = repo.allTodayPlanSessions(professional = pro)
@@ -3001,11 +3001,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     WearActiveSessionBridge.watchHubAudioMuted(this@MainActivity)
                 )
             }
-            if (profile?.uniqueId != userId) return@launch
+            if (profile?.uniqueId != googleId) return@launch
             val maxBpm = withContext(Dispatchers.IO) {
-                trainingSettingsForAccount(this@MainActivity, userId).heartRateMaxBpm ?: 190
+                trainingSettingsForAccount(this@MainActivity, googleId).heartRateMaxBpm ?: 190
             }
-            if (profile?.uniqueId != userId) return@launch
+            if (profile?.uniqueId != googleId) return@launch
             WearActiveSessionBridge.publishTodayPlan(
                 this@MainActivity, plan, recents, muted,
                 maxHeartRateBpm = maxBpm
