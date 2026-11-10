@@ -418,7 +418,14 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
         // antes: puede haberse reactivado un entreno clásico mientras tanto.
         if (currentActiveWorkout) { currentOpenWorkout();return }
         if (runtime.recoveryBlocked) { error=runtime.lastError;return }
-        startWithNotificationPermission { runtime.start();startService() }
+        startWithNotificationPermission {
+            if (currentActiveWorkout) currentOpenWorkout()
+            else if (runtime.recoveryBlocked) error = runtime.lastError
+            else if (runtime.state.phase == LiveActivityState.Phase.IDLE) {
+                runtime.start()
+                startService()
+            }
+        }
     }
     fun cancelStartCountdown() {
         startCountdownToken++
