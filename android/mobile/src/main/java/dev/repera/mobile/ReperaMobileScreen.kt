@@ -518,10 +518,13 @@ fun ReperaMobileScreen(
         // I-42: Minimizar reloj → barra flotante sobre la sesión (no destruye el timer).
         var clockMinimized by rememberSaveable(accountId) { mutableStateOf(false) }
         var manualClockConfig by remember(accountId) { mutableStateOf<ManualBlockTimerConfig?>(null) }
-        LaunchedEffect(activeWorkout?.id) {
+        LaunchedEffect(activeWorkout?.id, activeWorkout?.index) {
             if (activeWorkout == null) {
                 clockMinimized = false
                 manualClockConfig = null
+                ManualClockServiceStore.clear(context)
+            } else if (activeWorkout.wod == null) {
+                manualClockConfig = ManualClockServiceStore.read(context, accountId, activeWorkout)
             }
         }
         // iOS restoresAddSheetAfterPage: reabrir DayPlus al volver de Favoritos/Tempo.
@@ -1221,7 +1224,7 @@ fun ReperaMobileScreen(
                             overview = overview,
                             onLaunchManualClock = { config ->
                                 manualClockConfig = config
-                                onWodTimerAction("start")
+                                ManualClockServiceStore.save(context, accountId, workout.id, workout.index, config)
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
