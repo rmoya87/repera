@@ -1157,7 +1157,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         clearPendingCompanionFinish()
         liveNotice = null
         haptic(WearHaptic.CONFIRM)
-        presentCompanionFinished(if (sameSession && incoming != null) incoming else previous ?: return)
+        presentCompanionFinished(if (sameSession) incoming!! else previous ?: return)
     }
 
     private fun refreshAmbientIfNeeded() {
