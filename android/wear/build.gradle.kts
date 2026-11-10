@@ -20,7 +20,8 @@ android {
     // native access only to test workers, never to the released Wear APK.
     testOptions {
         unitTests.all {
-            it.jvmArgs("--enable-native-access=ALL-UNNAMED")
+            it.jvmArgs("--enable-native-access=ALL-UNNAMED",
+                "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
         }
     }
     compileOptions {
