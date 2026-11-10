@@ -181,7 +181,7 @@ internal class WodTimerService : Service() {
             val wod = active?.wod
             val manual = if (active != null && googleUser != null)
                 ManualClockServiceStore.read(context, googleUser, active) else null
-            if ((wod == null && manual == null) || timer?.running != true || googleUser == null) {
+            if (active == null || (wod == null && manual == null) || timer?.running != true || googleUser == null) {
                 context.stopService(Intent(context, WodTimerService::class.java))
                 return
             }
