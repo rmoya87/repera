@@ -179,7 +179,9 @@ internal class WodTimerService : Service() {
         fun sync(context: Context, active: ActiveWorkout?, timer: WodTimerState?,
                  googleUser: String?) {
             val wod = active?.wod
-            if (wod == null || timer?.running != true || googleUser == null) {
+            val manual = if (active != null && googleUser != null)
+                ManualClockServiceStore.read(context, googleUser, active) else null
+            if ((wod == null && manual == null) || timer?.running != true || googleUser == null) {
                 context.stopService(Intent(context, WodTimerService::class.java))
                 return
             }
@@ -194,15 +196,15 @@ internal class WodTimerService : Service() {
                 .putExtra(EXTRA_BLOCK_INDEX, active.index)
                 .putExtra(EXTRA_BLOCK_ID, active.navigationEntries.firstOrNull {it.index==active.index}?.blockId)
                 .putExtra(EXTRA_GOOGLE_USER, googleUser)
-                .putExtra(EXTRA_FORMAT, wod.format)
+                .putExtra(EXTRA_FORMAT, wod?.format ?: "tabata")
                 .putExtra(EXTRA_TITLE, active.title)
-                .putExtra(EXTRA_CAP, wod.timeCapMinutes ?: -1)
-                .putExtra(EXTRA_INTERVAL, wod.intervalSeconds ?: -1)
-                .putExtra(EXTRA_ROUNDS, wod.rounds ?: -1)
-                .putExtra(EXTRA_WORK, wod.workSeconds ?: -1)
-                .putExtra(EXTRA_REST, wod.restSeconds ?: -1)
-                .putExtra(EXTRA_REST_ROUNDS, wod.restBetweenRoundsSeconds ?: -1)
-                .putExtra(EXTRA_STATIONS, wod.movements.count { !it.isRest }.coerceAtLeast(1))
+                .putExtra(EXTRA_CAP, wod?.timeCapMinutes ?: -1)
+                .putExtra(EXTRA_INTERVAL, wod?.intervalSeconds ?: -1)
+                .putExtra(EXTRA_ROUNDS, wod?.rounds ?: manual?.rounds ?: -1)
+                .putExtra(EXTRA_WORK, wod?.workSeconds ?: manual?.workSeconds ?: -1)
+                .putExtra(EXTRA_REST, wod?.restSeconds ?: manual?.restSeconds ?: -1)
+                .putExtra(EXTRA_REST_ROUNDS, wod?.restBetweenRoundsSeconds ?: -1)
+                .putExtra(EXTRA_STATIONS, wod?.movements?.count { !it.isRest }?.coerceAtLeast(1) ?: 1)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent)
             else context.startService(intent)
         }
