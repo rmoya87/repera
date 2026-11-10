@@ -24,9 +24,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -35,7 +35,7 @@ jobs:
       - name: Install API 37
         run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
       - name: Unit tests for Play versioning and marketing notes
@@ -46,7 +46,7 @@ jobs:
         run: gradle -p android :mobile:testDebugUnitTest --no-daemon --stacktrace
       - name: Upload JVM test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-domain-test-results
           path: |
@@ -91,9 +91,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -102,7 +102,7 @@ jobs:
       - name: Android 17 compile SDK
         run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
       - name: Enable KVM
@@ -142,14 +142,14 @@ jobs:
           find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
       - name: Upload visual verification screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-visual-screenshots-api${{ matrix.api }}
           path: android/screenshots/**
           if-no-files-found: ignore
       - name: Upload instrumentation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumentation-results-api${{ matrix.api }}
           path: |
@@ -166,9 +166,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -177,7 +177,7 @@ jobs:
       - name: Android 17 compile SDK
         run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
       - name: Enable KVM
@@ -203,14 +203,14 @@ jobs:
           script: adb shell getprop ro.build.version.sdk_full; SELECTED_CLASSES=$(python3 android/ci_selected_android_tests.py) || exit 1; echo CI_ANDROID_SELECTED_TEST_CLASSES; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$SELECTED_CLASSES" --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; ls -laR android/screenshots/ || true; OK=1; for f in mobile; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Upload visual verification screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-visual-screenshots-api37
           path: android/screenshots/**
           if-no-files-found: ignore
       - name: Upload instrumentation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumentation-results-api37
           path: |
@@ -259,9 +259,9 @@ jobs:
             emu_opts: '-no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -memory 4096 -wipe-data -verbose -show-kernel'
             experimental: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -270,7 +270,7 @@ jobs:
       - name: Android 17 compile SDK
         run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
       - name: Enable KVM
@@ -316,14 +316,14 @@ jobs:
           du -sh "${HOME}/.android/avd" 2>/dev/null || true
       - name: Upload wear visual verification screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wear-visual-screenshots-${{ matrix.api }}
           path: android/screenshots-wear/**
           if-no-files-found: ignore
       - name: Upload wear instrumentation reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wear-instrumentation-results-${{ matrix.api }}
           path: |
@@ -372,11 +372,11 @@ jobs:
         run: |
           echo "## Deploy beta: gate estricto" >> "$GITHUB_STEP_SUMMARY"
           echo "Compilación, suite JVM móvil completa y emuladores estables obligatorios." >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '17'
@@ -385,7 +385,7 @@ jobs:
       - name: Install API 37
         run: sdkmanager --channel=3 'platforms;android-37.0' 'build-tools;36.0.0'
       - name: Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           gradle-version: '9.6.0'
       - name: Decode upload keystore
@@ -452,7 +452,7 @@ jobs:
             --output "$RUNNER_TEMP/repera-play-release"
           cat "$RUNNER_TEMP/repera-play-release/whatsnew/whatsnew-es-ES" >> "$GITHUB_STEP_SUMMARY"
       - name: Datos verificables de la versión
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: play-release-metadata
           path: ${{ runner.temp }}/repera-play-release/**
@@ -483,7 +483,7 @@ jobs:
           status: completed
       - name: Upload signed artifact provenance
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: play-release-aab-sha256
           path: ${{ runner.temp }}/repera-play-release/aab-sha256.txt
