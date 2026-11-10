@@ -1,10 +1,5 @@
 package dev.repera.mobile
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.repera.domain.WodClock
 import dev.repera.domain.WodClockSpec
@@ -235,7 +229,10 @@ internal fun WodClockScreen(
                         }
                     } else {
                         Button(
-                            onClick = { startWithNotificationPermission { onTimerAction("start") } },
+                            onClick = {
+                                if (requestNotificationPermission) startWithNotificationPermission { onTimerAction("start") }
+                                else onTimerAction("start")
+                            },
                             enabled = !busy && !face.finishedIntervals,
                             modifier = Modifier
                                 .fillMaxWidth()
