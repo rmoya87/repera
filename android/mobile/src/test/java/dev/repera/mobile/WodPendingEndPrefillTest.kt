@@ -3,6 +3,9 @@ import androidx.compose.runtime.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNode
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performTextReplacement
 import org.junit.Rule
 import org.junit.Test
@@ -31,7 +34,7 @@ class WodPendingEndPrefillTest {
   rule.runOnIdle {visible=true}
   rule.waitForIdle()
   rule.onNodeWithText("05").assertExists()
-  rule.onNodeWithText("05").performTextReplacement("17")
+  rule.onNode(hasSetTextAction() and hasText("05")).performTextReplacement("17")
   rule.runOnIdle {timer=WodTimerState(125000,false,"userFinished",125)}
   rule.waitForIdle()
   rule.onNodeWithText("17").assertExists()
