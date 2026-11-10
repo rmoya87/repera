@@ -106,17 +106,7 @@ internal fun WodClockScreen(
             isAppearanceLightNavigationBars = false
         }
     }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
-    LaunchedEffect(Unit) {
-        if (requestNotificationPermission && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
+    val startWithNotificationPermission = rememberForegroundNotificationPermission()
     val elapsedClock = timer?.elapsedSeconds ?: 0
     val face = WodClock.face(spec, elapsedClock)
     LaunchedEffect(active.id, active.index, timer?.running) {
@@ -245,7 +235,7 @@ internal fun WodClockScreen(
                         }
                     } else {
                         Button(
-                            onClick = { onTimerAction("start") },
+                            onClick = { startWithNotificationPermission { onTimerAction("start") } },
                             enabled = !busy && !face.finishedIntervals,
                             modifier = Modifier
                                 .fillMaxWidth()
