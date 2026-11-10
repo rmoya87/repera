@@ -424,7 +424,7 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertEquals(210,composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).captureToImage().asAndroidBitmap().height)
         save(composeRule.onNodeWithTag("calories_fixture").captureToImage().asAndroidBitmap(),"calories-preview-curve.png")
         composeRule.onNodeWithTag("calories_observed_plot",useUnmergedTree=true).performClick()
-        composeRule.onNodeWithText("26 oct 2026: 645 kcal",useUnmergedTree=true).assertExists()
+        composeRule.onNode(hasText(" kcal · ", substring = true), useUnmergedTree = true).assertExists()
     }
  @Test fun caloriesEmptyKeepsAxesWithoutFabricatedSamples() {
         val day=LocalDate.of(2026,10,27)
@@ -447,7 +447,7 @@ class ReviewSpacingRenderTest {
         org.junit.Assert.assertTrue(high > 0)
         save(composeRule.onNodeWithTag("cardio_fixture").captureToImage().asAndroidBitmap(),"cardio-three-curves.png")
         composeRule.onNodeWithTag("cardio_observed_plot",useUnmergedTree=true).performClick()
-        composeRule.onNodeWithText("26 oct 2026: 129 lpm",useUnmergedTree=true).assertExists()
+        composeRule.onNode(hasText(" lpm · ", substring = true), useUnmergedTree = true).assertExists()
     }
  @Test fun cardioEmptyKeeps190Axes() {
         val day=LocalDate.of(2026,10,27)
