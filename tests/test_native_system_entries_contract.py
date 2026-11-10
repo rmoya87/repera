@@ -85,11 +85,10 @@ class NativeSystemEntryContractTests(unittest.TestCase):
 
     def test_apple_live_activity_controls_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
-        # Sin widget de home: solo Live Activities + Control Center.
-        # `disfavoredLocations` no ocultaba el stub; el kind ya no se registra.
+        # Sin widget útil de home: Live Activities + Control Center + stub
+        # legacy con families vacías (limpia la caché de galería de SpringBoard).
         self.assertNotIn("ReperaHomeWidget()", bundle)
-        self.assertNotIn("ReperaHomeWidgetRetired()", bundle)
-        self.assertNotIn("com.app.repera.launch", bundle)
+        self.assertIn("ReperaHomeWidgetRetired()", bundle)
         self.assertIn("RestLiveActivityWidget()", bundle)
         self.assertIn("TrainingLiveActivityWidget()", bundle)
         self.assertIn("ReperaBeginControl()", bundle)
@@ -97,10 +96,11 @@ class NativeSystemEntryContractTests(unittest.TestCase):
             (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidget.swift").exists(),
             "home screen widget source must stay removed",
         )
-        self.assertFalse(
-            (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidgetRetired.swift").exists(),
-            "retired home stub must stay removed from the extension",
-        )
+        retired = source("Apps/ReperaRestWidget/ReperaHomeWidgetRetired.swift")
+        self.assertIn('kind: "com.app.repera.launch"', retired)
+        self.assertIn(".supportedFamilies([])", retired)
+        self.assertNotIn(".supportedFamilies([.systemSmall, .systemMedium])", retired)
+        self.assertNotIn("Accesos rápidos", retired)
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn(".handGestureShortcut(.primaryAction", watch)
         self.assertIn("!hub.nextActionIsFinish", watch)

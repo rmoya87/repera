@@ -92,10 +92,12 @@ private struct RestCompactClock: View {
 @main
 struct ReperaRestWidgetBundle: WidgetBundle {
     var body: some Widget {
-        // Solo Live Activities + Control Center. Sin widget de pantalla de inicio:
-        // `disfavoredLocations` no basta (iOS seguía ofreciendo el stub vacío).
+        // Live Activities + Control Center. El kind legacy se registra con
+        // `supportedFamilies([])` para vaciar la caché de galería de Inicio
+        // (quitarlo del bundle dejaba small/medium ofreciéndose desde SpringBoard).
         RestLiveActivityWidget()
         TrainingLiveActivityWidget()
+        ReperaHomeWidgetRetired()
         ReperaBeginControl()
         ReperaTodayControl()
         ReperaTimerControl()
