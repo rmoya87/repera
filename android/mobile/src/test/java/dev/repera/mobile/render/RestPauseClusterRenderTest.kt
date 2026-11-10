@@ -37,10 +37,10 @@ class RestPauseClusterRenderTest {
   }}}
   rule.onNodeWithText("Añadir cluster").performClick()
   rule.onNodeWithText("Añadir cluster").assertIsNotEnabled()
-  rule.onNodeWithText("REPS").performTextReplacement("5")
-  rule.onNodeWithText("DESCANSO").performTextReplacement("31")
+  rule.replaceReperaNumericField("REPS", "5")
+  rule.replaceReperaNumericField("DESCANSO (s)", "31")
   rule.onNodeWithText("Añadir cluster").assertIsNotEnabled()
-  rule.onNodeWithText("DESCANSO").performTextReplacement("20")
+  rule.replaceReperaNumericField("DESCANSO (s)", "20")
   rule.onNodeWithText("Añadir cluster").performClick()
   rule.runOnIdle {assertEquals(listOf(8 to 15,5 to 20),clusters)}
   rule.onNodeWithText("1. 8 reps · descanso 15 s").assertIsDisplayed()
@@ -60,7 +60,7 @@ class RestPauseClusterRenderTest {
     onLogRestPauseSet={c,_,_,_->saved=c})
   }}}
   rule.onNodeWithText("Rest-pause").performScrollTo().performClick()
-  rule.onNodeWithText("REPS").performScrollTo().performTextReplacement("8")
+  rule.replaceReperaNumericField("REPS", "8")
   rule.onNodeWithText("Añadir cluster").performScrollTo().performClick()
   rule.onNodeWithText("Registrar serie").performScrollTo().assertIsEnabled().performClick()
   rule.runOnIdle {assertEquals(listOf(8 to 15),saved)}
