@@ -145,6 +145,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Android — suite JVM completa y advertencias de Robolectric (10/11/2026)
+- **Compilación verde no equivale a tests verdes**: `android-native` compila móvil/Wear y después ejecuta `:mobile:testDebugUnitTest`; una ejecución registró 814 tests y 60 fallos, agrupados en 31 clases. No eliminar aserciones ni excluir tests para acelerar la subida a Play.
+- Eliminar `!!` solo porque Kotlin avisa puede romper la compilación cuando el tipo sigue siendo `String?`: usar `requireNotNull(value)` o una rama nula explícita, y compilar `:domain:compileDebugUnitTestKotlin` antes de darlo por corregido.
+- Robolectric `AndroidInterceptors.FileDescriptorInterceptor` puede lanzar `IllegalAccessException` al acceder a `jdk.internal.access.SharedSecrets` en JDK recientes: configurar `--add-exports=java.base/jdk.internal.access=ALL-UNNAMED` para JVM de tests, sin añadirlo a APK/AAB.
+- El catálogo virgen debe compararse mediante el digest canónico de **la versión realmente empaquetada** de `catalog_seed.json`; un digest obsoleto bloquea la reconciliación segura. Nunca flexibilizar la coincidencia ni descartar datos de usuario solo para hacer pasar la prueba.
+- `tools:node="remove"` puede emitir avisos "no other declaration present" cuando la dependencia no solicita el permiso publicitario. Mantener las exclusiones y el contrato de permisos; no eliminarlas para silenciar logs. Los `.so` de terceros no despojados no implican error de compilación; diagnosticar con `--info` antes de cambiar el empaquetado.
+
 #### Live Activity y fin Watch pedido en el iPhone (09/11/2026)
 
 - No dar por aceptado un snapshot Watch antes de que ActivityKit cree la
