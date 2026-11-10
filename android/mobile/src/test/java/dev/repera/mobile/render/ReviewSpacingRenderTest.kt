@@ -212,12 +212,12 @@ class ReviewSpacingRenderTest {
             }
         }
         composeRule.onNodeWithTag("homewrap")
-            .performScrollToNode(hasText("Añadir nuevo entrenamiento"))
+            .performScrollToNode(hasText("Añadir nuevo entreno"))
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("Añadir nuevo entrenamiento").assertExists()
+        composeRule.onNodeWithText("Añadir nuevo entreno").assertExists()
         save(composeRule.onNodeWithTag("homewrap").captureToImage().asAndroidBitmap(),
             "home-add-workout-button.png")
-        composeRule.onNodeWithText("Añadir nuevo entrenamiento").performClick()
+        composeRule.onNodeWithText("Añadir nuevo entreno").performClick()
         composeRule.waitForIdle()
         org.junit.Assert.assertEquals("", selected)
         composeRule.onNodeWithTag("day_plus_create").assertExists()
@@ -242,7 +242,7 @@ class ReviewSpacingRenderTest {
                 }
             }
         }
-        composeRule.onNodeWithText("Volver").assertExists()
+        composeRule.onNodeWithContentDescription("Volver").assertExists()
         composeRule.onNodeWithText("Guardar").assertExists()
         save(composeRule.onNodeWithTag("editorwrap").captureToImage().asAndroidBitmap(),
             "routine-editor-topbar.png")
