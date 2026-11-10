@@ -1,6 +1,7 @@
 package dev.repera.mobile
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,10 +19,10 @@ class CloudSyncGateTest {
             CloudSyncGate.driveSync { }
             assertTrue(CloudSyncGate.isDriveSyncRunning())
         }
-        assertEquals(false, CloudSyncGate.isDriveSyncRunning())
+        assertFalse(CloudSyncGate.isDriveSyncRunning())
     }
     @Test fun recoveryIsSkippedInsideDriveAndWorksAfterItEnds() {
-        CloudSyncGate.driveSync {assertEquals(null,CloudSyncGate.recoverUnlessDrive {error("must not run")})}
+        CloudSyncGate.driveSync {assertNull(CloudSyncGate.recoverUnlessDrive {error("must not run")})}
         assertEquals(7,CloudSyncGate.recoverUnlessDrive {7})
     }
     @Test fun driveCannotReplaceSnapshotHalfwayThroughRecoveryApply() {
