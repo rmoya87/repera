@@ -65,7 +65,7 @@ class ExerciseEvolutionSummaryRenderTest {
         composeRule.onNodeWithText("Reps máx.").assertIsDisplayed()
         composeRule.onNodeWithText("Veces").assertIsDisplayed()
         composeRule.onNodeWithText("100 kg").assertIsDisplayed()
-        composeRule.onNodeWithText("14").assertIsDisplayed()
+        composeRule.onAllNodesWithText("14").onFirst().assertIsDisplayed()
         val chart=composeRule.onNodeWithTag("exercise_evolution_chart").captureToImage().asAndroidBitmap()
         File("build/reports/render").mkdirs()
         FileOutputStream("build/reports/render/exercise-evolution-curve.png").use {chart.compress(Bitmap.CompressFormat.PNG,100,it)}
