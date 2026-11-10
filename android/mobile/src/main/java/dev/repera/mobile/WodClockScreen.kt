@@ -1,10 +1,5 @@
 package dev.repera.mobile
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.repera.domain.WodClock
 import dev.repera.domain.WodClockSpec
@@ -109,17 +103,7 @@ internal fun WodClockScreen(
             isAppearanceLightNavigationBars = false
         }
     }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
-    LaunchedEffect(Unit) {
-        if (requestNotificationPermission && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
+    val startWithNotificationPermission = rememberForegroundNotificationPermission()
     val elapsedClock = timer?.elapsedSeconds ?: 0
     val face = WodClock.face(spec, elapsedClock)
     LaunchedEffect(active.id, active.index, timer?.running) {
@@ -246,7 +230,10 @@ internal fun WodClockScreen(
                         }
                     } else {
                         Button(
-                            onClick = { onTimerAction("start") },
+                            onClick = {
+                                if (requestNotificationPermission) startWithNotificationPermission { onTimerAction("start") }
+                                else onTimerAction("start")
+                            },
                             enabled = !busy && !face.finishedIntervals,
                             modifier = Modifier
                                 .fillMaxWidth()
