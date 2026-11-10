@@ -29,7 +29,7 @@ object WearBlockHeader {
             WodFormat.CHIPPER -> "Chipper"
             WodFormat.DEATH_BY -> "Muerte por"
             WodFormat.AFAP -> "AFAP"
-            WodFormat.LADDER -> h ?: "Ladder"
+            WodFormat.LADDER -> h ?: "Escalera"
             WodFormat.PARTNER -> "Partner"
             WodFormat.BUY_IN_CASH_OUT -> h ?: "Buy-in / Cash-out"
             WodFormat.ROUNDS_FOR_QUALITY -> if (rounds != null) "$rounds RFQ" else "Rounds for Quality"

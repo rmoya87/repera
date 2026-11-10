@@ -20,14 +20,25 @@ class WodFormatLabelsContract(unittest.TestCase):
         self.assertIn('case .forTime: return "For Time"', IOS_MODELS)
         self.assertIn('case .ladder: return "Escalera"', IOS_MODELS)
         self.assertIn('case .partner: return "Partner"', IOS_MODELS)
+        self.assertIn('case .forTime: return "For Time"', IOS_MODELS)
         self.assertNotIn('return "EMOM / Every X\'"', IOS_MODELS)
         self.assertNotIn('return "Ladder / 21-15-9"', IOS_MODELS)
         self.assertNotIn('case .ladder: return "Escalado"', IOS_MODELS)
+        self.assertIn('return blockHeader?.isEmpty == false ? blockHeader! : "Escalera"', IOS_MODELS)
         self.assertIn('EMOM -> "EMOM"', ANDROID_WOD)
         self.assertIn('FOR_TIME -> "For Time"', ANDROID_WOD)
         self.assertIn('LADDER -> "Escalera"', ANDROID_WOD)
         self.assertNotIn('LADDER -> "Escalado"', ANDROID_WOD)
         self.assertIn('PARTNER -> "Partner"', ANDROID_WOD)
+        wear = (
+            ROOT / "android/domain/src/main/java/dev/repera/domain/WearBlockHeader.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn('WodFormat.LADDER -> h ?: "Escalera"', wear)
+        catalog_test = (
+            ROOT / "android/domain/src/test/java/dev/repera/domain/CatalogWodsTest.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn('assertEquals("For Time", fran.formatLabel)', catalog_test)
+        self.assertNotIn('assertEquals("For Time / RFT", fran.formatLabel)', catalog_test)
 
     def test_for_time_fields_are_rounds_time_time(self):
         self.assertIn('case .roundRest: return "Tiempo"', IOS_PLAN)

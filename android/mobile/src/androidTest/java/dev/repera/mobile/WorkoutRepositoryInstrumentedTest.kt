@@ -206,7 +206,7 @@ class WorkoutRepositoryInstrumentedTest {
         assertEquals("forTime", score.getString("format"))
         assertEquals(387, score.getInt("elapsedSeconds"))
         val overview = StateOverview.fromBytes(local.read())!!
-        assertEquals("For Time / RFT · 6:27", overview.history.single().results.single())
+        assertEquals("For Time · 6:27", overview.history.single().results.single())
         assertEquals(2, overview.history.single().movements.size)
         assertTrue(overview.history.single().movements.all { it.registered.isEmpty() })
         assertFalse(score.has("roundsCompleted"))

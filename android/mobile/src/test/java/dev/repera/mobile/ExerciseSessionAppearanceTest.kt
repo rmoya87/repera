@@ -55,7 +55,7 @@ class ExerciseSessionAppearanceTest {
         val a = ExerciseSessionAppearances.appearance("e1", s)!!
         assertTrue(a.isGlobalWodScore)
         assertEquals("12:34", a.wodScoreLabel)
-        assertEquals("For Time / RFT", a.wodFormatName)
+        assertEquals("For Time", a.wodFormatName)
         assertEquals("fran", a.wodTemplateId)
         // Nombre del benchmark desde la semilla de catálogo (paridad iOS:
         // template?.name ?? session.title), no el título libre de la sesión.
@@ -155,7 +155,7 @@ class SessionInstanceScopingTest {
         val a = ExerciseSessionAppearances.appearance("thruster", scopedB)!!
         assertEquals(listOf("60×3"), a.setLines)
         assertEquals("5:00", a.wodScoreLabel)
-        assertEquals("For Time / RFT", a.wodFormatName)
+        assertEquals("For Time", a.wodFormatName)
 
         val scopedA = ExerciseSessionAppearances.scopedForInstance(session, "inst-a")!!
         val b = ExerciseSessionAppearances.appearance("thruster", scopedA)!!

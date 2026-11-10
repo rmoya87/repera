@@ -27,7 +27,7 @@ class WearBlockHeaderTest {
     @Test fun othersAndHeaderFallbacks() {
         assertEquals("Tabata 20/10 ×8", h(WodFormat.TABATA))
         assertEquals("Tabata 30/15 ×4", h(WodFormat.TABATA, work = 30, rest = 15, rounds = 4))
-        assertEquals("Ladder", h(WodFormat.LADDER))
+        assertEquals("Escalera", h(WodFormat.LADDER))
         assertEquals("Mi ladder", h(WodFormat.LADDER, header = "Mi ladder"))
         assertEquals("3 RFQ", h(WodFormat.ROUNDS_FOR_QUALITY, rounds = 3))
         assertEquals("Rounds for Quality", h(WodFormat.ROUNDS_FOR_QUALITY))

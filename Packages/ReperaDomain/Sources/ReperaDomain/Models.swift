@@ -2041,7 +2041,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         case .afap:
             return "AFAP"
         case .ladder:
-            return blockHeader?.isEmpty == false ? blockHeader! : "Ladder"
+            return blockHeader?.isEmpty == false ? blockHeader! : "Escalera"
         case .partner:
             return "Partner"
         case .buyInCashOut:

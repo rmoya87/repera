@@ -51,7 +51,7 @@ class CatalogWodsTest {
     @Test
     fun labelsMatchIosPresentation() {
         val fran = CatalogWods.template("fran")!!
-        assertEquals("For Time / RFT", fran.formatLabel)
+        assertEquals("For Time", fran.formatLabel)
         assertEquals("~5 min", fran.typicalLabel)
         assertEquals(fran.muscles.joinToString(" · "), fran.musclesLabel)
     }

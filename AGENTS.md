@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-10.
+Última actualización: 2026-11-11.
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -144,6 +144,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### WOD — nombres cortos `displayName` vs tests legacy (11/11/2026)
+- Acortar `WodFormat.displayName` (p. ej. `For Time`, `Escalera`) sin actualizar aserciones deja rojo
+  `:domain:testDebugUnitTest` (`CatalogWodsTest.labelsMatchIosPresentation`) y, más tarde, JVM/instrumented
+  que aún esperan `For Time / RFT` o cabeceras Wear `Ladder`.
+- Al renombrar formatos: buscar `formatLabel` / `wodFormatName` / `WearBlockHeader` / `displayBlockHeader`
+  y alinear iOS+Android en el mismo cambio; contrato `tests/test_wod_format_labels_contract.py`.
 
 #### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
 - `deploy-internal-beta` puede fallar en *Publish AAB…* con
