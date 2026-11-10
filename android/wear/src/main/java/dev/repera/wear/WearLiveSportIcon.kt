@@ -1,9 +1,9 @@
 package dev.repera.wear
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DirectionsBike
-import androidx.compose.material.icons.outlined.DirectionsRun
-import androidx.compose.material.icons.outlined.DirectionsWalk
+import androidx.compose.material.icons.automirrored.outlined.DirectionsBike
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.DownhillSkiing
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.GolfCourse
@@ -44,13 +44,13 @@ import dev.repera.domain.LiveSport
  */
 internal val LiveSport.wearIcon: ImageVector
     get() = when (this) {
-        LiveSport.RUNNING, LiveSport.TRAIL -> Icons.Outlined.DirectionsRun
-        LiveSport.WALKING -> Icons.Outlined.DirectionsWalk
+        LiveSport.RUNNING, LiveSport.TRAIL -> Icons.AutoMirrored.Outlined.DirectionsRun
+        LiveSport.WALKING -> Icons.AutoMirrored.Outlined.DirectionsWalk
         LiveSport.HIKING -> Icons.Outlined.Hiking
-        LiveSport.CYCLING, LiveSport.MOUNTAIN_BIKE, LiveSport.GRAVEL -> Icons.Outlined.DirectionsBike
+        LiveSport.CYCLING, LiveSport.MOUNTAIN_BIKE, LiveSport.GRAVEL -> Icons.AutoMirrored.Outlined.DirectionsBike
         LiveSport.CROSSFIT -> Icons.Outlined.FitnessCenter
         LiveSport.STRENGTH -> Icons.Outlined.FitnessCenter
-        LiveSport.HYROX -> Icons.Outlined.DirectionsRun
+        LiveSport.HYROX -> Icons.AutoMirrored.Outlined.DirectionsRun
         LiveSport.HIIT -> Icons.Outlined.Timer
         LiveSport.TENNIS, LiveSport.PADEL -> Icons.Outlined.SportsTennis
         LiveSport.SURFING -> Icons.Outlined.Surfing
@@ -78,7 +78,7 @@ internal val LiveSport.wearIcon: ImageVector
         LiveSport.WRESTLING -> Icons.Outlined.SportsKabaddi
         LiveSport.BADMINTON, LiveSport.PICKLEBALL, LiveSport.SQUASH -> Icons.Outlined.SportsTennis
         LiveSport.FUNCTIONAL_STRENGTH, LiveSport.CORE_TRAINING -> Icons.Outlined.FitnessCenter
-        LiveSport.ELLIPTICAL -> Icons.Outlined.DirectionsRun
+        LiveSport.ELLIPTICAL -> Icons.AutoMirrored.Outlined.DirectionsRun
         LiveSport.STAIR_CLIMBING -> Icons.Outlined.Stairs
         LiveSport.AMERICAN_FOOTBALL -> Icons.Outlined.SportsFootball
         LiveSport.BASEBALL, LiveSport.SOFTBALL -> Icons.Outlined.SportsBaseball
