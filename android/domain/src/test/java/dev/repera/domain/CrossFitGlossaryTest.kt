@@ -36,7 +36,7 @@ class CrossFitGlossaryTest {
         assertNull(r.repScheme)
         assertEquals(12, r.reps)
         assertEquals("Toes to bar", r.name)
-        assertTrue(r.equipmentNote.contains("10-12"))
+        assertTrue(requireNotNull(r.equipmentNote).contains("10-12"))
     }
 
     @Test
@@ -45,7 +45,7 @@ class CrossFitGlossaryTest {
         assertEquals("Air bike", r.name)
         assertEquals(20, r.calories)
         assertNull(r.weightMaleKg)
-        assertTrue(r.equipmentNote.contains("16"))
+        assertTrue(requireNotNull(r.equipmentNote).contains("16"))
     }
 
     @Test
@@ -70,8 +70,8 @@ class CrossFitGlossaryTest {
         val r = CrossFitGlossary.parseMovementLine("8 DB SNATCH ALT")
         assertEquals(8, r.reps)
         assertEquals("Snatch mancuerna", r.name)
-        assertTrue(r.equipmentNote.contains("Mancuerna"))
-        assertTrue(r.equipmentNote.contains("Alternando"))
+        assertTrue(requireNotNull(r.equipmentNote).contains("Mancuerna"))
+        assertTrue(requireNotNull(r.equipmentNote).contains("Alternando"))
     }
 
     @Test
@@ -89,8 +89,8 @@ class CrossFitGlossaryTest {
         assertEquals("Step-up al cajón con doble mancuerna", step.name)
         assertEquals(12, step.distanceMeters)
         assertNull(step.reps)
-        assertTrue(step.equipmentNote.contains("8-12 m"))
-        assertTrue(step.equipmentNote.contains("Doble mancuerna"))
+        assertTrue(requireNotNull(step.equipmentNote).contains("8-12 m"))
+        assertTrue(requireNotNull(step.equipmentNote).contains("Doble mancuerna"))
 
         val swing = CrossFitGlossary.parseMovementLine("20 RKBS 24/16")
         assertEquals("Swing kettlebell", swing.name)
@@ -106,7 +106,7 @@ class CrossFitGlossaryTest {
         val r = CrossFitGlossary.parseMovementLine("1 T&G SQUAT CLEAN")
         assertEquals(1, r.reps)
         assertEquals("Cargada", r.name)
-        assertTrue(r.equipmentNote.contains("Touch & go"))
+        assertTrue(requireNotNull(r.equipmentNote).contains("Touch & go"))
     }
 
     @Test
