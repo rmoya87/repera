@@ -337,7 +337,7 @@ internal fun WearHomeContent(
     val runningPlan = state.session?.phase == "counting" &&
         !state.showOutline && !state.showSetDetails && !state.reviewingBlock
     if (runningPlan) {
-        val session = state.session ?: return
+        val session = state.session
         val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
         var confirmFinish by remember(session.sessionId) { mutableStateOf(false) }
         var confirmDiscard by remember(session.sessionId) { mutableStateOf(false) }
