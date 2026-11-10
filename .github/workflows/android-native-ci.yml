@@ -50,6 +50,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
+      - name: Unit tests for Play versioning and marketing notes
+        run: python3 -m unittest discover -s android/scripts -p 'test_play_release_metadata.py' -v
       - name: Domain parity tests + native builds
         run: gradle -p android :domain:testDebugUnitTest :wear:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
       - name: Android mobile complete JVM unit suite
@@ -476,6 +478,10 @@ jobs:
           REPERA_UPLOAD_KEY_ALIAS: repera-upload
           # PKCS12: la password de clave ES la del almacen (un solo secret).
           REPERA_UPLOAD_KEY_PASSWORD: ${{ secrets.REPERA_UPLOAD_STORE_PASSWORD }}
+      - name: Checksum of the signed AAB
+        run: |
+          sha256sum android/mobile/build/outputs/bundle/release/mobile-release.aab | tee "$RUNNER_TEMP/repera-play-release/aab-sha256.txt"
+          echo "### Google Play internal — $REPERA_VERSION_NAME ($REPERA_VERSION_CODE)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload AAB to Play internal track
         uses: r0adkll/upload-google-play@v1
         with:
@@ -487,3 +493,10 @@ jobs:
           whatsNewDirectory: ${{ runner.temp }}/repera-play-release/whatsnew
           mappingFile: android/mobile/build/outputs/mapping/release/mapping.txt
           status: completed
+      - name: Upload signed artifact provenance
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-release-aab-sha256
+          path: ${{ runner.temp }}/repera-play-release/aab-sha256.txt
+          retention-days: 90
