@@ -65,7 +65,7 @@ class BoardScanDeviceLogOcrTest {
         assertEquals(WODFormat.FOR_TIME,w.wodFormat);assertEquals(20,w.timeCapMinutes);assertNull(w.rounds)
         assertEquals(12,w.movements.size)
         assertEquals(listOf(750,500,250),w.movements.mapNotNull {it.distanceMeters})
-        assertEquals(listOf(40.0,40.0,50.0,50.0,60.0,60.0),w.movements.mapNotNull {it.weightMaleKg}.map {it.toDouble()})
+        assertEquals(listOf(40.0,40.0,50.0,50.0,60.0,60.0),w.movements.mapNotNull {it.weightMaleKg})
     }
     @Test fun squatSnatchIntervalHasEightDistinctPercentSets() {
         val r=parse("""
