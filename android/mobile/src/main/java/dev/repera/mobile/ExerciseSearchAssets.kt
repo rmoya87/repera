@@ -5,7 +5,16 @@ import org.json.JSONObject
 import dev.repera.domain.ExerciseAliasSearch
 
 object ExerciseSearchAssets {
-    fun load(context: Context): Map<String, String> {
+    // Recursos empaquetados inmutables: reutilizar el índice entre pantallas,
+    // evitando JSON y normalización en el hilo UI en cada navegación.
+    @Volatile private var cachedAliases: Map<String, String>? = null
+
+    fun load(context: Context): Map<String, String> =
+        cachedAliases ?: synchronized(this) {
+            cachedAliases ?: readAssets(context.applicationContext).also { cachedAliases = it }
+        }
+
+    private fun readAssets(context: Context): Map<String, String> {
         val source = context.assets.open("exercise_search_aliases.json")
             .bufferedReader(Charsets.UTF_8).use { it.readText() }
         val data = JSONObject(source)
