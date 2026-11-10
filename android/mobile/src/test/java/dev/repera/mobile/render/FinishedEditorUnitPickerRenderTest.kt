@@ -62,7 +62,6 @@ abstract class FinishedEditorUnitPickerRenderBase {
                 }
             }
         }
-        composeRule.onNodeWithTag("edit_finished_workout").performClick()
         composeRule.onNodeWithText("Reps / m", useUnmergedTree = true)
             .assertExists()
         composeRule.onNodeWithTag("set_unit_reps_0_0_0", useUnmergedTree = true)
