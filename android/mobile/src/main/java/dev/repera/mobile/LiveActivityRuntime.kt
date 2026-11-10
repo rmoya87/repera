@@ -49,6 +49,7 @@ internal class LiveActivityRuntime private constructor(context: Context, val acc
     // la sesión y sus métricas siguen funcionando sin voz.
     private val voiceHolder = lazy(LazyThreadSafetyMode.NONE) { LiveSpokenGuidance(app) }
     private val voice get() = voiceHolder.value
+    internal fun isGuidanceEngineInitialized(): Boolean = voiceHolder.isInitialized()
     private fun stopVoiceIfInitialized() {
         if (voiceHolder.isInitialized()) runCatching { voice.stop() }
     }
