@@ -18,7 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class LiveLocationSourceInstrumentedTest {
     // A foreground location request must be tested while the app is visible,
     // not from a background instrumentation process without an Activity/FGS.
-    @get:org.junit.Rule val compose=androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @get:org.junit.Rule val compose=androidx.compose.ui.test.junit4.v2.createAndroidComposeRule<androidx.activity.ComponentActivity>()
     @Test fun deniedLocationDoesNotStartProviderOrInventSamples() {
         val real=InstrumentationRegistry.getInstrumentation().targetContext
         val denied=object:android.content.ContextWrapper(real) {

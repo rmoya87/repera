@@ -14,7 +14,7 @@ import java.util.UUID
 /** Cuenta sintética aislada, sin sensores, red ni Salud. */
 @RunWith(AndroidJUnit4::class)
 class LiveActivitySaveInstrumentedTest {
-    @get:org.junit.Rule val compose = androidx.compose.ui.test.junit4.createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    @get:org.junit.Rule val compose = androidx.compose.ui.test.junit4.v2.createAndroidComposeRule<androidx.activity.ComponentActivity>()
     @Test fun evolutionMapCapturesRealWindowAfterStyleLoaded() {
         val loaded = java.util.concurrent.CountDownLatch(1)
         val route = LiveSavedRoute(title = "Ruta sintética Madrid", sportID = "running", points = (0..20).map { i ->
