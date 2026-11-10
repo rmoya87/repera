@@ -8,8 +8,13 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /** Una pulsación 3D no debe vender otra vez a quien ya tiene Pro. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class SubscriptionPaywallGateTest {
     private class FakeProvider(private val states: List<SubscriptionStatus>) : EntitlementProvider {
         override val isConfigured = true
