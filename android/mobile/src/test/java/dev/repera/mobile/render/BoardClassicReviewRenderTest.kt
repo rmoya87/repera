@@ -43,9 +43,9 @@ class BoardClassicReviewRenderTest {
   composeRule.onNodeWithText("3",useUnmergedTree=true).assertExists()
   composeRule.onNodeWithText("8",useUnmergedTree=true).assertExists()
   assertNull(sent)
-  composeRule.onNodeWithText("Series 1").performTextReplacement("4")
-  composeRule.onNodeWithText("Repeticiones 1").performTextReplacement("6")
-  composeRule.onNodeWithText("Carga propuesta 1").performTextReplacement("60,5")
+  composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[1].performTextReplacement("4")
+  composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[2].performTextReplacement("6")
+  composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[3].performTextReplacement("60,5")
   assertNull(sent)
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/classic-review-editable.png").use {out ->composeRule.onNodeWithTag("classic_review_fixture").captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,out)}
@@ -69,9 +69,9 @@ class BoardClassicReviewRenderTest {
    }
   }}}
   composeRule.onNodeWithText("Crear rutina").assertIsNotEnabled()
-  composeRule.onNodeWithText("Ejercicio 1").performTextReplacement("Back squat")
+  composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[0].performTextReplacement("Back squat")
   composeRule.onNodeWithText("Crear rutina").assertIsEnabled()
-  composeRule.onNodeWithText("Series 1").performTextReplacement("0")
+  composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[1].performTextReplacement("0")
   composeRule.onNodeWithText("Crear rutina").assertIsNotEnabled()
   assertEquals(0,calls)
  }
