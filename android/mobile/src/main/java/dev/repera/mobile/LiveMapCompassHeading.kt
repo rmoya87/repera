@@ -37,9 +37,16 @@ import androidx.lifecycle.LifecycleEventObserver
                 override fun onSensorChanged(event:SensorEvent) {
                     if(event.sensor.type!=Sensor.TYPE_ROTATION_VECTOR) return
                     val matrix=FloatArray(9);val orientation=FloatArray(3)
-                    SensorManager.getRotationMatrixFromVector(matrix,event.values)
-                    SensorManager.getOrientation(matrix,orientation)
+                    // Algunos sensores de terceros emiten tramas vacías/incompletas
+                    // durante el registro inicial; nunca cerrar Comenzar por ello.
+                    if (event.values.size < 3) return
+                    val validMatrix = runCatching {
+                        SensorManager.getRotationMatrixFromVector(matrix,event.values)
+                        SensorManager.getOrientation(matrix,orientation)
+                    }.isSuccess
+                    if (!validMatrix) return
                     val magnetic=Math.toDegrees(orientation[0].toDouble())
+                    if (!magnetic.isFinite()) return
                     val (lat,lon)=coords
                     val declination=if(lat!=null && lon!=null && lat.isFinite() && lon.isFinite() &&
                         lat in -90.0..90.0 && lon in -180.0..180.0)
