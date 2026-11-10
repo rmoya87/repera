@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-10 (Android: AGP ≥9.4.1 evita VerifyError R8 en Comenzar).
+Última actualización: 2026-11-10 (iOS: tokens `OGMotion` + regla única reduceMotion).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -293,6 +293,7 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 
 - Tokens `OG*` adaptativos (día/noche según sistema), acento verde `#30d158`
 - `OG.bg` = lienzo (día gris agrupado, noche negro); `OG.surface` = cards/filas (día blanco, noche gris) — mismo patrón de secciones en ambos modos
+- `OGMotion`: curvas estándar (`reorder` spring, `appear` ease-out 0.2, `highlight` ease-out 0.15) + `animation(_:reduceMotion:)` / `run` — con «Reducir movimiento» no hay movimiento (cambio instantáneo; fundidos solo vía `.opacity`)
 - `OGCard`, `OGPageHeader`, `OGBackPageHeader` (legacy / sheets compactos)
 - `ogPinnedTransparentNav`: título large debajo de volver/acciones (subpáginas); fuerza `.toolbar(.visible)` porque roots con `ogFixedTopBar` ocultan la barra
 - `ogFixedTopBar` / `OGFixedTopBar`: título arriba del todo; acciones en la misma fila (roots sin franja vacía)

@@ -100,6 +100,39 @@ enum OG {
     static let pad: CGFloat = 16
 }
 
+/// Curvas estándar de presentación. Usar siempre estos tokens en lugar de
+/// `.smooth` / `.easeInOut(0.28)` / `.easeOut(0.15)` sueltos.
+///
+/// Propósito:
+/// - `reorder`: reordenar bloques / filas (spring, interrumpible).
+/// - `appear`: apariciones y paneles (curva corta ease-out).
+/// - `highlight`: resaltados de drop target / feedback de color.
+///
+/// Con «Reducir movimiento» activo, `animation(_:reduceMotion:)` y `run`
+/// no aplican movimiento: cambio instantáneo. Los call sites que necesiten
+/// un fundido deben conservar solo `.opacity` (sin offset/scale/move).
+enum OGMotion {
+    static let reorder = Animation.spring(response: 0.34, dampingFraction: 0.86)
+    static let appear = Animation.easeOut(duration: 0.2)
+    static let highlight = Animation.easeOut(duration: 0.15)
+
+    /// Regla única de accesibilidad para animaciones de movimiento.
+    static func animation(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    /// Equivalente a `withAnimation` respetando la regla de reducir movimiento.
+    static func run(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {
+        if let resolved = Self.animation(animation, reduceMotion: reduceMotion) {
+            withAnimation(resolved, updates)
+        } else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction, updates)
+        }
+    }
+}
+
 /// Tamaño de diseño que escala con Dynamic Type siguiendo `relativeTo`.
 /// Solo para tamaños sin estilo semántico equivalente (11 → `.caption2`,
 /// 12 → `.caption`, 13 → `.footnote`, 15 → `.subheadline`, 16 → `.callout`,
@@ -423,6 +456,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
     var isPresented: Bool
     var onDismiss: () -> Void
     @ViewBuilder var panel: () -> Panel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -441,7 +475,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
                                 .overlay(alignment: .leading) {
                                     Rectangle().fill(OG.surface3).frame(width: 1)
                                 }
-                                .transition(.move(edge: .trailing))
+                                .transition(reduceMotion ? .opacity : .move(edge: .trailing))
                                 .zIndex(1)
                         }
                     }
@@ -450,7 +484,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
                 .ignoresSafeArea()
                 .allowsHitTesting(isPresented)
             }
-            .animation(.easeInOut(duration: 0.28), value: isPresented)
+            .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: isPresented)
     }
 }
 
@@ -866,6 +900,7 @@ struct OGReorderInsertionGap: View {
     var accepts: (String) -> Bool = { _ in true }
     var style: Style = .betweenCards
     var onDrop: (String) -> Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTargeted = false
 
     enum Style {
@@ -904,7 +939,7 @@ struct OGReorderInsertionGap: View {
             }
         }
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.15), value: isTargeted)
+        .animation(OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion), value: isTargeted)
         .onDrop(
             of: [UTType.plainText],
             delegate: OGReorderDropDelegate(
