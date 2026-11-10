@@ -151,6 +151,8 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   que aún esperan `For Time / RFT` o cabeceras Wear `Ladder`.
 - Al renombrar formatos: buscar `formatLabel` / `wodFormatName` / `WearBlockHeader` / `displayBlockHeader`
   y alinear iOS+Android en el mismo cambio; contrato `tests/test_wod_format_labels_contract.py`.
+- Escáner → editor: el CTA de revisión es **Continuar** (no «Crear rutina»). Si no, falla
+  `BoardClassicReviewRenderTest` en `:mobile:testDebugUnitTest` y no llega `deploy-internal-beta`.
 
 #### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
 - `deploy-internal-beta` puede fallar en *Publish AAB…* con

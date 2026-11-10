@@ -52,6 +52,12 @@ class WodFormatLabelsContract(unittest.TestCase):
         self.assertIn("PendingBoardScanDraft.hold", ANDROID_NAV)
         self.assertIn("rutina-nueva?fecha=", ANDROID_NAV)
         self.assertIn('Text("Continuar")', ANDROID_CONFIRM)
+        self.assertNotIn('Text("Crear rutina")', ANDROID_CONFIRM)
+        render = (
+            ROOT / "android/mobile/src/test/java/dev/repera/mobile/render/BoardClassicReviewRenderTest.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn('onNodeWithText("Continuar")', render)
+        self.assertNotIn('onNodeWithText("Crear rutina")', render)
 
     def test_for_time_keeps_bare_scheme(self):
         self.assertIn("bareScheme", IOS_PARSER)

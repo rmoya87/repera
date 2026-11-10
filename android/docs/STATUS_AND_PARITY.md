@@ -508,7 +508,7 @@ cada concepto con Android. Además de lo ya registrado:
 - **`DayPlusSheet`**: menú «＋» — Crear → Temporizador → Escanear entreno →
   Favoritos; one-off con fecha + semilla «Bloque 1»; Favoritos pasa ISO y
   `assignRoutineToDate`; al volver de Favoritos/Tempo se reapre el sheet.
-  Escáner review: **Crear rutina** + **Empezar**.
+  Escáner review: **Continuar** (abre Crear entreno con bloques sembrados).
 - **`HomeSwipeRevealCard`**: swipe en cards compactas de Inicio (eliminar /
   editar planificado → `rutina/{id}`).
 - **`FavoritesHub`**: crear/editar/eliminar entreno favorito; tap con fecha =

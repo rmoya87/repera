@@ -49,7 +49,7 @@ class BoardClassicReviewRenderTest {
   assertNull(sent)
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/classic-review-editable.png").use {out ->composeRule.onNodeWithTag("classic_review_fixture").captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,out)}
-  composeRule.onNodeWithText("Crear rutina").performScrollTo().performClick()
+  composeRule.onNodeWithText("Continuar").performScrollTo().performClick()
   val wire=BoardScanImport.wireBlock(sent!!.single())
   val exercise=wire.getJSONArray("exercises").getJSONObject(0)
   assertEquals("squat",exercise.getString("exerciseId"))
@@ -68,11 +68,11 @@ class BoardClassicReviewRenderTest {
      onConfirm={_,_,_ ->calls++})
    }
   }}}
-  composeRule.onNodeWithText("Crear rutina").assertIsNotEnabled()
+  composeRule.onNodeWithText("Continuar").assertIsNotEnabled()
   composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[0].performTextReplacement("Back squat")
-  composeRule.onNodeWithText("Crear rutina").assertIsEnabled()
+  composeRule.onNodeWithText("Continuar").assertIsEnabled()
   composeRule.onAllNodesWithTag("repera_meta_text", useUnmergedTree = true)[1].performTextReplacement("0")
-  composeRule.onNodeWithText("Crear rutina").assertIsNotEnabled()
+  composeRule.onNodeWithText("Continuar").assertIsNotEnabled()
   assertEquals(0,calls)
  }
 }
