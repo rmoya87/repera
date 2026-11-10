@@ -37,9 +37,9 @@ class SessionCardioEffortTest {
             heartRateBpmSamples = List(20) { 172.0 }, durationMinutes = 9.0)
         val updated = SessionCardioEffort.apply(base, sample)
         assertTrue(updated.overallScore > base.overallScore)
-        assertTrue(updated.vsStandardSummary!!.contains("FC media"))
+        assertTrue(updated.vsStandardSummary.contains("FC media"))
         // Resumen previo conservado delante (iOS concatena).
-        assertTrue(updated.vsStandardSummary!!.startsWith("Tu tiempo fue 8:30."))
+        assertTrue(updated.vsStandardSummary.startsWith("Tu tiempo fue 8:30."))
         // Titular reescrito con la nueva nota.
         assertTrue(updated.headline.contains("${updated.overallScore}/10"))
     }
