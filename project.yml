@@ -251,6 +251,11 @@ targets:
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
         ITSAppUsesNonExemptEncryption: false
+        # CanOpenURL para «Conecta tu IA» (ChatGPT / Claude / Grok).
+        LSApplicationQueriesSchemes:
+          - chatgpt
+          - claude
+          - grok
         NSCalendarsWriteOnlyAccessUsageDescription: Repera puede añadir tus reservas de Center confirmadas al Calendario del sistema, sin leer otros eventos.
         NSCameraUsageDescription: Repera usa la cámara para leer ejercicios de una pizarra o TV y montar la sesión.
         NSPhotoLibraryUsageDescription: Repera lee fotos de pizarras o pantallas para importar el entrenamiento.

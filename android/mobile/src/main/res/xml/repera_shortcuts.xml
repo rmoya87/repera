@@ -28,7 +28,7 @@
     </capability>
 
     <shortcut android:shortcutId="repera_today" android:enabled="true"
-        android:icon="@drawable/ic_timer"
+        android:icon="@mipmap/ic_shortcut_today"
         android:shortcutShortLabel="@string/shortcut_repera_today"
         android:shortcutLongLabel="@string/shortcut_repera_today_long">
         <intent android:action="android.intent.action.VIEW"
@@ -40,7 +40,7 @@
         </capability-binding>
     </shortcut>
     <shortcut android:shortcutId="repera_live" android:enabled="true"
-        android:icon="@drawable/ic_timer"
+        android:icon="@mipmap/ic_shortcut_play"
         android:shortcutShortLabel="@string/shortcut_repera_live"
         android:shortcutLongLabel="@string/shortcut_repera_live_long">
         <intent android:action="android.intent.action.VIEW"
@@ -52,7 +52,7 @@
         </capability-binding>
     </shortcut>
     <shortcut android:shortcutId="repera_timer" android:enabled="true"
-        android:icon="@drawable/ic_timer"
+        android:icon="@mipmap/ic_shortcut_timer"
         android:shortcutShortLabel="@string/shortcut_repera_timer"
         android:shortcutLongLabel="@string/shortcut_repera_timer_long">
         <intent android:action="android.intent.action.VIEW"
@@ -64,7 +64,7 @@
         </capability-binding>
     </shortcut>
     <shortcut android:shortcutId="repera_exercises" android:enabled="true"
-        android:icon="@drawable/ic_timer"
+        android:icon="@mipmap/ic_shortcut_exercises"
         android:shortcutShortLabel="@string/shortcut_repera_exercises"
         android:shortcutLongLabel="@string/shortcut_repera_exercises_long">
         <intent android:action="android.intent.action.VIEW"

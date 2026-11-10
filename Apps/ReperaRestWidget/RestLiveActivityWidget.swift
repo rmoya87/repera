@@ -94,7 +94,8 @@ struct ReperaRestWidgetBundle: WidgetBundle {
     var body: some Widget {
         RestLiveActivityWidget()
         TrainingLiveActivityWidget()
-        // Sin widget de pantalla de inicio: solo Live Activities + Control Center.
+        // Kind legacy retirado (desfavorecido en home/lock); no ofrecer Accesos rápidos.
+        ReperaHomeWidgetRetired()
         ReperaBeginControl()
         ReperaTodayControl()
         ReperaTimerControl()

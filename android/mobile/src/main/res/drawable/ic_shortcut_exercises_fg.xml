@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ejercicios → mancuerna horizontal (pestaña principal). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="30"
+        android:translateY="30"
+        android:scaleX="2"
+        android:scaleY="2">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M7,11h10v2H7zM3,8h3v8H3zM1.5,9.5H3v5H1.5zM18,8h3v8h-3zM21,9.5h1.5v5H21z" />
+    </group>
+</vector>

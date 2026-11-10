@@ -60,8 +60,9 @@ class NativeSystemEntryContractTests(unittest.TestCase):
 
     def test_apple_live_activity_controls_and_watch_gesture_are_connected(self):
         bundle = source("Apps/ReperaRestWidget/RestLiveActivityWidget.swift")
-        # Sin widget de pantalla de inicio: Live Activities + Control Center.
+        # Sin widget útil de home: Live Activities + Control Center + stub retired.
         self.assertNotIn("ReperaHomeWidget()", bundle)
+        self.assertIn("ReperaHomeWidgetRetired()", bundle)
         self.assertIn("RestLiveActivityWidget()", bundle)
         self.assertIn("TrainingLiveActivityWidget()", bundle)
         self.assertIn("ReperaBeginControl()", bundle)
@@ -69,6 +70,10 @@ class NativeSystemEntryContractTests(unittest.TestCase):
             (ROOT / "Apps/ReperaRestWidget/ReperaHomeWidget.swift").exists(),
             "home screen widget source must stay removed",
         )
+        retired = source("Apps/ReperaRestWidget/ReperaHomeWidgetRetired.swift")
+        self.assertIn('kind: "com.app.repera.launch"', retired)
+        self.assertIn(".disfavoredLocations([.homeScreen, .lockScreen]", retired)
+        self.assertNotIn("Accesos rápidos", retired)
         watch = source("Apps/ReperaWatch/Sources/WatchSessionView.swift")
         self.assertIn(".handGestureShortcut(.primaryAction", watch)
         self.assertIn("!hub.nextActionIsFinish", watch)
@@ -101,7 +106,17 @@ class NativeSystemEntryContractTests(unittest.TestCase):
         self.assertNotIn("repera_home_widget_info", manifest)
         self.assertNotIn("ReperaHomeWidgetReceiver", manifest)
         self.assertIn("repera_shortcuts", manifest)
-        self.assertIn("repera://exercises", source("android/mobile/src/main/res/xml/repera_shortcuts.xml"))
+        shortcuts = source("android/mobile/src/main/res/xml/repera_shortcuts.xml")
+        self.assertIn("repera://exercises", shortcuts)
+        self.assertIn('@mipmap/ic_shortcut_today', shortcuts)
+        self.assertIn('@mipmap/ic_shortcut_play', shortcuts)
+        self.assertIn('@mipmap/ic_shortcut_timer', shortcuts)
+        self.assertIn('@mipmap/ic_shortcut_exercises', shortcuts)
+        self.assertNotIn('@drawable/ic_timer"', shortcuts.replace(
+            'android:icon="@drawable/ic_timer"', "USED_TIMER"
+        ))
+        # Los cuatro atajos ya no comparten el mismo icono genérico.
+        self.assertEqual(shortcuts.count("android:icon="), 4)
         self.assertFalse(
             (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaHomeWidget.kt").exists(),
             "Glance home widget must stay removed",
