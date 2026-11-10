@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-10 (Android: fix crash Comenzar release vía AGP 9.4.1).
+Última actualización: 2026-11-10 (iOS: motion nativo OGMotion + reduceMotion en hubs).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 

@@ -2932,7 +2932,7 @@ struct LiveActivityView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .background(pageShowsMap ? Color.clear : OG.bg)
             .allowsHitTesting(!pageShowsMap)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: liveSessionPage)
+            .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: liveSessionPage)
 
             // Controles encima (como el overlay idle); swipe aquí cambia de página.
             VStack(spacing: 6) {
@@ -2982,7 +2982,7 @@ struct LiveActivityView: View {
             else { return }
             let next = liveSessionPage + delta
             guard (0..<liveSessionPageCount).contains(next) else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            withAnimation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion)) {
                 liveSessionPage = next
             }
         }
@@ -2993,7 +2993,7 @@ struct LiveActivityView: View {
         HStack(spacing: 10) {
             ForEach(0..<liveSessionPageCount, id: \.self) { index in
                 Button {
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    withAnimation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion)) {
                         liveSessionPage = index
                     }
                 } label: {
@@ -3865,7 +3865,7 @@ struct LiveActivityView: View {
         .frame(maxWidth: .infinity)
         // Al pasar a vivo: Distancia sube y FC/tramo entran (ease-out corto).
         .animation(
-            reduceMotion ? nil : .easeOut(duration: 0.28),
+            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
             value: canLockLiveScreen
         )
     }
@@ -3968,7 +3968,7 @@ struct LiveActivityView: View {
             if gesture.translation.width < -70 { showOptions = true }
             if gesture.translation.width > 70 { showOptions = false }
         })
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: recorder.phase)
+        .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: recorder.phase)
     }
 
     /// True mientras el candado vive en el hueco de Play (fusión o bloqueado).
@@ -4082,7 +4082,7 @@ struct LiveActivityView: View {
         isLockMergeAnimating = true
         lockMergeProgress = 0
         // Morph en pantalla: ease-in-out + spring ligero = gotas que se unen.
-        withAnimation(.easeInOut(duration: 0.34)) {
+        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
             lockMergeProgress = 1
         }
         Task { @MainActor in

@@ -145,16 +145,13 @@ struct ReperaApp: App {
                 .allowsHitTesting(!(subscriptions.paywall.isPresented && onboarding.isComplete))
                 .accessibilityHidden(subscriptions.paywall.isPresented && onboarding.isComplete)
                 .overlay {
-                    if subscriptions.paywall.isPresented && onboarding.isComplete {
-                        // Página sobre la raíz, sin UISheetPresentationController.
-                        // Funciona desde cualquiera de las pestañas y se cierra con Volver.
+                    PaywallRootOverlay(
+                        isPresented: subscriptions.paywall.isPresented && onboarding.isComplete
+                    ) {
                         PaywallView()
                             .environment(subscriptions)
-                            .transition(.move(edge: .trailing))
-                            .zIndex(1)
                     }
                 }
-                .animation(.easeInOut(duration: 0.28), value: subscriptions.paywall.isPresented)
                 .onChange(of: subscriptions.isPro) { _, hasAccess in
                     // Si StoreKit verifica Pro después de abrir
                     // la página, ocultar inmediatamente la venta obsoleta.
@@ -162,6 +159,27 @@ struct ReperaApp: App {
                         subscriptions.dismissPaywall()
                     }
                 }
+    }
+
+    /// Paywall sobre la raíz con token `OGMotion.appear` y sin slide si reduceMotion.
+    private struct PaywallRootOverlay<Content: View>: View {
+        var isPresented: Bool
+        @ViewBuilder var content: () -> Content
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            ZStack {
+                if isPresented {
+                    content()
+                        .transition(reduceMotion ? .opacity : .move(edge: .trailing))
+                        .zIndex(1)
+                }
+            }
+            .animation(
+                OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
+                value: isPresented
+            )
+        }
     }
 
     /// Deliberately separate View expressions: Swift 6 cannot efficiently type-check

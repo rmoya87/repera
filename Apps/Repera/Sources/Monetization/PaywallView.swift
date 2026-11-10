@@ -79,7 +79,11 @@ struct PaywallView: View {
                 reconcileSelectedProduct()
             }
             .onAppear {
-                guard !reduceMotion else { return }
+                // Con reducir movimiento: pose fija. Si no: balanceo ambient (no es token UI).
+                guard !reduceMotion else {
+                    mascotRaised = true
+                    return
+                }
                 withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
                     mascotRaised = true
                 }
@@ -201,6 +205,7 @@ struct PaywallView: View {
                 .offset(x: 5, y: mascotRaised ? -8 : 5)
                 .accessibilityHidden(true)
         }
+        .ogChartAppear()
         .accessibilityElement(children: .combine)
     }
 

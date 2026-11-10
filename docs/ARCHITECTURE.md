@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-10 (iOS: tokens `OGMotion` + regla única reduceMotion).
+Última actualización: 2026-11-10 (iOS: pulido motion OGMotion en Play/Progreso/Historial/Paywall).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
