@@ -1,6 +1,9 @@
 package dev.repera.mobile
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.animation.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -265,6 +269,12 @@ private fun ReperaFloatingTabItem(
     val iconTint = if (selected) brandGreen else scheme.onSurfaceVariant
     val labelColor = if (selected) brandGreen else scheme.onSurfaceVariant
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    // La cápsula se expande con el easing Material, sin ripple adicional.
+    val indicatorWidth by animateDpAsState(
+        targetValue = if (selected) 56.dp else 0.dp,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+        label = "tabSelectionIndicator"
+    )
     val a11yLabel = stringResource(tab.accessibilityLabelRes)
     Column(
         modifier = modifier
@@ -286,15 +296,14 @@ private fun ReperaFloatingTabItem(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(width = 56.dp, height = 32.dp)
-                .then(
-                    if (selected) Modifier
-                        .clip(CircleShape)
-                        .background(MaterialTheme.reperaColors.tabSelectedFill)
-                    else Modifier
-                )
+            modifier = Modifier.size(width = 56.dp, height = 32.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .size(width = indicatorWidth, height = 32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.reperaColors.tabSelectedFill)
+            )
             Icon(
                 imageVector = tab.iconFor(selected),
                 contentDescription = null,
