@@ -273,10 +273,9 @@ private fun ReperaFloatingTabItem(
             .selectable(
                 selected = selected,
                 interactionSource = interaction,
-                indication = androidx.compose.material3.ripple(
-                    bounded = true,
-                    color = scheme.onSurface.copy(alpha = 0.10f)
-                ),
+                // El estado seleccionado ya tiene su propia cápsula verde.
+                // Evitar un segundo fondo gris durante la pulsación.
+                indication = null,
                 role = Role.Tab,
                 onClick = onClick
             )
@@ -291,7 +290,7 @@ private fun ReperaFloatingTabItem(
                 .size(width = 56.dp, height = 32.dp)
                 .then(
                     if (selected) Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(CircleShape)
                         .background(MaterialTheme.reperaColors.tabSelectedFill)
                     else Modifier
                 )
