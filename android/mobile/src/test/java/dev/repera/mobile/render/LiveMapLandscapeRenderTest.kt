@@ -157,9 +157,12 @@ class LiveMapLandscapeRenderTest {
   composeRule.onNodeWithTag("live_options").performClick()
   composeRule.onNodeWithTag("live_load_route").performClick()
   composeRule.onAllNodesWithText("Ruta de prueba")[0].assertIsDisplayed()
-  composeRule.onNodeWithText("Eliminar").performScrollTo().assertIsDisplayed()
+  composeRule.onNodeWithText("Últimas rutas").assertExists()
+  composeRule.onNodeWithText("Favoritos").assertExists()
   val bmp=composeRule.onNodeWithTag("populated_root").captureToImage().asAndroidBitmap()
   File("build/reports/render").mkdirs()
   FileOutputStream("build/reports/render/route-library-populated.png").use {bmp.compress(Bitmap.CompressFormat.PNG,100,it)}
+  composeRule.onAllNodesWithText("Ruta de prueba")[0].performClick()
+  composeRule.onNodeWithText("Mis rutas").assertDoesNotExist()
  }
 }
