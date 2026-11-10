@@ -15,22 +15,20 @@ class ExerciseArtResolverTest {
     }
 
     @Test fun legacyAliasResolvesEnglishSportNameToSpanishHero() {
-        // Cadena iOS: "Snatch" → SportExerciseNames.spanishAlias → "Arrancada" → nameMap.
-        assertEquals("art_cf_arrancada",
+        // Cadena iOS actual: "Snatch" se muestra con el hero power_snatch.
+        assertEquals("art_cf_power_snatch",
             ExerciseArtResolver.heroFor("Snatch", isMobility = false, aliases = noAliases))
     }
 
-    @Test fun jerkDipAndDriveHasNoArtYetLikeIos() {
-        // Entrada nueva del catálogo iOS sin stem propio ni clave nameMap alcanzable;
-        // iOS tampoco resuelve arte para ella (hueco compartido, no regresión Android).
-        assertNull(ExerciseArtResolver.heroFor("Jerk Dip and Drive", false, emptyMap()))
+    @Test fun jerkDipAndDriveResolvesPushJerkArtLikeCurrentIos() {
+        // El catálogo iOS actual reutiliza explícitamente el arte de Push Jerk.
+        assertEquals("art_cf_push_jerk", ExerciseArtResolver.heroFor("Jerk Dip and Drive", false, emptyMap()))
     }
 
-    @Test fun genericEnglishNameWithoutLegacyAliasDoesNotResolve() {
-        // iOS no consulta la tabla de alias de búsqueda para el arte: "bench press"
-        // sin entrada legacy queda sin héroe (paridad con ExerciseArt.swift).
+    @Test fun genericEnglishBenchPressDoesNotResolveToOverheadPress() {
+        // Una coincidencia inglesa no debe mostrar una ilustración de press militar.
         val aliases = mapOf("bench press" to "Press banca")
-        assertNull(ExerciseArtResolver.heroFor("bench press", isMobility = false, aliases = aliases))
+        assertEquals("art_press_banca", ExerciseArtResolver.heroFor("bench press", isMobility = false, aliases = aliases))
     }
 
     @Test fun normalizedKeyMatchIgnoresCaseAndDiacritics() {
