@@ -204,7 +204,7 @@ internal class WearHealthService:Service() {
         // Phone owns Health Connect/route; Wear owns the physiological exercise.
         // ExerciseClient does not itself write an ExerciseSessionRecord to HC.
         val companion = cache.getString("companionLiveSessionId",null)==id
-        val sportId = intent?.getStringExtra("sportId")
+        val sportId = intent.getStringExtra("sportId")
         scope.launch {
             val result=runCatching {
                 // ExerciseClient measures HR + actual total kcal. MeasureClient
