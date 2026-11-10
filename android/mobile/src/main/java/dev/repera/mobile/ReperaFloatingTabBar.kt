@@ -1,7 +1,7 @@
 package dev.repera.mobile
 
 import androidx.compose.ui.res.stringResource
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 // background used for selected tab capsule fill
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +42,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -239,20 +244,50 @@ internal fun ReperaFloatingTabBar(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
         )
     ) {
-        Row(
-            Modifier
+        BoxWithConstraints(
+            modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 6.dp, vertical = 6.dp)
         ) {
-            tabs.forEach { tab ->
-                ReperaFloatingTabItem(
-                    tab = tab,
-                    selected = selectedRoute == tab.route,
-                    onClick = { onTabSelected(tab.route) },
-                    modifier = Modifier.weight(1f)
+            // Un único indicador se desplaza entre pestañas. Antes cada pestaña
+            // animaba su ancho independientemente y producía un salto entre estados.
+            val selectedIndex = tabs.indexOfFirst { it.route == selectedRoute }
+            val slotWidth = if (tabs.isEmpty()) 0.dp else maxWidth / tabs.size
+            val targetX = if (selectedIndex < 0) 0.dp
+                else slotWidth * selectedIndex + (slotWidth - 56.dp) / 2
+            val density = LocalDensity.current
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+            val indicatorX by animateFloatAsState(
+                targetValue = with(density) { targetX.toPx() },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "tabSelectionPosition"
+            )
+            if (selectedIndex >= 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 2.dp)
+                        .graphicsLayer {
+                            translationX = if (rtl) -indicatorX else indicatorX
+                        }
+                        .size(width = 56.dp, height = 32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.reperaColors.tabSelectedFill)
                 )
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                tabs.forEach { tab ->
+                    ReperaFloatingTabItem(
+                        tab = tab,
+                        selected = selectedRoute == tab.route,
+                        onClick = { onTabSelected(tab.route) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -269,12 +304,6 @@ private fun ReperaFloatingTabItem(
     val iconTint = if (selected) brandGreen else scheme.onSurfaceVariant
     val labelColor = if (selected) brandGreen else scheme.onSurfaceVariant
     val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    // La cápsula se expande con el easing Material, sin ripple adicional.
-    val indicatorWidth by animateDpAsState(
-        targetValue = if (selected) 56.dp else 0.dp,
-        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-        label = "tabSelectionIndicator"
-    )
     val a11yLabel = stringResource(tab.accessibilityLabelRes)
     Column(
         modifier = modifier
@@ -298,12 +327,6 @@ private fun ReperaFloatingTabItem(
             contentAlignment = Alignment.Center,
             modifier = Modifier.size(width = 56.dp, height = 32.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(width = indicatorWidth, height = 32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.reperaColors.tabSelectedFill)
-            )
             Icon(
                 imageVector = tab.iconFor(selected),
                 contentDescription = null,
