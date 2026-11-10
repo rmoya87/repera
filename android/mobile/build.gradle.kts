@@ -15,8 +15,9 @@ android {
         applicationId = "com.app.repera"
         minSdk = 30
         targetSdk = 37
-        // CI pasa REPERA_VERSION_CODE (minutos desde 2026-01-01 UTC, monotonico)
-        // y REPERA_VERSION_NAME (tag exacto o 0.1.0-beta.<run>). Local: 1/0.1.0.
+        // CI consulta Play: REPERA_VERSION_CODE es entero monotónico y
+        // REPERA_VERSION_NAME sigue AAAA.MM.VV (p. ej., 2026.11.0).
+        // Los builds locales mantienen 1/0.1.0 y no realizan publicaciones.
         versionCode = providers.gradleProperty("REPERA_VERSION_CODE").map { it.toInt() }.orElse(1).get()
         versionName = providers.gradleProperty("REPERA_VERSION_NAME").orElse("0.1.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
