@@ -39,6 +39,23 @@ class CatalogRefreshInstrumentedTest {
         assertEquals(197, catalog.length())
     }
 
+    @Test fun freshInstallPublishesBundledExercisesWithoutNetworkOrSupabase() {
+        val account = "first-install-" + UUID.randomUUID()
+        CatalogBootstrap.ensureHydrated(context, account)
+        val store = LocalSnapshotStore(context, account)
+        val bytes = store.read()
+        assertNotNull("La biblioteca inicial debe existir sin conexión", bytes)
+        val first = StateOverview.fromBytes(bytes)
+        assertNotNull("Los ejercicios locales deben ser visibles antes de descargar", first)
+        assertTrue("La semilla incluida debe ofrecer ejercicios inmediatamente",
+            first!!.exerciseEntries.isNotEmpty())
+        val ids = first.exerciseEntries.map { it.id }
+        CatalogBootstrap.ensureHydrated(context, account)
+        val second = StateOverview.fromBytes(store.read())!!
+        assertEquals("Un segundo arranque no debe duplicar ni cambiar identificadores",
+            ids, second.exerciseEntries.map { it.id })
+    }
+
     @Test fun legacySnapshotRefreshesFieldsAndNamesWithoutBreakingReferences() {
         val account = UUID.randomUUID().toString()
         CatalogBootstrap.initializeEmptyAccount(context, account)
