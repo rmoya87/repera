@@ -32,6 +32,18 @@ jobs:
           java-version: '17'
       - name: Install Android SDK
         uses: android-actions/setup-android@v4
+
+      - name: Prefer current Android SDK tools for emulator setup
+        run: |
+          # Hosted runner's cmdline-tools/latest may be older than SDK XML metadata.
+          # The emulator action resolves sdkmanager and avdmanager from PATH.
+          CLI_BIN="$ANDROID_HOME/cmdline-tools/22.0/bin"
+          if [ ! -x "$CLI_BIN/sdkmanager" ] || [ ! -x "$CLI_BIN/avdmanager" ]; then
+            echo "::error::Android command-line tools 22.0 are missing"
+            exit 1
+          fi
+          echo "$CLI_BIN" >> "$GITHUB_PATH"
+          echo "Android command-line tools 22.0 selected"
       - name: Install API 37
         run: |
           ANDROID_CLI=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name android -perm -u+x | sort -V | tail -n 1)
@@ -105,6 +117,18 @@ jobs:
           java-version: '17'
       - name: Android SDK
         uses: android-actions/setup-android@v4
+
+      - name: Prefer current Android SDK tools for emulator setup
+        run: |
+          # Hosted runner's cmdline-tools/latest may be older than SDK XML metadata.
+          # The emulator action resolves sdkmanager and avdmanager from PATH.
+          CLI_BIN="$ANDROID_HOME/cmdline-tools/22.0/bin"
+          if [ ! -x "$CLI_BIN/sdkmanager" ] || [ ! -x "$CLI_BIN/avdmanager" ]; then
+            echo "::error::Android command-line tools 22.0 are missing"
+            exit 1
+          fi
+          echo "$CLI_BIN" >> "$GITHUB_PATH"
+          echo "Android command-line tools 22.0 selected"
       - name: Android 17 compile SDK
         run: |
           ANDROID_CLI=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name android -perm -u+x | sort -V | tail -n 1)
@@ -186,6 +210,18 @@ jobs:
           java-version: '17'
       - name: Android SDK
         uses: android-actions/setup-android@v4
+
+      - name: Prefer current Android SDK tools for emulator setup
+        run: |
+          # Hosted runner's cmdline-tools/latest may be older than SDK XML metadata.
+          # The emulator action resolves sdkmanager and avdmanager from PATH.
+          CLI_BIN="$ANDROID_HOME/cmdline-tools/22.0/bin"
+          if [ ! -x "$CLI_BIN/sdkmanager" ] || [ ! -x "$CLI_BIN/avdmanager" ]; then
+            echo "::error::Android command-line tools 22.0 are missing"
+            exit 1
+          fi
+          echo "$CLI_BIN" >> "$GITHUB_PATH"
+          echo "Android command-line tools 22.0 selected"
       - name: Android 17 compile SDK
         run: |
           ANDROID_CLI=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name android -perm -u+x | sort -V | tail -n 1)
@@ -285,6 +321,18 @@ jobs:
           java-version: '17'
       - name: Android SDK
         uses: android-actions/setup-android@v4
+
+      - name: Prefer current Android SDK tools for emulator setup
+        run: |
+          # Hosted runner's cmdline-tools/latest may be older than SDK XML metadata.
+          # The emulator action resolves sdkmanager and avdmanager from PATH.
+          CLI_BIN="$ANDROID_HOME/cmdline-tools/22.0/bin"
+          if [ ! -x "$CLI_BIN/sdkmanager" ] || [ ! -x "$CLI_BIN/avdmanager" ]; then
+            echo "::error::Android command-line tools 22.0 are missing"
+            exit 1
+          fi
+          echo "$CLI_BIN" >> "$GITHUB_PATH"
+          echo "Android command-line tools 22.0 selected"
       - name: Android 17 compile SDK
         run: |
           ANDROID_CLI=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name android -perm -u+x | sort -V | tail -n 1)
@@ -406,6 +454,18 @@ jobs:
           java-version: '17'
       - name: Install Android SDK
         uses: android-actions/setup-android@v4
+
+      - name: Prefer current Android SDK tools for emulator setup
+        run: |
+          # Hosted runner's cmdline-tools/latest may be older than SDK XML metadata.
+          # The emulator action resolves sdkmanager and avdmanager from PATH.
+          CLI_BIN="$ANDROID_HOME/cmdline-tools/22.0/bin"
+          if [ ! -x "$CLI_BIN/sdkmanager" ] || [ ! -x "$CLI_BIN/avdmanager" ]; then
+            echo "::error::Android command-line tools 22.0 are missing"
+            exit 1
+          fi
+          echo "$CLI_BIN" >> "$GITHUB_PATH"
+          echo "Android command-line tools 22.0 selected"
       - name: Install API 37
         run: |
           ANDROID_CLI=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -type f -name android -perm -u+x | sort -V | tail -n 1)
