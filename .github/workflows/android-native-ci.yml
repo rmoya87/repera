@@ -52,8 +52,8 @@ jobs:
           gradle-version: '9.6.0'
       - name: Domain parity tests + native builds
         run: gradle -p android :domain:testDebugUnitTest :wear:testDebugUnitTest :mobile:assembleDebug :wear:assembleDebug --no-daemon --stacktrace
-      - name: Verify Repera native system navigation
-        run: gradle -p android :mobile:testDebugUnitTest --tests "dev.repera.mobile.ReperaSystemNavigationTest" --tests "dev.repera.mobile.ClassBookingRemindersTest" --no-daemon --stacktrace
+      - name: Android mobile complete JVM unit suite
+        run: gradle -p android :mobile:testDebugUnitTest --no-daemon --stacktrace
       - name: Upload JVM test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -365,23 +365,23 @@ jobs:
           # con 0 tests el paso falla aunque continue-on-error absorba el job.
           if [ "$N" -lt 1 ]; then exit 1; fi
 
-  # Despliegue beta: SOLO rama beta, AAB de telefono a track INTERNA.
-  # Gate relajado (activo): solo android-native. Emuladores siguen en paralelo
-  # pero no bloquean. REVERTIR a estricto: needs instrumentados (ver DEPLOY_PLAY.md).
+  # Publicación interna: compilación + suite JVM completa + emuladores Android estables.
+  # Wear y Android canary siguen aportando señal sin bloquear la distribución de teléfono.
   deploy-internal-beta:
-    needs: [android-native]
+    needs: [android-native, android-instrumented]
     if: |
       github.ref == 'refs/heads/beta' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      needs.android-native.result == 'success'
+      needs.android-native.result == 'success' &&
+      needs.android-instrumented.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Modo de gate de deploy (beta)
         run: |
-          echo "## Deploy beta: gate relajado (solo android-native)" >> "$GITHUB_STEP_SUMMARY"
-          echo "AAB a track internal tras JVM/compile verdes; emuladores no bloquean." >> "$GITHUB_STEP_SUMMARY"
+          echo "## Deploy beta: gate estricto" >> "$GITHUB_STEP_SUMMARY"
+          echo "Compilación, suite JVM móvil completa y emuladores estables obligatorios." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -445,18 +445,28 @@ jobs:
               bundles = json.load(urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid + "/bundles", headers=H)))
               for bd in bundles.get("bundles", []):
                   play_max = max(play_max, int(bd.get("versionCode", 0)))
+              with open(os.environ["RUNNER_TEMP"] + "/repera-play-snapshot.json", "w") as f:
+                  json.dump({"tracks": tracks.get("tracks", []),
+                             "bundles": bundles.get("bundles", [])}, f)
           finally:
               urllib.request.urlopen(urllib.request.Request(base + "/edits/" + eid, headers=H, method="DELETE"))
-          epoch_min = now // 60 - 29453760
-          vc = max(play_max + 1, epoch_min)
-          print("play_max=%d epoch_min=%d -> versionCode=%d" % (play_max, epoch_min, vc))
-          with open(os.environ["GITHUB_ENV"], "a") as f:
-              f.write("REPERA_VERSION_CODE=%d\n" % vc)
+          print("play_max=%d; snapshot de Play guardado" % play_max)
           PYSCRIPT
-          TAG=$(git describe --tags --exact-match 2>/dev/null || true)
-          VNAME="${TAG:-0.1.0-beta.${{ github.run_number }}}"
-          echo "versionName=$VNAME"
-          echo "REPERA_VERSION_NAME=$VNAME" >> "$GITHUB_ENV"
+      - name: Versión mensual y novedades desde última producción verificada
+        env:
+          REPERA_LAST_PRODUCTION_VERSION: ${{ vars.REPERA_LAST_PRODUCTION_VERSION }}
+          REPERA_LAST_PRODUCTION_DATE: ${{ vars.REPERA_LAST_PRODUCTION_DATE }}
+        run: |
+          python3 android/scripts/play_release_metadata.py \
+            --snapshot "$RUNNER_TEMP/repera-play-snapshot.json" \
+            --output "$RUNNER_TEMP/repera-play-release"
+          cat "$RUNNER_TEMP/repera-play-release/whatsnew/whatsnew-es-ES" >> "$GITHUB_STEP_SUMMARY"
+      - name: Datos verificables de la versión
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-release-metadata
+          path: ${{ runner.temp }}/repera-play-release/**
+          retention-days: 90
       - name: Build release AAB (telefono)
         run: gradle -p android :mobile:bundleRelease -PREPERA_VERSION_CODE="$REPERA_VERSION_CODE" -PREPERA_VERSION_NAME="$REPERA_VERSION_NAME" --no-daemon --stacktrace
         env:
@@ -472,5 +482,8 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.app.repera
           releaseFiles: android/mobile/build/outputs/bundle/release/mobile-release.aab
-          track: internal
+          tracks: internal
+          releaseName: ${{ env.REPERA_VERSION_NAME }}
+          whatsNewDirectory: ${{ runner.temp }}/repera-play-release/whatsnew
+          mappingFile: android/mobile/build/outputs/mapping/release/mapping.txt
           status: completed
