@@ -2426,7 +2426,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 aiPlansRealtime.start()
                 val signInRevision = centerGate.revision
                 prepareAccountDataAfterAuth(id) { profile?.uniqueId == id && centerGate.revision == signInRevision }
-                status = null
+                if (localSeedError == null) status = null
             } catch (error: Exception) {
                 aiPlansRealtime.stop()
                 verifiedSupabase = null; resetManualMirrorSync()
