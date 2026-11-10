@@ -1,5 +1,11 @@
 package dev.repera.mobile
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -21,9 +27,11 @@ class WodPendingEndPrefillTest {
   val active=ActiveWorkout("s","For Time",0,1,exerciseName="WOD",completedSets=0,prescribedQuantity=null,prescribedWeightKg=null,
    allowsWeight=false,sets=emptyList(),wod=WodExecution("forTime","ELAPSED_TIME",false,"WOD",emptyList()))
   rule.setContent {MaterialTheme {
-   if(visible) WodScoreCard(active,false,timer,
+   if(visible) Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    WodScoreCard(active,false,timer,
     onTimerAction={actions.add(it)},onTimerTick={},onSave={_,_,_->},onMovement={_,_,_,_->},
     onCompleteBlock={},onReviseMovement={_,_,_->},onDeleteMovement={},onFinish={},onOpenClock={})
+   }
   }}
   rule.onNodeWithText("05").assertExists()
   rule.runOnIdle {visible=false}
@@ -31,6 +39,7 @@ class WodPendingEndPrefillTest {
   rule.runOnIdle {visible=true}
   rule.waitForIdle()
   rule.onNodeWithText("05").assertExists()
+  rule.onNodeWithText("Segundos (0–59)").performScrollTo()
   rule.replaceReperaNumericField("Segundos (0–59)", "17")
   rule.runOnIdle {timer=WodTimerState(125000,false,"userFinished",125)}
   rule.waitForIdle()
