@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
@@ -171,15 +172,21 @@ internal fun ExercisesTab(
     // LazyListScope is not @Composable: calculate the filtered list here,
     // where remember is legal, then hand the immutable result to LazyColumn.
     val filteredExerciseEntries = remember(exerciseSearch, exerciseFilter, overview?.exerciseEntries) {
-        overview?.exerciseEntries.orEmpty()
-            .asSequence()
+        val candidates = overview?.exerciseEntries.orEmpty().asSequence()
             .filter { exerciseFilter != "Favoritos" || it.isFavorite }
             .filter { ExerciseCatalogFilters.matches(it, exerciseFilter) }
-            .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases, it.disciplineTags.joinToString(" "), it.searchAliases) }
-            .filter { it.second >= 0 }
-            .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
-                .thenBy { it.first.name })
-            .map { it.first }.toList()
+        if (exerciseSearch.isBlank()) {
+            // Sin consulta no hay relevancia que calcular: evitar normalizar
+            // alias/tags de todo el catálogo en cada entrada a la pestaña.
+            candidates.sortedBy { it.name }.toList()
+        } else {
+            candidates
+                .map { it to ExerciseAliasSearch.score(exerciseSearch, it.name, englishAliases, it.disciplineTags.joinToString(" "), it.searchAliases) }
+                .filter { it.second >= 0 }
+                .sortedWith(compareByDescending<Pair<ExerciseEntry, Int>> { it.second }
+                    .thenBy { it.first.name })
+                .map { it.first }.toList()
+        }
     }
     // iOS: la búsqueda siempre es plana (relevancia); sin búsqueda, Músculo y
     // Material agrupan en secciones ordenadas con collator es_ES
@@ -221,7 +228,7 @@ internal fun ExercisesTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = reperaScrollContentPadding(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item {
             ReperaPageHeader(
@@ -240,7 +247,8 @@ internal fun ExercisesTab(
                         enabled = !busy,
                         modifier = Modifier.testTag("new_exercise_button")
                     )
-                }
+                },
+                modifier = Modifier.padding(bottom = 12.dp)
             )
         }
         item {
@@ -255,7 +263,8 @@ internal fun ExercisesTab(
                         )
                     }
                 },
-                placeholder = "Nombre, músculo o equipo"
+                placeholder = "Nombre, músculo o equipo",
+                modifier = Modifier.padding(bottom = 12.dp)
             )
         }
         val entries = filteredExerciseEntries
@@ -277,50 +286,41 @@ internal fun ExercisesTab(
         }
         // iOS: una tarjeta agrupada con divisores (no cards sueltas por fila).
         // Búsqueda plana; sin búsqueda, Músculo/Material agrupan por sección.
+        // Cada fila es un ítem lazy real: Compose solo compone las visibles.
+        // Las esquinas por posición conservan la apariencia de tarjeta agrupada.
         if (exerciseSections != null) {
             exerciseSections.forEach { (groupKey, groupEntries) ->
                 item(key = "hdr-" + exerciseSort + "-" + groupKey) {
                     Text(groupKey, style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(top = 4.dp))
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
                 }
-                item(key = "grp-" + exerciseSort + "-" + groupKey) {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column {
-                            groupEntries.forEachIndexed { index, entry ->
-                                if (index > 0) {
-                                    androidx.compose.material3.HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                                    )
-                                }
-                                ExerciseLibraryRow(
-                                    entry = entry,
-                                    aliases = englishAliases,
-                                    selected = selectedExerciseId == entry.id,
-                                    onClick = { openExercise(entry.id) }
-                                )
-                            }
-                        }
-                    }
+                items(
+                    items = groupEntries,
+                    key = { "grp-" + exerciseSort + "-" + groupKey + "-" + it.id },
+                    contentType = { "exercise_row" }
+                ) { entry ->
+                    val index = groupEntries.indexOf(entry)
+                    ExerciseLibraryGroupedRow(
+                        entry = entry, aliases = englishAliases,
+                        selected = selectedExerciseId == entry.id,
+                        first = index == 0, last = index == groupEntries.lastIndex,
+                        onClick = { openExercise(entry.id) }
+                    )
                 }
             }
         } else {
-            // Un único bloque con líneas entre filas (paridad WOD/favoritos).
-            item(key = "flat-list") {
-                ReperaInsetGroupedList {
-                    entries.forEachIndexed { index, entry ->
-                        if (index > 0) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                            )
-                        }
-                        ExerciseLibraryRow(
-                            entry = entry,
-                            aliases = englishAliases,
-                            selected = selectedExerciseId == entry.id,
-                            onClick = { openExercise(entry.id) }
-                        )
-                    }
-                }
+            items(
+                items = entries,
+                key = { "exercise-" + it.id },
+                contentType = { "exercise_row" }
+            ) { entry ->
+                val index = entries.indexOf(entry)
+                ExerciseLibraryGroupedRow(
+                    entry = entry, aliases = englishAliases,
+                    selected = selectedExerciseId == entry.id,
+                    first = index == 0, last = index == entries.lastIndex,
+                    onClick = { openExercise(entry.id) }
+                )
             }
         }
     }
@@ -364,6 +364,33 @@ internal fun ExercisesTab(
         } else listContent(onOpenExercise)
     }
 
+}
+
+/** Un único elemento de la lista por ejercicio, con superficie continua. */
+@Composable
+private fun ExerciseLibraryGroupedRow(
+    entry: ExerciseEntry,
+    aliases: Map<String, String>,
+    selected: Boolean,
+    first: Boolean,
+    last: Boolean,
+    onClick: () -> Unit
+) {
+    val radius = 14.dp
+    ReperaCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(
+            topStart = if (first) radius else 0.dp,
+            topEnd = if (first) radius else 0.dp,
+            bottomStart = if (last) radius else 0.dp,
+            bottomEnd = if (last) radius else 0.dp
+        )
+    ) {
+        if (!first) HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+        )
+        ExerciseLibraryRow(entry, aliases, selected, onClick)
+    }
 }
 
 @Composable
