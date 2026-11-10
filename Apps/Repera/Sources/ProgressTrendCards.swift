@@ -313,6 +313,7 @@ struct ProgressCardioChartCard: View {
     var prepared: ProgressPreparedCharts
     var workouts: [WorkoutSession] = []
     var showZones: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDate: Date?
 
     private var points: [ProgressPreparedCharts.HeartRatePlotPoint] { prepared.heartRate }
@@ -440,7 +441,7 @@ struct ProgressCardioChartCard: View {
                         ])
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: yDomain)
@@ -468,6 +469,7 @@ struct ProgressCardioChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 190)
                         .frame(maxWidth: .infinity)
+                        .ogChartReveal(.line)
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel(
                             selectedPoint.map {
@@ -513,6 +515,7 @@ struct ProgressCardioChartCard: View {
             Text("\(Int(value.rounded()))")
                 .font(.system(size: 18, weight: .semibold).monospacedDigit())
                 .foregroundStyle(tint)
+                .ogNumericText(value: Int(value.rounded()), reduceMotion: reduceMotion)
             Text("lpm")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(OG.label2)
@@ -526,6 +529,7 @@ struct ProgressCardioChartCard: View {
 /// Calorías: series ya preparadas.
 struct ProgressCaloriesChartCard: View {
     var prepared: ProgressPreparedCharts
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDate: Date?
 
     private var points: [ProgressDayPoint] { prepared.calories }
@@ -642,7 +646,7 @@ struct ProgressCaloriesChartCard: View {
                         }
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: 0...yMax)
@@ -670,6 +674,7 @@ struct ProgressCaloriesChartCard: View {
                         .chartLegend(.hidden)
                         .frame(height: 210)
                         .frame(maxWidth: .infinity)
+                        .ogChartReveal(.line)
                     } else {
                         ProgressEmptyChart(
                             message: "Sin kcal de Salud en \(range.title.lowercased()).",
@@ -709,6 +714,7 @@ struct ProgressCaloriesChartCard: View {
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)
@@ -728,6 +734,7 @@ struct ProgressWeightChartCard: View {
     var preparedPoints: [ProgressWeightPoint]? = nil
     /// Preview free: misma suavidad que cardio/kcal.
     var isTeaserPreview: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var yearScopedEntries: [BodyWeightEntry] {
         let now = Date()
@@ -886,7 +893,7 @@ struct ProgressWeightChartCard: View {
                         }
                         .chartXScale(
                             domain: xDomain,
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .chartXSelection(value: $selectedDate)
                         .progressChartYScale(domain: yDomain)
@@ -918,6 +925,7 @@ struct ProgressWeightChartCard: View {
                         }
                         .chartYAxis(.hidden)
                         .frame(height: 210)
+                        .ogChartReveal(.line)
 
                     }
                     // Peso conserva la misma fila de estadísticas que Calorías,
@@ -957,6 +965,7 @@ struct ProgressWeightChartCard: View {
             Text(value)
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(valueColor)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 10)

@@ -64,6 +64,7 @@ struct RootTabView: View {
     @State private var healthDeletionError: String?
     @State private var showBoardScanFromSystem = false
     @State private var pendingSharedBoardImage: Data?
+    @Namespace private var continueSessionNamespace
 
     enum AppTab: Hashable {
         case home, start, plus, stats, exercises
@@ -349,6 +350,7 @@ struct RootTabView: View {
             model: continueModelForCurrentTab,
             onContinue: continueFromAccessory
         ))
+        .environment(\.ogContinueSessionNamespace, continueSessionNamespace)
         .environment(duoRail)
         .onChange(of: LiveActivityRecorder.shared.phase) { _, phase in
             handleLivePhase(phase)
@@ -803,6 +805,7 @@ private struct ContinueAccessoryContent: View {
     var model: ContinueAccessoryModel
     var onContinue: () -> Void
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isInline: Bool { placement == .inline }
 
@@ -828,6 +831,7 @@ private struct ContinueAccessoryContent: View {
                 if model.isLiveActivity,
                    model.paceLabel != nil || model.distanceLabel != nil {
                     // Mismas métricas en expandido y comprimido: duración + ritmo + distancia.
+                    // Sin numericText en el tick de 1 s (evita jank en Continuar).
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(model.progressLabel)
                             .font((isInline ? Font.caption : .footnote).weight(.semibold).monospacedDigit())
@@ -848,6 +852,7 @@ private struct ContinueAccessoryContent: View {
                     Text(model.progressLabel)
                         .font((isInline ? Font.caption : .footnote).weight(.semibold).monospacedDigit())
                         .foregroundStyle(model.isLiveActivity ? OG.orange : OG.accent)
+                        .ogNumericText(value: model.progressLabel, reduceMotion: reduceMotion)
                 }
             }
             .padding(.horizontal, isInline ? 10 : OG.pad)
@@ -858,6 +863,14 @@ private struct ContinueAccessoryContent: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
+        // Contenedor estable (no el reloj): morph hacia Play / Comenzar.
+        .ogContinueSessionMatchedGeometry(
+            id: model.isLiveActivity
+                ? OGContinueSessionGeometry.liveID
+                : OGContinueSessionGeometry.playID,
+            reduceMotion: reduceMotion,
+            isSource: true
+        )
         // El accesorio de la barra de pestañas tiene alto fijo del sistema.
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityLabel("Continuar \(model.title)")

@@ -114,12 +114,6 @@
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/repera_shortcuts" />
         </activity>
-        <receiver android:name=".ReperaHomeWidgetReceiver" android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/repera_home_widget_info" />
-        </receiver>
         <service android:name=".ReperaWorkoutTileService"
             android:label="@string/shortcut_repera_live"
             android:icon="@drawable/ic_timer"

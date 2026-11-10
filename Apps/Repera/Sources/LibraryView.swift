@@ -264,6 +264,11 @@ struct LibraryView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                         .padding(.horizontal, OG.pad)
                         .background(OG.bg)
+                        // Zoom/detalle en split: solo panel derecho; lista sigue sin diff animado.
+                        .animation(
+                            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
+                            value: selectedExerciseID
+                        )
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(OG.bg)

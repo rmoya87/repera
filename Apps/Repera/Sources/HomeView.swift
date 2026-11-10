@@ -20,30 +20,36 @@ private struct HomeGoalProgressBar: View {
     var tint: Color
     var label: String
     var unit: String = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Fill animado desde 0 al aparecer (si no, el valor ya llega pintado y no se ve motion).
+    @State private var displayedCovered: CGFloat = 0
+    @State private var displayedOverflow: CGFloat = 0
+
+    private var value: Double {
+        measurement.flatMap { $0.isFinite ? max(0, $0) : nil } ?? 0
+    }
+    private var safeGoal: Double { goal.isFinite && goal > 0 ? goal : 1 }
+    private var scale: Double { max(value, safeGoal) }
+    private var targetCovered: CGFloat { CGFloat(min(value, safeGoal) / scale) }
+    private var targetOverflow: CGFloat { CGFloat(max(0, value - safeGoal) / scale) }
 
     var body: some View {
-        let value = measurement.flatMap { $0.isFinite ? max(0, $0) : nil } ?? 0
-        let safeGoal = goal.isFinite && goal > 0 ? goal : 1
-        let scale = max(value, safeGoal)
-        let covered = min(value, safeGoal) / scale
-        let overflow = max(0, value - safeGoal) / scale
-
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(OG.surface3)
-                if covered + overflow > 0 {
+                if displayedCovered + displayedOverflow > 0 {
                     Capsule()
                         .fill(tint)
                         .frame(width: min(
                             geometry.size.width,
-                            max(geometry.size.height, geometry.size.width * CGFloat(covered + overflow))
+                            max(geometry.size.height, geometry.size.width * (displayedCovered + displayedOverflow))
                         ))
                 }
-                if overflow > 0 {
+                if displayedOverflow > 0 {
                     Capsule()
                         .fill(tint)
                         .overlay(Color.black.opacity(0.32), in: Capsule())
-                        .frame(width: geometry.size.width * CGFloat(overflow))
+                        .frame(width: geometry.size.width * displayedOverflow)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
@@ -51,6 +57,13 @@ private struct HomeGoalProgressBar: View {
             .clipShape(Capsule())
         }
         .frame(height: 6)
+        .onAppear { animateFill(toCovered: targetCovered, overflow: targetOverflow) }
+        .onChange(of: targetCovered) { _, next in
+            animateFill(toCovered: next, overflow: targetOverflow)
+        }
+        .onChange(of: targetOverflow) { _, next in
+            animateFill(toCovered: targetCovered, overflow: next)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Progreso de \(label)")
         .accessibilityValue(
@@ -58,6 +71,21 @@ private struct HomeGoalProgressBar: View {
                 ? "Sin medición"
                 : "\(ReperaNumberFormat.integer(Int(value.rounded())))\(unit.isEmpty ? "" : " \(unit)") de \(ReperaNumberFormat.integer(Int(safeGoal.rounded())))\(unit.isEmpty ? "" : " \(unit)")\(value > safeGoal ? ", \(Int((value - safeGoal).rounded()).formatted()) adicionales" : "")"
         )
+    }
+
+    private func animateFill(toCovered covered: CGFloat, overflow: CGFloat) {
+        if reduceMotion {
+            displayedCovered = covered
+            displayedOverflow = overflow
+            return
+        }
+        Task { @MainActor in
+            await Task.yield()
+            OGMotion.run(OGMotion.reorder, reduceMotion: false) {
+                displayedCovered = covered
+                displayedOverflow = overflow
+            }
+        }
     }
 }
 
@@ -67,6 +95,7 @@ struct HomeView: View {
     @Environment(HealthKitStore.self) private var health
     @Environment(BusinessDataStore.self) private var businessData
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onOpenWorkout: () -> Void
     var focusDay: Date? = nil
     var onStart: () -> Void
@@ -1036,6 +1065,10 @@ struct HomeView: View {
                             Text("\(days.filter(\.hasWorkout).count) días entrenados")
                                 .font(.caption)
                                 .foregroundStyle(OG.label2)
+                                .ogNumericText(
+                                    value: days.filter(\.hasWorkout).count,
+                                    reduceMotion: reduceMotion
+                                )
                         }
                     }
                     Spacer(minLength: 8)
@@ -1043,6 +1076,10 @@ struct HomeView: View {
                         Text(weeklyProgressSummary(for: days))
                             .font(.caption)
                             .foregroundStyle(OG.label2)
+                            .ogNumericText(
+                                value: weeklyProgressSummary(for: days),
+                                reduceMotion: reduceMotion
+                            )
                     }
                 }
                 HStack(alignment: .center, spacing: 4) {
@@ -1091,6 +1128,7 @@ struct HomeView: View {
                 }
             }
         }
+        .ogChartAppear()
     }
 
     private func weeklyProgressSummary(for days: [DayCell]) -> String {
@@ -1155,6 +1193,7 @@ struct HomeView: View {
 
             }
         }
+        .ogChartAppear()
     }
 
     private func homeActivityMetric(
@@ -1188,6 +1227,7 @@ struct HomeView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                     .layoutPriority(1)
+                    .ogNumericText(value: value, reduceMotion: reduceMotion)
                 if !unit.isEmpty {
                     Text(unit)
                         .font(.caption2)

@@ -8,6 +8,7 @@ struct DigitalClockDisplay: View {
     /// Segundos a mostrar (restantes o transcurridos).
     var totalSeconds: Int
     var digitHeight: CGFloat = 72
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var minutes: Int { max(0, totalSeconds) / 60 }
     private var seconds: Int { max(0, totalSeconds) % 60 }
@@ -42,6 +43,15 @@ struct DigitalClockDisplay: View {
                 )
             }
         }
+        // Solo fundido de segmentos; sin movimiento espacial en cada tick.
+        .animation(
+            OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion),
+            value: totalSeconds
+        )
+        .animation(
+            OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion),
+            value: roundNumber
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
     }

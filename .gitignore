@@ -77,3 +77,4 @@ tools/catalog_ingest/out/
 .superpowers/
 
 .local/
+.spm-cache/

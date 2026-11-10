@@ -132,7 +132,7 @@ private struct OnboardingSignInStep: View {
         VStack(spacing: 24) {
             Spacer(minLength: 12)
             ReperaMascot(pose: .welcome, maxHeight: verticalSizeClass == .compact ? 120 : 220)
-            VStack(spacing: 10) {
+            VStack(spacing: 14) {
                 Text("Bienvenido a Repera")
                     .font(.largeTitle.bold())
                     .foregroundStyle(OG.label)
@@ -141,11 +141,7 @@ private struct OnboardingSignInStep: View {
                     .font(.headline)
                     .foregroundStyle(OG.label)
                     .multilineTextAlignment(.center)
-                Text("Crea tus rutinas, escanea la pizarra y registra cada serie o WOD. Supera tus marcas, sigue tu actividad y recuperación, y entrena con tu Apple Watch y la ayuda de tu entrenador o tu IA favorita.")
-                    .font(.body)
-                    .foregroundStyle(OG.label2)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                welcomeHighlights
             }
 
             if store.iCloudStatus == .signedOut {
@@ -187,42 +183,43 @@ private struct OnboardingSignInStep: View {
             .disabled(busy)
             .accessibilityLabel("Iniciar sesión con Apple")
 
-            VStack(spacing: 8) {
-                // Presentation matches Apple; signInGoogle still calls Google's SDK.
-                Button {
-                    Task { await signInGoogle() }
-                } label: {
-                    HStack(spacing: 10) {
+            // Presentation matches Apple; signInGoogle still calls Google's SDK.
+            Button {
+                Task { await signInGoogle() }
+            } label: {
+                HStack(spacing: 10) {
+                    if signingInWith == .google {
+                        ProgressView()
+                            .tint(googleButtonForeground)
+                            .frame(width: signInIconSize, height: signInIconSize)
+                    } else {
                         Image("GoogleSignInLogo")
                             .renderingMode(.original)
                             .resizable()
                             .scaledToFit()
                             .frame(width: signInIconSize, height: signInIconSize)
                             .accessibilityHidden(true)
-                        Text("Iniciar sesión con Google")
-                            .font(.system(size: 17, weight: .semibold))
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: signInButtonHeight)
-                    .foregroundStyle(googleButtonForeground)
-                    .background(googleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(googleButtonBorder, lineWidth: 1)
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    Text(signingInWith == .google ? "Conectando con Google" : "Iniciar sesión con Google")
+                        .font(.system(size: 17, weight: .semibold))
                 }
-                .buttonStyle(.plain)
-                .disabled(busy)
-                .accessibilityLabel("Iniciar sesión con Google")
-
-                if signingInWith == .google {
-                    ProgressView("Conectando con Google…")
-                        .font(.footnote)
-                        .tint(OG.label)
-                        .foregroundStyle(OG.label2)
+                .frame(maxWidth: .infinity)
+                .frame(height: signInButtonHeight)
+                .foregroundStyle(googleButtonForeground)
+                .background(googleButtonBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(googleButtonBorder, lineWidth: 1)
                 }
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
+            .buttonStyle(.plain)
+            .disabled(busy)
+            .accessibilityLabel(
+                signingInWith == .google
+                    ? "Conectando con Google"
+                    : "Iniciar sesión con Google"
+            )
 
             if let errorText {
                 Text(errorText)
@@ -233,6 +230,45 @@ private struct OnboardingSignInStep: View {
 
             Spacer()
         }
+    }
+
+    private var welcomeHighlights: some View {
+        let items: [(icon: String, title: String)] = [
+            ("timer", "Rutinas y series"),
+            ("camera", "Escanea"),
+            ("chart.line.uptrend.xyaxis", "Estadísticas"),
+            ("heart.text.square", "Recuperación"),
+            ("applewatch", "Apple Watch"),
+            ("sparkles", "Entrenador e IA")
+        ]
+        return LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+            spacing: 10
+        ) {
+            ForEach(items, id: \.title) { item in
+                HStack(spacing: 10) {
+                    Image(systemName: item.icon)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(OG.accent)
+                        .frame(width: 22, alignment: .center)
+                        .accessibilityHidden(true)
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                .background(OG.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(item.title)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     private func signInGoogle() async {

@@ -100,6 +100,153 @@ enum OG {
     static let pad: CGFloat = 16
 }
 
+/// Curvas estándar de presentación. Usar siempre estos tokens en lugar de
+/// `.smooth` / `.easeInOut(0.28)` / `.easeOut(0.15)` sueltos.
+///
+/// Propósito:
+/// - `reorder`: reordenar bloques / filas (spring, interrumpible).
+/// - `appear`: apariciones y paneles (curva corta ease-out).
+/// - `highlight`: resaltados de drop target / feedback de color.
+///
+/// Con «Reducir movimiento» activo, `animation(_:reduceMotion:)` y `run`
+/// no aplican movimiento: cambio instantáneo. Los call sites que necesiten
+/// un fundido deben conservar solo `.opacity` (sin offset/scale/move).
+enum OGMotion {
+    static let reorder = Animation.spring(response: 0.34, dampingFraction: 0.86)
+    static let appear = Animation.easeOut(duration: 0.2)
+    static let highlight = Animation.easeOut(duration: 0.15)
+
+    /// Regla única de accesibilidad para animaciones de movimiento.
+    static func animation(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    /// Equivalente a `withAnimation` respetando la regla de reducir movimiento.
+    @discardableResult
+    static func run<Result>(
+        _ animation: Animation,
+        reduceMotion: Bool,
+        _ updates: () -> Result
+    ) -> Result {
+        if let resolved = Self.animation(animation, reduceMotion: reduceMotion) {
+            return withAnimation(resolved, updates)
+        }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        return withTransaction(transaction, updates)
+    }
+}
+
+/// IDs estables para morph Continuar ↔ sesión completa (Play / Comenzar).
+enum OGContinueSessionGeometry {
+    static let playID = "continue-play-session"
+    static let liveID = "continue-live-session"
+}
+
+private struct OGContinueSessionNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    /// Namespace compartido entre la barra Continuar y Workout/Live.
+    var ogContinueSessionNamespace: Namespace.ID? {
+        get { self[OGContinueSessionNamespaceKey.self] }
+        set { self[OGContinueSessionNamespaceKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Contador con `numericText` (sin movimiento bajo reducir movimiento).
+    func ogNumericText(value: some Equatable, reduceMotion: Bool) -> some View {
+        contentTransition(reduceMotion ? .identity : .numericText())
+            .animation(OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion), value: value)
+    }
+
+    /// Morph espacial Continuar ↔ vista completa; no-op si reduceMotion o sin namespace.
+    func ogContinueSessionMatchedGeometry(
+        id: String,
+        reduceMotion: Bool,
+        isSource: Bool = false
+    ) -> some View {
+        modifier(OGContinueSessionMatchedGeometryModifier(
+            id: id,
+            reduceMotion: reduceMotion,
+            isSource: isSource
+        ))
+    }
+}
+
+private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
+    var id: String
+    var reduceMotion: Bool
+    var isSource: Bool
+    @Environment(\.ogContinueSessionNamespace) private var namespace
+
+    func body(content: Content) -> some View {
+        if let namespace, !reduceMotion {
+            content.matchedGeometryEffect(id: id, in: namespace, isSource: isSource)
+        } else {
+            content
+        }
+    }
+}
+
+/// Revelado del trazo/barras de una gráfica (no de la card contenedora).
+enum OGChartRevealStyle {
+    /// Líneas / área: máscara izquierda → derecha.
+    case line
+    /// Barras: máscara abajo → arriba.
+    case bars
+}
+
+private struct OGChartRevealModifier: ViewModifier {
+    let style: OGChartRevealStyle
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .mask {
+                GeometryReader { geo in
+                    switch style {
+                    case .line:
+                        Rectangle()
+                            .frame(width: max(geo.size.width * progress, 0.001))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    case .bars:
+                        Rectangle()
+                            .frame(height: max(geo.size.height * progress, 0.001))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    }
+                }
+            }
+            .onAppear {
+                guard progress < 1 else { return }
+                if reduceMotion {
+                    progress = 1
+                    return
+                }
+                progress = 0
+                Task { @MainActor in
+                    await Task.yield()
+                    withAnimation(.easeOut(duration: 0.42)) {
+                        progress = 1
+                    }
+                }
+            }
+    }
+}
+
+extension View {
+    /// Dibuja la gráfica (línea L→R o barras abajo→arriba). No anima la card.
+    func ogChartReveal(_ style: OGChartRevealStyle) -> some View {
+        modifier(OGChartRevealModifier(style: style))
+    }
+
+    /// Compat: ya no escala/fades la card; preferir `ogChartReveal` en el plot.
+    func ogChartAppear() -> some View { self }
+}
+
 /// Tamaño de diseño que escala con Dynamic Type siguiendo `relativeTo`.
 /// Solo para tamaños sin estilo semántico equivalente (11 → `.caption2`,
 /// 12 → `.caption`, 13 → `.footnote`, 15 → `.subheadline`, 16 → `.callout`,
@@ -423,6 +570,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
     var isPresented: Bool
     var onDismiss: () -> Void
     @ViewBuilder var panel: () -> Panel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -441,7 +589,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
                                 .overlay(alignment: .leading) {
                                     Rectangle().fill(OG.surface3).frame(width: 1)
                                 }
-                                .transition(.move(edge: .trailing))
+                                .transition(reduceMotion ? .opacity : .move(edge: .trailing))
                                 .zIndex(1)
                         }
                     }
@@ -450,7 +598,7 @@ private struct OGTrailingColumnPanel<Panel: View>: ViewModifier {
                 .ignoresSafeArea()
                 .allowsHitTesting(isPresented)
             }
-            .animation(.easeInOut(duration: 0.28), value: isPresented)
+            .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: isPresented)
     }
 }
 
@@ -866,6 +1014,7 @@ struct OGReorderInsertionGap: View {
     var accepts: (String) -> Bool = { _ in true }
     var style: Style = .betweenCards
     var onDrop: (String) -> Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTargeted = false
 
     enum Style {
@@ -904,7 +1053,7 @@ struct OGReorderInsertionGap: View {
             }
         }
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.15), value: isTargeted)
+        .animation(OGMotion.animation(OGMotion.highlight, reduceMotion: reduceMotion), value: isTargeted)
         .onDrop(
             of: [UTType.plainText],
             delegate: OGReorderDropDelegate(
@@ -1888,6 +2037,7 @@ struct OGSetEntryHeader: View {
 /// Misma retícula para editar objetivos y apuntar series reales. Sin +/-.
 struct OGSetEntryRow: View {
     @Environment(ReperaStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var rowID: UUID
     var index: Int
     var previous: String?
@@ -1917,6 +2067,11 @@ struct OGSetEntryRow: View {
                 .foregroundStyle(completed ? OG.onAccent : OG.label)
                 .frame(width: 30, height: 36)
                 .background(completed ? OG.accent : OG.surface2, in: Circle())
+                .scaleEffect(completed && !reduceMotion ? 1.08 : 1)
+                .animation(
+                    OGMotion.animation(OGMotion.reorder, reduceMotion: reduceMotion),
+                    value: completed
+                )
             if indexTappable {
                 Button(action: onConfirm) { indexBadge }
                     .buttonStyle(.plain)

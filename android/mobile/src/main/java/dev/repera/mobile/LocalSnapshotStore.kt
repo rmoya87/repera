@@ -45,8 +45,6 @@ class LocalSnapshotStore(context: Context, uniqueGoogleId: String) : SnapshotSto
                 throw error
             }
         }
-        // Widget failures must never undo or misreport a committed workout.
-        runCatching { ReperaWidgetRefresh.enqueue(appContext) }
     }
 
     /** Safeguard a remote document before replacing it with a newer local revision. */

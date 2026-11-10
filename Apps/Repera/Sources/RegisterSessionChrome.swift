@@ -10,6 +10,7 @@ struct WorkoutSummaryTile: View {
     var tint: Color
     /// Pasos bajo los kilómetros cuando exista distancia medida y se muestre en km.
     var subtitle: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .center, spacing: 3) {
@@ -33,6 +34,7 @@ struct WorkoutSummaryTile: View {
                 .minimumScaleFactor(0.42)
                 .frame(height: 27)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .ogNumericText(value: value, reduceMotion: reduceMotion)
             // Reservar el mismo renglón en los tres tiles: valor/alto alineados.
             Text(subtitle ?? " ")
                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
@@ -42,6 +44,7 @@ struct WorkoutSummaryTile: View {
                 .opacity(subtitle == nil ? 0 : 1)
                 .frame(height: 13)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .ogNumericText(value: subtitle ?? "", reduceMotion: reduceMotion)
         }
         .frame(height: 73)
         .frame(maxWidth: .infinity)
@@ -274,6 +277,7 @@ struct SessionSummaryTilesRow: View {
                 )
             }
         }
+        .ogChartAppear()
     }
 }
 
@@ -297,6 +301,7 @@ struct OGRegisterLeadingIcon: View {
 struct OGRegisterChip: View {
     var text: String
     var icon: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
@@ -306,6 +311,7 @@ struct OGRegisterChip: View {
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
+                .ogNumericText(value: text, reduceMotion: reduceMotion)
         }
         .foregroundStyle(OG.label2)
         .padding(.horizontal, 8)

@@ -223,6 +223,7 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
     var valuePointSize: CGFloat = 44
     /// Meta apilada a la derecha del número (p. ej. tiempo encima de «salidas»), misma tipografía.
     var stackedMeta: (top: String, bottom: String)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewBuilder var accessory: () -> Accessory
 
     init(
@@ -252,12 +253,14 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
                             .foregroundStyle(OG.label)
                             .minimumScaleFactor(0.55)
                             .lineLimit(1)
+                            .ogNumericText(value: value, reduceMotion: reduceMotion)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(stackedMeta.top)
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(OG.label2)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
+                                .ogNumericText(value: stackedMeta.top, reduceMotion: reduceMotion)
                             Text(stackedMeta.bottom)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(OG.label2)
@@ -274,6 +277,7 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
                                 .foregroundStyle(OG.label)
                                 .minimumScaleFactor(0.55)
                                 .lineLimit(1)
+                                .ogNumericText(value: value, reduceMotion: reduceMotion)
                             if let unit {
                                 Text(unit)
                                     .font(.title3.weight(.semibold))
@@ -420,6 +424,7 @@ struct ProgressMetricGlanceCard: View {
     let value: String
     var tint: Color = OG.accent
     var footnote: String? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         OGCard {
@@ -434,6 +439,7 @@ struct ProgressMetricGlanceCard: View {
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .ogNumericText(value: value, reduceMotion: reduceMotion)
                 if let footnote {
                     Text(footnote)
                         .font(.caption.weight(.medium))
@@ -475,6 +481,7 @@ struct ProgressMiniRangeBars: View {
             }
         }
         .frame(height: height)
+        .ogChartReveal(.bars)
         .accessibilityHidden(true)
     }
 }
@@ -504,6 +511,7 @@ struct ProgressMiniFillBars: View {
             }
         }
         .frame(height: height)
+        .ogChartReveal(.bars)
         .accessibilityHidden(true)
     }
 }
@@ -516,20 +524,42 @@ struct ProgressMiniAreaSpark: View {
 
     var body: some View {
         GeometryReader { geo in
+            let lineWidth: CGFloat = 4.8
             let values = Self.smoothed(fractions.map { min(max($0, 0), 1) })
             let n = max(values.count, 1)
             let w = max(geo.size.width, 1)
             let h = max(geo.size.height, 1)
-            let step = n == 1 ? 0 : w / CGFloat(n - 1)
+            // Inset para que el lineCap redondo del inicio/fin no se recorte.
+            let inset = lineWidth / 2
+            let usable = max(w - inset * 2, 1)
+            let step = n == 1 ? 0 : usable / CGFloat(n - 1)
             let points: [CGPoint] = values.enumerated().map { i, v in
-                CGPoint(x: CGFloat(i) * step, y: h * (1 - CGFloat(v)))
+                CGPoint(
+                    x: inset + CGFloat(i) * step,
+                    y: min(max(h * (1 - CGFloat(v)), inset), h - inset)
+                )
             }
-            Path { path in
-                Self.addSmoothCurve(to: &path, points: points, closeToBaseline: nil)
+            ZStack {
+                Path { path in
+                    Self.addSmoothCurve(to: &path, points: points, closeToBaseline: nil)
+                }
+                .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+                if let first = points.first {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: lineWidth, height: lineWidth)
+                        .position(first)
+                }
+                if let last = points.last, points.count > 1 {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: lineWidth, height: lineWidth)
+                        .position(last)
+                }
             }
-            .stroke(tint, style: StrokeStyle(lineWidth: 4.8, lineCap: .round, lineJoin: .round))
         }
         .frame(height: height)
+        .ogChartReveal(.line)
         .accessibilityHidden(true)
     }
 

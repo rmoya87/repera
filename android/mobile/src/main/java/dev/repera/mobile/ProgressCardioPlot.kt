@@ -52,7 +52,9 @@ internal fun cardioPlotBounds(points:List<HeartRatePlotPoint>,preview:Boolean):P
   } else {
    BoxWithConstraints(Modifier.fillMaxWidth().height(190.dp)) {
     val topPadPx = with(LocalDensity.current) { ProgressChartYTopPadDp.toPx() }
-    Canvas(Modifier.fillMaxWidth().height(190.dp).testTag("cardio_observed_plot")
+    Canvas(Modifier.fillMaxWidth().height(190.dp)
+     .progressChartReveal(ProgressChartRevealStyle.LINE)
+     .testTag("cardio_observed_plot")
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectTapGestures {selected=nearest(it.x/size.width)}}
      .pointerInput(points,domain,preview) {if(preview) return@pointerInput;detectHorizontalDragGestures {change,_ ->change.consume();selected=nearest(change.position.x/size.width)}}) {
      fun x(i:Int)=ProgressPlotAxis.fraction(points[i].day,domain)*size.width

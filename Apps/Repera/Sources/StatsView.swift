@@ -8,6 +8,7 @@ struct StatsView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(HealthKitStore.self) private var health
     @Environment(SubscriptionManager.self) private var subscriptions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model = ProgressViewModel()
     @State private var heatmapMetric: HeatmapMetric = .time
     @State private var category: ProgressCategory = .training
@@ -466,27 +467,31 @@ struct StatsView: View {
 
     @ViewBuilder
     private var categoryContent: some View {
-        switch category {
-        case .training:
-            trainingCategoryContent
-        case .strength:
-            strengthCategoryContent
-        case .fitness:
-            fitnessCategoryContent
-        case .heart:
-            heartCategoryContent
-        case .recovery:
-            VStack(alignment: .leading, spacing: 12) {
-                HealthRecoveryProgressView(
-                    range: .week,
-                    weekStartsOnMonday: mondayFirst,
-                    usesExpandedLayout: isExpandedLayout
-                )
-                recoveryMonthSummaryCard
+        Group {
+            switch category {
+            case .training:
+                trainingCategoryContent
+            case .strength:
+                strengthCategoryContent
+            case .fitness:
+                fitnessCategoryContent
+            case .heart:
+                heartCategoryContent
+            case .recovery:
+                VStack(alignment: .leading, spacing: 12) {
+                    HealthRecoveryProgressView(
+                        range: .week,
+                        weekStartsOnMonday: mondayFirst,
+                        usesExpandedLayout: isExpandedLayout
+                    )
+                    recoveryMonthSummaryCard
+                }
+            case .sports:
+                sportsCategoryContent
             }
-        case .sports:
-            sportsCategoryContent
         }
+        .id(category)
+        .ogChartAppear()
     }
 
     @ViewBuilder
@@ -1833,6 +1838,7 @@ struct StatsView: View {
                     }
                     .frame(height: 195)
                     .allowsHitTesting(false)
+                    .ogChartAppear()
                 }
             }
         }
@@ -2017,9 +2023,17 @@ struct StatsView: View {
                                     Text("\(ReperaNumberFormat.decimal(pr.weightKg))×\(pr.reps)")
                                         .monospacedDigit()
                                         .foregroundStyle(OG.label)
+                                        .ogNumericText(
+                                            value: "\(pr.weightKg)-\(pr.reps)",
+                                            reduceMotion: reduceMotion
+                                        )
                                     Text("~\(ReperaNumberFormat.decimal(pr.estimatedOneRM, maximumFractionDigits: 0)) kg")
                                         .font(.system(size: 12))
                                         .foregroundStyle(OG.label2)
+                                        .ogNumericText(
+                                            value: pr.estimatedOneRM,
+                                            reduceMotion: reduceMotion
+                                        )
                                 }
                             }
                             }
@@ -2281,10 +2295,10 @@ private struct ProgressSessionScoreChartCard: View {
                 }
             }
             .chartXSelection(value: $selectedRecentWorkoutIndex)
-            // 1…N a ancho completo: primer punto pegado a la izquierda, último a la derecha.
+            // 1…N con aire para caps redondos; revelado L→R del plot.
             .chartXScale(
                 domain: 1...max(1, recent.count),
-                range: .plotDimension(startPadding: 0, endPadding: 0)
+                range: .plotDimension(startPadding: 4, endPadding: 4)
             )
             .progressChartYScale(domain: 0.0...10.0)
             .progressChartSelectionBadge(
@@ -2303,6 +2317,7 @@ private struct ProgressSessionScoreChartCard: View {
                 AxisMarks(values: Array(1...recent.count))
             }
             .frame(height: 180)
+            .ogChartReveal(.line)
             .accessibilityLabel("Últimos \(recent.count) entrenos puntuados de 0 a 10")
         }
     }
@@ -2507,7 +2522,7 @@ private struct ProgressSessionScoreChartCard: View {
                                 weekStartsOnMonday: weekStartsOnMonday,
                                 isTeaserPreview: isTeaserPreview
                             ),
-                            range: .plotDimension(startPadding: 0, endPadding: 0)
+                            range: .plotDimension(startPadding: 4, endPadding: 4)
                         )
                         .progressChartYScale(domain: 0.0...10.0)
                         .progressChartSelectionBadge(
@@ -2547,6 +2562,7 @@ private struct ProgressSessionScoreChartCard: View {
                             }
                         }
                         .frame(height: 205)
+                        .ogChartReveal(.line)
                         .allowsHitTesting(!isTeaserPreview)
                         if !isTeaserPreview {
                             Text("Media diaria de notas basadas en tu historial comparable.")

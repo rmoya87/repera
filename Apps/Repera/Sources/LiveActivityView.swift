@@ -2581,6 +2581,11 @@ struct LiveActivityView: View {
             }
             // En mapa a sangre no pintar OG.bg: genera franjas negras arriba/abajo.
             .background(liveMapFillsDisplay ? Color.clear : OG.bg)
+            // Morph desde Continuar; el tick de duración no anima numericText.
+            .ogContinueSessionMatchedGeometry(
+                id: OGContinueSessionGeometry.liveID,
+                reduceMotion: reduceMotion
+            )
             .allowsHitTesting(!isInteractionLocked)
             // Idle: Play/Opciones/actividad flotantes fijos encima del menú (no van con el scroll).
             // En vivo: liveSessionPager ya ancla bottomControls abajo con la tab bar oculta.
@@ -2679,7 +2684,7 @@ struct LiveActivityView: View {
                     iconTint: OG.label,
                     title: "¿Finalizar actividad?",
                     message: "Puedes revisar y guardar tus datos al finalizar.",
-                    confirmTitle: "Finalizar y revisar",
+                    confirmTitle: "Finalizar",
                     confirmTint: OG.accent,
                     onConfirm: {
                         confirmFinish = false
@@ -2927,7 +2932,7 @@ struct LiveActivityView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .background(pageShowsMap ? Color.clear : OG.bg)
             .allowsHitTesting(!pageShowsMap)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: liveSessionPage)
+            .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: liveSessionPage)
 
             // Controles encima (como el overlay idle); swipe aquí cambia de página.
             VStack(spacing: 6) {
@@ -2977,7 +2982,7 @@ struct LiveActivityView: View {
             else { return }
             let next = liveSessionPage + delta
             guard (0..<liveSessionPageCount).contains(next) else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+            withAnimation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion)) {
                 liveSessionPage = next
             }
         }
@@ -2988,7 +2993,7 @@ struct LiveActivityView: View {
         HStack(spacing: 10) {
             ForEach(0..<liveSessionPageCount, id: \.self) { index in
                 Button {
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
+                    withAnimation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion)) {
                         liveSessionPage = index
                     }
                 } label: {
@@ -3860,7 +3865,7 @@ struct LiveActivityView: View {
         .frame(maxWidth: .infinity)
         // Al pasar a vivo: Distancia sube y FC/tramo entran (ease-out corto).
         .animation(
-            reduceMotion ? nil : .easeOut(duration: 0.28),
+            OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion),
             value: canLockLiveScreen
         )
     }
@@ -3911,27 +3916,18 @@ struct LiveActivityView: View {
     /// Panel central compartido entre mapa y métricas.
     /// Los tres controles son Liquid Glass sueltos (sin recuadro contenedor).
     /// Idle: Opciones / Play / actividad. En vivo: Finalizar / Play / candado
-    /// (el candado se fusiona con Play al bloquear; Play no se mueve).
+    /// (al bloquear, Finalizar + candado morphan hacia Play y dejan el candado fusionado).
     private var bottomControls: some View {
         HStack(alignment: .center, spacing: 10) {
-            if isInteractionLocked {
-                // Hueco simétrico: Finalizar solo visible al desbloquear.
+            // Tras el morph: hueco. Durante el morph: Finalizar vuela al centro.
+            if isInteractionLocked && !isLockMergeAnimating {
                 Color.clear
                     .frame(width: sideControlDiameter, height: sideControlDiameter)
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
             } else {
-                liveGlassSideButton(
-                    canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
-                    label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
-                ) {
-                    if canLockLiveScreen {
-                        confirmFinish = true
-                    } else {
-                        showOptions = true
-                    }
-                }
-                .frame(maxWidth: .infinity)
+                liveFinishSideControl
+                    .frame(maxWidth: .infinity)
             }
             livePrimaryControl
                 .frame(width: primaryControlDiameter, height: primaryControlDiameter)
@@ -3963,7 +3959,7 @@ struct LiveActivityView: View {
             if gesture.translation.width < -70 { showOptions = true }
             if gesture.translation.width > 70 { showOptions = false }
         })
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: recorder.phase)
+        .animation(OGMotion.animation(OGMotion.appear, reduceMotion: reduceMotion), value: recorder.phase)
     }
 
     /// True mientras el candado vive en el hueco de Play (fusión o bloqueado).
@@ -3971,10 +3967,10 @@ struct LiveActivityView: View {
         isInteractionLocked || isLockMergeAnimating
     }
 
-    /// Play/Pausa fijo; el candado se absorbe aquí (Play no se mueve).
+    /// Play/Pausa fijo; Finalizar + candado se absorben aquí (Play no se desplaza).
     @ViewBuilder
     private var livePrimaryControl: some View {
-        let absorb = isLockMergeAnimating ? (0.06 * lockMergeProgress) : 0
+        let absorb = isLockMergeAnimating ? (0.10 * lockMergeProgress) : 0
         let playFade = isInteractionLocked ? 1.0 : Double(lockMergeProgress)
         let fusedFade = isInteractionLocked ? 1.0 : Double(lockMergeProgress)
         ZStack {
@@ -4025,19 +4021,48 @@ struct LiveActivityView: View {
                 .frame(width: primaryControlDiameter, height: primaryControlDiameter)
                 .glassEffect(.regular.tint(OG.accent).interactive(), in: .circle)
                 .opacity(fusedFade)
-                .scaleEffect(showsFusedLockAtPlay ? (0.94 + 0.06 * (isInteractionLocked ? 1 : lockMergeProgress) + absorb) : 0.94)
+                .scaleEffect(
+                    showsFusedLockAtPlay
+                        ? (0.88 + 0.12 * (isInteractionLocked ? 1 : lockMergeProgress) + absorb)
+                        : 0.88
+                )
                 .accessibilityHidden(!isInteractionLocked)
                 .accessibilityLabel("Pantalla bloqueada")
         }
     }
 
-    /// Candado derecho (Liquid Glass); vuela hacia Play como gota y se absorbe.
+    /// Finalizar (izquierda) morpha hacia Play al bloquear.
+    @ViewBuilder
+    private var liveFinishSideControl: some View {
+        GeometryReader { geo in
+            let travel = max(geo.size.width * 0.5 + primaryControlDiameter * 0.25, 72)
+            liveGlassSideButton(
+                canLockLiveScreen ? "flag.checkered" : "gearshape.fill",
+                label: canLockLiveScreen ? "Finalizar actividad" : "Opciones"
+            ) {
+                if canLockLiveScreen {
+                    confirmFinish = true
+                } else {
+                    showOptions = true
+                }
+            }
+            .disabled(isLockMergeAnimating)
+            .offset(x: canLockLiveScreen ? travel * lockMergeProgress : 0)
+            .scaleEffect(canLockLiveScreen ? (1 + 0.55 * lockMergeProgress) : 1)
+            .opacity(canLockLiveScreen ? Double(1 - lockMergeProgress) : 1)
+            .accessibilityHidden(isLockMergeAnimating && canLockLiveScreen)
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+        }
+        .frame(height: sideControlDiameter)
+    }
+
+    /// Candado derecho (Liquid Glass); vuela hacia Play y se absorbe con Finalizar.
     @ViewBuilder
     private var liveLockSideControl: some View {
         GeometryReader { geo in
             let travel = max(geo.size.width * 0.5 + primaryControlDiameter * 0.25, 72)
             ZStack {
-                if isInteractionLocked {
+                if isInteractionLocked && !isLockMergeAnimating {
                     Color.clear
                 } else {
                     Button {
@@ -4055,7 +4080,7 @@ struct LiveActivityView: View {
                     .scaleEffect(1 + 0.55 * lockMergeProgress)
                     .opacity(Double(1 - lockMergeProgress))
                     .accessibilityLabel("Bloquear pantalla")
-                    .accessibilityHint("Fusiona el candado con Play; mantén pulsado un segundo para desbloquear")
+                    .accessibilityHint("Fusiona Finalizar y el candado con Play; mantén pulsado un segundo para desbloquear")
                     .accessibilityHidden(isLockMergeAnimating)
                 }
             }
@@ -4067,7 +4092,7 @@ struct LiveActivityView: View {
     private func beginLockMerge() {
         guard canLockLiveScreen, !isInteractionLocked, !isLockMergeAnimating else { return }
         // No forzar página 1: si estás en mapa, el bloqueo se queda en mapa.
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if reduceMotion {
             isInteractionLocked = true
             lockMergeProgress = 0
@@ -4076,12 +4101,12 @@ struct LiveActivityView: View {
         }
         isLockMergeAnimating = true
         lockMergeProgress = 0
-        // Morph en pantalla: ease-in-out + spring ligero = gotas que se unen.
-        withAnimation(.easeInOut(duration: 0.34)) {
+        // Spring compartido: ambos laterales + Play morphan juntos.
+        OGMotion.run(OGMotion.reorder, reduceMotion: false) {
             lockMergeProgress = 1
         }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(340))
+            try? await Task.sleep(for: .milliseconds(420))
             guard canLockLiveScreen else {
                 var cancel = Transaction()
                 cancel.disablesAnimations = true

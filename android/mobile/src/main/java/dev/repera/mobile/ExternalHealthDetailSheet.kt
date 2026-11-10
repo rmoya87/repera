@@ -35,7 +35,7 @@ import kotlinx.coroutines.async
  var routeRead by remember(readGate) {mutableStateOf<ExternalRouteRead?>(null)}
  val effectiveRouteReader=routeReader ?: ({ id:String -> HealthConnectReader(ctx).readExternalRoute(id) })
  LaunchedEffect(readGate) {
-  kotlinx.coroutines.withTimeoutOrNull(2_500L) {
+  kotlinx.coroutines.withTimeoutOrNull(1_200L) {
    kotlinx.coroutines.coroutineScope {
     val detailJob = async {
      runCatching {provider(entry)}.getOrNull()

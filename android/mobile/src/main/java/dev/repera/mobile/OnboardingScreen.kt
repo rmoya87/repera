@@ -32,7 +32,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -144,19 +150,13 @@ private fun OnboardingSignInStep(
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            "Crea tus rutinas, escanea la pizarra y registra cada serie o WOD. " +
-                "Supera tus marcas, sigue tu actividad y recuperación, y entrena " +
-                "con tu reloj Wear OS y la ayuda de tu entrenador o la integración MCP.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        Spacer(Modifier.height(14.dp))
+        OnboardingWelcomeHighlights()
         Spacer(Modifier.height(24.dp))
         // Botón Google con la marca oficial (paridad OnboardingFlowView iOS):
-        // logo G multicolor 20dp, fondo/blanco según tema, borde 1dp y
+        // logo G multicolor 20dp, negro/blanco según tema, borde 1dp y
         // colores de texto de las guías de marca de Google Sign-In.
+        // En busy: spinner sustituye la G y el texto pasa a «Conectando con Google».
         val dark = isSystemInDarkTheme()
         val googleBackground = if (dark) Color(0xFF131314) else Color.White
         val googleForeground = if (dark) Color(0xFFE3E3E3) else Color(0xFF1F1F1F)
@@ -175,9 +175,11 @@ private fun OnboardingSignInStep(
             if (busy) {
                 CircularProgressIndicator(
                     modifier = Modifier.height(20.dp).width(20.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
+                    color = googleForeground
                 )
                 Spacer(Modifier.width(10.dp))
+                Text("Conectando con Google", fontWeight = FontWeight.SemiBold)
             } else {
                 Image(
                     painter = painterResource(R.drawable.google_g),
@@ -185,16 +187,8 @@ private fun OnboardingSignInStep(
                     modifier = Modifier.height(20.dp).width(20.dp)
                 )
                 Spacer(Modifier.width(10.dp))
+                Text("Iniciar sesión con Google", fontWeight = FontWeight.SemiBold)
             }
-            Text("Iniciar sesión con Google", fontWeight = FontWeight.SemiBold)
-        }
-        if (busy) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Conectando con Google…",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
         if (errorText != null) {
             Spacer(Modifier.height(8.dp))
@@ -204,6 +198,56 @@ private fun OnboardingSignInStep(
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+@Composable
+private fun OnboardingWelcomeHighlights() {
+    val accent = MaterialTheme.colorScheme.primary
+    val items = listOf(
+        Icons.Outlined.Timer to "Rutinas y series",
+        Icons.Outlined.PhotoCamera to "Escanea",
+        Icons.Outlined.ShowChart to "Estadísticas",
+        Icons.Outlined.MonitorHeart to "Recuperación",
+        Icons.Outlined.Watch to "Wear OS",
+        Icons.Outlined.Psychology to "Entrenador e IA"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                row.forEach { (icon, title) ->
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 12.dp)
+                            .semantics { contentDescription = title },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2
+                        )
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
         }
     }
 }
