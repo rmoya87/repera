@@ -70,8 +70,8 @@ class StandaloneTimerStoreConfigTest {
         assertEquals("t1", loaded!!.id)
         assertEquals(config.configuredDurationSeconds, loaded.configuredSeconds)
         assertEquals("Box Centro", loaded.locationPin!!.name)
-        assertEquals(40.4168, loaded.locationPin!!.latitude, 1e-6)
-        assertEquals(-3.7038, loaded.locationPin!!.longitude, 1e-6)
+        assertEquals(40.4168, requireNotNull(loaded.locationPin).latitude, 1e-6)
+        assertEquals(-3.7038, requireNotNull(loaded.locationPin).longitude, 1e-6)
         store.clearPendingCompletion()
         assertNull(StandaloneTimerStore(ctx).loadPendingCompletion())
     }
