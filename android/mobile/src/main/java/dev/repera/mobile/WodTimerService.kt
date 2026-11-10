@@ -133,7 +133,7 @@ internal class WodTimerService : Service() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW))
+                NotificationChannel(CHANNEL_ID, "Cronómetros", NotificationManager.IMPORTANCE_LOW).apply { lockscreenVisibility = Notification.VISIBILITY_PUBLIC })
         }
         val open = PendingIntent.getActivity(
             this, 0,
@@ -147,6 +147,7 @@ internal class WodTimerService : Service() {
             .setContentText("%d:%02d".format(java.util.Locale.ROOT, seconds / 60, seconds % 60) +
                 (label?.let { " · $it" } ?: ""))
             .setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .build()
