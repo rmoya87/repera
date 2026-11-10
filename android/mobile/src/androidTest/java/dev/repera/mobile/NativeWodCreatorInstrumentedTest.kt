@@ -39,14 +39,14 @@ class NativeWodCreatorInstrumentedTest {
         assertFalse(created.getJSONArray("movements").getJSONObject(0).has("reps"))
         val active = repo.startRoutine(routine)
         assertEquals("emom", active.wod!!.format)
-        assertEquals("PER_MOVEMENT_SETS", active.wodundefined.capture)
-        assertTrue(active.wodundefined.recorded.isEmpty())
+        assertEquals("PER_MOVEMENT_SETS", active.wod.capture)
+        assertTrue(active.wod.recorded.isEmpty())
         assertThrows(IllegalArgumentException::class.java) {
             repo.recordWodMovement(0, 6, 15, null)
         }
         val logged = repo.recordWodMovement(0, 0, 16, null)
         assertEquals(1, logged.wod!!.recorded.size)
-        assertEquals("calories", logged.wodundefined.recorded.single().quantityUnit)
+        assertEquals("calories", logged.wod.recorded.single().quantityUnit)
         repo.completeWodMovementBlock()
         val history = JSONObject(String(local.read()!!)).getJSONArray("workouts")
         assertEquals(1, history.length())
