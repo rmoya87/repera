@@ -93,33 +93,29 @@ import dev.repera.domain.StrengthReferenceFrame
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "${value.heartRateMaxBpm ?: 190} lpm",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                enabled = !busy && (value.heartRateMaxBpm ?: 190) > 120,
-                onClick = {
-                    onChange(
-                        value.copy(
-                            heartRateMaxBpm = ((value.heartRateMaxBpm ?: 190) - 5).coerceAtLeast(120)
-                        )
-                    )
-                }
-            ) { Text("−5") }
-            OutlinedButton(
-                enabled = !busy && (value.heartRateMaxBpm ?: 190) < 230,
-                onClick = {
-                    onChange(
-                        value.copy(
-                            heartRateMaxBpm = ((value.heartRateMaxBpm ?: 190) + 5).coerceAtMost(230)
-                        )
-                    )
-                }
-            ) { Text("+5") }
+            val hrMax = value.heartRateMaxBpm ?: 190
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    enabled = hrMax > 120,
+                    onClick = {
+                        onChange(value.copy(heartRateMaxBpm = (hrMax - 5).coerceAtLeast(120)))
+                    }
+                ) { Text("−") }
+                Text(
+                    "$hrMax lpm",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(
+                    enabled = hrMax < 230,
+                    onClick = {
+                        onChange(value.copy(heartRateMaxBpm = (hrMax + 5).coerceAtMost(230)))
+                    }
+                ) { Text("+") }
+            }
         }
         Text("Modo de plan")
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {

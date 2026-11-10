@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -55,6 +54,16 @@ import dev.repera.domain.ProgressPreparedCharts
 /** Revelado del plot (no de la card): líneas L→R, barras abajo→arriba. */
 internal enum class ProgressChartRevealStyle { LINE, BARS }
 
+/** Paridad iOS `OGMotion.chartReveal` (~280 ms ease-out fuerte). */
+private val ProgressChartRevealSpec = androidx.compose.animation.core.tween<Float>(
+    durationMillis = 280,
+    easing = androidx.compose.animation.core.CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+)
+
+/**
+ * Revelado GPU-friendly: `Animatable` se lee solo en la fase de dibujo
+ * (sin recomponer el Canvas/Chart cada frame — eso entrecortaba Físico).
+ */
 @Composable
 internal fun Modifier.progressChartReveal(style: ProgressChartRevealStyle): Modifier {
     val contentResolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
@@ -67,41 +76,34 @@ internal fun Modifier.progressChartReveal(style: ProgressChartRevealStyle): Modi
             ) == 0f
         }.getOrDefault(false)
     }
-    var progress by remember { androidx.compose.runtime.mutableFloatStateOf(if (reduceMotion) 1f else 0f) }
+    val progress = remember {
+        androidx.compose.animation.core.Animatable(if (reduceMotion) 1f else 0f)
+    }
     androidx.compose.runtime.LaunchedEffect(reduceMotion) {
         if (reduceMotion) {
-            progress = 1f
+            progress.snapTo(1f)
             return@LaunchedEffect
         }
-        progress = 0f
-        androidx.compose.animation.core.animate(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = 420,
-                easing = androidx.compose.animation.core.FastOutSlowInEasing
-            )
-        ) { value, _ -> progress = value }
+        progress.snapTo(0f)
+        progress.animateTo(1f, animationSpec = ProgressChartRevealSpec)
     }
     return this.then(
-        Modifier
-            .graphicsLayer { clip = true }
-            .drawWithContent {
-                val w = size.width
-                val h = size.height
-                val p = progress.coerceIn(0f, 1f)
-                val scope = this
-                when (style) {
-                    ProgressChartRevealStyle.LINE ->
-                        clipRect(left = 0f, top = 0f, right = w * p, bottom = h) {
-                            scope.drawContent()
-                        }
-                    ProgressChartRevealStyle.BARS ->
-                        clipRect(left = 0f, top = h * (1f - p), right = w, bottom = h) {
-                            scope.drawContent()
-                        }
-                }
+        Modifier.drawWithContent {
+            val w = size.width
+            val h = size.height
+            val p = progress.value.coerceIn(0f, 1f)
+            val scope = this
+            when (style) {
+                ProgressChartRevealStyle.LINE ->
+                    clipRect(left = 0f, top = 0f, right = w * p, bottom = h) {
+                        scope.drawContent()
+                    }
+                ProgressChartRevealStyle.BARS ->
+                    clipRect(left = 0f, top = h * (1f - p), right = w, bottom = h) {
+                        scope.drawContent()
+                    }
             }
+        }
     )
 }
 

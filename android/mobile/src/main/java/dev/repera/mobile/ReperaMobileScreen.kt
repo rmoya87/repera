@@ -57,6 +57,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -607,8 +608,8 @@ fun ReperaMobileScreen(
                 livePhase == LiveActivityState.Phase.RECORDING ||
                 livePhase == LiveActivityState.Phase.PAUSED
         )
-        // R5 P2.9: iOS mantiene la tab bar en push (Crear/Ajustes/ejercicio); solo se oculta chrome repera/gear.
-        // En Comenzar activo el menú baja (paridad iOS LiveActivityView.toolbar tabBar).
+        // Ajustes/IA y Comenzar activo: el menú baja (paridad iOS toolbar tabBar).
+        // Crear/editar/play también lo ocultan; Historial/ejercicio/temporizador lo mantienen.
         val showTabBar = currentRoute != "mensajes" &&
             (currentRoute in tabRoutes || reperaRouteKeepsTabBar(currentRoute)) &&
             !liveSessionHidesTab
@@ -2070,7 +2071,8 @@ internal fun SettingsTab(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(settingsScroll)
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = tabInset + 12.dp),
+            // Sin menú (Ajustes oculta tab bar): aire extra al final para no pegar a la pantalla.
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = tabInset + 32.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (onBack != null) {
@@ -2276,33 +2278,36 @@ internal fun SettingsTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
+                    // − valor +; no depende de `busy` (el guardado es optimista).
+                    val hrMax = training.heartRateMaxBpm ?: 190
+                    val hrReady = overview != null
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "${training.heartRateMaxBpm ?: 190} lpm",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         TextButton(
-                            enabled = !trainingBusy && (training.heartRateMaxBpm ?: 190) > 120,
+                            enabled = hrReady && hrMax > 120,
                             onClick = {
                                 onUpdateTrainingSettings(
                                     training.copy(
-                                        heartRateMaxBpm =
-                                            ((training.heartRateMaxBpm ?: 190) - 5).coerceAtLeast(120)
+                                        heartRateMaxBpm = (hrMax - 5).coerceAtLeast(120)
                                     )
                                 )
                             }
                         ) { Text("−") }
+                        Text(
+                            "$hrMax lpm",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.widthIn(min = 72.dp),
+                            textAlign = TextAlign.Center
+                        )
                         TextButton(
-                            enabled = !trainingBusy && (training.heartRateMaxBpm ?: 190) < 230,
+                            enabled = hrReady && hrMax < 230,
                             onClick = {
                                 onUpdateTrainingSettings(
                                     training.copy(
-                                        heartRateMaxBpm =
-                                            ((training.heartRateMaxBpm ?: 190) + 5).coerceAtMost(230)
+                                        heartRateMaxBpm = (hrMax + 5).coerceAtMost(230)
                                     )
                                 )
                             }
@@ -2375,12 +2380,6 @@ internal fun SettingsTab(
                 )
             }
         }
-        Text(
-            text = "Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
     }
     }
 }

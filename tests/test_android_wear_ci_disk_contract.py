@@ -6,7 +6,8 @@ con 5,26 GB libres y nunca abrió el AVD; el deploy beta quedó sin validar.
 import unittest
 from pathlib import Path
 
-WORKFLOW = (Path(__file__).resolve().parents[1] / ".github/workflows/android-native-ci.yml").read_text(encoding="utf-8")
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = (ROOT / ".github/workflows/android-native-ci.yml").read_text(encoding="utf-8")
 WEAR = WORKFLOW.split("  wear-instrumented:", 1)[1].split("  deploy-internal-beta:", 1)[0]
 
 
@@ -43,6 +44,13 @@ class WearCIRunnerDiskBudgetContract(unittest.TestCase):
         self.assertIn("needs: [android-native, android-instrumented]", deploy)
         self.assertIn("github.ref == 'refs/heads/beta'", deploy)
         self.assertNotIn("wear-instrumented", deploy.split("if:", 1)[0])
+
+    def test_play_upload_pins_httplib2_and_strips_308_redirect(self):
+        deploy = WORKFLOW.split("  deploy-internal-beta:", 1)[1]
+        self.assertIn("httplib2>=0.22.0,<1", deploy)
+        uploader = (ROOT / "android/scripts/upload_play_release.py").read_text(encoding="utf-8")
+        self.assertIn("disable_httplib2_308_redirects", uploader)
+        self.assertIn("code != 308", uploader)
 
 
 if __name__ == "__main__":

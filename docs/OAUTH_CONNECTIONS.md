@@ -82,7 +82,8 @@ Desconectar revoca primero el permiso de Repera; cada llamada lo comprueba. Desp
 
 ### Direcciones para las fichas
 
-- MCP: `https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp`
+- MCP (Edge real): `https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp`
+- MCP (URL pública en apps): `https://mcp.repera.app` — proxy gratuito (Deno Deploy / Cloudflare Worker) desde IONOS vía CNAME `mcp`; no usar redirect 301/302 ni Custom Domain de pago de Supabase solo para enmascarar. Edge real: `…/functions/v1/repera-mcp`.
 - Protected resource metadata: `https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp/.well-known/oauth-protected-resource`
 - Authorization server issuer: `https://uvzgujlrqohreoucirms.supabase.co/auth/v1`
 - Authorization server discovery: `https://uvzgujlrqohreoucirms.supabase.co/.well-known/oauth-authorization-server/auth/v1`

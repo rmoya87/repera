@@ -186,11 +186,13 @@ internal fun reperaRouteHidesAppShell(route: String?): Boolean {
     }
 }
 
-/** Push que mantienen la tab bar. Crear/editar/play entreno la ocultan. */
+/** Push que mantienen la tab bar. Crear/editar/play y Ajustes la ocultan. */
 internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
     if (route.isNullOrBlank()) return false
     return when {
-        route == "ajustes" -> true
+        // Ajustes y subpáginas: menú baja (paridad iOS SettingsView.toolbar tabBar).
+        route == "ajustes" || route.startsWith("ajustes-") -> false
+        route == "acceso-ia" || route == "programas-ia" -> false
         // Crear / editar / play: sin menú principal (solo ← y ✓).
         route.startsWith("rutina-nueva") -> false
         route.startsWith("rutina/") -> false
@@ -201,9 +203,7 @@ internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
         route == "peso-corporal" -> true
         route == "historial" -> true
         route == "center" -> true
-        route == "acceso-ia" -> true
         route.startsWith("temporizador") -> true
-        route.startsWith("ajustes-") -> true
         else -> false
     }
 }
@@ -416,36 +416,51 @@ internal fun ReperaTabBarChrome(
     continueIsLive: Boolean = false,
     continueLiveIcon: ImageVector? = null,
 ) {
-    if (!showTabBar) return
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .background(Color.Transparent)
-            .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
+    androidx.compose.animation.AnimatedVisibility(
+        visible = showTabBar,
+        enter = androidx.compose.animation.slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = androidx.compose.animation.core.tween(220)
+        ) + androidx.compose.animation.fadeIn(
+            animationSpec = androidx.compose.animation.core.tween(180)
+        ),
+        exit = androidx.compose.animation.slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = androidx.compose.animation.core.tween(220)
+        ) + androidx.compose.animation.fadeOut(
+            animationSpec = androidx.compose.animation.core.tween(160)
+        )
     ) {
-        if (continueTitle != null) {
-            // Continuar detrás del menú: el blanco tapa el hueco bajo la píldora.
-            ReperaContinueAccessory(
-                title = continueTitle,
-                progress = continueProgress,
-                onClick = onContinue,
-                exercise = continueExercise,
-                isLiveActivity = continueIsLive,
-                liveSportIcon = continueLiveIcon,
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(Color.Transparent)
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
+        ) {
+            if (continueTitle != null) {
+                // Continuar detrás del menú: el blanco tapa el hueco bajo la píldora.
+                ReperaContinueAccessory(
+                    title = continueTitle,
+                    progress = continueProgress,
+                    onClick = onContinue,
+                    exercise = continueExercise,
+                    isLiveActivity = continueIsLive,
+                    liveSportIcon = continueLiveIcon,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 28.dp)
+                        .zIndex(0f)
+                )
+            }
+            ReperaFloatingTabBar(
+                tabs = reperaTabsForCenter(showCenterTab),
+                selectedRoute = selectedRoute,
+                onTabSelected = onTabSelected,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 28.dp)
-                    .zIndex(0f)
+                    .zIndex(1f)
             )
         }
-        ReperaFloatingTabBar(
-            tabs = reperaTabsForCenter(showCenterTab),
-            selectedRoute = selectedRoute,
-            onTabSelected = onTabSelected,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(1f)
-        )
     }
 }

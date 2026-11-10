@@ -108,6 +108,9 @@ private struct AIConnectionCatalog: Decodable {
 }
 
 private enum AIProviderLaunch {
+    /// URL pública para pegar en asistentes (proxy canónico en repera.app).
+    static let publicServer = "https://mcp.repera.app"
+    /// Endpoint Edge real (OAuth / discovery / Bearer).
     static let server = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 
     /// Chat nuevo con el prompt en `q` (Universal Links abren la app si está).
@@ -265,13 +268,6 @@ struct AIAccessView: View {
         Form {
             OGScrollablePageTitle("Conecta tu IA").ogScrollingTitleListRow()
             connectionSection
-            Section {
-                DisclosureGroup("Conexión manual", isExpanded: $showManualAccess) {
-                    Text("Para asistentes que requieren una clave de acceso. Pégala en su configuración, nunca en una conversación.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    manualAccessFields
-                }
-            }
             connectionsSection
 
             if !changeRequests.pending.isEmpty {
@@ -359,6 +355,10 @@ struct AIAccessView: View {
             await changeRequests.refresh(store:store)
         }
         .ogScrollingTitleNav()
+        .toolbar(.hidden, for: .tabBar)
+        .sheet(isPresented: $showManualAccess) {
+            manualAccessSheet
+        }
         .sheet(item: $instructionsProvider) { provider in
             NavigationStack {
                 ScrollView {
@@ -486,10 +486,6 @@ struct AIAccessView: View {
 
     private var connectionSection: some View {
         Section {
-            Text("Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.")
-                .foregroundStyle(OG.label2)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
             ForEach(Array(providers.enumerated()), id: \.element.id) { index, provider in
                 // Text+tap (no Button): Form no promociona filas sueltas.
                 HStack(spacing: 12) {
@@ -524,14 +520,36 @@ struct AIAccessView: View {
                 .accessibilityLabel(connectionVerified(for: provider) ? "Desactivar \(provider.name)" :
                     provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
                 .listRowSeparator(.hidden)
-                // Mismo aire abajo que arriba de la caja (último Continuar ↔ borde).
                 .listRowInsets(EdgeInsets(
-                    top: 3,
+                    top: index == 0 ? 12 : 3,
                     leading: 16,
-                    bottom: index == providers.count - 1 ? 12 : 3,
+                    bottom: 3,
                     trailing: 16
                 ))
             }
+            // Cuarto botón dentro de «Elige tu asistente».
+            HStack(spacing: 12) {
+                Image(systemName: "key.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
+                Text("Conexión manual")
+                    .fontWeight(.semibold)
+                Spacer(minLength: 0)
+                Color.clear.frame(width: 24, height: 1)
+            }
+            .foregroundStyle(OG.label)
+            .frame(height: 48)
+            .padding(.horizontal, 14)
+            .background(Color(uiColor: .systemBackground), in: RoundedRectangle(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Color.secondary.opacity(0.25)))
+            .contentShape(Rectangle())
+            .onTapGesture { showManualAccess = true }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Conexión manual")
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 12, trailing: 16))
             if !auth.isConnected {
                 Text("Inicia sesión en Repera para conectar tu asistente.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -690,11 +708,40 @@ struct AIAccessView: View {
         .padding(.vertical, 5)
     }
 
-    private var manualAccessFields: some View {
-        Group {
-                TextField("Nombre del acceso (ej. Mi entrenador IA)", text: $tokenName)
+    private var canCreateManualToken: Bool {
+        tokenName.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
+            && auth.isConnected
+            && !isBusy
+    }
+
+    private var manualAccessSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Conexión manual") {
+                CloseToolbarButton(action: { showManualAccess = false }, large: true)
+            }
+            .padding(.top, 4)
+
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Nombre")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                    TextField("Ej. Mi entrenador IA", text: $tokenName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(OG.label)
                         .textInputAutocapitalization(.sentences)
                         .autocorrectionDisabled()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+
+                Divider().opacity(0.35).padding(.leading, 14)
+
+                HStack {
+                    Text("Caducidad")
+                        .font(.body)
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
                     Picker("Caducidad", selection: $expiry) {
                         Text("7 días").tag("7d")
                         Text("30 días").tag("30d")
@@ -702,21 +749,84 @@ struct AIAccessView: View {
                         Text("1 año").tag("365d")
                         Text("Ilimitado").tag("unlimited")
                     }
-                    Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
-                        .tint(OG.accent)
-                    if expiry == "unlimited" {
-                        Label("Un token ilimitado seguirá funcionando hasta que lo revoques. Úsalo solo con asistentes de confianza.", systemImage: "exclamationmark.shield")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    Button {
-                        Task { await createToken() }
-                    } label: {
-                        Label(isBusy ? "Creando acceso…" : "Crear token", systemImage: "plus.circle.fill")
-                    }
-                    .disabled(isBusy || !auth.isConnected || tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .tint(OG.accent)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
 
+                Divider().opacity(0.35).padding(.leading, 14)
+
+                Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
+                    .tint(OG.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Servidor MCP")
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                HStack(alignment: .center, spacing: 12) {
+                    Text(AIProviderLaunch.publicServer)
+                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        UIPasteboard.general.string = AIProviderLaunch.publicServer
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(OG.accent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Copiar URL del servidor MCP")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            if expiry == "unlimited" {
+                Label(
+                    "Un token ilimitado seguirá funcionando hasta que lo revoques. Úsalo solo con asistentes de confianza.",
+                    systemImage: "exclamationmark.shield"
+                )
+                .font(.footnote)
+                .foregroundStyle(OG.label2)
+                .padding(.horizontal, 4)
+            }
+
+            Button {
+                Task { await createToken() }
+            } label: {
+                Text(isBusy ? "Creando acceso…" : "Crear token")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(canCreateManualToken ? OG.onAccent : OG.label2)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(
+                        canCreateManualToken ? OG.accent : OG.surface2,
+                        in: Capsule()
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canCreateManualToken)
+            .opacity(canCreateManualToken ? 1 : 0.55)
         }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .ogFittedSheet()
+        .tint(OG.accent)
     }
 
     @MainActor
@@ -788,7 +898,7 @@ struct AIAccessView: View {
 
     @MainActor
     private func createToken() async {
-        guard !isBusy, auth.isConnected, let client = auth.apiClient else { return }
+        guard canCreateManualToken, let client = auth.apiClient else { return }
         isBusy = true
         defer { isBusy = false }
         errorMessage = nil
@@ -818,6 +928,7 @@ struct AIAccessView: View {
             }
             createdToken = value.token
             tokenName = ""
+            showManualAccess = false
             await refreshTokens()
         } catch {
             errorMessage = "No se pudo crear el token: \(error.localizedDescription)"

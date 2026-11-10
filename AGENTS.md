@@ -145,6 +145,17 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
+- `deploy-internal-beta` puede fallar en *Publish AAB…* con
+  `httplib2.error.RedirectMissingLocation` tras builds/tests verdes: el upload
+  resumable de Play responde **308** sin `Location` («resume incomplete»).
+- Causa: `httplib2` (a menudo el paquete del sistema del runner) trata 308 como
+  redirect antes de que `googleapiclient` continúe el `MediaFileUpload`.
+- Fix: `disable_httplib2_308_redirects()` en
+  `android/scripts/upload_play_release.py` + `pip install --upgrade httplib2`
+  en `android-native-ci.yml`. No es un bug de la app.
+- Contrato: `android/scripts/test_upload_play_release.py`.
+
 #### Android — Comenzar VerifyError R8 outliner / AGP 9.4.0 (10/11/2026)
 - Release minificado con **AGP 9.4.0** puede crashear al abrir Comenzar:
   `java.lang.VerifyError` / `register vN has type Undefined but expected Integer`
@@ -223,12 +234,18 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   menudo «unable to type-check this expression».
 - Contrato: `tests/test_strength_visual_contract.py::test_recovery_has_daily_line_and_pro_gate`.
 
-#### Conecta tu IA — desactivar / abrir / borrar (08/11/2026)
+#### Conecta tu IA — desactivar / abrir / borrar (08/11/2026; sheet manual 10/11/2026)
 
 - En Form, **Button** dentro de `VStack` se promociona a filas sueltas; el swipe
   full puede desincronizar el Form. Usar Text+`onTapGesture`; `allowsFullSwipe: false`.
 - Hub sin «Solo instrucciones» ni pie largo: Continuar lleva el prompt al chat (`?q=`).
 - Desactivar izq. / Abrir der.; swipe → Edge `…/delete`. Contrato: `test_ai_provider_launch_contract`.
+- **Conexión manual** = 4.º botón en «Elige tu asistente» → sheet (no fila
+  aparte ni DisclosureGroup); sin copy «Usa tu asistente…» / «Para asistentes…»;
+  URL pública `https://mcp.repera.app` + copiar tras el toggle de escritura;
+  «Crear token» gris hasta ≥3 letras. Ajustes/IA ocultan el menú principal.
+- **Android FC máxima:** no usar `runWorkoutAction`/`busy` para ±; persistencia
+  optimista (`persistTrainingSettings`) o el stepper bloquea todo Ajustes.
 
 #### Material / ordenación biblioteca (08/11/2026)
 

@@ -13,9 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -51,9 +51,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import org.json.JSONObject
@@ -184,70 +186,80 @@ fun AIAccessScreen(
         ReperaCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    "Usa tu asistente habitual para consultar tus entrenamientos y preparar tus próximas sesiones.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 val context = androidx.compose.ui.platform.LocalContext.current
                 var launchHint by remember { mutableStateOf<String?>(null) }
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    providers?.first?.forEach { provider ->
-                        val verified = provider.oauthClientID != null && tokens.orEmpty().any {
-                            it.oauthClientID == provider.oauthClientID && it.hasConnected
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                if (verified) disconnectingProvider = provider
-                                else {
-                                    ReperaAnalytics.track(
-                                        ReperaAnalytics.Event.AI_CONNECTION_STARTED,
-                                        mapOf(
-                                            "feature_area" to "ai",
-                                            "entry_point" to provider.id,
-                                            "result" to "pending"
-                                        )
-                                    )
-                                    val prompt = AIProviderLaunch.instructions(provider)
-                                    copyAiPromptToClipboard(context, prompt)
-                                    val opened = AIProviderLaunch.openProvider(
-                                        context, provider.id, prompt
-                                    )
-                                    launchHint = if (opened) {
-                                        "Abriendo ${provider.name} con las instrucciones en un chat nuevo (también copiadas)."
-                                    } else {
-                                        instructionsFor = provider
-                                        "No se pudo abrir ${provider.name}. Las instrucciones permanecen copiadas."
-                                    }
-                                }
-                            },
-                            enabled = connected,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
-                        ) {
-                            Icon(
-                                androidx.compose.ui.res.painterResource(
-                                    when (provider.id) {
-                                        "chatgpt" -> dev.repera.mobile.R.drawable.ai_logo_openai
-                                        "claude" -> dev.repera.mobile.R.drawable.ai_logo_claude
-                                        else -> dev.repera.mobile.R.drawable.ai_logo_grok
-                                    }
-                                ),
-                                contentDescription = null,
-                                tint = if (provider.id == "claude")
-                                    androidx.compose.ui.graphics.Color.Unspecified
-                                else androidx.compose.material3.LocalContentColor.current,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                if (verified) "Desactivar ${provider.name}"
-                                else "Continuar con ${provider.name}"
-                            )
-                        }
+                providers?.first?.forEach { provider ->
+                    val verified = provider.oauthClientID != null && tokens.orEmpty().any {
+                        it.oauthClientID == provider.oauthClientID && it.hasConnected
                     }
+                    OutlinedButton(
+                        onClick = {
+                            if (verified) disconnectingProvider = provider
+                            else {
+                                ReperaAnalytics.track(
+                                    ReperaAnalytics.Event.AI_CONNECTION_STARTED,
+                                    mapOf(
+                                        "feature_area" to "ai",
+                                        "entry_point" to provider.id,
+                                        "result" to "pending"
+                                    )
+                                )
+                                val prompt = AIProviderLaunch.instructions(provider)
+                                copyAiPromptToClipboard(context, prompt)
+                                val opened = AIProviderLaunch.openProvider(
+                                    context, provider.id, prompt
+                                )
+                                launchHint = if (opened) {
+                                    "Abriendo ${provider.name} con las instrucciones en un chat nuevo (también copiadas)."
+                                } else {
+                                    instructionsFor = provider
+                                    "No se pudo abrir ${provider.name}. Las instrucciones permanecen copiadas."
+                                }
+                            }
+                        },
+                        enabled = connected,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(
+                            androidx.compose.ui.res.painterResource(
+                                when (provider.id) {
+                                    "chatgpt" -> dev.repera.mobile.R.drawable.ai_logo_openai
+                                    "claude" -> dev.repera.mobile.R.drawable.ai_logo_claude
+                                    else -> dev.repera.mobile.R.drawable.ai_logo_grok
+                                }
+                            ),
+                            contentDescription = null,
+                            tint = if (provider.id == "claude")
+                                androidx.compose.ui.graphics.Color.Unspecified
+                            else androidx.compose.material3.LocalContentColor.current,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            if (verified) "Desactivar ${provider.name}"
+                            else "Continuar con ${provider.name}"
+                        )
+                    }
+                }
+                // Cuarto botón dentro de «Elige tu asistente».
+                OutlinedButton(
+                    onClick = { showManual = true },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(13.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("ai_manual_connection")
+                ) {
+                    Icon(
+                        Icons.Outlined.Key,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("Conexión manual")
                 }
                 if (!connected) {
                     Text(
@@ -299,28 +311,23 @@ fun AIAccessScreen(
                 })
         }
 
-        // Disclosure «Conexión manual» (AIAccessView iOS DisclosureGroup).
-        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            SettingsListRow(
-                title = "Conexión manual",
-                showChevron = false,
-                trailingIcon = if (showManual) Icons.Outlined.KeyboardArrowUp
-                    else Icons.Outlined.KeyboardArrowDown,
-                onClick = { showManual = !showManual }
-            )
-            if (showManual) {
+        // Sheet de conexión manual (abre el 4.º botón de «Elige tu asistente»).
+        if (showManual) {
+            val context = LocalContext.current
+            val canCreate = !busy && connected && tokenName.trim().length >= 3
+            ReperaModalBottomSheet(onDismissRequest = { showManual = false }) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .padding(bottom = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .padding(bottom = 28.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Para asistentes que requieren una clave de acceso. " +
-                            "Pégala en su configuración, nunca en una conversación.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "Conexión manual",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
                     ReperaMetaTextField(
                         caption = "Nombre del acceso (ej. Mi entrenador IA)",
@@ -363,6 +370,34 @@ fun AIAccessScreen(
                             colors = reperaSwitchColors()
                         )
                     }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            AIProviderLaunch.PUBLIC_SERVER,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                copyAiPromptToClipboard(
+                                    context,
+                                    AIProviderLaunch.PUBLIC_SERVER
+                                )
+                            }
+                        ) {
+                            Icon(
+                                Icons.Outlined.ContentCopy,
+                                contentDescription = "Copiar URL del servidor MCP",
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
                     if (expiry == "unlimited") {
                         Text("Un token ilimitado seguirá funcionando hasta que lo " +
                             "revoques. Úsalo solo con asistentes de confianza.",
@@ -370,10 +405,19 @@ fun AIAccessScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
-                        onClick = { onCreate(tokenName.trim(), expiry, canWrite)
-                            tokenName = "" },
-                        enabled = !busy && connected && tokenName.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
+                        onClick = {
+                            onCreate(tokenName.trim(), expiry, canWrite)
+                            tokenName = ""
+                            showManual = false
+                        },
+                        enabled = canCreate,
+                        modifier = Modifier.fillMaxWidth().testTag("ai_create_token"),
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = MaterialTheme.colorScheme
+                                .surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme
+                                .onSurfaceVariant.copy(alpha = 0.55f)
+                        )
                     ) { Text(if (busy) "Creando acceso…" else "Crear token") }
                 }
             }

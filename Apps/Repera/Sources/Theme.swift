@@ -106,6 +106,7 @@ enum OG {
 /// Propósito:
 /// - `reorder`: reordenar bloques / filas (spring, interrumpible).
 /// - `appear`: apariciones y paneles (curva corta ease-out).
+/// - `chartReveal`: revelado L→R / abajo→arriba de plots de Progreso.
 /// - `highlight`: resaltados de drop target / feedback de color.
 ///
 /// Con «Reducir movimiento» activo, `animation(_:reduceMotion:)` y `run`
@@ -114,6 +115,8 @@ enum OG {
 enum OGMotion {
     static let reorder = Animation.spring(response: 0.34, dampingFraction: 0.86)
     static let appear = Animation.easeOut(duration: 0.2)
+    /// Ease-out fuerte (<300 ms): revelado de plot sin layout por frame.
+    static let chartReveal = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.28)
     static let highlight = Animation.easeOut(duration: 0.15)
 
     /// Regla única de accesibilidad para animaciones de movimiento.
@@ -205,20 +208,17 @@ private struct OGChartRevealModifier: ViewModifier {
     @State private var progress: CGFloat = 0
 
     func body(content: Content) -> some View {
+        // compositingGroup: rasteriza el plot una vez; el revelado solo
+        // transforma la máscara (scale), sin relayout del Chart/Canvas.
         content
+            .compositingGroup()
             .mask {
-                GeometryReader { geo in
-                    switch style {
-                    case .line:
-                        Rectangle()
-                            .frame(width: max(geo.size.width * progress, 0.001))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    case .bars:
-                        Rectangle()
-                            .frame(height: max(geo.size.height * progress, 0.001))
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    }
-                }
+                Rectangle()
+                    .scaleEffect(
+                        x: style == .line ? max(progress, 0.001) : 1,
+                        y: style == .bars ? max(progress, 0.001) : 1,
+                        anchor: style == .line ? .leading : .bottom
+                    )
             }
             .onAppear {
                 guard progress < 1 else { return }
@@ -227,11 +227,8 @@ private struct OGChartRevealModifier: ViewModifier {
                     return
                 }
                 progress = 0
-                Task { @MainActor in
-                    await Task.yield()
-                    withAnimation(.easeOut(duration: 0.42)) {
-                        progress = 1
-                    }
+                withAnimation(OGMotion.chartReveal) {
+                    progress = 1
                 }
             }
     }

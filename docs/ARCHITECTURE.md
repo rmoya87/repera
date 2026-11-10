@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-10 (iOS: pulido motion OGMotion en Play/Progreso/Historial/Paywall).
+Última actualización: 2026-11-10 (Progreso: revelado de plots GPU / sin recompose).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -123,7 +123,7 @@ en [WATCH_WEAR_LIVE_SYNC_2026_10_30.md](WATCH_WEAR_LIVE_SYNC_2026_10_30.md).
 
 Última actualización: 2026-11-09 (Android: `ensureHydrated` + biblioteca nunca vacía tras lápidas).
 
-El enriquecimiento y altas desde bibliotecas abiertas (Free Exercise DB, Open WOD, OpenExerciseDB, RepDB, Kinetic, …) se preparan con `tools/catalog_ingest/` y se publican por el mismo canal editorial; las apps no consultan esas fuentes y el arte sigue el estilo ExerciseArt Repera ([CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md)). RepDB free: crédito «Exercise data by RepDB (repdb.co)» en Ajustes.
+El enriquecimiento y altas desde bibliotecas abiertas (Free Exercise DB, Open WOD, OpenExerciseDB, RepDB, Kinetic, …) se preparan con `tools/catalog_ingest/` y se publican por el mismo canal editorial; las apps no consultan esas fuentes y el arte sigue el estilo ExerciseArt Repera ([CATALOG_OPEN_SOURCES.md](CATALOG_OPEN_SOURCES.md)). RepDB free: atribución en `tools/catalog_ingest/LICENSE_MATRIX.md` (el pie in-app de Ajustes se retiró el 10/11/2026).
 
 **Autoridad viva = Supabase**; `Catalog.seed()` / `catalog_seed.json` es la **base local** (bootstrap). Feed `mobile_exercise_catalog_events` con campos canónicos; cold-start / lag grande usa RPC `mobile_exercise_catalog_bootstrap()` (1 descarga del estado actual) y deltas en páginas de 500. `RemoteExerciseCatalogMerge` / Android `RemoteExerciseCatalog.applyToAccount` aplican sobre el seed; null/vacío no borra. **Android:** `CatalogBootstrap.ensureHydrated` siembra o fusiona si falta el snapshot o el array `exercises`; tras el merge remoto, si no queda ningún ejercicio visible se desarchivan las fichas no custom (nunca biblioteca vacía). Arte: `mobile_art_keys` + Storage `exercise-art` → caché disco. Sync invisible BGAppRefresh / WorkManager. Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 
@@ -293,7 +293,7 @@ El acceso Google usa `GoogleSignIn` del SDK oficial 10.1.0, fijado en `project.y
 
 - Tokens `OG*` adaptativos (día/noche según sistema), acento verde `#30d158`
 - `OG.bg` = lienzo (día gris agrupado, noche negro); `OG.surface` = cards/filas (día blanco, noche gris) — mismo patrón de secciones en ambos modos
-- `OGMotion`: curvas estándar (`reorder` spring, `appear` ease-out 0.2, `highlight` ease-out 0.15) + `animation(_:reduceMotion:)` / `run` — con «Reducir movimiento» no hay movimiento (cambio instantáneo; fundidos solo vía `.opacity`)
+- `OGMotion`: curvas estándar (`reorder` spring, `appear` ease-out 0.2, `chartReveal` ease-out 0.28 para plots, `highlight` ease-out 0.15) + `animation(_:reduceMotion:)` / `run` — con «Reducir movimiento» no hay movimiento (cambio instantáneo; fundidos solo vía `.opacity`). Revelado de Progreso: iOS máscara por `scaleEffect` + `compositingGroup`; Android `Animatable` en fase de dibujo.
 - Continuar ↔ Play/Comenzar: `ogContinueSessionMatchedGeometry` + namespace en `RootTabView` (sin morph si reduceMotion; sin `numericText` en ticks de 1 s del accesorio Live)
 - `OGCard`, `OGPageHeader`, `OGBackPageHeader` (legacy / sheets compactos)
 - `ogPinnedTransparentNav`: título large debajo de volver/acciones (subpáginas); fuerza `.toolbar(.visible)` porque roots con `ogFixedTopBar` ocultan la barra

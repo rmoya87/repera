@@ -17,6 +17,19 @@ Options -Indexes
   </FilesMatch>
 </IfModule>
 
+# MCP público → Edge Function.
+# Requiere mod_proxy + SSLProxyEngine en el hosting. Un 301/302 NO sirve para
+# MCP: la URL pública de apps es https://mcp.repera.app (proxy Deno/CF).
+# Este ProxyPass de /mcp en IONOS compartido suele no aplicarse (404).
+<IfModule mod_proxy.c>
+  SSLProxyEngine On
+  ProxyPreserveHost Off
+  ProxyPass        /mcp  https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp
+  ProxyPassReverse /mcp  https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp
+  ProxyPass        /mcp/ https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp/
+  ProxyPassReverse /mcp/ https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp/
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

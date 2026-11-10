@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-10 (sin widget home iOS; Quick Actions = atajos Android).
+Última actualización: 2026-11-10 (MCP `mcp.repera.app`; Play upload 308; privacidad/margen Ajustes).
 
 ## Progresión y comparativas deportivas (09/11/2026)
 
@@ -64,7 +64,7 @@
 
 ## Catálogo: enriquecimiento desde fuentes abiertas (04/11/2026)
 
-- Catálogo maestro **476** fichas (seed + sync Supabase). Fases A–G + backfill + fill remaining: desc/instrucciones/equipo/músculos/`skill_level`/aliases/`movement_pattern`/alternatives **476/476** en remoto (C–G aplicadas 2026-11-04); arte nameMap + héroes prioritarios (regen dedicada pendiente); logging nativo; crédito RepDB en Ajustes (Fase G). **iOS (2026-11-05):** la ficha y el carrusel priorizan descripción/instrucciones mergeadas desde Supabase frente al diccionario embebido `CatalogSpanish`.
+- Catálogo maestro **476** fichas (seed + sync Supabase). Fases A–G + backfill + fill remaining: desc/instrucciones/equipo/músculos/`skill_level`/aliases/`movement_pattern`/alternatives **476/476** en remoto (C–G aplicadas 2026-11-04); arte nameMap + héroes prioritarios (regen dedicada pendiente); logging nativo; Fase G RepDB (sin pie de crédito en Ajustes desde 10/11/2026; atribución en `LICENSE_MATRIX` / docs). **iOS (2026-11-05):** la ficha y el carrusel priorizan descripción/instrucciones mergeadas desde Supabase frente al diccionario embebido `CatalogSpanish`.
 - **Autoridad viva (04/11/2026):** altas/ediciones/bajas en Supabase → caché local en background **sin App Store**. Payload canónico incluye nivel, patrón, alternativas y `art_keys`. Seed solo bootstrap. **OTA 04/11 noche:** `mobile_art_keys` en **476/476** + coaching E/F/G y captions HL (`290000`–`292000`, `213000`/`215500`). Detalle: [REMOTE_EXERCISE_CATALOG.md](REMOTE_EXERCISE_CATALOG.md).
 - CrossFit/halterofilia: título visible en **inglés**; español y jerga como aliases de búsqueda/OCR.
 - Miniaturas nuevas o regeneradas **deben** seguir el estilo ExerciseArt (`art_ab_wheel` / prompts canónicos). No se importan fotos ni GIF de terceros.
@@ -189,9 +189,9 @@ La gráfica de **Puntuación de entrenamiento** y el detalle de sesión presenta
 
 ## Hub Progreso por chips temáticos (04/11/2026)
 
-Última actualización: 2026-11-10 (revelado del plot: líneas L→R, barras abajo→arriba; sin animar la card).
+Última actualización: 2026-11-10 (revelado fluido: scale/GPU ~0,28 s; sin layout por frame).
 
-Al aparecer, las gráficas se revelan en el **plot** (`ogChartReveal` / `progressChartReveal`, ~0,42 s): líneas y área de izquierda a derecha; barras de abajo arriba. Extremos de línea redondeados (sin recorte en el borde). No se anima la card contenedora.
+Al aparecer, las gráficas se revelan en el **plot** (`ogChartReveal` / `progressChartReveal`, ~0,28 s ease-out): líneas y área de izquierda a derecha; barras de abajo arriba. iOS: `compositingGroup` + máscara con `scaleEffect` (token `OGMotion.chartReveal`); Android: `Animatable` leído solo en draw (sin recomponer el Canvas cada frame). Extremos de línea redondeados. No se anima la card contenedora. Contrato: `tests/test_progress_chart_reveal_contract.py`.
 
 Progreso usa chips horizontales **Entreno · Fuerza · Físico · Corazón · Recuperación · Deportes** (iOS y Android), sin calendario de periodo. Layout chip: icono + nombre en fila y valor debajo; seleccionado = fondo verde sólido con contenido negro (sin outline). Cabecera de chips transparente; en iOS chips no seleccionados usan Liquid Glass. **Android:** el carrusel usa `reperaFullBleedHorizontal` para que el viewport llegue al borde físico (paridad `contentMargins` iOS); el gutter de 16 dp va en el contenido scrolleable, así al desplazar a izquierda/derecha los chips no se cortan antes del borde. Cards insight estilo Salud (`ProgressInsightCard`: icono+título tintados, narrativa opcional, héroe numérico y mini viz). Hub fijo a **Últimos 7 días**; consistencia **«Últimos 7 días»** antes de **Media mes / Racha / Entrenos / Tiempo** (métricas de mes). Subtítulos: Entreno/Fuerza/Físico/Deportes = **Últimos 7 días**; Corazón y Recuperación = **Ahora**. Al final de Físico, Corazón, Recuperación y Deportes: bloque **«Este mes»**. Equilibrio muscular = estado actual (fatiga retenida). **Físico:** estímulo = **media diaria** (total 7d / 7) + barras fill minutos/día de la semana; caption alineada a la base de la gráfica y dato grande en el sobrante; unidad **m**; **Este mes** = **media semana** (sin «N sesiones») + barras fill del mes con el mismo layout. **Calorías:** eje completo de 7 días (huecos sin inventar kcal). **Peso:** últimos ~365 días. **Corazón:** frec. cardíaca = cápsulas **a la derecha** entre min–máx (levitan, no desde 0); **Este mes (Cardio)** igual. **Carga y marcas:** kg del hub = últimos 7 días; barras/área suavizada de volumen diario 7d. Sueño **Horas por noche**: área + línea con degradado en marco redondeado. Recuperación: evolución en 7 días; textos vacíos en 1 línea. Recuperación: icono luna + acento azul oscuro violáceo; Deportes: teal. Pro: largo plazo (StoreKit/Play o Pro patrocinado Center). **Android cuenta gratuita:** Entreno y Fuerza muestran siempre gráficas de ejemplo (`ProgressPreview.teaserSnapshot`) y `ProTeaserCard` (paridad iOS `freeHealthScoreCard`), aunque `overview`/`progressByRange` aún no esté hidratado.
 
@@ -585,7 +585,8 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 ## Onboarding (primer acceso y usuarios existentes)
 
 - Wizard full-screen antes de las tabs: **Apple o Google** (Google mediante SDK oficial iOS y token verificado por Supabase) → **permisos** → **Gratis o Pro** (si aún no se vieron precios). El retorno del SDK usa el esquema invertido del cliente OAuth iOS, recibido en `ReperaApp.onOpenURL`.
-- Pantalla de login (iOS/Android, 10/11/2026): bienvenida «Todo tu entrenamiento. Cada vez mejor.» y rejilla visual (timer HIIT + rutinas, cámara + Escanea, Estadísticas, recuperación, reloj, entrenador/IA). El contenido admite scroll cuando no cabe, escala con Dynamic Type y reduce la mascota en horizontal.
+- Pantalla de login (iOS/Android, 10/11/2026): bienvenida «Todo tu entrenamiento. Cada vez mejor.» y rejilla visual (**Rutinas**, Escanea, Estadísticas, Recuperación, reloj, **IA**). El contenido admite scroll cuando no cabe, escala con Dynamic Type y reduce la mascota en horizontal.
+- **Permisos / privacidad (10/11/2026):** «Tus datos, bajo tu control» con cards visuales (iCloud/dispositivo, sin compartir, ubicación, Apple Salud / Health Connect) + **Continuar**. Contrato: `tests/test_onboarding_privacy_login_contract.py`.
 - Botones Apple y Google: presentación nativa con contenido centrado, mismo ancho y altura fija de 52 pt/dp, esquinas de 12 y sin sombra. Logos en marco 20×20; al pulsar Google el spinner sustituye la G y el texto pasa a «Conectando con Google» (sin spinner/texto debajo del botón). Apple conserva el spinner en el hueco del logo durante la carga. Ambos accesos se bloquean mientras se autentica. Cancelar Google vuelve al login sin error. OAuth iOS en `Configs/GoogleSignIn.xcconfig`.
 - Puerta: **Apple o Google → Supabase** en el primer acceso. Luego: onboarding + (sesión viva | refresh Keychain | binding). Si Apple Keychain se vacía (p. ej. `.revoked` espurio) pero Supabase/binding siguen, se entra igual; la identidad Apple también se espeja en UserDefaults. **No** se borra Apple Keychain en `getCredentialState(.revoked)`. Trazas Consola `com.app.repera`/`AuthSession` y DEBUG `🔐 AUTH`.
 - Mascota Repera: saludo en login (`MascotWelcome`), thumbs-up en permisos (`MascotPermissions`); plan Pro usa `MascotHero` (PNG con fondo transparente). En permisos, tras conceder, el CTA pasa de «Permitir» a «Hecho».
@@ -601,7 +602,7 @@ En Duo el sistema presenta Inicio / Comenzar / Progreso / Ejercicios en el **ra�
 
 ## Ajustes
 
-- Subpágina con volver: título large **Ajustes** debajo del chevron (`ogPinnedTransparentNav`; barra del sistema visible tras venir de Inicio). Mismo patrón en Historial, Peso y Rotación.
+- Subpágina con volver: título large **Ajustes** debajo del chevron (`ogPinnedTransparentNav`; barra del sistema visible tras venir de Inicio). Mismo patrón en Historial, Peso y Rotación. Al entrar (y en subpáginas / Conecta tu IA) el **menú principal baja** con animación; al salir vuelve (iOS `toolbar(.hidden, for: .tabBar)`; Android `reperaRouteKeepsTabBar` + `slideOutVertically`). Sin pie «Exercise data by RepDB» al final de Datos.
 - Títulos de sección Form en gris encima de cada grupo. Acciones e iconos en color de etiqueta (negro/blanco sistema), no verde.
 - **Cuenta:** Sign in with Apple, nombre, foto, sin botón de sincronización ni spinner; los datos se mantienen automáticamente en segundo plano. Con Supabase: nombre/avatar a `profiles` + Storage. Cerrar sesión.
 - **Centro y entrenador:** vinculados + **Buscar centro o entrenador** (directorio RPC `search_discoverable_organizations`).
@@ -702,7 +703,8 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 ### Acceso IA y planes entrantes (iOS 27)
 
-- **Ajustes → Conecta tu IA (08/11/2026):** «Continuar con…» abre chat nuevo con `?q=` (sin enlaces «Solo instrucciones» ni pie largo). Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe borra vía Edge `delete`. ChatGPT condicionado a OAuth.
+- **Ajustes → Conecta tu IA (10/11/2026):** caja **Elige tu asistente** con ChatGPT / Claude / Grok + **Conexión manual** (4.º botón; sin copy «Usa tu asistente…»). Continuar abre chat con `?q=`. Manual = sheet: URL `https://mcp.repera.app` + copiar tras el toggle de escritura; **Crear token** gris hasta ≥3 letras. Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe → Edge `delete`. Contrato: `tests/test_ai_provider_launch_contract.py`.
+- **Ajustes Android · FC máxima (10/11/2026):** valor entre botones − y +; guardado optimista sin `busy` global (`persistTrainingSettings`) para no bloquear el resto de Ajustes. Contrato: `tests/test_android_hr_max_settings_contract.py`.
 - **Editar entreno (revisar/descartar):** el ✓ de confirmar usa `borderedProminent` + verde Repera (check blanco de día / negro de noche); Liquid Glass de la toolbar ya no deja un círculo transparente.
 - **Apple Watch Resultado:** un fallo al escribir la muestra opcional de distancia GPS en Salud **no** muestra aviso naranja; la distancia sigue en Repera y la sesión/kcal/FC no se abortan.
 - La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.

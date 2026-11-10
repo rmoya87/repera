@@ -30,12 +30,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Watch
@@ -61,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -206,12 +210,12 @@ private fun OnboardingSignInStep(
 private fun OnboardingWelcomeHighlights() {
     val accent = MaterialTheme.colorScheme.primary
     val items = listOf(
-        Icons.Outlined.Timer to "Rutinas y series",
+        Icons.Outlined.Timer to "Rutinas",
         Icons.Outlined.PhotoCamera to "Escanea",
         Icons.Outlined.ShowChart to "Estadísticas",
         Icons.Outlined.MonitorHeart to "Recuperación",
         Icons.Outlined.Watch to "Wear OS",
-        Icons.Outlined.Psychology to "Entrenador e IA"
+        Icons.Outlined.Psychology to "IA"
     )
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         items.chunked(2).forEach { row ->
@@ -305,6 +309,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
 
     if (!showUI) return
 
+    val healthDone = healthGranted == true
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -312,23 +317,45 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
             .padding(horizontal = 24.dp)
             .padding(bottom = 28.dp)
     ) {
-        Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            ReperaMascot(ReperaMascotPose.PERMISSIONS, maxHeight = 140.dp)
-        }
+        Spacer(Modifier.height(8.dp))
+        Icon(
+            imageVector = Icons.Outlined.Shield,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(44.dp)
+        )
+        Spacer(Modifier.height(16.dp))
         Text(
-            "Permisos",
+            "Tus datos, bajo tu control",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Puedes activar notificaciones y Salud si los necesitas. Al autorizar " +
-                "Salud, eliges qué datos compartir, incluidos sueño y ciclo.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            "Tus entrenamientos viven en tu dispositivo y en tu cuenta. " +
+                "Repera no los vende ni los comparte con nadie.",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(Modifier.height(16.dp))
+        OnboardingPrivacyFactCard(
+            icon = Icons.Outlined.Cloud,
+            title = "Guardado en tu dispositivo",
+            subtitle = "Historial y planes en local (y tu copia de seguridad si la activas). Tú controlas el acceso."
+        )
+        Spacer(Modifier.height(12.dp))
+        OnboardingPrivacyFactCard(
+            icon = Icons.Outlined.Lock,
+            title = "Sin compartir con terceros",
+            subtitle = "No hay feed social ni venta de datos. Solo tú."
         )
         Spacer(Modifier.height(20.dp))
+        Text(
+            "Activa solo lo que necesites. Puedes rechazar permisos y seguir " +
+                "usando el resto de Repera.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(16.dp))
 
         PermissionRow(
             title = "Notificaciones",
@@ -345,10 +372,9 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
             }
         )
         Spacer(Modifier.height(12.dp))
-        val healthDone = healthGranted == true
         PermissionRow(
-            title = "Salud",
-            subtitle = "Entrenos, sueño, ciclo y constantes",
+            title = "Health Connect",
+            subtitle = "Entrenos, sueño, ciclo y constantes que elijas compartir",
             icon = Icons.Outlined.FavoriteBorder,
             statusText = if (healthDone) "Conectado" else "Pendiente",
             isDone = healthDone,
@@ -357,7 +383,7 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         Spacer(Modifier.height(12.dp))
         PermissionRow(
             title = "Ubicación",
-            subtitle = "Pin del gym y ruta en entrenos outdoor",
+            subtitle = "Solo recorrido, pin del gym y navegación outdoor",
             icon = Icons.Outlined.LocationOn,
             statusText = if (locationGranted) "Permitida" else "Pendiente",
             isDone = locationGranted,
@@ -371,8 +397,11 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
         Spacer(Modifier.height(24.dp))
         Button(
             onClick = { store.finishPermissions() },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("onboarding_permissions_continue"),
+            shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -393,6 +422,50 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun OnboardingPrivacyFactCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String
+) {
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

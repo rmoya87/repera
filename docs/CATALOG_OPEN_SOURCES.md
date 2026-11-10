@@ -1,6 +1,6 @@
 # Catálogo Repera ↔ fuentes abiertas
 
-Última actualización: 2026-11-04 (OTA arte+coaching E/F/G vía `mobile_art_keys`; seed/remoto **476**).
+Última actualización: 2026-11-10 (sin pie RepDB en Ajustes; OTA arte+coaching E/F/G; seed/remoto **476**).
 
 ## Nombres CrossFit / halterofilia
 
@@ -59,7 +59,7 @@ Tras cruzar Free Exercise DB (876) + Open WOD movements (314) + OpenExerciseDB r
 - Fase G: **+6** huecos RepDB/Kinetic selectivos (Almeja, Hidrante, TKE, Windshield wipers, Dragon flag, Planche lean) — `20261104270000_…`; coaching propio Repera; crédito RepDB en Ajustes
 - Política media: solo ExerciseArt Repera. Altas B/C/D/E/F/G cableadas a stems cercanos (`nameMap`); regen dedicada = backlog.
 - Fill remaining + sport tags Enrichment: `20261104240000_…`, `20261104241000_…` (0 fichas sin `sportTag`).
-- **RepDB / Kinetic:** licencia en `LICENSE_MATRIX.md`. Fase G aplicada; crédito visible en Ajustes (iOS/Android).
+- **RepDB / Kinetic:** licencia en `LICENSE_MATRIX.md`. Fase G aplicada; el pie de crédito en Ajustes se retiró el 10/11/2026 (atribución documentada en la matriz de licencias).
 - **Remoto (2026-11-04 noche):** migraciones C–G + backfills (`210000`…`250000`, `270000`) aplicadas una a una (`db query` + `migration repair`); `260000` ya estaba. Catálogo activo remoto = **476**, 0 sin descripción / `sportTag`. Historial local↔remoto sin pendientes de este lote.
 - **OTA sin App Store (2026-11-04):** `290000` coaching+arte E/F/G (43); `213000`/`215000` textos ES/carrusel HL; `291000` Aducción→Piernas; `292000` **backfill `mobile_art_keys` de las 476** fichas activas (stems empaquetados; 0 sin arte remoto). Sync invisible en apps autenticadas.
 - **Backlog:** dump masivo FED/OEDB; arte dedicado restante (regen); Human flag / Cuban / Y–T (opcionales no incluidos).
@@ -71,7 +71,7 @@ Tras Fase G:
 - Remoto/seed activo **476** con descripción, instrucciones y equipo específicos (no boilerplate).
 - `skill_level` y `primary_muscles` rellenados en altas E/F/G; D reescritas.
 - `sportTag`/disciplina: **476/476** con tag. Los 66 Enrichment gym previos recibieron tag (`20261104241000_…`); F/G etiquetan según ficha.
-- **RepDB / Kinetic (revisión 2026-11-04):** ver `LICENSE_MATRIX.md`. Kinetic JSON = MIT. RepDB free = in-app con atribución («Exercise data by RepDB (repdb.co)» en Ajustes); sin redistribuir dataset ni usar imágenes para gen-AI; arte = ExerciseArt.
+- **RepDB / Kinetic (revisión 2026-11-10):** ver `LICENSE_MATRIX.md`. Kinetic JSON = MIT. RepDB free = metadatos con atribución en la matriz de licencias (sin pie en Ajustes); sin redistribuir dataset ni usar imágenes para gen-AI; arte = ExerciseArt.
 - Logging (kg/reps/cal/m): reglas nativas `Exercise.loggingStyle`.
 - **Carga sugerida (%1RM):** solo si `loggingStyle == loadAndReps` (no cardio/máquina/movilidad).
 - **Evolución:** tabs scrollables «Mejor m / Mejor cal / Suma m / Suma cal / Tiempo» (iOS chips; Android `ScrollableTabRow`) — nunca menú desplegable para máquina.

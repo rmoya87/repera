@@ -1447,7 +1447,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 onUpdateProfile = ::persistProfileSettings,
                 onUpdateHealthGoals = { goals -> runWorkoutAction { updateHealthGoals(goals) } },
                 onUpdateRotation = { plan -> runWorkoutAction { updateRotation(plan) } },
-                onUpdateTrainingSettings = { value -> runWorkoutAction { updateTrainingSettings(value) } },
+                onUpdateTrainingSettings = ::persistTrainingSettings,
                 onLiveActivitySaved = { sessionId ->
                     // iOS saveRecordedActivity: HealthKit merge + persist; Android HC + mirror.
                     sessionId?.takeIf { it.isNotBlank() }?.let { refineFinishedSessionWithHealth(it) }
@@ -2861,6 +2861,41 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         }
         runWorkoutAction { updateProfile(value) }
         syncPublicProfileFromSettings(value.displayName ?: profile?.displayName, avatar)
+    }
+
+    /**
+     * Ajustes de entrenamiento (FC máx., unidad…): optimista y sin `busy`.
+     * `runWorkoutAction` bloqueaba toda la pantalla al pulsar +/− de FC máxima.
+     */
+    private fun persistTrainingSettings(value: TrainingSettings) {
+        val signedIn = profile ?: return
+        snapshot = snapshot?.copy(trainingSettings = value)
+        val revision = centerGate.revision
+        val durable = SessionStore(this)
+        val identityRevision = durable.identityRevision()
+        fun current() = profile?.uniqueId == signedIn.uniqueId &&
+            centerGate.revision == revision &&
+            durable.identityRevision() == identityRevision
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    check(current()) { "La cuenta cambió antes de iniciar la acción" }
+                    WorkoutRepository(
+                        this@MainActivity,
+                        signedIn.uniqueId,
+                        stillAuthorized = { current() }
+                    ).updateTrainingSettings(value)
+                }
+                if (!current()) return@launch
+                DriveSyncWorker.syncNow(this@MainActivity)
+                if (verifiedSupabase != null) syncWorkoutMirror()
+            } catch (error: Exception) {
+                if (current()) {
+                    status = error.localizedMessage ?: "No se pudieron guardar los ajustes"
+                    reloadFor(signedIn.uniqueId)
+                }
+            }
+        }
     }
 
     private fun syncPublicProfileFromSettings(

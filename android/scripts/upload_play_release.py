@@ -48,6 +48,33 @@ def has_embedded_mapping(bundle: Path) -> bool:
         return BUNDLE_MAPPING_PATH in archive.namelist()
 
 
+def disable_httplib2_308_redirects() -> None:
+    """Play resumable AAB uploads answer with HTTP 308 and no Location header.
+
+    That status means "resume incomplete", not a browser redirect. Stock
+    httplib2 (including the Ubuntu system package on GitHub runners) treats 308
+    as a redirect and raises RedirectMissingLocation before googleapiclient can
+    continue the MediaFileUpload. Strip 308 from redirect handling only.
+    """
+    import httplib2
+
+    codes = getattr(httplib2, "REDIRECT_CODES", None)
+    if not codes:
+        return
+    httplib2.REDIRECT_CODES = frozenset(code for code in codes if code != 308)
+
+
+def build_publisher(credentials):
+    """Android Publisher client that survives resumable-upload 308 responses."""
+    from google_auth_httplib2 import AuthorizedHttp
+    from googleapiclient.discovery import build
+    import httplib2
+
+    disable_httplib2_308_redirects()
+    http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=180))
+    return build("androidpublisher", "v3", cache_discovery=False, http=http)
+
+
 def publish(api, *, package: str, aab: Path, mapping: Path, notes: str,
             tracks: list[str], name: str, version_code: int) -> None:
     from googleapiclient.http import MediaFileUpload
@@ -112,14 +139,10 @@ def main() -> None:
 
     # Credentials stay in memory and are provided only by GitHub secret.
     from google.oauth2.service_account import Credentials
-    from google_auth_httplib2 import AuthorizedHttp
-    from googleapiclient.discovery import build
-    import httplib2
     service_account = json.loads(os.environ["REPERA_PLAY_SERVICE_ACCOUNT_JSON"])
     credentials = Credentials.from_service_account_info(
         service_account, scopes=[PLAY_SCOPE])
-    api = build("androidpublisher", "v3", cache_discovery=False,
-                http=AuthorizedHttp(credentials, http=httplib2.Http(timeout=180)))
+    api = build_publisher(credentials)
     publish(api, package=args.package, aab=args.aab, mapping=args.mapping,
             notes=notes, tracks=tracks, name=args.release_name,
             version_code=args.version_code)

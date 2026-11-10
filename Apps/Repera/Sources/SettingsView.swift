@@ -65,6 +65,10 @@ struct SettingsView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .ogScrollingTitleNav()
+        // Sin tab bar el Form queda pegado al borde; aire inferior para el último bloque.
+        .contentMargins(.bottom, 28, for: .scrollContent)
+        // Como Mensajes: al entrar en Ajustes el menú principal baja; al salir vuelve.
+        .toolbar(.hidden, for: .tabBar)
         .navigationDestination(item: $openLinkedCenter) { center in
             LinkedCenterDetailView(center: center)
         }
@@ -1125,9 +1129,6 @@ private struct SettingsDataSection: View {
             .disabled(isDeletingAccount)
         } header: {
             Text("Datos")
-        } footer: {
-            Text("Exercise data by RepDB (repdb.co). Catálogo con coaching e ilustraciones propias de Repera.")
-                .font(.caption2)
         }
     }
 }

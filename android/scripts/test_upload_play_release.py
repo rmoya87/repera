@@ -5,7 +5,11 @@ import zipfile
 from pathlib import Path
 
 from upload_play_release import (
-    BUNDLE_MAPPING_PATH, has_embedded_mapping, make_release, parse_tracks
+    BUNDLE_MAPPING_PATH,
+    disable_httplib2_308_redirects,
+    has_embedded_mapping,
+    make_release,
+    parse_tracks,
 )
 
 
@@ -37,6 +41,25 @@ class PlayUploadSafetyTests(unittest.TestCase):
             with zipfile.ZipFile(bundle, "a") as zf:
                 zf.writestr(BUNDLE_MAPPING_PATH, b"mapping")
             self.assertTrue(has_embedded_mapping(bundle))
+
+    def test_httplib2_308_is_not_treated_as_redirect(self):
+        # Play MediaFileUpload needs raw 308 responses; following them breaks CI.
+        import sys
+        import types
+
+        fake = types.ModuleType("httplib2")
+        fake.REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+        previous = sys.modules.get("httplib2")
+        sys.modules["httplib2"] = fake
+        try:
+            disable_httplib2_308_redirects()
+            self.assertNotIn(308, fake.REDIRECT_CODES)
+            self.assertIn(307, fake.REDIRECT_CODES)
+        finally:
+            if previous is None:
+                sys.modules.pop("httplib2", None)
+            else:
+                sys.modules["httplib2"] = previous
 
 
 if __name__ == "__main__":

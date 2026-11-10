@@ -635,7 +635,13 @@ jobs:
         env:
           REPERA_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.REPERA_PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          python3 -m pip install -q 'google-api-python-client>=2.160,<3' 'google-auth-httplib2>=0.2,<1'
+          # Pin httplib2 so runners do not keep the Ubuntu system package that
+          # raises RedirectMissingLocation on Play resumable AAB uploads (308).
+          python3 -m pip install -q --upgrade \
+            'google-api-python-client>=2.160,<3' \
+            'google-auth-httplib2>=0.2,<1' \
+            'google-auth>=2.29,<3' \
+            'httplib2>=0.22.0,<1'
           python3 android/scripts/upload_play_release.py \
             --package com.app.repera \
             --aab android/mobile/build/outputs/bundle/release/mobile-release.aab \

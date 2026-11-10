@@ -234,12 +234,12 @@ private struct OnboardingSignInStep: View {
 
     private var welcomeHighlights: some View {
         let items: [(icon: String, title: String)] = [
-            ("timer", "Rutinas y series"),
+            ("timer", "Rutinas"),
             ("camera", "Escanea"),
             ("chart.line.uptrend.xyaxis", "Estadísticas"),
             ("heart.text.square", "Recuperación"),
             ("applewatch", "Apple Watch"),
-            ("sparkles", "Entrenador e IA")
+            ("sparkles", "IA")
         ]
         return LazyVGrid(
             columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
@@ -352,40 +352,61 @@ struct OnboardingPermissionsStep: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                Image(systemName: "hand.raised.shield")
-                    .font(.system(size: 40, weight: .medium))
+            VStack(alignment: .leading, spacing: 20) {
+                Image(systemName: "hand.raised.shield.fill")
+                    .font(.system(size: 44, weight: .medium))
                     .foregroundStyle(OG.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityHidden(true)
 
                 Text("Tus datos, bajo tu control")
                     .font(.title.bold())
                     .foregroundStyle(OG.label)
 
-                Text("Repera utiliza tu ubicación cuando comienzas una actividad con recorrido y puede utilizar Apple Salud para registrar tus entrenamientos y mostrar tus métricas.")
+                Text("Tus entrenamientos viven en tu dispositivo y en tu iCloud. Repera no los vende ni los comparte con nadie.")
+                    .font(.body)
                     .foregroundStyle(OG.label)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    Label("Ubicación: solo al utilizar funciones de recorrido y navegación.", systemImage: "location")
-                    Label("Apple Salud: los datos que elijas compartir para entrenamientos y actividad.", systemImage: "heart.text.square")
+                VStack(spacing: 12) {
+                    OnboardingPrivacyFactCard(
+                        systemImage: "icloud.fill",
+                        title: "Guardado en tu iCloud",
+                        subtitle: "Historial y planes sincronizados con tu cuenta Apple. Tú controlas el acceso."
+                    )
+                    OnboardingPrivacyFactCard(
+                        systemImage: "lock.shield.fill",
+                        title: "Sin compartir con terceros",
+                        subtitle: "No hay feed social ni venta de datos. Solo tú."
+                    )
+                    OnboardingPrivacyFactCard(
+                        systemImage: "location.fill",
+                        title: "Ubicación",
+                        subtitle: "Solo al usar recorrido y navegación. Puedes denegarla y seguir entrenando."
+                    )
+                    OnboardingPrivacyFactCard(
+                        systemImage: "heart.text.square.fill",
+                        title: "Apple Salud",
+                        subtitle: "Solo los datos que elijas para entrenos y actividad. Se solicitan al usar la función."
+                    )
                 }
-                .foregroundStyle(OG.label)
-                .font(.subheadline)
 
                 Text("Puedes rechazar los permisos del sistema y seguir utilizando las funciones que no los necesitan. También puedes modificarlos en Ajustes.")
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
 
-                Spacer(minLength: 12)
+                Spacer(minLength: 16)
 
                 Button {
                     onboarding.finishPermissions()
                 } label: {
                     Text("Continuar")
+                        .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(OG.accent)
+                .controlSize(.large)
                 .accessibilityHint("Continuar para elegir el plan. Los permisos se solicitan cuando usas las funciones correspondientes.")
             }
             .padding(24)
@@ -393,5 +414,36 @@ struct OnboardingPermissionsStep: View {
             .frame(maxWidth: .infinity, minHeight: 560, alignment: .top)
         }
         .background(OG.bg.ignoresSafeArea())
+    }
+}
+
+private struct OnboardingPrivacyFactCard: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(OG.accent)
+                .frame(width: 44, height: 44)
+                .background(OG.accent.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OG.label)
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OG.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }

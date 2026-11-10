@@ -8,6 +8,9 @@ import android.net.Uri
 /** Port 1:1 de AIProviderLaunch (AIAccessView.swift iOS): servidor MCP común,
  *  chat nuevo con instrucciones en `q`, preferencia de paquete instalado. */
 object AIProviderLaunch {
+    /** URL pública para pegar en asistentes (proxy canónico en repera.app). */
+    const val PUBLIC_SERVER = "https://mcp.repera.app"
+    /** Endpoint Edge real (OAuth / discovery / Bearer). */
     const val SERVER = "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp"
 
     private val packageByProvider = mapOf(

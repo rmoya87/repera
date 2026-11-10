@@ -36,6 +36,9 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertIn("onboarding.finishPermissions()", onboard)
         self.assertNotIn(".task { onboarding.finishPermissions() }", onboard)
         self.assertIn("Puedes rechazar los permisos", onboard)
+        self.assertIn("Guardado en tu iCloud", onboard)
+        self.assertIn("Sin compartir con terceros", onboard)
+        self.assertIn("OnboardingPrivacyFactCard", onboard)
         self.assertIn("await health.requestAccess(includeAllOptional: true)", health)
 
     def test_progress_does_not_show_independent_sleep_alert(self):

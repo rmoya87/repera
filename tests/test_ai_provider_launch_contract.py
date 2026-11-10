@@ -38,9 +38,9 @@ class AIProviderLaunchContractTests(unittest.TestCase):
         self.assertNotIn("AIProviderLaunch", revoke)
 
         connections = IOS.split("private var connectionsSection", 1)[1]
-        connections = connections.split("private var manualAccessFields", 1)[0]
+        connections = connections.split("private var canCreateManualToken", 1)[0]
         row = IOS.split("private func connectionRow(_ token: AIAccessTokenInfo)", 1)[1]
-        row = row.split("private var manualAccessFields", 1)[0]
+        row = row.split("private var canCreateManualToken", 1)[0]
         # Misma línea: Desactivar izq., Abrir der. — Text+tap (no Button) para
         # que Form no promocione filas sueltas ni el swipe se coma el pie.
         self.assertIn('Text("Desactivar")', row)
@@ -137,6 +137,46 @@ class AIProviderLaunchContractTests(unittest.TestCase):
         self.assertIn("com.openai.chatgpt", MANIFEST)
         self.assertIn("com.anthropic.claude", MANIFEST)
         self.assertIn("ai.x.grok", MANIFEST)
+
+    def test_manual_connection_is_sheet_with_mcp_url_and_name_gate(self):
+        # 4.º botón dentro de «Elige tu asistente» → sheet (no fila aparte).
+        self.assertNotIn('DisclosureGroup("Conexión manual"', IOS)
+        section = IOS.split("private var connectionSection", 1)[1].split(
+            "private func connectionVerified", 1
+        )[0]
+        self.assertIn('Text("Conexión manual")', section)
+        self.assertNotIn(
+            "Usa tu asistente habitual para consultar tus entrenamientos",
+            section,
+        )
+        self.assertIn("showManualAccess = true", section)
+        self.assertIn("manualAccessSheet", IOS)
+        self.assertIn(".sheet(isPresented: $showManualAccess)", IOS)
+        sheet = IOS.split("private var manualAccessSheet", 1)[1].split(
+            "@MainActor\n    private func refreshProviders", 1
+        )[0]
+        self.assertIn(".ogFittedHeight()", sheet)
+        self.assertIn(".ogFittedSheet()", sheet)
+        self.assertIn("OG.surface.opacity(0.55)", sheet)
+        self.assertNotIn("OG.bg.ignoresSafeArea()", sheet)
+        self.assertNotIn("Para asistentes que requieren", IOS)
+        self.assertIn('static let publicServer = "https://mcp.repera.app"', IOS)
+        self.assertIn("AIProviderLaunch.publicServer", IOS)
+        self.assertIn("count >= 3", IOS)
+        self.assertIn("canCreateManualToken", IOS)
+
+        self.assertIn("ReperaModalBottomSheet", ANDROID_SCREEN)
+        self.assertNotIn(
+            "Usa tu asistente habitual para consultar tus entrenamientos",
+            ANDROID_SCREEN,
+        )
+        self.assertNotIn("Para asistentes que requieren", ANDROID_SCREEN)
+        self.assertIn('"ai_manual_connection"', ANDROID_SCREEN)
+        self.assertIn("PUBLIC_SERVER", ANDROID_LAUNCH)
+        self.assertIn('"https://mcp.repera.app"', ANDROID_LAUNCH)
+        self.assertIn("AIProviderLaunch.PUBLIC_SERVER", ANDROID_SCREEN)
+        self.assertIn("tokenName.trim().length >= 3", ANDROID_SCREEN)
+        self.assertIn("ContentCopy", ANDROID_SCREEN)
 
 
 if __name__ == "__main__":
