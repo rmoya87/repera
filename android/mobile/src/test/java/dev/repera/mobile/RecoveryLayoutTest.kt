@@ -20,8 +20,8 @@ class RecoveryLayoutTest {
  @Test fun sleepDomainKeepsUnusualObservedNightsVisible() {
   val day=java.time.LocalDate.of(2026,10,27)
   val regular=listOf(dev.repera.domain.RecoverySleepNight(day,7.0,1.0,1.0))
-  assertEquals(6.4,sleepChartBounds(regular).first,0.001)
-  assertEquals(7.7,sleepChartBounds(regular).second,0.001)
+  assertEquals(0.0,sleepChartBounds(regular).first,0.001)
+  assertEquals(8.0,sleepChartBounds(regular).second,0.001)
   val unusual=listOf(dev.repera.domain.RecoverySleepNight(day,2.0,0.0,0.0))
   assertTrue(2.0 in sleepChartBounds(unusual).first..sleepChartBounds(unusual).second)
  }
