@@ -2,7 +2,7 @@ package dev.repera.mobile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import org.junit.*
 import org.junit.Assert.*
 class QuickLogUiInstrumentedTest {
@@ -14,6 +14,6 @@ class QuickLogUiInstrumentedTest {
   compose.runOnIdle {assertNull(rows);open=true}
   compose.onNodeWithText("Eliminar serie 3").performScrollTo().performClick()
   compose.onNodeWithText("Guardar").performScrollTo().performClick()
-  compose.runOnIdle {assertEquals(2,rows!!.size);assertEquals(40.0,rows!!.first().weightKg!!,0.001);assertNull(note)}
+  compose.runOnIdle {assertEquals(2,rows!!.size);assertEquals(40.0,rows.first().weightKg!!,0.001);assertNull(note)}
  }
 }
