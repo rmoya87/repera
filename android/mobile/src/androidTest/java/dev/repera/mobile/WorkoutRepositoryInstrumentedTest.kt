@@ -194,7 +194,7 @@ class WorkoutRepositoryInstrumentedTest {
         val repo = WorkoutRepository(ctx, user)
         val active = repo.startRoutine(routineId)
         assertEquals("ELAPSED_TIME", active.wod!!.capture)
-        assertEquals(2, active.wod!!.movements.size)
+        assertEquals(2, active.wod.movements.size)
         assertThrows(IllegalStateException::class.java) { repo.next() }
         assertNull(repo.recordWodScore(null, null, 387))
         val after = JSONObject(String(local.read()!!))
