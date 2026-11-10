@@ -366,6 +366,8 @@ internal fun StandaloneTimerScreen(
         showClock = true
     }
 
+    val startWithNotificationPermission = rememberForegroundNotificationPermission()
+
     fun toggleRun() {
         val nowMs = System.currentTimeMillis()
         if (isRunning || preCountdownEndMs > 0L) {
@@ -387,17 +389,19 @@ internal fun StandaloneTimerScreen(
                 )
             )
         } else {
+            startWithNotificationPermission {
+                val startMs = System.currentTimeMillis()
             val wasPaused = pausedDisplaySeconds != null || timerStartedAtMs != null
             isRunning = true
             pausedDisplaySeconds = null
-            if (timerStartedAtMs == null) timerStartedAtMs = nowMs
+            if (timerStartedAtMs == null) timerStartedAtMs = startMs
             if (preCountdown > 0) {
-                preCountdownEndMs = nowMs + preCountdown * 1000L
+                preCountdownEndMs = startMs + preCountdown * 1000L
             } else when (config.mode) {
                 StandaloneTimerMode.UP ->
-                    phaseStartMs = nowMs - displaySeconds * 1000L
+                    phaseStartMs = startMs - displaySeconds * 1000L
                 StandaloneTimerMode.DOWN, StandaloneTimerMode.INTERVALS ->
-                    phaseEndMs = nowMs + displaySeconds.coerceAtLeast(1) * 1000L
+                    phaseEndMs = startMs + displaySeconds.coerceAtLeast(1) * 1000L
             }
             val remainingOrElapsed = when (config.mode) {
                 StandaloneTimerMode.UP ->
@@ -417,6 +421,7 @@ internal fun StandaloneTimerScreen(
                         "result" to "success"
                     )
                 )
+            }
             }
         }
     }
