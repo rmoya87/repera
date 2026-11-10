@@ -13,7 +13,7 @@ class CenterDirectoryContractTest {
    val buffer=okio.Buffer();request.body!!.writeTo(buffer)
    seen.add(request.url.encodedPath.substringAfterLast('/') to JSONObject(buffer.readUtf8()))
    val body=if(request.url.encodedPath.endsWith("search_discoverable_organizations"))
-    """[{"id":"org","name":"Centro sintético","kind":"gym","tagline":"Pruebas"}]""" else "[]"
+    """[{"id":"org","name":"Centro sintético","kind":"gym","tagline":"Pruebas"}]""" else if(request.url.encodedPath.endsWith("leave_org_as_athlete")) "true" else "[]"
    Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
     .body(body.toResponseBody("application/json".toMediaType())).build()
   }.build()
