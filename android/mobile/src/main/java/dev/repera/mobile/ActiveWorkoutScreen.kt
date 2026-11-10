@@ -326,6 +326,7 @@ internal fun ActiveWorkoutScreen(
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ReperaSectionTitle(sectionTitle)
+                val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
                 BlockEditorCard(
                     block = block,
                     nameById = nameById,
@@ -340,6 +341,11 @@ internal fun ActiveWorkoutScreen(
                     onOpenReorder = { beginPlayReorder() },
                     onOpenExercise = { /* ficha vía catálogo en editar; Play usa logging */ },
                     effortUnit = effortUnit,
+                    playCompactEntries = true,
+                    selectedEntryIndex = selectedLocal,
+                    onSelectEntryIndex = { localIx ->
+                        blockIndexes.getOrNull(localIx)?.let { onSelectExercise(it) }
+                    },
                     onTimer = {
                         blockIndexes.firstOrNull()?.let { ix ->
                             if (ix != workout.index) onSelectExercise(ix)

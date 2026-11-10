@@ -129,14 +129,21 @@ object BoardScanLiteParser {
             val header = if(current==null && upper in setOf("FOR QUALITY","RFQ","ROUNDS FOR QUALITY"))
                 Header(line,WODFormat.ROUNDS_FOR_QUALITY,null) else detectHeader(line)
             if (header != null) {
-                flush()
-                val title = listOfNotNull(sectionTitle, intervalDescription, header.title)
-                    .joinToString(" · ")
-                current = Current(title, header.format, header.cap, header.rounds,
-                    header.interval, mutableListOf(),originalHeader=line)
-                sectionTitle = null
-                pendingSectionFormat=null
-                intervalDescription = null
+                val bareScheme = header.format == WODFormat.LADDER &&
+                    (Regex("^\\d+(?:\\s*[-–]\\s*\\d+){2,}\\s*$").matches(upper) || upper == "21 15 9")
+                // FOR TIME (TC 15') + 30-20-10 → el esquema pertenece al For Time.
+                if (bareScheme && current?.format == WODFormat.FOR_TIME) {
+                    current!!.body.add(line)
+                } else {
+                    flush()
+                    val title = listOfNotNull(sectionTitle, intervalDescription, header.title)
+                        .joinToString(" · ")
+                    current = Current(title, header.format, header.cap, header.rounds,
+                        header.interval, mutableListOf(),originalHeader=line)
+                    sectionTitle = null
+                    pendingSectionFormat=null
+                    intervalDescription = null
+                }
             } else if (isQualityAnnotation(line)) {
                 // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
                 val cur = current
@@ -296,7 +303,7 @@ object BoardScanLiteParser {
         if(Regex("(?:EVERY|CADA)\\s+\\d+\\s*['′]?\\s*[x×X]\\s*\\d+",RegexOption.IGNORE_CASE).containsMatchIn(upper)) return true
         if(Regex("E\\s*\\d+\\s*MOM").containsMatchIn(upper)) return true
         if(listOf("ON THE MINUTE","OTM","AMRAP","AS MANY ROUNDS","AS MANY REPS","EMOM",
-            "LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE","BUY-IN","CASH OUT","CASH-OUT","CASHOUT",
+            "LADDER","ESCALERA","ESCALADO","PYRAMID","PIRÁMIDE","PIRAMIDE","BUY-IN","CASH OUT","CASH-OUT","CASHOUT",
             "PARTNER","YOU GO I GO","YGIG","YDIG","FOR QUALITY","RFQ","CIRCUIT","STATIONS","ESTACIONES",
             "RFT","FOR TIME","FOR COMPLETION","TABATA","CHIPPER","DEATH BY","MUERTE POR").any {upper.contains(it)}) return true
         if(upper.contains("BUY") && upper.contains("IN")) return true
@@ -352,11 +359,14 @@ object BoardScanLiteParser {
             if(minutes !in 1..(Int.MAX_VALUE/60) || total<=0) return null
             return Header(line,WODFormat.EMOM,total,interval=minutes*60)
         }
-        // Explicit full-parser headers only. Do not mistake a movement's
-        // rep wave (4-3-3-2 PUSH PRESS) for a ladder section.
+        // Escalera: esquema suelto (21-15-9) o palabra clave. Bajo FOR TIME el
+        // bucle de parse lo conserva como cuerpo (no abre otro bloque).
         if(Regex("^\\d+(?:\\s*[-–]\\s*\\d+){2,}\\s*(?:FOR\\s+TIME|WOD)?$").matches(upper) || upper=="21 15 9")
             return Header(line,WODFormat.LADDER,null)
-        if(upper in setOf("LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE"))
+        if(upper in setOf("LADDER","ESCALERA","ESCALADO","PYRAMID","PIRÁMIDE","PIRAMIDE") ||
+            upper.startsWith("LADDER ") || upper.startsWith("ESCALERA ") ||
+            upper.startsWith("ESCALADO ") || upper.startsWith("ASCENDING LADDER") ||
+            upper.startsWith("DESCENDING LADDER"))
             return Header(line,WODFormat.LADDER,null)
         if(upper in setOf("BUY-IN","BUY IN","CASH OUT","CASH-OUT","CASHOUT"))
             return Header(line,WODFormat.BUY_IN_CASH_OUT,null)

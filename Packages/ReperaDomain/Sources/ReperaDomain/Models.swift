@@ -1134,15 +1134,15 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
     public var displayName: String {
         switch self {
         case .amrap: return "AMRAP"
-        case .emom: return "EMOM / Every X'"
-        case .forTime: return "For Time / RFT"
+        case .emom: return "EMOM"
+        case .forTime: return "For Time"
         case .tabata: return "Tabata"
         case .chipper: return "Chipper"
         case .deathBy: return "Muerte por"
         case .strength: return "Fuerza / Skill"
         case .afap: return "AFAP"
-        case .ladder: return "Ladder / 21-15-9"
-        case .partner: return "Partner / YGIG"
+        case .ladder: return "Escalera"
+        case .partner: return "Partner"
         case .buyInCashOut: return "Buy-in / Cash-out"
         case .roundsForQuality: return "Rounds for Quality"
         case .circuit: return "Circuito"
@@ -1152,20 +1152,20 @@ public enum WODFormat: String, Codable, Sendable, Hashable, CaseIterable {
 
     public var detail: String {
         switch self {
-        case .amrap: return "Máximas rondas/reps en un tiempo fijo (AMRAP 12', AMRAP 10 min)."
-        case .emom: return "Trabajo al inicio de cada intervalo (EMOM, EVERY 2'×4, E2MOM, ON THE MINUTE)."
-        case .forTime: return "Termina lo antes posible: N RFT, FOR TIME, TC (time cap)."
-        case .tabata: return "Intervalos fijos clásicos 20\"/10\" × rondas (u otras proporciones)."
-        case .chipper: return "Lista larga en una sola pasada, lo más rápido posible."
-        case .deathBy: return "Cada minuto sumas 1 rep (u otra progresión) hasta fallar."
-        case .strength: return "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, skill."
-        case .afap: return "Haz el trabajo lo más rápido posible (sin rondas fijas)."
-        case .ladder: return "Escalera: 21-15-9, ascending/descending ladder, pirámide."
-        case .partner: return "Dos atletas: You Go I Go, sync, split reps."
-        case .buyInCashOut: return "Empieza (buy-in) y/o termina (cash-out) con un trabajo fijo aparte del WOD."
-        case .roundsForQuality: return "N rondas priorizando técnica (RFQ / for quality), sin prisa de reloj."
-        case .circuit: return "Estaciones o circuito (CIRCUIT, STATIONS, ROTATION)."
-        case .maxEffort: return "Buscar máximo: heavy single, max reps, max calories en ventana."
+        case .amrap: return "Máximas rondas o repeticiones en un tiempo fijo. Configura el time cap en minutos."
+        case .emom: return "Cada minuto (o cada X segundos) haces el trabajo marcado. Configura duración total e intervalo."
+        case .forTime: return "Completa el trabajo lo antes posible. Configura rondas (RFT) y el time cap en minutos y segundos."
+        case .tabata: return "Intervalos fijos de trabajo y descanso (clásico 20\"/10\"). Configura trabajo, descanso y rondas."
+        case .chipper: return "Lista larga en una sola pasada, lo más rápido posible. Time cap opcional en minutos."
+        case .deathBy: return "Cada intervalo sumas trabajo hasta fallar. Configura rondas objetivo e intervalo."
+        case .strength: return "Bloque de fuerza o técnica (series×reps, RPE/RIR). Time cap opcional."
+        case .afap: return "Haz el trabajo lo más rápido posible, sin rondas fijas. Time cap opcional."
+        case .ladder: return "Esquema de reps en escalera o pirámide (21-15-9, 30-20-10, ascendente/descendente). Time cap opcional."
+        case .partner: return "Dos atletas (You Go I Go, sync o reps repartidas). Configura rondas y time cap opcional."
+        case .buyInCashOut: return "Empieza (buy-in) y/o termina (cash-out) con un trabajo fijo aparte del WOD. Time cap opcional."
+        case .roundsForQuality: return "N rondas priorizando técnica, sin prisa de reloj. Configura rondas y time cap opcional."
+        case .circuit: return "Estaciones o rotación. Configura duración total e intervalo entre estaciones."
+        case .maxEffort: return "Buscar un máximo (heavy single, max reps o calorías). Time cap opcional."
         }
     }
 
@@ -1592,7 +1592,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         case .afap:
             return "AFAP"
         case .ladder:
-            return title.isEmpty ? "Ladder" : title
+            return title.isEmpty ? "Escalera" : title
         case .partner:
             return "Partner"
         case .buyInCashOut:

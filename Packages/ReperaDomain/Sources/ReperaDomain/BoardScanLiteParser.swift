@@ -90,12 +90,21 @@ public enum BoardScanLiteParser {
                 continue
             }
             if let header = detectHeader(line) {
-                flush()
-                let title = [sectionTitle, intervalDescription, header.title]
-                    .compactMap { $0 }.joined(separator: " · ")
-                current = (title, header.format, header.cap, header.rounds, header.interval, [])
-                sectionTitle = nil
-                intervalDescription = nil
+                let bareScheme = header.format == .ladder && (
+                    upper.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}\s*$"#, options: .regularExpression) != nil
+                    || upper == "21 15 9"
+                )
+                // FOR TIME (TC 15') + 30-20-10 → el esquema pertenece al For Time.
+                if bareScheme, current?.format == .forTime {
+                    current?.body.append(line)
+                } else {
+                    flush()
+                    let title = [sectionTitle, intervalDescription, header.title]
+                        .compactMap { $0 }.joined(separator: " · ")
+                    current = (title, header.format, header.cap, header.rounds, header.interval, [])
+                    sectionTitle = nil
+                    intervalDescription = nil
+                }
             } else if isQualityAnnotation(line) {
                 // Vision puede separar «EMOM 9' @FOR QUALITY» en @FOR + QUALITY.
                 // Es una instrucción de ejecución, nunca un ejercicio.
@@ -282,6 +291,21 @@ public enum BoardScanLiteParser {
         if upper.hasPrefix("AMRAP") {
             let mins = firstInt(upper) ?? 10
             return Header(title: line, format: .amrap, cap: mins)
+        }
+        // Escalera: esquema suelto o palabra clave. Bajo FOR TIME el bucle
+        // lo conserva en el cuerpo (no abre otro bloque).
+        if upper.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}\s*(?:FOR\s+TIME|WOD)?$"#,
+                       options: .regularExpression) != nil || upper == "21 15 9" {
+            return Header(title: line, format: .ladder, cap: nil)
+        }
+        if ["LADDER", "ESCALERA", "ESCALADO", "PYRAMID", "PIRÁMIDE", "PIRAMIDE"].contains(upper)
+            || upper.hasPrefix("LADDER ") || upper.hasPrefix("ESCALERA ")
+            || upper.hasPrefix("ESCALADO ") || upper.hasPrefix("ASCENDING LADDER")
+            || upper.hasPrefix("DESCENDING LADDER") {
+            return Header(title: line, format: .ladder, cap: nil)
+        }
+        if ["PARTNER WOD", "PARTNER", "YOU GO I GO", "YGIG", "YDIG"].contains(upper) {
+            return Header(title: line, format: .partner, cap: nil)
         }
         // 4 RFT (TC 12') — también OCR «4RFf(TC 12?» (T leída como F).
         let rftMatch = upper.range(of: #"^\d+\s*RF[TF]\b"#, options: .regularExpression)

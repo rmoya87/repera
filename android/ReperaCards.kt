@@ -995,7 +995,7 @@ internal fun RoutineCreatorCard(
                 listOf("strength" to "Fuerza", "amrap" to "AMRAP",
                     "forTime" to "For Time", "emom" to "EMOM", "tabata" to "Tabata",
                     "circuit" to "Circuito", "chipper" to "Chipper", "afap" to "AFAP",
-                    "ladder" to "Ladder", "deathBy" to "Muerte por",
+                    "ladder" to "Escalera", "deathBy" to "Muerte por",
                     "partner" to "Partner", "roundsForQuality" to "RFQ",
                     "maxEffort" to "Max effort").forEach { option ->
                         FilterChip(

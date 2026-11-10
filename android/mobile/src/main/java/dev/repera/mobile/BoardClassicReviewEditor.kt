@@ -74,11 +74,12 @@ import dev.repera.domain.BoardClassicReview
    }
    Text("Revisa después las cantidades reales. No se crea una segunda sesión ni se duplican las calorías.")
   } else {
+   // Paridad iOS: continuar al editor one-off (Crear entreno), no persistir aún.
    Button(onClick={if(selected!=null) onConfirm(title,selected,requestId)},
-    enabled=canAct,modifier=Modifier.fillMaxWidth(),
-    colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {Text("Crear rutina")}
-   OutlinedButton(onClick={if(selected!=null) onStart(title,selected,requestId)},
-    enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_start")) {Text("Empezar")}
+    enabled=canAct,modifier=Modifier.fillMaxWidth().testTag("board_scan_continue_editor"),
+    colors=ButtonDefaults.buttonColors(containerColor=brandGreen,contentColor=androidx.compose.ui.graphics.Color.Black)) {
+    Text("Continuar")
+   }
   }
  }
 }

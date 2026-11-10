@@ -1208,9 +1208,16 @@ fun ReperaMobileScreen(
                         busy = busy,
                         saveStatus=editorSaveStatus(status),
                         overview = overview,
-                        onConfirm = { title, blocks,requestId ->
-                            onCreateRoutineFromScan(title, blocks, requestId, scanDayIso) {
-                                navController.popBackStack()
+                        onConfirm = { title, blocks, _ ->
+                            val day = scanDayIso
+                                ?: java.time.LocalDate.now().toString()
+                            val nombre = java.net.URLEncoder.encode(
+                                title.ifBlank { "Entreno" },
+                                Charsets.UTF_8.name()
+                            )
+                            PendingBoardScanDraft.hold(title, blocks)
+                            navController.navigate("rutina-nueva?fecha=$day&nombre=$nombre") {
+                                popUpTo("inicio") { inclusive = false }
                             }
                         },
                         onStart = { title, blocks, requestId ->
@@ -1231,9 +1238,15 @@ fun ReperaMobileScreen(
                         busy = busy,
                         saveStatus=editorSaveStatus(status),
                         overview = overview,
-                        onConfirm = { title, blocks,requestId ->
-                            onCreateRoutineFromScan(title, blocks, requestId, null) {
-                                navController.popBackStack()
+                        onConfirm = { title, blocks, _ ->
+                            val day = java.time.LocalDate.now().toString()
+                            val nombre = java.net.URLEncoder.encode(
+                                title.ifBlank { "Entreno" },
+                                Charsets.UTF_8.name()
+                            )
+                            PendingBoardScanDraft.hold(title, blocks)
+                            navController.navigate("rutina-nueva?fecha=$day&nombre=$nombre") {
+                                popUpTo("inicio") { inclusive = false }
                             }
                         },
                         onStart = { title, blocks, requestId ->
@@ -1840,19 +1853,25 @@ fun ReperaMobileScreen(
                         .orEmpty().ifBlank { "Entreno" }
                     val requestId=androidx.compose.runtime.saveable.rememberSaveable(accountId,fecha,nombre) {java.util.UUID.randomUUID().toString()}
                     val draft = remember(accountId,fecha, nombre,requestId) {
-                        // Semilla iOS HomeView: [.strength(title: "Bloque 1")].
-                        RoutineEntry(
-                            id = requestId,
-                            title = nombre,
-                            supported = true,
-                            scheduledDate = fecha,
-                            blocks = listOf(
+                        val pending = PendingBoardScanDraft.consume()
+                        val seedBlocks = pending?.second
+                            ?.let { EditorBlockOps.fromDomainBlocks(it) }
+                            ?.takeIf { it.isNotEmpty() }
+                            ?: listOf(
                                 RoutineBlockInfo(
                                     title = "Bloque 1",
                                     format = "",
                                     id = java.util.UUID.randomUUID().toString()
                                 )
-                            ))
+                            )
+                        val seedTitle = pending?.first?.takeIf { it.isNotBlank() } ?: nombre
+                        RoutineEntry(
+                            id = requestId,
+                            title = seedTitle,
+                            supported = true,
+                            scheduledDate = fecha,
+                            blocks = seedBlocks
+                        )
                     }
                     var oneOffTitle by remember(fecha, nombre) { mutableStateOf<String?>(null) }
                     val oneOffMetaSnap = remember(fecha, nombre) {

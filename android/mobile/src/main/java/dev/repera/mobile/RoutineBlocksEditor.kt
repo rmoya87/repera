@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -196,281 +199,326 @@ fun RoutineBlocksEditorScreen(
         }
     }
 
-    val scrollState = rememberScrollState()
-    val geo = remember(routine.id) { EditorGeometry() }
-    ProvideScrollDragAutoScroll(scrollState) {
-    Column(
-        modifier = Modifier
-            .verticalScroll(scrollState)
-            .padding(reperaScrollContentPadding(extraBottom = 16.dp)),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        val confirmLabel = if (sessionMode) "Empezar" else "Guardar"
-        val canConfirm = !busy && (!editableTitle || draftTitle.trim().isNotBlank())
-        fun persistAndSave() {
-            val drafts = mutableListOf<RoutineBlockDraft>()
-            error = null
-            for (block in blocks) {
-                val parsed = block.toDraft() ?: run {
-                    error = "Revisa los campos numéricos de «" +
-                        block.title.ifBlank { "bloque" } + "»"
-                    return
-                }
-                drafts.add(parsed)
-            }
-            val parsedClock = scheduledClock?.trim()?.takeIf { it.isNotEmpty() }
-                ?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
-            if (dayMetaEditor && scheduledClock?.isNotBlank() == true && parsedClock == null) {
-                error = "Hora no válida"
+    var showWods by remember { mutableStateOf(false) }
+    var showRoutines by remember { mutableStateOf(false) }
+    var showFavorites by remember { mutableStateOf(false) }
+    // Plantillas reutilizables (sin día): las del calendario enlazan vía favoriteTemplateId.
+    val favorites = importableRoutines.filter {
+        it.id != routine.id && it.isFavorite && it.scheduledDate == null && it.blocks.isNotEmpty()
+    }
+    val importable = importableRoutines.filter { it.id != routine.id && it.blocks.isNotEmpty() }
+    val confirmLabel = if (sessionMode) "Empezar" else "Guardar"
+    val canConfirm = !busy && (!editableTitle || draftTitle.trim().isNotBlank())
+    fun persistAndSave() {
+        val drafts = mutableListOf<RoutineBlockDraft>()
+        error = null
+        for (block in blocks) {
+            val parsed = block.toDraft() ?: run {
+                error = "Revisa los campos numéricos de «" +
+                    block.title.ifBlank { "bloque" } + "»"
                 return
             }
-            val timeMinutes = parsedClock?.let { it.hour * 60 + it.minute }
-            if (editableTitle && !dayMetaEditor) {
-                if (draftTitle.trim().isBlank()) {
-                    error = "Escribe un título válido"
-                    return
-                }
-                onTitleSuggested(draftTitle.trim())
-            } else if (dayMetaEditor) {
-                if (draftTitle.trim().isBlank()) {
-                    error = "Escribe un título válido"
-                    return
-                }
-                onTitleSuggested(draftTitle.trim())
-                onOneOffMeta(
-                    metaDayIso,
-                    timeMinutes,
-                    oneOffFavorite,
-                    draftPin,
-                    draftNotes.trim().takeIf { it.isNotEmpty() },
-                    plannedDurationMin.coerceIn(1, 600)
-                )
-            } else if (sessionMode) {
-                onTitleSuggested(draftTitle.trim().ifBlank { "Mi entreno" })
-            } else suggestedTitle?.let(onTitleSuggested)
-            if (sessionMode) {
-                onFavoriteChosen(asFavorite)
-                onSessionNotesChosen(draftNotes)
-                onSessionPinChosen(draftPin)
+            drafts.add(parsed)
+        }
+        val parsedClock = scheduledClock?.trim()?.takeIf { it.isNotEmpty() }
+            ?.let { runCatching { LocalTime.parse(it) }.getOrNull() }
+        if (dayMetaEditor && scheduledClock?.isNotBlank() == true && parsedClock == null) {
+            error = "Hora no válida"
+            return
+        }
+        val timeMinutes = parsedClock?.let { it.hour * 60 + it.minute }
+        if (editableTitle && !dayMetaEditor) {
+            if (draftTitle.trim().isBlank()) {
+                error = "Escribe un título válido"
+                return
             }
-            onReplace(drafts)
+            onTitleSuggested(draftTitle.trim())
+        } else if (dayMetaEditor) {
+            if (draftTitle.trim().isBlank()) {
+                error = "Escribe un título válido"
+                return
+            }
+            onTitleSuggested(draftTitle.trim())
+            onOneOffMeta(
+                metaDayIso,
+                timeMinutes,
+                oneOffFavorite,
+                draftPin,
+                draftNotes.trim().takeIf { it.isNotEmpty() },
+                plannedDurationMin.coerceIn(1, 600)
+            )
+        } else if (sessionMode) {
+            onTitleSuggested(draftTitle.trim().ifBlank { "Mi entreno" })
+        } else suggestedTitle?.let(onTitleSuggested)
+        if (sessionMode) {
+            onFavoriteChosen(asFavorite)
+            onSessionNotesChosen(draftNotes)
+            onSessionPinChosen(draftPin)
         }
-        DayEditorTopBar(
-            onBack = onBack,
-            onConfirm = { persistAndSave() },
-            confirmEnabled = canConfirm,
-            confirmContentDescription = confirmLabel,
-            busy = busy
-        )
-        val headerTitle = pageTitle ?: when {
-            oneOffEditor -> "Crear entreno"
-            dayMetaEditor && !oneOffEditor -> "Editar entreno"
-            sessionMode -> "Crear entreno"
-            editableTitle -> draftTitle.ifBlank { "Nueva rutina" }
-            else -> routine.title
+        onReplace(drafts)
+    }
+    val headerTitle = pageTitle ?: when {
+        oneOffEditor -> "Crear entreno"
+        dayMetaEditor && !oneOffEditor -> "Editar entreno"
+        sessionMode -> "Crear entreno"
+        editableTitle -> draftTitle.ifBlank { "Nueva rutina" }
+        else -> routine.title
+    }
+    val listState = rememberLazyListState()
+    ProvideLazyDragAutoScroll(listState) {
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize().testTag("routine_blocks_editor_list"),
+        contentPadding = reperaScrollContentPadding(extraBottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item(key = "editor-chrome") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DayEditorTopBar(
+                    onBack = onBack,
+                    onConfirm = { persistAndSave() },
+                    confirmEnabled = canConfirm,
+                    confirmContentDescription = confirmLabel,
+                    busy = busy
+                )
+                ReperaPageHeader(title = headerTitle)
+            }
         }
-        ReperaPageHeader(title = headerTitle)
-        if (dayMetaEditor || sessionMode) {
-            // Mapa a bleed: padding solo en filas de texto; lugar sin márgenes laterales.
-            ReperaCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    Column(
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+        item(key = "editor-meta") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (dayMetaEditor || sessionMode) {
+                    // Mapa a bleed: padding solo en filas de texto; lugar sin márgenes laterales.
+                    ReperaCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        WorkoutMetaTitleField(
-                            value = draftTitle,
-                            onValueChange = { draftTitle = it },
-                            enabled = !busy
-                        )
-                        if (dayMetaEditor) {
-                            WorkoutDateTimeDurationRow(
-                                dayIso = metaDayIso,
-                                clock = scheduledClock ?: "18:00",
-                                durationMinutes = plannedDurationMin,
-                                onDayIso = { metaDayIso = it },
-                                onClock = { scheduledClock = it },
-                                onDurationMinutes = { plannedDurationMin = it.coerceIn(1, 600) }
-                            )
-                        }
-                    }
-                    if (showPlaceSection) {
-                        WorkoutPlacePickerRow(
-                            pin = draftPin,
-                            accountId = accountId,
-                            onPinChange = { draftPin = it },
-                            modifier = if (draftPin == null) {
-                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                            } else {
-                                Modifier.fillMaxWidth()
-                            }
-                        )
-                    }
-                    Column(
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        if (dayMetaEditor) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                            Column(
+                                Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    "Favorito",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f)
+                                WorkoutMetaTitleField(
+                                    value = draftTitle,
+                                    onValueChange = { draftTitle = it },
+                                    enabled = !busy
                                 )
-                                androidx.compose.material3.Switch(
-                                    checked = oneOffFavorite,
-                                    onCheckedChange = { oneOffFavorite = it },
-                                    colors = reperaSwitchColors(),
-                                    modifier = Modifier.testTag("workout_favorite_switch")
+                                if (dayMetaEditor) {
+                                    WorkoutDateTimeDurationRow(
+                                        dayIso = metaDayIso,
+                                        clock = scheduledClock ?: "18:00",
+                                        durationMinutes = plannedDurationMin,
+                                        onDayIso = { metaDayIso = it },
+                                        onClock = { scheduledClock = it },
+                                        onDurationMinutes = {
+                                            plannedDurationMin = it.coerceIn(1, 600)
+                                        }
+                                    )
+                                }
+                            }
+                            if (showPlaceSection) {
+                                WorkoutPlacePickerRow(
+                                    pin = draftPin,
+                                    accountId = accountId,
+                                    onPinChange = { draftPin = it },
+                                    modifier = if (draftPin == null) {
+                                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    } else {
+                                        Modifier.fillMaxWidth()
+                                    }
                                 )
                             }
-                        }
-                        if (sessionMode && !dayMetaEditor) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    "Favorito",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                androidx.compose.material3.Switch(
-                                    checked = asFavorite,
-                                    onCheckedChange = { asFavorite = it },
-                                    colors = reperaSwitchColors(),
-                                    modifier = Modifier.testTag("session_favorite_switch")
+                                if (dayMetaEditor) {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "Favorito",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        androidx.compose.material3.Switch(
+                                            checked = oneOffFavorite,
+                                            onCheckedChange = { oneOffFavorite = it },
+                                            colors = reperaSwitchColors(),
+                                            modifier = Modifier.testTag("workout_favorite_switch")
+                                        )
+                                    }
+                                }
+                                if (sessionMode && !dayMetaEditor) {
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "Favorito",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        androidx.compose.material3.Switch(
+                                            checked = asFavorite,
+                                            onCheckedChange = { asFavorite = it },
+                                            colors = reperaSwitchColors(),
+                                            modifier = Modifier.testTag("session_favorite_switch")
+                                        )
+                                    }
+                                }
+                                WorkoutMetaNotesField(
+                                    value = draftNotes,
+                                    onValueChange = { draftNotes = it },
+                                    enabled = !busy
                                 )
                             }
                         }
-                        WorkoutMetaNotesField(
-                            value = draftNotes,
-                            onValueChange = { draftNotes = it },
-                            enabled = !busy
-                        )
                     }
+                } else if (editableTitle) {
+                    ReperaMetaTextField(
+                        caption = "Nombre de la rutina",
+                        value = draftTitle,
+                        onValueChange = { draftTitle = it },
+                        enabled = !busy,
+                        testTag = "new_template_title"
+                    )
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                saveStatus?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("routine_save_status")
+                    )
                 }
             }
-        } else if (editableTitle) {
-            ReperaMetaTextField(
-                caption = "Nombre de la rutina",
-                value = draftTitle,
-                onValueChange = { draftTitle = it },
-                enabled = !busy,
-                testTag = "new_template_title"
-            )
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        saveStatus?.let {Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.testTag("routine_save_status"))}
-
-        blocks.forEachIndexed { index, block ->
-            val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
-            ReperaSectionTitle(sectionTitle)
-            BlockEditorCard(
-                block = block,
-                nameById = nameById,
-                exercises = exercises,
-                loadGuideProvider = loadGuideProvider,
-                // iOS permite Eliminar bloque aunque quede uno (R4 #20 / P2 #17).
-                onRemove = { blocks.removeAt(index) },
-                onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                onOpenExercise = onOpenExercise,
-                effortUnit = effortUnit
-            )
-        }
-        var showWods by remember { mutableStateOf(false) }
-        var showRoutines by remember { mutableStateOf(false) }
-        var showFavorites by remember { mutableStateOf(false) }
-        // Plantillas reutilizables (sin día): las del calendario enlazan vía favoriteTemplateId.
-        val favorites = importableRoutines.filter {
-            it.id != routine.id && it.isFavorite && it.scheduledDate == null && it.blocks.isNotEmpty()
-        }
-        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column {
-                PlanEditorActionRow(
-                    icon = Icons.Outlined.ViewAgenda,
-                    label = "Añadir bloque",
-                    modifier = Modifier.testTag("plan_add_block_row"),
-                    onClick = {
-                        val n = blocks.size + 1
-                        blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
-                    },
-                    enabled = !busy
+        itemsIndexed(
+            blocks,
+            key = { _, block -> block.listKey }
+        ) { index, block ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
+                ReperaSectionTitle(sectionTitle)
+                BlockEditorCard(
+                    block = block,
+                    nameById = nameById,
+                    exercises = exercises,
+                    loadGuideProvider = loadGuideProvider,
+                    // iOS permite Eliminar bloque aunque quede uno (R4 #20 / P2 #17).
+                    onRemove = { blocks.removeAt(index) },
+                    onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
+                    onOpenExercise = onOpenExercise,
+                    effortUnit = effortUnit
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                PlanEditorActionRow(
-                    icon = Icons.AutoMirrored.Outlined.List,
-                    label = "Elegir WOD",
-                    modifier = Modifier.testTag("plan_pick_wod"),
-                    onClick = { showWods = true },
-                    enabled = !busy
-                )
-                if (favorites.isNotEmpty()) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+        }
+        item(key = "editor-actions") {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
                     PlanEditorActionRow(
-                        icon = Icons.Outlined.Star,
-                        label = "Añadir favorito",
-                        modifier = Modifier.testTag("plan_add_favorite"),
-                        onClick = { showFavorites = true },
+                        icon = Icons.Outlined.ViewAgenda,
+                        label = "Añadir bloque",
+                        modifier = Modifier.testTag("plan_add_block_row"),
+                        onClick = {
+                            val n = blocks.size + 1
+                            blocks.add(
+                                BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = ""))
+                            )
+                        },
+                        enabled = !busy
+                    )
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    PlanEditorActionRow(
+                        icon = Icons.AutoMirrored.Outlined.List,
+                        label = "Elegir WOD",
+                        modifier = Modifier.testTag("plan_pick_wod"),
+                        onClick = { showWods = true },
+                        enabled = !busy
+                    )
+                    if (favorites.isNotEmpty()) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        PlanEditorActionRow(
+                            icon = Icons.Outlined.Star,
+                            label = "Añadir favorito",
+                            modifier = Modifier.testTag("plan_add_favorite"),
+                            onClick = { showFavorites = true },
+                            enabled = !busy
+                        )
+                    }
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    PlanEditorActionRow(
+                        icon = Icons.Outlined.AddCircle,
+                        label = "Escanear pizarra",
+                        modifier = Modifier.testTag("plan_scan_board"),
+                        onClick = { showBoardScanner = true },
                         enabled = !busy
                     )
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                PlanEditorActionRow(
-                    icon = Icons.Outlined.AddCircle,
-                    label = "Escanear pizarra",
-                    modifier = Modifier.testTag("plan_scan_board"),
-                    onClick = { showBoardScanner = true },
-                    enabled = !busy
-                )
             }
         }
-        if (showFavorites) {
-            FavoriteCatalogPickerSheet(
-                favorites = favorites,
-                exerciseCatalog = exercises,
-                onPick = { src ->
-                    src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
-                    showFavorites = false
-                },
-                onDismiss = { showFavorites = false }
-            )
-        }
-        val importable = importableRoutines.filter { it.id != routine.id && it.blocks.isNotEmpty() }
-        if (importable.isNotEmpty() && showRoutines) androidx.compose.material3.AlertDialog(
+    }
+    if (showFavorites) {
+        FavoriteCatalogPickerSheet(
+            favorites = favorites,
+            exerciseCatalog = exercises,
+            onPick = { src ->
+                src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
+                showFavorites = false
+            },
+            onDismiss = { showFavorites = false }
+        )
+    }
+    if (importable.isNotEmpty() && showRoutines) {
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRoutines = false },
-            confirmButton = { TextButton(onClick = { showRoutines = false }) { Text("Cancelar") } },
+            confirmButton = {
+                TextButton(onClick = { showRoutines = false }) { Text("Cancelar") }
+            },
             title = { Text("Añadir rutina") },
-            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Se copian los bloques; el título y el día de esta rutina no cambian.", style = MaterialTheme.typography.bodySmall)
-                importable.forEach { src ->
-                    TextButton(modifier = Modifier.testTag("plan_import_${src.id}"), onClick = {
-                        src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
-                        showRoutines = false
-                    }) { Text(src.title + " · " + src.blocks.size + " bloques") }
-                } } })
-        if (showWods) {
-            WodCatalogPickerSheet(
-                onPick = { t ->
-                    val info = EditorBlockOps.templateToBlockInfo(t, exercises)
-                    blocks.add(BlockDraftUi(info)); error = null
-                    val cur = routine.title.trim()
-                    if (suggestedTitle == null &&
-                        (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno")
-                    ) {
-                        suggestedTitle = t.name
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        "Se copian los bloques; el título y el día de esta rutina no cambian.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    importable.forEach { src ->
+                        TextButton(
+                            modifier = Modifier.testTag("plan_import_${src.id}"),
+                            onClick = {
+                                src.blocks.forEach {
+                                    blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it)))
+                                }
+                                showRoutines = false
+                            }
+                        ) { Text(src.title + " · " + src.blocks.size + " bloques") }
                     }
-                    showWods = false
-                },
-                onDismiss = { showWods = false }
-            )
-        }
+                }
+            }
+        )
+    }
+    if (showWods) {
+        WodCatalogPickerSheet(
+            onPick = { t ->
+                val info = EditorBlockOps.templateToBlockInfo(t, exercises)
+                blocks.add(BlockDraftUi(info)); error = null
+                val cur = routine.title.trim()
+                if (suggestedTitle == null &&
+                    (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno")
+                ) {
+                    suggestedTitle = t.name
+                }
+                showWods = false
+            },
+            onDismiss = { showWods = false }
+        )
     }
     }
 }
@@ -599,6 +647,8 @@ internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): Bl
 
 internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
+    /** Clave estable para LazyColumn aunque el bloque aún no tenga id de dominio. */
+    val listKey: String = blockId ?: java.util.UUID.randomUUID().toString()
     val sourceJson: String? = info?.sourceJson
     var title by mutableStateOf(info?.title ?: "")
     var format by mutableStateOf(info?.format ?: "")
@@ -757,8 +807,13 @@ internal fun BlockEditorCard(
     effortUnit: String = "rir",
     onTimer: (() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
+    /** Play: no montar tablas de series de todos los ejercicios (logging va en trailing). */
+    playCompactEntries: Boolean = false,
+    onSelectEntryIndex: ((Int) -> Unit)? = null,
+    selectedEntryIndex: Int? = null,
 ) {
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
+    val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
     var showFormats by remember { mutableStateOf(false) }
@@ -864,7 +919,7 @@ internal fun BlockEditorCard(
                     NumberRow(block, "TIEMPO" to "timeCap")
                 "forTime" ->
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap",
-                        "Rondas (s)" to "roundRest")
+                        "Tiempo (s)" to "roundRest")
                 "roundsForQuality", "partner" ->
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap")
                 "emom", "circuit" ->
@@ -886,33 +941,55 @@ internal fun BlockEditorCard(
             }
             block.entries.forEachIndexed { index, entry ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                androidx.compose.runtime.key(entry) {
-                    val ex = exercises.firstOrNull { it.id == entry.exerciseId }
-                    EntryEditorRow(
-                        entry = entry,
-                        resolvedName = entry.name.ifBlank {
-                            nameById[entry.exerciseId] ?: "Ejercicio"
-                        },
-                        isStrength = isStrengthLike,
-                        mobility = ex?.sportTag == "Movilidad",
-                        mobilityHold = ex?.mobilityHold == true,
-                        weightedRepsOrMeters = ex?.let {
-                            dev.repera.domain.ExerciseInput.supportsRepsOrMeters(it.name)
-                        } == true,
-                        unitChoices = ex?.let {
-                            dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(
-                                it.name, it.equipment
+                val entryKey = entry.itemId ?: entry.exerciseId.ifBlank { "entry-$index" }
+                androidx.compose.runtime.key(entryKey) {
+                    val resolved = entry.name.ifBlank {
+                        nameById[entry.exerciseId] ?: "Ejercicio"
+                    }
+                    if (playCompactEntries) {
+                        val selected = selectedEntryIndex == index
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectEntryIndex?.invoke(index) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                resolved,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (selected) brandGreen
+                                else MaterialTheme.colorScheme.onSurface
                             )
-                        } == true,
-                        loadGuideProvider = loadGuideProvider,
-                        onRemove = { block.entries.remove(entry) },
-                        onOpenReorder = onOpenReorder,
-                        onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
-                            { onOpenExercise(id) }
-                        },
-                        exerciseEntry = ex,
-                        effortUnit = effortUnit
-                    )
+                        }
+                    } else {
+                        val ex = exercisesById[entry.exerciseId]
+                        EntryEditorRow(
+                            entry = entry,
+                            resolvedName = resolved,
+                            isStrength = isStrengthLike,
+                            mobility = ex?.sportTag == "Movilidad",
+                            mobilityHold = ex?.mobilityHold == true,
+                            weightedRepsOrMeters = ex?.let {
+                                dev.repera.domain.ExerciseInput.supportsRepsOrMeters(it.name)
+                            } == true,
+                            unitChoices = ex?.let {
+                                dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(
+                                    it.name, it.equipment
+                                )
+                            } == true,
+                            loadGuideProvider = loadGuideProvider,
+                            onRemove = { block.entries.remove(entry) },
+                            onOpenReorder = onOpenReorder,
+                            onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
+                                { onOpenExercise(id) }
+                            },
+                            exerciseEntry = ex,
+                            effortUnit = effortUnit
+                        )
+                    }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))

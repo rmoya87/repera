@@ -249,6 +249,30 @@ struct BoardScanLiteParserTests {
             .allSatisfy { $0.plannedSets.count == 1 })
     }
 
+    @Test func forTimeKeepsBareRepSchemeInsideBlock() {
+        // Pizarra real: FOR TIME (TC 15') + 30-20-10 no debe abrir Escalera vacía.
+        let board = """
+        EMOM 16'
+        1 ROPE CLIMB
+        5-15 STRICT HSPU
+
+        FOR TIME (TC 15')
+        30-20-10
+        AMERICAN KB SWING 24/16
+        WALL BALL 9/7
+        PULL UPS
+        CAL ANY CARDIO
+        """
+        let blocks = BoardScanLiteParser.parse(ocrText: board, catalog: Catalog.seed()).blocks
+        #expect(blocks.count >= 2)
+        let forTime = blocks.first { $0.wodFormat == .forTime }
+        #expect(forTime != nil)
+        #expect(forTime?.timeCapMinutes == 15)
+        #expect((forTime?.movements.count ?? 0) >= 3)
+        #expect(forTime?.wodNotes?.contains("30-20-10") == true)
+        #expect(blocks.contains { $0.wodFormat == .ladder && ($0.movements.isEmpty) } == false)
+    }
+
     @Test func uniqueGlossaryMappingsPreferSpecificExercises() {
         // Las variantes de OCR tienen un único destino. No colapsar RUN en cinta de correr.
         #expect(CrossFitGlossary.canonicalName(for: "RUN") == "Carrera")

@@ -132,6 +132,11 @@ struct DayEditorView: View {
         (completedWorkoutDraft?.routePoints.count ?? 0) >= 2 || completedHasHealthRoute
     }
 
+    /// Lookup O(1) por ejercicio (evita first(where:) en cada fila del editor).
+    private var exercisesById: [UUID: Exercise] {
+        Dictionary(uniqueKeysWithValues: store.state.exercises.map { ($0.id, $0) })
+    }
+
     private func ensureCompletedWorkoutDraft() {
         if completedDetails == nil { completedDetails = completedSession }
     }
@@ -1868,9 +1873,11 @@ extension DayEditorView {
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
         let weightStep = store.state.settings.weightIncrementKg
+        let catalog = exercisesById
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
-            if let ex = store.state.exercises.first(where: { $0.id == item.exerciseId })
+            if let ex = catalog[item.exerciseId]
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
+                let previousSets = store.cachedLastWorkingSession(for: ex.id)?.sets
                 HStack(spacing: 4) {
                     Button {
                         exerciseDetailID = ex.id
@@ -1938,10 +1945,8 @@ extension DayEditorView {
                         quantityCap: ex.supportsRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
                         isMobility: ex.isMobility,
                         isMobilityHold: ex.isMobilityHold,
-                        previous: {
-                            let sets = store.cachedLastWorkingSession(for: ex.id)?.sets
-                            return (sets?.indices.contains(setIndex) == true) ? sets?[setIndex] : nil
-                        }()
+                        previous: (previousSets?.indices.contains(setIndex) == true)
+                            ? previousSets?[setIndex] : nil
                     )
                     }
                 }
@@ -2083,7 +2088,8 @@ extension DayEditorView {
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
-            case .roundRest: return "Rondas"
+            // For Time: minutos + segundos del time cap (no «rondas» otra vez).
+            case .roundRest: return "Tiempo"
             }
         }
 
@@ -3438,35 +3444,40 @@ struct WODFormatPickerPage: View {
 
     var body: some View {
         List {
+            // Título fuera de la sección: si comparte grupo con «Sin formato»,
+            // las esquinas superiores redondeadas quedan en la fila clara y
+            // el primer ítem gris se ve cuadrado (paridad Ajustes / Nuevo movimiento).
             OGScrollablePageTitle("Formato del bloque").ogScrollingTitleListRow()
-            Button {
-                onPick(nil)
-            } label: {
-                Label("Sin formato · libre", systemImage: "minus.circle")
-                    .foregroundStyle(OG.label)
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-
-            ForEach(WODFormat.allCases, id: \.self) { format in
+            Section {
                 Button {
-                    onPick(format)
+                    onPick(nil)
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(format.displayName).foregroundStyle(OG.label)
-                            Text(format.detail)
-                                .font(.caption)
-                                .foregroundStyle(OG.label2)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(OG.label3)
-                    }
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+                    Label("Sin formato · libre", systemImage: "minus.circle")
+                        .foregroundStyle(OG.label)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
                 .buttonStyle(.plain)
+
+                ForEach(WODFormat.allCases, id: \.self) { format in
+                    Button {
+                        onPick(format)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(format.displayName).foregroundStyle(OG.label)
+                                Text(format.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(OG.label2)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(OG.label3)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
         .ogListChrome()

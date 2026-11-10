@@ -215,6 +215,88 @@ object EditorBlockOps {
         entries = b.entries.map { e -> e.copy(id = UUID.randomUUID().toString(), sourceJson = freshIds(e.sourceJson),
             plannedSets = e.plannedSets?.map { it.copy(id = null) }) })
 
+    /** Semilla del escáner → editor one-off (paridad iOS DayEditorView). */
+    fun fromDomainBlocks(blocks: List<dev.repera.domain.RoutineBlock>): List<RoutineBlockInfo> =
+        blocks.map { block ->
+            val format = when {
+                block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH &&
+                    block.wodFormat == null -> ""
+                else -> block.wodFormat?.wireName.orEmpty().ifBlank {
+                    if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "" else "chipper"
+                }
+            }
+            val entries = if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) {
+                block.exercises.map { ex ->
+                    val item = org.json.JSONObject()
+                        .put("id", java.util.UUID.randomUUID().toString())
+                        .put("exerciseId", ex.exerciseId)
+                        .put("name", "")
+                    RoutineBlockEntryInfo(
+                        exerciseId = ex.exerciseId,
+                        name = "",
+                        quantity = ex.plannedSets.firstOrNull()?.targetReps ?: 8,
+                        sets = ex.plannedSets.size.coerceAtLeast(1),
+                        weightKg = ex.plannedSets.firstOrNull()?.targetWeightKg,
+                        id = item.getString("id"),
+                        sourceJson = item.toString()
+                    )
+                }
+            } else {
+                block.movements.filter { !it.isRest }.map { m ->
+                    val item = org.json.JSONObject()
+                        .put("id", m.id.ifBlank { java.util.UUID.randomUUID().toString() })
+                        .put("name", m.name)
+                        .put("isRest", false)
+                    m.exerciseId?.let { item.put("exerciseId", it) }
+                    m.reps?.let { item.put("reps", it) }
+                    m.distanceMeters?.let { item.put("distanceMeters", it) }
+                    m.calories?.let { item.put("calories", it) }
+                    m.weightMaleKg?.let { item.put("weightMaleKg", it) }
+                    m.weightFemaleKg?.let { item.put("weightFemaleKg", it) }
+                    m.notes?.let { item.put("notes", it) }
+                    RoutineBlockEntryInfo(
+                        exerciseId = m.exerciseId.orEmpty(),
+                        name = m.name,
+                        quantity = m.reps ?: m.calories ?: m.distanceMeters ?: 10,
+                        weightKg = m.weightMaleKg,
+                        quantityUnit = when {
+                            m.distanceMeters != null -> "meters"
+                            m.calories != null -> "calories"
+                            else -> null
+                        },
+                        id = item.getString("id"),
+                        sourceJson = item.toString()
+                    )
+                }
+            }
+            val json = org.json.JSONObject()
+                .put("id", block.id)
+                .put("title", block.title)
+                .put("kind", if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "strength" else "wod")
+            block.wodFormat?.let { json.put("wodFormat", it.wireName) }
+            block.timeCapMinutes?.let { json.put("timeCapMinutes", it) }
+            block.rounds?.let { json.put("rounds", it) }
+            block.emomIntervalSeconds?.let { json.put("emomIntervalSeconds", it) }
+            block.workSeconds?.let { json.put("workSeconds", it) }
+            block.restSeconds?.let { json.put("restSeconds", it) }
+            block.restBetweenRoundsSeconds?.let { json.put("restBetweenRoundsSeconds", it) }
+            block.wodNotes?.let { json.put("wodNotes", it) }
+            RoutineBlockInfo(
+                title = block.title.ifBlank { format.ifBlank { "Bloque" } },
+                format = format,
+                timeCapMinutes = block.timeCapMinutes ?: 12,
+                rounds = block.rounds ?: 1,
+                emomIntervalSeconds = block.emomIntervalSeconds ?: 60,
+                workSeconds = block.workSeconds ?: 20,
+                restSeconds = block.restBetweenRoundsSeconds
+                    ?: block.restSeconds
+                    ?: 10,
+                entries = entries,
+                id = block.id,
+                sourceJson = json.toString()
+            )
+        }
+
     /** WODTemplate.makeBlock: movimientos repetidos se mantienen; sin coincidencia de catálogo se conservan por nombre. */
     fun templateToBlockInfo(t: dev.repera.domain.WodTemplate, catalog: List<ExerciseEntry>): RoutineBlockInfo {
         val byName = catalog.associateBy { it.name.lowercase() }

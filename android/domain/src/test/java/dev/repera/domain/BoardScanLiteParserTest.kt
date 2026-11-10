@@ -706,6 +706,28 @@ class BoardScanLiteParserTest {
         val defaults=BoardScanLiteParser.parse("OTM\n2 AIR SQUAT",catalog=catalog).blocks.single()
         assertEquals(10,defaults.timeCapMinutes)
     }
+    @Test fun forTimeKeepsBareRepSchemeInsideBlock() {
+        val board = """
+            EMOM 16'
+            1 ROPE CLIMB
+            5-15 STRICT HSPU
+
+            FOR TIME (TC 15')
+            30-20-10
+            AMERICAN KB SWING 24/16
+            WALL BALL 9/7
+            PULL UPS
+            CAL ANY CARDIO
+            """.trimIndent()
+        val blocks = BoardScanLiteParser.parse(board, catalog = catalog).blocks
+        assertTrue(blocks.size >= 2)
+        val forTime = blocks.first { it.wodFormat == WODFormat.FOR_TIME }
+        assertEquals(15, forTime.timeCapMinutes)
+        assertTrue(forTime.movements.size >= 3)
+        assertTrue(forTime.wodNotes!!.contains("30-20-10"))
+        assertTrue(blocks.none { it.wodFormat == WODFormat.LADDER && it.movements.isEmpty() })
+    }
+
     @Test fun namedLadderHeadersDoNotBecomeExercises() {
         for(header in listOf("LADDER","ESCALERA","PYRAMID","PIRÁMIDE","PIRAMIDE")) {
             val block=BoardScanLiteParser.parse(header+"\n2 AIR SQUAT",catalog=catalog).blocks.single()

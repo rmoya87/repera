@@ -711,20 +711,18 @@ struct HomeView: View {
                 }
             }
             .navigationDestination(item: $boardReviewPayload) { payload in
-                BoardImportReviewView(
-                    lines: payload.lines,
-                    ocrText: payload.ocrText,
-                    detectedBlocks: payload.blocks,
-                    interpretSource: payload.source,
-                    preferredWeekday: CalendarHelpers.isoWeekday(for: payload.targetDate),
-                    preferredDate: payload.targetDate,
-                    embedsNavigationStack: false
-                ) { started in
-                    boardReviewPayload = nil
-                    if started {
-                        onOpenWorkout()
-                    }
-                }
+                // Tras escanear → mismo editor one-off que «Crear entreno».
+                DayEditorView(
+                    routine: scannedRoutine(from: payload),
+                    mode: .oneOff(isNew: true),
+                    onClose: {
+                        restoresAddSheetAfterPage = false
+                        boardReviewPayload = nil
+                    },
+                    embedsNavigationStack: false,
+                    usesPageCloseHeader: true
+                )
+                .id(payload.id)
             }
     }
 
@@ -1960,6 +1958,42 @@ struct HomeView: View {
     private static let registerCardPad: CGFloat = 14
     /// Card pad + icono 44 + gap 12 → chips alineados al título en reposo.
     private static let chipsTitleLeading: CGFloat = registerCardPad + 44 + 12
+
+    /// Semilla del escáner para el editor one-off (mismas cargas % que la revisión).
+    private func scannedRoutine(from payload: BoardScanReviewPayload) -> Routine {
+        var seeded = payload.blocks
+        if seeded.isEmpty, !payload.ocrText.isEmpty {
+            seeded = BoardScanLiteParser.parse(ocrText: payload.ocrText).blocks
+        }
+        let testedOneRMs: [UUID: Double] = Dictionary(
+            uniqueKeysWithValues: store.state.exerciseLoadPrefs.compactMap { key, pref in
+                guard let tested = pref.testedOneRMKg, tested > 0,
+                      let id = UUID(uuidString: key) else { return nil }
+                return (id, tested)
+            }
+        )
+        seeded = LoadSuggestion.applyPercentLoads(
+            to: seeded,
+            workouts: store.state.workouts,
+            catalog: store.state.exercises,
+            incrementKg: store.state.settings.weightIncrementKg,
+            testedOneRMByExerciseId: testedOneRMs
+        )
+        for index in seeded.indices {
+            seeded[index].deriveEmomRoundsIfNeeded()
+        }
+        if seeded.isEmpty {
+            seeded = [.strength(title: "Bloque 1")]
+        }
+        let dayName = CalendarHelpers.weekdayName(CalendarHelpers.isoWeekday(for: payload.targetDate))
+        return Routine(
+            title: "Entreno · \(dayName)",
+            weekday: nil,
+            scheduledDate: payload.targetDate,
+            blocks: seeded,
+            progression: .off
+        )
+    }
 
     private func openAddWorkoutPage(_ page: AddWorkoutPage) {
         // El sheet usa su propia animación de entrada/salida vertical;

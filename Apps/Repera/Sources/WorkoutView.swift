@@ -1221,31 +1221,34 @@ struct WorkoutView: View {
     }
 
     private func workoutBlocks(_ session: WorkoutSession) -> [WorkoutBlockEntry] {
+        // Un solo pase O(ejercicios): evita compactMap por bloque (O(bloques×ejercicios)).
+        var indexesByBlock: [UUID: [Int]] = [:]
+        indexesByBlock.reserveCapacity(session.exercises.count)
+        for (index, exercise) in session.exercises.enumerated() {
+            let id = exercise.blockId ?? exercise.id
+            indexesByBlock[id, default: []].append(index)
+        }
         if let saved = session.routineBlocks, !saved.isEmpty {
             return saved.map { block in
                 WorkoutBlockEntry(
                     id: block.id, title: block.title, format: block.wodFormat,
-                    indexes: session.exercises.enumerated().compactMap { index, item in
-                        item.blockId == block.id ? index : nil
-                    }
+                    indexes: indexesByBlock[block.id] ?? []
                 )
             }
         }
         var blocks: [WorkoutBlockEntry] = []
-        for (index, exercise) in session.exercises.enumerated() {
+        var seen: Set<UUID> = []
+        for exercise in session.exercises {
             let id = exercise.blockId ?? exercise.id
-            if let lastIndex = blocks.indices.last, blocks[lastIndex].id == id {
-                blocks[lastIndex].indexes.append(index)
-            } else {
-                blocks.append(
-                    WorkoutBlockEntry(
-                        id: id,
-                        title: exercise.blockHeader ?? "Bloque \(blocks.count + 1)",
-                        format: exercise.wodFormat,
-                        indexes: [index]
-                    )
+            guard seen.insert(id).inserted else { continue }
+            blocks.append(
+                WorkoutBlockEntry(
+                    id: id,
+                    title: exercise.blockHeader ?? "Bloque \(blocks.count + 1)",
+                    format: exercise.wodFormat,
+                    indexes: indexesByBlock[id] ?? []
                 )
-            }
+            )
         }
         return blocks
     }
@@ -1303,17 +1306,29 @@ struct WorkoutView: View {
 
                     ForEach(block.indexes, id: \.self) { index in
                         let entry = session.exercises[index]
+                        let isCurrent = index == session.currentIndex
+                        let blockResult = session.wodResults.first(where: {
+                            $0.id == block.id && $0.format == block.format
+                        })
                         HStack(spacing: 4) {
                             Button {
-                                exerciseDetailID = entry.exercise.id
+                                if isCurrent {
+                                    exerciseDetailID = entry.exercise.id
+                                } else {
+                                    store.selectExercise(at: index)
+                                }
                             } label: {
                                 workoutExerciseRow(
-                                    entry, isOpen: true,
-                                    blockResult: session.wodResults.first(where: { $0.id == block.id && $0.format == block.format })
+                                    entry, isOpen: isCurrent,
+                                    blockResult: blockResult
                                 )
                             }
                             .buttonStyle(.plain)
-                            .accessibilityHint("Ver ficha del ejercicio")
+                            .accessibilityHint(
+                                isCurrent
+                                    ? "Ver ficha del ejercicio"
+                                    : "Seleccionar ejercicio para registrar series"
+                            )
                             Menu {
                                 Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
                                     store.selectExercise(at: index)
@@ -1341,11 +1356,14 @@ struct WorkoutView: View {
                         .listRowBackground(OG.surface)
                         .listRowSeparator(.hidden, edges: .bottom)
 
-                        PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)
-                            .id(entry.id)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
-                            .listRowBackground(OG.surface)
-                            .listRowSeparator(.hidden, edges: .top)
+                        // Solo el ejercicio actual monta el editor de series (evita N editores vivos).
+                        if isCurrent {
+                            PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)
+                                .id(entry.id)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+                                .listRowBackground(OG.surface)
+                                .listRowSeparator(.hidden, edges: .top)
+                        }
                     }
 
                     if block.indexes.contains(session.currentIndex),

@@ -12,18 +12,19 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.RemoveCircleOutline
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,41 +39,10 @@ internal data class BlockFormatOption(
 )
 
 internal object BlockFormatCatalog {
-    /** Orden iOS PlanView WODFormatPickerPage (R5 P1-14): sin Circuit/Ladder extras. */
-    val options: List<BlockFormatOption> = listOf(
-        BlockFormatOption(
-            "amrap", "AMRAP",
-            "Máximas rondas/reps en un tiempo fijo (AMRAP 12', AMRAP 10 min)."
-        ),
-        BlockFormatOption(
-            "emom", "EMOM / Every X'",
-            "Trabajo al inicio de cada intervalo (EMOM, EVERY 2'×4, E2MOM, ON THE MINUTE)."
-        ),
-        BlockFormatOption(
-            "forTime", "For Time / RFT",
-            "Termina lo antes posible: N RFT, FOR TIME, TC (time cap)."
-        ),
-        BlockFormatOption(
-            "tabata", "Tabata",
-            "Intervalos fijos clásicos 20\"/10\" × rondas (u otras proporciones)."
-        ),
-        BlockFormatOption(
-            "chipper", "Chipper",
-            "Lista larga en una sola pasada, lo más rápido posible."
-        ),
-        BlockFormatOption(
-            "deathBy", "Muerte por",
-            "Cada minuto sumas 1 rep (u otra progresión) hasta fallar."
-        ),
-        BlockFormatOption(
-            "strength", "Fuerza / Skill",
-            "Bloque de fuerza/técnica: 5×5, 3×8 @RPE, skill."
-        ),
-        BlockFormatOption(
-            "afap", "AFAP",
-            "Haz el trabajo lo más rápido posible (sin rondas fijas)."
-        )
-    )
+    /** Paridad iOS `WODFormat.allCases` + nombres/descripciones canónicos. */
+    val options: List<BlockFormatOption> = WodFormat.entries.map { format ->
+        BlockFormatOption(format.wireName, format.displayName, format.detail)
+    }
 
     fun title(wire: String): String {
         if (wire.isBlank()) return "Sin formato · libre"
@@ -120,31 +90,45 @@ internal fun BlockFormatPickerSheet(
             }
             LazyColumn(
                 Modifier.fillMaxSize().testTag("block_format_list"),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                item {
-                    FormatRow(
-                        title = "Sin formato · libre",
-                        description = null,
-                        selected = current.isBlank(),
-                        leading = {
-                            Icon(
-                                Icons.Outlined.RemoveCircleOutline,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                // Una sola card redondeada (arriba y abajo): evita esquinas
+                // cuadradas en «Sin formato» como en iOS insetGrouped + Section.
+                item(key = "format-group") {
+                    val shape = MaterialTheme.shapes.medium
+                    ReperaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(shape)
+                            .testTag("block_format_group"),
+                        shape = shape
+                    ) {
+                        FormatRow(
+                            title = "Sin formato · libre",
+                            description = "Bloque libre sin reloj de formato. Añade ejercicios y configura después si hace falta.",
+                            selected = current.isBlank(),
+                            leading = {
+                                Icon(
+                                    Icons.Outlined.RemoveCircleOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = { onPick("") }
+                        )
+                        BlockFormatCatalog.options.forEach { opt ->
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                             )
-                        },
-                        onClick = { onPick("") }
-                    )
-                }
-                items(BlockFormatCatalog.options, key = { it.wire }) { opt ->
-                    FormatRow(
-                        title = opt.title,
-                        description = opt.description,
-                        selected = current == opt.wire,
-                        onClick = { onPick(opt.wire) }
-                    )
+                            FormatRow(
+                                title = opt.title,
+                                description = opt.description,
+                                selected = current == opt.wire,
+                                onClick = { onPick(opt.wire) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -163,7 +147,7 @@ private fun FormatRow(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .testTag("block_format_${title.take(12)}"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
