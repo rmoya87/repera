@@ -1,11 +1,11 @@
 # Despliegue Repera Android en Google Play (beta)
 
-**Última actualización:** 2026-11-10 — gate estricto para Android estable, versión mensual AAAA.MM.VV y notas verificables en Google Play Internal.
+**Última actualización:** 2026-11-10 — publicación simultánea en pistas de prueba interna y cerrada, con gate estricto Android, versión mensual y novedades verificables.
 
 Autorizado por Ramon el 25/10/2026 ("Ok hazlo", tras plan presentado por chat):
-beta automatica SOLO de telefono a prueba INTERNA; produccion preparada pero
-SIN via ejecutable; Wear y pruebas cerrada/abierta posteriores; nada de
-productos/suscripciones/precios/backend comercial en este alcance.
+La autorización original contemplaba solo internal. El 10/11/2026 se amplía
+explícitamente el alcance a pruebas **internas y cerradas** del teléfono;
+producción y pruebas abiertas siguen sin vía ejecutable.
 
 ## Flujo
 
@@ -13,7 +13,7 @@ productos/suscripciones/precios/backend comercial en este alcance.
    pruebas de dominio y Wear, y pruebas instrumentadas de Android.
 2. Sync / push a `beta` (cuando esté validado): el mismo workflow repite la
    validación y despliega exclusivamente la aplicación de teléfono a Google
-   Play, pista **internal**. `main` y las pull requests jamás publican.
+   Play, pistas **internal** y **closed testing** identificada en Play. `main` y las pull requests jamás publican.
 3. **Gate de publicación**: compilación y tests JVM completos + instrumentación
    estable Android API 30/35. Wear OS y Android 17 canary siguen probándose,
    pero no bloquean la distribución del teléfono por sus problemas históricos
@@ -24,9 +24,26 @@ productos/suscripciones/precios/backend comercial en este alcance.
    `android/scripts/play_release_metadata.py` y se suben como artefacto
    `play-release-metadata`. También se guarda el SHA256 del AAB firmado.
 6. La acción de publicación utiliza `releaseName` y `whatsNewDirectory`
-   (archivo `whatsnew-es-ES`), con estado `completed` en la pista
-   `internal` únicamente. Una subida completada no garantiza disponibilidad
-   instantánea para los probadores.
+   (archivo `whatsnew-es-ES`), con estado `completed` en las pistas
+   `internal` y la pista cerrada validada previamente. Se utiliza el
+   **mismo AAB y versionCode** en una única edición de Google Play.
+   Una subida completada no garantiza disponibilidad instantánea.
+
+## Pruebas internas y cerradas
+
+- Antes de construir se consulta el listado real de pistas de Google Play.
+  Se publicará en `internal` y en la pista cerrada ya existente: `alpha`
+  cuando esté disponible, o el único identificador cerrado personalizado.
+  Si hay varias pistas cerradas, configurar la variable de Actions
+  `REPERA_PLAY_CLOSED_TRACK` con el ID exacto.
+- Nunca se admite `production`, `beta` (abierta), `qa` (interna) ni
+  un identificador que no exista entre las pistas cerradas. Si no hay
+  pista cerrada o es ambigua, **no se publica nada**.
+- La lista de probadores, los requisitos de Play Console y las revisiones
+  de la pista cerrada deben estar configurados allí; el CI no inventa pistas
+  ni cambia listas de participantes.
+- Las dos pistas se actualizan en **una sola operación** mediante el
+  campo `tracks` de la acción de Play; no se sube dos veces el AAB.
 
 ## Versionado mensual
 
@@ -107,6 +124,7 @@ productos/suscripciones/precios/backend comercial en este alcance.
 - `REPERA_UPLOAD_KEYSTORE_B64`: keystore de subida (PKCS12) en base64.
 - `REPERA_UPLOAD_STORE_PASSWORD`: password del keystore (PKCS12: la misma
   para almacen y clave). Alias: `repera-upload`.
+- Variable opcional `REPERA_PLAY_CLOSED_TRACK`: identificador exacto de la pista cerrada si existen varias (no es secreto).
 - `REPERA_PLAY_SERVICE_ACCOUNT_JSON`: JSON de la cuenta de servicio de
   Google Cloud con permiso de releases limitado a Repera.
 

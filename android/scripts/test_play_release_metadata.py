@@ -3,13 +3,42 @@ import unittest
 from datetime import datetime, timezone
 
 from play_release_metadata import (
-    baseline_date, production_release, release_notes, version_code, version_for_month, prepare,
+    baseline_date, production_release, release_notes, version_code, version_for_month, prepare, testing_tracks,
 )
 
 NOW = datetime(2026, 11, 10, 11, 0, tzinfo=timezone.utc)
 
 
 class PlayReleaseMetadataTest(unittest.TestCase):
+    def test_publish_internal_and_default_closed_track(self):
+        snapshot = {"tracks": [
+            {"track": "internal"}, {"track": "alpha"},
+            {"track": "production"}, {"track": "beta"}]}
+        self.assertEqual("internal,alpha", testing_tracks(snapshot))
+
+    def test_closed_custom_track_is_supported(self):
+        snapshot = {"tracks": [{"track": "internal"}, {"track": "repera-testers"}]}
+        self.assertEqual("internal,repera-testers", testing_tracks(snapshot))
+
+    def test_ambiguous_closed_tracks_need_explicit_choice(self):
+        snapshot = {"tracks": [{"track": "internal"}, {"track": "grupo-a"}, {"track": "grupo-b"}]}
+        with self.assertRaisesRegex(ValueError, "REPERA_PLAY_CLOSED_TRACK"):
+            testing_tracks(snapshot)
+        self.assertEqual("internal,grupo-b", testing_tracks(snapshot, "grupo-b"))
+
+    def test_production_and_open_tracks_cannot_be_selected_as_closed(self):
+        snapshot = {"tracks": [{"track": "internal"}, {"track": "alpha"},
+                               {"track": "production"}, {"track": "beta"}]}
+        for invalid in ("production", "beta", "internal", "qa", "unknown"):
+            with self.subTest(track=invalid):
+                with self.assertRaises(ValueError):
+                    testing_tracks(snapshot, invalid)
+
+    def test_missing_closed_track_blocks_publication(self):
+        snapshot = {"tracks": [{"track": "internal"}, {"track": "production"}]}
+        with self.assertRaisesRegex(ValueError, "pista cerrada"):
+            testing_tracks(snapshot)
+
     def test_first_monthly_version_starts_at_zero(self):
         self.assertEqual("2026.11.0", version_for_month({"tracks": []}, NOW))
 

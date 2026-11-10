@@ -34,6 +34,31 @@ MAINTENANCE = re.compile(r"fix|correg|bug|crash|rendimiento|performance|optim|re
 NON_USER_FACING = re.compile(r"^(?:test|tests|ci|docs|chore|build|style|refactor)\b|^fix\((?:test|ci|docs)\)", re.I)
 
 
+def testing_tracks(snapshot: dict, configured_closed: str = "") -> str:
+    """Select an existing closed track, never open testing or production."""
+    track_names = {str(t.get("track", "")).strip() for t in snapshot.get("tracks", [])}
+    # Historical Play API installations may expose internal as "qa".
+    if not ({"internal", "qa"} & track_names):
+        raise ValueError("No se encontró la pista de prueba interna en Google Play")
+    closed = {name for name in track_names
+              if name and name not in {"internal", "qa", "beta", "production"}
+              and ":" not in name}
+    requested = configured_closed.strip()
+    if requested:
+        if requested not in closed:
+            raise ValueError("REPERA_PLAY_CLOSED_TRACK no coincide con una pista cerrada existente: "
+                             + requested)
+        selected = requested
+    elif "alpha" in closed:
+        selected = "alpha"
+    elif len(closed) == 1:
+        selected = next(iter(closed))
+    else:
+        raise ValueError("No se puede determinar una única pista cerrada. "
+                         "Configura REPERA_PLAY_CLOSED_TRACK con su ID real de Play Console")
+    return f"internal,{selected}"
+
+
 def all_releases(snapshot: dict) -> list[dict]:
     return [dict(release, track=track.get("track", ""))
             for track in snapshot.get("tracks", [])
