@@ -46,7 +46,7 @@ dependencies {
     // AmbientLifecycleObserver: Always-On con métricas mínimas durante el entreno.
     implementation("androidx.wear:wear:1.4.0")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
-    implementation("androidx.wear.tiles:tiles:1.4.1")
+    implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.2.1")
     implementation("androidx.wear.protolayout:protolayout-material:1.2.1")
     implementation("com.google.guava:guava:33.3.1-android")
