@@ -45,6 +45,29 @@ class WearCIRunnerDiskBudgetContract(unittest.TestCase):
         self.assertIn("github.ref == 'refs/heads/beta'", deploy)
         self.assertNotIn("wear-instrumented", deploy.split("if:", 1)[0])
 
+    def test_artifact_uploads_do_not_fail_green_instrumented_jobs(self):
+        # Run 43093615938: connectedDebugAndroidTest verde; upload-artifact
+        # falló (servicio) y dejó jobs en rojo / in_progress → sin Play.
+        phone = WORKFLOW.split("  android-instrumented:", 1)[1].split(
+            "  android-instrumented-android17:", 1
+        )[0]
+        canary = WORKFLOW.split("  android-instrumented-android17:", 1)[1].split(
+            "  wear-instrumented:", 1
+        )[0]
+        for section_name, section in (
+            ("phone", phone),
+            ("canary", canary),
+            ("wear", WEAR),
+        ):
+            uploads = [
+                block
+                for block in section.split("- name: Upload")
+                if "upload-artifact@" in block
+            ]
+            self.assertGreaterEqual(len(uploads), 1, section_name)
+            for block in uploads:
+                self.assertIn("continue-on-error: true", block, section_name)
+
     def test_play_upload_pins_httplib2_and_strips_308_redirect(self):
         deploy = WORKFLOW.split("  deploy-internal-beta:", 1)[1]
         self.assertIn("httplib2>=0.22.0,<1", deploy)

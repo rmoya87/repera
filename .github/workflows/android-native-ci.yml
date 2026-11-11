@@ -193,8 +193,11 @@ jobs:
           echo "## Instrumented test failures" >> "$GITHUB_STEP_SUMMARY"
           find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -print -exec grep -nE 'failure|error|testcase' {} \; || true
           find android/mobile/build/outputs/androidTest-results android/wear/build/outputs/androidTest-results -type f -name '*.xml' -exec sh -c 'for f; do grep -n -A 15 -B 2 "<failure" "$f" || true; done' sh {} + >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+      # continue-on-error: un fallo del servicio de artefactos (p. ej. 5xx)
+      # no debe pintar el job en rojo si connectedDebugAndroidTest ya pasó.
       - name: Upload visual verification screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-visual-screenshots-api${{ matrix.api }}
@@ -202,14 +205,13 @@ jobs:
           if-no-files-found: ignore
       - name: Upload instrumentation reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumentation-results-api${{ matrix.api }}
           path: |
             android/mobile/build/outputs/androidTest-results/**
             android/mobile/build/reports/androidTests/**
-            android/wear/build/outputs/androidTest-results/**
-            android/wear/build/reports/androidTests/**
           if-no-files-found: ignore
   android-instrumented-android17:
     name: Phone integration tests on Android 17 (API 37.2 canary)
@@ -282,6 +284,7 @@ jobs:
           script: adb shell getprop ro.build.version.sdk_full; SELECTED_CLASSES=$(python3 android/ci_selected_android_tests.py) || exit 1; echo CI_ANDROID_SELECTED_TEST_CLASSES; gradle -p android :mobile:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class="$SELECTED_CLASSES" --no-daemon --stacktrace; TEST_EXIT=$?; mkdir -p android/screenshots; if adb shell test -d /sdcard/Pictures/ReperaVerification; then adb pull /sdcard/Pictures/ReperaVerification android/screenshots/ || true; else echo 'Sin capturas verificadas (normal si el test no genera imagen)'; fi; ls -laR android/screenshots/ || true; OK=1; for f in mobile; do X=$(ls android/$f/build/outputs/androidTest-results/connected/debug/TEST-*.xml 2>/dev/null | head -1); if [ -z "$X" ] || ! grep -q 'tests="[1-9]' "$X"; then echo "FALLO HARNESS - 0 tests ejecutados en $f (gradle devolvió $TEST_EXIT)"; OK=0; fi; done; if [ "$OK" = 0 ]; then exit 1; fi; exit $TEST_EXIT
       - name: Upload visual verification screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-visual-screenshots-api37
@@ -289,6 +292,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload instrumentation reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-instrumentation-results-api37
@@ -421,6 +425,7 @@ jobs:
           du -sh "${HOME}/.android/avd" 2>/dev/null || true
       - name: Upload wear visual verification screenshots
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wear-visual-screenshots-${{ matrix.api }}
@@ -428,6 +433,7 @@ jobs:
           if-no-files-found: ignore
       - name: Upload wear instrumentation reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wear-instrumentation-results-${{ matrix.api }}

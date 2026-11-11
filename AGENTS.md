@@ -306,6 +306,15 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   `RoutineEditorRestorationTest.plannedIdsRirAndUniformDirtyBaselineSurvive` (bloqueó
   `:mobile:testDebugUnitTest` y `deploy-internal-beta` el 11/11/2026).
 
+#### Android CI — upload-artifact no tumba instrumented verdes (11/11/2026)
+- En `beta` run 43093615938, `connectedDebugAndroidTest` (phone 30/35/37 y
+  Wear 35/36) terminó **success**, pero `Upload instrumentation reports`
+  (y Wear screenshots) falló por el servicio de artefactos; los jobs
+  quedaron rojos / `in_progress` y no arrancó `deploy-internal-beta`.
+- Fix: `continue-on-error: true` en los upload-artifact de instrumented;
+  el gate de Play sigue siendo el paso de tests, no el artefacto.
+- Contrato: `tests/test_android_wear_ci_disk_contract.py`.
+
 #### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
 - `deploy-internal-beta` puede fallar en *Publish AAB…* con
   `httplib2.error.RedirectMissingLocation` tras builds/tests verdes: el upload
