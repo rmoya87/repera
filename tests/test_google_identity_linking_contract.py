@@ -36,7 +36,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("localOwnerSupabaseUserID.v1", auth)
         self.assertIn("isSameLocalOwner(session.user.id)", auth)
         self.assertIn("guard confirmed.user.id == currentID", auth)
-        self.assertIn("try? await client.auth.signOut()", auth)
+        self.assertIn("try? await client.auth.signOut(scope: .local)", auth)
         self.assertIn("rememberOwner(session.user.id)", auth)
         self.assertIn("func signInWithGoogle()", auth)
         self.assertIn("func connect(credential:", auth)
@@ -48,7 +48,7 @@ class GoogleIdentityContractTests(unittest.TestCase):
         auth = source("BusinessAuthStore.swift")
         signout = auth.split("func signOut() async {", 1)[1]
         self.assertIn("rememberOwner(uid)", signout)
-        self.assertIn("client.auth.signOut()", signout)
+        self.assertIn("client.auth.signOut(scope: .local)", signout)
         self.assertIn("UserDefaults.standard.set(false, forKey: googleSignedInKey)", signout)
         self.assertNotIn("removeObject(forKey: localOwnerUserIDKey)", signout)
         self.assertIn("didExplicitlySignOut = true", signout)
@@ -57,6 +57,13 @@ class GoogleIdentityContractTests(unittest.TestCase):
         self.assertIn("clearExplicitSignOutAfterVerifiedLogin()", auth)
         self.assertIn("GIDSignIn.sharedInstance.signOut()", signout)
         self.assertIn("googleAuthAttemptID = UUID()", signout)
+
+    def test_signout_never_revokes_all_oauth_sessions(self):
+        # Supabase Swift v2 defaults to global: an unscoped logout would
+        # revoke ChatGPT/Claude OAuth refresh tokens on other clients.
+        auth = source("BusinessAuthStore.swift")
+        self.assertNotIn("client.auth.signOut()", auth)
+        self.assertEqual(auth.count("client.auth.signOut(scope: .local)"), 6)
 
     def test_login_and_account_ui_include_both_providers(self):
         login = source("Onboarding/OnboardingFlowView.swift")
