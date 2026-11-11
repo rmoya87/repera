@@ -15,8 +15,10 @@ on:
       - '.github/workflows/android-native-ci.yml'
 
 # Validate the newest tree instead of spending runner capacity on superseded pushes.
+# Sufijo -v2: el run zombi 43093615938 (in_progress en UI, no cancelable por API)
+# bloqueaba la cola del mismo group; un group nuevo desbloquea beta/Play.
 concurrency:
-  group: android-native-${{ github.workflow }}-${{ github.ref }}
+  group: android-native-${{ github.workflow }}-${{ github.ref }}-v2
   cancel-in-progress: true
 
 jobs:

@@ -38,6 +38,14 @@ class WearCIRunnerDiskBudgetContract(unittest.TestCase):
         self.assertIn("- beta", push)
         self.assertNotIn("- main", push)
 
+    def test_concurrency_group_can_escape_zombie_runs(self):
+        head = WORKFLOW.split("concurrency:", 1)[1].split("jobs:", 1)[0]
+        self.assertIn("cancel-in-progress: true", head)
+        self.assertIn(
+            "android-native-${{ github.workflow }}-${{ github.ref }}-v2",
+            head,
+        )
+
     def test_beta_deploy_still_gated_on_phone_emulator_tests(self):
         # Teléfono estable bloquea Play; Wear/canary dan señal sin frenar el AAB.
         deploy = WORKFLOW.split("  deploy-internal-beta:", 1)[1]
