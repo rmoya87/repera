@@ -838,25 +838,48 @@ def main() -> None:
     )
 
     support = site.get("supportEmail")
-    contact = (
-        f'<p class="lede">Escríbenos a <a href="mailto:{support}">{support}</a>.</p>'
-        if support
-        else '<p class="lede">El canal de correo de soporte se publicará aquí cuando esté confirmado. Mientras tanto usa la FAQ o gestiona la suscripción desde Apple.</p>'
-    )
+    if support:
+        contact = (
+            f'<p class="lede">Escríbenos a <a href="mailto:{support}">{support}</a> '
+            'para cualquier duda con la app, tu cuenta, la suscripción o la conexión con tu IA.</p>'
+        )
+        buttons = (
+            f'          <a class="btn btn-primary" href="mailto:{support}">{support}</a>\n'
+            '          <a class="btn btn-ghost" href="/faq">Preguntas frecuentes</a>'
+        )
+        support_desc = (
+            f"Ayuda con Repera: escríbenos a {support}, consulta las preguntas frecuentes "
+            "o gestiona tu suscripción en App Store."
+        )
+        extra_section = """    <section class="section">
+      <div class="wrap" data-reveal>
+        <h2>Qué incluir en tu correo</h2>
+        <p class="lede">Cuanto más contexto, antes te ayudamos: la versión de la app, tu dispositivo y, si es un error, qué esperabas y qué pasó. Si escribes por la conexión con tu IA, dinos qué asistente usas.</p>
+        <p class="muted">La suscripción Pro (cambios, cancelación, reembolsos) se gestiona con Apple: <a href="https://apps.apple.com/account/subscriptions" rel="noopener noreferrer">apps.apple.com/account/subscriptions</a>.</p>
+      </div>
+    </section>
+"""
+    else:
+        contact = '<p class="lede">El canal de correo de soporte se publicará aquí cuando esté confirmado. Mientras tanto usa la FAQ o gestiona la suscripción desde Apple.</p>'
+        buttons = (
+            '          <a class="btn btn-primary" href="/faq">Preguntas frecuentes</a>\n'
+            f'          <a class="btn btn-ghost" href="{APP_STORE}" rel="noopener noreferrer">App Store</a>'
+        )
+        support_desc = "Ayuda con Repera: contacto, FAQ, privacidad y gestión de la suscripción en App Store."
+        extra_section = ""
 
     page(
         "/soporte",
         "",
         "Soporte y contacto | Repera",
-        "Ayuda con Repera: contacto, FAQ, privacidad y gestión de la suscripción en App Store.",
+        support_desc,
         f"""    <section class="hero hero--sm">
       <div class="wrap" data-reveal>
         <p class="eyebrow">Ayuda</p>
         <h1>Soporte y contacto</h1>
         {contact}
         <div class="btn-row">
-          <a class="btn btn-primary" href="/faq">Preguntas frecuentes</a>
-          <a class="btn btn-ghost" href="{APP_STORE}" rel="noopener noreferrer">App Store</a>
+{buttons}
         </div>
       </div>
     </section>
@@ -867,7 +890,7 @@ def main() -> None:
         <a class="tile" href="https://apps.apple.com/account/subscriptions" rel="noopener noreferrer"><h3>Suscripción</h3><p>Gestionar o cancelar en Apple.</p><span class="more">Abrir</span></a>
       </div>
     </section>
-{cta_band("¿Listo para entrenar?", "Descarga Repera en App Store. El soporte de suscripción lo gestiona Apple.")}""",
+{extra_section}{cta_band("¿Listo para entrenar?", "Descarga Repera en App Store. El soporte de suscripción lo gestiona Apple.")}""",
     )
 
     # —— FAQ / Privacidad / Términos (mismo chrome que el resto del sitio) ——
@@ -932,7 +955,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Política de privacidad</h1>
-        <p class="lede">Última actualización: 9 de noviembre de 2026</p>
+        <p class="lede">Última actualización: 11 de noviembre de 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy-en">English</a>
           <a class="btn btn-ghost" href="/terms">Términos de uso</a>
@@ -964,7 +987,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Privacy policy</h1>
-        <p class="lede">Last updated: 9 November 2026</p>
+        <p class="lede">Last updated: 11 November 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy">Español</a>
           <a class="btn btn-ghost" href="/terms">Terms</a>
@@ -996,7 +1019,7 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Legal</p>
         <h1>Términos de uso</h1>
-        <p class="lede">Última actualización: 9 de noviembre de 2026</p>
+        <p class="lede">Última actualización: 11 de noviembre de 2026</p>
         <div class="btn-row">
           <a class="btn btn-ghost" href="/privacy">Privacidad</a>
           <a class="btn btn-ghost" href="/faq">FAQ</a>

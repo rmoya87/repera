@@ -6,7 +6,7 @@
   "locale": "es_ES",
   "ga4MeasurementId": "G-954CPW717S",
   "firebaseProjectId": "repera-mv",
-  "supportEmail": null,
+  "supportEmail": "hola@repera.app",
   "pricing": {
     "monthlyEur": "5,99",
     "yearlyEur": "39,99",
