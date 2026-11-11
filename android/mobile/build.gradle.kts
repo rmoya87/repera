@@ -123,7 +123,7 @@ dependencies {
     // openfreemap.org/tos permiten producción con atribución). Decisión y
     // alternativas: android/docs/ROUTE_MAP_OPTIONS.md.
     implementation("org.maplibre.gl:android-sdk:13.7.1")
-    implementation("com.google.android.gms:play-services-maps:19.2.0")
+    implementation("com.google.android.gms:play-services-maps:20.1.0")
     // Google Play Billing: solo detección de compras; la concesión Pro exige
     // verificación backend (ver android/docs/MONETIZATION_PLAY_BILLING.md).
     implementation("com.android.billingclient:billing-ktx:8.0.0")
