@@ -327,7 +327,16 @@ internal fun ProgressTab(
             }
         }
 
-        when (selectedCategory) {
+        val categoryNeedsSnapshot = when (selectedCategory) {
+            ProgressCategory.RECOVERY, ProgressCategory.SPORTS -> false
+            ProgressCategory.TRAINING, ProgressCategory.STRENGTH,
+            ProgressCategory.FITNESS, ProgressCategory.HEART -> true
+        }
+        if (categoryNeedsSnapshot && snapshot == null) {
+            item(key = "progress-hub-skeleton") {
+                ProgressHubSkeleton()
+            }
+        } else when (selectedCategory) {
             ProgressCategory.TRAINING -> {
                 if (snapshot != null) {
                     item {

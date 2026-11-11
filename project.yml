@@ -62,6 +62,7 @@ targets:
           - OGDuoContextRail.swift
           - PlusHubView.swift
           - SessionDetailSkeleton.swift
+          - ProgressHubSkeleton.swift
           - Analytics/ReperaAnalytics.swift
           - StrengthBenchmarkCard.swift
           - StrengthContributionSubmitter.swift
@@ -76,6 +77,7 @@ targets:
       - path: Apps/Repera/Sources/OGDuoContextRail.swift
       - path: Apps/Repera/Sources/PlusHubView.swift
       - path: Apps/Repera/Sources/SessionDetailSkeleton.swift
+      - path: Apps/Repera/Sources/ProgressHubSkeleton.swift
       # GA4 adapter: new Analytics/ folder is easy for XcodeGen 2.46 to drop from Compile Sources.
       - path: Apps/Repera/Sources/StrengthBenchmarkCard.swift
       - path: Apps/Repera/Sources/StrengthContributionSubmitter.swift

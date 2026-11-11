@@ -53,16 +53,8 @@ struct WorkoutView: View {
     @State private var notesDraft = ""
     @State private var favoriteSaveError: String?
     @State private var isSavingFavorite = false
-    /// Filas editables: escribir es guardar; no hay check de confirmación por serie.
-    @State private var liveSets: [LiveSetRow] = []
-    /// Los borradores pertenecen al ejercicio, no a la fila que se reutiliza al navegar.
-    @State private var liveExerciseID: UUID?
-    @State private var liveSessionID: UUID?
-    @State private var liveDraftsByExercise: [UUID: [LiveSetRow]] = [:]
-    /// No convertir las sugerencias precargadas en modificaciones del usuario.
-    @State private var editedLiveExerciseIDs: Set<UUID> = []
-    /// Unidad Cal/m para erg/bike del ejercicio actual.
-    @State private var liveQuantityUnit: ExerciseQuantityUnit = .reps
+    /// Flush síncrono del borrador local de `PlayEditableSetsView` (antes de terminar / mutar plan).
+    @State private var playSetsFlusher: (() -> Void)?
     @State private var setCompletionPulse = 0
     @State private var restStartedPulse = 0
     @State private var pendingWODConfirm: PendingWODConfirm?
@@ -84,16 +76,6 @@ struct WorkoutView: View {
     @FocusState private var focusedPlayFormatField: OGSetFieldID?
     @State private var advancedFieldRowID = UUID()
     @FocusState private var advancedFocusedField: OGSetFieldID?
-
-    private struct LiveSetRow: Identifiable, Equatable {
-        let id: UUID
-        var weightKg: Double?
-        var deficitCm: Int?
-        var durationSeconds: Int?
-        var reps: Int
-        var rir: Double?
-        var completed: Bool
-    }
 
     /// Petición asociada al ejercicio de origen, no al índice seleccionado:
     /// si el usuario cambia de bloque mientras el sheet está abierto, no
@@ -149,8 +131,8 @@ struct WorkoutView: View {
             }
         }
         .onChange(of: store.state.activeSession?.currentIndex) { _, _ in
-            persistActiveLiveDraft()
-            cacheLiveSets()
+            // El editor del ejercicio anterior ya hizo flush en onDisappear.
+            playSetsFlusher = nil
             prefill()
             let destinationBlock = store.state.activeSession?.currentExercise.flatMap { $0.blockId ?? $0.id }
             if destinationBlock != runningTimerBlockID {
@@ -172,22 +154,16 @@ struct WorkoutView: View {
                 }
             }
         }
-        .onChange(of: store.state.activeSession?.currentExercise?.plannedSets) { _, _ in
-            if let current = store.state.activeSession?.currentExercise {
-                rebuildLiveSets(from: current)
-            }
-        }
-        .onChange(of: store.state.activeSession?.currentExercise?.quantityUnit) { _, _ in
-            if let current = store.state.activeSession?.currentExercise {
-                syncLiveQuantityUnit(from: current)
-            }
-        }
         .onChange(of: store.workoutClock.pendingEndReason) { _, reason in
             guard reason != nil else { return }
             presentWODConfirmIfNeeded()
         }
         .onDisappear {
+            playSetsFlusher?()
             // Rest + WOD clocks are owned by ReperaStore — do not stop on view disappear.
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            playSetsFlusher?()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             store.workoutClock.syncFromWallClock()
@@ -339,10 +315,8 @@ struct WorkoutView: View {
                     if store.state.routines.contains(where: { $0.id == edited.id }) {
                         _ = store.saveRoutine(edited)
                     }
-                    liveDraftsByExercise = [:]
-                    editedLiveExerciseIDs = []
-                    liveExerciseID = nil
-                    liveSets = []
+                    playSetsFlusher?()
+                    playSetsFlusher = nil
                     store.refreshActiveSessionPlan(from: edited)
                     store.updateActiveSessionLocation(edited.locationPin)
                     prefill()
@@ -437,7 +411,7 @@ struct WorkoutView: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        persistActiveLiveDraft()
+                        playSetsFlusher?()
                         store.updateActiveSessionNotes(notesDraft)
                         store.workoutClock.stop()
                         store.endActiveSession(save: true)
@@ -537,7 +511,7 @@ struct WorkoutView: View {
         isSavingFavorite = true
         defer { isSavingFavorite = false }
         favoriteSaveError = nil
-        persistActiveLiveDraft()
+        playSetsFlusher?()
         subscriptions.syncCounts(
             libraryRoutines: store.libraryRoutineCount,
             customExercises: store.customExerciseCount,
@@ -658,7 +632,7 @@ struct WorkoutView: View {
 
 
     private func mutatePlayRoutine(_ operation: (inout Routine) -> Void) {
-        persistActiveLiveDraft()
+        playSetsFlusher?()
         guard var draft = routineForEditing() else { return }
         operation(&draft)
         store.refreshActiveSessionPlan(from: draft)
@@ -696,7 +670,7 @@ struct WorkoutView: View {
     /// Edit the ordering as a draft; apply it to the live session on exit
     /// to avoid restarting/reconciling the workout after every drag update.
     private func beginPlayReorder() {
-        persistActiveLiveDraft()
+        playSetsFlusher?()
         playReorderDraft = routineForEditing()
         showsPlayReorder = playReorderDraft != nil
     }
@@ -1257,177 +1231,7 @@ struct WorkoutView: View {
         List {
             ForEach(workoutBlocks(session)) { block in
                 Section {
-                    HStack(spacing: 12) {
-                        Text(block.title)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(OG.label)
-                            .lineLimit(2)
-                        Spacer(minLength: 8)
-                        OGToolbarGlassButton(
-                            systemName: "timer",
-                            accessibilityLabel: "Temporizador de \(block.title)",
-                            tint: OG.accent,
-                            iconSize: 19,
-                            hitSize: 44,
-                            appliesGlass: true
-                        ) {
-                            openBlockTimer(block, session: session)
-                        }
-                        .disabled(block.indexes.isEmpty)
-                        Menu {
-                            Button("Reordenar", systemImage: "arrow.up.arrow.down") {
-                                beginPlayReorder()
-                            }
-                            Button("Añadir ejercicio", systemImage: "plus") {
-                                addPlayExerciseToBlock = block.id
-                            }
-                            Divider()
-                            Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
-                                removePlayBlock(block.id)
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(width: 38, height: 38)
-                                .glassEffect(.regular.interactive(), in: .circle)
-                        }
-                        .accessibilityLabel("Opciones de \(block.title)")
-                    }
-                    .listRowBackground(OG.surface)
-
-                    playBlockFormatSettings(block)
-                        .listRowBackground(OG.surface)
-                        .listRowSeparator(.hidden)
-                    if let format = block.format, format.resultCapture != .perMovementSets {
-                        inlineWODScoreEditor(block, format: format, session: session)
-                            .listRowBackground(OG.surface)
-                    }
-
-                    ForEach(block.indexes, id: \.self) { index in
-                        let entry = session.exercises[index]
-                        let isCurrent = index == session.currentIndex
-                        let blockResult = session.wodResults.first(where: {
-                            $0.id == block.id && $0.format == block.format
-                        })
-                        HStack(spacing: 4) {
-                            Button {
-                                if isCurrent {
-                                    exerciseDetailID = entry.exercise.id
-                                } else {
-                                    store.selectExercise(at: index)
-                                }
-                            } label: {
-                                workoutExerciseRow(
-                                    entry, isOpen: isCurrent,
-                                    blockResult: blockResult
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityHint(
-                                isCurrent
-                                    ? "Ver ficha del ejercicio"
-                                    : "Seleccionar ejercicio para registrar series"
-                            )
-                            Menu {
-                                Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
-                                    store.selectExercise(at: index)
-                                }
-                                Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
-                                    replacingPlayExercise = PlayReplacementTarget(
-                                        blockID: block.id, itemID: entry.id
-                                    )
-                                }
-                                Button("Reordenar", systemImage: "arrow.up.arrow.down") {
-                                    beginPlayReorder()
-                                }
-                                Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
-                                    removePlayExercise(block.id, itemID: entry.id)
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(OG.label)
-                                    .frame(width: 38, height: 38)
-                                    .glassEffect(.regular.interactive(), in: .circle)
-                            }
-                            .accessibilityLabel("Opciones del ejercicio")
-                        }
-                        .listRowBackground(OG.surface)
-                        .listRowSeparator(.hidden, edges: .bottom)
-
-                        // Solo el ejercicio actual monta el editor de series (evita N editores vivos).
-                        if isCurrent {
-                            PlayEditableSetsView(exerciseEntry: entry, openedSetID: $openedSetID)
-                                .id(entry.id)
-                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
-                                .listRowBackground(OG.surface)
-                                .listRowSeparator(.hidden, edges: .top)
-                        }
-                    }
-
-                    if block.indexes.contains(session.currentIndex),
-                       let current = session.currentExercise {
-                        Button {
-                            expandedTechniquesExerciseID =
-                                expandedTechniquesExerciseID == current.id ? nil : current.id
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text("Técnicas de serie · dropset / rest-pause")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(OG.label)
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .rotationEffect(.degrees(
-                                        expandedTechniquesExerciseID == current.id ? 180 : 0
-                                    ))
-                                    .foregroundStyle(OG.label2)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Técnicas de serie")
-                        .accessibilityValue(
-                            expandedTechniquesExerciseID == current.id ? "Desplegadas" : "Plegadas"
-                        )
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 4, trailing: 16))
-                        .listRowBackground(OG.surface)
-                        .listRowSeparator(.hidden)
-
-                        if expandedTechniquesExerciseID == current.id {
-                            logForm(current)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
-                                .listRowBackground(OG.surface)
-                                .listRowSeparator(.hidden)
-                        }
-                    }
-                    if finishedTimedBlockID == block.id,
-                       block.format?.resultCapture == .perMovementSets {
-                        HStack(spacing: 12) {
-                            Label("Temporizador finalizado. Registra las series realizadas.", systemImage: "timer")
-                                .font(.footnote)
-                                .foregroundStyle(OG.label2)
-                            Spacer(minLength: 0)
-                            Button("Finalizar bloque") {
-                                finishedTimedBlockID = nil
-                                runningTimerBlockID = nil
-                                store.finishCurrentTimedBlock()
-                                if store.state.activeSession == nil { closeFlow() }
-                            }
-                            .font(.footnote.weight(.semibold))
-                            .buttonStyle(.bordered)
-                        }
-                        .listRowBackground(OG.surface)
-                    }
-
-                    WorkoutWODInsertActions(
-                        onExercise: { addPlayExerciseToBlock = block.id },
-                        onRest: { insertPlayRest(after: block.id) },
-                        onFreeMovement: { beginPlayFreeMovement(after: block.id) }
-                    )
+                    playBlockSectionBody(block, session: session)
                 } header: {
                     HStack(spacing: 6) {
                         Text("Bloque")
@@ -1486,6 +1290,229 @@ struct WorkoutView: View {
                 await HealthKitStore.shared.refreshLiveMetrics()
                 try? await Task.sleep(for: .seconds(15))
             }
+        }
+    }
+
+    /// Cuerpo de un bloque en Play: partido en helpers para que el type-check termine.
+    @ViewBuilder
+    private func playBlockSectionBody(
+        _ block: WorkoutBlockEntry,
+        session: WorkoutSession
+    ) -> some View {
+        playBlockTitleRow(block, session: session)
+        playBlockFormatSettings(block)
+            .listRowBackground(OG.surface)
+            .listRowSeparator(.hidden)
+        if let format = block.format, format.resultCapture != .perMovementSets {
+            inlineWODScoreEditor(block, format: format, session: session)
+                .listRowBackground(OG.surface)
+        }
+        playBlockExerciseList(block, session: session)
+        playBlockTechniquesRows(block, session: session)
+        playBlockFinishedTimerRow(block)
+        WorkoutWODInsertActions(
+            onExercise: { addPlayExerciseToBlock = block.id },
+            onRest: { insertPlayRest(after: block.id) },
+            onFreeMovement: { beginPlayFreeMovement(after: block.id) }
+        )
+    }
+
+    private func playBlockTitleRow(
+        _ block: WorkoutBlockEntry,
+        session: WorkoutSession
+    ) -> some View {
+        HStack(spacing: 12) {
+            Text(block.title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(OG.label)
+                .lineLimit(2)
+            Spacer(minLength: 8)
+            OGToolbarGlassButton(
+                systemName: "timer",
+                accessibilityLabel: "Temporizador de \(block.title)",
+                tint: OG.accent,
+                iconSize: 19,
+                hitSize: 44,
+                appliesGlass: true
+            ) {
+                openBlockTimer(block, session: session)
+            }
+            .disabled(block.indexes.isEmpty)
+            Menu {
+                Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                    beginPlayReorder()
+                }
+                Button("Añadir ejercicio", systemImage: "plus") {
+                    addPlayExerciseToBlock = block.id
+                }
+                Divider()
+                Button("Eliminar bloque", systemImage: "trash", role: .destructive) {
+                    removePlayBlock(block.id)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .frame(width: 38, height: 38)
+                    .glassEffect(.regular.interactive(), in: .circle)
+            }
+            .accessibilityLabel("Opciones de \(block.title)")
+        }
+        .listRowBackground(OG.surface)
+    }
+
+    /// Filas de ejercicios + series del actual (extraídas para acotar el type-check del List).
+    @ViewBuilder
+    private func playBlockExerciseList(
+        _ block: WorkoutBlockEntry,
+        session: WorkoutSession
+    ) -> some View {
+        let blockResult = session.wodResults.first(where: {
+            $0.id == block.id && $0.format == block.format
+        })
+        ForEach(block.indexes, id: \.self) { index in
+            playBlockExerciseRows(
+                block: block,
+                index: index,
+                session: session,
+                blockResult: blockResult
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func playBlockExerciseRows(
+        block: WorkoutBlockEntry,
+        index: Int,
+        session: WorkoutSession,
+        blockResult: WODBlockResult?
+    ) -> some View {
+        let entry = session.exercises[index]
+        let isCurrent = index == session.currentIndex
+        HStack(spacing: 4) {
+            Button {
+                if isCurrent {
+                    exerciseDetailID = entry.exercise.id
+                } else {
+                    store.selectExercise(at: index)
+                }
+            } label: {
+                workoutExerciseRow(
+                    entry, isOpen: isCurrent,
+                    blockResult: blockResult
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(
+                isCurrent
+                    ? "Ver ficha del ejercicio"
+                    : "Seleccionar ejercicio para registrar series"
+            )
+            Menu {
+                Button("Seleccionar ejercicio", systemImage: "checkmark.circle") {
+                    store.selectExercise(at: index)
+                }
+                Button("Sustituir ejercicio", systemImage: "arrow.left.arrow.right") {
+                    replacingPlayExercise = PlayReplacementTarget(
+                        blockID: block.id, itemID: entry.id
+                    )
+                }
+                Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                    beginPlayReorder()
+                }
+                Button("Eliminar ejercicio", systemImage: "trash", role: .destructive) {
+                    removePlayExercise(block.id, itemID: entry.id)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.label)
+                    .frame(width: 38, height: 38)
+                    .glassEffect(.regular.interactive(), in: .circle)
+            }
+            .accessibilityLabel("Opciones del ejercicio")
+        }
+        .listRowBackground(OG.surface)
+        .listRowSeparator(.hidden, edges: .bottom)
+
+        // Solo el ejercicio actual monta el editor de series (evita N editores vivos).
+        if isCurrent {
+            PlayEditableSetsView(
+                exerciseEntry: entry,
+                registerFlusher: { playSetsFlusher = $0 },
+                openedSetID: $openedSetID
+            )
+            .id(entry.id)
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
+            .listRowBackground(OG.surface)
+            .listRowSeparator(.hidden, edges: .top)
+        }
+    }
+
+    @ViewBuilder
+    private func playBlockTechniquesRows(
+        _ block: WorkoutBlockEntry,
+        session: WorkoutSession
+    ) -> some View {
+        if block.indexes.contains(session.currentIndex),
+           let current = session.currentExercise {
+            Button {
+                expandedTechniquesExerciseID =
+                    expandedTechniquesExerciseID == current.id ? nil : current.id
+            } label: {
+                HStack(spacing: 8) {
+                    Text("Técnicas de serie · dropset / rest-pause")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(OG.label)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .rotationEffect(.degrees(
+                            expandedTechniquesExerciseID == current.id ? 180 : 0
+                        ))
+                        .foregroundStyle(OG.label2)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Técnicas de serie")
+            .accessibilityValue(
+                expandedTechniquesExerciseID == current.id ? "Desplegadas" : "Plegadas"
+            )
+            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 4, trailing: 16))
+            .listRowBackground(OG.surface)
+            .listRowSeparator(.hidden)
+
+            if expandedTechniquesExerciseID == current.id {
+                logForm(current)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 12, trailing: 16))
+                    .listRowBackground(OG.surface)
+                    .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func playBlockFinishedTimerRow(_ block: WorkoutBlockEntry) -> some View {
+        if finishedTimedBlockID == block.id,
+           block.format?.resultCapture == .perMovementSets {
+            HStack(spacing: 12) {
+                Label("Temporizador finalizado. Registra las series realizadas.", systemImage: "timer")
+                    .font(.footnote)
+                    .foregroundStyle(OG.label2)
+                Spacer(minLength: 0)
+                Button("Finalizar bloque") {
+                    finishedTimedBlockID = nil
+                    runningTimerBlockID = nil
+                    store.finishCurrentTimedBlock()
+                    if store.state.activeSession == nil { closeFlow() }
+                }
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.bordered)
+            }
+            .listRowBackground(OG.surface)
         }
     }
 
@@ -1770,411 +1797,6 @@ struct WorkoutView: View {
             }
         .onDisappear {
             store.updateActiveSessionNotes(notesDraft)
-        }
-    }
-
-    private func setsBoard(_ current: SessionExercise) -> some View {
-        let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork || current.exercise.supportsRepsOrMeters
-            ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
-        let loadLabel = current.exercise.loadField == .deficitCm
-            ? "Déficit cm"
-            : (style == .loadAndReps ? store.state.settings.weightUnit.label.uppercased() : "Tiempo")
-        return VStack(alignment: .leading, spacing: 12) {
-            OGSetEntryHeader(
-                firstTitle: style == .repsOnly ? qtyLabel : loadLabel,
-                secondTitle: style == .repsOnly || current.exercise.isMobilityHold ? nil : qtyLabel,
-                showsConfirmation: false,
-                showsRIR: style.usesRIR
-            )
-
-            ForEach(Array(liveSets.enumerated()), id: \.element.id) { index, row in
-                OGSetSwipeDeleteRow(
-                    canDelete: true, setID: row.id, openedSetID: $openedSetID,
-                    onDelete: { removeLiveSet(at: index, current: current) }
-                ) {
-                    liveSetRow(index: index, row: row, current: current)
-                }
-            }
-
-            WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
-                addLiveSet(from: current)
-            }
-            .padding(.top, 4)
-        }
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func liveSetRow(index: Int, row: LiveSetRow, current: SessionExercise) -> some View {
-        let style = current.exercise.loggingStyle
-        let qtyLabel = style == .machineWork || current.exercise.supportsRepsOrMeters
-            ? liveQuantityUnit.shortLabel : current.exercise.quantityFieldLabel
-        let previous = store.cachedLastWorkingSession(for: current.exercise.id)?.sets
-        let previousSet = (previous?.indices.contains(index) == true) ? previous?[index] : nil
-        let firstValue: String = {
-            switch style {
-            case .repsOnly: return "\(row.reps)"
-            case .loadAndReps:
-                if current.exercise.loadField == .deficitCm {
-                    return row.deficitCm.map(String.init) ?? "0"
-                }
-                return row.weightKg.map {
-                    ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
-                } ?? "—"
-            case .repsAndTime, .machineWork: return DurationText.format(row.durationSeconds)
-            }
-        }()
-
-        return VStack(alignment: .leading, spacing: 6) {
-            if index == 0,
-               current.exercise.supportsRepsOrMeters
-                   || (style == .machineWork && current.exercise.allowsCalorieOrDistanceToggle) {
-                Picker("Unidad", selection: Binding(
-                    get: { liveQuantityUnit },
-                    set: { newValue in
-                        liveQuantityUnit = newValue
-                        noteLiveDraftEdited()
-                    }
-                )) {
-                    if current.exercise.supportsRepsOrMeters {
-                        Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
-                    } else {
-                        Text("Cal").tag(ExerciseQuantityUnit.calories)
-                    }
-                    Text("Metros").tag(ExerciseQuantityUnit.meters)
-                }
-                .pickerStyle(.segmented)
-
-            }
-
-            OGSetEntryRow(
-                rowID: row.id,
-                index: index + 1,
-                previous: OGSetEntryRow.previousText(previousSet),
-                firstValue: firstValue,
-                secondValue: style == .repsOnly || current.exercise.isMobilityHold ? nil : "\(row.reps)",
-                nextEditableRowID: liveSets.dropFirst(index + 1).first?.id,
-                firstAllowsDecimal: style != .repsOnly && current.exercise.loadField == .weightKg,
-                showsConfirmation: false,
-                completed: row.completed,
-                rir: row.rir,
-                showsRIR: style.usesRIR,
-                onRIRChange: { setLiveRir(at: index, rir: $0) },
-                focus: $focusedSetField,
-                onFirstCommit: { text in
-                    switch style {
-                    case .repsOnly:
-                        if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
-                    case .loadAndReps:
-                        if current.exercise.loadField == .deficitCm {
-                            if let value = Int(text) { setLiveDeficit(at: index, cm: min(60, max(0, value))) }
-                        } else {
-                            commitLiveWeightText(at: index, text: text)
-                        }
-                    case .repsAndTime, .machineWork:
-                        commitLiveDurationText(at: index, text: text)
-                    }
-                },
-                onSecondCommit: { text in
-                    if let value = Int(text), value > 0 { setLiveReps(at: index, reps: value) }
-                },
-                onConfirm: { toggleLiveSetCompleted(at: index, current: current) }
-
-            )
-            .accessibilityLabel("Serie \(index + 1), \(qtyLabel)")
-
-
-        }
-        .padding(.vertical, 3)
-    }
-
-    private func cacheLiveSets() {
-        guard let liveExerciseID else { return }
-        liveDraftsByExercise[liveExerciseID] = liveSets
-    }
-
-    /// Prescripción inicial editable. Tras la primera interacción, los valores
-    /// de esas filas son el resultado registrado; se pueden corregir sin check.
-    private func noteLiveDraftEdited() {
-        guard let id = liveExerciseID else { return }
-        editedLiveExerciseIDs.insert(id)
-        persistActiveLiveDraft()
-    }
-
-    private func persistActiveLiveDraft() {
-        guard let id = liveExerciseID, editedLiveExerciseIDs.contains(id),
-              liveSessionID == store.state.activeSession?.id,
-              let entry = store.state.activeSession?.exercises.first(where: { $0.id == id }) else { return }
-        let existing = entry.plannedSets
-        let revised: [PlannedSet] = liveSets.enumerated().map { index, row in
-            let previous = existing.indices.contains(index) ? existing[index] : nil
-            let kg = entry.exercise.loadField == .deficitCm
-                ? row.deficitCm.map(Double.init) : row.weightKg
-            let changedAbsoluteLoad = entry.exercise.loadField == .weightKg
-                && kg != previous?.targetWeightKg
-            return PlannedSet(
-                // La identidad de una serie pendiente sobrevive incluso
-                // cuando se elimina la anterior o se reordena el ejercicio.
-                id: row.completed ? (previous?.id ?? row.id) : row.id,
-                targetReps: max(1, row.reps),
-                targetWeightKg: kg,
-                targetDurationSeconds: row.durationSeconds,
-                targetRir: row.rir,
-                // Escribir kg reales deja de ser una prescripción porcentual.
-                targetPercent1RM: changedAbsoluteLoad ? nil : previous?.targetPercent1RM,
-                targetPercent1RMIsMinimum: !changedAbsoluteLoad
-                    && (previous?.targetPercent1RMIsMinimum ?? false)
-            )
-        }
-        let existingByID = Dictionary(
-            uniqueKeysWithValues: entry.loggedSets.map { ($0.id, $0) }
-        )
-        let style = entry.exercise.loggingStyle
-        let recorded: [LoggedSet] = liveSets.compactMap { row in
-            guard row.reps > 0 else { return nil }
-            let recordedWeight = entry.exercise.loadField == .weightKg ? row.weightKg : nil
-            let recordedDeficit = entry.exercise.loadField == .deficitCm ? row.deficitCm : nil
-            let unit = style == .machineWork || entry.exercise.supportsRepsOrMeters
-                ? liveQuantityUnit : (entry.quantityUnit ?? entry.exercise.defaultQuantityUnit)
-            var result = existingByID[row.id] ?? LoggedSet(
-                id: row.id, reps: row.reps, quantityUnit: unit
-            )
-            result.reps = row.reps
-            result.weightKg = recordedWeight
-            result.deficitCm = recordedDeficit
-            result.durationSeconds = style.usesDuration ? row.durationSeconds : nil
-            result.quantityUnit = unit
-            result.rir = style.usesRIR ? row.rir : nil
-            result.toFailure = style.usesRIR && row.rir == 0
-            return result
-        }
-        store.updateActiveExerciseDraft(
-            id: id, plannedSets: revised,
-            quantityUnit: style == .machineWork || entry.exercise.supportsRepsOrMeters
-                ? liveQuantityUnit : entry.quantityUnit,
-            performedSets: recorded
-        )
-    }
-
-    private func removeLiveSet(at index: Int, current: SessionExercise) {
-        // El usuario corrige o elimina la serie sin un check previo.
-        // Al persistir se sustituyen también los resultados reales por ID.
-        guard liveSets.indices.contains(index) else { return }
-        liveSets.remove(at: index)
-        liveDraftsByExercise[current.id] = liveSets
-        noteLiveDraftEdited()
-    }
-
-    private func rebuildLiveSets(from current: SessionExercise) {
-        // Los observers de currentIndex/plannedSets pueden ejecutarse en distinto
-        // orden. Guardar aquí la tabla anterior antes de sustituir su identidad.
-        if let liveExerciseID, liveExerciseID != current.id {
-            cacheLiveSets()
-        }
-        syncLiveQuantityUnit(from: current)
-        // Reconciliar los registros confirmados con los borradores aún editables.
-        // Una reconstrucción (check, cambio de plan, navegación) nunca debe
-        // volver a copiar el objetivo y borrar lo que el usuario ya escribió.
-        let retained: [LiveSetRow] = liveExerciseID == current.id
-            ? liveSets
-            : (liveDraftsByExercise[current.id] ?? [])
-        liveExerciseID = current.id
-
-        var rows: [LiveSetRow] = []
-        let planned = current.plannedSets
-        let logged = current.loggedSets
-        let total = max(planned.count, max(logged.count, retained.count))
-        let style = current.exercise.loggingStyle
-        let defaultQty: Int = {
-            switch style {
-            case .machineWork: return liveQuantityUnit == .meters ? 500 : 15
-            case .repsAndTime: return current.exercise.isMobility ? (current.exercise.isMobilityHold ? 1 : 8) : 50
-            default: return 8
-            }
-        }()
-
-        let loadField = current.exercise.loadField
-        for i in 0..<total {
-            if i < logged.count {
-                let set = logged[i]
-                rows.append(LiveSetRow(
-                    id: set.id,
-                    weightKg: set.weightKg,
-                    deficitCm: set.deficitCm,
-                    durationSeconds: set.durationSeconds,
-                    reps: set.reps,
-                    rir: set.rir,
-                    completed: true
-                ))
-            } else if i < retained.count {
-                // Incluye la serie recién desmarcada: conserva sus valores
-                // registrados, pero pasa a estado editable.
-                let old = retained[i]
-                rows.append(LiveSetRow(
-                    id: i < planned.count ? planned[i].id : old.id,
-                    weightKg: old.weightKg,
-                    deficitCm: old.deficitCm,
-                    durationSeconds: old.durationSeconds,
-                    reps: old.reps,
-                    rir: old.rir,
-                    completed: old.completed
-                ))
-            } else if i < planned.count {
-                let plannedSet = planned[i]
-                rows.append(LiveSetRow(
-                    id: plannedSet.id,
-                    weightKg: loadField == .weightKg ? plannedSet.targetWeightKg : nil,
-                    deficitCm: loadField == .deficitCm
-                        ? plannedSet.targetWeightKg.map { Int($0.rounded()) } ?? 0 : nil,
-                    durationSeconds: style.usesDuration
-                        ? (plannedSet.targetDurationSeconds ?? (current.exercise.isMobilityHold ? 30 : 60)) : nil,
-                    reps: current.exercise.isMobilityHold ? 1 : max(1, plannedSet.targetReps),
-                    rir: plannedSet.targetRir,
-                    completed: false
-                ))
-            } else {
-                rows.append(LiveSetRow(
-                    id: UUID(),
-                    weightKg: nil,
-                    deficitCm: loadField == .deficitCm ? 0 : nil,
-                    durationSeconds: style.usesDuration ? (current.exercise.isMobilityHold ? 30 : 60) : nil,
-                    reps: defaultQty,
-                    rir: nil,
-                    completed: false
-                ))
-            }
-        }
-        liveSets = rows
-    }
-
-    private func syncLiveQuantityUnit(from current: SessionExercise) {
-        if let configured = current.quantityUnit {
-            liveQuantityUnit = configured
-        } else if let unit = current.loggedSets.compactMap(\.quantityUnit).last {
-            liveQuantityUnit = unit
-        } else {
-            liveQuantityUnit = current.exercise.defaultQuantityUnit
-        }
-    }
-
-    private func addLiveSet(from current: SessionExercise) {
-        let last = liveSets.last
-        let style = current.exercise.loggingStyle
-        let defaultQty: Int = {
-            switch style {
-            case .machineWork: return liveQuantityUnit == .meters ? 500 : 15
-            case .repsAndTime: return 50
-            default: return 8
-            }
-        }()
-        let loadField = current.exercise.loadField
-        liveSets.append(
-            LiveSetRow(
-                id: UUID(),
-                weightKg: loadField == .weightKg
-                    ? (last?.weightKg ?? current.plannedSets.last?.targetWeightKg)
-                    : nil,
-                deficitCm: loadField == .deficitCm
-                    ? (last?.deficitCm ?? current.plannedSets.last?.targetWeightKg.map { Int($0.rounded()) } ?? 0)
-                    : nil,
-                durationSeconds: style.usesDuration
-                    ? (last?.durationSeconds ?? current.plannedSets.last?.targetDurationSeconds ?? (current.exercise.isMobilityHold ? 30 : 60))
-                    : nil,
-                reps: current.exercise.isMobilityHold ? 1 : (last?.reps ?? current.plannedSets.last?.targetReps ?? defaultQty),
-                rir: style.usesRIR ? (last?.rir ?? current.plannedSets.last?.targetRir) : nil,
-                completed: false
-            )
-        )
-        noteLiveDraftEdited()
-    }
-
-    private func bumpLiveWeight(at index: Int, delta: Double) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let current = liveSets[index].weightKg ?? 0
-        let next = max(0, ((current + delta) * 10).rounded() / 10)
-        liveSets[index].weightKg = next > 0 ? next : nil
-        noteLiveDraftEdited()
-    }
-
-    private func bumpLiveDeficit(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let current = liveSets[index].deficitCm ?? 0
-        liveSets[index].deficitCm = min(60, max(0, current + delta))
-        noteLiveDraftEdited()
-    }
-
-    private func setLiveDeficit(at index: Int, cm: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        liveSets[index].deficitCm = cm
-        noteLiveDraftEdited()
-    }
-
-    private func commitLiveWeightText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let normalized = text
-        if normalized.isEmpty || normalized == "—" {
-            liveSets[index].weightKg = nil
-            noteLiveDraftEdited()
-            return
-        }
-        guard let value = ReperaNumberFormat.parse(normalized) else { return }
-        let kg = store.state.settings.weightUnit.kilograms(fromDisplayValue: value)
-        liveSets[index].weightKg = value > 0 ? ((kg * 10).rounded() / 10) : nil
-        noteLiveDraftEdited()
-    }
-
-    private func bumpLiveDuration(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let current = liveSets[index].durationSeconds ?? 0
-        liveSets[index].durationSeconds = max(0, current + delta)
-        noteLiveDraftEdited()
-    }
-
-    private func commitLiveDurationText(at index: Int, text: String) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        liveSets[index].durationSeconds = DurationText.parse(text)
-        noteLiveDraftEdited()
-    }
-
-    private func bumpLiveReps(at index: Int, delta: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let current = store.state.activeSession?.currentExercise?.exercise
-        let cap = current?.supportsWeightedRepsOrMeters == true && liveQuantityUnit == .meters
-            ? 100_000 : (current?.loggingStyle.quantityCap ?? 50)
-        liveSets[index].reps = min(cap, max(1, liveSets[index].reps + delta))
-        noteLiveDraftEdited()
-    }
-
-    private func setLiveReps(at index: Int, reps: Int) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        let current = store.state.activeSession?.currentExercise?.exercise
-        let cap = current?.supportsWeightedRepsOrMeters == true && liveQuantityUnit == .meters
-            ? 100_000 : (current?.loggingStyle.quantityCap ?? 50)
-        liveSets[index].reps = min(cap, max(1, reps))
-        noteLiveDraftEdited()
-    }
-
-    private func setLiveRir(at index: Int, rir: Double?) {
-        guard liveSets.indices.contains(index), !liveSets[index].completed else { return }
-        liveSets[index].rir = rir
-        noteLiveDraftEdited()
-    }
-
-    /// Tocar el número de serie marca/desmarca hecha (háptico + descanso al completar).
-    private func toggleLiveSetCompleted(at index: Int, current: SessionExercise) {
-        guard liveSets.indices.contains(index) else { return }
-        let markingDone = !liveSets[index].completed
-        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
-            liveSets[index].completed = markingDone
-        }
-        noteLiveDraftEdited()
-        focusedSetField = nil
-        guard markingDone else { return }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        if shouldStartIndependentRest(for: current) {
-            let rest = store.state.settings.defaultRestSeconds
-            if rest > 0 { beginRest(rest) }
         }
     }
 
@@ -3223,9 +2845,6 @@ struct WorkoutView: View {
             setPhase = .work
         }
         bumpWeightSuggestion(current)
-        if let updated = store.state.activeSession?.currentExercise {
-            rebuildLiveSets(from: updated)
-        }
     }
 
     private struct QueueBlockSection: Identifiable {
@@ -3389,20 +3008,7 @@ struct WorkoutView: View {
     }
 
     private func prefill() {
-        if liveSessionID != store.state.activeSession?.id {
-            liveSessionID = store.state.activeSession?.id
-            liveExerciseID = nil
-            liveSets = []
-            liveDraftsByExercise = [:]
-            editedLiveExerciseIDs = []
-        }
-        guard let current = store.state.activeSession?.currentExercise else {
-            liveExerciseID = nil
-            liveSets = []
-            return
-        }
-        let hasUserDraft = liveExerciseID == current.id && !liveSets.isEmpty
-            || liveDraftsByExercise[current.id] != nil
+        guard let current = store.state.activeSession?.currentExercise else { return }
         // Fuerza: registro manual y pesos visibles; WOD cronometrado: reloj por defecto.
         usesAutomaticTimer = (current.wodFormat != nil && current.wodFormat != .strength)
             || (current.blockTimeCapMinutes ?? 0) > 0
@@ -3418,14 +3024,6 @@ struct WorkoutView: View {
             ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
         } ?? ""
         repsText = "\(current.plannedSets.first?.targetReps ?? 8)"
-        rebuildLiveSets(from: current)
-        // No rellenar un peso dejado vacío deliberadamente en una plantilla:
-        // cada fila mantiene su targetWeightKg, incluso si varía por serie.
-        if let suggested, !hasPrescription, !hasUserDraft,
-           let idx = liveSets.firstIndex(where: { !$0.completed }),
-           liveSets[idx].weightKg == nil {
-            liveSets[idx].weightKg = suggested
-        }
     }
 
     private func bumpWeightSuggestion(_ current: SessionExercise) {
@@ -3627,6 +3225,7 @@ struct WODResultInlineEditor: View {
 private struct PlayEditableSetsView: View {
     @Environment(ReperaStore.self) private var store
     let exerciseEntry: SessionExercise
+    var registerFlusher: ((@escaping () -> Void) -> Void)? = nil
 
     private struct Row: Identifiable {
         let id: UUID
@@ -3640,6 +3239,9 @@ private struct PlayEditableSetsView: View {
 
     @State private var rows: [Row] = []
     @State private var quantityUnit: ExerciseQuantityUnit = .reps
+    @State private var dirty = false
+    @State private var flushTask: Task<Void, Never>?
+    @State private var previousSummaryByIndex: [Int: String] = [:]
     @Binding var openedSetID: UUID?
     @FocusState private var focus: OGSetFieldID?
 
@@ -3666,7 +3268,7 @@ private struct PlayEditableSetsView: View {
                 .onChange(of: quantityUnit) { _, value in
                     let current = store.state.activeSession?.exercises.first(where: { $0.id == exerciseEntry.id })
                     guard value != (current?.quantityUnit ?? exercise.defaultQuantityUnit) else { return }
-                    persist()
+                    schedulePersist(immediate: true)
                 }
             }
             OGSetEntryHeader(
@@ -3685,7 +3287,7 @@ private struct PlayEditableSetsView: View {
                     onDelete: {
                         guard rows.indices.contains(index) else { return }
                         rows.remove(at: index)
-                        persist()
+                        schedulePersist(immediate: true)
                     }
                 ) {
                     rowEditor(index: index, row: row)
@@ -3699,16 +3301,22 @@ private struct PlayEditableSetsView: View {
                     durationSeconds: last?.durationSeconds, reps: last?.reps ?? 8,
                     rir: last?.rir, completed: false
                 ))
-                persist()
+                schedulePersist(immediate: true)
             }
         }
         .padding(.vertical, 6)
-        .onAppear(perform: seedIfNeeded)
+        .onAppear {
+            seedIfNeeded()
+            registerFlusher?({ flushPersist() })
+        }
+        .onDisappear {
+            flushPersist()
+            registerFlusher?({})
+        }
     }
 
     private func rowEditor(index: Int, row: Row) -> some View {
-        let previous = store.cachedLastWorkingSession(for: exercise.id)?.sets
-        let previousSet = (previous?.indices.contains(index) == true) ? previous?[index] : nil
+        let previousText = previousSummaryByIndex[index] ?? "—"
         let firstValue: String = {
             switch style {
             case .repsOnly: return String(row.reps)
@@ -3723,7 +3331,7 @@ private struct PlayEditableSetsView: View {
         return OGSetEntryRow(
             rowID: row.id,
             index: index + 1,
-            previous: OGSetEntryRow.previousText(previousSet),
+            previous: previousText,
             firstValue: firstValue,
             secondValue: style == .repsOnly || exercise.isMobilityHold ? nil : String(row.reps),
             nextEditableRowID: rows.dropFirst(index + 1).first?.id,
@@ -3735,7 +3343,7 @@ private struct PlayEditableSetsView: View {
             onRIRChange: { value in
                 guard rows.indices.contains(index), !rows[index].completed else { return }
                 rows[index].rir = value
-                persist()
+                schedulePersist(immediate: true)
             },
             focus: $focus,
             onFirstCommit: { text in
@@ -3754,11 +3362,14 @@ private struct PlayEditableSetsView: View {
                 case .repsAndTime, .machineWork:
                     rows[index].durationSeconds = DurationText.parse(text)
                 }
-                persist()
+                schedulePersist(immediate: false)
             },
             onSecondCommit: { text in
                 guard rows.indices.contains(index), !rows[index].completed else { return }
-                if let value = Int(text), value > 0 { rows[index].reps = value; persist() }
+                if let value = Int(text), value > 0 {
+                    rows[index].reps = value
+                    schedulePersist(immediate: false)
+                }
             },
             onConfirm: {
                 guard rows.indices.contains(index) else { return }
@@ -3767,7 +3378,7 @@ private struct PlayEditableSetsView: View {
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
                 focus = nil
-                persist()
+                schedulePersist(immediate: true)
             }
         )
     }
@@ -3775,6 +3386,14 @@ private struct PlayEditableSetsView: View {
     private func seedIfNeeded() {
         guard rows.isEmpty else { return }
         quantityUnit = exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit
+        let previous = store.cachedLastWorkingSession(for: exercise.id)?.sets
+        var summaries: [Int: String] = [:]
+        if let previous {
+            for index in previous.indices {
+                summaries[index] = OGSetEntryRow.previousText(previous[index])
+            }
+        }
+        previousSummaryByIndex = summaries
         let prescribed = exerciseEntry.plannedSets
         let recorded = exerciseEntry.loggedSets
         let prescribedIDs = Set(prescribed.map(\.id))
@@ -3802,9 +3421,32 @@ private struct PlayEditableSetsView: View {
         }
     }
 
+    /// Teclas → debounce local (sin Watch). Añadir/borrar/confirmar → flush + Watch.
+    private func schedulePersist(immediate: Bool) {
+        dirty = true
+        flushTask?.cancel()
+        if immediate {
+            flushPersist(pushWatch: true)
+            return
+        }
+        flushTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            flushPersist(pushWatch: false)
+        }
+    }
+
+    private func flushPersist(pushWatch: Bool = true) {
+        flushTask?.cancel()
+        flushTask = nil
+        guard dirty else { return }
+        dirty = false
+        persistToStore(pushWatch: pushWatch)
+    }
+
     /// Series editadas no marcadas → `plannedSets` (no se pierden al salir).
     /// Solo las marcadas hechas van a `loggedSets` (tap del índice / onConfirm).
-    private func persist() {
+    private func persistToStore(pushWatch: Bool) {
         guard let current = store.state.activeSession?.exercises.first(where: { $0.id == exerciseEntry.id }) else { return }
         let prescribed = current.plannedSets
         let savedByID = Dictionary(uniqueKeysWithValues: current.loggedSets.map { ($0.id, $0) })
@@ -3822,8 +3464,6 @@ private struct PlayEditableSetsView: View {
         }
         let unit = (style == .machineWork || exercise.supportsRepsOrMeters)
             ? quantityUnit : (current.quantityUnit ?? exercise.defaultQuantityUnit)
-        // No inventar loggedSets de filas sin marcar: seedIfNeeded las trataría
-        // como hechas. Los kg/reps editados ya van en `revised` → plannedSets.
         let recorded: [LoggedSet] = rows.compactMap { row in
             guard row.completed, row.reps > 0 else { return nil }
             var result = savedByID[row.id] ?? LoggedSet(id: row.id, reps: row.reps, quantityUnit: unit)
@@ -3838,7 +3478,8 @@ private struct PlayEditableSetsView: View {
         }
         store.updateActiveExerciseDraft(
             id: current.id, plannedSets: revised,
-            quantityUnit: unit, performedSets: recorded
+            quantityUnit: unit, performedSets: recorded,
+            durable: true, pushWatch: pushWatch
         )
     }
 }

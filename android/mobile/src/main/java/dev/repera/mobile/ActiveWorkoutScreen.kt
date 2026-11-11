@@ -3,7 +3,7 @@ package dev.repera.mobile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
@@ -95,8 +95,9 @@ internal fun ActiveWorkoutScreen(
         return
     }
 
+    // Sin `completed`: marcar series no debe recrear todos los BlockDraftUi.
     val navSig = workout.navigationEntries.joinToString("|") {
-        "${it.blockId}:${it.index}:${it.name}:${it.completed}"
+        "${it.blockId}:${it.index}:${it.name}"
     }
     val playBlocks = remember(workout.id, navSig) {
         mutableStateListOf<BlockDraftUi>().apply {
@@ -309,9 +310,8 @@ internal fun ActiveWorkoutScreen(
                 )
             }
         }
-        // Misma card que Crear/Editar + timer a la izquierda de ⋯.
-        itemsIndexed(playBlocks, key = { i, b -> b.blockId ?: "play-block-$i" }) { bi, block ->
-            val sectionTitle = block.title.ifBlank { "Bloque ${bi + 1}" }
+        // Cabecera de bloque + entradas Lazy + logging del actual (fuera del card).
+        playBlocks.forEachIndexed { bi, block ->
             val blockKey = block.blockId?.takeIf { it.isNotBlank() }
             val blockIndexes = when {
                 blockKey != null -> indexesByBlockId[blockKey].orEmpty()
@@ -324,37 +324,61 @@ internal fun ActiveWorkoutScreen(
                 playBlocks.size == 1 -> true
                 else -> bi == 0 && workout.index == 0
             }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ReperaSectionTitle(sectionTitle)
-                val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
-                BlockEditorCard(
-                    block = block,
-                    nameById = nameById,
-                    exercises = catalog,
-                    loadGuideProvider = loadGuideProvider,
-                    onRemove = {
-                        if (playBlocks.size > 1) {
-                            playBlocks.removeAt(bi)
+            val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
+            item(key = "play-hdr-${block.blockId ?: bi}") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
+                    BlockEditorCard(
+                        block = block,
+                        nameById = nameById,
+                        exercises = catalog,
+                        loadGuideProvider = loadGuideProvider,
+                        onRemove = {
+                            if (playBlocks.size > 1) {
+                                playBlocks.removeAt(bi)
+                                flushPlayPlan()
+                            }
+                        },
+                        onOpenReorder = { beginPlayReorder() },
+                        onOpenExercise = { },
+                        effortUnit = effortUnit,
+                        playCompactEntries = true,
+                        includeEntries = false,
+                        includeFooterActions = false,
+                        onTimer = {
+                            blockIndexes.firstOrNull()?.let { ix ->
+                                if (ix != workout.index) onSelectExercise(ix)
+                            }
                             flushPlayPlan()
+                            openBlockClockOrConfig()
                         }
-                    },
-                    onOpenReorder = { beginPlayReorder() },
-                    onOpenExercise = { /* ficha vía catálogo en editar; Play usa logging */ },
-                    effortUnit = effortUnit,
-                    playCompactEntries = true,
-                    selectedEntryIndex = selectedLocal,
-                    onSelectEntryIndex = { localIx ->
-                        blockIndexes.getOrNull(localIx)?.let { onSelectExercise(it) }
-                    },
-                    onTimer = {
-                        blockIndexes.firstOrNull()?.let { ix ->
-                            if (ix != workout.index) onSelectExercise(ix)
-                        }
-                        flushPlayPlan()
-                        openBlockClockOrConfig()
-                    },
-                    trailingContent = if (isCurrent) {
-                        {
+                    )
+                }
+            }
+            items(
+                count = block.entries.size,
+                key = { ei -> "play-entry-${block.blockId ?: bi}-${block.entries[ei].stableKey(ei)}" }
+            ) { ei ->
+                val entry = block.entries[ei]
+                val resolved = entry.name.ifBlank {
+                    nameById[entry.exerciseId] ?: "Ejercicio"
+                }
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(horizontal = 12.dp)) {
+                        PlayCompactEntryRow(
+                            name = resolved,
+                            selected = selectedLocal == ei,
+                            onClick = {
+                                blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
+                            }
+                        )
+                    }
+                }
+            }
+            if (isCurrent) {
+                item(key = "play-log-${workout.index}") {
+                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(12.dp)) {
                             if (workout.wod != null) WodScoreCard(
                                 active = workout, busy = busy, timer = timer,
                                 onTimerAction = onTimerAction, onTimerTick = onTimerTick,
@@ -377,8 +401,11 @@ internal fun ActiveWorkoutScreen(
                                 embedded = true
                             )
                         }
-                    } else null
-                )
+                    }
+                }
+            }
+            item(key = "play-ftr-${block.blockId ?: bi}") {
+                BlockEditorFooterActions(block = block, exercises = catalog)
             }
         }
         item {

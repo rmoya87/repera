@@ -73,14 +73,18 @@ class WodFormatLabelsContract(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("exercisesById", ios_plan)
         self.assertIn("Solo el ejercicio actual monta el editor de series", ios_workout)
-        self.assertIn("PlayEditableSetsView(exerciseEntry:", ios_workout)
+        self.assertIn("playBlockSectionBody(", ios_workout)
+        self.assertIn("playBlockExerciseRows(", ios_workout)
+        self.assertIn("PlayEditableSetsView(", ios_workout)
+        self.assertIn("exerciseEntry:", ios_workout)
         self.assertLess(
             ios_workout.index("Solo el ejercicio actual monta el editor de series"),
-            ios_workout.index("PlayEditableSetsView(exerciseEntry:"),
+            ios_workout.index("PlayEditableSetsView("),
         )
         self.assertIn("playCompactEntries = true", android_play)
         self.assertIn("routine_blocks_editor_list", ANDROID_EDITOR)
-        self.assertIn("itemsIndexed(", ANDROID_EDITOR)
+        self.assertIn("includeEntries = false", ANDROID_EDITOR)
+        self.assertIn("expandedEntryId", ANDROID_EDITOR)
         self.assertIn("exercisesById", ANDROID_EDITOR)
 
     def test_format_picker_rounds_top_corners(self):

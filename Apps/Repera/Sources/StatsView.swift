@@ -38,12 +38,8 @@ struct StatsView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 12) {
                             if categoryNeedsSnapshotPrep && (snap.key.syncRevision < 0 || snap.range != model.range) {
-                                OGCard {
-                                    ProgressView("Preparando progreso…")
-                                        .tint(OG.accent)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 180)
-                                }
+                                // Primera preparación: skeleton estructural (no spinner «Cargando»).
+                                ProgressHubSkeleton()
                             } else {
                                 categoryContent
                             }

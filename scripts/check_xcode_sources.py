@@ -30,6 +30,7 @@ REQUIRED = (
     "LiveSportHistoryView.swift",
     "OGDuoContextRail.swift",
     "SessionDetailSkeleton.swift",
+    "ProgressHubSkeleton.swift",
     "StrengthBenchmarkCard.swift",
     "StrengthContributionSubmitter.swift",
     "StrengthBenchmarkRemoteStore.swift",
@@ -110,6 +111,7 @@ def validate(root: Path) -> None:
                  "LiveActivityLocationName.swift",
                  "WorkoutLiveActivityCoordinator.swift", "LiveSportHistoryView.swift",
                  "OGDuoContextRail.swift", "SessionDetailSkeleton.swift",
+                 "ProgressHubSkeleton.swift",
                  "StrengthBenchmarkCard.swift",
                  "StrengthContributionSubmitter.swift",
                  "StrengthBenchmarkRemoteStore.swift"):

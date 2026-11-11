@@ -115,6 +115,9 @@ struct DayEditorView: View {
     /// No sobrescribir la elección o eliminación manual con una sugerencia tardía.
     @State private var completedPlaceEdited = false
     @State private var scaledInputDrafts: [String: String] = [:]
+    /// Catálogo indexado; se reconstruye solo si cambia el seed del listado.
+    @State private var exercisesById: [UUID: Exercise] = [:]
+    @State private var exercisesByIdSeed: Int = -1
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
     /// no debe esperar a que onAppear inicialice el estado para saber si muestra
@@ -132,9 +135,16 @@ struct DayEditorView: View {
         (completedWorkoutDraft?.routePoints.count ?? 0) >= 2 || completedHasHealthRoute
     }
 
-    /// Lookup O(1) por ejercicio (evita first(where:) en cada fila del editor).
-    private var exercisesById: [UUID: Exercise] {
-        Dictionary(uniqueKeysWithValues: store.state.exercises.map { ($0.id, $0) })
+    private func refreshExercisesByIdIfNeeded() {
+        let exercises = store.state.exercises
+        var hasher = Hasher()
+        hasher.combine(exercises.count)
+        hasher.combine(exercises.first?.id)
+        hasher.combine(exercises.last?.id)
+        let seed = hasher.finalize()
+        guard seed != exercisesByIdSeed else { return }
+        exercisesByIdSeed = seed
+        exercisesById = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
     }
 
     private func ensureCompletedWorkoutDraft() {
@@ -375,8 +385,12 @@ struct DayEditorView: View {
             Text(routineSaveError ?? "")
         }
         .onAppear {
+            refreshExercisesByIdIfNeeded()
             ensureCompletedWorkoutDraft()
             ensureStrengthPlannedSets()
+        }
+        .onChange(of: store.state.exercises.count) { _, _ in
+            refreshExercisesByIdIfNeeded()
         }
         .task(id: completedSession?.id) {
             await hydrateCompletedWorkoutPlace()
@@ -1873,11 +1887,12 @@ extension DayEditorView {
     @ViewBuilder
     private func strengthBlock(index: Int) -> some View {
         let weightStep = store.state.settings.weightIncrementKg
+        let weightUnitLabel = store.state.settings.weightUnit.label.uppercased()
         let catalog = exercisesById
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = catalog[item.exerciseId]
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
-                let previousSets = store.cachedLastWorkingSession(for: ex.id)?.sets
+                let previousTexts = previousSetTexts(for: ex.id, setCount: item.plannedSets.count)
                 HStack(spacing: 4) {
                     Button {
                         exerciseDetailID = ex.id
@@ -1896,66 +1911,34 @@ extension DayEditorView {
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
 
-                if ex.supportsRepsOrMeters
-                    || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
-                    Picker("Unidad", selection: Binding(
+                let setsIdentity = StrengthExerciseSetsIdentity(
+                    item: item,
+                    exerciseID: ex.id,
+                    loggingStyle: ex.loggingStyle,
+                    previousTexts: previousTexts,
+                    weightStep: weightStep,
+                    weightUnitLabel: weightUnitLabel
+                )
+                StrengthExerciseSetsIsolator(
+                    identity: setsIdentity,
+                    exercise: ex,
+                    openedSetID: $openedSetID,
+                    quantityUnit: Binding(
                         get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
                         set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
-                    )) {
-                        if ex.supportsRepsOrMeters {
-                            Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
-                        } else {
-                            Text("Calorías").tag(ExerciseQuantityUnit.calories)
-                        }
-                        Text("Metros").tag(ExerciseQuantityUnit.meters)
+                    ),
+                    setBinding: { setIndex in
+                        plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
+                    },
+                    onDeleteSet: { setIndex in
+                        deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
+                    },
+                    onAddSet: {
+                        addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
                     }
-                    .pickerStyle(.segmented)
-                    .listRowSeparator(.hidden)
-                }
-
-                OGSetEntryHeader(
-                    firstTitle: ex.isMobility ? "Tiempo (s)" : (ex.loggingStyle == .loadAndReps
-                        ? (ex.loadField == .deficitCm ? "Déficit" : store.state.settings.weightUnit.label.uppercased())
-                        : (ex.loggingStyle == .machineWork
-                            ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
-                            : (ex.supportsRepsOrMeters
-                                ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
-                                : ex.quantityFieldLabel))),
-                    secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
-                        : (ex.loggingStyle == .loadAndReps
-                            ? (ex.supportsRepsOrMeters
-                                ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
-                    showsRIR: ex.loggingStyle.usesRIR
                 )
-                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 4, trailing: 16))
-                .listRowSeparator(.hidden, edges: .top)
-
-                ForEach(Array(routine.blocks[index].exercises[exIndex].plannedSets.enumerated()), id: \.element.id) { setIndex, plannedSet in
-                    OGSetSwipeDeleteRow(
-                        canDelete: routine.blocks[index].exercises[exIndex].plannedSets.count > 1,
-                        setID: plannedSet.id,
-                        openedSetID: $openedSetID,
-                        onDelete: { deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex) }
-                    ) {
-                    PlannedSetConfigRow(
-                        index: setIndex + 1,
-                        set: plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex),
-                        weightStep: weightStep,
-                        exerciseStyle: ex.loggingStyle,
-                        quantityCap: ex.supportsRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
-                        isMobility: ex.isMobility,
-                        isMobilityHold: ex.isMobilityHold,
-                        previous: (previousSets?.indices.contains(setIndex) == true)
-                            ? previousSets?[setIndex] : nil
-                    )
-                    }
-                }
-
-                WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill") {
-                    addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-
+                // Remonta solo si cambia la identidad del ejercicio (no Equatable en View / MainActor).
+                .id(setsIdentity)
             }
         }
         WorkoutWODInsertActions(
@@ -1984,6 +1967,16 @@ extension DayEditorView {
         guard routine.blocks.contains(where: { $0.id == blockID }) else { return }
         // No insertar un bloque vacío si se cancela el editor.
         createFreeMovementForBlock = blockID
+    }
+
+    /// Textos «Anterior» precargados una vez por ejercicio (no por fila de serie).
+    private func previousSetTexts(for exerciseId: UUID, setCount: Int) -> [String?] {
+        let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
+        guard setCount > 0 else { return [] }
+        return (0..<setCount).map { index in
+            guard let sets, sets.indices.contains(index) else { return nil }
+            return OGSetEntryRow.previousText(sets[index])
+        }
     }
 
     private func plannedSetBinding(blockIndex: Int, exerciseIndex: Int, setIndex: Int) -> Binding<PlannedSet> {
@@ -2450,6 +2443,7 @@ private struct InlineWODMovementSets: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
+    @State private var previousTexts: [String?] = []
     @Binding var openedSetID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
 
@@ -2562,8 +2556,21 @@ private struct InlineWODMovementSets: View {
         if draftSets.isEmpty {
             draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
         }
+        refreshPreviousTexts()
         if !preservePrescriptionOnAppear {
             writeSetsToMovement()
+        }
+    }
+
+    private func refreshPreviousTexts() {
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        let catalogId = store.state.exercises.first {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }?.id
+        let oldSets = catalogId.flatMap { store.cachedLastWorkingSession(for: $0)?.sets }
+        previousTexts = draftSets.indices.map { index in
+            guard let oldSets, oldSets.indices.contains(index) else { return nil }
+            return OGSetEntryRow.previousText(oldSets[index])
         }
     }
 
@@ -2572,17 +2579,11 @@ private struct InlineWODMovementSets: View {
         let style = loggingStyle
         let quantityCap = isWeightedDistance && movement.prescribedQuantityUnit == .meters
             ? 100_000 : style.quantityCap
-        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
-        let catalogExercise = store.state.exercises.first {
-            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
-        }
-        let oldSets = catalogExercise.flatMap { store.cachedLastWorkingSession(for: $0.id)?.sets }
-        let oldSet = (oldSets?.indices.contains(index) == true) ? oldSets?[index] : nil
         VStack(alignment: .leading, spacing: 6) {
             OGSetEntryRow(
                 rowID: draftSets[index].id,
                 index: index + 1,
-                previous: OGSetEntryRow.previousText(oldSet),
+                previous: previousTexts.indices.contains(index) ? previousTexts[index] : nil,
                 firstValue: style == .loadAndReps
                     ? (draftSets[index].targetWeightKg.map {
                         ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
@@ -2692,6 +2693,7 @@ struct WODMovementEditor: View {
 
     @State private var draftSets: [PlannedSet] = []
     @State private var didSeedSets = false
+    @State private var previousTexts: [String?] = []
     @FocusState private var focusedSetField: OGSetFieldID?
     @State private var weightFieldRowID = UUID()
     @State private var maleWeightDraft = ""
@@ -2899,23 +2901,26 @@ struct WODMovementEditor: View {
         if draftSets.isEmpty {
             draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
         }
+        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
+        let catalogId = store.state.exercises.first {
+            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
+        }?.id
+        let oldSets = catalogId.flatMap { store.cachedLastWorkingSession(for: $0)?.sets }
+        previousTexts = draftSets.indices.map { index in
+            guard let oldSets, oldSets.indices.contains(index) else { return nil }
+            return OGSetEntryRow.previousText(oldSets[index])
+        }
     }
 
     private func wodSetRow(index: Int) -> some View {
         let style = loggingStyle
         let quantityCap = isWeightedDistance && movement.prescribedQuantityUnit == .meters
             ? 100_000 : style.quantityCap
-        let catalogName = CrossFitGlossary.resolveCatalogName(movement.name, notes: movement.notes)
-        let catalogExercise = store.state.exercises.first {
-            $0.name.localizedCaseInsensitiveCompare(catalogName) == .orderedSame
-        }
-        let oldSets = catalogExercise.flatMap { store.cachedLastWorkingSession(for: $0.id)?.sets }
-        let oldSet = (oldSets?.indices.contains(index) == true) ? oldSets?[index] : nil
         return VStack(alignment: .leading, spacing: 6) {
             OGSetEntryRow(
                 rowID: draftSets[index].id,
                 index: index + 1,
-                previous: OGSetEntryRow.previousText(oldSet),
+                previous: previousTexts.indices.contains(index) ? previousTexts[index] : nil,
                 firstValue: style == .loadAndReps
                     ? (draftSets[index].targetWeightKg.map {
                         ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0))
@@ -3027,6 +3032,7 @@ struct WODMovementEditor: View {
 
 struct RoutineExerciseEditor: View {
     @State private var openedSetID: UUID?
+    @State private var previousTexts: [String?] = []
     @Environment(ReperaStore.self) private var store
     var exerciseName: String
     var exerciseId: UUID
@@ -3127,10 +3133,7 @@ struct RoutineExerciseEditor: View {
                             ? 100_000 : nil,
                         isMobility: exercise?.isMobility ?? false,
                         isMobilityHold: exercise?.isMobilityHold ?? false,
-                        previous: {
-                            let sets = store.cachedLastWorkingSession(for: exerciseId)?.sets
-                            return (sets?.indices.contains(index) == true) ? sets?[index] : nil
-                        }()
+                        previousText: previousTexts.indices.contains(index) ? previousTexts[index] : nil
                     )
                     }
                 }
@@ -3166,6 +3169,11 @@ struct RoutineExerciseEditor: View {
                     : (exercise?.isMobility == true ? (exercise?.isMobilityHold == true ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
                 item.plannedSets = [PlannedSet(targetReps: qty, targetWeightKg: nil,
                     targetDurationSeconds: exercise?.isMobility == true ? (exercise?.isMobilityHold == true ? 30 : 60) : nil)]
+            }
+            let lastSets = store.cachedLastWorkingSession(for: exerciseId)?.sets
+            previousTexts = item.plannedSets.indices.map { index in
+                guard let lastSets, lastSets.indices.contains(index) else { return nil }
+                return OGSetEntryRow.previousText(lastSets[index])
             }
         }
     }
@@ -3260,6 +3268,90 @@ struct RoutineExerciseEditor: View {
     }
 }
 
+/// Identidad Equatable (Sendable) para saltar body de hermanos al editar otro ejercicio.
+/// No poner `Equatable` en el `View`: en Swift 6 cruza con el aislamiento MainActor de View.
+private struct StrengthExerciseSetsIdentity: Hashable {
+    let item: RoutineExercise
+    let exerciseID: UUID
+    let loggingStyle: ExerciseLoggingStyle
+    let previousTexts: [String?]
+    let weightStep: Double
+    let weightUnitLabel: String
+}
+
+/// Series de un ejercicio de fuerza; se remonta solo si cambia [StrengthExerciseSetsIdentity].
+private struct StrengthExerciseSetsIsolator: View {
+    let identity: StrengthExerciseSetsIdentity
+    let exercise: Exercise
+    @Binding var openedSetID: UUID?
+    var quantityUnit: Binding<ExerciseQuantityUnit>
+    var setBinding: (Int) -> Binding<PlannedSet>
+    var onDeleteSet: (Int) -> Void
+    var onAddSet: () -> Void
+
+    private var item: RoutineExercise { identity.item }
+    private var previousTexts: [String?] { identity.previousTexts }
+    private var weightStep: Double { identity.weightStep }
+    private var weightUnitLabel: String { identity.weightUnitLabel }
+
+    var body: some View {
+        let ex = exercise
+        if ex.supportsRepsOrMeters
+            || (ex.loggingStyle == .machineWork && ex.allowsCalorieOrDistanceToggle) {
+            Picker("Unidad", selection: quantityUnit) {
+                if ex.supportsRepsOrMeters {
+                    Text("Repeticiones").tag(ExerciseQuantityUnit.reps)
+                } else {
+                    Text("Calorías").tag(ExerciseQuantityUnit.calories)
+                }
+                Text("Metros").tag(ExerciseQuantityUnit.meters)
+            }
+            .pickerStyle(.segmented)
+            .listRowSeparator(.hidden)
+        }
+
+        OGSetEntryHeader(
+            firstTitle: ex.isMobility ? "Tiempo (s)" : (ex.loggingStyle == .loadAndReps
+                ? (ex.loadField == .deficitCm ? "Déficit" : weightUnitLabel)
+                : (ex.loggingStyle == .machineWork
+                    ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
+                    : (ex.supportsRepsOrMeters
+                        ? (item.quantityUnit ?? ex.defaultQuantityUnit).shortLabel
+                        : ex.quantityFieldLabel))),
+            secondTitle: ex.isMobility ? (ex.isMobilityHold ? nil : "Reps")
+                : (ex.loggingStyle == .loadAndReps
+                    ? (ex.supportsRepsOrMeters
+                        ? (item.quantityUnit ?? .reps).shortLabel : "Reps") : nil),
+            showsRIR: ex.loggingStyle.usesRIR
+        )
+        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 4, trailing: 16))
+        .listRowSeparator(.hidden, edges: .top)
+
+        ForEach(Array(item.plannedSets.enumerated()), id: \.element.id) { setIndex, plannedSet in
+            OGSetSwipeDeleteRow(
+                canDelete: item.plannedSets.count > 1,
+                setID: plannedSet.id,
+                openedSetID: $openedSetID,
+                onDelete: { onDeleteSet(setIndex) }
+            ) {
+                PlannedSetConfigRow(
+                    index: setIndex + 1,
+                    set: setBinding(setIndex),
+                    weightStep: weightStep,
+                    exerciseStyle: ex.loggingStyle,
+                    quantityCap: ex.supportsRepsOrMeters && item.quantityUnit == .meters ? 100_000 : nil,
+                    isMobility: ex.isMobility,
+                    isMobilityHold: ex.isMobilityHold,
+                    previousText: previousTexts.indices.contains(setIndex) ? previousTexts[setIndex] : nil
+                )
+            }
+        }
+
+        WorkoutInlineAddButton("Serie", systemImage: "plus.circle.fill", action: onAddSet)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+}
+
 /// Fila de objetivo: peso / reps / RIR. Borrar serie = swipe (sin icono de papelera).
 private struct PlannedSetConfigRow: View {
     @Environment(ReperaStore.self) private var store
@@ -3270,14 +3362,14 @@ private struct PlannedSetConfigRow: View {
     var quantityCap: Int? = nil
     var isMobility: Bool = false
     var isMobilityHold: Bool = false
-    var previous: ExerciseLastSession.WorkSet? = nil
+    var previousText: String? = nil
     @FocusState private var focusedSetField: OGSetFieldID?
 
     var body: some View {
         OGSetEntryRow(
             rowID: set.id,
             index: index,
-            previous: OGSetEntryRow.previousText(previous),
+            previous: previousText,
             firstValue: isMobility ? "\(set.targetDurationSeconds ?? (isMobilityHold ? 30 : 60))"
                 : (exerciseStyle == .loadAndReps
                 ? (set.targetWeightKg.map { ReperaNumberFormat.decimal(store.state.settings.weightUnit.displayValue(fromKilograms: $0)) } ?? "0")

@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-10 (Progreso: revelado de plots GPU / sin recompose).
+Última actualización: 2026-11-11 (AppIcon masters diseñador; Progreso skeleton).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -37,6 +37,10 @@
 - **CI Play:** `android-native-ci.yml` en push solo a **`origin/beta`** (no `main`). `deploy-internal-beta` sube el AAB a pistas internal + closed tras JVM + emuladores teléfono estables.
 - Cuenta atrás de arranque: `startCountdownEnabled` (`repera.live.startCountdown.enabled` / prefs `startCountdown`); off → `beginStartCountdown` llama a `start()` directo.
 - Bloqueo: candado derecho del chrome → fusión gota con Play (Play fijo); hold 1 s para desbloquear. Sin sensores nuevos. Relojes sin cambio de contrato Health.
+
+## Hub Progreso — skeleton de preparación (2026-11-11)
+
+Primera hidratación del snapshot: `ProgressHubSkeleton` (iOS/Android), no spinner de carga. Chips visibles; contenido héroe/glance/insight en huesos.
 
 ## Hub Progreso — chips (2026-11-04)
 
@@ -311,7 +315,7 @@ Android (`android/mobile`, Material 3 — 2026-10-29):
 - `ReperaComponents`: `ReperaCard` (surface + borde, radio 14, sin tonal purple; overload clicable), `ReperaFilterChip`, `ReperaModalBottomSheet`, `ReperaSectionTitle` (≈ `OGCardSectionTitle`), `ReperaPageHeader` (≈ `OGFixedTopBar`/`OGPageHeader`), `ReperaEmptyState`, switches/botones/segmentados verdes; tipografía `reperaTypography` con títulos semibold.
 - Radios `reperaShapes` ≈ `OG.radiusCard` 14 / `radiusLG` 16; **tab bar flotante Android** `ReperaFloatingTabBar` / `ReperaTabBarChrome` (píldora **blanca opaca**; Continuar **detrás** del menú con fondo blanco extendido). Sombra chrome compartida `Modifier.reperaChromeShadow` (~1.5 dp, alpha 0.05/0.08) en menú, Continuar, FABs/strip Comenzar, PlaceSearch glass y lift de reorden. iOS Continuar: mismos campos en expanded e inline; Comenzar sin lift extra (safe area del accessory + 10 pt). **sin TopAppBar «repera» en las 4 tabs**.
 - Play Android (30/10/2026): `BlockEditorCard` + timer; tabs Calorías/Metros y columna CAL/M/REPS alineada a la unidad; sin cabecera «Ejercicio n/n». Comenzar: inset medido sin doble navBars.
-- Icono launcher: `mipmap/ic_launcher*` desde `Apps/Repera/.../AppIcon.png` + fondo `#30D158`.
+- Icono launcher: masters en `Apps/Repera/Resources/AppIconSource/` (`AppIcon-Master.png` claro, `AppIcon-Dark-Master.png` oscuro). `scripts/generate_app_icon_dark.py` los copia a iPhone/Watch y deriva FG adaptive + mipmaps Android/Wear. Fondo adaptive `#30D158` / noche `#000000`. Watch: sin slot dark (actool).
 - Sigue distinto de iOS a propósito: Material 3 (cristal simulado con Surface, no Liquid Glass nativo), MapLibre vs MapKit, sin glass toolbar 44 del sistema.
 - Inicio Android: `HomeTab` + `HomeDayCards` + `HomeWeeklyProgressCard` + `WeekCalendarStrip`/`WeekDayCell` replican la estructura de `HomeView` (banda `surface` blanca + banda `background` gris, cards registro, CTA, progreso semanal, actividad). `HomeProfileButton`: foto local/Google o silueta persona → Ajustes. Ficha `HomeInProgressCard` (EN CURSO, play ámbar) cuando hay Play o Comenzar pendiente; `ReperaContinueAccessory` con sombra/altura extra detrás del menú.
 - Editor de rutina Android (`RoutineBlocksEditor`, 29/10/2026): alineado a `PlanView.swift` — `BlockFormatCatalog` con «Sin formato» (`format` vacío), `ExercisePickerSheet` y `PlanReorderFullscreen` a pantalla completa, acciones de inserción tipo `WorkoutWODInsertActions`, `restoreDayPlus` al salir de `rutina-nueva`.

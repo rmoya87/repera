@@ -2175,7 +2175,7 @@ struct OGSetEntryRow: View {
 }
 
 /// Campo con el teclado nativo de Repera y retorno contextual Siguiente / Listo.
-/// La confirmación consolida el dato antes de mover el foco o marcar la serie.
+/// Sin foco: texto tappable (no monta UITextField). Con foco: teclado Repera.
 private struct OGSetNumericCell: View {
     var display: String
     var allowsDecimal: Bool
@@ -2188,45 +2188,64 @@ private struct OGSetNumericCell: View {
 
     @State private var draft = ""
 
+    private var isFocused: Bool { focus.wrappedValue == fieldID }
+
     var body: some View {
-        OGNumericTextField(
-            text: $draft,
-            allowsDecimal: allowsDecimal,
-            allowsTimeSeparator: display.contains(":"),
-            textAlignment: .center,
-            fontSize: 17,
-            autoFocus: false,
-            isFocused: focus.wrappedValue == fieldID,
-            submitTitle: nextID == nil ? "✓" : "Siguiente",
-            focusIdentifier: fieldID.accessibilityKey,
-            nextFocusIdentifier: nextID?.accessibilityKey,
-            onFocused: { focus.wrappedValue = fieldID },
-            onFocusLost: {
-                onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
-            },
-            onCommit: {
-                onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
-                if let nextID {
-                    focus.wrappedValue = nextID
-                } else {
-                    focus.wrappedValue = nil
-                    onLastSubmit()
+        Group {
+            if isFocused && enabled {
+                OGNumericTextField(
+                    text: $draft,
+                    allowsDecimal: allowsDecimal,
+                    allowsTimeSeparator: display.contains(":"),
+                    textAlignment: .center,
+                    fontSize: 17,
+                    autoFocus: true,
+                    isFocused: true,
+                    submitTitle: nextID == nil ? "✓" : "Siguiente",
+                    focusIdentifier: fieldID.accessibilityKey,
+                    nextFocusIdentifier: nextID?.accessibilityKey,
+                    onFocused: { focus.wrappedValue = fieldID },
+                    onFocusLost: {
+                        onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+                        if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
+                    },
+                    onCommit: {
+                        onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
+                        if let nextID {
+                            focus.wrappedValue = nextID
+                        } else {
+                            focus.wrappedValue = nil
+                            onLastSubmit()
+                        }
+                    }
+                )
+            } else {
+                Button {
+                    guard enabled else { return }
+                    draft = normalized(display)
+                    focus.wrappedValue = fieldID
+                } label: {
+                    Text(display.isEmpty ? "—" : display)
+                        .font(.system(size: 17, weight: .medium).monospacedDigit())
+                        .foregroundStyle(display.isEmpty || display == "—" ? OG.label3 : OG.label)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .buttonStyle(.plain)
+                .disabled(!enabled)
             }
-        )
+        }
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .background(OG.inputSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         .opacity(enabled ? 1 : 0.55)
-        .disabled(!enabled)
         .onAppear { draft = normalized(display) }
         .onChange(of: display) { _, newValue in
-            if focus.wrappedValue != fieldID {
+            if !isFocused {
                 draft = normalized(newValue)
             }
         }
         .onChange(of: draft) { _, value in
+            guard isFocused else { return }
             let valid = value.filter {
                 $0.isNumber
                     || (allowsDecimal && ($0 == "." || $0 == ","))
@@ -2236,11 +2255,11 @@ private struct OGSetNumericCell: View {
                 draft = valid
                 return
             }
-            // La cifra se incorpora al modelo en cada pulsación, no únicamente
-            // con la acción del teclado. Esto evita pérdidas al tocar otra celda
-            // o al marcar/desmarcar el check de una serie.
-            if focus.wrappedValue == fieldID {
-                onCommit(valid.trimmingCharacters(in: .whitespacesAndNewlines))
+            onCommit(valid.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        .onChange(of: isFocused) { _, focused in
+            if focused {
+                draft = normalized(display)
             }
         }
     }
@@ -2263,6 +2282,8 @@ struct OGFormatNumberField: View {
     var nextID: OGSetFieldID? = nil
     @State private var draft = ""
 
+    private var isFocused: Bool { focus.wrappedValue == fieldID }
+
     var body: some View {
         VStack(alignment: .center, spacing: 5) {
             Text(title.uppercased())
@@ -2271,25 +2292,38 @@ struct OGFormatNumberField: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             HStack(spacing: 2) {
-                OGNumericTextField(
-                    text: $draft,
-                    allowsDecimal: false,
-                    fontSize: 16,
-                    autoFocus: false,
-                    isFocused: focus.wrappedValue == fieldID,
-                    submitTitle: nextID == nil ? "✓" : "Siguiente",
-                    focusIdentifier: fieldID.accessibilityKey,
-                    nextFocusIdentifier: nextID?.accessibilityKey,
-                    onFocused: { focus.wrappedValue = fieldID },
-                    onFocusLost: {
-                        commit()
-                        if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
-                    },
-                    onCommit: {
-                        commit()
-                        focus.wrappedValue = nextID
+                if isFocused {
+                    OGNumericTextField(
+                        text: $draft,
+                        allowsDecimal: false,
+                        fontSize: 16,
+                        autoFocus: true,
+                        isFocused: true,
+                        submitTitle: nextID == nil ? "✓" : "Siguiente",
+                        focusIdentifier: fieldID.accessibilityKey,
+                        nextFocusIdentifier: nextID?.accessibilityKey,
+                        onFocused: { focus.wrappedValue = fieldID },
+                        onFocusLost: {
+                            commit()
+                            if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
+                        },
+                        onCommit: {
+                            commit()
+                            focus.wrappedValue = nextID
+                        }
+                    )
+                } else {
+                    Button {
+                        draft = String(value)
+                        focus.wrappedValue = fieldID
+                    } label: {
+                        Text(String(value))
+                            .font(.system(size: 16, weight: .medium).monospacedDigit())
+                            .foregroundStyle(OG.label)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                )
+                    .buttonStyle(.plain)
+                }
                 if !unit.isEmpty {
                     Text(unit)
                         .font(.system(size: 11))
@@ -2304,23 +2338,24 @@ struct OGFormatNumberField: View {
         .frame(maxWidth: .infinity)
         .onAppear { draft = String(value) }
         .onChange(of: value) { _, newValue in
-            if focus.wrappedValue != fieldID {
+            if !isFocused {
                 draft = String(newValue)
             }
         }
         .onChange(of: draft) { _, text in
+            guard isFocused else { return }
             let cleaned = text.filter { $0.isNumber }
             if cleaned != text {
                 draft = cleaned
                 return
             }
-            // Actualizar el binding mientras se escribe y no solo al perder
-            // foco. El check de Guardar puede cerrar la pantalla antes de
-            // que UIKit invoque onFocusLost (especialmente en TestFlight).
             if let entered = Int(cleaned) {
                 let valid = min(range.upperBound, max(range.lowerBound, entered))
                 if value != valid { value = valid }
             }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if focused { draft = String(value) }
         }
         .onDisappear {
             commit()

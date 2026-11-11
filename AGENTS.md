@@ -154,6 +154,16 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Escáner → editor: el CTA de revisión es **Continuar** (no «Crear rutina»). Si no, falla
   `BoardClassicReviewRenderTest` en `:mobile:testDebugUnitTest` y no llega `deploy-internal-beta`.
 
+#### Play / Crear-Editar — stutter al teclear y bloques gordos (11/11/2026)
+- Escribir al store/`activeSession` en cada tecla invalida toda la lista. Debounce local (~250 ms)
+  + flush al cambiar de ejercicio / disappear; drafts con `durable`/`pushWatch` selectivos.
+- Montar N `UITextField`/editores Compose a la vez: celdas numéricas perezosas (texto hasta foco);
+  Android un solo `expandedEntryId` y Lazy a nivel ejercicio (no solo por bloque).
+  No poner `Equatable` en un `View` (MainActor): usar identidad Sendable + `.id(...)`.
+- `navSig` con `completed` recreaba todos los `BlockDraftUi` al marcar series; firmar solo estructura.
+  Logging de Play como ítem Lazy aparte.
+- Contrato: `tests/test_play_editor_perf_v2_contract.py`. No afirmar «probado en dispositivo» sin medición.
+
 #### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
 - `deploy-internal-beta` puede fallar en *Publish AAB…* con
   `httplib2.error.RedirectMissingLocation` tras builds/tests verdes: el upload

@@ -1799,7 +1799,9 @@ final class ReperaStore: NSObject {
     /// confirmadas (`loggedSets`), sin inventar resultados ficticios.
     func updateActiveExerciseDraft(
         id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?,
-        performedSets: [LoggedSet]? = nil
+        performedSets: [LoggedSet]? = nil,
+        durable: Bool = true,
+        pushWatch: Bool = true
     ) {
         guard let active = state.activeSession else { return }
         var controller = SessionController(session: active)
@@ -1811,8 +1813,12 @@ final class ReperaStore: NSObject {
         } ?? false
         guard changedPlan || changedResults else { return }
         state.activeSession = controller.session
-        persist()
-        pushActiveToWatch()
+        guard durable else { return }
+        // Coalesce disk writes while typing; Home/Historial stay untouched.
+        persist(immediate: false, touchWorkouts: false)
+        if pushWatch {
+            pushActiveToWatch()
+        }
     }
 
     /// Reaplica una rutina editada durante Play sin perder series ni duración.

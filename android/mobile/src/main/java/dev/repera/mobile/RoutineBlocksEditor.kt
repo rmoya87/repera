@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -167,6 +168,10 @@ fun RoutineBlocksEditorScreen(
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
     var showReorder by remember { mutableStateOf(false) }
+    var expandedEntryId by rememberSaveable(accountId, routine.id) {
+        mutableStateOf<String?>(null)
+    }
+    val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
     var showBoardScanner by remember { mutableStateOf(false) }
 
     if (showBoardScanner) {
@@ -394,24 +399,58 @@ fun RoutineBlocksEditorScreen(
                 }
             }
         }
-        itemsIndexed(
-            blocks,
-            key = { _, block -> block.listKey }
-        ) { index, block ->
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
-                ReperaSectionTitle(sectionTitle)
-                BlockEditorCard(
-                    block = block,
-                    nameById = nameById,
-                    exercises = exercises,
-                    loadGuideProvider = loadGuideProvider,
-                    // iOS permite Eliminar bloque aunque quede uno (R4 #20 / P2 #17).
-                    onRemove = { blocks.removeAt(index) },
-                    onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                    onOpenExercise = onOpenExercise,
-                    effortUnit = effortUnit
-                )
+        blocks.forEachIndexed { index, block ->
+            item(key = "block-hdr-${block.listKey}") {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val sectionTitle = block.title.ifBlank { "Bloque ${index + 1}" }
+                    ReperaSectionTitle(sectionTitle)
+                    BlockEditorCard(
+                        block = block,
+                        nameById = nameById,
+                        exercises = exercises,
+                        loadGuideProvider = loadGuideProvider,
+                        onRemove = { blocks.removeAt(index) },
+                        onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
+                        onOpenExercise = onOpenExercise,
+                        effortUnit = effortUnit,
+                        includeEntries = false,
+                        includeFooterActions = false,
+                        expandedEntryId = expandedEntryId,
+                        onExpandedEntryIdChange = { expandedEntryId = it }
+                    )
+                }
+            }
+            items(
+                count = block.entries.size,
+                key = { ei -> "entry-${block.listKey}-${block.entries[ei].stableKey(ei)}" }
+            ) { ei ->
+                val entry = block.entries[ei]
+                val isStrengthLike = block.format.isBlank() || block.format == "strength"
+                ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        BlockEntryEditorSlot(
+                            entry = entry,
+                            entryKey = entry.stableKey(ei),
+                            index = ei,
+                            nameById = nameById,
+                            exercisesById = exercisesById,
+                            isStrengthLike = isStrengthLike,
+                            playCompactEntries = false,
+                            selectedEntryIndex = null,
+                            onSelectEntryIndex = null,
+                            expandedEntryId = expandedEntryId,
+                            onExpandedEntryIdChange = { expandedEntryId = it },
+                            loadGuideProvider = loadGuideProvider,
+                            onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
+                            onOpenExercise = onOpenExercise,
+                            onRemoveEntry = { block.entries.remove(entry) },
+                            effortUnit = effortUnit
+                        )
+                    }
+                }
+            }
+            item(key = "block-ftr-${block.listKey}") {
+                BlockEditorFooterActions(block = block, exercises = exercises)
             }
         }
         item(key = "editor-actions") {
@@ -595,8 +634,8 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
         else {if(text.isEmpty()) o.remove(key) else o.put(key,text)}
         sourceJson=o.toString()
     }
-    // R8 P1-2: tabla SERIE/ANTERIOR/REPS/RIR visible como iOS (no oculta).
-    var setsExpanded by mutableStateOf(true)
+    // Colapsado por defecto; solo el entry expandido monta la tabla completa.
+    var setsExpanded by mutableStateOf(false)
     val invalidSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Boolean>()
     val rawSetInputs=androidx.compose.runtime.mutableStateMapOf<Int,Pair<PlannedSetDraft,Triple<String,String,String>>>()
     /** Valores iniciales de los campos uniformes: si no se tocan, las series
@@ -605,6 +644,24 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
     var hadPlanned = planned != null
     val untouchedUniform: Boolean
         get() = hadPlanned && Triple(quantity, sets, weight) == initialUniform
+
+    fun stableKey(index: Int): String =
+        itemId ?: exerciseId.ifBlank { "entry-$index" }
+
+    /** Resumen compacto tipo «3×8 @ 60kg» para filas colapsadas. */
+    fun compactSummary(): String {
+        if (sourceJson?.let { runCatching { JSONObject(it).optBoolean("isRest") }.getOrNull() } == true) {
+            return "${restText()} s"
+        }
+        val setCount = plannedSets.size.coerceAtLeast(sets.toIntOrNull() ?: 1)
+        val reps = plannedSets.firstOrNull()?.targetReps ?: quantity.toIntOrNull() ?: 0
+        val kg = plannedSets.firstOrNull()?.targetWeightKg
+            ?: dev.repera.domain.ReperaNumberFormat.parse(weight)
+        return buildString {
+            append("${setCount}×$reps")
+            if (kg != null && kg > 0) append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(kg)}kg")
+        }
+    }
 }
 
 /** Bloques de OCR al editor actual. Se conserva el JSON de cada movimiento (pesos M/H,
@@ -811,6 +868,13 @@ internal fun BlockEditorCard(
     playCompactEntries: Boolean = false,
     onSelectEntryIndex: ((Int) -> Unit)? = null,
     selectedEntryIndex: Int? = null,
+    /** Si false, solo cabecera/formato (las entradas van como ítems Lazy aparte). */
+    includeEntries: Boolean = true,
+    /** Acciones Ejercicio/Descanso/Libre al pie del card. */
+    includeFooterActions: Boolean = true,
+    /** Crear/Editar: un solo ejercicio expandido a la vez. */
+    expandedEntryId: String? = null,
+    onExpandedEntryIdChange: ((String?) -> Unit)? = null,
 ) {
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
     val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
@@ -939,74 +1003,49 @@ internal fun BlockEditorCard(
                     )
                 }
             }
-            block.entries.forEachIndexed { index, entry ->
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                val entryKey = entry.itemId ?: entry.exerciseId.ifBlank { "entry-$index" }
-                androidx.compose.runtime.key(entryKey) {
-                    val resolved = entry.name.ifBlank {
-                        nameById[entry.exerciseId] ?: "Ejercicio"
-                    }
-                    if (playCompactEntries) {
-                        val selected = selectedEntryIndex == index
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelectEntryIndex?.invoke(index) }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                resolved,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                                color = if (selected) brandGreen
-                                else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    } else {
-                        val ex = exercisesById[entry.exerciseId]
-                        EntryEditorRow(
+            if (includeEntries) {
+                block.entries.forEachIndexed { index, entry ->
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    val entryKey = entry.stableKey(index)
+                    androidx.compose.runtime.key(entryKey) {
+                        BlockEntryEditorSlot(
                             entry = entry,
-                            resolvedName = resolved,
-                            isStrength = isStrengthLike,
-                            mobility = ex?.sportTag == "Movilidad",
-                            mobilityHold = ex?.mobilityHold == true,
-                            weightedRepsOrMeters = ex?.let {
-                                dev.repera.domain.ExerciseInput.supportsRepsOrMeters(it.name)
-                            } == true,
-                            unitChoices = ex?.let {
-                                dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(
-                                    it.name, it.equipment
-                                )
-                            } == true,
+                            entryKey = entryKey,
+                            index = index,
+                            nameById = nameById,
+                            exercisesById = exercisesById,
+                            isStrengthLike = isStrengthLike,
+                            playCompactEntries = playCompactEntries,
+                            selectedEntryIndex = selectedEntryIndex,
+                            onSelectEntryIndex = onSelectEntryIndex,
+                            expandedEntryId = expandedEntryId,
+                            onExpandedEntryIdChange = onExpandedEntryIdChange,
                             loadGuideProvider = loadGuideProvider,
-                            onRemove = { block.entries.remove(entry) },
                             onOpenReorder = onOpenReorder,
-                            onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
-                                { onOpenExercise(id) }
-                            },
-                            exerciseEntry = ex,
+                            onOpenExercise = onOpenExercise,
+                            onRemoveEntry = { block.entries.remove(entry) },
                             effortUnit = effortUnit
                         )
                     }
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            WorkoutWODInsertActions(
-                onExercise = { showExercisePicker = true },
-                onRest = {
-                    // Descanso siempre como entrada DENTRO del bloque (no bloque aparte).
-                    val rest = EditorBlockOps.restMovement()
-                    block.entries.add(
-                        EntryUi(
-                            "", "REST", 1, 1, null, null,
-                            rest.getString("id"), rest.toString()
+            if (includeFooterActions) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                WorkoutWODInsertActions(
+                    onExercise = { showExercisePicker = true },
+                    onRest = {
+                        // Descanso siempre como entrada DENTRO del bloque (no bloque aparte).
+                        val rest = EditorBlockOps.restMovement()
+                        block.entries.add(
+                            EntryUi(
+                                "", "REST", 1, 1, null, null,
+                                rest.getString("id"), rest.toString()
+                            )
                         )
-                    )
-                },
-                onFreeMovement = { showFreeMove = true }
-            )
+                    },
+                    onFreeMovement = { showFreeMove = true }
+                )
+            }
             if (showFreeMove) {
                 FreeMovementDialog(
                     onDismiss = { showFreeMove = false },
@@ -1038,6 +1077,61 @@ internal fun BlockEditorCard(
                 trailingContent()
             }
         }
+    }
+}
+
+@Composable
+internal fun BlockEditorFooterActions(
+    block: BlockDraftUi,
+    exercises: List<ExerciseEntry>
+) {
+    var showExercisePicker by remember { mutableStateOf(false) }
+    var showFreeMove by remember { mutableStateOf(false) }
+    ReperaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WorkoutWODInsertActions(
+                onExercise = { showExercisePicker = true },
+                onRest = {
+                    val rest = EditorBlockOps.restMovement()
+                    block.entries.add(
+                        EntryUi(
+                            "", "REST", 1, 1, null, null,
+                            rest.getString("id"), rest.toString()
+                        )
+                    )
+                },
+                onFreeMovement = { showFreeMove = true }
+            )
+        }
+    }
+    if (showFreeMove) {
+        FreeMovementDialog(
+            onDismiss = { showFreeMove = false },
+            onCreate = { name, reps, male, female ->
+                val move = EditorBlockOps.freeMovement(name, reps, male, female)
+                block.entries.add(
+                    EntryUi(
+                        "", name, reps, 1, male, null,
+                        move.getString("id"), move.toString()
+                    )
+                )
+                showFreeMove = false
+            }
+        )
+    }
+    if (showExercisePicker) {
+        ExercisePickerSheet(
+            exercises = exercises,
+            excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
+            onPick = {
+                block.entries.add(EntryUi(it.id, it.name, 8, 3, null))
+                showExercisePicker = false
+            },
+            onDismiss = { showExercisePicker = false }
+        )
     }
 }
 
@@ -1267,6 +1361,127 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
 }
 
 @Composable
+internal fun PlayCompactEntryRow(
+    name: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            name,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+internal fun CompactEntrySummaryRow(
+    name: String,
+    summary: String,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp)
+            .testTag("plan_entry_compact"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2
+            )
+            Text(
+                summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            contentDescription = "Editar series",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+internal fun BlockEntryEditorSlot(
+    entry: EntryUi,
+    entryKey: String,
+    index: Int,
+    nameById: Map<String, String>,
+    exercisesById: Map<String, ExerciseEntry>,
+    isStrengthLike: Boolean,
+    playCompactEntries: Boolean,
+    selectedEntryIndex: Int?,
+    onSelectEntryIndex: ((Int) -> Unit)?,
+    expandedEntryId: String?,
+    onExpandedEntryIdChange: ((String?) -> Unit)?,
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
+    onOpenReorder: (() -> Unit)?,
+    onOpenExercise: (String) -> Unit,
+    onRemoveEntry: () -> Unit,
+    effortUnit: String
+) {
+    val resolved = entry.name.ifBlank { nameById[entry.exerciseId] ?: "Ejercicio" }
+    if (playCompactEntries) {
+        PlayCompactEntryRow(
+            name = resolved,
+            selected = selectedEntryIndex == index,
+            onClick = { onSelectEntryIndex?.invoke(index) }
+        )
+        return
+    }
+    val ex = exercisesById[entry.exerciseId]
+    val expandHandler = onExpandedEntryIdChange
+    if (expandHandler != null && expandedEntryId != entryKey) {
+        CompactEntrySummaryRow(
+            name = resolved,
+            summary = entry.compactSummary(),
+            onClick = { expandHandler(entryKey) }
+        )
+        return
+    }
+    entry.setsExpanded = true
+    EntryEditorRow(
+        entry = entry,
+        resolvedName = resolved,
+        isStrength = isStrengthLike,
+        mobility = ex?.sportTag == "Movilidad",
+        mobilityHold = ex?.mobilityHold == true,
+        weightedRepsOrMeters = ex?.let {
+            dev.repera.domain.ExerciseInput.supportsRepsOrMeters(it.name)
+        } == true,
+        unitChoices = ex?.let {
+            dev.repera.domain.AppleCardioUnits.allowsCalorieOrDistanceToggle(it.name, it.equipment)
+        } == true,
+        loadGuideProvider = loadGuideProvider,
+        onRemove = onRemoveEntry,
+        onOpenReorder = onOpenReorder,
+        onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
+            { onOpenExercise(id) }
+        },
+        exerciseEntry = ex,
+        effortUnit = effortUnit,
+        onCollapse = expandHandler?.let { handler -> { handler(null) } }
+    )
+}
+
+@Composable
 private fun EntryEditorRow(
     entry: EntryUi,
     resolvedName: String,
@@ -1280,7 +1495,8 @@ private fun EntryEditorRow(
     onOpenReorder: (() -> Unit)? = null,
     onOpenDetail: (() -> Unit)? = null,
     exerciseEntry: ExerciseEntry? = null,
-    effortUnit: String = "rir"
+    effortUnit: String = "rir",
+    onCollapse: (() -> Unit)? = null
 ) {
     val isRest = entry.sourceJson?.let {
         runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false)
@@ -1320,8 +1536,6 @@ private fun EntryEditorRow(
     }
     val quantityUnit = resolveQuantityUnit()
     val entryUnit: String? = if (unitChoices || weightedRepsOrMeters) quantityUnit else null
-    // Series siempre visibles (sin «Cerrar series»).
-    entry.setsExpanded = true
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1380,6 +1594,12 @@ private fun EntryEditorRow(
                     }
                 }
                 DropdownMenu(expanded = entryMenu, onDismissRequest = { entryMenu = false }) {
+                    onCollapse?.let { collapse ->
+                        DropdownMenuItem(
+                            text = { Text("Contraer") },
+                            onClick = { entryMenu = false; collapse() }
+                        )
+                    }
                     onOpenReorder?.let {
                         DropdownMenuItem(
                             text = { Text("Reordenar") },
