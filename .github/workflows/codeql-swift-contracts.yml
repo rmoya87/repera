@@ -1,0 +1,63 @@
+name: CodeQL - Swift contracts (supported subset)
+
+# Repera's main Swift app/domain uses Swift 6.4 / Xcode 27, which CodeQL does
+# NOT support as of 2026-11-11. Only scan the compatible Swift 6.2 contract
+# package here. Never present this job as full iOS/watchOS CodeQL coverage.
+on:
+  push:
+    branches: [main, beta]
+    paths:
+      - 'mobile-contracts/swift/**'
+      - '.github/workflows/codeql-swift-contracts.yml'
+  pull_request:
+    branches: [main, beta]
+    paths:
+      - 'mobile-contracts/swift/**'
+      - '.github/workflows/codeql-swift-contracts.yml'
+  schedule:
+    - cron: '9 6 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-swift-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-contracts:
+    name: CodeQL / Swift 6.2 contracts only
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select supported Xcode 26
+        shell: bash
+        run: |
+          set -euo pipefail
+          XCODE_APP=$(find /Applications -maxdepth 1 -type d -name 'Xcode_26*.app' | sort -V | tail -n 1)
+          if [ -z "$XCODE_APP" ]; then
+            echo "::error::Xcode 26 is required for traced CodeQL Swift analysis"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+          xcodebuild -version | grep -q '^Xcode 26'
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+          queries: security-extended
+      - name: Build compatible Swift 6.2 package
+        run: swift build --package-path mobile-contracts/swift --configuration debug
+        env:
+          SWIFT_USE_INTEGRATED_DRIVER: 'NO'
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: '/language:swift-contracts-only'
