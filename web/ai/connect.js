@@ -101,6 +101,17 @@ for (const button of document.querySelectorAll('[data-provider]')) {
     } catch { message('No se pudo iniciar sesión. Inténtalo de nuevo.', true); busy(false); }
   });
 }
+document.querySelector('#email-login').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  busy(true);
+  try {
+    const email = document.querySelector('#login-email').value.trim();
+    const password = document.querySelector('#login-password').value;
+    const { error } = await auth.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    location.reload();
+  } catch { message('Correo o contraseña incorrectos.', true); busy(false); }
+});
 for (const action of ['approve', 'deny']) {
   document.querySelector(`#${action}`).addEventListener('click', async () => {
     busy(true);
