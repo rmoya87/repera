@@ -420,6 +420,24 @@ class WatchHubContractTests(unittest.TestCase):
         self.assertIn("/repera/wear-hub-recents", main)
         self.assertIn("storeWearHubRecents", phone)
         self.assertIn("wearHubRecents(context", repo)
+        # Contrato del merge: teléfono vacío no inventa ni borra local.
+        merge = home.split("internal fun wearMergeRecentSports(", 1)[1].split(
+            "internal fun wearHubCarouselItems(", 1
+        )[0]
+        self.assertIn("if (phone.isEmpty()) return local.filter", merge)
+        self.assertIn("if (local.isEmpty()) return phone.filter", merge)
+        wear_test = source(
+            "android/wear/src/test/java/dev/repera/wear/WearMultiplePlansTest.kt"
+        )
+        self.assertIn("mergeRecentSportsKeepsLocalOrderAndFillsFromPhone", wear_test)
+        self.assertIn(
+            'wearMergeRecentSports(listOf("walking"), emptyList())',
+            wear_test,
+        )
+        self.assertNotIn(
+            'listOf("walking", "running"),\n            wearMergeRecentSports(listOf("walking"), emptyList())',
+            wear_test,
+        )
 
 
 if __name__ == "__main__":

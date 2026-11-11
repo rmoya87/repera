@@ -174,6 +174,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Wear — `wearMergeRecentSports` + test que rompe deploy (11/11/2026)
+- Con teléfono vacío el merge debe devolver **solo** `local` (no inventar ids).
+  Un test que esperaba `walking`+`running` con `phone=[]` falló
+  `:wear:testDebugUnitTest` y bloqueó `android-native` / Play.
+- Contrato: `tests/test_watch_hub_contract.py` +
+  `WearMultiplePlansTest.mergeRecentSportsKeepsLocalOrderAndFillsFromPhone`.
+
 #### Apple — «Missing package product» Supabase/GoogleSignIn/Firebase (11/11/2026)
 - Con disco ~lleno, `xcodebuild -resolvePackageDependencies` deja
   SourcePackages a medias (zip Firebase/gRPC rotos o checkout de

@@ -53,20 +53,28 @@ class WearMultiplePlansTest {
     }
 
     @Test fun mergeRecentSportsKeepsLocalOrderAndFillsFromPhone() {
+        // Teléfono vacío: no inventar ids; conservar solo lo local (anti-wipe en sync).
         assertEquals(
-            listOf("walking", "running"),
+            listOf("walking"),
             wearMergeRecentSports(listOf("walking"), emptyList())
         )
+        // Local vacío (reinstall): adoptar teléfono.
         assertEquals(
             listOf("cycling"),
             wearMergeRecentSports(emptyList(), listOf("cycling"))
         )
+        // Ambos: local manda; phone solo aporta ids nuevos.
         assertEquals(
             listOf("walking", "running", "cycling"),
             wearMergeRecentSports(
                 listOf("walking", "running"),
                 listOf("running", "cycling")
             )
+        )
+        // Límite duro.
+        assertEquals(
+            listOf("a", "b"),
+            wearMergeRecentSports(listOf("a", "b", "c"), listOf("d"), limit = 2)
         )
     }
 
