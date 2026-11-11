@@ -46,7 +46,11 @@ class AppleSyncAndAIChatContracts(unittest.TestCase):
         self.assertIn("questions_to_ask_before_building_a_program",coach)
         self.assertIn('server.registerTool("set_training_preferences"',coach)
         self.assertIn('server.registerTool("find_equipment_alternatives"',coach)
-        self.assertIn("const gear=new Set(availableEquipment.map(canonicalGear))",coach)
+        self.assertIn(
+            "availableEquipment!=null?[...new Set(availableEquipment.map(canonicalGear))]",
+            coach,
+        )
+        self.assertIn("canonicalGear", coach)
         self.assertIn("joint_demands",migration)
         self.assertIn("required_equipment",migration)
         self.assertNotIn("HealthKit",migration)

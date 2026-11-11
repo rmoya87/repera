@@ -6,24 +6,58 @@ const auth = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 const params = new URLSearchParams(location.search);
 const authorizationId = params.get('authorization_id') || sessionStorage.getItem('repera-ai-authorization');
+const setupCode = params.get('code') || sessionStorage.getItem('repera-ai-setup-code');
 // Supabase Auth issues opaque authorization IDs: 32 lowercase base32 chars (a-z2-7), not UUIDs.
-const validId = /^[a-z2-7]{32}$/;
+const validAuthId = /^[a-z2-7]{32}$/;
+const validSetupCode = /^[A-Za-z0-9_-]{20,64}$/;
 const status = document.querySelector('#status');
 function message(text, error = false) { status.textContent = text; status.classList.toggle('error', error); }
 function busy(value) { document.querySelectorAll('button').forEach(button => { button.disabled = value; }); }
+function hideAll() {
+  for (const id of ['login', 'consent', 'setup-reveal', 'unavailable']) {
+    document.querySelector(`#${id}`).hidden = true;
+  }
+}
 async function request(action, extra = {}) {
   const { data: { session }, error } = await auth.auth.getSession();
   if (error || !session) throw new Error('Vuelve a iniciar sesión en Repera.');
   const response = await fetch(`${SUPABASE_URL}/functions/v1/repera-ai-connect/${action}`, {
     method: 'POST', headers: { authorization: `Bearer ${session.access_token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ authorizationId, ...extra }), signal: AbortSignal.timeout(15000),
+    body: JSON.stringify(extra), signal: AbortSignal.timeout(15000),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'No se pudo conectar. Inténtalo de nuevo.');
   return data;
 }
-async function load() {
-  if (!authorizationId || !validId.test(authorizationId)) {
+async function copyText(value) {
+  await navigator.clipboard.writeText(value);
+}
+async function loadSetup() {
+  if (!setupCode || !validSetupCode.test(setupCode)) {
+    message('Abre la conexión desde la app Repera.', true);
+    document.querySelector('#unavailable').hidden = false;
+    return;
+  }
+  sessionStorage.setItem('repera-ai-setup-code', setupCode);
+  const { data: { session }, error } = await auth.auth.getSession();
+  if (error) throw error;
+  history.replaceState(null, '', `${location.pathname}?code=${encodeURIComponent(setupCode)}`);
+  if (!session) {
+    message('Entra para revelar el token de setup (15 minutos).');
+    document.querySelector('#login').hidden = false;
+    return;
+  }
+  const data = await request('redeem-setup', { code: setupCode });
+  sessionStorage.removeItem('repera-ai-setup-code');
+  history.replaceState(null, '', location.pathname);
+  document.querySelector('#setup-label').textContent = data.label ? `Token · ${data.label}` : 'Token listo';
+  document.querySelector('#setup-mcp').textContent = data.mcpUrl || 'https://repera.app/mcp';
+  document.querySelector('#setup-token').textContent = data.token || '';
+  document.querySelector('#setup-reveal').hidden = false;
+  message('Copia el token ahora. Solo se muestra una vez.');
+}
+async function loadOAuth() {
+  if (!authorizationId || !validAuthId.test(authorizationId)) {
     message('Abre la conexión desde tu asistente.');
     document.querySelector('#unavailable').hidden = false;
     return;
@@ -31,14 +65,13 @@ async function load() {
   sessionStorage.setItem('repera-ai-authorization', authorizationId);
   const { data: { session }, error } = await auth.auth.getSession();
   if (error) throw error;
-  // Remove login codes from the visible URL once the SDK has consumed them.
   history.replaceState(null, '', `${location.pathname}?authorization_id=${encodeURIComponent(authorizationId)}`);
   if (!session) {
     message('Solo tendrás que autorizar el acceso una vez.');
     document.querySelector('#login').hidden = false;
     return;
   }
-  const details = await request('details');
+  const details = await request('details', { authorizationId });
   document.querySelector('#client-name').textContent = `Conectar ${details.name}`;
   document.querySelector('#account').textContent = `Cuenta de Repera: ${details.account}`;
   const scopes = (details.scope || '').split(' ').filter(Boolean);
@@ -48,21 +81,33 @@ async function load() {
   document.querySelector('#consent').hidden = false;
   message('Elige qué puede hacer tu asistente.');
 }
+async function load() {
+  hideAll();
+  if (setupCode && validSetupCode.test(setupCode)) return loadSetup();
+  if (authorizationId && validAuthId.test(authorizationId)) return loadOAuth();
+  message('Abre la conexión desde Repera o desde tu asistente.');
+  document.querySelector('#unavailable').hidden = false;
+}
 for (const button of document.querySelectorAll('[data-provider]')) {
   button.addEventListener('click', async () => {
     busy(true);
     try {
+      const redirectTo = setupCode && validSetupCode.test(setupCode)
+        ? `${location.origin}/ai/?code=${encodeURIComponent(setupCode)}`
+        : `${location.origin}/ai/?authorization_id=${encodeURIComponent(authorizationId)}`;
       const { error } = await auth.auth.signInWithOAuth({ provider: button.dataset.provider,
-        options: { redirectTo: `${location.origin}/ai/?authorization_id=${encodeURIComponent(authorizationId)}` } });
+        options: { redirectTo } });
       if (error) throw error;
     } catch { message('No se pudo iniciar sesión. Inténtalo de nuevo.', true); busy(false); }
   });
 }
-for (const action of ['approve','deny']) {
+for (const action of ['approve', 'deny']) {
   document.querySelector(`#${action}`).addEventListener('click', async () => {
     busy(true);
     try {
-      const data = await request(action, action === 'approve' ? { canWrite: document.querySelector('#can-write').checked } : {});
+      const data = await request(action, action === 'approve'
+        ? { authorizationId, canWrite: document.querySelector('#can-write').checked }
+        : { authorizationId });
       const target = new URL(data.redirect_url);
       if (target.protocol !== 'https:' || target.username || target.password) throw new Error('No se pudo volver al asistente.');
       sessionStorage.removeItem('repera-ai-authorization');
@@ -71,12 +116,29 @@ for (const action of ['approve','deny']) {
     } catch (error) { message(error.message, true); busy(false); }
   });
 }
-document.querySelector('#switch-account').addEventListener('click', async () => {
-  busy(true);
+document.querySelector('#copy-mcp').addEventListener('click', async () => {
   try {
-    const { error } = await auth.auth.signOut({ scope: 'local' });
-    if (error) throw error;
-    location.reload();
-  } catch { message('No se pudo cerrar esta sesión. Inténtalo de nuevo.', true); busy(false); }
+    await copyText(document.querySelector('#setup-mcp').textContent);
+    message('URL MCP copiada.');
+  } catch { message('No se pudo copiar.', true); }
 });
-load().catch(error => { message(error.message || 'No se pudo comprobar la conexión.', true); });
+document.querySelector('#copy-token').addEventListener('click', async () => {
+  try {
+    await copyText(document.querySelector('#setup-token').textContent);
+    message('Token copiado. No lo pegues en el chat.');
+  } catch { message('No se pudo copiar.', true); }
+});
+for (const id of ['switch-account', 'setup-switch']) {
+  document.querySelector(`#${id}`).addEventListener('click', async () => {
+    busy(true);
+    try {
+      const { error } = await auth.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+      location.reload();
+    } catch { message('No se pudo cerrar esta sesión. Inténtalo de nuevo.', true); busy(false); }
+  });
+}
+load().catch(() => {
+  message('No se pudo cargar. Vuelve a abrir el enlace desde Repera.', true);
+  document.querySelector('#unavailable').hidden = false;
+});

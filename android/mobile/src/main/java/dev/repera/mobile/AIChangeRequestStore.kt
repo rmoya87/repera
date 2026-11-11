@@ -39,6 +39,7 @@ class AIChangeRequestStore(
         val id: String,
         val operation: String,
         val targetId: String?,
+        val tokenId: String?,
         val expectedUpdatedAt: String?,
         val payload: JSONObject,
         val createdAt: String?
@@ -78,7 +79,7 @@ class AIChangeRequestStore(
             check(session.userId==userId) {"La cuenta no corresponde a las solicitudes IA"}
             val url = BuildConfig.SUPABASE_URL +
                 "/rest/v1/ai_athlete_change_requests" +
-                "?select=id,operation,target_id,expected_updated_at,payload,created_at" +
+                "?select=id,operation,target_id,token_id,expected_updated_at,payload,created_at" +
                 "&owner_id=eq.$userId&status=eq.pending&order=created_at&limit=100"
             val request = Request.Builder().url(url)
                 .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
@@ -112,6 +113,7 @@ class AIChangeRequestStore(
                         id = row.getString("id"),
                         operation = row.getString("operation"),
                         targetId = row.optString("target_id").ifBlank { null },
+                        tokenId = row.optString("token_id").ifBlank { null },
                         expectedUpdatedAt = row.optString("expected_updated_at")
                             .ifBlank { null },
                         payload = row.optJSONObject("payload") ?: JSONObject(),

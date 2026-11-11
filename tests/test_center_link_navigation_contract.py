@@ -14,7 +14,9 @@ class CenterLinkNavigationContractTests(unittest.TestCase):
     def test_ios_plus_requires_active_client_link(self):
         root = source("Apps/Repera/Sources/RootTabView.swift")
         self.assertIn("!businessData.athleteCenterIds.isEmpty", root)
-        self.assertIn("if hasLinkedCenter {", root)
+        self.assertIn("private var hasLinkedCenter: Bool", root)
+        # Focus Filter puede silenciar Center; el Tab usa showsCenterTab.
+        self.assertIn("if showsCenterTab {", root)
         self.assertIn("SwiftUI.Tab(value: AppTab.plus)", root)
         self.assertIn("if !linked && tab == .plus { tab = .home }", root)
         self.assertIn('FindCenterTrainerView()', source("Apps/Repera/Sources/SettingsView.swift"))
@@ -49,13 +51,22 @@ class CenterLinkNavigationContractTests(unittest.TestCase):
         self.assertIn(".listRowSeparator(.hidden)", buscar)
 
     def test_shared_title_pattern_audited_without_unrelated_layout_changes(self):
-        # Las demás vistas con título dentro de List conservan su geometría:
-        # Ajustes, Rotación, Objetivos e Historial requieren QA en dispositivos.
+        # Con ogListChrome el título scrolla en el Form (no VStack fijo) y usa
+        # ogScrollingTitleSection para no cortar glifos con la caja redondeada.
         settings = source("Apps/Repera/Sources/SettingsView.swift")
+        theme = source("Apps/Repera/Sources/Theme.swift")
         history = source("Apps/Repera/Sources/HistoryView.swift")
-        self.assertIn('OGScrollablePageTitle("Ajustes").ogScrollingTitleListRow()', settings)
-        self.assertIn('OGScrollablePageTitle("Rotación").ogScrollingTitleListRow()', settings)
-        self.assertIn('OGScrollablePageTitle("Objetivos").ogScrollingTitleListRow()', settings)
+        self.assertIn("func ogScrollingTitleSection()", theme)
+        self.assertIn("listSectionMargins(.horizontal, 0)", theme)
+        for title in ("Ajustes", "Rotación", "Objetivos"):
+            self.assertIn(f'OGScrollablePageTitle("{title}")', settings)
+            self.assertIn(".ogScrollingTitleListRow()", settings)
+        self.assertEqual(settings.count(".ogScrollingTitleSection()"), 3)
+        # No fijar el título fuera del Form (no hace scroll).
+        settings_body = settings.split("struct SettingsView: View", 1)[1].split(
+            "struct SettingsAccountSection", 1
+        )[0]
+        self.assertNotIn("VStack(spacing: 0)", settings_body)
         self.assertIn('OGScrollablePageTitle("Historial").ogScrollingTitleListRow()', history)
 
 

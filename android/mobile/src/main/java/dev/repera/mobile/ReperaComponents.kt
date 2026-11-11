@@ -68,7 +68,6 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.draw.clip
 import androidx.core.view.WindowCompat
 
 /**
@@ -438,6 +437,7 @@ fun ReperaSwipeDeleteRow(
             }
         }
     ) {
+        // Fondo opaco: el botón de borrar queda detrás y solo se ve al deslizar.
         Surface(color = MaterialTheme.colorScheme.surface) {
             content()
         }

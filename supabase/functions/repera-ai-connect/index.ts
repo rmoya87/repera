@@ -6,6 +6,7 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
   auth: { autoRefreshToken: false, persistSession: false },
 });
 const site = 'https://repera.app';
+const publicMcp = 'https://repera.app/mcp';
 const headers = { 'content-type': 'application/json', 'cache-control': 'no-store',
   'access-control-allow-origin': site, 'access-control-allow-headers': 'authorization,content-type',
   'access-control-allow-methods': 'GET,POST,OPTIONS', 'vary': 'Origin' };
@@ -14,6 +15,31 @@ const reply = (status: number, data: unknown) => new Response(JSON.stringify(dat
 // Supabase Auth hands the frontend an opaque authorization_id (crypto.SecureAlphanumeric(32):
 // 32 lowercase base32 chars, a-z2-7), not a UUID. uuidPattern stays for user/grant IDs.
 const authorizationIdPattern = /^[a-z2-7]{32}$/;
+// Setup codes from repera-ai-tokens: URL-safe base64 without padding (length 32).
+const setupCodePattern = /^[A-Za-z0-9_-]{20,64}$/;
+
+function b64urlToBytes(value: string): Uint8Array {
+  const padded = value + '='.repeat((4 - (value.length % 4)) % 4);
+  const binary = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+async function sha256(value: string): Promise<string> {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+async function decryptReveal(ciphertext: string, setupCode: string): Promise<string> {
+  const packed = b64urlToBytes(ciphertext);
+  if (packed.length < 13) throw new Error('reveal');
+  const iv = packed.slice(0, 12);
+  const data = packed.slice(12);
+  const keyHash = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`repera-setup-v1:${setupCode}`),
+  );
+  const key = await crypto.subtle.importKey('raw', keyHash, 'AES-GCM', false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+  return new TextDecoder().decode(plain);
+}
 
 async function authRequest(jwt: string, path: string, method = 'GET', body?: unknown) {
   const result = await fetch(`${projectURL}/auth/v1/${path}`, {
@@ -72,6 +98,39 @@ Deno.serve(async request => {
         return reply(200,{deleted:true,reconnectRequired});
       }
       return reply(200,{disconnected:true,reconnectRequired});
+    }
+    if (action === 'redeem-setup') {
+      if (!setupCodePattern.test(body.code ?? '') || Object.keys(body).some(k => k !== 'code')) {
+        return reply(400, { error: 'Código de setup inválido' });
+      }
+      const code = body.code as string;
+      const setupHash = await sha256(`repera-setup-code:${code}`);
+      const { data: row, error: lookupError } = await db.from('ai_access_tokens')
+        .select('id,label,expires_at,revoked_at,setup_code_expires_at,setup_code_used_at,setup_reveal_ciphertext')
+        .eq('owner_id', user.id).eq('setup_code_hash', setupHash).maybeSingle();
+      if (lookupError) return reply(503, { error: 'No se pudo comprobar el código' });
+      if (!row) return reply(404, { error: 'Código no encontrado o de otra cuenta' });
+      if (row.revoked_at) return reply(410, { error: 'Esta conexión ya está revocada' });
+      if (row.setup_code_used_at) return reply(410, { error: 'Este código ya se ha usado' });
+      if (!row.setup_code_expires_at || Date.parse(row.setup_code_expires_at) <= Date.now()) {
+        return reply(410, { error: 'Este código ha caducado (válido 15 minutos)' });
+      }
+      if (!row.setup_reveal_ciphertext) return reply(410, { error: 'Este código ya no puede revelar el token' });
+      let token: string;
+      try { token = await decryptReveal(row.setup_reveal_ciphertext, code); }
+      catch { return reply(400, { error: 'No se pudo abrir el código de setup' }); }
+      const { error: wipeError } = await db.from('ai_access_tokens').update({
+        setup_code_used_at: new Date().toISOString(),
+        setup_reveal_ciphertext: null,
+      }).eq('id', row.id).eq('owner_id', user.id).is('setup_code_used_at', null);
+      if (wipeError) return reply(503, { error: 'No se pudo canjear el código' });
+      return reply(200, {
+        label: row.label,
+        token,
+        mcpUrl: publicMcp,
+        expiresAt: row.expires_at,
+        warning: 'Copia el token ahora. No volverá a mostrarse.',
+      });
     }
     if (!['details','approve','deny'].includes(action ?? '') || !authorizationIdPattern.test(body.authorizationId ?? '') ||
       Object.keys(body).some(k => !['authorizationId','canWrite'].includes(k)) ||

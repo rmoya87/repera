@@ -27,7 +27,10 @@ struct FavoritesHubView: View {
 
     var body: some View {
         List {
-            OGScrollablePageTitle("Favoritos").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Favoritos").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             if !hasAnyFavorite {
                 Section {
                     VStack(spacing: 12) {

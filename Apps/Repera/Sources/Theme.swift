@@ -801,6 +801,16 @@ extension View {
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
     }
 
+    /// Sección del large title dentro de Form/List con `ogListChrome`:
+    /// márgenes horizontales 0 para no envolver el título en la caja
+    /// insetGrouped redondeada (corta glifos como la «A» de Ajustes).
+    /// El título debe llevar `.padding(.horizontal, OG.pad)` + `ogScrollingTitleListRow`.
+    func ogScrollingTitleSection() -> some View {
+        self
+            .listSectionSpacing(0)
+            .listSectionMargins(.horizontal, 0)
+    }
+
     /// Fecha bajo el título grande, **fuera** del bloque de tiles/sección agrupada.
     /// La List recorta el contenido de las filas de sección y corta glifos
     /// iniciales («S» de sábado); esta fila clara no se recorta.

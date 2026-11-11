@@ -246,7 +246,10 @@ struct DayEditorView: View {
     private var editorForm: some View {
         Form {
             if usesPageCloseHeader {
-                OGScrollablePageTitle(navTitle).ogScrollingTitleListRow()
+                Section {
+                    OGScrollablePageTitle(navTitle).ogScrollingTitleListRow()
+                }
+                .listSectionSpacing(0)
             }
             // Una sola caja meta: título + fecha/hora/duración + lugar + notas + favorito
             // (crear / editar / play / histórico). Sin «Datos del entreno realizado» ni
@@ -2895,7 +2898,10 @@ struct WODMovementEditor: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle("Movimiento WOD").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Movimiento WOD").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Toggle("Es descanso", isOn: $movement.isRest)
             if movement.isRest {
                 Stepper("Segundos: \(movement.restSeconds ?? 60)", value: Binding(
@@ -3185,8 +3191,11 @@ struct RoutineExerciseEditor: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle((exercise?.name ?? exerciseName))
-                .ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle((exercise?.name ?? exerciseName))
+                    .ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             if let exercise {
                 Section {
                     ExerciseArtView(exercise: exercise, showBadge: false, showStepCaptions: false)
@@ -3600,7 +3609,10 @@ struct FreeWODMovementCreatePage: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle("Nuevo movimiento").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Nuevo movimiento").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Section("Movimiento") {
                 TextField("Nombre", text: $name)
                     .textInputAutocapitalization(.words)
@@ -3674,10 +3686,12 @@ struct WODFormatPickerPage: View {
 
     var body: some View {
         List {
-            // Título fuera de la sección: si comparte grupo con «Sin formato»,
-            // las esquinas superiores redondeadas quedan en la fila clara y
-            // el primer ítem gris se ve cuadrado (paridad Ajustes / Nuevo movimiento).
-            OGScrollablePageTitle("Formato del bloque").ogScrollingTitleListRow()
+            // Título en sección propia: row suelto se absorbe y pisa el primer ítem;
+            // con Section aparte + fondo claro, «Sin formato» conserva esquinas superiores.
+            Section {
+                OGScrollablePageTitle("Formato del bloque").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Section {
                 Button {
                     onPick(nil)

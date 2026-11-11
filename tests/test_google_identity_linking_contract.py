@@ -68,7 +68,9 @@ class GoogleIdentityContractTests(unittest.TestCase):
     def test_login_and_account_ui_include_both_providers(self):
         login = source("Onboarding/OnboardingFlowView.swift")
         self.assertIn('Text("Iniciar sesión con Apple")', login)
-        self.assertIn('Text("Iniciar sesión con Google")', login)
+        # Label dinámico: idle vs «Conectando con Google».
+        self.assertIn('"Iniciar sesión con Google"', login)
+        self.assertIn('"Conectando con Google"', login)
         self.assertNotIn('Image(systemName: "g.circle.fill")', login)
         self.assertIn('Image("GoogleSignInLogo")', login)
         self.assertNotIn("Tu historial permanece protegido", login)

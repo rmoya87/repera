@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-11 (sueño: sleepEnabled reconciliado con Apple Salud).
+Última actualización: 2026-11-11 (push nativa IA create/update/delete + sin banner flotante).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -474,7 +474,7 @@ La integración requiere pruebas reales de MCP con PAT, Xcode/TestFlight, renova
 
 ## Entrega de entrenamientos de IA por Realtime (21/10/2026)
 
-`AITrainingInboxStore` es el receptor local-first de propuestas estructuradas creadas con el MCP. Su `startRealtime(store:)` usa el cliente Supabase Swift Realtime V2, un canal por sesión de usuario y un filtro Postgres Changes `InsertAction` por `owner_id`. La tabla `ai_training_plans` está en la publicación `supabase_realtime` y mantiene RLS (el usuario autenticado solo puede consultar sus propuestas); **no** se publican datos de Salud, tokens ni el espejo completo de entrenamientos. Se suscribe antes de hacer la lectura inicial para cubrir eventos concurrentes. Cuando llega una propuesta, se lee con SELECT autenticado y se transforma en `Routine` usando el mismo método `saveRoutine` de Diario/Inicio; las planificaciones locales del día quedan protegidas. `ReperaApp` inicia/detiene el canal al activar/suspender la escena, después del inicio de sesión y al cambiar de usuario. Un aviso flotante breve indica que se recibió un plan. Fuera del primer plano, la reconexión automática al regresar a primer plano recupera el historial pendiente: Realtime no es un sistema push APNs.
+`AITrainingInboxStore` es el receptor local-first de propuestas estructuradas creadas con el MCP. Su `startRealtime(store:)` usa el cliente Supabase Swift Realtime V2, un canal por sesión de usuario y un filtro Postgres Changes `InsertAction` por `owner_id`. La tabla `ai_training_plans` está en la publicación `supabase_realtime` y mantiene RLS (el usuario autenticado solo puede consultar sus propuestas); **no** se publican datos de Salud, tokens ni el espejo completo de entrenamientos. Se suscribe antes de hacer la lectura inicial para cubrir eventos concurrentes. Cuando llega una propuesta, se lee con SELECT autenticado y se transforma en `Routine` usando el mismo método `saveRoutine` de Diario/Inicio; las planificaciones locales del día quedan protegidas. `ReperaApp` inicia/detiene el canal al activar/suspender la escena, después del inicio de sesión y al cambiar de usuario. La llegada se anuncia con **notificación nativa** (`AIChangeNotifier` / `AIChangeNotification`), no con banner flotante; el título usa el label de la conexión. Fuera del primer plano, la reconexión automática al regresar a primer plano recupera el historial pendiente: Realtime no es un sistema push APNs.
 
 
 ## Coach IA — perfil, calendario y programas (21/10/2026)

@@ -220,13 +220,16 @@ fun ReperaMobileScreen(
     aiError: String?,
     aiSuccess: String?,
     aiCreatedToken: String?,
+    aiCreatedSetupUrl: String? = null,
     aiChanges: List<AIChangeRequestStore.Change>,
     aiChangeBusy: Boolean,
     aiChangeError: String?,
     aiInboxPending: Int,
     aiInboxConflicts: List<String>,
     onAIRefresh: () -> Unit,
-    onAICreate: (String, String, Boolean) -> Unit,
+    onAICreate: (String, String, Boolean, Boolean) -> Unit,
+    onAIContinueProvider: (AIAccessStore.AIProvider) -> Unit = {},
+    onAIUpdate: (AIAccessStore.TokenInfo, String, Boolean, Boolean) -> Unit = { _, _, _, _ -> },
     onAIRevoke: (String) -> Unit,
     onAIDelete: (AIAccessStore.TokenInfo) -> Unit,
     onAIDecide: (AIChangeRequestStore.Change, Boolean) -> Unit,
@@ -500,6 +503,7 @@ fun ReperaMobileScreen(
             if (!hasLinkedCenter && currentRoute == "plus") navigateTab("inicio")
         }
         var centerInvitationId by rememberSaveable(accountId) { mutableStateOf<String?>(null) }
+        var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
         LaunchedEffect(initialExternalRoute, overview?.completeHistory) {
             val route = initialExternalRoute ?: return@LaunchedEffect
             if (route.startsWith("historial-editar/")) {
@@ -510,6 +514,20 @@ fun ReperaMobileScreen(
                     navController.navigate(route) { launchSingleTop = true }
                     onExternalRouteHandled()
                 }
+            } else if (route.startsWith("historial-detalle/")) {
+                val id = Uri.decode(route.substringAfter("historial-detalle/"))
+                if (overview?.completeHistory.orEmpty().any { it.id == id }) {
+                    navController.navigate(route) { launchSingleTop = true }
+                    onExternalRouteHandled()
+                }
+            } else if (route.startsWith("inicio?")) {
+                val uri = Uri.parse("repera://x?${route.substringAfter('?')}")
+                uri.getQueryParameter("day")?.let { day ->
+                    runCatching { java.time.LocalDate.parse(day) }.getOrNull()
+                        ?.let { homeFocusDay = it }
+                }
+                navigateTab("inicio")
+                onExternalRouteHandled()
             } else if (route == "en-vivo" || route == "inicio" || route == "entreno-activo" ||
                 route == "temporizador" || route == "ejercicios") {
                 navigateTab(LiveNavigationTarget.resolvedRoute(route, activeWorkout != null))
@@ -520,7 +538,6 @@ fun ReperaMobileScreen(
                 onExternalRouteHandled()
             }
         }
-        var homeFocusDay by remember { mutableStateOf<java.time.LocalDate?>(null) }
         // I-42: Minimizar reloj → barra flotante sobre la sesión (no destruye el timer).
         var clockMinimized by rememberSaveable(accountId) { mutableStateOf(false) }
         var manualClockConfig by remember(accountId) { mutableStateOf<ManualBlockTimerConfig?>(null) }
@@ -1741,6 +1758,7 @@ fun ReperaMobileScreen(
                         errorMessage = aiError,
                         successMessage = aiSuccess,
                         createdToken = aiCreatedToken,
+                        createdSetupUrl = aiCreatedSetupUrl,
                         changes = aiChanges,
                         changeBusy = aiChangeBusy,
                         changeError = aiChangeError,
@@ -1748,6 +1766,8 @@ fun ReperaMobileScreen(
                         inboxConflicts = aiInboxConflicts,
                         onRefresh = onAIRefresh,
                         onCreate = onAICreate,
+                        onContinueProvider = onAIContinueProvider,
+                        onUpdate = onAIUpdate,
                         onRevoke = onAIRevoke,
                         onDelete = onAIDelete,
                         onDecide = onAIDecide,

@@ -15,8 +15,6 @@ final class AITrainingInboxStore {
     private(set) var conflicts: [String] = []
     private(set) var pendingCount = 0
     private(set) var isSyncing = false
-    /// A small in-app banner informs the athlete as a new plan is imported.
-    private(set) var lastImportedTitle: String?
 
     // The subscription belongs to the signed-in athlete, never to a service token.
     // Observation ignores networking internals while tracking visible state.
@@ -26,10 +24,6 @@ final class AITrainingInboxStore {
     @ObservationIgnored private var retrySyncAfterCurrent = false
 
     private init() {}
-
-    func dismissArrival() {
-        lastImportedTitle = nil
-    }
 
     /// Starts a single foreground-only, owner-filtered Realtime stream.
     /// Register before subscribing, then fetch pending plans to close the race
@@ -51,8 +45,15 @@ final class AITrainingInboxStore {
             // Random topic prevents a channel from a recently cancelled task
             // being inadvertently reused during account changes.
             let channel = client.realtimeV2.channel("ai-plans-\(UUID().uuidString)")
-            let changes = channel.postgresChange(
+            let inserts = channel.postgresChange(
                 InsertAction.self,
+                schema: "public",
+                table: "ai_training_plans",
+                filter: .eq("owner_id", value: userID.uuidString.lowercased())
+            )
+            // Applied → pending (AI edit of imported plan) arrives as UPDATE.
+            let updates = channel.postgresChange(
+                UpdateAction.self,
                 schema: "public",
                 table: "ai_training_plans",
                 filter: .eq("owner_id", value: userID.uuidString.lowercased())
@@ -64,15 +65,46 @@ final class AITrainingInboxStore {
                    BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID {
                     _ = await self.sync(store: store)
                 }
-                for await _ in changes {
-                    guard !Task.isCancelled,
-                          self.realtimeGeneration == connectionID,
-                          self.subscribedUserID == userID,
-                          BusinessAuthStore.shared.isConnected,
-                          BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
-                    else { break }
-                    _ = await self.sync(store: store)
+                // Merge insert/update off the MainActor TaskGroup path that
+                // trips Swift 6's region-based isolation checker, then sync
+                // on this MainActor task with a single for-await.
+                let (tickStream, tickContinuation) = AsyncStream<Void>.makeStream(
+                    bufferingPolicy: .bufferingNewest(1)
+                )
+                let feeders = Task {
+                    await withTaskGroup(of: Void.self) { group in
+                        group.addTask {
+                            for await _ in inserts {
+                                tickContinuation.yield(())
+                            }
+                        }
+                        group.addTask {
+                            for await _ in updates {
+                                tickContinuation.yield(())
+                            }
+                        }
+                        await group.next()
+                        group.cancelAll()
+                        tickContinuation.finish()
+                    }
                 }
+                await withTaskCancellationHandler {
+                    for await _ in tickStream {
+                        guard !Task.isCancelled,
+                              self.realtimeGeneration == connectionID,
+                              self.subscribedUserID == userID,
+                              BusinessAuthStore.shared.isConnected,
+                              BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == userID
+                        else { break }
+                        _ = await self.sync(store: store)
+                    }
+                } onCancel: {
+                    feeders.cancel()
+                    tickContinuation.finish()
+                }
+                feeders.cancel()
+                tickContinuation.finish()
+                _ = await feeders.result
             } catch {
                 if !Task.isCancelled, self.realtimeGeneration == connectionID {
                     self.lastError = "Recepción inmediata no disponible. Los planes se recuperarán al abrir Repera o al sincronizar."
@@ -95,7 +127,6 @@ final class AITrainingInboxStore {
 
     func clearSession() {
         stopRealtime()
-        lastImportedTitle = nil
         retrySyncAfterCurrent = false
         lastError = nil
         importedCount = 0
@@ -110,6 +141,7 @@ final class AITrainingInboxStore {
         let scheduledTimeMinutes: Int?
         let scheduledAt: Date?
         let scheduledTimeZone: String?
+        let createdByTokenId: UUID?
         let payload: Payload
 
         enum CodingKeys: String, CodingKey {
@@ -118,7 +150,13 @@ final class AITrainingInboxStore {
             case scheduledTimeMinutes = "scheduled_time_minutes"
             case scheduledAt = "scheduled_at"
             case scheduledTimeZone = "scheduled_time_zone"
+            case createdByTokenId = "created_by_token_id"
         }
+    }
+
+    private struct TokenLabelRow: Decodable {
+        let id: UUID
+        let label: String
     }
 
     private struct Payload: Decodable {
@@ -202,13 +240,23 @@ final class AITrainingInboxStore {
             guard !session.isExpired else { return false }
             let uid = session.user.id
             let rows: [PlanRow] = try await client.from("ai_training_plans")
-                .select("id,title,scheduled_date,scheduled_time_minutes,scheduled_at,scheduled_time_zone,payload")
+                .select("id,title,scheduled_date,scheduled_time_minutes,scheduled_at,scheduled_time_zone,created_by_token_id,payload")
                 .eq("owner_id", value: uid.uuidString)
                 .eq("status", value: "pending")
                 .order("scheduled_date")
                 .limit(200)
                 .execute().value
             guard BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == uid else { return false }
+            let tokenIDs = Array(Set(rows.compactMap(\.createdByTokenId)))
+            var labels: [UUID: String] = [:]
+            if !tokenIDs.isEmpty {
+                let named: [TokenLabelRow] = try await client.from("ai_access_tokens")
+                    .select("id,label")
+                    .eq("owner_id", value: uid.uuidString)
+                    .in("id", values: tokenIDs.map(\.uuidString))
+                    .limit(200).execute().value
+                for row in named { labels[row.id] = row.label }
+            }
             var imported = 0
             var reasons: [String] = []
             for row in rows {
@@ -224,6 +272,7 @@ final class AITrainingInboxStore {
                         date = try parseDay(row.scheduledDate)
                     }
                     // Same ID is idempotent after a lost ACK; never duplicate.
+                    // Another routine on the same day (different id) still blocks import.
                     let existing = store.state.routines.contains { routine in
                         routine.id != row.id && routine.scheduledDate.map {
                             Calendar.current.isDate($0, inSameDayAs: date)
@@ -233,14 +282,12 @@ final class AITrainingInboxStore {
                         reasons.append("\(row.scheduledDate): ya existe un entreno para ese día.")
                         continue
                     }
-                    // An earlier sync may already have saved this exact native routine
-                    // but lost the remote ACK. Never overwrite later user edits.
-                    if !store.state.routines.contains(where: { $0.id == row.id }) {
-                        let plan = try buildRoutine(row, date: date, store: store)
-                        guard store.saveRoutine(plan) else {
-                            reasons.append("\(row.scheduledDate): no se pudo guardar la rutina.")
-                            continue
-                        }
+                    // First import or AI edit of an already-imported plan (same UUID):
+                    // replace local routine content from the pending payload.
+                    let plan = try buildRoutine(row, date: date, store: store)
+                    guard store.saveRoutine(plan) else {
+                        reasons.append("\(row.scheduledDate): no se pudo guardar la rutina.")
+                        continue
                     }
                     let result: [String: String] = [
                         "status": "applied",
@@ -253,7 +300,12 @@ final class AITrainingInboxStore {
                         .eq("status", value: "pending")
                         .execute()
                     imported += 1
-                    lastImportedTitle = row.title
+                    AIChangeNotifier.notifyCreate(
+                        planId: row.id,
+                        title: row.title,
+                        day: AIChangeNotifier.dayKey(date),
+                        connectionName: row.createdByTokenId.flatMap { labels[$0] }
+                    )
                     await MainActor.run {
                         ReperaAnalytics.track(.aiProgramReceived, parameters: [
                             "feature_area": "ai",
@@ -271,12 +323,54 @@ final class AITrainingInboxStore {
             }
             importedCount = imported
             pendingCount = max(0, rows.count - imported)
+            // Planes archivados tras importación: quitar rutina local (mismo UUID)
+            // salvo si ya hay un entrenamiento terminado vinculado.
+            let removed = await removeDismissedImportedPlans(client: client, uid: uid, store: store)
+            reasons.append(contentsOf: removed)
             conflicts = reasons
             lastError = reasons.isEmpty ? nil : "Hay \(reasons.count) planes de IA pendientes de revisión."
             return reasons.isEmpty
         } catch {
             lastError = "No se pudieron sincronizar los planes de IA: \(error.localizedDescription)"
             return false
+        }
+    }
+
+    /// Archivo MCP de un plan `applied` → `dismissed` + Realtime UPDATE.
+    private func removeDismissedImportedPlans(
+        client: SupabaseClient, uid: UUID, store: ReperaStore
+    ) async -> [String] {
+        struct DismissedRow: Decodable {
+            let id: UUID
+            let appliedAt: Date?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case appliedAt = "applied_at"
+            }
+        }
+        do {
+            let rows: [DismissedRow] = try await client.from("ai_training_plans")
+                .select("id,applied_at")
+                .eq("owner_id", value: uid.uuidString)
+                .eq("status", value: "dismissed")
+                .limit(100)
+                .execute().value
+            guard BusinessAuthStore.shared.apiClient?.auth.currentSession?.user.id == uid else { return [] }
+            var notes: [String] = []
+            for row in rows where row.appliedAt != nil {
+                guard store.state.routines.contains(where: { $0.id == row.id }) else { continue }
+                let registered = store.state.workouts.contains {
+                    $0.phase == .finished && $0.routineId == row.id
+                }
+                if registered {
+                    notes.append("\(row.id.uuidString.prefix(8)): no se borra la rutina; hay un entreno ya registrado.")
+                    continue
+                }
+                store.deleteRoutine(row.id)
+            }
+            return notes
+        } catch {
+            return ["No se pudieron sincronizar borrados de planes IA: \(error.localizedDescription)"]
         }
     }
 

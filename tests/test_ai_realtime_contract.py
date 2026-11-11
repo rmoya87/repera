@@ -31,13 +31,15 @@ class AIRealtimeContractTests(unittest.TestCase):
         app = (SRC / "ReperaApp.swift").read_text(encoding="utf-8")
         self.assertIn('table: "ai_training_plans"', inbox)
         self.assertIn('filter: .eq("owner_id", value: userID.uuidString.lowercased())', inbox)
+        self.assertIn("InsertAction.self", inbox)
+        self.assertIn("UpdateAction.self", inbox)
         self.assertIn("try await channel.subscribeWithError()", inbox)
         self.assertIn("await client.realtimeV2.removeChannel(channel)", inbox)
         self.assertIn("realtimeGeneration == connectionID", inbox)
         self.assertIn("await self.sync(store: store)", inbox)
         self.assertIn("aiInbox.stopRealtime()", app)
         self.assertIn("aiInbox.startRealtime(store: store)", app)
-        self.assertIn("aiInbox.lastImportedTitle", app)
+        self.assertIn("AIChangeNotifier.notifyCreate", inbox)
         self.assertIn("store.saveRoutine(plan)", inbox)
 
     def test_realtime_publication_does_not_include_other_private_tables(self):

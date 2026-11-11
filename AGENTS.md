@@ -395,15 +395,41 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   menudo «unable to type-check this expression».
 - Contrato: `tests/test_strength_visual_contract.py::test_recovery_has_daily_line_and_pro_gate`.
 
-#### Conecta tu IA — desactivar / abrir / borrar (08/11/2026; sheet manual 10/11/2026)
+#### MCP — editar/archivar plan ya importado (11/11/2026)
+- `update_ai_training_plan` acepta `pending` **y** `applied`: al editar uno
+  aplicado vuelve a `pending` (`applied_at` null) y la app sustituye la rutina
+  local con el **mismo UUID**. Realtime debe escuchar UPDATE además de INSERT.
+- `archive_ai_training_plan` igual sobre importados → `dismissed`; la app borra
+  la rutina local. **Bloqueado** si hay workout registrado (`payload.routineId`
+  en `athlete_workout_mirror` o sesión finished local).
+- No confundir con `update_workout` / `delete_workout` (historial → change request).
+- Contrato: `tests/test_mcp_v2_and_scan_contract.py` + inbox iOS/Android.
+
+#### Form/List — título grande (11/11/2026)
+- Debe **hacer scroll con el contenido** (nunca VStack fijo encima del Form).
+- Con **`ogListChrome`** (Ajustes / Rotación / Objetivos): título en Form +
+  `.padding(.horizontal, OG.pad).ogScrollingTitleListRow()` y la Section con
+  `.ogScrollingTitleSection()` (`listSectionMargins(.horizontal, 0)`) para no
+  envolverlo en la caja redondeada que corta glifos (la «A»).
+- **Buscar:** título fuera del List (excepción: search chrome).
+- **Sin** `ogListChrome` (Conecta tu IA / Historial):
+  `Section { …ogScrollingTitleListRow() }.listSectionSpacing(0)`.
+
+#### Conecta tu IA — desactivar / abrir / borrar (08/11/2026; sheet manual 10/11/2026; fitted+swipe 11/11/2026)
 
 - En Form, **Button** dentro de `VStack` se promociona a filas sueltas; el swipe
   full puede desincronizar el Form. Usar Text+`onTapGesture`; `allowsFullSwipe: false`.
 - Hub sin «Solo instrucciones» ni pie largo: Continuar lleva el prompt al chat (`?q=`).
-- Desactivar izq. / Abrir der.; swipe → Edge `…/delete`. Contrato: `test_ai_provider_launch_contract`.
-- **Conexión manual** = 4.º botón en «Elige tu asistente» → sheet (no fila
-  aparte ni DisclosureGroup); sin copy «Usa tu asistente…» / «Para asistentes…»;
-  URL pública `https://repera.app/mcp` + copiar tras el toggle de escritura;
+- Mis conexiones: **Editar** → sheet; Continuar nunca «Configurar ChatGPT».
+  Android card agrupada; swipe Borrar detrás. Contrato: `test_ai_provider_launch_contract`.
+- **Android sheets** (manual / editar / Nuevo token): `skipPartiallyExpanded = true`
+  (alto = contenido; sin half-sheet vacío). Swipe borrar: quitar fila **antes**
+  de la red (`aiHiddenConnectionIds` + `animateContentSize`); no esperar al
+  Edge/refresh o la fila queda colgada y el resto no sube.
+- **Continuar ChatGPT/Claude** (con `clientID` catálogo): prompt **OAuth** →
+  auth en `https://repera.app/ai/` (sin PAT). **Grok**: PAT + setup `/ai/?code=`
+  (plugins). Sin client OAuth ChatGPT: mismo Bearer temporal.
+- **Conexión manual** = 4.º botón → sheet; MCP + token + setup `/ai/?code=`.
   «Crear token» gris hasta ≥3 letras. Ajustes/IA ocultan el menú principal.
 - **Android FC máxima:** no usar `runWorkoutAction`/`busy` para ±; persistencia
   optimista (`persistTrainingSettings`) o el stepper bloquea todo Ajustes.

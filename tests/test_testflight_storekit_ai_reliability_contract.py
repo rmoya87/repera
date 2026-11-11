@@ -89,7 +89,10 @@ class AIConnectionReliabilityTests(unittest.TestCase):
             ".confirmationDialog(", 1
         )[0]
         self.assertNotIn("ForEach(providers)", sheet)
-        self.assertIn("AIProviderLaunch.instructions(for: provider)", sheet)
+        self.assertIn(
+            "AIProviderLaunch.reopenInstructions(for: provider)",
+            sheet,
+        )
 
     def test_transient_mirror_failure_does_not_show_raw_network_error(self):
         mirror = source("AIChangeRequestStore.swift")

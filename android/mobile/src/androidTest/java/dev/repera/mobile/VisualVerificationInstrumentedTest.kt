@@ -609,6 +609,7 @@ class VisualVerificationInstrumentedTest {
                 scopes = listOf("training:read")))
         val change = AIChangeRequestStore.Change(
             id = "c1", operation = "update_workout", targetId = "w1",
+            tokenId = null,
             expectedUpdatedAt = "2026-10-24T08:00:00Z",
             payload = JSONObject()
                 .put("workoutTitle", "Pierna 24 oct")
@@ -628,7 +629,7 @@ class VisualVerificationInstrumentedTest {
                         inboxPending = 2,
                         inboxConflicts = listOf(
                             "2026-10-26: el ejercicio 'Pistol squat' no existe"),
-                        onRefresh = {}, onCreate = { _, _, _ -> },
+                        onRefresh = {}, onCreate = { _, _, _, _ -> },
                         onRevoke = {}, onDelete = {}, onDecide = { _, _ -> },
                         onDismissCreated = {}, onCopyCreated = {})
                 }

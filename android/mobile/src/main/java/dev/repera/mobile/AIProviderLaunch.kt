@@ -42,8 +42,10 @@ object AIProviderLaunch {
                     val p = arr.getJSONObject(i)
                     val setup = p.optJSONObject("setup")
                     val kind = setup?.optString("kind")
-                    val clientId = setup?.optString("client_id")
-                        ?.takeIf { it.isNotBlank() }
+                    // Catálogo publica camelCase `clientID` (paridad iOS / ai-oauth.ts).
+                    val clientId = listOf("clientID", "client_id")
+                        .mapNotNull { key -> setup?.optString(key)?.takeIf { it.isNotBlank() } }
+                        .firstOrNull()
                         ?.takeIf {
                             kind == "claude_prompt" || kind == "chatgpt_prompt" ||
                                 kind == "oauth"
@@ -65,7 +67,7 @@ object AIProviderLaunch {
                 (parsed + AIAccessStore.AIProvider("grok", "Grok", null, null))
                     .sortedBy { order.indexOf(it.id) } to false
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             base to true
         }
     }
@@ -82,17 +84,25 @@ object AIProviderLaunch {
 
     fun openProvider(context: Context, id: String, prompt: String): Boolean {
         val url = chatUrlFor(id, prompt) ?: return false
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pkg = packageByProvider[id]
         if (pkg != null && isPackageInstalled(context, pkg)) {
             intent.setPackage(pkg)
-            return runCatching { context.startActivity(intent); true }.getOrElse {
-                intent.setPackage(null)
-                runCatching { context.startActivity(intent); true }.getOrDefault(false)
-            }
         }
-        return runCatching { context.startActivity(intent); true }.getOrDefault(false)
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (_: Exception) {
+            if (pkg != null) {
+                intent.setPackage(null)
+                try {
+                    context.startActivity(intent)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            } else false
+        }
     }
 
     private fun isPackageInstalled(context: Context, packageName: String): Boolean {
@@ -104,63 +114,62 @@ object AIProviderLaunch {
         }
     }
 
-    fun instructions(provider: AIAccessStore.AIProvider): String {
+    /** ChatGPT / Claude: OAuth → consentimiento en https://repera.app/ai/. */
+    fun oauthInstructions(provider: AIAccessStore.AIProvider, clientID: String): String {
         val name = provider.name
-        val clientID = provider.oauthClientID?.takeIf {
-            provider.id == "claude" || provider.id == "chatgpt"
-        }
-        val connectorSteps = when {
-            provider.id == "claude" && clientID != null -> """
-            En Claude, abre https://claude.ai/customize/connectors y añade un conector personalizado Web con:
-            Nombre: Repera
-            URL del servidor MCP: $SERVER
-            Autenticación: OAuth / Iniciar sesión ahora
-            Cliente OAuth: Usar tu propio cliente
-            ID de cliente OAuth: ${clientID.lowercase()}
-            Secreto: vacío (cliente público PKCE).
-            """.trimIndent()
-            provider.id == "chatgpt" && clientID != null -> """
-            En ChatGPT web, abre Configuración → Plugins y crea un servidor MCP personalizado (si está disponible en tu cuenta).
-            Nombre: Repera
-            URL del servidor MCP: $SERVER
-            Autenticación: OAuth (cliente definido por el usuario).
-            ID de cliente OAuth público: ${clientID.lowercase()}
-            Secreto: vacío si ChatGPT admite el cliente público con PKCE.
-            Antes de conectar, comprueba que la URL de retorno exacta que muestra ChatGPT está registrada en Supabase Auth para ese cliente.
-            Si no aparece la opción de crear el conector, indica que esta función no está disponible en mi cuenta; no simules una conexión.
-            """.trimIndent()
-            provider.id == "chatgpt" -> """
-            ChatGPT todavía no está habilitado en Repera: falta registrar un cliente OAuth y su URL de retorno exacta en Supabase.
-            No basta con pegar la URL del servidor ni con copiar estas instrucciones.
-            Si puedes crear un servidor MCP personalizado en ChatGPT web, empieza su configuración para obtener la URL de retorno exacta, que debe registrarse en Supabase Auth.
-            Cuando el cliente esté registrado y habilitado en Repera, vuelve a cargar las conexiones de la app para obtener el ID público.
-            URL del servidor MCP: $SERVER
-            No inventes un ID de cliente ni pidas tokens o contraseñas.
-            """.trimIndent()
-            provider.id == "grok" -> """
-            Comprueba si Grok permite añadir un servidor MCP remoto con autenticación OAuth.
-            Nombre: Repera
-            URL del servidor MCP: $SERVER
-            Si Grok no ofrece conectores MCP en tu cuenta o plan, dímelo claramente; no inventes pasos de Claude o ChatGPT.
-            """.trimIndent()
-            else -> """
-            Comprueba si tu versión de $name permite añadir un servidor MCP remoto con autenticación OAuth.
-            Nombre: Repera
-            URL del servidor MCP: $SERVER
-            Si solicita un ID de cliente, configuración especial o un plan que no tengo, explícamelo sin inventar datos ni dar por realizada la conexión.
-            """.trimIndent()
-        }
+        val mcp = PUBLIC_SERVER
+        val id = clientID.lowercase()
         return """
         Quiero conectar Repera (https://repera.app) solo con $name para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía. No menciones ni configures otros asistentes.
 
         Si tienes disponible la herramienta de Repera get_mcp_access_info, ejecútala únicamente para verificar la conexión, sin leer ni modificar mis entrenamientos. Si responde correctamente, confirma la conexión.
 
-        Si no está conectado, indícame cómo configurar un conector MCP remoto en $name. No basta con leer la web de Repera ni con recibir este mensaje.
-        $connectorSteps
+        Si no está conectado, indícame cómo añadir un conector MCP remoto en $name con:
+        Nombre: Repera
+        URL del servidor MCP: $mcp
+        Autenticación: OAuth
+        Usa tu propio cliente OAuth (no registro automático / CIMD).
+        Client ID: $id
+        Client secret: (vacío)
+        La autorización debe abrir https://repera.app/ai/ para que yo inicie sesión en Repera y apruebe el acceso. No me pidas tokens en el chat.
 
-        Debo autorizar el acceso en Repera mediante el flujo oficial de inicio de sesión. No me pidas contraseñas, tokens ni claves privadas en el chat. Si tu aplicación o mi plan no admite conectores MCP remotos, dímelo claramente y no confirmes ninguna conexión.
+        Si tu plan o interfaz no admite OAuth con cliente propio para MCP, dímelo claramente y no confirmes ninguna conexión.
 
         Comprueba el acceso solo con get_mcp_access_info. No crees, borres ni modifiques entrenamientos sin mi solicitud expresa.
+        """.trimIndent()
+    }
+
+    /** Grok / Conexión manual: Bearer + enlace de setup en /ai (pide login). */
+    fun instructions(provider: AIAccessStore.AIProvider, setupUrl: String): String {
+        val name = provider.name
+        val mcp = PUBLIC_SERVER
+        return """
+        Quiero conectar Repera (https://repera.app) solo con $name para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía. No menciones ni configures otros asistentes.
+
+        Si tienes disponible la herramienta de Repera get_mcp_access_info, ejecútala únicamente para verificar la conexión, sin leer ni modificar mis entrenamientos. Si responde correctamente, confirma la conexión.
+
+        Si no está conectado, indícame cómo añadir un conector MCP remoto o plugin en $name con:
+        Nombre: Repera
+        URL del servidor MCP: $mcp
+        Autenticación: token Bearer / API key en el header Authorization.
+
+        El token de un solo uso lo obtengo yo abriendo este enlace (pide autenticación en Repera; válido 15 minutos; no lo pegues en el chat):
+        $setupUrl
+        Indícame dónde configurar el token en $name; no me pidas que lo escriba aquí.
+
+        Si tu aplicación o mi plan no admite conectores MCP / plugins con Bearer, dímelo claramente y no confirmes ninguna conexión.
+
+        Comprueba el acceso solo con get_mcp_access_info. No crees, borres ni modifiques entrenamientos sin mi solicitud expresa.
+        """.trimIndent()
+    }
+
+    fun reopenInstructions(provider: AIAccessStore.AIProvider): String {
+        val name = provider.name
+        return """
+        Ya tengo Repera conectado o pendiente con $name. Ayúdame en español a comprobar la conexión.
+        Servidor MCP: $PUBLIC_SERVER
+        Si tienes get_mcp_access_info, ejecútala solo para verificar, sin leer ni modificar entrenamientos.
+        Si hace falta reconfigurar el conector, dime los pasos en $name sin pedirme tokens en el chat; generaré un enlace de setup nuevo desde la app Repera.
         """.trimIndent()
     }
 }

@@ -1,14 +1,21 @@
 # Conexión de ChatGPT y Claude
 
-Última actualización: 2026-11-08.
+Última actualización: 2026-11-11.
 
 ## Estado y alcance
 
 OAuth gestionado por Supabase Auth y consentimiento web. **ChatGPT tiene pendiente su cliente OAuth para conexión personalizada y, por separado, la verificación/publicación en su directorio. Claude dispone de conexión personalizada guiada por un prompt**, sin publicar en el directorio de Anthropic. El catálogo habilita cada recorrido solo cuando tiene su configuración real. Las instrucciones de Claude contienen únicamente direcciones e ID público de cliente; nunca tokens, secretos ni datos del deportista. No se utiliza la suscripción del asistente desde un chat embebido.
 
-El usuario abre **Ajustes → Cuenta → Conecta tu IA**. **No existe** un enlace profundo universal que configure el complemento MCP solo: cada proveedor exige añadirlo en su propia app/web. Repera facilita el camino más corto: «Continuar con…» copia las instrucciones de ese proveedor y abre un **chat nuevo** con el prompt (`?q=` / Claude `/new?q=`). App instalada → Universal Links / paquete; si no, web. Mis conexiones: **Desactivar** / **Abrir …**; swipe borra. Sin textos «Solo instrucciones» ni pie largo en el hub. ChatGPT pendiente de cliente OAuth. Claude usa guía OAuth pública. Los PAT siguen en Configuración manual.
+El usuario abre **Ajustes → Cuenta → Conecta tu IA**. **No existe** un enlace profundo universal que configure el complemento MCP solo: cada proveedor exige añadirlo en su propia app/web.
 
-**Despliegue pendiente (humano):** Edge `repera-ai-connect` con acción `delete` (revoca grant OAuth + borra fila con service role). Migración opcional `20261108210000_ai_access_tokens_owner_delete.sql` como fallback REST. Sin el Edge actualizado el swipe oculta la fila en la app; Desactivar sigue funcionando.
+**Continuar (11/11/2026):**
+- **ChatGPT / Claude** con `clientID` en catálogo: abre chat con instrucciones **OAuth** (cliente propio, secret vacío). La autenticación ocurre en `https://repera.app/ai/` (consentimiento); **no** se crea PAT ni se pega token en el chat.
+- **Grok** (plugins / Grok Bot) o ChatGPT sin cliente OAuth aún: crea PAT + setup `https://repera.app/ai/?code=` (15 min, pide login) y abre chat con Bearer.
+- **Conexión manual:** siempre PAT + MCP + setup/code.
+
+Etiqueta del proveedor siempre «Continuar con…». Mis conexiones: **Editar**; swipe borra; Android card agrupada.
+
+**Scopes:** `training:read` siempre; `training:write` y `training:delete` opt-in (PATCH en `repera-ai-tokens`). MCP registra herramientas de escritura/borrado según esos flags.
 
 ## Conexión personalizada de ChatGPT (estado actual)
 
@@ -87,8 +94,11 @@ Desconectar revoca primero el permiso de Repera; cada llamada lo comprueba. Desp
 - Protected resource metadata: `https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp/.well-known/oauth-protected-resource`
 - Authorization server issuer: `https://uvzgujlrqohreoucirms.supabase.co/auth/v1`
 - Authorization server discovery: `https://uvzgujlrqohreoucirms.supabase.co/.well-known/oauth-authorization-server/auth/v1`
-- Consentimiento: `https://repera.app/ai/`
+- Consentimiento OAuth (legado): `https://repera.app/ai/?authorization_id=…`
+- Setup PAT (15 min): `https://repera.app/ai/?code=…` — canje `repera-ai-connect/redeem-setup`
 - Privacidad: `https://repera.app/privacy`; condiciones: `https://repera.app/terms`.
+
+Desplegado 11/11/2026 en proyecto `uvzgujlrqohreoucirms`: migración `20261111180000_ai_setup_code.sql`, Edge `repera-ai-tokens`, `repera-ai-connect` (redeem-setup) y `repera-mcp` (`update`/`archive` de planes `applied`; archive bloqueado si hay workout registrado). Web `/ai/`: zip `web/repera-ionos.zip` regenerado; **falta subir/extraer en IONOS htdocs** (no hay deploy FTP automático).
 
 Texto de ficha propuesto: **Repera — consulta tu progreso y prepara tus próximos entrenamientos.** Accede al historial deportivo sincronizado, al catálogo de ejercicios y a tu planificación. Crea propuestas para tu calendario; los cambios en entrenamientos realizados requieren confirmación en Repera. No consulta Apple Salud, sueño ni ubicación.
 
@@ -127,6 +137,6 @@ Comprobación HTTP local: discovery público devuelve el recurso esperado y una 
 
 ## Tokens personales IA: mínimo privilegio (2026-11-09)
 
-La creación de tokens personales desde iOS y Android ofrece **solo lectura por defecto**. La función Edge `repera-ai-tokens` concede `training:write` únicamente cuando la solicitud contiene `canWrite: true` explícito. Los clientes anteriores que omitan `canWrite` reciben solo `training:read`. El usuario puede activar escritura conscientemente con el interruptor «Permitir enviar y editar entrenamientos».
+La creación de tokens personales desde iOS y Android ofrece **solo lectura por defecto**. La función Edge `repera-ai-tokens` concede `training:write` / `training:delete` únicamente con `canWrite: true` / `canDelete: true` explícitos. Los clientes anteriores que omitan esos campos reciben solo `training:read`. En la app, los switches **Editar** y **Borrar** (creación manual o sheet Editar) controlan esos scopes; **Lectura** queda siempre activa.
 
 Este cambio no revoca ni reduce los permisos de tokens ya emitidos. Para comprobarlo, ejecutar `python3 -m unittest discover -s tests -p 'test_ai_token_least_privilege_contract.py'` y validar la emisión real en entorno de pruebas antes del despliegue. No se ha desplegado la función Edge ni publicado una versión de las apps.

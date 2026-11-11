@@ -25,9 +25,11 @@ const phase=z.strictObject({
 });
 export function registerMutationTools(
   server:McpServer, db:SupabaseClient, ownerId:string,
+  canWrite=true, canDelete=false,
 ) {
+  if (canWrite) {
   server.registerTool("update_ai_training_plan", {
-    description:"Edit a PENDING AI proposal before the iPhone imports it. Optimistic revision; never changes an applied workout, its history or the athlete's personal plan.",
+    description:"Edit an AI proposal (pending or already imported). Optimistic revision. Already-imported plans return to pending so the phone/watch replaces the local routine with the same id on next sync; does not rewrite completed workout history.",
     inputSchema:z.strictObject({
       planId:id,expectedRevision:rev,
       ...workout.shape,
@@ -46,39 +48,91 @@ export function registerMutationTools(
     }catch(e){
       return failure("INVALID_LOCAL_TIME","scheduledTimeZone",String(e));
     }
+    const {data:current,error:lookupError}=await db.from("ai_training_plans")
+      .select("id,status,revision")
+      .eq("id",planId).eq("owner_id",ownerId).maybeSingle();
+    if(lookupError)return failure("STORAGE_ERROR","planId","No se pudo leer la propuesta");
+    if(!current)return failure("NOT_FOUND","planId","Propuesta no encontrada");
+    if(current.revision!==expectedRevision)
+      return failure("CONFLICT","expectedRevision","Revisión antigua; recarga antes de editar");
+    if(!["pending","applied"].includes(current.status))
+      return failure("CONFLICT","planId","Solo se editan propuestas pendientes o ya importadas");
+    // Re-queue applied plans as pending so the native inbox replaces the local routine (same UUID).
     const {data,error}=await db.from("ai_training_plans").update({
       title,scheduled_date:scheduledDate,scheduled_time_minutes:scheduledTimeMinutes??null,
       scheduled_time_zone:scheduledTimeZone??null,
       scheduled_utc_offset_minutes:scheduledUtcOffsetMinutes??null,
       scheduled_at:instant,
       payload:{schemaVersion:1,blocks},revision:expectedRevision+1,
-    }).eq("id",planId).eq("owner_id",ownerId).eq("status","pending")
-      .eq("revision",expectedRevision)
+      status:"pending",
+      applied_at:null,
+    }).eq("id",planId).eq("owner_id",ownerId).eq("revision",expectedRevision)
+      .in("status",["pending","applied"])
       .select("id,title,scheduled_date,status,revision").maybeSingle();
     if(error)return failure("STORAGE_ERROR","planId","No se pudo editar la propuesta");
-    if(!data)return failure("CONFLICT","expectedRevision","Propuesta aplicada, archivada o modificada; recarga antes de editar");
-    return output({proposal:data,undo:"Archive/restore is available only before iPhone import"});
+    if(!data)return failure("CONFLICT","expectedRevision","Propuesta archivada o modificada; recarga antes de editar");
+    return output({
+      proposal:data,
+      requeued:current.status==="applied",
+      notice:current.status==="applied"
+        ?"Plan ya importado: vuelve a pending; la app sustituirá la rutina local con el mismo id al sincronizar."
+        :"Propuesta pendiente actualizada.",
+    });
   });
+  }
+  if (canDelete) {
   server.registerTool("archive_ai_training_plan", {
-    description:"Soft-delete a pending proposal (dismissed). Reversible with restore_ai_training_plan. An already applied plan cannot be deleted from the athlete's iPhone by MCP.",
+    description:"Soft-delete a pending or already-imported (applied) AI plan. The phone removes the local routine with the same id on sync. Cannot archive if a completed/registered workout already references that plan. Reversible with restore_ai_training_plan while no registered workout exists.",
     inputSchema:z.strictObject({planId:id,expectedRevision:rev}),
     annotations:{readOnlyHint:false,destructiveHint:true,openWorldHint:false},
   },async({planId,expectedRevision})=>{
+    const {data:current,error:lookupError}=await db.from("ai_training_plans")
+      .select("id,status,revision,applied_at")
+      .eq("id",planId).eq("owner_id",ownerId).maybeSingle();
+    if(lookupError)return failure("STORAGE_ERROR","planId","No se pudo leer la propuesta");
+    if(!current)return failure("NOT_FOUND","planId","Propuesta no encontrada");
+    if(current.revision!==expectedRevision)
+      return failure("CONFLICT","expectedRevision","Revisión antigua; recarga antes de archivar");
+    if(!["pending","applied"].includes(current.status))
+      return failure("CONFLICT","planId","La propuesta ya está archivada");
+    // Bloquear si el plan ya se registró como entrenamiento terminado (espejo).
+    if(current.status==="applied"){
+      const {data:registered,error:regError}=await db.from("athlete_workout_mirror")
+        .select("id")
+        .eq("owner_id",ownerId)
+        .is("deleted_at",null)
+        .not("finished_at","is",null)
+        .contains("payload",{routineId:planId})
+        .limit(1);
+      if(regError)return failure("STORAGE_ERROR","planId","No se pudo comprobar entrenamientos registrados");
+      if((registered?.length??0)>0)
+        return failure("CONFLICT","planId","No se puede eliminar: hay un entrenamiento ya registrado a partir de este plan");
+    }
     const {data,error}=await db.from("ai_training_plans").update({
       status:"dismissed",revision:expectedRevision+1,
-    }).eq("id",planId).eq("owner_id",ownerId).eq("status","pending")
-      .eq("revision",expectedRevision).select("id,status,revision").maybeSingle();
+    }).eq("id",planId).eq("owner_id",ownerId).eq("revision",expectedRevision)
+      .in("status",["pending","applied"])
+      .select("id,status,revision,applied_at").maybeSingle();
     if(error)return failure("STORAGE_ERROR","planId","No se pudo archivar");
-    return data?output({proposal:data,undo_tool:"restore_ai_training_plan"}):
-      failure("CONFLICT","planId","Solo pueden archivarse propuestas pendientes con la revisión actual");
+    if(!data)return failure("CONFLICT","planId","Solo pueden archivarse propuestas pendientes o importadas con la revisión actual");
+    return output({
+      proposal:data,
+      removedLocalRoutine:current.status==="applied",
+      undo_tool:"restore_ai_training_plan",
+      notice:current.status==="applied"
+        ?"Plan importado archivado; la app borrará la rutina local (mismo id) al sincronizar si no hay registro completado."
+        :"Propuesta pendiente archivada.",
+    });
   });
+  }
+  if (canWrite) {
   server.registerTool("restore_ai_training_plan", {
-    description:"Undo a previous archive while the proposal has not been applied. Re-publish only the same authenticated athlete's proposal.",
+    description:"Undo a previous archive. Re-publishes as pending so the phone imports or restores the routine. Does not recreate completed workout history.",
     inputSchema:z.strictObject({planId:id,expectedRevision:rev}),
     annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false},
   },async({planId,expectedRevision})=>{
     const {data,error}=await db.from("ai_training_plans").update({
-      status:"pending",revision:expectedRevision+1,
+      status:"pending",revision:expectedRevision+1,applied_at:null,
     }).eq("id",planId).eq("owner_id",ownerId).eq("status","dismissed")
       .eq("revision",expectedRevision).select("id,status,revision").maybeSingle();
     if(error)return failure("STORAGE_ERROR","planId","No se pudo recuperar la propuesta");
@@ -106,6 +160,8 @@ export function registerMutationTools(
     return data?output({program:data,note:"Sesiones existentes intactas"}):
       failure("CONFLICT","expectedRevision","Revisión antigua; vuelve a leer el programa");
   });
+  }
+  if (canDelete) {
   server.registerTool("archive_training_program", {
     description:"Cancel/archive a program without deleting its audit history or its already applied workout sessions. Reversible only if it was proposed or paused.",
     inputSchema:z.strictObject({programId:id,expectedRevision:rev}),
@@ -119,6 +175,8 @@ export function registerMutationTools(
     return data?output({program:data,undo_tool:"restore_training_program"}):
       failure("CONFLICT","programId","Programa ya cerrado o revisión antigua");
   });
+  }
+  if (canWrite) {
   server.registerTool("restore_training_program", {
     description:"Restore a cancelled program to proposed. Queued sessions and athlete workouts are not re-created or overwritten.",
     inputSchema:z.strictObject({programId:id,expectedRevision:rev}),
@@ -131,4 +189,5 @@ export function registerMutationTools(
     if(error)return failure("STORAGE_ERROR","programId","No se pudo recuperar");
     return data?output({program:data}):failure("CONFLICT","programId","Solo se restaura un programa cancelado con revisión actual");
   });
+  }
 }

@@ -13,7 +13,7 @@ class AIChangeAuthorizationInstrumentedTest {
   val session=SupabaseIdentity.Session(id,"synthetic-only","synthetic-refresh",3600,0)
   val store=AIChangeRequestStore(context,id,http) {false}
   val repository=WorkoutRepository(context,id)
-  val change=AIChangeRequestStore.Change("c","delete_workout","target",null,JSONObject(),null)
+  val change=AIChangeRequestStore.Change("c","delete_workout","target",null,null,JSONObject(),null)
   assertTrue(store.refresh(session) is AIChangeRequestStore.RefreshResult.Failed)
   assertFalse(store.syncCustomExercises(session,repository))
   for(approved in listOf(false,true)) assertTrue(store.decide(session,change,approved,repository,

@@ -463,7 +463,10 @@ struct ConnectedHealthSettingsView: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle("Salud conectada").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Salud conectada").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Section {
                 Button {
                     Task { await manageHealthPermissions() }

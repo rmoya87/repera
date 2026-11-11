@@ -24,7 +24,10 @@ struct LiveSportsCatalogView: View {
 
     var body: some View {
         List {
-            OGScrollablePageTitle("Deportes").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Deportes").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             if visibleSports.isEmpty {
                 ContentUnavailableView(
                     "Sin actividades deportivas",
@@ -134,7 +137,10 @@ struct LiveSportHistoryView: View {
 
     var body: some View {
         List {
-            OGScrollablePageTitle(sport.title).ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle(sport.title).ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Section("Resumen") {
                 HStack(spacing: 8) {
                     tile("Actividades", value: "\(sessions.count)")

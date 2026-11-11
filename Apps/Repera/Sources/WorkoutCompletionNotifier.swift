@@ -77,6 +77,17 @@ final class WorkoutCompletionNotifier: NSObject, UNUserNotificationCenterDelegat
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
+        if AIChangeNotifier.handleNotificationResponse(response) {
+            Task { @MainActor in
+                ReperaAnalytics.track(.notificationOpened, parameters: [
+                    "feature_area": "ai",
+                    "entry_point": "ai_change",
+                    "result": "success"
+                ])
+            }
+            completionHandler()
+            return
+        }
         if let raw = response.notification.request.content.userInfo["workoutId"] as? String,
            let id = UUID(uuidString: raw),
            response.notification.request.identifier == Self.prefix + id.uuidString {

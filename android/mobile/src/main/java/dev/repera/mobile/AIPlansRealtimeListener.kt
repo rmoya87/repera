@@ -142,13 +142,19 @@ class AIPlansRealtimeListener(
         private const val HEARTBEAT_INTERVAL_SECONDS = 25L
 
         internal fun joinMessage(topic: String, accessToken: String, ref: Int): String {
-            val change = JSONObject()
+            val filter = "owner_id=" + topic.substringAfter("owner_id=")
+            val insert = JSONObject()
                 .put("event", "INSERT")
                 .put("schema", "public")
                 .put("table", "ai_training_plans")
-                .put("filter", "owner_id=" + topic.substringAfter("owner_id="))
+                .put("filter", filter)
+            val update = JSONObject()
+                .put("event", "UPDATE")
+                .put("schema", "public")
+                .put("table", "ai_training_plans")
+                .put("filter", filter)
             val config = JSONObject()
-                .put("postgres_changes", org.json.JSONArray().put(change))
+                .put("postgres_changes", org.json.JSONArray().put(insert).put(update))
                 .put("broadcast", JSONObject().put("ack", false).put("self", false))
                 .put("presence", JSONObject().put("key", ""))
             val payload = JSONObject()
@@ -189,7 +195,8 @@ class AIPlansRealtimeListener(
                 "postgres_changes" -> {
                     if (message.optString("topic") != expectedTopic) return null
                     val data = message.optJSONObject("payload")?.optJSONObject("data")
-                    if (data?.optString("type") == "INSERT" &&
+                    val type = data?.optString("type")
+                    if ((type == "INSERT" || type == "UPDATE") &&
                         data.optString("schema")=="public" && data.optString("table")=="ai_training_plans")
                         ServerEvent.InsertedPlan else null
                 }

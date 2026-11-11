@@ -29,8 +29,12 @@ class MCPV2Contracts(unittest.TestCase):
                      "archive_training_program","restore_training_program"):
             self.assertIn(f'"{tool}"',code)
         self.assertIn('.eq("owner_id",ownerId)',code)
-        self.assertIn('.eq("status","pending")',code)
+        self.assertIn('.in("status",["pending","applied"])',code)
+        self.assertIn('athlete_workout_mirror',code)
+        self.assertIn('entrenamiento ya registrado',code)
+        self.assertIn('removedLocalRoutine',code)
         self.assertIn('.eq("revision",expectedRevision)',code)
+        self.assertIn('requeued:current.status==="applied"',code)
         self.assertIn('destructiveHint:true',code)
         self.assertIn("structuredContent:{error}",code)
         self.assertNotIn('.delete()',code)
@@ -44,7 +48,7 @@ class MCPV2Contracts(unittest.TestCase):
         ios=read("Apps/Repera/Sources/AIAccessView.swift")
         for phrase in ("scopes", "canWrite", "training:read"):
             self.assertTrue(phrase in index or phrase in token,phrase)
-        self.assertIn("if (canWrite) registerMutationTools",index)
+        self.assertIn("registerMutationTools(server, db, ownerId, canWrite, canDelete)",index)
         self.assertIn('server.registerTool("get_mcp_access_info"',index)
         self.assertIn("canWrite",ios)
         self.assertIn("case scopes",ios)

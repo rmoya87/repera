@@ -51,17 +51,19 @@ struct SessionPreviewView: View {
 
     var body: some View {
         List {
-            // Título y fecha forman parte del contenido desplazable,
-            // nunca de la barra de navegación ni de un safeAreaInset fijo.
-            OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
-                .ogScrollingTitleListRow()
-            if active == nil, !dayLabel.isEmpty {
-                Text("Entreno · \(dayLabel)")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(OG.label2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .ogSessionDateListRow()
+            // Título/fecha en sección propia (no se absorben en la caja de tiles).
+            Section {
+                OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
+                    .ogScrollingTitleListRow()
+                if active == nil, !dayLabel.isEmpty {
+                    Text("Entreno · \(dayLabel)")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .ogSessionDateListRow()
+                }
             }
+            .listSectionSpacing(0)
 
             if let active {
                 Section {

@@ -117,7 +117,10 @@ struct HistoryView: View {
                 }
             } else {
                 List {
-                    OGScrollablePageTitle("Historial").ogScrollingTitleListRow()
+                    Section {
+                        OGScrollablePageTitle("Historial").ogScrollingTitleListRow()
+                    }
+                    .listSectionSpacing(0)
                     Section {
                         NavigationLink {
                             LiveSportsCatalogView()
@@ -2474,13 +2477,16 @@ struct HealthActivityDetailView: View {
         let showRouteMap = detail.routePoints.count >= 2
 
         return List {
-            OGScrollablePageTitle(activity.title).ogScrollingTitleListRow()
-            if !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(OG.label2)
-                    .ogSessionDateListRow()
+            Section {
+                OGScrollablePageTitle(activity.title).ogScrollingTitleListRow()
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(OG.label2)
+                        .ogSessionDateListRow()
+                }
             }
+            .listSectionSpacing(0)
             Section {
                 summaryRow(activity, detail: detail)
                     .ogCardListRow(top: 0, bottom: 2)

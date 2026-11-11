@@ -1,6 +1,6 @@
 # Repera IA - tokens personales, planificación y MCP
 
-Última actualización: 2026-11-07.
+Última actualización: 2026-11-11.
 
 ## Material alternativo: configuraciones O/Y (07/11/2026)
 
@@ -122,9 +122,9 @@ Migración `20261021235000_complete_ai_catalog_muscle_mappings.sql` aplicada, re
 - Ajustes → **Acceso IA** muestra creación y revocación de tokens sin tarjeta de inicio de sesión Apple, sin textos auxiliares debajo de las tarjetas ni botón manual de actualización de planes. El login y recuperación de sesión corresponden al arranque habitual de Repera.
 - **Supabase Realtime**: la migración `20261021171000_ai_training_plans_realtime_publication.sql` publica únicamente `public.ai_training_plans` bajo `supabase_realtime`; la tabla aplica RLS de SELECT para `owner_id = auth.uid()` y no expone tokens ni entrenamientos históricos.
 - `AITrainingInboxStore.startRealtime(store:)` escucha inserciones del propietario autenticado con `InsertAction` y `filter: .eq("owner_id", value: uid)`, y relee desde la base de datos tras establecer la suscripción para evitar perder eventos durante la conexión. El evento no incluye datos de otros usuarios.
-- Al recibir un entrenamiento, se importa mediante el flujo actual `saveRoutine` (sin reemplazar sesiones de ese día) y Repera muestra un aviso flotante breve. Diario e Inicio observan el estado del calendario.
+- Al recibir un entrenamiento, se importa mediante el flujo actual `saveRoutine` (sin reemplazar sesiones de ese día) y Repera publica una **notificación nativa** (`AIChangeNotifier`) con el label de la conexión. Inicio observa el estado del calendario.
 - La suscripción se detiene al dejar el primer plano o cerrar sesión y se vuelve a establecer cuando regresa la app; al regresar al primer plano se recuperan automáticamente iCloud, entrenamientos y planes IA pendientes, sin botón en Cuenta.
-- **Límite**: una app iOS suspendida o terminada no recibe eventos Realtime en segundo plano; al volver se realiza `sync` y backfill. Para alertas en pantalla de bloqueo con la app cerrada se necesita APNs/Push de servidor (fuera de esta migración); no anunciar notificaciones push hasta implementarlas.
+- **Límite**: una app iOS suspendida o terminada no recibe eventos Realtime en segundo plano; al volver se realiza `sync` y backfill, y entonces pueden programarse las notificaciones locales. APNs remotas para IA con la app terminada siguen fuera de alcance (el canal Business push es otro).
 - Validación SQL transaccional: propietario ve su plan de prueba; otro usuario no lo ve; rollback conserva datos. Pendiente prueba de iPhone físico y entrega desde un cliente MCP.
 
 
@@ -217,11 +217,13 @@ La herramienta `create_training_plan` acepta hasta 14 entrenamientos con fecha `
 - Las entradas del MCP usan `z.strictObject` a todos los niveles definidos (rechazar campos desconocidos, también series/bloques, no ignorarlos); `get_exercise_performance` requiere **exactamente uno** de `catalogKey` o `name`. `create_training_plan` valida bloques, unidades y fechas antes de insertar. Fechas `scheduledDate` son días del **calendario local del atleta**; `scheduledTimeMinutes` son minutos desde medianoche local, no instantes UTC. No mezclar con zonas horarias sin un campo explícito futuro.
 - Nuevas herramientas `update_ai_training_plan`, `archive_ai_training_plan`, `restore_ai_training_plan`, `update_training_program`, `archive_training_program`, `restore_training_program` con RLS lógica por `owner_id`, revisión optimista `expectedRevision` y errores estructurados `{error:{code,field,message}}`. Solo editan propuestas aún `pending`, **nunca** rutinas aplicadas al iPhone; archivar es soft-delete reversible, no borrado irreversible de entrenamiento real. `destructiveHint:true` para edición/archivo; creación y deshacer no destructivos. Las respuestas MCP de error pueden legítimamente viajar con HTTP 200 y `isError:true` según JSON-RPC; no implica éxito.
 - `get_workout_history`, `get_ai_training_plans`, `get_training_programs` devuelven `{items,hasMore,nextCursor}` para recorrer páginas. El cursor es posición codificada en base64; ante escrituras concurrentes es posible que la paginación por offset cambie, por lo que para máxima consistencia sería preferible cursor de clave/fecha. Las métricas derivadas mantienen límites propios: no confundir un análisis abreviado con historial exhaustivo.
-- PAT HTTPS: `training:read` y opcional `training:write` desde Ajustes → Conecta tu IA. Nuevos tokens admiten modo solo lectura. Tokens previos conservan lectura/escritura, caducidad y revocación desde app. `get_mcp_access_info` devuelve permisos, expiración y semántica de fechas sin revelar el secreto; el recorrido OAuth gestionado se incorpora con consentimiento, descubrimiento y revocación; su despliegue y publicación siguen el procedimiento de OAUTH_CONNECTIONS.md.
+- PAT HTTPS: `training:read` obligatorio; `training:write` y `training:delete` opcionales desde Ajustes → Conecta tu IA (sheet Editar / manual). Nuevos tokens = solo lectura por defecto. `get_mcp_access_info` expone scopes/`can_write`/`can_delete`, expiración y cómo borrar la conexión; el recorrido OAuth gestionado sigue OAUTH_CONNECTIONS.md.
 - Catálogo compartido ampliado a **193 ejercicios** (cuatro detectados en pizarras de otros boxes), con demandas articulares **estimadas, no clínicas**, en 193 fichas; fuentes `joint_demands_source` distinguen las basadas en músculo de las combinadas con reglas del movimiento. Identificados **192/193** requisitos de material. No usar esta taxonomía para contraindicar lesiones o prescribir rehabilitación.
 
 
 ## Solicitudes de CRUD y zona horaria (22/10/2026)
+
+**Planes de calendario IA**: `update_ai_training_plan` edita propuestas `pending` o ya `applied`. Si estaba importada, vuelve a `pending` y la app (iOS/Android) sustituye la rutina local con el mismo UUID al sincronizar (Realtime INSERT/UPDATE). `archive_ai_training_plan` también archiva importados; la app borra la rutina local salvo si existe un entrenamiento terminado con ese `routineId` (MCP lo bloquea vía `athlete_workout_mirror`). No reescribe historial completado.
 
 **Entrenamientos completados**: `update_workout` (título, correcciones de series por ID) y `delete_workout` generan registros en `ai_athlete_change_requests` con estado `pending`, no modifican directamente el espejo. Repera iOS muestra cada solicitud en Ajustes → Conecta tu IA; el deportista la **acepta o rechaza**. Antes de aceptar se verifica la revisión `expectedUpdatedAt` en el espejo; se aplica mediante `ReperaStore.saveWorkout` o `deleteWorkout` local-first. El borrado nativo puede afectar a su actividad enlazada de Apple Salud: la UI lo advierte. La siguiente sincronización propaga los cambios y tombstones. Una IA nunca borra registros históricos sin autorización en dispositivo. `get_workout_history` expone IDs de entradas/series y `updated_at` para crear parches precisos.
 

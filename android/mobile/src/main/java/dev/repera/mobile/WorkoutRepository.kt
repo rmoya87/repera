@@ -679,7 +679,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return id
     }
 
-    /** One local CAS for the catalog additions and the complete AI routine. */
+    /** One local CAS for the catalog additions and the complete AI routine.
+     * Upsert by planId: first import or replace content after AI edits an
+     * already-imported plan (same UUID). */
     @Synchronized internal fun importAiRoutine(planId:String,schedule:RoutineSchedule,
         stillAuthorized:()->Boolean={true},
         build:((String,String?)->String)->Pair<String,List<dev.repera.domain.RoutineBlock>>):String {
@@ -690,10 +692,15 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         check((0 until routines.length()).none {i -> routines.getJSONObject(i).let {
             it.optString("id")!=planId && it.optString("scheduledDate").take(10)==schedule.scheduledDate
         }}) {"Ya existe un entreno para ese día"}
-        if((0 until routines.length()).any {routines.getJSONObject(it).optString("id")==planId}) return planId
         val (title,blocks)=build {name,key ->
             check(stillAuthorized()) {"La cuenta cambió durante la importación"}
             resolveCatalogExerciseInState(state,name,key,"Otros")
+        }
+        val existingIndex = (0 until routines.length()).indexOfFirst {
+            routines.getJSONObject(it).optString("id") == planId
+        }
+        if (existingIndex >= 0) {
+            routines.remove(existingIndex)
         }
         val id=appendScannedRoutine(state,title,blocks,schedule,planId,12)
         check(stillAuthorized()) {"La cuenta cambió antes de guardar el plan"}
@@ -2775,6 +2782,15 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             .firstOrNull { it.optString("id") == id } ?: error("Ejercicio no encontrado")
         exercise.put("isFavorite", favorite)
         save(state)
+    }
+
+    /** True si hay un entreno terminado que apunta a esta rutina (plan registrado). */
+    @Synchronized fun hasFinishedWorkoutForRoutine(routineId: String): Boolean {
+        val workouts = requireState().optJSONArray("workouts") ?: return false
+        return (0 until workouts.length()).any {
+            val w = workouts.getJSONObject(it)
+            w.optString("phase") == "finished" && w.optString("routineId") == routineId
+        }
     }
 
     @Synchronized fun deleteRoutine(id: String) {

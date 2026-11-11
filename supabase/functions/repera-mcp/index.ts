@@ -166,7 +166,9 @@ Deno.serve(async (request) => {
   }
   const token = authenticatedToken;
   const ownerId: string = token.owner_id;
-  const canWrite = (token.scopes ?? ["training:read","training:write"]).includes("training:write");
+  const scopes = token.scopes ?? ["training:read","training:write"];
+  const canWrite = scopes.includes("training:write");
+  const canDelete = scopes.includes("training:delete");
   // Only owner-scoped reads and inserts. Service role cannot leak other athletes.
   await db.from("ai_access_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", token.id).eq("owner_id", ownerId);
   if (Number(request.headers.get("content-length") || 0) > 150_000) return fail(413, "Petición demasiado grande");
@@ -267,18 +269,21 @@ Deno.serve(async (request) => {
     registerCoachTools(server, db, ownerId, token.id, canWrite);
     registerDisciplinePlanningTools(server, db, ownerId);
     registerProfessionalScheduleTools(server, db, ownerId);
-    registerAthleteChangeTools(server,db,ownerId,token.id,canWrite);
-    if (canWrite) registerMutationTools(server, db, ownerId);
+    registerAthleteChangeTools(server,db,ownerId,token.id,canWrite,canDelete);
+    if (canWrite || canDelete) registerMutationTools(server, db, ownerId, canWrite, canDelete);
     server.registerTool("get_mcp_access_info", {
       title:"Comprobar conexión con Repera",
       description:"Check the authenticated Repera connection, permission scopes, expiry and disconnection instructions. No credential contents or workout data are exposed. Use this read-only tool to verify that setup succeeded.",
       inputSchema:z.strictObject({}),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false},
     },async()=>reply({
       token_id:token.id,
-      scopes:token.scopes ?? ["training:read","training:write"],
+      scopes,
+      can_read:true,
+      can_write:canWrite,
+      can_delete:canDelete,
       expires_at:token.expires_at ?? null,
       expires:token.expires_at!=null,
-      revoke_in:"Repera → Ajustes → Cuenta → Conecta tu IA → Mis conexiones → Desactivar (o swipe para borrar)",
+      revoke_in:"Repera → Ajustes → Cuenta → Conecta tu IA → Mis conexiones → Editar → Borrar conexión",
       protocol:isPersonalToken ? "Personal HTTPS Bearer token (PAT). Do not forward to third parties." : "OAuth with user consent and PKCE. Managed by your assistant; do not request or share tokens in chat.",
       date_semantics:"scheduledDate is athlete-local date. If scheduledTimeMinutes is given, scheduledTimeZone (IANA) and scheduledUtcOffsetMinutes (UTC east-positive) are required; scheduled_at resolves an exact instant including DST.",
     }));

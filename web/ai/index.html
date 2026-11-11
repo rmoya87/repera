@@ -1,38 +1,74 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#000000">
   <title>Conecta tu asistente · Repera</title>
+  <link rel="icon" href="/assets/icon.png?v=20261108" type="image/png" sizes="180x180">
+  <link rel="apple-touch-icon" href="/assets/icon.png?v=20261108">
   <link rel="stylesheet" href="./connect.css">
 </head>
 <body>
-  <main>
-    <a class="brand" href="/">repera<span>●</span></a>
-    <p class="eyebrow">TU ENTRENAMIENTO, CONTIGO</p>
+  <main class="card">
+    <a class="brand" href="/" aria-label="Repera inicio">
+      <img src="/assets/icon.png" width="28" height="28" alt="">
+      <span>Repera</span>
+    </a>
+    <p class="eyebrow">Conecta tu IA</p>
     <h1>Conecta tu asistente</h1>
     <p id="intro">Autoriza a tu IA para ayudarte con tus entrenamientos de Repera.</p>
     <p id="status" role="status" aria-live="polite">Comprobando conexión…</p>
+
     <section id="login" hidden>
       <h2>Entra en tu cuenta de Repera</h2>
-      <p>Usa la misma cuenta y forma de acceso que utilizas en la app.</p>
+      <p>Usa la misma cuenta que en la app.</p>
       <button type="button" data-provider="apple">Continuar con Apple</button>
       <button type="button" data-provider="google" class="secondary">Continuar con Google</button>
     </section>
+
     <section id="consent" hidden>
       <h2 id="client-name"></h2>
       <p id="account"></p>
-      <ul><li>Consultar tu historial deportivo y tu planificación.</li><li>Consultar ejercicios y tu progreso registrado.</li></ul>
-      <label class="permission"><input type="checkbox" id="can-write" checked><span>Permitir crear y modificar mi planificación</span></label>
-      <p class="note">Los planes que cree el asistente se importan a Repera al abrir la app o sincronizar. Los cambios sobre entrenamientos ya realizados y ejercicios personalizados sí requieren tu aprobación en Repera. No se comparte Apple Salud, sueño ni ubicación. Para revocar el acceso usa Repera → Ajustes → Conecta tu IA (quitar solo el conector en el asistente puede no bastar).</p>
+      <ul>
+        <li>Consultar tu historial deportivo y tu planificación.</li>
+        <li>Consultar ejercicios y tu progreso registrado.</li>
+      </ul>
+      <label class="permission">
+        <input type="checkbox" id="can-write" checked>
+        <span>Permitir crear y modificar mi planificación</span>
+      </label>
+      <p class="note">Los planes que cree o edite el asistente se importan o actualizan en Repera al abrir la app o sincronizar (misma rutina). Los cambios sobre entrenamientos ya completados requieren tu aprobación en Repera. No se comparte Apple Salud, sueño ni ubicación.</p>
       <p id="identity" class="note"></p>
       <button type="button" id="approve">Autorizar conexión</button>
       <button type="button" id="deny" class="secondary">Cancelar</button>
       <button type="button" id="switch-account" class="text-button">Usar otra cuenta de Repera</button>
     </section>
-    <section id="unavailable" hidden><p>La conexión se inicia desde la integración de Repera en tu asistente. Si todavía no aparece, aún está pendiente de publicación.</p><a href="/faq">Ayuda de Repera</a></section>
-    <p class="note">Puedes retirar el acceso desde Repera → Ajustes → Conecta tu IA.</p>
-    <footer><a href="/privacy">Privacidad</a><a href="/terms">Condiciones</a></footer>
+
+    <section id="setup-reveal" hidden>
+      <h2 id="setup-label">Token listo</h2>
+      <p>Servidor MCP (sin secreto):</p>
+      <div class="secret-box" id="setup-mcp"></div>
+      <button type="button" id="copy-mcp" class="secondary">Copiar URL MCP</button>
+      <p>Token Bearer (solo una vez):</p>
+      <div class="secret-box mono" id="setup-token"></div>
+      <button type="button" id="copy-token">Copiar token</button>
+      <p class="note">Pégalo en la configuración del conector de tu asistente, no en el chat. Puedes retirar el acceso en Repera → Ajustes → Conecta tu IA.</p>
+      <button type="button" id="setup-switch" class="text-button">Usar otra cuenta de Repera</button>
+    </section>
+
+    <section id="unavailable" hidden>
+      <p>Abre la conexión desde Repera (Ajustes → Conecta tu IA) o usa el enlace de setup que genera la app (válido 15 minutos).</p>
+      <a href="/faq">Ayuda de Repera</a>
+    </section>
+
+    <p class="note footer-note">Puedes retirar el acceso desde Repera → Ajustes → Conecta tu IA.</p>
+    <footer>
+      <a href="/privacy">Privacidad</a>
+      <a href="/terms">Condiciones</a>
+    </footer>
   </main>
   <script type="module" src="./connect.js"></script>
 </body>

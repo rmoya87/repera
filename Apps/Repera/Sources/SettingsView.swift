@@ -35,7 +35,14 @@ struct SettingsView: View {
     @State private var openLinkedCenter: BusinessOrganization?
     var body: some View {
         Form {
-            OGScrollablePageTitle("Ajustes").ogScrollingTitleListRow()
+            // Título en el Form (scroll con el contenido). Márgenes horizontales 0
+            // para no usar la caja insetGrouped redondeada que corta la «A».
+            Section {
+                OGScrollablePageTitle("Ajustes")
+                    .padding(.horizontal, OG.pad)
+                    .ogScrollingTitleListRow()
+            }
+            .ogScrollingTitleSection()
             SettingsAccountSection(
                 photoItem: $photoItem,
                 isPhotoPickerPresented: $isPhotoPickerPresented,
@@ -64,9 +71,9 @@ struct SettingsView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
-        .ogScrollingTitleNav()
         // Sin tab bar el Form queda pegado al borde; aire inferior para el último bloque.
         .contentMargins(.bottom, 28, for: .scrollContent)
+        .ogScrollingTitleNav()
         // Como Mensajes: al entrar en Ajustes el menú principal baja; al salir vuelve.
         .toolbar(.hidden, for: .tabBar)
         .navigationDestination(item: $openLinkedCenter) { center in
@@ -1245,7 +1252,12 @@ struct RotationPlanEditor: View {
 
     var body: some View {
         List {
-            OGScrollablePageTitle("Rotación").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Rotación")
+                    .padding(.horizontal, OG.pad)
+                    .ogScrollingTitleListRow()
+            }
+            .ogScrollingTitleSection()
             Section {
                 if orderedIds.isEmpty {
                     Text("Añade rutinas de Diario → Rutinas para armar la cola.")
@@ -1337,7 +1349,12 @@ struct HealthGoalsView: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle("Objetivos").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Objetivos")
+                    .padding(.horizontal, OG.pad)
+                    .ogScrollingTitleListRow()
+            }
+            .ogScrollingTitleSection()
             Section {
                 goalRow("Pasos", icon: "figure.walk", field: .steps, next: .energy, text: $steps, unit: "pasos")
                 goalRow("Calorías activas", icon: "flame", field: .energy, next: .minutes, text: $energy, unit: "kcal")
@@ -1361,8 +1378,6 @@ struct HealthGoalsView: View {
             } header: {
                 Text("Objetivo corporal")
             }
-
-
         }
         .ogListChrome()
         .ogScrollingTitleNav()

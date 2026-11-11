@@ -68,7 +68,7 @@ class AIAccessRenderTest {
                         changes = emptyList(), changeBusy = false,
                         changeError = null, inboxPending = 0,
                         inboxConflicts = emptyList(),
-                        onRefresh = {}, onCreate = { _, _, _ -> },
+                        onRefresh = {}, onCreate = { _, _, _, _ -> },
                         onRevoke = {}, onDelete = {}, onDecide = { _, _ -> },
                         onDismissCreated = {}, onCopyCreated = {})
                 }
@@ -99,6 +99,11 @@ class AIAccessRenderTest {
         // Seccion de tokens bajo el fold: scroll y segunda captura.
         composeRule.onNodeWithTag("airoot")
             .performScrollToNode(androidx.compose.ui.test.hasText("Mi entrenador IA"))
+        // Varios tokens activos muestran «Editar»; basta con que exista al menos uno.
+        assert(
+            composeRule.onAllNodes(androidx.compose.ui.test.hasText("Editar"))
+                .fetchSemanticsNodes().isNotEmpty()
+        ) { "esperado al menos un Editar en Mis conexiones" }
         val bitmap2 = composeRule.onNodeWithTag("airoot").captureToImage().asAndroidBitmap()
         val out2 = File(dir, "ai_access_tokens.png")
         FileOutputStream(out2).use { bitmap2.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -111,27 +116,5 @@ class AIAccessRenderTest {
         println("RENDERED_AIACCESS=" + out.absolutePath)
         println("RENDERED_AITOKENS=" + out2.absolutePath)
         println("RENDERED_AIREVOKED=" + out3.absolutePath)
-    }
-
-    @Test
-    fun disconnectDialogRenders() {
-        composeRule.setContent {
-            MaterialTheme {
-                Surface {
-                    dev.repera.mobile.DisconnectAssistantDialog(
-                        providerName = "ChatGPT", onConfirm = {}, onDismiss = {})
-                }
-            }
-        }
-        val bitmap = composeRule.onRoot().captureToImage().asAndroidBitmap()
-        val dir = File("build/reports/render").apply { mkdirs() }
-        val out = File(dir, "ai_disconnect_dialog.png")
-        FileOutputStream(out).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        composeRule.onNodeWithText("Desactivar asistente").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "Se revocará el acceso del asistente a tu cuenta de Repera.").assertIsDisplayed()
-        composeRule.onNodeWithText("Desactivar ChatGPT").assertIsDisplayed()
-        composeRule.onNodeWithText("Cancelar").assertIsDisplayed()
-        println("RENDERED_AIDIALOG=" + out.absolutePath)
     }
 }

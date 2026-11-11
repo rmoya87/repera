@@ -192,9 +192,15 @@ struct RootTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: WorkoutCompletionNotifier.openEvent)) { note in
             if let id = note.object as? UUID { openNotifiedCompletedWorkout(id) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: AIChangeNotifier.openEvent)) { note in
+            if let target = note.object as? AIChangeNotifier.Target {
+                openAIChangeTarget(target)
+            }
+        }
         .task(id: store.isHydrated) {
             if store.isHydrated {
                 openPendingCompletedWorkoutNotification()
+                openPendingAIChangeNotification()
                 store.restorePhoneRequestedWatchFinishIfSaved()
             }
         }
@@ -482,6 +488,34 @@ struct RootTabView: View {
         tab = .home
         pendingResultsEditorID = id
         UserDefaults.standard.removeObject(forKey: WorkoutCompletionNotifier.pendingKey)
+    }
+
+    private func openPendingAIChangeNotification() {
+        guard store.isHydrated, let target = AIChangeNotifier.takePending() else { return }
+        openAIChangeTarget(target)
+    }
+
+    private func openAIChangeTarget(_ target: AIChangeNotifier.Target) {
+        guard store.isHydrated else { return }
+        flowPath = []
+        tab = .home
+        switch target.kind {
+        case .create:
+            if let day = target.day.flatMap(AIChangeNotifier.parseDay) {
+                homeFocusDay = day
+            }
+            if let routineId = target.routineId {
+                AIChangeNotifier.queueOpenRoutine(routineId)
+            }
+        case .update, .delete:
+            if let id = target.workoutId,
+               store.state.workouts.contains(where: { $0.id == id }) {
+                AIChangeNotifier.queueOpenWorkout(id)
+            } else if let day = target.day.flatMap(AIChangeNotifier.parseDay) {
+                // Deleted (or missing) workout: land on Inicio for that day.
+                homeFocusDay = day
+            }
+        }
     }
 
     private func openPendingCompletedWorkoutNotification() {

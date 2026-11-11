@@ -12,7 +12,7 @@ class AIChangeRequestStoreTest {
 
     private fun change(operation: String, payload: JSONObject = JSONObject()) =
         AIChangeRequestStore.Change(
-            id = "c1", operation = operation, targetId = null,
+            id = "c1", operation = operation, targetId = null, tokenId = null,
             expectedUpdatedAt = null, payload = payload, createdAt = null)
 
     @Test

@@ -24,11 +24,18 @@ internal class AITrainingInbox(
         .callTimeout(20, TimeUnit.SECONDS).build(),
     private val stillAuthorized: () -> Boolean = { true }
 ) {
+    data class ImportedPlan(
+        val id: String,
+        val title: String,
+        val day: String,
+        val connectionName: String?
+    )
+
     data class Result(
         val imported: Int,
         val pending: Int,
         val conflicts: List<String>,
-        val lastImportedTitle: String?,
+        val importedPlans: List<ImportedPlan>,
         val error: String?
     )
 
@@ -42,40 +49,124 @@ internal class AITrainingInbox(
             authorize()
             val uid = session.userId
             val rows = fetchPending(session, uid)
+            val labels = fetchTokenLabels(session, uid, rows)
             var imported = 0
             val reasons = mutableListOf<String>()
-            var lastTitle: String? = null
+            val importedPlans = mutableListOf<ImportedPlan>()
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i)
                 val day = row.optString("scheduled_date")
                 try {
                     authorize()
-                    importPlan(row, session, uid, repository)
+                    val appliedDay = importPlan(row, session, uid, repository)
                     imported += 1
-                    lastTitle = row.optString("title")
+                    val tokenId = row.optString("created_by_token_id").ifBlank { null }
+                    importedPlans.add(
+                        ImportedPlan(
+                            id = row.getString("id"),
+                            title = row.optString("title"),
+                            day = appliedDay,
+                            connectionName = tokenId?.let { labels[it] }
+                        )
+                    )
                 } catch (error: Exception) {
                     reasons.add("$day: ${error.localizedMessage}")
                 }
             }
+            reasons.addAll(removeDismissedImportedPlans(session, uid, repository))
             Result(
                 imported = imported,
                 pending = maxOf(0, rows.length() - imported),
                 conflicts = reasons,
-                lastImportedTitle = lastTitle,
+                importedPlans = importedPlans,
                 error = if (reasons.isEmpty()) null
                     else "Hay ${reasons.size} planes de IA pendientes de revisión."
             )
         } catch (error: Exception) {
-            Result(0, 0, emptyList(), null,
+            Result(0, 0, emptyList(), emptyList(),
                 "No se pudieron sincronizar los planes de IA: " +
                     (error.localizedMessage ?: ""))
         }
     }
 
+    /** Plan archivado tras importación: borra rutina local salvo registro completado. */
+    private fun removeDismissedImportedPlans(
+        session: SupabaseIdentity.Session,
+        uid: String,
+        repository: WorkoutRepository
+    ): List<String> {
+        return try {
+            authorize()
+            val url = BuildConfig.SUPABASE_URL + "/rest/v1/ai_training_plans" +
+                "?select=id,applied_at" +
+                "&owner_id=eq.$uid&status=eq.dismissed&limit=100"
+            val request = Request.Builder().url(url)
+                .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+                .header("Authorization", "Bearer " + session.accessToken)
+                .get().build()
+            val rows = http.newCall(request).execute().use { response ->
+                authorize()
+                if (!response.isSuccessful) throw IllegalStateException("HTTP " + response.code)
+                JSONArray(response.body.string())
+            }
+            val notes = mutableListOf<String>()
+            val routines = repository.routinesSnapshot()
+            for (i in 0 until rows.length()) {
+                val row = rows.getJSONObject(i)
+                if (row.isNull("applied_at") || row.optString("applied_at").isBlank()) continue
+                val planId = row.getString("id")
+                if (routines.none { it.optString("id") == planId }) continue
+                if (repository.hasFinishedWorkoutForRoutine(planId)) {
+                    notes.add("${planId.take(8)}: no se borra la rutina; hay un entreno ya registrado.")
+                    continue
+                }
+                authorize()
+                runCatching { repository.deleteRoutine(planId) }
+            }
+            notes
+        } catch (error: Exception) {
+            listOf(
+                "No se pudieron sincronizar borrados de planes IA: " +
+                    (error.localizedMessage ?: "")
+            )
+        }
+    }
+
+    private fun fetchTokenLabels(
+        session: SupabaseIdentity.Session,
+        uid: String,
+        rows: JSONArray
+    ): Map<String, String> {
+        val ids = (0 until rows.length())
+            .mapNotNull { rows.optJSONObject(it)?.optString("created_by_token_id") }
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (ids.isEmpty()) return emptyMap()
+        val filter = ids.joinToString(",") { "\"$it\"" }
+        val url = BuildConfig.SUPABASE_URL + "/rest/v1/ai_access_tokens" +
+            "?select=id,label&owner_id=eq.$uid&id=in.($filter)&limit=200"
+        val request = Request.Builder().url(url)
+            .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .get().build()
+        return runCatching {
+            authorize()
+            http.newCall(request).execute().use { response ->
+                authorize()
+                if (!response.isSuccessful) return@use emptyMap()
+                val body = JSONArray(response.body.string())
+                (0 until body.length()).associate { i ->
+                    val row = body.getJSONObject(i)
+                    row.getString("id") to row.optString("label")
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
     private fun fetchPending(session: SupabaseIdentity.Session,
                              uid: String): JSONArray {
         val url = BuildConfig.SUPABASE_URL + "/rest/v1/ai_training_plans" +
-            "?select=id,title,scheduled_date,scheduled_time_minutes,scheduled_at,scheduled_time_zone,payload" +
+            "?select=id,title,scheduled_date,scheduled_time_minutes,scheduled_at,scheduled_time_zone,created_by_token_id,payload" +
             "&owner_id=eq.$uid&status=eq.pending&order=scheduled_date&limit=200"
         val request = Request.Builder().url(url)
             .header("apikey", BuildConfig.SUPABASE_PUBLISHABLE_KEY)
@@ -117,7 +208,7 @@ internal class AITrainingInbox(
     /** Port de AITrainingInboxStore.sync por plan: dedupe por día, idempotencia
      * por id, ACK atómico status=pending -> applied. */
     private fun importPlan(row: JSONObject, session: SupabaseIdentity.Session,
-                           uid: String, repository: WorkoutRepository) {
+                           uid: String, repository: WorkoutRepository): String {
         authorize()
         val zone = ZoneId.systemDefault()
         val date: LocalDate = run {
@@ -137,25 +228,24 @@ internal class AITrainingInbox(
         if (sameDayOther) {
             throw ImportError("ya existe un entreno para ese día.")
         }
-        // Idempotencia: un sync anterior pudo guardar la rutina y perder el ACK.
-        if (existing.none { it.optString("id") == planId }) {
-            val timeMinutes: Int? = run {
-                val at = row.optString("scheduled_at")
-                if (at.isNotBlank()) {
-                    val local = Instant.parse(at).atZone(zone)
-                    local.hour * 60 + local.minute
-                } else if (row.has("scheduled_time_minutes") &&
-                    !row.isNull("scheduled_time_minutes")) {
-                    row.optInt("scheduled_time_minutes")
-                } else null
-            }
-            authorize()
-            repository.importAiRoutine(planId,
-                RoutineSchedule(scheduledDate=date.toString(),timeMinutes=timeMinutes),
-                stillAuthorized=stillAuthorized) {resolver ->buildRoutine(row,resolver)}
+        // Primera importación o reedición IA de un plan ya importado (mismo id).
+        val timeMinutes: Int? = run {
+            val at = row.optString("scheduled_at")
+            if (at.isNotBlank()) {
+                val local = Instant.parse(at).atZone(zone)
+                local.hour * 60 + local.minute
+            } else if (row.has("scheduled_time_minutes") &&
+                !row.isNull("scheduled_time_minutes")) {
+                row.optInt("scheduled_time_minutes")
+            } else null
         }
         authorize()
+        repository.importAiRoutine(planId,
+            RoutineSchedule(scheduledDate=date.toString(),timeMinutes=timeMinutes),
+            stillAuthorized=stillAuthorized) {resolver ->buildRoutine(row,resolver)}
+        authorize()
         markApplied(session, uid, planId)
+        return date.toString()
     }
 
     private fun parseDay(value: String): LocalDate {

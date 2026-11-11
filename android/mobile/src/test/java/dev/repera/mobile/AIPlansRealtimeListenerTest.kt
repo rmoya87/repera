@@ -18,11 +18,12 @@ class AIPlansRealtimeListenerTest {
         assertEquals("7", message.getString("ref"))
         val payload = message.getJSONObject("payload")
         assertEquals("token-abc", payload.getString("access_token"))
-        val change = payload.getJSONObject("config")
-            .getJSONArray("postgres_changes").getJSONObject(0)
-        assertEquals("INSERT", change.getString("event"))
-        assertEquals("ai_training_plans", change.getString("table"))
-        assertEquals("owner_id=eq.uid-1", change.getString("filter"))
+        val changes = payload.getJSONObject("config").getJSONArray("postgres_changes")
+        assertEquals(2, changes.length())
+        assertEquals("INSERT", changes.getJSONObject(0).getString("event"))
+        assertEquals("UPDATE", changes.getJSONObject(1).getString("event"))
+        assertEquals("ai_training_plans", changes.getJSONObject(0).getString("table"))
+        assertEquals("owner_id=eq.uid-1", changes.getJSONObject(0).getString("filter"))
     }
 
     @Test
@@ -62,11 +63,20 @@ class AIPlansRealtimeListenerTest {
     }
 
     @Test
-    fun updateAndDeleteEventsIgnored() {
+    fun updateOnExpectedTopicTriggers() {
         val update = """{"topic":"$topic","event":"postgres_changes","ref":null,
             "payload":{"ids":[1],"data":{"type":"UPDATE","table":"ai_training_plans",
             "schema":"public","record":{},"old_record":{}}}}"""
-        assertNull(AIPlansRealtimeListener.parseServerEvent(update, topic))
+        assertEquals(AIPlansRealtimeListener.ServerEvent.InsertedPlan,
+            AIPlansRealtimeListener.parseServerEvent(update, topic))
+    }
+
+    @Test
+    fun deleteEventsIgnored() {
+        val delete = """{"topic":"$topic","event":"postgres_changes","ref":null,
+            "payload":{"ids":[1],"data":{"type":"DELETE","table":"ai_training_plans",
+            "schema":"public","record":{},"old_record":{}}}}"""
+        assertNull(AIPlansRealtimeListener.parseServerEvent(delete, topic))
     }
 
     @Test

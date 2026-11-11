@@ -5,7 +5,7 @@ import Supabase
 import SwiftUI
 import UIKit
 
-private struct AIAccessTokenInfo: Decodable, Identifiable {
+private struct AIAccessTokenInfo: Decodable, Identifiable, Hashable {
     let id: UUID
     let label: String
     let tokenPrefix: String
@@ -54,10 +54,22 @@ private struct AIAccessTokenInfo: Decodable, Identifiable {
         }
         return "Caducidad: \(expiresAt.prefix(10))"
     }
+
+    var allowsWrite: Bool { scopes?.contains("training:write") == true }
+    var allowsDelete: Bool { scopes?.contains("training:delete") == true }
+    var permissionSummary: String {
+        var parts = ["Lectura"]
+        if allowsWrite { parts.append("Editar") }
+        if allowsDelete { parts.append("Borrar") }
+        return parts.joined(separator: " · ")
+    }
 }
 private struct AINewTokenResponse: Decodable {
     let token: String
     let label: String
+    let mcpUrl: String?
+    let setupUrl: String?
+    let setupExpiresAt: String?
 }
 private struct AIFunctionError: Decodable {
     let error: String
@@ -157,75 +169,73 @@ private enum AIProviderLaunch {
     static func setupHint(for provider: AIConnectionProvider) -> String {
         switch provider.id {
         case "claude":
-            return "En Claude: Personalizar → Conectores → añadir conector web con los datos de arriba. No hace falta configurar nada en ChatGPT ni Grok."
+            return "En Claude: Personalizar → Conectores → conector remoto con OAuth (cliente propio). La autenticación abre https://repera.app/ai/."
         case "chatgpt":
-            return "En ChatGPT (web): Configuración → Plugins / conectores MCP. Estas instrucciones no sirven en Claude ni Grok."
+            return "En ChatGPT (web): Configuración → conectores MCP con OAuth. La autenticación abre https://repera.app/ai/."
         case "grok":
-            return "En Grok: busca la opción de conectores o servidores MCP remotos si tu cuenta la ofrece. No uses estas instrucciones en Claude ni ChatGPT."
+            return "En Grok / Grok Bot: conectores o plugins MCP si tu cuenta los ofrece. El token se obtiene en https://repera.app/ai/."
         default:
             return "Configura el conector solo dentro de \(provider.name)."
         }
     }
 
-    static func instructions(for provider: AIConnectionProvider) -> String {
+    /// ChatGPT / Claude: OAuth → consentimiento en https://repera.app/ai/ (sin PAT en el chat).
+    static func oauthInstructions(for provider: AIConnectionProvider, clientID: UUID) -> String {
         let name = provider.name
-        let connectorSteps: String
-        if provider.id == "claude", let clientID = provider.claudeClientID {
-            connectorSteps = """
-            En Claude, abre https://claude.ai/customize/connectors y añade un conector personalizado Web con:
-            Nombre: Repera
-            URL del servidor MCP: \(server)
-            Autenticación: OAuth / Iniciar sesión ahora
-            Cliente OAuth: Usar tu propio cliente
-            ID de cliente OAuth: \(clientID.uuidString.lowercased())
-            Secreto: vacío (cliente público PKCE).
-            """
-        } else if provider.id == "chatgpt", let clientID = provider.chatgptClientID {
-            connectorSteps = """
-            En ChatGPT web, abre Configuración → Plugins y crea un servidor MCP personalizado (si está disponible en tu cuenta).
-            Nombre: Repera
-            URL del servidor MCP: \(server)
-            Autenticación: OAuth (cliente definido por el usuario).
-            ID de cliente OAuth público: \(clientID.uuidString.lowercased())
-            Secreto: vacío si ChatGPT admite el cliente público con PKCE.
-            Antes de conectar, comprueba que la URL de retorno exacta que muestra ChatGPT está registrada en Supabase Auth para ese cliente.
-            Si no aparece la opción de crear el conector, indica que esta función no está disponible en mi cuenta; no simules una conexión.
-            """
-        } else if provider.id == "chatgpt" {
-            connectorSteps = """
-            ChatGPT todavía no está habilitado en Repera: falta registrar un cliente OAuth y su URL de retorno exacta en Supabase.
-            No basta con pegar la URL del servidor ni con copiar estas instrucciones.
-            Si puedes crear un servidor MCP personalizado en ChatGPT web, empieza su configuración para obtener la URL de retorno exacta, que debe registrarse en Supabase Auth.
-            Cuando el cliente esté registrado y habilitado en Repera, vuelve a cargar las conexiones de la app para obtener el ID público.
-            URL del servidor MCP: \(server)
-            No inventes un ID de cliente ni pidas tokens o contraseñas.
-            """
-        } else if provider.id == "grok" {
-            connectorSteps = """
-            Comprueba si Grok permite añadir un servidor MCP remoto con autenticación OAuth.
-            Nombre: Repera
-            URL del servidor MCP: \(server)
-            Si Grok no ofrece conectores MCP en tu cuenta o plan, dímelo claramente; no inventes pasos de Claude o ChatGPT.
-            """
-        } else {
-            connectorSteps = """
-            Comprueba si tu versión de \(name) permite añadir un servidor MCP remoto con autenticación OAuth.
-            Nombre: Repera
-            URL del servidor MCP: \(server)
-            Si solicita un ID de cliente, configuración especial o un plan que no tengo, explícamelo sin inventar datos ni dar por realizada la conexión.
-            """
-        }
+        let mcp = publicServer
+        let id = clientID.uuidString.lowercased()
         return """
         Quiero conectar Repera (https://repera.app) solo con \(name) para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía. No menciones ni configures otros asistentes.
 
         Si tienes disponible la herramienta de Repera get_mcp_access_info, ejecútala únicamente para verificar la conexión, sin leer ni modificar mis entrenamientos. Si responde correctamente, confirma la conexión.
 
-        Si no está conectado, indícame cómo configurar un conector MCP remoto en \(name). No basta con leer la web de Repera ni con recibir este mensaje.
-        \(connectorSteps)
+        Si no está conectado, indícame cómo añadir un conector MCP remoto en \(name) con:
+        Nombre: Repera
+        URL del servidor MCP: \(mcp)
+        Autenticación: OAuth
+        Usa tu propio cliente OAuth (no registro automático / CIMD).
+        Client ID: \(id)
+        Client secret: (vacío)
+        La autorización debe abrir https://repera.app/ai/ para que yo inicie sesión en Repera y apruebe el acceso. No me pidas tokens en el chat.
 
-        Debo autorizar el acceso en Repera mediante el flujo oficial de inicio de sesión. No me pidas contraseñas, tokens ni claves privadas en el chat. Si tu aplicación o mi plan no admite conectores MCP remotos, dímelo claramente y no confirmes ninguna conexión.
+        Si tu plan o interfaz no admite OAuth con cliente propio para MCP, dímelo claramente y no confirmes ninguna conexión.
 
         Comprueba el acceso solo con get_mcp_access_info. No crees, borres ni modifiques entrenamientos sin mi solicitud expresa.
+        """
+    }
+
+    /// Grok / Conexión manual: Bearer + enlace de setup en /ai (pide login).
+    static func instructions(for provider: AIConnectionProvider, setupUrl: String) -> String {
+        let name = provider.name
+        let mcp = publicServer
+        return """
+        Quiero conectar Repera (https://repera.app) solo con \(name) para consultar y preparar mis entrenamientos. Ayúdame en español, paso a paso, sin realizar cambios todavía. No menciones ni configures otros asistentes.
+
+        Si tienes disponible la herramienta de Repera get_mcp_access_info, ejecútala únicamente para verificar la conexión, sin leer ni modificar mis entrenamientos. Si responde correctamente, confirma la conexión.
+
+        Si no está conectado, indícame cómo añadir un conector MCP remoto o plugin en \(name) con:
+        Nombre: Repera
+        URL del servidor MCP: \(mcp)
+        Autenticación: token Bearer / API key en el header Authorization.
+
+        El token de un solo uso lo obtengo yo abriendo este enlace (pide autenticación en Repera; válido 15 minutos; no lo pegues en el chat):
+        \(setupUrl)
+        Indícame dónde configurar el token en \(name); no me pidas que lo escriba aquí.
+
+        Si tu aplicación o mi plan no admite conectores MCP / plugins con Bearer, dímelo claramente y no confirmes ninguna conexión.
+
+        Comprueba el acceso solo con get_mcp_access_info. No crees, borres ni modifiques entrenamientos sin mi solicitud expresa.
+        """
+    }
+
+    /// Reabrir chat cuando la conexión ya existe (sin nuevo código de setup).
+    static func reopenInstructions(for provider: AIConnectionProvider) -> String {
+        let name = provider.name
+        return """
+        Ya tengo Repera conectado o pendiente con \(name). Ayúdame en español a comprobar la conexión.
+        Servidor MCP: \(publicServer)
+        Si tienes get_mcp_access_info, ejecútala solo para verificar, sin leer ni modificar entrenamientos.
+        Si hace falta reconfigurar el conector, dime los pasos en \(name) sin pedirme tokens en el chat; generaré un enlace de setup nuevo desde la app Repera.
         """
     }
 }
@@ -242,9 +252,9 @@ struct AIAccessView: View {
     @State private var catalogLoading = true
     @State private var showManualAccess = false
     @State private var launchMessage: String?
-    @State private var disconnectingProvider: AIConnectionProvider?
     /// Instrucciones de un solo asistente (nunca las tres apiladas).
     @State private var instructionsProvider: AIConnectionProvider?
+    @State private var lastInstructionsPrompt: String?
 
     @Environment(BusinessAuthStore.self) private var auth
     @Environment(ReperaStore.self) private var store
@@ -254,7 +264,15 @@ struct AIAccessView: View {
     @State private var tokenName = ""
     @State private var expiry = "90d"
     @State private var canWrite = false
+    @State private var canDelete = false
+    @State private var editingToken: AIAccessTokenInfo?
+    @State private var editLabel = ""
+    @State private var editCanWrite = false
+    @State private var editCanDelete = false
     @State private var createdToken: String?
+    @State private var createdSetupUrl: String?
+    /// Inicio de la ventana de 15 min del sheet «Nuevo token».
+    @State private var createdTokenAt: Date?
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
@@ -266,7 +284,11 @@ struct AIAccessView: View {
 
     var body: some View {
         Form {
-            OGScrollablePageTitle("Conecta tu IA").ogScrollingTitleListRow()
+            // Título en sección propia: row suelto se absorbe en «Elige tu asistente».
+            Section {
+                OGScrollablePageTitle("Conecta tu IA").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             connectionSection
             connectionsSection
 
@@ -363,13 +385,15 @@ struct AIAccessView: View {
             NavigationStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text(AIProviderLaunch.instructions(for: provider))
+                        Text(lastInstructionsPrompt
+                             ?? AIProviderLaunch.reopenInstructions(for: provider))
                             .font(.footnote)
                             .foregroundStyle(OG.label)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Button("Copiar instrucciones") {
-                            UIPasteboard.general.string = AIProviderLaunch.instructions(for: provider)
+                            UIPasteboard.general.string = lastInstructionsPrompt
+                                ?? AIProviderLaunch.reopenInstructions(for: provider)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(OG.accent)
@@ -391,63 +415,14 @@ struct AIAccessView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .confirmationDialog("Desactivar asistente", isPresented: Binding(
-            get: { disconnectingProvider != nil },
-            set: { if !$0 { disconnectingProvider = nil } }
-        )) {
-            if let provider = disconnectingProvider, let token = connectedToken(for: provider) {
-                Button("Desactivar \(provider.name)", role: .destructive) {
-                    disconnectingProvider = nil
-                    Task { await revoke(token) }
-                }
-            }
-            Button("Cancelar", role: .cancel) { disconnectingProvider = nil }
-        } message: {
-            Text("Se revocará el acceso del asistente a tu cuenta de Repera.")
+        .sheet(item: $editingToken) { token in
+            editConnectionSheet(token)
         }
         .sheet(isPresented: Binding(
             get: { createdToken != nil },
-            set: { if !$0 { createdToken = nil } }
+            set: { if !$0 { dismissCreatedToken() } }
         )) {
-            NavigationStack {
-                VStack(alignment: .leading, spacing: 18) {
-                    Label("Token creado", systemImage: "checkmark.shield.fill")
-                        .font(.title2.bold())
-                        .foregroundStyle(.green)
-                    Text("Copia esta clave en la configuración de tu asistente. No la pegues en el chat. Solo se muestra una vez.")
-                    Text(createdToken ?? "")
-                        .font(.footnote.monospaced())
-                        .textSelection(.enabled)
-                        .padding()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
-                    Button {
-                        if let createdToken {
-                            // Explicit copy; expire clipboard data after two minutes.
-                            UIPasteboard.general.setItems(
-                                [["public.utf8-plain-text": createdToken]],
-                                options: [.expirationDate: Date().addingTimeInterval(120)]
-                            )
-                        }
-                    } label: {
-                        Label("Copiar token", systemImage: "doc.on.doc")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Text("Este token permite que quien lo conozca consulte tu historial deportivo y envíe entrenamientos. No lo publiques ni lo compartas en capturas.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(24)
-                .navigationTitle("Nuevo token")
-                .navigationBarTitleDisplayMode(.inline)
-                .ogTransparentNav()
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Cerrar") { createdToken = nil }
-                    }
-                }
-            }
+            createdTokenSheet
         }
         .task {
             // Apple login happens during the regular Repera launch, not here.
@@ -488,19 +463,18 @@ struct AIAccessView: View {
         Section {
             ForEach(Array(providers.enumerated()), id: \.element.id) { index, provider in
                 // Text+tap (no Button): Form no promociona filas sueltas.
-                HStack(spacing: 12) {
+                // Icono + título centrados (no icono a la izquierda).
+                HStack(spacing: 10) {
+                    Spacer(minLength: 0)
                     Image("AILogo" + (provider.id == "chatgpt" ? "Openai" : provider.id == "claude" ? "Claude" : "Grok"))
                         .resizable()
                         .renderingMode(provider.id == "claude" ? .original : .template)
                         .scaledToFit()
                         .frame(width: 22, height: 22)
                         .accessibilityHidden(true)
-                    Spacer(minLength: 0)
-                    Text(connectionVerified(for: provider) ? "Desactivar \(provider.name)" :
-                         provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
+                    Text("Continuar con \(provider.name)")
                         .fontWeight(.semibold)
                     Spacer(minLength: 0)
-                    Color.clear.frame(width: 24, height: 1)
                 }
                 .foregroundStyle(OG.label)
                 .frame(height: 48)
@@ -510,15 +484,10 @@ struct AIAccessView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard auth.isConnected else { return }
-                    if connectionVerified(for: provider) {
-                        disconnectingProvider = provider
-                    } else {
-                        launch(provider)
-                    }
+                    launch(provider)
                 }
                 .accessibilityAddTraits(.isButton)
-                .accessibilityLabel(connectionVerified(for: provider) ? "Desactivar \(provider.name)" :
-                    provider.id == "chatgpt" && !provider.isAvailable ? "Configurar ChatGPT" : "Continuar con \(provider.name)")
+                .accessibilityLabel("Continuar con \(provider.name)")
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(
                     top: index == 0 ? 12 : 3,
@@ -528,16 +497,15 @@ struct AIAccessView: View {
                 ))
             }
             // Cuarto botón dentro de «Elige tu asistente».
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
                 Image(systemName: "key.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .frame(width: 22, height: 22)
                     .accessibilityHidden(true)
-                Spacer(minLength: 0)
                 Text("Conexión manual")
                     .fontWeight(.semibold)
                 Spacer(minLength: 0)
-                Color.clear.frame(width: 24, height: 1)
             }
             .foregroundStyle(OG.label)
             .frame(height: 48)
@@ -562,38 +530,93 @@ struct AIAccessView: View {
         } header: { Text("Elige tu asistente") }
     }
 
-    private func connectionVerified(for provider: AIConnectionProvider) -> Bool {
-        connectedToken(for: provider) != nil
-    }
-
-    private func connectedToken(for provider: AIConnectionProvider) -> AIAccessTokenInfo? {
-        guard let clientID = provider.oauthClientID else { return nil }
-        return tokens.first { $0.oauthClientID == clientID && $0.hasConnected }
-    }
-
     private func launch(_ provider: AIConnectionProvider) {
         ReperaAnalytics.track(.aiConnectionStarted, parameters: [
             "feature_area": "ai",
             "entry_point": provider.id,
             "result": "pending"
         ])
-        // Prompt de un solo asistente — nunca apilar Claude+ChatGPT+Grok.
-        let prompt = AIProviderLaunch.instructions(for: provider)
+        // ChatGPT / Claude: OAuth → /ai. Grok (plugins): Bearer + setup en /ai.
+        // Si ChatGPT aún no tiene client OAuth en catálogo, cae a Bearer temporal.
+        if provider.id == "grok" {
+            Task { await launchWithSetupToken(provider) }
+        } else if let clientID = provider.oauthClientID {
+            Task { await launchWithOAuth(provider, clientID: clientID) }
+        } else {
+            Task { await launchWithSetupToken(provider) }
+        }
+    }
+
+    /// OAuth: abre el chat con client ID; la autenticación ocurre en https://repera.app/ai/.
+    @MainActor
+    private func launchWithOAuth(_ provider: AIConnectionProvider, clientID: UUID) async {
+        guard !isBusy, auth.isConnected else {
+            launchMessage = "Inicia sesión en Repera para conectar \(provider.name)."
+            return
+        }
+        let prompt = AIProviderLaunch.oauthInstructions(for: provider, clientID: clientID)
+        lastInstructionsPrompt = prompt
         UIPasteboard.general.string = prompt
-        if provider.id == "chatgpt", !provider.isAvailable {
-            instructionsProvider = provider
-            launchMessage = "ChatGPT aún no está disponible en Repera: falta su cliente OAuth. Revisa solo las instrucciones de ChatGPT."
-            return
-        }
-        guard AIProviderLaunch.chatURL(for: provider.id, prompt: prompt) != nil else {
-            instructionsProvider = provider
-            launchMessage = "Instrucciones de \(provider.name) listas. Ábrelo y pégalas en su configuración de conectores."
-            return
-        }
-        launchMessage = "Abriendo \(provider.name) con las instrucciones en un chat nuevo (también copiadas)."
+        launchMessage = nil
         openProviderChat(provider, prompt: prompt) {
             instructionsProvider = provider
-            launchMessage = "No se pudo abrir \(provider.name). Las instrucciones de \(provider.name) permanecen copiadas."
+            launchMessage = "No se pudo abrir \(provider.name). Las instrucciones permanecen copiadas."
+        }
+    }
+
+    /// Bearer / plugins: crea PAT y abre el chat con setupUrl (login en /ai/?code=).
+    @MainActor
+    private func launchWithSetupToken(_ provider: AIConnectionProvider) async {
+        guard !isBusy, auth.isConnected, let client = auth.apiClient else {
+            launchMessage = "Inicia sesión en Repera para conectar \(provider.name)."
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+        errorMessage = nil
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { throw AccessError.sessionExpired }
+            let url = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-tokens")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "label": provider.name,
+                "expiry": "90d",
+                "canWrite": false
+            ])
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw AccessError.server }
+            guard (200..<300).contains(http.statusCode) else {
+                let issue = try? JSONDecoder().decode(AIFunctionError.self, from: data)
+                throw AccessError.message(issue?.error ?? "Error HTTP \(http.statusCode)")
+            }
+            let value = try JSONDecoder().decode(AINewTokenResponse.self, from: data)
+            guard auth.apiClient?.auth.currentSession?.user.id == session.user.id else {
+                throw AccessError.sessionExpired
+            }
+            guard let setupUrl = value.setupUrl, !setupUrl.isEmpty else {
+                throw AccessError.message("El servidor no devolvió el enlace de setup.")
+            }
+            await refreshTokens()
+            // Prompt de un solo asistente — nunca apilar Claude+ChatGPT+Grok.
+            let prompt = AIProviderLaunch.instructions(for: provider, setupUrl: setupUrl)
+            lastInstructionsPrompt = prompt
+            UIPasteboard.general.string = prompt
+            guard AIProviderLaunch.chatURL(for: provider.id, prompt: prompt) != nil else {
+                instructionsProvider = provider
+                return
+            }
+            launchMessage = nil
+            openProviderChat(provider, prompt: prompt) {
+                instructionsProvider = provider
+                launchMessage = "No se pudo abrir \(provider.name). Las instrucciones permanecen copiadas."
+            }
+        } catch {
+            errorMessage = "No se pudo preparar la conexión: \(error.localizedDescription)"
+            launchMessage = nil
         }
     }
 
@@ -654,56 +677,47 @@ struct AIAccessView: View {
 
     @ViewBuilder
     private func connectionRow(_ token: AIAccessTokenInfo) -> some View {
-        let openProvider = token.isActive && token.hasConnected && token.oauthClientID != nil
-            ? providers.first(where: { $0.name == token.label })
-            : nil
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(token.label).font(.headline)
-                Spacer()
-                Text(token.isActive ? (token.hasConnected ? "Conectado" : "Pendiente de conexión") : "Desconectado")
+                Text(token.permissionSummary)
                     .font(.caption).foregroundStyle(.secondary)
+                if let lastUse = token.lastUseLabel {
+                    Text(lastUse).font(.caption).foregroundStyle(.secondary)
+                }
+                if token.oauthClientID == nil {
+                    Text(token.expiryLabel).font(.caption).foregroundStyle(.secondary)
+                }
             }
-            Text(token.scopes?.contains("training:write") == true
-                 ? "Puede consultar y preparar entrenamientos" : "Puede consultar tus entrenamientos")
-                .font(.caption).foregroundStyle(.secondary)
-            if let lastUse = token.lastUseLabel {
-                Text(lastUse).font(.caption).foregroundStyle(.secondary)
-            }
-            if token.oauthClientID == nil {
-                Text(token.expiryLabel).font(.caption).foregroundStyle(.secondary)
-            }
-            if token.isActive {
-                HStack {
-                    Text("Desactivar")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, 88)
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(token.isActive
+                     ? (token.hasConnected ? "Conectado" : "Pendiente de conexión")
+                     : "Desconectado")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+                Spacer(minLength: 0)
+                if token.isActive {
+                    Text("Editar")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(OG.accent)
                         .opacity(isBusy ? 0.4 : 1)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard !isBusy else { return }
-                            Task { await revoke(token) }
+                            editLabel = token.label
+                            editCanWrite = token.allowsWrite
+                            editCanDelete = token.allowsDelete
+                            editingToken = token
                         }
                         .accessibilityAddTraits(.isButton)
-                        .accessibilityLabel("Desactivar")
-                    Spacer(minLength: 8)
-                    if let provider = openProvider {
-                        Text("Abrir \(provider.name)")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(OG.accent)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                let prompt = AIProviderLaunch.instructions(for: provider)
-                                UIPasteboard.general.string = prompt
-                                openProviderChat(provider, prompt: prompt) {
-                                    launchMessage = "No se pudo abrir \(provider.name). Instrucciones copiadas."
-                                }
-                            }
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityLabel("Abrir \(provider.name)")
-                    }
+                        .accessibilityLabel("Editar")
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .topTrailing)
         }
         .padding(.vertical, 5)
     }
@@ -712,6 +726,87 @@ struct AIAccessView: View {
         tokenName.trimmingCharacters(in: .whitespacesAndNewlines).count >= 3
             && auth.isConnected
             && !isBusy
+    }
+
+    private var canSaveEdit: Bool {
+        !editLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && auth.isConnected
+            && !isBusy
+    }
+
+    private func editConnectionSheet(_ token: AIAccessTokenInfo) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            OGPageHeader(title: "Editar conexión") {
+                CloseToolbarButton(action: { editingToken = nil }, large: true)
+            }
+            .padding(.top, 4)
+
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Nombre")
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                    TextField("Nombre de la conexión", text: $editLabel)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(OG.label)
+                        .textInputAutocapitalization(.sentences)
+                        .autocorrectionDisabled()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+                Divider().opacity(0.35).padding(.leading, 14)
+
+                Toggle("Lectura", isOn: .constant(true))
+                    .tint(OG.accent)
+                    .disabled(true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                Toggle("Editar", isOn: $editCanWrite)
+                    .tint(OG.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                Toggle("Borrar", isOn: $editCanDelete)
+                    .tint(OG.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+            }
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            Button {
+                Task { await updateConnection(token) }
+            } label: {
+                Text(isBusy ? "Guardando…" : "Guardar")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(canSaveEdit ? OG.onAccent : OG.label2)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(canSaveEdit ? OG.accent : OG.surface2, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSaveEdit)
+
+            Button {
+                Task {
+                    let target = token
+                    editingToken = nil
+                    await deleteConnection(target)
+                }
+            } label: {
+                Text("Borrar conexión")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.red)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .disabled(isBusy)
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .ogFittedSheet()
+        .tint(OG.accent)
     }
 
     private var manualAccessSheet: some View {
@@ -758,10 +853,19 @@ struct AIAccessView: View {
 
                 Divider().opacity(0.35).padding(.leading, 14)
 
-                Toggle("Permitir enviar y editar entrenamientos", isOn: $canWrite)
+                Toggle("Lectura", isOn: .constant(true))
+                    .tint(OG.accent)
+                    .disabled(true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                Toggle("Editar", isOn: $canWrite)
                     .tint(OG.accent)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
+                Toggle("Borrar", isOn: $canDelete)
+                    .tint(OG.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
             }
             .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
 
@@ -914,7 +1018,8 @@ struct AIAccessView: View {
             request.httpBody = try JSONSerialization.data(withJSONObject: [
                 "label": tokenName.trimmingCharacters(in: .whitespacesAndNewlines),
                 "expiry": expiry,
-                "canWrite": canWrite
+                "canWrite": canWrite,
+                "canDelete": canDelete
             ])
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse else { throw AccessError.server }
@@ -927,11 +1032,150 @@ struct AIAccessView: View {
                 throw AccessError.sessionExpired
             }
             createdToken = value.token
+            createdSetupUrl = value.setupUrl
+            createdTokenAt = Date()
             tokenName = ""
+            canWrite = false
+            canDelete = false
             showManualAccess = false
             await refreshTokens()
         } catch {
             errorMessage = "No se pudo crear el token: \(error.localizedDescription)"
+        }
+    }
+
+    private func dismissCreatedToken() {
+        createdToken = nil
+        createdSetupUrl = nil
+        createdTokenAt = nil
+    }
+
+    private var createdTokenSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            OGPageHeader(title: "Nuevo token") {
+                CloseToolbarButton(action: dismissCreatedToken, large: true)
+            }
+            .padding(.top, 4)
+
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let remaining = Self.createdTokenRemaining(
+                    at: context.date,
+                    since: createdTokenAt
+                )
+                Text(Self.formatCountdown(remaining))
+                    .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(remaining > 0 ? OG.label : OG.label2)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("Cuenta atrás \(Self.formatCountdown(remaining))")
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Enlace del MCP")
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+                HStack(spacing: 10) {
+                    Text(AIProviderLaunch.publicServer)
+                        .font(.system(size: 15, weight: .semibold).monospaced())
+                        .foregroundStyle(OG.label)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
+                        .textSelection(.enabled)
+                    Spacer(minLength: 0)
+                    Button {
+                        UIPasteboard.general.setItems(
+                            [["public.utf8-plain-text": AIProviderLaunch.publicServer]],
+                            options: [.expirationDate: Date().addingTimeInterval(120)]
+                        )
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                            .font(.body.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(OG.accent)
+                    .accessibilityLabel("Copiar enlace del MCP")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            Text(createdToken ?? "")
+                .font(.footnote.monospaced())
+                .textSelection(.enabled)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(OG.surface.opacity(0.55), in: RoundedRectangle(cornerRadius: OG.radiusCard, style: .continuous))
+
+            Button {
+                if let createdToken {
+                    UIPasteboard.general.setItems(
+                        [["public.utf8-plain-text": createdToken]],
+                        options: [.expirationDate: Date().addingTimeInterval(120)]
+                    )
+                }
+            } label: {
+                Label("Copiar token", systemImage: "doc.on.doc")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(OG.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(OG.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, OG.pad)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .ogFittedHeight()
+        .ogFittedSheet()
+        .tint(OG.accent)
+    }
+
+    private static let createdTokenWindow: TimeInterval = 15 * 60
+
+    private static func createdTokenRemaining(at now: Date, since start: Date?) -> TimeInterval {
+        guard let start else { return 0 }
+        return max(0, createdTokenWindow - now.timeIntervalSince(start))
+    }
+
+    private static func formatCountdown(_ remaining: TimeInterval) -> String {
+        let total = Int(remaining.rounded(.down))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
+    @MainActor
+    private func updateConnection(_ token: AIAccessTokenInfo) async {
+        guard canSaveEdit, let client = auth.apiClient else { return }
+        isBusy = true
+        defer { isBusy = false }
+        errorMessage = nil
+        successMessage = nil
+        do {
+            let session = try await client.auth.session
+            guard !session.isExpired else { throw AccessError.sessionExpired }
+            let url = URL(string: "https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-ai-tokens")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "PATCH"
+            request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "id": token.id.uuidString,
+                "label": editLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+                "canRead": true,
+                "canWrite": editCanWrite,
+                "canDelete": editCanDelete
+            ])
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { throw AccessError.server }
+            guard (200..<300).contains(http.statusCode) else {
+                let issue = try? JSONDecoder().decode(AIFunctionError.self, from: data)
+                throw AccessError.message(issue?.error ?? "Error HTTP \(http.statusCode)")
+            }
+            editingToken = nil
+            successMessage = "Conexión actualizada."
+            await refreshTokens()
+        } catch {
+            errorMessage = "No se pudo actualizar: \(error.localizedDescription)"
         }
     }
 

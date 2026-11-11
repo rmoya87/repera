@@ -271,6 +271,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         syncAITrainingContext()
         refreshSharing()
         refreshAIPrograms()
+        refreshAIAccess()
     }
 
     /** Reanuda la sincronización diferida cuando el entreno activo termina
@@ -385,10 +386,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
 
     // ---- Acceso IA (port AIAccessView): tokens + cambios + bandeja ----
     private var aiTokens by mutableStateOf<List<AIAccessStore.TokenInfo>?>(null)
+    /** Filas ocultas tras swipe hasta que el remoto confirma (paridad iOS). */
+    private var aiHiddenConnectionIds by mutableStateOf<Set<String>>(emptySet())
     private var aiBusy by mutableStateOf(false)
     private var aiError by mutableStateOf<String?>(null)
     private var aiSuccess by mutableStateOf<String?>(null)
     private var aiCreatedToken by mutableStateOf<String?>(null)
+    private var aiCreatedSetupUrl by mutableStateOf<String?>(null)
     private var aiChanges by mutableStateOf<List<AIChangeRequestStore.Change>>(
         emptyList())
     private var aiChangeBusy by mutableStateOf(false)
@@ -400,9 +404,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         aiPrograms = null; aiProgramsLoading = false
         aiProgramsUpdatingId = null; aiProgramsError = null
         sharingByCenter = emptyMap(); sharingUpdating = false
-        aiTokens = null; aiBusy = false; aiError = null; aiSuccess = null
-        aiCreatedToken = null; aiChanges = emptyList(); aiChangeBusy = false
+        aiTokens = null; aiHiddenConnectionIds = emptySet()
+        aiBusy = false; aiError = null; aiSuccess = null
+        aiCreatedToken = null; aiCreatedSetupUrl = null
+        aiChanges = emptyList(); aiChangeBusy = false
         aiChangeError = null; aiInboxPending = 0; aiInboxConflicts = emptyList()
+        AIChangeNotification.clearNotified(this)
     }
 
     private fun refreshAIAccess() {
@@ -422,20 +429,73 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             if(!current()) return@launch
             when (val tokens = result.first) {
                 is AIAccessStore.LoadResult.Loaded -> {
-                    aiTokens = tokens.tokens; aiError = null
+                    val remoteIds = tokens.tokens.map { it.id }.toSet()
+                    aiHiddenConnectionIds =
+                        aiHiddenConnectionIds.filter { it in remoteIds }.toSet()
+                    aiTokens = tokens.tokens.filter {
+                        it.id !in aiHiddenConnectionIds
+                    }
+                    aiError = null
                 }
                 is AIAccessStore.LoadResult.Failed -> aiError = tokens.message
             }
             when (val changes = result.second) {
-                is AIChangeRequestStore.RefreshResult.Loaded ->
+                is AIChangeRequestStore.RefreshResult.Loaded -> {
                     aiChanges = changes.pending
+                    notifyAIPendingChanges(changes.pending, uniqueId)
+                }
                 is AIChangeRequestStore.RefreshResult.Failed ->
                     aiChangeError = changes.message
             }
         }
     }
 
-    private fun createAIToken(label: String, expiry: String, canWrite: Boolean) {
+    private fun notifyAIPendingChanges(
+        pending: List<AIChangeRequestStore.Change>,
+        uniqueId: String
+    ) {
+        val labels = pending.mapNotNull { it.tokenId }.distinct().associateWith { id ->
+            aiTokens?.firstOrNull { it.id == id }?.label
+        }
+        val overview = runCatching {
+            LocalSnapshotStore(this, uniqueId).read()?.let {
+                JSONObject(String(it, Charsets.UTF_8))
+            }
+        }.getOrNull()
+        val workouts = overview?.optJSONArray("workouts")
+        for (change in pending) {
+            if (change.operation != "update_workout" &&
+                change.operation != "delete_workout") continue
+            val workout = change.targetId?.let { id ->
+                (0 until (workouts?.length() ?: 0)).mapNotNull { i ->
+                    workouts?.optJSONObject(i)
+                }.firstOrNull { it.optString("id") == id }
+            }
+            val day = workout?.let { row ->
+                val finished = row.optString("finishedAt").ifBlank { null }
+                val started = row.optString("startedAt").ifBlank { null }
+                val raw = finished ?: started ?: return@let null
+                runCatching {
+                    java.time.Instant.parse(raw)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                        .toString()
+                }.getOrNull()
+            }
+            AIChangeNotification.notifyPendingChange(
+                context = this,
+                changeId = change.id,
+                operation = change.operation,
+                workoutTitle = change.payload.optString("workoutTitle").ifBlank { null },
+                workoutId = change.targetId,
+                day = day,
+                connectionName = change.tokenId?.let { labels[it] },
+                setChangeCount = change.payload.optJSONArray("setChanges")?.length() ?: 0
+            )
+        }
+    }
+
+    private fun createAIToken(label: String, expiry: String, canWrite: Boolean, canDelete: Boolean) {
         val session = verifiedSupabase ?: return
         val owner=profile?.uniqueId ?: return
         val revision=centerGate.revision
@@ -445,16 +505,101 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         aiBusy = true; aiError = null; aiSuccess = null
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
-                AIAccessStore(stillAuthorized=authorized).create(session, label, expiry, canWrite)
+                AIAccessStore(stillAuthorized=authorized)
+                    .create(session, label, expiry, canWrite, canDelete)
             }
             if(!current()) return@launch
             when (result) {
                 is AIAccessStore.CreateResult.Created -> {
                     // El plano solo vive en este estado hasta cerrar el diálogo.
                     aiCreatedToken = result.token
+                    aiCreatedSetupUrl = result.setupUrl
                     refreshAIAccess()
                 }
                 is AIAccessStore.CreateResult.Failed -> aiError = result.message
+            }
+            aiBusy = false
+        }
+    }
+
+    /**
+     * Continuar: ChatGPT/Claude con client OAuth → prompt OAuth (/ai);
+     * Grok o sin client → PAT + setupUrl (plugins / Bearer).
+     */
+    private fun continueAIProvider(provider: AIAccessStore.AIProvider) {
+        val session = verifiedSupabase ?: return
+        val owner = profile?.uniqueId ?: return
+        val revision = centerGate.revision
+        val authorized = accountWorkGuard(owner, session.userId)
+        fun current() = authorized() && profile?.uniqueId == owner && centerGate.revision == revision
+        if (aiBusy) return
+        aiBusy = true; aiError = null; aiSuccess = null
+        val oauthClientID = provider.oauthClientID
+        if (provider.id != "grok" && !oauthClientID.isNullOrBlank()) {
+            val prompt = AIProviderLaunch.oauthInstructions(provider, oauthClientID)
+            copyAiPromptToClipboard(this@MainActivity, prompt)
+            val opened = AIProviderLaunch.openProvider(this@MainActivity, provider.id, prompt)
+            aiBusy = false
+            if (!opened) {
+                aiError = "No se pudo abrir ${provider.name}. Las instrucciones permanecen copiadas."
+            }
+            return
+        }
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AIAccessStore(stillAuthorized = authorized)
+                    .create(session, provider.name, "90d", false)
+            }
+            if (!current()) return@launch
+            when (result) {
+                is AIAccessStore.CreateResult.Created -> {
+                    refreshAIAccess()
+                    val setupUrl = result.setupUrl
+                    if (setupUrl.isNullOrBlank()) {
+                        aiError = "El servidor no devolvió el enlace de setup."
+                    } else {
+                        val prompt = AIProviderLaunch.instructions(provider, setupUrl)
+                        copyAiPromptToClipboard(this@MainActivity, prompt)
+                        val opened = AIProviderLaunch.openProvider(
+                            this@MainActivity, provider.id, prompt
+                        )
+                        aiSuccess = null
+                        if (!opened) {
+                            aiError = "No se pudo abrir ${provider.name}. Las instrucciones permanecen copiadas."
+                        }
+                    }
+                }
+                is AIAccessStore.CreateResult.Failed -> aiError = result.message
+            }
+            aiBusy = false
+        }
+    }
+
+    private fun updateAIToken(
+        token: AIAccessStore.TokenInfo,
+        label: String,
+        canWrite: Boolean,
+        canDelete: Boolean
+    ) {
+        val session = verifiedSupabase ?: return
+        val owner = profile?.uniqueId ?: return
+        val revision = centerGate.revision
+        val authorized = accountWorkGuard(owner, session.userId)
+        fun current() = authorized() && profile?.uniqueId == owner && centerGate.revision == revision
+        if (aiBusy) return
+        aiBusy = true; aiError = null; aiSuccess = null
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                AIAccessStore(stillAuthorized = authorized)
+                    .update(session, token.id, label, canWrite, canDelete)
+            }
+            if (!current()) return@launch
+            when (result) {
+                is AIAccessStore.UpdateResult.Updated -> {
+                    aiSuccess = "Conexión actualizada."
+                    refreshAIAccess()
+                }
+                is AIAccessStore.UpdateResult.Failed -> aiError = result.message
             }
             aiBusy = false
         }
@@ -490,6 +635,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         fun current() = authorized() && profile?.uniqueId == owner && centerGate.revision == revision
         if (aiBusy) return
         aiBusy = true; aiError = null; aiSuccess = null
+        // Quitar ya la fila (paridad iOS hiddenConnectionIDs) para que el swipe
+        // no deje basura ni espere a la red antes de reordenar la lista.
+        aiHiddenConnectionIds = aiHiddenConnectionIds + token.id
+        aiTokens = aiTokens?.filter { it.id != token.id }
         lifecycleScope.launch {
             val failure = withContext(Dispatchers.IO) {
                 AIAccessStore(stillAuthorized = authorized).deleteConnection(session, token)
@@ -497,8 +646,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             if (!current()) return@launch
             if (failure == null) {
                 aiSuccess = "Conexión eliminada."
-                refreshAIAccess()
-            } else aiError = failure
+            } else {
+                // La fila ya no se muestra; el acceso queda revocado si el fallback lo logró.
+                aiSuccess = "Conexión quitada de la lista."
+            }
+            refreshAIAccess()
             aiBusy = false
         }
     }
@@ -795,6 +947,16 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 }
             }.getOrDefault(false)
             return if (saved) "historial-editar/" + Uri.encode(workoutID) else "inicio"
+        }
+        if (uri.host == "ai-change") {
+            val sessions = SessionStore(this)
+            val owner = sessions.load()?.uniqueId
+            val overview = owner?.let { id ->
+                runCatching {
+                    LocalSnapshotStore(this, id).read()?.let { JSONObject(String(it, Charsets.UTF_8)) }
+                }.getOrNull()
+            }
+            return AIChangeNotification.routeFromUri(uri, overview)
         }
         if(intent.hasExtra("plannedSession")) {
             val sessions=SessionStore(this)
@@ -1217,6 +1379,7 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 aiError = aiError,
                 aiSuccess = aiSuccess,
                 aiCreatedToken = aiCreatedToken,
+                aiCreatedSetupUrl = aiCreatedSetupUrl,
                 aiChanges = aiChanges,
                 aiChangeBusy = aiChangeBusy,
                 aiChangeError = aiChangeError,
@@ -1224,10 +1387,12 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 aiInboxConflicts = aiInboxConflicts,
                 onAIRefresh = ::refreshAIAccess,
                 onAICreate = ::createAIToken,
+                onAIContinueProvider = ::continueAIProvider,
+                onAIUpdate = ::updateAIToken,
                 onAIRevoke = ::revokeAIToken,
                 onAIDelete = ::deleteAIToken,
                 onAIDecide = ::decideAIChange,
-                onAIDismissCreated = { aiCreatedToken = null },
+                onAIDismissCreated = { aiCreatedToken = null; aiCreatedSetupUrl = null },
                 onAICopyCreated = ::copyCreatedAIToken,
                 onPlayWod={id,request,done ->runWorkoutAction(onSuccess={beginLocationCapture();done()}) {
                     startWodTemplate(id,request,subscriptions.decision(dev.repera.domain.monetization.ReperaFeature.ADVANCED_STRENGTH_PROGRESSION).allowed)
@@ -2134,7 +2299,15 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                         "result" to "success"
                     )
                 )
-                status = "Plan de IA aplicado: " + (result.lastImportedTitle ?: "entreno")
+                for (plan in result.importedPlans) {
+                    AIChangeNotification.notifyCreate(
+                        this@MainActivity,
+                        plan.id,
+                        plan.title,
+                        plan.day,
+                        plan.connectionName
+                    )
+                }
                 reloadFor(uniqueId)
             }
         }

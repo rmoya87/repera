@@ -52,7 +52,10 @@ class OnboardingPrivacyLoginContractTests(unittest.TestCase):
             SETTINGS_IOS,
         )
         self.assertIn("tabInset + 32.dp", SETTINGS_ANDROID)
-        self.assertIn(".font(.body.weight(.semibold).monospaced())", AI_IOS)
+        self.assertIn(
+            ".font(.system(size: 15, weight: .semibold).monospaced())",
+            AI_IOS,
+        )
         self.assertIn("typography.titleMedium", AI_ANDROID)
         self.assertIn("ProxyPass        /mcp", HTACCESS)
 

@@ -24,6 +24,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         (directory / "AITrainingContextStore.swift").write_text("// AI context", encoding="utf-8")
         (directory / "AITrainingProgramsView.swift").write_text("// AI programs", encoding="utf-8")
         (directory / "AIChangeRequestStore.swift").write_text("// AI change store", encoding="utf-8")
+        (directory / "AIChangeNotifier.swift").write_text("// AI native notifications", encoding="utf-8")
         (directory / "RemoteExerciseCatalogStore.swift").write_text("// Catalog feed", encoding="utf-8")
         (directory / "RemoteExerciseArtCache.swift").write_text("// Remote art cache", encoding="utf-8")
         (directory / "LiveActivityView.swift").write_text("// En vivo", encoding="utf-8")
@@ -87,7 +88,8 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "BusinessDataStore.swift", "BusinessWorkoutSyncStore.swift",
             "AITrainingInboxStore.swift", "AIAccessView.swift",
             "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
-            "AIChangeRequestStore.swift", "RemoteExerciseCatalogStore.swift",
+            "AIChangeRequestStore.swift", "AIChangeNotifier.swift",
+            "RemoteExerciseCatalogStore.swift",
             "RemoteExerciseArtCache.swift",
             "LiveActivityView.swift", "LiveActivityLocationName.swift",
             "WorkoutLiveActivityCoordinator.swift",
@@ -128,6 +130,7 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             "AITrainingContextStore.swift in Sources\n"
             "AITrainingProgramsView.swift in Sources\n"
             "AIChangeRequestStore.swift in Sources\n"
+            "AIChangeNotifier.swift in Sources\n"
             # Minimal XcodeGen PBXNativeTarget plus PBXSourcesBuildPhase.
             "AAAAAAAAAAAAAAAAAAAAAAAA /* ReperaWatch */ = {\n"
             "  isa = PBXNativeTarget;\n"
@@ -178,8 +181,12 @@ class XcodeSourceMembershipTests(unittest.TestCase):
         self.assertIn("private var appWindowContent: some View", app)
         self.assertIn("@ViewBuilder\n    private var launchRootView: some View", app)
         self.assertIn(".environment(store)", app)
-        self.assertIn(".overlay(alignment: .top)", app)
-        self.assertIn("if subscriptions.paywall.isPresented && onboarding.isComplete", app)
+        # AI arrivals use native UNUserNotification / AIChangeNotifier, not a
+        # floating SwiftUI banner on the WindowGroup root.
+        self.assertNotIn(".overlay(alignment: .top)", app)
+        self.assertNotIn("Entrenamiento de IA recibido", app)
+        self.assertIn("PaywallRootOverlay", app)
+        self.assertIn("subscriptions.paywall.isPresented && onboarding.isComplete", app)
         self.assertNotIn(".sheet(isPresented:", app)
 
     def test_settings_avatar_picker_does_not_capture_a_non_sendable_view(self):
@@ -189,8 +196,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             / "Apps/Repera/Sources/SettingsView.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("isPhotoPickerPresented = true", settings)
-        self.assertIn(".photosPicker(\n                        isPresented: $isPhotoPickerPresented,", settings)
-        self.assertIn("iCloudAvatarBadge\n                                .frame(width: 52, height: 52)", settings)
+        self.assertIn(".photosPicker(", settings)
+        self.assertIn("isPresented: $isPhotoPickerPresented,", settings)
+        self.assertIn("iCloudAvatarBadge", settings)
+        self.assertIn(".frame(width: 52, height: 52)", settings)
         self.assertNotIn("let avatarBadge = iCloudAvatarBadge", settings)
         self.assertNotIn("PhotosPicker(selection: $photoItem", settings)
         self.assertIn(".onChange(of: photoItem)", settings)
@@ -390,7 +399,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             validate(self.root)
 
     def test_stale_coaching_target_is_rejected(self):
-        for name in ("AITrainingContextStore.swift", "AITrainingProgramsView.swift", "AIChangeRequestStore.swift"):
+        for name in (
+            "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
+            "AIChangeRequestStore.swift", "AIChangeNotifier.swift",
+        ):
             original = self.pbx.read_text(encoding="utf-8")
             self.pbx.write_text(original.replace(f"{name} in Sources", ""), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, name):
@@ -398,7 +410,10 @@ class XcodeSourceMembershipTests(unittest.TestCase):
             self.pbx.write_text(original, encoding="utf-8")
 
     def test_missing_coaching_source_requires_checkout_update(self):
-        for name in ("AITrainingContextStore.swift", "AITrainingProgramsView.swift", "AIChangeRequestStore.swift"):
+        for name in (
+            "AITrainingContextStore.swift", "AITrainingProgramsView.swift",
+            "AIChangeRequestStore.swift", "AIChangeNotifier.swift",
+        ):
             path = self.root / "Apps/Repera/Sources" / name
             original = path.read_text(encoding="utf-8")
             path.unlink()

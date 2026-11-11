@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-11 (Watch/Wear controles 2×2 iconos + métricas valor|etiqueta).
+Última actualización: 2026-11-11 (IA Android: sheet manual fitted + swipe delete optimista).
 
 ## Icono de inicio en modo noche (11/11/2026)
 
@@ -104,8 +104,7 @@ En iPhone, Android y Wear, el icono de la pantalla de inicio mantiene la misma m
 
 - **iOS y Android:** la pestaña central «+» (Clases/Centro) solo aparece cuando existe al menos una vinculación de cliente activa con un entrenador personal o gimnasio, verificada en el estado cargado de Supabase. Las invitaciones pendientes y los perfiles profesionales sin ficha de cliente no la muestran. Inicio, Comenzar, Progreso y Ejercicios siguen visibles sin huecos vacíos.
 - Al desvincularse del último centro estando en «+», la navegación vuelve a Inicio. Ajustes → Buscar sigue siempre accesible para vincular un centro nuevo; no se necesita plan Pro ni bono para visualizar esa búsqueda.
-- **iOS, Ajustes → Buscar:** el título grande está en un contenedor independiente de `List`, evitando el recorte de su parte inferior. Se mantiene su margen horizontal y una sola separación superior; el listado elimina el margen superior adicional de scroll. El aviso «Busca tu entrenador o centro» deja de tener una caja gris dentro de la fila blanca.
-- **Revisión de otras cabeceras:** se han localizado las mismas filas de título en Ajustes, Rotación, Objetivos, Historial, biblioteca y otras subpáginas. Se conserva su layout hasta comprobar si reproducen el recorte, para no añadir márgenes duplicados en pantallas que no presentan el fallo.
+- **iOS títulos:** Ajustes / Rotación / Objetivos llevan el large title **dentro** del Form (scroll con el contenido) con `ogScrollingTitleSection` (márgenes 0, sin caja redondeada que corte la «A»). Buscar sigue con título fuera del List. Conecta tu IA / Historial: `ogScrollingTitleListRow` en Section. El aviso «Busca tu entrenador o centro» no lleva caja gris dentro de la fila blanca.
 - **Verificación:** contrato `tests/test_center_link_navigation_contract.py` y test Android `ReperaTabIconsTest.plusTabOnlyExistsWithActiveCenterLink`. La revisión visual en simuladores/dispositivos sigue pendiente.
 
 
@@ -717,12 +716,13 @@ Implementación, permisos, pruebas y límites de iOS: [GPS_TRACKING.md](GPS_TRAC
 
 ### Acceso IA y planes entrantes (iOS 27)
 
-- **Ajustes → Conecta tu IA (10/11/2026):** caja **Elige tu asistente** con ChatGPT / Claude / Grok + **Conexión manual** (4.º botón; sin copy «Usa tu asistente…»). Continuar abre chat con `?q=`. Manual = sheet: URL `https://repera.app/mcp` + copiar tras el toggle de escritura; **Crear token** gris hasta ≥3 letras. Mis conexiones: **Desactivar** izq. / **Abrir …** der.; swipe → Edge `delete`. Contrato: `tests/test_ai_provider_launch_contract.py`.
+- **Ajustes → Conecta tu IA (11/11/2026):** ChatGPT / Claude / Grok + **Conexión manual**. **Continuar** con ChatGPT/Claude (client OAuth en catálogo): prompt OAuth → login en `https://repera.app/ai/` (sin PAT en el chat). Grok o sin client: PAT + setup `/ai/?code=` (plugins). Manual = PAT. Sheet **Nuevo token**: X, cuenta atrás 15 min, «Enlace del MCP» `https://repera.app/mcp`, token + copiar; Android `ReperaModalBottomSheet` (abajo, `skipPartiallyExpanded` = alto del contenido, paridad `ogFittedSheet`); sin textos largos ni enlace de setup. Mis conexiones → Editar; Android card agrupada; swipe borrar quita la fila al instante (`aiHiddenConnectionIds` + `animateContentSize`, paridad iOS). Contratos: `tests/test_ai_provider_launch_contract.py`, `tests/test_ai_token_least_privilege_contract.py`, `tests/test_ai_setup_code_contract.py`.
 - **Ajustes Android · FC máxima (10/11/2026):** valor entre botones − y +; guardado optimista sin `busy` global (`persistTrainingSettings`) para no bloquear el resto de Ajustes. Contrato: `tests/test_android_hr_max_settings_contract.py`.
 - **Editar entreno (revisar/descartar):** el ✓ de confirmar usa `borderedProminent` + verde Repera (check blanco de día / negro de noche); Liquid Glass de la toolbar ya no deja un círculo transparente.
 - **Apple Watch Resultado:** un fallo al escribir la muestra opcional de distancia GPS en Salud **no** muestra aviso naranja; la distancia sigue en Repera y la sesión/kcal/FC no se abortan.
-- La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio y Diario** actualicen sus rutinas en primer plano mediante Supabase Realtime, con aviso temporal de llegada. No se sobrescribe un plan personal ya asociado a ese día.
-- La app recupera automáticamente iCloud, Supabase e Inbox IA sin intervención del usuario. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. No hay notificaciones APNs en segundo plano en esta versión.
+- La IA que guarda un entrenamiento en `ai_training_plans` hace que **Inicio** actualice la rutina en primer plano (Realtime iOS / sync Android). En lugar del banner flotante in-app, se publica una **notificación nativa del sistema** con el **nombre de la conexión** (label del token; fallback «Tu asistente»). Tocarla abre el entreno concreto (rutina del día).
+- Si la IA propone **corregir** o **eliminar** un histórico (`ai_athlete_change_requests`), también salta una push nativa local. Corregir → detalle del entreno; eliminar → detalle si sigue existiendo, o **Inicio en ese día** si ya no está. La confirmación/rechazo sigue en Conecta tu IA. Contrato: `tests/test_ai_change_notification_contract.py`.
+- La app recupera automáticamente iCloud, Supabase e Inbox IA sin intervención del usuario. Al volver de segundo plano se recuperan cambios perdidos aunque Realtime se haya desconectado. Las alertas de IA son notificaciones **locales** al detectar el cambio (no APNs remotas con la app terminada).
 
 
 ### Coach IA · planificación deportiva de 1 a 52 semanas
@@ -754,7 +754,7 @@ Supabase dispone de 189 fichas enriquecidas desde el catálogo nativo de Repera:
 - **Cuenta**: foto editable tocando el avatar con sello Apple abajo a la derecha; nombre y «Sesión iniciada · email» a la derecha. No hay sincronización manual visible: los cambios llegan sin mostrar indicadores o subtítulos de transporte. Quitados controles separados de cambiar/quitar foto y leyenda descriptiva bajo Salud.
 - **Compras**: StoreKit 2 es el proveedor iOS; paywall propio. Si App Store Connect no devuelve ofertas, mostrar indisponibilidad y reintento. Una compra real requiere IDs vigentes en ASC y pruebas sandbox/TestFlight.
 - **Scan**: mantiene varios tramos de un mismo For Time, cap global, intervalos, descansos entre rondas y A/B con cinco rondas. Series de Squat Snatch al 70/75/>80% quedan como prescripción porcentual y notas; no se derivan kg sin referencia de 1RM. Nuevos movimientos: Carrera, Dominadas lastradas, Remo pliométrico en anillas pies elevados, Step-up al cajón con kettlebell goblet.
-- **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. No reemplaza un entrenamiento ya importado al dispositivo y añade soporte OAuth gestionado ya desplegado, conexión personalizada de Claude y publicación de ChatGPT todavía pendiente.
+- **MCP**: herramientas de editar, archivar y restaurar propuestas/programas con versión y control de propietario. PAT con permisos de lectura/escritura, paginación y schemas estrictos. `update_ai_training_plan` / `archive_ai_training_plan` actúan sobre pendientes **y** planes ya importados (la app sustituye o borra la rutina local con el mismo UUID). **No** se puede archivar si hay un entrenamiento ya registrado (espejo con `routineId`). No reescribe historial completado. OAuth gestionado desplegado; ChatGPT en directorio todavía pendiente.
 
 
 ### MCP: corrección de entrenamientos, CRUD personalizado y horarios internacionales

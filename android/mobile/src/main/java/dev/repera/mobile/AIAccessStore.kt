@@ -62,6 +62,15 @@ class AIAccessStore(
             }
         val canWrite: Boolean
             get() = scopes?.contains("training:write") == true
+        val canDelete: Boolean
+            get() = scopes?.contains("training:delete") == true
+        val permissionSummary: String
+            get() {
+                val parts = mutableListOf("Lectura")
+                if (canWrite) parts += "Editar"
+                if (canDelete) parts += "Borrar"
+                return parts.joinToString(" · ")
+            }
     }
 
     sealed class LoadResult {
@@ -70,7 +79,12 @@ class AIAccessStore(
     }
 
     sealed class CreateResult {
-        data class Created(val token: String, val label: String) : CreateResult()
+        data class Created(
+            val token: String,
+            val label: String,
+            val setupUrl: String?,
+            val mcpUrl: String?
+        ) : CreateResult()
         data class Failed(val message: String) : CreateResult()
     }
 
@@ -113,12 +127,14 @@ class AIAccessStore(
     }
 
     fun create(session: SupabaseIdentity.Session,
-               label: String, expiry: String, canWrite: Boolean): CreateResult {
+               label: String, expiry: String, canWrite: Boolean,
+               canDelete: Boolean = false): CreateResult {
         val url = BuildConfig.SUPABASE_URL + "/functions/v1/repera-ai-tokens"
         val payload = JSONObject()
             .put("label", label.trim())
             .put("expiry", expiry)
             .put("canWrite", canWrite)
+            .put("canDelete", canDelete)
         val request = Request.Builder().url(url)
             .header("Authorization", "Bearer " + session.accessToken)
             .header("Content-Type", "application/json")
@@ -135,11 +151,60 @@ class AIAccessStore(
                         else "Error HTTP " + response.code)
                 }
                 val value = JSONObject(body)
-                CreateResult.Created(value.getString("token"), value.optString("label"))
+                CreateResult.Created(
+                    token = value.getString("token"),
+                    label = value.optString("label"),
+                    setupUrl = value.optString("setupUrl").takeIf { it.isNotBlank() },
+                    mcpUrl = value.optString("mcpUrl").takeIf { it.isNotBlank() }
+                )
             }
         } catch (error: Exception) {
             CreateResult.Failed("No se pudo crear el token: " +
                 (error.localizedMessage ?: ""))
+        }
+    }
+
+    sealed class UpdateResult {
+        data object Updated : UpdateResult()
+        data class Failed(val message: String) : UpdateResult()
+    }
+
+    fun update(
+        session: SupabaseIdentity.Session,
+        tokenId: String,
+        label: String,
+        canWrite: Boolean,
+        canDelete: Boolean
+    ): UpdateResult {
+        val url = BuildConfig.SUPABASE_URL + "/functions/v1/repera-ai-tokens"
+        val payload = JSONObject()
+            .put("id", tokenId)
+            .put("label", label.trim())
+            .put("canRead", true)
+            .put("canWrite", canWrite)
+            .put("canDelete", canDelete)
+        val request = Request.Builder().url(url)
+            .header("Authorization", "Bearer " + session.accessToken)
+            .header("Content-Type", "application/json")
+            .patch(payload.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+        return try {
+            executeAuthorized(request).use { response ->
+                val body = response.body.string().orEmpty()
+                authorize()
+                if (response.code !in 200..299) {
+                    val issue = runCatching { JSONObject(body).optString("error") }
+                        .getOrDefault("")
+                    return UpdateResult.Failed(
+                        if (issue.isNotBlank()) issue else "Error HTTP " + response.code
+                    )
+                }
+                UpdateResult.Updated
+            }
+        } catch (error: Exception) {
+            UpdateResult.Failed(
+                "No se pudo actualizar: " + (error.localizedMessage ?: "")
+            )
         }
     }
 

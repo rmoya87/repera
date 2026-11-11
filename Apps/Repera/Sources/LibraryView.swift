@@ -396,7 +396,10 @@ struct LibraryView: View {
 
     private var wodsList: some View {
         List {
-            OGScrollablePageTitle("WODs").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("WODs").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             ForEach(filteredWODTemplates) { template in
                 NavigationLink(value: template.id) {
                     HStack(alignment: .top, spacing: 12) {
@@ -479,7 +482,10 @@ struct LibraryView: View {
     /// Página push (no sheet): mismo patrón que el resto de subpáginas de Ejercicios.
     private var addExercisePage: some View {
         Form {
-            OGScrollablePageTitle("Nuevo ejercicio").ogScrollingTitleListRow()
+            Section {
+                OGScrollablePageTitle("Nuevo ejercicio").ogScrollingTitleListRow()
+            }
+            .listSectionSpacing(0)
             Section("Básico") {
                 TextField("Nombre", text: $name)
                 Picker("Grupo muscular", selection: $muscle) {

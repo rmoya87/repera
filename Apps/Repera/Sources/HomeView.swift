@@ -549,6 +549,33 @@ struct HomeView: View {
                     rebuildWeekChrome()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(
+                for: AIChangeNotifier.openWorkoutEvent
+            )) { note in
+                guard let id = (note.object as? UUID) ?? AIChangeNotifier.takePendingWorkout(),
+                      store.state.workouts.contains(where: { $0.id == id }) else { return }
+                UserDefaults.standard.removeObject(forKey: AIChangeNotifier.pendingWorkoutKey)
+                openWorkoutId = id
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: AIChangeNotifier.openRoutineEvent
+            )) { note in
+                guard let id = (note.object as? UUID) ?? AIChangeNotifier.takePendingRoutine(),
+                      let routine = store.state.routines.first(where: { $0.id == id })
+                else { return }
+                UserDefaults.standard.removeObject(forKey: AIChangeNotifier.pendingRoutineKey)
+                editingOwnRoutine = routine
+            }
+            .task(id: store.isHydrated) {
+                guard store.isHydrated else { return }
+                if let id = AIChangeNotifier.takePendingWorkout(),
+                   store.state.workouts.contains(where: { $0.id == id }) {
+                    openWorkoutId = id
+                } else if let id = AIChangeNotifier.takePendingRoutine(),
+                          let routine = store.state.routines.first(where: { $0.id == id }) {
+                    editingOwnRoutine = routine
+                }
+            }
             .onChange(of: selectedDay) { _, newDay in
                 // Al elegir un cuadrado, el progreso semanal sigue esa fecha.
                 let newOffset = weekOffset(for: newDay)

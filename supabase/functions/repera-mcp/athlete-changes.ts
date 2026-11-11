@@ -31,7 +31,7 @@ const exercise=z.strictObject({
 type Change="update_workout"|"delete_workout"|"create_exercise"|"update_exercise"|"delete_exercise";
 
 export function registerAthleteChangeTools(
-  server:McpServer, db:SupabaseClient, ownerId:string,tokenId:string,canWrite:boolean,
+  server:McpServer, db:SupabaseClient, ownerId:string,tokenId:string,canWrite:boolean,canDelete=false,
 ) {
   server.registerTool("get_custom_exercises", {
     description:"Read private, locally confirmed custom exercise catalog (not global curated exercises).",
@@ -64,7 +64,7 @@ export function registerAthleteChangeTools(
     const rows=data??[],hasMore=rows.length>limit;
     return result({items:rows.slice(0,limit),hasMore,nextOffset:hasMore?offset+limit:null});
   });
-  if(!canWrite)return;
+  if(!canWrite && !canDelete)return;
   async function stage(op:Change,targetId:string|null,payload:Record<string,unknown>,expectedUpdatedAt?:string) {
     // A retried tool call must not queue the same approval twice on the athlete's device.
     let pending=db.from("ai_athlete_change_requests")
@@ -91,6 +91,7 @@ export function registerAthleteChangeTools(
     return db.from("athlete_workout_mirror").select("id,payload,updated_at,deleted_at")
       .eq("owner_id",ownerId).eq("id",id).maybeSingle();
   }
+  if(canWrite){
   server.registerTool("update_workout",{
     description:"Request a precise correction to a COMPLETED workout. Title and individual recorded sets only. No changes to HealthKit, notes or GPS. Requires explicit athlete approval on iPhone.",
     inputSchema:z.strictObject({
@@ -119,6 +120,8 @@ export function registerAthleteChangeTools(
       ...(title?{title}:{}),setChanges:setChanges??[],
     },row.updated_at);
   });
+  }
+  if(canDelete){
   server.registerTool("delete_workout",{
     description:"Request deletion of a completed workout, requiring explicit athlete confirmation on device. Deletion may also affect linked Apple Health workout, exactly as native Delete Workout does.",
     inputSchema:z.strictObject({workoutId:uuid,expectedUpdatedAt:revision}),
@@ -133,6 +136,8 @@ export function registerAthleteChangeTools(
       workoutTitle:row.payload?.title??"Entrenamiento",
     },row.updated_at);
   });
+  }
+  if(canWrite){
   server.registerTool("create_custom_exercise",{
     description:"Propose a new PRIVATE exercise to athlete's iPhone catalog, subject to native subscription limits and confirmation.",
     inputSchema:exercise,
@@ -149,6 +154,8 @@ export function registerAthleteChangeTools(
     if(!data)return fail("NOT_FOUND","exerciseId","Ejercicio personalizado no encontrado");
     return stage("update_exercise",exerciseId,patch);
   });
+  }
+  if(canDelete){
   server.registerTool("delete_custom_exercise",{
     description:"Propose deletion of a private custom exercise; app confirms before deletion. Never deletes global catalog or historic workout snapshots.",
     inputSchema:z.strictObject({exerciseId:uuid}),
@@ -160,4 +167,5 @@ export function registerAthleteChangeTools(
     if(!data)return fail("NOT_FOUND","exerciseId","Ejercicio personalizado no encontrado");
     return stage("delete_exercise",exerciseId,{name:data.name});
   });
+  }
 }

@@ -36,12 +36,14 @@ final class AIChangeRequestStore {
         let id: UUID
         let operation: String
         let targetId: UUID?
+        let tokenId: UUID?
         let expectedUpdatedAt: Date?
         let payload: Payload
         let createdAt: Date
         enum CodingKeys: String, CodingKey {
             case id,operation,payload
             case targetId = "target_id"
+            case tokenId = "token_id"
             case expectedUpdatedAt = "expected_updated_at"
             case createdAt = "created_at"
         }
@@ -117,7 +119,15 @@ final class AIChangeRequestStore {
         outstanding.remove(id.uuidString)
         UserDefaults.standard.set(Array(outstanding),forKey:ackKey(owner))
     }
-    func clearSession() { pending=[];lastError=nil }
+    func clearSession() {
+        pending=[];lastError=nil
+        AIChangeNotifier.clearNotifiedCache()
+    }
+
+    private struct TokenLabelRow: Decodable {
+        let id: UUID
+        let label: String
+    }
 
     func refresh(store: ReperaStore) async {
         guard !isBusy,store.isHydrated,store.didCompleteInitialRemoteSync,
@@ -127,7 +137,7 @@ final class AIChangeRequestStore {
             let session=try await client.auth.session
             guard !session.isExpired else {return}
             let rows: [Change]=try await client.from("ai_athlete_change_requests")
-                .select("id,operation,target_id,expected_updated_at,payload,created_at")
+                .select("id,operation,target_id,token_id,expected_updated_at,payload,created_at")
                 .eq("owner_id",value:session.user.id.uuidString)
                 .eq("status",value:"pending")
                 .order("created_at").limit(100).execute().value
@@ -146,8 +156,22 @@ final class AIChangeRequestStore {
                     removeAck(session.user.id,row.id)
                 } catch { /* Preserved until the next account sync */ }
             }
-            pending=rows.filter{ !awaiting.contains($0.id.uuidString) }
+            let next=rows.filter{ !awaiting.contains($0.id.uuidString) }
+            let tokenIDs=Array(Set(next.compactMap(\.tokenId)))
+            var labels:[UUID:String]=[:]
+            if !tokenIDs.isEmpty {
+                let named:[TokenLabelRow]=try await client.from("ai_access_tokens")
+                    .select("id,label")
+                    .eq("owner_id",value:session.user.id.uuidString)
+                    .in("id",values:tokenIDs.map(\.uuidString))
+                    .limit(100).execute().value
+                for row in named { labels[row.id]=row.label }
+            }
+            pending=next
             lastError=nil
+            AIChangeNotifier.notifyPendingChanges(
+                next, connectionNames: labels, workouts: store.state.workouts
+            )
         } catch {lastError="No se pudieron recuperar los cambios propuestos: \(error.localizedDescription)"}
     }
 
