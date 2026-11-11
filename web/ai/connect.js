@@ -50,9 +50,13 @@ async function loadSetup() {
   const data = await request('redeem-setup', { code: setupCode });
   sessionStorage.removeItem('repera-ai-setup-code');
   history.replaceState(null, '', location.pathname);
+  const mcpUrl = data.mcpUrl || 'https://repera.app/mcp';
+  const token = data.token || '';
   document.querySelector('#setup-label').textContent = data.label ? `Token · ${data.label}` : 'Token listo';
-  document.querySelector('#setup-mcp').textContent = data.mcpUrl || 'https://repera.app/mcp';
-  document.querySelector('#setup-token').textContent = data.token || '';
+  document.querySelector('#setup-mcp').textContent = mcpUrl;
+  document.querySelector('#setup-token').textContent = token;
+  document.querySelector('#cursor-config').textContent = JSON.stringify(
+    { mcpServers: { Repera: { url: mcpUrl, headers: { Authorization: `Bearer ${token}` } } } }, null, 2);
   document.querySelector('#setup-reveal').hidden = false;
   message('Copia el token ahora. Solo se muestra una vez.');
 }
@@ -137,6 +141,20 @@ document.querySelector('#copy-token').addEventListener('click', async () => {
   try {
     await copyText(document.querySelector('#setup-token').textContent);
     message('Token copiado. No lo pegues en el chat.');
+  } catch { message('No se pudo copiar.', true); }
+});
+document.querySelector('#add-cursor').addEventListener('click', () => {
+  const mcpUrl = document.querySelector('#setup-mcp').textContent;
+  const token = document.querySelector('#setup-token').textContent;
+  const config = btoa(JSON.stringify(
+    { Repera: { url: mcpUrl, headers: { Authorization: `Bearer ${token}` } } }));
+  location.assign(`cursor://anysphere.cursor-deeplink/mcp/install?name=Repera&config=${encodeURIComponent(config)}`);
+  message('Abriendo Cursor… Si no pasa nada, copia la configuración de abajo a mano.');
+});
+document.querySelector('#copy-cursor').addEventListener('click', async () => {
+  try {
+    await copyText(document.querySelector('#cursor-config').textContent);
+    message('Configuración copiada. Pégala en ~/.cursor/mcp.json.');
   } catch { message('No se pudo copiar.', true); }
 });
 for (const id of ['switch-account', 'setup-switch']) {

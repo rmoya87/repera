@@ -78,6 +78,23 @@ h2 {
   margin: 0 0 8px;
 }
 
+h3 {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--label);
+  margin: 22px 0 6px;
+}
+
+ol.steps {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+#cursor-config {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 p, li {
   font-size: 15px;
   line-height: 1.55;

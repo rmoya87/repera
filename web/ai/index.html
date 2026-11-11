@@ -63,6 +63,23 @@
       <div class="secret-box mono" id="setup-token"></div>
       <button type="button" id="copy-token">Copiar token</button>
       <p class="note">Pégalo en la configuración del conector de tu asistente, no en el chat. Puedes retirar el acceso en Repera → Ajustes → Conecta tu IA.</p>
+
+      <h2>Conectar en tu asistente</h2>
+
+      <h3>Cursor</h3>
+      <button type="button" id="add-cursor" class="secondary">Añadir a Cursor</button>
+      <p class="note">El botón abre Cursor en este dispositivo con la configuración lista. Si prefieres hacerlo a mano, pega esto en ~/.cursor/mcp.json:</p>
+      <div class="secret-box mono" id="cursor-config"></div>
+      <button type="button" id="copy-cursor" class="secondary">Copiar configuración</button>
+
+      <h3>Grok</h3>
+      <ol class="steps">
+        <li>Abre grok.com/connectors y pulsa «Nuevo conector» → «Personalizado».</li>
+        <li>URL del servidor: https://repera.app/mcp</li>
+        <li>Autenticación: Bearer, con tu token.</li>
+      </ol>
+
+      <p class="note">Si tu asistente no sigue la redirección de repera.app/mcp, usa la URL directa: https://uvzgujlrqohreoucirms.supabase.co/functions/v1/repera-mcp</p>
       <button type="button" id="setup-switch" class="text-button">Usar otra cuenta de Repera</button>
     </section>
 
