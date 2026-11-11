@@ -335,80 +335,104 @@ struct WatchSessionView: View {
                     WatchLiveNavigationPage(instruction: turn, distanceMeters: live.nextTurnMeters)
                         .tag(0)
                 }
-                ScrollView {
-            VStack(alignment: .leading, spacing: 6) {
-                if live.phase == .paused {
-                    Text("En pausa")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.orange)
-                } else if live.phase == .review {
-                    Text("Revisar en iPhone")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-
-                TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
-                    let elapsed = Int(live.displayElapsed(at: context.date))
-                    Text(timeLabel(elapsed))
-                        .font(.system(size: isLuminanceReduced ? 40 : 44, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .minimumScaleFactor(0.55)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                // Indoor / fitness: priorizar pulso y kcal, sin métricas GPS vacías.
-                let outdoor = live.sportID.flatMap(WatchLiveSport.init(rawValue:))?.usesGPS
-                    ?? WatchLiveSport.allCases.first(where: { $0.title == live.sportTitle })?.usesGPS
-                    ?? false
-                VStack(alignment: .leading, spacing: 7) {
-                    if outdoor {
-                    WatchLiveMetricRow(
-                        label: "km",
-                        value: live.distanceMeters > 0
-                            ? ReperaNumberFormat.decimal(live.distanceMeters / 1000)
-                            : "—"
+                GeometryReader { geo in
+                    let scale = WatchLiveMetricScale.fit(
+                        height: geo.size.height,
+                        luminanceReduced: isLuminanceReduced
                     )
-                    if let speed = live.averageSpeedKmh, speed > 0 {
-                        WatchLiveMetricRow(label: "km/h", value: ReperaNumberFormat.decimal(speed))
-                    } else {
-                        WatchLiveMetricRow(label: "Ritmo", value: companionPaceLabel(live))
-                    }
-                    }
-                    WatchHeartRateZoneMetric(prominent: !outdoor)
-                    WatchLiveMetricRow(
-                        label: "kcal",
-                        value: String(format: "%.0f", hub.displayedEnergyKcal),
-                        prominent: !outdoor
-                    )
-                }
+                    let outdoorSport = live.sportID.flatMap(WatchLiveSport.init(rawValue:))
+                        ?? WatchLiveSport.allCases.first(where: { $0.title == live.sportTitle })
+                    let outdoor = outdoorSport?.usesGPS ?? false
+                    VStack(alignment: .leading, spacing: 0) {
+                        if live.phase == .paused {
+                            Text("En pausa")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.orange)
+                        } else if live.phase == .review {
+                            Text("Revisar en iPhone")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
 
-                if let warning = hub.healthWarning {
-                    Text(warning).font(.caption2).foregroundStyle(.orange)
-                }
-                if let message = hub.liveCommandError {
-                    Text(message).font(.caption2).foregroundStyle(.orange)
-                }
+                        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
+                            let elapsed = Int(live.displayElapsed(at: context.date))
+                            Text(timeLabel(elapsed))
+                                .font(.system(size: scale.time, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .minimumScaleFactor(0.7)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        if outdoor {
+                            let elapsed = Int(live.displayElapsed(at: .now))
+                            let completedKm = Int(live.distanceMeters / 1000.0)
+                            let lastKm = WatchOutdoorMetricFormat.lastKilometerSeconds(
+                                completedSeconds: live.lastKilometerSeconds.map { Int($0.rounded()) },
+                                meters: live.distanceMeters,
+                                elapsedSeconds: elapsed,
+                                completedKilometers: completedKm,
+                                boundaryElapsedSeconds: completedKm > 0
+                                    ? max(0, elapsed - Int((live.lastKilometerSeconds ?? 0).rounded()))
+                                    : 0
+                            )
+                            Spacer(minLength: scale.gap)
+                            WatchOutdoorMetricsBlock(
+                                lastKmValue: WatchOutdoorMetricFormat.duration(seconds: lastKm),
+                                averageValue: outdoorSport?.displaysSpeed == true
+                                    ? (live.averageSpeedKmh.map { String(format: "%.1f", $0) }
+                                        ?? WatchOutdoorMetricFormat.averageSpeedKmh(
+                                            meters: live.distanceMeters, elapsedSeconds: elapsed))
+                                    : companionPaceLabel(live),
+                                averageLabel: outdoorSport?.displaysSpeed == true ? "media" : "ritmo medio",
+                                valueSize: scale.split
+                            )
+                            Spacer(minLength: scale.gap)
+                            WatchOutdoorKmKcalRow(
+                                kmValue: live.distanceMeters > 0
+                                    ? ReperaNumberFormat.decimal(live.distanceMeters / 1000)
+                                    : "—",
+                                kcalValue: String(format: "%.0f", hub.displayedEnergyKcal),
+                                valueSize: scale.inline
+                            )
+                            Spacer(minLength: scale.gap)
+                            WatchHeartRateZoneMetric(prominent: false, valueSize: scale.heart)
+                        } else {
+                            Spacer(minLength: scale.gap)
+                            WatchHeartRateZoneMetric(prominent: true, valueSize: scale.heart)
+                            Spacer(minLength: scale.gap)
+                            WatchLiveMetricInline(
+                                label: "Kcal",
+                                value: String(format: "%.0f", hub.displayedEnergyKcal),
+                                valueSize: scale.inline
+                            )
+                        }
 
-                // Métricas y condiciones permanecen en el scroll; acciones en página lateral.
-                WatchActivityConditionsBlock(
-                    conditions: live.conditions,
-                    loading: false
-                )
-                if live.phase == .review {
-                    if hub.liveCommandError != nil {
-                        Button("Reintentar guardar") { hub.controlLiveActivity("finish") }
-                            .buttonStyle(.borderedProminent)
-                            .tint(accent)
-                            .foregroundStyle(.black)
+                        if let warning = hub.healthWarning {
+                            Text(warning).font(.caption2).foregroundStyle(.orange)
+                        }
+                        if let message = hub.liveCommandError {
+                            Text(message).font(.caption2).foregroundStyle(.orange)
+                        }
+
+                        WatchActivityConditionsBlock(
+                            conditions: live.conditions,
+                            loading: false
+                        )
+                        if live.phase == .review {
+                            if hub.liveCommandError != nil {
+                                Button("Reintentar guardar") { hub.controlLiveActivity("finish") }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(accent)
+                                    .foregroundStyle(.black)
+                            }
+                            Button("Volver al inicio") { hub.returnToHome() }
+                                .buttonStyle(.borderedProminent)
+                                .tint(accent)
+                                .foregroundStyle(.black)
+                        }
                     }
-                    Button("Volver al inicio") { hub.returnToHome() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .foregroundStyle(.black)
-                }
-            }
-            .padding(.horizontal, 6)
+                    .padding(.horizontal, 6)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                 }
                 .tag(1)
             }
@@ -437,21 +461,20 @@ struct WatchSessionView: View {
             }
         } controls: {
             if live.phase != .review {
-                WatchControlActionButton(
-                    title: live.phase == .paused ? "Reanudar" : "Pausar",
-                    systemName: live.phase == .paused ? "play.fill" : "pause.fill",
-                    tint: accent
-                ) {
-                    hub.controlLiveActivity(live.phase == .paused ? "resume" : "pause")
-                }
-                WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                    hub.controlLiveActivity("finish")
-                }
-                Button("Cancelar actividad", role: .destructive) {
-                    cancelConfirmationError = nil
-                    showCancelConfirmation = true
-                }
-                .font(.caption)
+                WatchSessionControlsGrid(
+                    isPaused: live.phase == .paused,
+                    audioMuted: hub.audioMuted,
+                    accent: accent,
+                    onPauseResume: {
+                        hub.controlLiveActivity(live.phase == .paused ? "resume" : "pause")
+                    },
+                    onFinish: { hub.controlLiveActivity("finish") },
+                    onCancel: {
+                        cancelConfirmationError = nil
+                        showCancelConfirmation = true
+                    },
+                    onToggleAudio: { hub.toggleAudioMuted() }
+                )
             } else {
                 Text("Revisar en iPhone").font(.footnote)
             }
@@ -671,8 +694,8 @@ struct WatchSessionView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 WatchHeartRateZoneMetric(prominent: true)
-                WatchLiveMetricRow(
-                    label: "kcal",
+                WatchLiveMetricInline(
+                    label: "Kcal",
                     value: String(format: "%.0f", hub.displayedEnergyKcal),
                     prominent: true
                 )
@@ -684,20 +707,18 @@ struct WatchSessionView: View {
         }
         } controls: {
             if !isLuminanceReduced {
-                WatchControlActionButton(
-                    title: hub.isPaused ? "Reanudar" : "Pausar",
-                    systemName: hub.isPaused ? "play.fill" : "pause.fill",
-                    tint: accent
-                ) {
-                    if hub.isPaused { hub.play() } else { hub.pause() }
-                }
-                WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                    trainingPrompt = .finish
-                }
-                Button("Descartar entrenamiento", role: .destructive) {
-                    trainingPrompt = .discard
-                }
-                .font(.caption)
+                WatchSessionControlsGrid(
+                    isPaused: hub.isPaused,
+                    audioMuted: hub.audioMuted,
+                    cancelAccessibilityLabel: "Descartar entrenamiento",
+                    accent: accent,
+                    onPauseResume: {
+                        if hub.isPaused { hub.play() } else { hub.pause() }
+                    },
+                    onFinish: { trainingPrompt = .finish },
+                    onCancel: { trainingPrompt = .discard },
+                    onToggleAudio: { hub.toggleAudioMuted() }
+                )
             }
         }
     }
@@ -764,23 +785,18 @@ struct WatchSessionView: View {
             .padding(.horizontal, 5)
         }
         } controls: {
-            WatchControlActionButton(
-                title: hub.isPaused ? "Reanudar" : "Pausar",
-                systemName: hub.isPaused ? "play.fill" : "pause.fill",
-                tint: accent
-            ) {
-                if hub.isPaused { hub.play() } else { hub.pause() }
-            }
-            WatchControlActionButton(title: "Finalizar", systemName: "flag.checkered", tint: accent) {
-                trainingPrompt = .finish
-            }
-            Button("Serie anterior") { hub.swipeSet(-1) }
-                .buttonStyle(.bordered)
-                .font(.footnote)
-            Button("Descartar entrenamiento", role: .destructive) {
-                trainingPrompt = .discard
-            }
-            .font(.caption)
+            WatchSessionControlsGrid(
+                isPaused: hub.isPaused,
+                audioMuted: hub.audioMuted,
+                cancelAccessibilityLabel: "Descartar entrenamiento",
+                accent: accent,
+                onPauseResume: {
+                    if hub.isPaused { hub.play() } else { hub.pause() }
+                },
+                onFinish: { trainingPrompt = .finish },
+                onCancel: { trainingPrompt = .discard },
+                onToggleAudio: { hub.toggleAudioMuted() }
+            )
         }
     }
 
@@ -815,25 +831,15 @@ struct WatchSessionView: View {
             }
         }
         TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 60 : 1)) { context in
-            HStack(alignment: .firstTextBaseline, spacing: 16) {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(hub.heartRateBpm(at: context.date).map(String.init) ?? "—")
-                        .font(.system(size: 23, weight: .bold).monospacedDigit())
-                        .foregroundStyle(.red)
-                    Text("lpm").font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(String(Int(hub.displayedEnergyKcal.rounded())))
-                        .font(.system(size: 23, weight: .bold).monospacedDigit())
-                        .foregroundStyle(.orange)
-                    Text("kcal").font(.caption2).foregroundStyle(.secondary)
-                }
-            }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            if !isLuminanceReduced {
-                WatchHeartRateZoneBar(bpm: hub.heartRateBpm(at: context.date))
+            VStack(alignment: .leading, spacing: 6) {
+                WatchHeartRateZoneBar(
+                    bpm: hub.heartRateBpm(at: context.date),
+                    attenuated: isLuminanceReduced
+                )
+                WatchLiveMetricInline(
+                    label: "Kcal",
+                    value: String(Int(hub.displayedEnergyKcal.rounded()))
+                )
             }
         }
         if let warning = hub.healthWarning {
@@ -1336,78 +1342,75 @@ struct WatchSessionView: View {
         let sets = session.exercises.flatMap(\.loggedSets)
         let reps = sets.reduce(0) { $0 + $1.reps }
         let isLive = session.liveSportID != nil || session.timerDetails != nil
+        let duration = summaryDurationSeconds(session)
         return ScrollView {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.title2)
-                        .foregroundStyle(accent)
-                    Text("¡Bien hecho!")
-                        .font(.headline)
-                    Spacer(minLength: 0)
-                }
+            VStack(alignment: .leading, spacing: 10) {
                 Text(session.title)
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Text(timeLabel(duration))
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
                 if let warning = hub.healthWarning {
                     Label(warning, systemImage: "exclamationmark.triangle")
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
-                statsLine(
-                    icon: "clock", label: "Tiempo",
-                    value: timeLabel(summaryDurationSeconds(session))
-                )
-                if isLive {
-                    let meters = session.recordedDistanceMeters ?? 0
-                    statsLine(
-                        icon: "figure.run",
-                        label: "Distancia",
-                        value: meters > 0 ? String(format: "%.2f km", meters / 1000) : "—"
-                    )
-                    statsLine(
-                        icon: "flame.fill",
-                        label: "Calorías",
-                        value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded())) kcal"
-                    )
-                    statsLine(
-                        icon: "heart.fill",
-                        label: "FC media",
-                        value: session.appleAverageHeartRateBpm.map { "\(Int($0.rounded())) lpm" } ?? "—"
-                    )
-                    if let timer = session.timerDetails {
-                        statsLine(
-                            icon: "timer",
-                            label: timer.modeTitle,
-                            value: timeLabel(max(timer.countdownSeconds, timer.configuredSeconds))
+                VStack(alignment: .leading, spacing: 7) {
+                    if isLive {
+                        let meters = session.recordedDistanceMeters ?? 0
+                        WatchLiveMetricInline(
+                            label: "km",
+                            value: meters > 0 ? String(format: "%.2f", meters / 1000) : "—",
+                            prominent: true
                         )
+                        WatchLiveMetricInline(
+                            label: "Kcal",
+                            value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded()))",
+                            prominent: true
+                        )
+                        WatchLiveMetricInline(
+                            label: "LPM",
+                            value: session.appleAverageHeartRateBpm.map {
+                                "\(Int($0.rounded()))"
+                            } ?? "—",
+                            prominent: true
+                        )
+                        if let timer = session.timerDetails {
+                            WatchLiveMetricInline(
+                                label: timer.modeTitle,
+                                value: timeLabel(max(timer.countdownSeconds, timer.configuredSeconds))
+                            )
+                        }
+                    } else {
+                        WatchLiveMetricInline(
+                            label: "Kcal",
+                            value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded()))",
+                            prominent: true
+                        )
+                        if let bpm = session.appleAverageHeartRateBpm {
+                            WatchLiveMetricInline(
+                                label: "LPM",
+                                value: "\(Int(bpm.rounded()))",
+                                prominent: true
+                            )
+                        }
+                        WatchLiveMetricInline(label: "series", value: "\(sets.count)")
+                        WatchLiveMetricInline(label: "reps", value: "\(reps)")
+                        WatchLiveMetricInline(
+                            label: "kg",
+                            value: "\(Int(session.totalVolumeKg.rounded()))"
+                        )
+                        ForEach(session.wodResults) { result in
+                            WatchLiveMetricInline(
+                                label: result.format?.displayName ?? "WOD",
+                                value: result.summaryLabel
+                            )
+                        }
                     }
-                } else {
-                    statsLine(
-                        icon: "flame.fill",
-                        label: "Calorías",
-                        value: "\(Int((session.appleActiveEnergyKcal ?? 0).rounded())) kcal"
-                    )
-                    if let bpm = session.appleAverageHeartRateBpm {
-                        statsLine(icon: "heart.fill", label: "FC media",
-                                  value: "\(Int(bpm.rounded())) lpm")
-                    }
-                    statsLine(icon: "list.number", label: "Series", value: "\(sets.count)")
-                    statsLine(icon: "number", label: "Repeticiones", value: "\(reps)")
-                    statsLine(icon: "scalemass", label: "Volumen",
-                              value: "\(Int(session.totalVolumeKg.rounded())) kg")
-                    ForEach(session.wodResults) { result in
-                        statsLine(icon: "timer", label: result.format?.displayName ?? "WOD",
-                                  value: result.summaryLabel)
-                    }
-                }
-                if session.liveSportID != nil, session.awaitingResultEntry {
-                    Text(session.liveSportID == "companion"
-                        ? "Actividad terminada. Abre Comenzar en el iPhone para guardar o descartar; después podrás añadir o modificar ejercicios."
-                        : "Actividad registrada. Revisa, añade ejercicios o modifica resultados desde el iPhone.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Button("Volver al inicio") {
                     hub.returnToHome()
@@ -1418,17 +1421,6 @@ struct WatchSessionView: View {
                 .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 6)
-        }
-    }
-
-    private func statsLine(icon: String, label: String, value: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon).frame(width: 16)
-                .foregroundStyle(accent)
-            Text(label).font(.caption2)
-            Spacer(minLength: 2)
-            Text(value).font(.caption2.weight(.semibold))
-                .monospacedDigit()
         }
     }
 
@@ -1718,19 +1710,14 @@ private struct WatchActivityCancelOverlay: View {
             Color.black
                 .ignoresSafeArea(.container, edges: .all)
 
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
+                Spacer(minLength: 0)
                 Text("¿Cancelar actividad?")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.8)
                     .lineLimit(2)
-
-                Text("Se perderán los datos de esta actividad.")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
 
                 if let error {
                     Text(error)
@@ -1758,9 +1745,9 @@ private struct WatchActivityCancelOverlay: View {
                 .foregroundStyle(.white)
                 .background(Color.white.opacity(0.18), in: Capsule())
                 .contentShape(Capsule())
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 15)
-            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1818,8 +1805,9 @@ private struct WatchLiveNavigationPage: View {
     }
 }
 
-/// El gesto de derecha a izquierda abre las acciones; izquierda a derecha vuelve
-/// a la sesión. Las series avanzan con el botón «Siguiente», sin competir por el gesto.
+/// Continuum lateral: Controles ← Sesión → Now Playing.
+/// Izquierda→derecha abre Pausar/Finalizar; derecha→izquierda abre Now Playing.
+/// Las series avanzan con el botón «Siguiente», sin competir por el gesto.
 struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var controls: Controls
@@ -1852,15 +1840,16 @@ struct WatchSwipeControlSurface<Content: View, Controls: View>: View {
                 let dx = drag.translation.width
                 guard abs(dx) >= 55, abs(dx) > abs(drag.translation.height) * 1.4 else { return }
                 if dx > 0 {
-                    if showingControls {
-                        showingControls = false
+                    // Izquierda → derecha: Controles (o volver desde Now Playing).
+                    if showingNowPlaying {
+                        showingNowPlaying = false
                     } else {
-                        showingNowPlaying = true
+                        showingControls = true
                     }
-                } else if showingNowPlaying {
-                    showingNowPlaying = false
+                } else if showingControls {
+                    showingControls = false
                 } else {
-                    showingControls = true
+                    showingNowPlaying = true
                 }
             }
         )
@@ -1883,6 +1872,80 @@ struct WatchControlActionButton: View {
         .tint(tint)
         .foregroundStyle(.black)
         .accessibilityLabel(title)
+    }
+}
+
+/// Controles live/plan: 2×2 solo iconos — Pausar|Play · Finalizar / X roja · Audio.
+struct WatchSessionControlsGrid: View {
+    let isPaused: Bool
+    let audioMuted: Bool
+    var showAudio: Bool = true
+    var cancelAccessibilityLabel: String = "Cancelar actividad"
+    let accent: Color
+    let onPauseResume: () -> Void
+    let onFinish: () -> Void
+    let onCancel: () -> Void
+    var onToggleAudio: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                iconButton(
+                    systemName: isPaused ? "play.fill" : "pause.fill",
+                    label: isPaused ? "Reanudar" : "Pausar",
+                    tint: accent,
+                    foreground: WatchTheme.onAccent,
+                    action: onPauseResume
+                )
+                iconButton(
+                    systemName: "flag.checkered",
+                    label: "Finalizar",
+                    tint: accent,
+                    foreground: WatchTheme.onAccent,
+                    action: onFinish
+                )
+            }
+            HStack(spacing: 10) {
+                iconButton(
+                    systemName: "xmark",
+                    label: cancelAccessibilityLabel,
+                    tint: Color(red: 0.90, green: 0.22, blue: 0.21),
+                    foreground: .white,
+                    action: onCancel
+                )
+                if showAudio, let onToggleAudio {
+                    iconButton(
+                        systemName: audioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                        label: audioMuted ? "Activar audio" : "Silenciar audio",
+                        tint: accent,
+                        foreground: WatchTheme.onAccent,
+                        action: onToggleAudio
+                    )
+                } else {
+                    Color.clear
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func iconButton(
+        systemName: String,
+        label: String,
+        tint: Color,
+        foreground: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.title3.weight(.bold))
+                .frame(maxWidth: .infinity, minHeight: 52)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(tint)
+        .foregroundStyle(foreground)
+        .accessibilityLabel(label)
     }
 }
 

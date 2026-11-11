@@ -123,10 +123,9 @@ private fun ProgressCategoryChip(
                 maxLines = 1
             )
         }
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+        ReperaMetricRevealText(
+            value = value,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = fg,
             maxLines = 1
         )

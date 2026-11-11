@@ -29,12 +29,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.wear.compose.material3.AppScaffold
@@ -419,6 +421,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 JSONArray(raw).let { arr -> (0 until arr.length()).map { arr.getString(it) } }
             }.getOrDefault(emptyList())
         }
+        // Inicio: siempre el entreno del día si hay; si no, última actividad / A–Z.
+        preferHomeHubLanding()
+        if (recentLiveSportIDs.isNotEmpty()) publishWearHubRecents()
         consumeOpenTodayIntent(intent)
         sensorManager = getSystemService(SENSOR_SERVICE) as? SensorManager
         motionSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
@@ -437,7 +442,19 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             )) {
                 val ambient = ambientMode
                 val frame = ambientFrame
-                if (ambient != null && frame != null && hubOverlay == WearHubOverlay.HOME) {
+                // Live/plan activo: no sustituir por AmbientScreen ni apagar (como Watch + Always On).
+                val livePhase = liveActivityJson?.optString("phase")
+                val workoutKeepsFace =
+                    livePhase in setOf("recording", "paused") ||
+                        visibleSession?.phase == "counting"
+                val rootView = LocalView.current
+                DisposableEffect(workoutKeepsFace) {
+                    rootView.keepScreenOn = workoutKeepsFace
+                    onDispose { rootView.keepScreenOn = false }
+                }
+                if (ambient != null && frame != null &&
+                    hubOverlay == WearHubOverlay.HOME && !workoutKeepsFace
+                ) {
                     WearAmbientScreen(ambient, ambientTick, frame)
                     return@MaterialTheme
                 }
@@ -486,6 +503,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                                         timerRunId?.let {
                                             sendTimerStateToPhone(it, phase, elapsed, round)
                                         }
+                                    },
+                                    onToggleAudioMuted = {
+                                        hubAudioMuted = !hubAudioMuted
+                                        sessionCache.edit()
+                                            .putBoolean("hubAudioMuted", hubAudioMuted)
+                                            .putBoolean("hubAudioMutedTouched", true)
+                                            .apply()
                                     },
                                     remoteCommand = remoteTimerCommand,
                                     remoteCommandEpoch = remoteTimerCommandEpoch
@@ -1222,7 +1246,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
      * Cola durable (`pendingLiveCommands`) si no hay nodos (paridad Apple WCSession).
      */
     private fun requestLiveCommand(command: String) {
-        if (command !in setOf("pause", "resume", "finish")) return
+        if (command !in setOf("pause", "resume", "finish", "cancel")) return
         val live = liveActivityJson ?: return
         if (watchOwnedLive || live.optBoolean("watchOwned")) {
             controlWatchOwnedLive(command)
@@ -1254,6 +1278,15 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             liveNotice = null
             haptic(if (command == "pause") WearHaptic.TOGGLE_OFF else WearHaptic.TOGGLE_ON)
             sendStatus = null
+        } else if (command == "cancel") {
+            // Sale al hub al instante; el teléfono descarta la actividad dueña.
+            liveActivityJson = null
+            liveNotice = null
+            healthConnection?.stop(id)
+            clearDisplayedHeart()
+            haptic(WearHaptic.REJECT)
+            sendStatus = null
+            refreshWearSurfaces()
         }
         flushPendingLiveCommands { empty ->
             if (empty && command == "finish") {
@@ -1335,11 +1368,8 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         }
         val bytes = map.getByteArray("plan")
         val updatedAtMillis = map.getLong("updatedAtMillis", System.currentTimeMillis())
-        map.getStringArray("recentLiveSportIDs")?.toList()?.let { ids ->
-            recentLiveSportIDs = ids
-            sessionCache.edit()
-                .putString("recentLiveSportIDs", JSONArray(ids).toString())
-                .apply()
+        map.getStringArray("recentLiveSportIDs")?.toList()?.let { phoneIds ->
+            applyMergedRecentSports(phoneIds)
         }
         if (map.containsKey("audioMuted") &&
             !sessionCache.getBoolean("hubAudioMutedTouched", false)) {
@@ -1390,6 +1420,7 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
             refreshWearSurfaces()
         }
         todayPlanJson = plan
+        preferHomeHubLanding()
     }
 
     /** While visible, the hub drops yesterday's plan at local midnight. */
@@ -1446,16 +1477,60 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
         return hubIndex.coerceIn(0, items.lastIndex)
     }
 
-    /** Tras volver de live: restaura el último deporte/plan jugado. */
-    private fun restoreLastHubItem() {
+    /**
+     * Cara de inicio del hub: plan del día en índice 0 si existe;
+     * sin plan → primera actividad del carrusel (último uso o A–Z).
+     */
+    private fun preferHomeHubLanding() {
         val items = wearHubCarouselItems(todayPlanJson, recentLiveSportIDs)
         if (items.isEmpty()) return
-        val lastId = sessionCache.getString("lastHubItemID", null) ?: return
-        val idx = items.indexOfFirst { carouselItemId(it) == lastId }
-        if (idx >= 0) {
-            hubIndex = idx
-            sessionCache.edit().putInt("hubIndex", idx).apply()
+        if (todayPlanJson != null && items.first() is WearHubCarouselItem.Plan) {
+            hubIndex = 0
+            sessionCache.edit().putInt("hubIndex", 0).apply {
+                putString("lastHubItemID", carouselItemId(items.first()))
+            }
+            return
         }
+        val sportIdx = items.indexOfFirst { it is WearHubCarouselItem.Sport }.coerceAtLeast(0)
+        hubIndex = sportIdx
+        sessionCache.edit().putInt("hubIndex", sportIdx).apply {
+            items.getOrNull(sportIdx)?.let { putString("lastHubItemID", carouselItemId(it)) }
+        }
+    }
+
+    /** No sustituir usos Wear por una lista vacía/parcial del teléfono. */
+    private fun applyMergedRecentSports(phoneIds: List<String>) {
+        val merged = wearMergeRecentSports(recentLiveSportIDs, phoneIds)
+        if (merged == recentLiveSportIDs) return
+        recentLiveSportIDs = merged
+        persistRecentLiveSports()
+    }
+
+    private fun persistRecentLiveSports() {
+        val arr = JSONArray()
+        recentLiveSportIDs.forEach { arr.put(it) }
+        sessionCache.edit().putString("recentLiveSportIDs", arr.toString()).commit()
+        publishWearHubRecents()
+    }
+
+    /** Réplica al teléfono para recuperar el orden tras reinstalar Wear. */
+    private fun publishWearHubRecents() {
+        runCatching {
+            val request = com.google.android.gms.wearable.PutDataMapRequest
+                .create("/repera/wear-hub-recents").apply {
+                    dataMap.putStringArray(
+                        "recentLiveSportIDs",
+                        recentLiveSportIDs.toTypedArray()
+                    )
+                    dataMap.putLong("updatedAtMillis", System.currentTimeMillis())
+                }.asPutDataRequest().setUrgent()
+            Wearable.getDataClient(this).putDataItem(request)
+        }
+    }
+
+    /** Tras volver de live: misma regla de inicio (plan > última actividad). */
+    private fun restoreLastHubItem() {
+        preferHomeHubLanding()
     }
 
     /**
@@ -1647,6 +1722,13 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
                 haptic(WearHaptic.TOGGLE_ON)
             }
             "finish" -> finishWatchOwnedLive()
+            "cancel" -> {
+                // X del reloj: descarta sin guardar ni publicar revisión.
+                clearWatchOwnedLiveState()
+                finishedSummary = null
+                haptic(WearHaptic.REJECT)
+                refreshWearSurfaces()
+            }
         }
     }
 
@@ -1776,11 +1858,9 @@ class WearMainActivity : ComponentActivity(), DataClient.OnDataChangedListener,
 
     private fun rememberHubSport(sportId: String) {
         if (sportId.isBlank()) return
-        val next = listOf(sportId) + recentLiveSportIDs.filter { it != sportId }
-        recentLiveSportIDs = next.take(12)
-        val arr = JSONArray()
-        recentLiveSportIDs.forEach { arr.put(it) }
-        sessionCache.edit().putString("recentLiveSportIDs", arr.toString()).apply()
+        recentLiveSportIDs = listOf(sportId) + recentLiveSportIDs.filter { it != sportId }
+        recentLiveSportIDs = recentLiveSportIDs.take(12)
+        persistRecentLiveSports()
     }
 
     private fun queueWatchOwnedLiveSave(payload: JSONObject) {

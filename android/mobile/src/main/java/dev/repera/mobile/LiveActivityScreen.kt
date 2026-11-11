@@ -1308,8 +1308,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
             }
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
-            Text(
-                durationText,
+            ReperaMetricRevealText(
+                value = durationText,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.displayLarge.copy(
                     fontWeight = FontWeight.Bold,
@@ -1317,7 +1317,9 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     letterSpacing = 0.sp
                 ),
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 1,
+                // Idle: revelado inicial OK; sin morph por tick (paridad iOS).
+                animateValueChanges = state.phase != LiveActivityState.Phase.IDLE
             )
             Text(
                 stringResource(R.string.live_activity_screen_duracion),
@@ -1341,8 +1343,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 )
             }
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
-            Text(
-                paceOrSpeed,
+            ReperaMetricRevealText(
+                value = paceOrSpeed,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.displayLarge.copy(
                     fontWeight = FontWeight.Bold,
@@ -1350,7 +1352,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     letterSpacing = 0.sp
                 ),
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 1,
+                animateValueChanges = state.phase != LiveActivityState.Phase.IDLE
             )
             Text(
                 paceLabel,
@@ -1360,8 +1363,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
-            Text(
-                ReperaNumberFormat.decimal(km),
+            ReperaMetricRevealText(
+                value = ReperaNumberFormat.decimal(km),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.displayMedium.copy(
                     fontWeight = FontWeight.SemiBold,
@@ -1369,7 +1372,8 @@ internal fun LiveActivityScreen(accountId: String, onSaved: (sessionId: String) 
                     letterSpacing = 0.sp
                 ),
                 textAlign = TextAlign.Center,
-                maxLines = 1
+                maxLines = 1,
+                animateValueChanges = state.phase != LiveActivityState.Phase.IDLE
             )
             Text(
                 stringResource(R.string.live_activity_screen_distancia_km),
@@ -1802,15 +1806,16 @@ private fun LiveSessionMetricsPane(
                     LiveSessionSportBadge(state.sport.materialIcon, state.sport.title)
                 }
                 Spacer(Modifier.weight(1f, fill = true).heightIn(min = 16.dp))
-                Text(
-                    durationText,
+                ReperaMetricRevealText(
+                    value = durationText,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.displayLarge.copy(
                         fontWeight = FontWeight.Bold, fontSize = 68.sp, letterSpacing = 0.sp
                     ),
                     textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
+                    maxLines = 1,
+                animateValueChanges = true
+            )
                 Text(
                     stringResource(R.string.live_activity_screen_duracion),
                     modifier = Modifier.fillMaxWidth(),
@@ -1826,15 +1831,16 @@ private fun LiveSessionMetricsPane(
                         .padding(horizontal = 20.dp, vertical = 12.dp)
                 )
                 Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
-                Text(
-                    paceOrSpeed,
+                ReperaMetricRevealText(
+                    value = paceOrSpeed,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.displayLarge.copy(
                         fontWeight = FontWeight.Bold, fontSize = 78.sp, letterSpacing = 0.sp
                     ),
                     textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
+                    maxLines = 1,
+                animateValueChanges = true
+            )
                 Text(
                     paceLabel,
                     modifier = Modifier.fillMaxWidth(),
@@ -1843,15 +1849,16 @@ private fun LiveSessionMetricsPane(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.weight(1f, fill = true).heightIn(min = 14.dp))
-                Text(
-                    ReperaNumberFormat.decimal(km),
+                ReperaMetricRevealText(
+                    value = ReperaNumberFormat.decimal(km),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontWeight = FontWeight.SemiBold, fontSize = 55.sp, letterSpacing = 0.sp
                     ),
                     textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
+                    maxLines = 1,
+                animateValueChanges = true
+            )
                 Text(
                     stringResource(R.string.live_activity_screen_distancia_km),
                     modifier = Modifier.fillMaxWidth(),
@@ -2527,19 +2534,21 @@ private fun LiveMapSmallMetric(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    prominent: Boolean = false
+    prominent: Boolean = false,
+    animateValueChanges: Boolean = true,
 ) {
     Column(
         modifier.padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Text(
-            value,
-            style = if (prominent) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+        ReperaMetricRevealText(
+            value = value,
+            style = (if (prominent) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium)
+                .copy(fontWeight = FontWeight.Bold),
             maxLines = 1,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            animateValueChanges = animateValueChanges
         )
         Text(
             label,
@@ -2589,11 +2598,12 @@ private fun RowScope.LiveIdleSelectionAction(
             contentAlignment = Alignment.Center
         ) {
             if (countdown != null) {
-                Text(
-                    "$countdown",
+                ReperaMetricRevealText(
+                    value = "$countdown",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = Color.Black,
-                    modifier = Modifier.testTag("live_start_countdown")
+                    modifier = Modifier.testTag("live_start_countdown"),
+                    animateValueChanges = true
                 )
             } else {
                 Icon(

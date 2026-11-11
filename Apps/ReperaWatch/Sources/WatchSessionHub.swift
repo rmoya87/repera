@@ -38,6 +38,10 @@ final class WatchSessionHub: NSObject {
     private(set) var watchLiveElapsedSeconds = 0
     private(set) var watchLiveDistanceMeters: Double = 0
     private(set) var watchLiveElevationGainMeters: Double = 0
+    /// Segundos del último km cerrado (nil hasta completar el primero).
+    private(set) var watchLiveLastKilometerSeconds: Int?
+    private var watchLiveCompletedKilometers = 0
+    private var watchLiveLastKmBoundaryElapsed = 0
     /// Última coordenada GPS de la live local (condiciones Open-Meteo).
     var watchLiveLastCoordinate: (latitude: Double, longitude: Double)? {
         guard let last = watchLivePoints.last else { return nil }
@@ -977,6 +981,7 @@ final class WatchSessionHub: NSObject {
         watchLiveElapsedSeconds = 0
         watchLiveDistanceMeters = 0
         watchLiveElevationGainMeters = 0
+        resetWatchLiveKilometerSplits()
         watchLivePoints = []
         lastAltitude = nil
         watchLivePausedAccum = 0
@@ -1131,7 +1136,8 @@ final class WatchSessionHub: NSObject {
                     now.timeIntervalSince($0) <= 60
                 } == true ? health.pulseBpm : nil,
                 activeEnergyKcal: health.kcal,
-                sportID: sport.rawValue, kind: .sport
+                sportID: sport.rawValue, kind: .sport,
+                lastKilometerSeconds: watchLiveLastKilometerSeconds.map(TimeInterval.init)
             ), durable: force)
             return
         }
@@ -1227,11 +1233,38 @@ final class WatchSessionHub: NSObject {
         watchLiveElapsedSeconds = 0
         watchLiveDistanceMeters = 0
         watchLiveElevationGainMeters = 0
+        resetWatchLiveKilometerSplits()
         summaryDismissed = true
         liveRecoveryNotice = nil
         returnToHome()
         save()
         WKInterfaceDevice.current().play(.click)
+    }
+
+    /// Último km cerrado o proyección del km en curso para la UI outdoor.
+    var displayedLastKilometerSeconds: Int? {
+        WatchOutdoorMetricFormat.lastKilometerSeconds(
+            completedSeconds: watchLiveLastKilometerSeconds,
+            meters: watchLiveDistanceMeters,
+            elapsedSeconds: watchLiveElapsedSeconds,
+            completedKilometers: watchLiveCompletedKilometers,
+            boundaryElapsedSeconds: watchLiveLastKmBoundaryElapsed
+        )
+    }
+
+    private func resetWatchLiveKilometerSplits() {
+        watchLiveLastKilometerSeconds = nil
+        watchLiveCompletedKilometers = 0
+        watchLiveLastKmBoundaryElapsed = 0
+    }
+
+    private func updateWatchLiveKilometerSplits() {
+        let elapsed = watchLiveElapsedSeconds
+        while watchLiveDistanceMeters >= Double(watchLiveCompletedKilometers + 1) * 1000 {
+            watchLiveCompletedKilometers += 1
+            watchLiveLastKilometerSeconds = max(1, elapsed - watchLiveLastKmBoundaryElapsed)
+            watchLiveLastKmBoundaryElapsed = elapsed
+        }
     }
 
     /// Finaliza la live del Watch y muestra el resumen con «Volver al inicio».
@@ -1343,6 +1376,7 @@ final class WatchSessionHub: NSObject {
         guard let started = watchLiveStartedAt, !watchLivePaused else { return }
         let paused = watchLivePausedAccum
         watchLiveElapsedSeconds = max(0, Int(Date().timeIntervalSince(started) - paused))
+        updateWatchLiveKilometerSplits()
         // Low-rate phone ActivityKit updates; the timer interpolates itself.
         publishWatchOwnedLiveToPhone()
         // La complicación calcula el tiempo sola; aquí solo la copia de recuperación.
@@ -2855,6 +2889,7 @@ extension WatchSessionHub: CLLocationManagerDelegate {
                     let delta = location.distance(from: previous)
                     if delta > 0, delta < 80 {
                         self.watchLiveDistanceMeters += delta
+                        self.updateWatchLiveKilometerSplits()
                     }
                 }
                 let altitude = location.altitude

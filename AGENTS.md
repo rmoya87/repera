@@ -101,6 +101,35 @@ Ante nueva feature, cambio o bug en una plataforma, revisar impacto en **iOS, iP
 - Sheets: `OGPageHeader` + `ogFittedSheet` / `ogSheetCorners`.
 - Títulos de sección: `OGCardSectionTitle`.
 
+### Primera entrada / carga de páginas (obligatorio)
+
+Al abrir un hub o pantalla pesada la **primera vez** (o tras cold start), la
+transición de pestaña/navegación y el primer paint **no** deben competir con
+oleadas de morphs, charts, parse SVG ni widen de Salud. Aplicar **siempre**
+en iOS y Android (paridad):
+
+1. **Gate de revelado:** no armar `playMetricReveal` / `ogMetricRevealPlay` /
+   `LocalMetricRevealPlay` ni marcar `progressHubPlayed` en el primer frame,
+   `remember {}`, `onAppear` vacío o mientras hay skeleton. Armar solo con
+   contenido estable (snapshot listo) + ≥1 frame + ~160 ms.
+2. **Plots después de números:** `ogChartReveal` / `progressChartReveal`
+   esperan el gate; en 1.ª visita ~220 ms más. Solo máscara/transform
+   (composite); sin layout por frame.
+3. **Morph barato:** iOS `numericText` / `OGMetricRevealText`. Android un solo
+   `Text` + opacidad (`graphicsLayer` / `Animatable`) — **prohibido**
+   `AnimatedContent` por métrica en hubs.
+4. **IO / assets fuera del pico:** widen HK/HC, parse BodyMap/SVG, sync iCloud
+   de rutas → `yield` / `withFrameNanos` (o equivalente) tras el primer paint.
+5. **Comenzar:** idle sin tick 1 Hz (`TimelineView` periódico) ni
+   `animateValueChanges` continuo; ticks/morph de dígitos solo en
+   grabación/pausa (+ cuenta atrás 3-2-1).
+6. **Reducir movimiento:** valores finales al instante.
+7. Contrato: `tests/test_metric_reveal_contract.py` (+ chart reveal). Docs:
+   `docs/FEATURES.md` (hub Progreso / números).
+
+Nueva UI con números grandes o charts al entrar: reutilizar este patrón; no
+inventar un segundo gate ni revelar «todo a la vez» en el fade de tab.
+
 ### Filosofía de diseño
 
 Fuente: `.agents/skills/repera-design/SKILL.md`.
@@ -145,6 +174,68 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Apple — «Missing package product» Supabase/GoogleSignIn/Firebase (11/11/2026)
+- Con disco ~lleno, `xcodebuild -resolvePackageDependencies` deja
+  SourcePackages a medias (zip Firebase/gRPC rotos o checkout de
+  `firebase-ios-sdk` a medias → Xcode marca Missing package product).
+- Fix: liberar espacio, borrar DerivedData `Repera-*` / SourcePackages
+  corruptos, resolver de nuevo (opcional
+  `-clonedSourcePackagesDirPath .spm-cache`, ya en `.gitignore`).
+- No «arreglar» quitando productos de `project.yml`; el wiring SPM es correcto.
+
+#### Watch — aviso «Salud no disponible / ya iniciado» en live (11/11/2026)
+- `WatchHealthKitSession.startConfigured` no debe fijar `permissionIssue` si
+  ya graba el **mismo** UUID (`workout != nil && workoutID == id`) o si el
+  arranque async de ese UUID aún va en vuelo: handoff/snapshot/reintento =
+  no-op silencioso. Si no, la UI live muestra un falso positivo aunque FC/kcal
+  midan bien. Mensajes distintos solo para otro workout vivo o HK ausente.
+- Contrato: `tests/test_watch_native_health_permission_contract.py`.
+
+#### Watch / Wear — swipe Controles↔Now Playing + FC en Ambient (11/11/2026)
+- Continuum **Controles ← Sesión → Now Playing**: L→R = Pausar/Finalizar; R→L = audio.
+ No invertir otra vez sin actualizar docs y contratos.
+- watchOS: `WatchSwipeControlSurface` + temporizador; Wear: pager 3 páginas
+ `initialPage = 1` (live, plan, timer) + `WearNowPlayingPage` con
+ `dispatchMediaKeyEvent` (sin `MEDIA_CONTENT_CONTROL` ni intents OEM).
+- Always On / Ambient: **no ocultar** `WatchHeartRateZoneBar` /
+ `WearHeartRateZoneBar`; atenuar y ralentizar como el resto. Contrato:
+ `tests/test_watch_wear_swipe_ambient_hr_contract.py`.
+- Controles = rejilla **2×2 iconos** (`WatchSessionControlsGrid` /
+ `WearLiveControlsPage`): pause↔play · flag · **X roja** · audio.
+ `cancel` Wear llega al teléfono (`runtime.discard`) o limpia watch-owned.
+ Contrato: `tests/test_watch_wear_controls_grid_contract.py`.
+
+#### Sueño / Recuperación — permisos de Salud ≠ flags locales (11/11/2026)
+- Conceder «todo» en **Ajustes → Salud → Repera** (iOS) o en Health Connect
+  (Android) **no** escribe `sleepEnabled`/`cycleEnabled`. Sin esos flags no
+  se piden ni leen noches/ciclo; Progreso queda vacío aunque el SO tenga datos.
+- iOS: `ensureSleepAnalysisEnabled` (sueño **y** ciclo) al entrar en
+  Recuperación / Salud conectada; flag antes del panel HK. VFC/reposo/
+  respiración/SpO₂ **no** usan ese flag (solo permiso HK).
+- Android: misma trampa en `PrivateRecoverySettings`;
+  `ensureAnalysisEnabledIfUndecided()` antes de `requestedPermissions` /
+  `loadHealthToday` / onboarding HC. Respeta switch apagado si ya hubo
+  decisión. Temperatura de muñeca sí va con `sleepEnabled`; VFC/reposo no.
+- No confundir con «faltan 7 días de constantes». Contrato:
+  `tests/test_health_permissions.py`.
+
+#### Android — `ProgressTab` + wrap `ProvideMetricRevealPlay` (11/11/2026)
+- Abrir `ProvideMetricRevealPlay {` alrededor de `ProvideLazyDragAutoScroll` /
+  `LazyColumn` exige el `}` de cierre **antes** de los helpers top-level
+  (`strengthInsightCopy`, cards, etc.).
+- Un `}` extra al final del archivo (p. ej. tras `HeartZonesDemoCard`) no cierra
+  el wrap: Kotlin anida todos los `private fun` dentro de `ProgressTab` →
+  `Unresolved reference` en llamadas tempranas +
+  `Modifier 'private' is not applicable to 'local function'`.
+- Tras envolver: comprobar que `ProgressTab` cierra justo antes del primer
+  helper; no equilibrar braces solo al EOF.
+
+#### Progreso / Comenzar — jank 1.ª visita (11/11/2026)
+- Incumplir **Convenciones UI → Primera entrada / carga de páginas** (gate
+  ~160 ms, charts ~220 ms, sin `AnimatedContent`, idle sin tick 1 Hz) vuelve
+  el morph + fade de tab + HK/HC + SVG = jank. No «arreglar» solo acortando
+  fades del NavHost. Contrato: `tests/test_metric_reveal_contract.py`.
+
 #### WOD — nombres cortos `displayName` vs tests legacy (11/11/2026)
 - Acortar `WodFormat.displayName` (p. ej. `For Time`, `Escalera`) sin actualizar aserciones deja rojo
   `:domain:testDebugUnitTest` (`CatalogWodsTest.labelsMatchIosPresentation`) y, más tarde, JVM/instrumented
@@ -157,9 +248,30 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 #### Play / Crear-Editar — stutter al teclear y bloques gordos (11/11/2026)
 - Escribir al store/`activeSession` en cada tecla invalida toda la lista. Debounce local (~250 ms)
   + flush al cambiar de ejercicio / disappear; drafts con `durable`/`pushWatch` selectivos.
-- Montar N `UITextField`/editores Compose a la vez: celdas numéricas perezosas (texto hasta foco);
-  Android un solo `expandedEntryId` y Lazy a nivel ejercicio (no solo por bloque).
-  No poner `Equatable` en un `View` (MainActor): usar identidad Sendable + `.id(...)`.
+  Con foco activo en Play iOS: no flush al store (reprogramar / volcar en `onChange(focus==nil)`
+  y `onDisappear`); si no, el `List` puede tirar el teclado.
+- Montar N editores Compose a la vez: Android un solo `expandedEntryId` y Lazy a nivel
+  ejercicio (no solo por bloque). No poner `Equatable` en un `View` (MainActor): usar
+  identidad Sendable + `.id(...)`.
+- **iOS `OGSetNumericCell` / `OGFormatNumberField`:** lazy con `@State isArmed` +
+  `pendingAutoFocus` (no solo `@FocusState`). Sin armar = `Text`/`Button`; al tocar
+  monta `UITextField` y **sigue armado**. Un swap solo vía FocusState en Form/List
+  no abría el teclado. Ambas ramas `.frame(height: 44)`. Pad Repera solo al editar
+  (`ensureKeypadInstalled`). Montar N `UITextField` en el 1.er frame = scroll a
+  trompicones / remeds de altura.
+  **Primera entrada:** no sembrar catálogo/`plannedSets`/`Play.rows` solo en
+  `onAppear`. Hidratar en `init` / `resolvedExerciseCatalog` + `compactIntrinsicHeight: 44`.
+  **DayEditor iOS = Android `expandedEntryId`:** solo un ejercicio/movimiento monta
+  la retícula de series; el resto muestra `compactSummary`. Montar todas las series
+  en el Form al pulsar «Editar» (resumen → editor) bloquea la UI varios segundos.
+  Diferir el push un `Task.yield` tras preparar la rutina. Abrir con el **primer**
+  ejercicio expandido (Android y iOS). `StrengthExerciseSetsIdentity` **sin**
+  `plannedSetIDs`/`previousTexts`: si no, «Añadir serie» remonta el isolator.
+  Bloques `.strength` siempre usan `strengthBlock` (no `completedStrengthPrescription`).
+- **`StrengthExerciseSetsIdentity` solo estructura** (`itemID`, `plannedSetIDs`, unidad, estilo…).
+  Nunca meter `RoutineExercise` completo / `plannedSets` con peso·reps·RIR en el `.id`: cada
+  `onCommit` por tecla remontaba el isolator, destruía `@FocusState` y el input «no dejaba
+  escribir» (regresión perf v2, 11/11/2026). Los valores vivos van en `item:` aparte del `.id`.
 - `navSig` con `completed` recreaba todos los `BlockDraftUi` al marcar series; firmar solo estructura.
   Logging de Play como ítem Lazy aparte.
 - Contrato: `tests/test_play_editor_perf_v2_contract.py`. No afirmar «probado en dispositivo» sin medición.
@@ -646,6 +758,7 @@ Fuente: `docs/RELIABILITY_SECURITY_AUDIT_2026_11_04.md`. Mantener estas invarian
 - **Android:** no parsear `app_state.json` / Health Connect en main desde Compose; `Dispatchers.IO` + caché; R8 + shrinkResources; `collectAsStateWithLifecycle`; `key` estable en Lazy lists.
 - **iOS:** GPS/snapshots grandes en Application Support (Data Protection); no invalidar toda `LiveActivityView` por cada fix GPS.
 - **Relojes:** Ambient con ticks lentos; GPS con `distanceFilter`; rutas por archivo/trozos; sensores solo cuando hacen falta.
+- **Primera entrada a hubs:** ver **Convenciones UI → Primera entrada / carga de páginas** (gate de revelado, charts diferidos, morph barato, sin IO en el pico del fade).
 
 ### Bugs / sync móvil↔reloj
 

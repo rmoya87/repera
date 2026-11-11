@@ -21,7 +21,10 @@ class ProgressChartRevealContractTests(unittest.TestCase):
         self.assertIn("OGMotion.chartReveal", reveal)
         self.assertNotIn("GeometryReader", reveal)
         self.assertNotIn("duration: 0.42", reveal)
-        self.assertNotIn("Task.yield", reveal)
+        # Post-gate: yield en revisitas; sleep 220 ms tras números en 1.ª visita.
+        self.assertIn("Task.yield()", reveal)
+        self.assertIn("220_000_000", reveal)
+        self.assertIn("ogMetricRevealPlay", reveal)
         self.assertIn(
             "static let chartReveal = Animation.timingCurve(0.16, 1, 0.3, 1, duration: 0.28)",
             IOS_THEME,
@@ -35,6 +38,8 @@ class ProgressChartRevealContractTests(unittest.TestCase):
         self.assertIn("progress.value", fn)
         self.assertIn("durationMillis = 280", ANDROID)
         self.assertIn("CubicBezierEasing(0.16f, 1f, 0.3f, 1f)", ANDROID)
+        self.assertIn("delay(220)", fn)
+        self.assertIn("LocalMetricRevealPlay", fn)
         self.assertNotIn("mutableFloatStateOf", fn)
         self.assertNotIn("durationMillis = 420", ANDROID)
 

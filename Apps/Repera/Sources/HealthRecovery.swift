@@ -158,6 +158,17 @@ final class HealthRecoveryStore {
         await refresh()
     }
 
+    /// Conceder lectura en Ajustes → Salud del iPhone no escribe
+    /// `sleepEnabled`/`cycleEnabled`. Si alguno sigue apagado, reabre el
+    /// flujo unificado para activar la consulta y releer (sin inventar valores).
+    func ensureSleepAnalysisEnabled(using health: HealthKitStore) async {
+        if sleepEnabled && cycleEnabled {
+            if lastRefreshed == nil { await refresh() }
+            return
+        }
+        await health.requestAccess(includeAllOptional: true)
+    }
+
     /// Se invoca solo al finalizar la solicitud conjunta de Apple Salud.
     /// Salud no revela a terceros si se aceptó la lectura: habilitar no implica tener muestras.
     func acceptSleepFromHealthAuthorization() async {
@@ -498,6 +509,7 @@ struct ConnectedHealthSettingsView: View {
         .task {
             // Leer datos auténticos al entrar; no hace falta un botón manual.
             await health.refreshToday()
+            await recovery.ensureSleepAnalysisEnabled(using: health)
             await recovery.refresh()
             await HealthPhysiologyStore.shared.refresh()
         }
@@ -506,6 +518,7 @@ struct ConnectedHealthSettingsView: View {
             // Actualizar si se vuelve desde Salud/Ajustes tras cambiar permisos.
             Task {
                 await health.refreshToday()
+                await recovery.ensureSleepAnalysisEnabled(using: health)
                 await recovery.refresh()
                 await HealthPhysiologyStore.shared.refresh()
             }
@@ -749,6 +762,9 @@ struct HealthRecoveryProgressView: View {
         // Las lecturas de Salud ya se han cargado: no reiniciar todas las
         // tarjetas al entrar y salir de la pestaña Recuperación.
         .task {
+            // Permisos totales en Ajustes → Salud no activan el flag local:
+            // sin esto la gráfica sigue pidiendo «sueño en Ajustes».
+            await recovery.ensureSleepAnalysisEnabled(using: health)
             if recovery.lastRefreshed == nil { await recovery.refresh() }
             if physiology.lastRefreshed == nil { await physiology.refresh() }
         }

@@ -1844,7 +1844,8 @@ final class LiveActivityRecorder: NSObject {
             nextTurnMeters: sport.usesGPS ? upcomingTurnMeters : nil,
             capturedAt: Date(),
             conditions: liveConditions,
-            sportID: sport.rawValue
+            sportID: sport.rawValue,
+            lastKilometerSeconds: sport.usesGPS ? kilometerSplits.last?.seconds : nil
         )
     }
 
@@ -3617,22 +3618,32 @@ struct LiveActivityView: View {
 
     /// Mapa compacto: sin expansión ni métricas duplicadas.
     private var mapMetricStrip: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { tick in
-            VStack(spacing: 10) {
-                HStack(spacing: 5) {
-                    smallMetric("Duración", value: formattedTime(recorder.duration(at: tick.date)), prominent: true)
-                    smallMetric(recorder.sport.displaysSpeed ? "Veloc. media" : "Ritmo medio", value: paceOrSpeed)
-                    smallMetric("Distancia (km)", value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
+        Group {
+            if canLockLiveScreen {
+                TimelineView(.periodic(from: .now, by: 1)) { tick in
+                    mapMetricStripBody(at: tick.date)
                 }
-                if canLockLiveScreen && recorder.sport.usesGPS {
-                    Divider().overlay(OG.label2.opacity(0.18))
-                    kilometerSplitSummary().padding(.horizontal, 8)
-                }
+            } else {
+                mapMetricStripBody(at: Date())
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 14)
-            .glassEffect(.regular, in: .rect(cornerRadius: 22))
         }
+    }
+
+    private func mapMetricStripBody(at date: Date) -> some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 5) {
+                smallMetric("Duración", value: formattedTime(recorder.duration(at: date)), prominent: true)
+                smallMetric(recorder.sport.displaysSpeed ? "Veloc. media" : "Ritmo medio", value: paceOrSpeed)
+                smallMetric("Distancia (km)", value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
+            }
+            if canLockLiveScreen && recorder.sport.usesGPS {
+                Divider().overlay(OG.label2.opacity(0.18))
+                kilometerSplitSummary().padding(.horizontal, 8)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 14)
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
     }
 
     @ViewBuilder
@@ -3712,7 +3723,11 @@ struct LiveActivityView: View {
         if canLockLiveScreen {
             let bpm = displayedHeartRateBpm.flatMap { (25...250).contains($0) ? $0 : nil }
             VStack(spacing: 0) {
-                Text(bpm.map(String.init) ?? "—")
+                OGMetricRevealText(
+                    value: bpm.map(String.init) ?? "—",
+                    reduceMotion: reduceMotion,
+                    animateValueChanges: canLockLiveScreen
+                )
                     .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
@@ -3726,46 +3741,59 @@ struct LiveActivityView: View {
     }
 
     private var metricsView: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { timeline in
-            GeometryReader { geometry in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // Página 1 = exactamente un viewport: Parciales no asoma debajo de Play.
-                        // El padding inferior deja Distancia/FC encima del chrome flotante.
-                        metricsPrimarySection(at: timeline.date)
-                            .padding(.bottom, metricsBottomChromeReserve)
+        Group {
+            if canLockLiveScreen {
+                TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                    metricsTimelineChrome(at: timeline.date)
+                }
+            } else {
+                // Idle: sin tick 1 Hz (evita pelear con el primer paint / morph).
+                metricsTimelineChrome(at: Date())
+            }
+        }
+    }
+
+    private func metricsTimelineChrome(at date: Date) -> some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Página 1 = exactamente un viewport: Parciales no asoma debajo de Play.
+                    // El padding inferior deja Distancia/FC encima del chrome flotante.
+                    metricsPrimarySection(at: date)
+                        .padding(.bottom, metricsBottomChromeReserve)
+                        .frame(
+                            minHeight: max(480, geometry.size.height),
+                            maxHeight: max(480, geometry.size.height),
+                            alignment: .top
+                        )
+
+                    if recorder.sport.usesGPS, canLockLiveScreen {
+                        // Página 2 al scrollear: mismo alto de viewport.
+                        liveSplitsSection
+                            .padding(.top, 12)
+                            .padding(.bottom, metricsBottomChromeReserve + 28)
                             .frame(
                                 minHeight: max(480, geometry.size.height),
-                                maxHeight: max(480, geometry.size.height),
                                 alignment: .top
                             )
-
-                        if recorder.sport.usesGPS, canLockLiveScreen {
-                            // Página 2 al scrollear: mismo alto de viewport.
-                            liveSplitsSection
-                                .padding(.top, 12)
-                                .padding(.bottom, metricsBottomChromeReserve + 28)
-                                .frame(
-                                    minHeight: max(480, geometry.size.height),
-                                    alignment: .top
-                                )
-                        }
                     }
-                    .scrollTargetLayout()
-                    .frame(maxWidth: .infinity)
                 }
-                .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.paging)
+                .scrollTargetLayout()
+                .frame(maxWidth: .infinity)
             }
-            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 15)) { _, _ in
-                recorder.checkpoint()
-            }
-            .onChange(of: Int(timeline.date.timeIntervalSince1970 / 5)) { _, _ in
-                Task { await refreshLiveHeartRate() }
-            }
-            .task(id: "\(recorder.phase)-\(recorder.startedAt?.timeIntervalSince1970 ?? 0)") {
-                await refreshLiveHeartRate()
-            }
+            .scrollIndicators(.hidden)
+            .scrollTargetBehavior(.paging)
+        }
+        .onChange(of: Int(date.timeIntervalSince1970 / 15)) { _, _ in
+            guard canLockLiveScreen else { return }
+            recorder.checkpoint()
+        }
+        .onChange(of: Int(date.timeIntervalSince1970 / 5)) { _, _ in
+            guard canLockLiveScreen else { return }
+            Task { await refreshLiveHeartRate() }
+        }
+        .task(id: "\(recorder.phase)-\(recorder.startedAt?.timeIntervalSince1970 ?? 0)") {
+            await refreshLiveHeartRate()
         }
     }
 
@@ -3813,7 +3841,11 @@ struct LiveActivityView: View {
             }
 
             Spacer(minLength: 16)
-            Text(formattedTime(recorder.duration(at: date)))
+            OGMetricRevealText(
+                value: formattedTime(recorder.duration(at: date)),
+                reduceMotion: reduceMotion,
+                animateValueChanges: canLockLiveScreen
+            )
                 .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .minimumScaleFactor(0.6).lineLimit(1)
@@ -3822,14 +3854,22 @@ struct LiveActivityView: View {
             metricsKilometerSlot
             Spacer(minLength: 14)
             if recorder.sport.usesGPS {
-                Text(paceOrSpeed)
+                OGMetricRevealText(
+                    value: paceOrSpeed,
+                    reduceMotion: reduceMotion,
+                    animateValueChanges: canLockLiveScreen
+                )
                     .font(.system(size: 78, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.55).lineLimit(1)
                     .foregroundStyle(OG.label)
                 Text(recorder.sport.displaysSpeed ? "Velocidad media (km/h)" : "Ritmo medio (min/km)")
                     .font(.subheadline).foregroundStyle(OG.label2)
                 Spacer(minLength: 14)
-                Text(ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000))
+                OGMetricRevealText(
+                    value: ReperaNumberFormat.decimal(recorder.recordedDistanceMeters / 1000),
+                    reduceMotion: reduceMotion,
+                    animateValueChanges: canLockLiveScreen
+                )
                     .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                 Text("Distancia (km)").font(.subheadline).foregroundStyle(OG.label2)
@@ -3837,7 +3877,11 @@ struct LiveActivityView: View {
             } else {
                 metricsIndoorHeartHero
                 Spacer(minLength: 14)
-                Text(mirroredEnergyLabel)
+                OGMetricRevealText(
+                    value: mirroredEnergyLabel,
+                    reduceMotion: reduceMotion,
+                    animateValueChanges: canLockLiveScreen
+                )
                     .font(.system(size: 55, weight: .semibold, design: .rounded).monospacedDigit())
                     .foregroundStyle(OG.label)
                 Text("Calorías activas (kcal)")
@@ -3983,7 +4027,11 @@ struct LiveActivityView: View {
             } label: {
                 Group {
                     if recorder.isStartCountingDown {
-                        Text("\(recorder.startCountdownRemaining)")
+                        OGMetricRevealText(
+                            value: "\(recorder.startCountdownRemaining)",
+                            reduceMotion: reduceMotion,
+                            animateValueChanges: true
+                        )
                             .font(.system(
                                 size: primaryControlDiameter * 0.52,
                                 weight: .bold,
@@ -4766,7 +4814,11 @@ struct LiveActivityView: View {
 
     private func smallMetric(_ label: String, value: String, prominent: Bool = false) -> some View {
         VStack(spacing: 5) {
-            Text(value)
+            OGMetricRevealText(
+                value: value,
+                reduceMotion: reduceMotion,
+                animateValueChanges: canLockLiveScreen
+            )
                 .font(.system(size: prominent ? 27 : 19,
                               weight: .semibold, design: .rounded).monospacedDigit())
                 .lineLimit(1).minimumScaleFactor(0.65)

@@ -1261,14 +1261,20 @@ struct WorkoutDetailView: View {
                     Menu {
                         if draft?.timerDetails == nil {
                         Button {
+                            // Preparar fuera del mismo turno que el push: si no,
+                            // el Form del DayEditor bloquea el menú varios segundos.
                             guard let session = draft else { return }
-                            preparedCompletedRoutine = CompletedWorkoutEditing.routine(
+                            let prepared = CompletedWorkoutEditing.routine(
                                 from: session,
                                 sourceRoutine: session.routineId.flatMap { id in
                                     store.state.routines.first(where: { $0.id == id })
                                 }
                             )
-                            showCompletedEditor = true
+                            preparedCompletedRoutine = prepared
+                            Task { @MainActor in
+                                await Task.yield()
+                                showCompletedEditor = true
+                            }
                         } label: {
                             Label("Editar", systemImage: "pencil")
                         }

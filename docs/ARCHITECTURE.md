@@ -1,6 +1,6 @@
 # Arquitectura Repera
 
-Última actualización: 2026-11-11 (AppIcon masters diseñador; Progreso skeleton).
+Última actualización: 2026-11-11 (sueño: sleepEnabled reconciliado con Apple Salud).
 
 ## Motor de comparativas y progresión de atletas (2026-11-09)
 
@@ -407,7 +407,7 @@ El auditor estructural **no puede aprobar** similitud del personaje, ejecución 
 
 ### Salud y recuperación local
 
-`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales (sueño/ciclo + flags de decisión) se almacenan en `UserDefaults` local; la UI vive en **Ajustes → Apple Salud** (`ConnectedHealthSettingsView`). Las muestras se consultan en Apple Salud y se mantienen en memoria (hasta ~120 días de sueño). No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
+`HealthRecoveryStore` usa HealthKit directamente en el iPhone y no entra en la capa de `BusinessWorkoutSyncStore`. Los permisos opcionales (sueño/ciclo + flags de decisión) se almacenan en `UserDefaults` local; la UI vive en **Ajustes → Apple Salud** (`ConnectedHealthSettingsView`). Las muestras se consultan en Apple Salud y se mantienen en memoria (hasta ~120 días de sueño). Conceder lectura en Ajustes → Salud del sistema **no** escribe `sleepEnabled`/`cycleEnabled`: Progreso/Salud conectada llaman `ensureSleepAnalysisEnabled` para activar ambos y releer. En Android el equivalente es `PrivateRecoverySettings.ensureAnalysisEnabledIfUndecided()` antes de pedir/leer Health Connect. Fisiología (VFC/reposo/etc.) en iOS no usa esos flags. No añadir estos datos a `AppSettings`, al documento iCloud de entrenamientos ni al payload de Supabase. Las sesiones sí guardan sus ejercicios, bloques, series y resultados para el entrenador con consentimiento existente. En el espejo Supabase, `privateMirrorPayload` elimina toda referencia a Apple Salud, incluido `appleDurationSeconds`.
 
 El campo histórico `supersetGroup` permanece en el formato Codable para abrir copias antiguas, pero se ignora al decodificar y no debe utilizarse para nuevas planificaciones.
 

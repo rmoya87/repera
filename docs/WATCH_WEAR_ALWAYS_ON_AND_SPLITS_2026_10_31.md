@@ -1,3 +1,10 @@
+## Actualización 11/11/2026 — barra de FC en Always On / Ambient
+
+- watchOS: con `isLuminanceReduced`, `WatchHeartRateZoneBar` permanece (parámetro `attenuated`); el `TimelineView` sigue en cadencia lenta (~60 s). No se sustituye la barra por una fila de texto ni se oculta en el reloj del plan.
+- Wear live: LPM centrado (`WearHeartRateBpmLabel`); zonas en arco del bisel inferior derecho (`rimBottomRight` / `WearHeartRateZoneRim`) para liberar columna central.
+- Wear ambient: `WearAmbientScreen` sigue con `WearHeartRateZoneBar(attenuated = true)` lineal y bpm congelado del snapshot.
+- Contrato: `tests/test_watch_wear_swipe_ambient_hr_contract.py`.
+
 ## Actualización 05/11/2026 — visibilidad persistente, bloqueo y maquetación de Tramo
 
 ### Apple Watch
@@ -9,7 +16,8 @@
 ### Wear OS
 - `WearHealthService` incluye `androidx.wear:wear-ongoing:1.1.0` y aplica `OngoingActivity` a su *foreground notification* mientras exista un sensor workout asociado a la sesión.
 - Se conservan la actividad en pausa, el icono monocromo en esfera y el `PendingIntent` local para volver al entrenamiento. Al finalizar/descartar se retira el foreground y la Ongoing Activity.
-- No se usa `FLAG_KEEP_SCREEN_ON` porque mantendría el panel totalmente iluminado, dañando la autonomía; Wear OS gestiona el modo ambiente.
+- **Entreno activo (live recording/paused o plan counting):** `View.keepScreenOn` + no sustituir la UI por `WearAmbientScreen` (paridad con Apple Watch: la cara del entreno no se oculta). Ambient mínimo solo con hub idle.
+- Sin entreno activo el hub sí usa AmbientLifecycleObserver / `WearAmbientScreen` (sin forzar brillo constante).
 
 ### iPhone
 - En la Live Activity del entrenamiento libre, `Tramo` pasa a una tarjeta centrada bajo la fila de indicadores y con márgenes simétricos e inferiores.
@@ -20,7 +28,7 @@
 
 En `Comenzar` la pantalla móvil permanece activa al bloquearse la interacción táctil durante una sesión iniciada o en pausa. iOS se integra con `TimerScreenAwake` para que los demás temporizadores no pierdan el permiso. Android aplica `View.keepScreenOn` mientras el bloqueo de Comenzar sigue activo. El sistema puede apagar la pantalla por orden manual del usuario, llamada o restricción de energía: no es una anulación del botón de encendido. El desbloqueo exige mantener el candado durante 1 s.
 
-Watch/Wear no fuerzan brillo constante. Con instrucciones reales la vista inicial es Navegación y la segunda es Métricas; siempre se respeta Always On/ambiente y la navegación horizontal propia de controles.
+Watch Always On atenúa la misma UI. Wear con entreno activo mantiene la cara live (`keepScreenOn`); sin entreno, ambiente del hub. Con instrucciones reales: Navegación → Métricas; swipe Controles ↔ Now Playing.
 
 ### Validación de hardware
 1. Empezar paseo desde reloj y desde móvil, bajar la muñeca al menos 3 minutos y regresar: pantalla de sesión/Always On, no esfera. Probar activo y pausado.

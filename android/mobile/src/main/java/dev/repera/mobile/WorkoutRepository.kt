@@ -2167,17 +2167,27 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         return mostRecentOverduePlanSession(state, today, professional)
     }
 
-    /** Últimos deportes Comenzar guardados, más recientes primero (paridad watchOS). */
+    /** Últimos deportes Comenzar + orden de hub Wear, más recientes primero (paridad watchOS). */
     @Synchronized fun recentLiveSportIDsForWatch(limit: Int = 8): List<String> {
-        val workouts = loadOrNull()?.optJSONArray("workouts") ?: return emptyList()
+        val fromWear = WearActiveSessionBridge.wearHubRecents(context.applicationContext)
+        val workouts = loadOrNull()?.optJSONArray("workouts")
+        val fromWorkouts = mutableListOf<String>()
         val seen = mutableSetOf<String>()
+        if (workouts != null) {
+            for (i in 0 until workouts.length()) {
+                val id = workouts.getJSONObject(i).optString("liveSportID").takeIf { it.isNotBlank() }
+                    ?: continue
+                if (!seen.add(id)) continue
+                fromWorkouts += id
+                if (fromWorkouts.size >= limit) break
+            }
+        }
+        // Wear manda en el hub; el historial del teléfono rellena el resto.
         val ordered = mutableListOf<String>()
-        for (i in 0 until workouts.length()) {
-            val id = workouts.getJSONObject(i).optString("liveSportID").takeIf { it.isNotBlank() }
-                ?: continue
-            if (!seen.add(id)) continue
-            ordered += id
+        for (id in fromWear + fromWorkouts) {
             if (ordered.size >= limit) break
+            if (id.isBlank() || id in ordered) continue
+            ordered += id
         }
         return ordered
     }

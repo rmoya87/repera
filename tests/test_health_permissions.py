@@ -54,6 +54,71 @@ class UnifiedHealthPermissionsTests(unittest.TestCase):
         self.assertNotIn("healthStore.requestAuthorization", setter)
         self.assertIn("var shouldRequestSleepWithHealth: Bool { sleepEnabled }", source)
 
+    def test_progress_enables_local_sleep_flag_when_system_permissions_alone_are_not_enough(self):
+        """Ajustes → Salud del iPhone no escribe sleepEnabled; Progreso debe reconciliar sin UI nueva."""
+        source = self.read("HealthRecovery.swift")
+        kit = self.read("HealthKitStore.swift")
+        self.assertIn("func ensureSleepAnalysisEnabled(using health: HealthKitStore) async", source)
+        self.assertIn("await recovery.ensureSleepAnalysisEnabled(using: health)", source)
+        self.assertNotIn("recovery_enable_sleep_analysis", source)
+        self.assertNotIn("Usar sueño de Apple Salud", source)
+        self.assertIn(
+            "Repera necesita el sueño activado en Ajustes para evaluarte.",
+            source,
+        )
+        request = kit.split(
+            "func requestAccess(includeSleep: Bool? = nil, includeAllOptional: Bool = false) async {",
+            1,
+        )[1].split("func refreshAuthorizationStatus()", 1)[0]
+        # Flag local antes del panel + relectura; también en el catch de escritura.
+        first_enable = request.index("enableUnifiedHealthAnalysis()")
+        auth = request.index("store.requestAuthorization(toShare: share, read: read)")
+        self.assertLess(first_enable, auth)
+        self.assertIn("await HealthRecoveryStore.shared.refresh()", request)
+        self.assertIn("isAuthorized = false", request)
+        catch = request.split("} catch {", 1)[1]
+        self.assertIn("enableUnifiedHealthAnalysis()", catch)
+        source = self.read("HealthRecovery.swift")
+        ensure = source.split("func ensureSleepAnalysisEnabled(using health: HealthKitStore) async {", 1)[1]
+        ensure = ensure.split("func acceptSleepFromHealthAuthorization()", 1)[0]
+        self.assertIn("sleepEnabled && cycleEnabled", ensure)
+
+    def test_android_private_recovery_flags_reconcile_like_ios(self):
+        """Health Connect del sistema no escribe sleepEnabled; pedir/leer sueño requiere flag local."""
+        settings = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/PrivateRecoverySettings.kt").read_text(
+            encoding="utf-8"
+        )
+        main = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/MainActivity.kt").read_text(
+            encoding="utf-8"
+        )
+        onboard = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/OnboardingScreen.kt").read_text(
+            encoding="utf-8"
+        )
+        reader = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/HealthConnectReader.kt").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fun ensureAnalysisEnabledIfUndecided()", settings)
+        self.assertIn("if(!sleepDecisionMade() && !sleepEnabled())", settings)
+        self.assertIn("if(!cycleDecisionMade() && !cycleEnabled())", settings)
+        self.assertIn("ensureAnalysisEnabledIfUndecided()", main)
+        self.assertIn("ensureAnalysisEnabledIfUndecided()", onboard)
+        self.assertIn("requestedPermissions()", onboard)
+        self.assertNotIn("healthLauncher.launch(HealthConnectReader.permissions)", onboard)
+        # Sueño/ciclo gated por flag; VFC/reposo se leen solo con permiso HC (sin sleepEnabled).
+        req = reader.split("fun requestedPermissions()", 1)[1].split("fun available()", 1)[0]
+        self.assertIn("settings.sleepEnabled()", req)
+        self.assertIn("SleepSessionRecord::class", req)
+        self.assertIn("settings.cycleEnabled()", req)
+        recovery = reader.split("suspend fun readRecovery(days: Int)", 1)[1].split(
+            "suspend fun readBodyMass", 1
+        )[0]
+        self.assertIn("PrivateRecoverySettings(context).sleepEnabled()", recovery)
+        self.assertIn("SleepSessionRecord::class", recovery)
+        hrv_block = recovery.split("HeartRateVariabilityRmssdRecord::class", 1)[1].split(
+            "RestingHeartRateRecord::class", 1
+        )[0]
+        self.assertNotIn("sleepEnabled", hrv_block)
+
 
 class HealthCaloriesOriginContractTests(unittest.TestCase):
     """Contratos de origen: nunca confundir estimaciones Repera con Salud."""

@@ -165,6 +165,9 @@ internal fun ProgressTab(
         selectedRange = ProgressTimeRange.WEEK.wire
     }
     LaunchedEffect(selectedRange) {
+        // Un frame tras paint: no solapar widen HC / reloadFor con el morph de 1.ª visita.
+        kotlinx.coroutines.yield()
+        androidx.compose.runtime.withFrameNanos { }
         onProgressRangeChange(selectedRange)
         dev.repera.mobile.analytics.ReperaAnalytics.track(
             dev.repera.mobile.analytics.ReperaAnalytics.Event.PROGRESS_PERIOD_SELECTED,
@@ -265,6 +268,22 @@ internal fun ProgressTab(
             )
         }
     }
+    val wantsFirstVisitReveal = remember { !ReperaMetricRevealSession.progressHubPlayed }
+    var playMetricReveal by remember { mutableStateOf(false) }
+    val categoryNeedsSnapshotForGate = when (selectedCategory) {
+        ProgressCategory.RECOVERY, ProgressCategory.SPORTS -> false
+        ProgressCategory.TRAINING, ProgressCategory.STRENGTH,
+        ProgressCategory.FITNESS, ProgressCategory.HEART -> true
+    }
+    val hubContentReady = !categoryNeedsSnapshotForGate || snapshot != null
+    LaunchedEffect(hubContentReady, wantsFirstVisitReveal) {
+        if (!wantsFirstVisitReveal || !hubContentReady || playMetricReveal) return@LaunchedEffect
+        kotlinx.coroutines.yield()
+        kotlinx.coroutines.delay(160)
+        playMetricReveal = true
+        ReperaMetricRevealSession.progressHubPlayed = true
+    }
+    ProvideMetricRevealPlay(playMetricReveal) {
     ProvideLazyDragAutoScroll(dragListState) {
     LazyColumn(
         state = dragListState,
@@ -1046,6 +1065,7 @@ internal fun ProgressTab(
         }
     }
     }
+    }
 }
 
 private fun strengthInsightCopy(prCount: Int, volumeKg: Int, activitiesToday: Int = 0): String {
@@ -1761,10 +1781,9 @@ private fun ProgressSaludInsightCard(
                             trailingText = trailingText
                         )
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                heroValue,
-                                style = heroStyle,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            ReperaMetricRevealText(
+                                value = heroValue,
+                                style = heroStyle.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                                 maxLines = 1
                             )
                             if (heroUnit != null) {
@@ -1824,10 +1843,9 @@ private fun ProgressSaludInsightCard(
                             verticalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    heroValue,
-                                    style = MaterialTheme.typography.displayLarge,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                ReperaMetricRevealText(
+                                    value = heroValue,
+                                    style = MaterialTheme.typography.displayLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                                     maxLines = 1
                                 )
                                 if (heroUnit != null) {
@@ -1882,10 +1900,9 @@ private fun ProgressSaludInsightCard(
                     if (monthWeeklyRows.isNotEmpty()) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    heroValue,
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                ReperaMetricRevealText(
+                                    value = heroValue,
+                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                                 )
                                 if (heroUnit != null) {
                                     Text(
@@ -1912,10 +1929,9 @@ private fun ProgressSaludInsightCard(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                heroValue,
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            ReperaMetricRevealText(
+                                value = heroValue,
+                                style = MaterialTheme.typography.displayMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                             )
                             Column {
                                 Text(
@@ -1935,10 +1951,9 @@ private fun ProgressSaludInsightCard(
                     } else {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.Bottom) {
-                                Text(
-                                    heroValue,
-                                    style = MaterialTheme.typography.displayMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                ReperaMetricRevealText(
+                                    value = heroValue,
+                                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                                 )
                                 if (heroUnit != null) {
                                     Text(

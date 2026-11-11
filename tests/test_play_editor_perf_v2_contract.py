@@ -1,4 +1,4 @@
-"""Rendimiento Play / Crear-Editar v2: debounce, celdas perezosas, navSig, expandedEntryId."""
+"""Rendimiento Play / Crear-Editar v2: debounce, UITextField + pad lazy, navSig."""
 from pathlib import Path
 import unittest
 
@@ -28,19 +28,69 @@ class PlayEditorPerfV2Contract(unittest.TestCase):
         self.assertNotIn("@State private var liveSets", IOS_WORKOUT)
         self.assertNotIn("setsBoard", IOS_WORKOUT)
 
-    def test_ios_editor_lazy_numeric_cells_and_isolation(self):
+    def test_ios_editor_mounted_numeric_cells_and_isolation(self):
         cell = IOS_THEME.split("private struct OGSetNumericCell", 1)[1].split(
             "struct OGFormatNumberField", 1
         )[0]
-        self.assertIn("if isFocused && enabled", cell)
+        # Lazy con isArmed (no solo FocusState): Text hasta el tap; UITextField
+        # permanece armado; ambas ramas .frame(height: 44).
+        self.assertIn("@State private var isArmed = false", cell)
+        self.assertIn("pendingAutoFocus", cell)
+        self.assertIn("if isArmed && enabled", cell)
         self.assertIn("OGNumericTextField(", cell)
         self.assertIn("Button {", cell)
+        self.assertIn(".frame(height: 44)", cell)
+        format_field = IOS_THEME.split("struct OGFormatNumberField", 1)[1].split(
+            "private func commit()", 1
+        )[0]
+        self.assertIn("@State private var isArmed = false", format_field)
+        self.assertIn("OGNumericTextField(", format_field)
+        self.assertIn("Button {", format_field)
+        # Pad 4×4 lazy: no crear OGReperaNumericKeypad en makeUIView (mata el scroll).
+        numeric = IOS_THEME.split("struct OGNumericTextField: UIViewRepresentable", 1)[1].split(
+            "fileprivate final class OGReperaNumericKeypad", 1
+        )[0]
+        self.assertIn("func ensureKeypadInstalled()", numeric)
+        self.assertIn("func textFieldShouldBeginEditing", numeric)
+        self.assertIn("field.inputView = nil", numeric)
+        make = numeric.split("func makeUIView", 1)[1].split("func updateUIView", 1)[0]
+        self.assertNotIn("OGReperaNumericKeypad(", make)
+        self.assertIn("if autoFocus {", make)
         self.assertIn("StrengthExerciseSetsIsolator", IOS_PLAN)
         self.assertIn("StrengthExerciseSetsIdentity: Hashable", IOS_PLAN)
         self.assertIn(".id(setsIdentity)", IOS_PLAN)
         self.assertNotIn(": View, Equatable", IOS_PLAN)
         self.assertIn("refreshExercisesByIdIfNeeded", IOS_PLAN)
         self.assertIn("previousSetTexts(for:", IOS_PLAN)
+        # Identidad estructural: sin RoutineExercise completo ni valores de serie en `.id`
+        # (si plannedSets/peso/reps van en la identidad, cada tecla remonta y pierde el foco).
+        identity = IOS_PLAN.split(
+            "private struct StrengthExerciseSetsIdentity: Hashable", 1
+        )[1].split("private struct StrengthExerciseSetsIsolator", 1)[0]
+        self.assertIn("let itemID: UUID", identity)
+        self.assertNotIn("let plannedSetIDs: [UUID]", identity)
+        self.assertNotIn("let previousTexts: [String?]", identity)
+        self.assertNotIn("let item: RoutineExercise", identity)
+        self.assertIn("item: item,", IOS_PLAN)
+        self.assertIn("previousTexts: previousTexts,", IOS_PLAN)
+        # Bloques de fuerza siempre con strengthBlock (Añadir serie), no solo Rx completada.
+        self.assertIn("strengthBlock(index: index)", IOS_PLAN)
+        strength_branch = IOS_PLAN.split("if block.kind == .strength", 1)[1].split("} else {", 1)[0]
+        self.assertNotIn("completedStrengthPrescription", strength_branch)
+        self.assertIn("if focus != nil { return }", IOS_WORKOUT)
+        self.assertIn("onChange(of: focus)", IOS_WORKOUT)
+        # Primer frame sin salto de altura: catálogo/series listos antes de onAppear.
+        self.assertIn("resolvedExerciseCatalog", IOS_PLAN)
+        self.assertIn("withStrengthPlannedSets", IOS_PLAN)
+        self.assertIn("Self.makeRows(from:", IOS_WORKOUT)
+        self.assertIn("hydratePreviousSummariesIfNeeded", IOS_WORKOUT)
+        self.assertIn("compactIntrinsicHeight: 44", IOS_THEME)
+        self.assertIn("initialDraftSets(movement:", IOS_PLAN)
+        # Una sola entrada expandida (paridad Android): evita freeze al abrir Editar.
+        self.assertIn("@State private var expandedEntryID: UUID?", IOS_PLAN)
+        self.assertIn("firstExpandableEntryID", IOS_PLAN)
+        self.assertIn("expandedEntryID == item.id", IOS_PLAN)
+        self.assertIn("plannedSets.compactSummary", IOS_PLAN)
 
     def test_android_play_nav_sig_and_flat_lazy(self):
         self.assertIn('"${it.blockId}:${it.index}:${it.name}"', ANDROID_PLAY)
@@ -57,6 +107,9 @@ class PlayEditorPerfV2Contract(unittest.TestCase):
         self.assertIn("CompactEntrySummaryRow(", ANDROID_EDITOR)
         self.assertIn("includeEntries = false", ANDROID_EDITOR)
         self.assertIn("BlockEntryEditorSlot(", ANDROID_EDITOR)
+        # Primer ejercicio expandido al abrir (Crear y Editar iguales).
+        self.assertIn("firstKey", ANDROID_EDITOR)
+        self.assertIn("stableKey(index)", ANDROID_EDITOR)
 
 
 if __name__ == "__main__":

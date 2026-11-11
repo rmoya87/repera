@@ -179,6 +179,110 @@ extension View {
     }
 }
 
+/// Gate de proceso: Progreso solo revela números la 1.ª vez que se abre el hub.
+@MainActor
+enum OGMetricRevealSession {
+    static var progressHubPlayed = false
+}
+
+private struct OGMetricRevealPlayKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// `false` = mostrar el valor final al instante (p. ej. revisitas de Progreso).
+    var ogMetricRevealPlay: Bool {
+        get { self[OGMetricRevealPlayKey.self] }
+        set { self[OGMetricRevealPlayKey.self] = newValue }
+    }
+}
+
+/// Como los números de Inicio (Pasos/Tiempo): parte de «—» y llega al valor con
+/// `numericText`. Por defecto, tras el primer revelado los cambios son instantáneos
+/// (Progreso). Con `animateValueChanges` (Comenzar / cuenta atrás) cada dígito
+/// sigue animando. Respeta reducir movimiento y `ogMetricRevealPlay`.
+struct OGMetricRevealText: View {
+    let value: String
+    var reduceMotion: Bool
+    /// `true` = cronómetro / cuenta atrás: animar cada cambio de dígito.
+    var animateValueChanges: Bool = false
+    @Environment(\.ogMetricRevealPlay) private var playReveal
+    @State private var displayed: String?
+    @State private var didInitialReveal = false
+
+    private var shouldAnimate: Bool { playReveal && !reduceMotion }
+    private var useDigitTransition: Bool {
+        shouldAnimate && (!didInitialReveal || animateValueChanges)
+    }
+    private var shown: String { displayed ?? (shouldAnimate ? "—" : value) }
+
+    var body: some View {
+        Text(shown)
+            .contentTransition(useDigitTransition ? .numericText() : .identity)
+            .animation(
+                OGMotion.animation(OGMotion.highlight, reduceMotion: !useDigitTransition),
+                value: shown
+            )
+            .onAppear { revealIfNeeded() }
+            .onChange(of: value) { _, new in
+                applyUpdate(new)
+            }
+            .onChange(of: playReveal) { _, _ in
+                revealIfNeeded()
+            }
+    }
+
+    private func revealIfNeeded() {
+        if !shouldAnimate {
+            displayed = value
+            didInitialReveal = true
+            return
+        }
+        if displayed == value {
+            didInitialReveal = true
+            return
+        }
+        // Un solo morph: si ya estamos en «—», solo actualiza el target al value vivo.
+        if displayed == nil {
+            displayed = "—"
+        }
+        Task { @MainActor in
+            await Task.yield()
+            guard shouldAnimate else {
+                displayed = value
+                didInitialReveal = true
+                return
+            }
+            OGMotion.run(OGMotion.highlight, reduceMotion: false) {
+                displayed = value
+            }
+            didInitialReveal = true
+        }
+    }
+
+    private func applyUpdate(_ new: String) {
+        guard displayed != nil || !shouldAnimate else { return }
+        if !shouldAnimate {
+            displayed = new
+            return
+        }
+        if animateValueChanges {
+            OGMotion.run(OGMotion.highlight, reduceMotion: false) {
+                displayed = new
+            }
+            return
+        }
+        if didInitialReveal {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { displayed = new }
+        } else {
+            // Durante el morph inicial: seguir el valor vivo sin reiniciar N animaciones.
+            displayed = new
+        }
+    }
+}
+
 private struct OGContinueSessionMatchedGeometryModifier: ViewModifier {
     var id: String
     var reduceMotion: Bool
@@ -205,6 +309,7 @@ enum OGChartRevealStyle {
 private struct OGChartRevealModifier: ViewModifier {
     let style: OGChartRevealStyle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.ogMetricRevealPlay) private var playMetricReveal
     @State private var progress: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -220,12 +325,23 @@ private struct OGChartRevealModifier: ViewModifier {
                         anchor: style == .line ? .leading : .bottom
                     )
             }
-            .onAppear {
+            .task(id: playMetricReveal) {
                 guard progress < 1 else { return }
                 if reduceMotion {
                     progress = 1
                     return
                 }
+                // 1.ª visita Progreso: esperar al gate de números (playMetricReveal).
+                if !OGMetricRevealSession.progressHubPlayed && !playMetricReveal {
+                    return
+                }
+                // Tras números (~220 ms) en 1.ª visita; revisitas: un frame.
+                if playMetricReveal {
+                    try? await Task.sleep(nanoseconds: 220_000_000)
+                } else {
+                    await Task.yield()
+                }
+                guard !Task.isCancelled, progress < 1 else { return }
                 progress = 0
                 withAnimation(OGMotion.chartReveal) {
                     progress = 1
@@ -1441,22 +1557,24 @@ struct OGNumericTextField: UIViewRepresentable {
         configure(field, coordinator: context.coordinator)
         field.accessibilityIdentifier = focusIdentifier
         context.coordinator.nextFocusIdentifier = nextFocusIdentifier
-        field.text = text
-        // Vista real de teclado 4×4, no el numberPad/decimalPad del sistema.
-        let pad = OGReperaNumericKeypad(
-            coordinator: context.coordinator,
-            allowsDecimal: allowsDecimal,
-            allowsTime: allowsTimeSeparator,
-            actionTitle: submitTitle
-        )
-        field.inputView = pad
-        field.inputAccessoryView = nil
-        context.coordinator.pad = pad
+        context.coordinator.submitTitle = submitTitle
         context.coordinator.submitsToNextField = submitTitle != "✓"
             && submitTitle.lowercased() != "listo"
+        field.text = text
+        // No construir el pad 4×4 aquí: N celdas × teclado completo ahoga el scroll
+        // del Form/List. Se crea just-in-time en textFieldShouldBeginEditing.
+        field.inputView = nil
+        field.inputAccessoryView = nil
 
-        if autoFocus && isFocused == nil {
-            DispatchQueue.main.async { field.becomeFirstResponder(); field.selectAll(nil) }
+        // autoFocus también con isFocused != nil: las celdas lazy arman el
+        // campo y pasan ambos para abrir el teclado Repera al primer tap.
+        if autoFocus {
+            let coordinator = context.coordinator
+            DispatchQueue.main.async { [weak field, weak coordinator] in
+                coordinator?.ensureKeypadInstalled()
+                field?.becomeFirstResponder()
+                field?.selectAll(nil)
+            }
         }
         return field
     }
@@ -1469,6 +1587,7 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocused = onFocused
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
+        c.submitTitle = submitTitle
         c.submitsToNextField = submitTitle != "✓" && submitTitle.lowercased() != "listo"
         c.nextFocusIdentifier = nextFocusIdentifier
         if field.accessibilityIdentifier != focusIdentifier {
@@ -1503,6 +1622,7 @@ struct OGNumericTextField: UIViewRepresentable {
             if isFocused && !field.isFirstResponder {
                 DispatchQueue.main.async { [weak field, weak c] in
                     guard c?.desiredFocus == true else { return }
+                    c?.ensureKeypadInstalled()
                     field?.becomeFirstResponder()
                     field?.selectAll(nil)
                 }
@@ -1538,8 +1658,10 @@ struct OGNumericTextField: UIViewRepresentable {
         var desiredFocus: Bool?
         var submitsToNextField = false
         var nextFocusIdentifier: String?
+        var submitTitle: String = "✓"
         weak var field: UITextField?
-        fileprivate weak var pad: OGReperaNumericKeypad?
+        /// Retiene el pad mientras el campo vive; `inputView` no lo retiene solo.
+        fileprivate var pad: OGReperaNumericKeypad?
         private var suppressNextEndCommit = false
         private var replaceDefaultZeroOnNextKey = false
 
@@ -1557,6 +1679,31 @@ struct OGNumericTextField: UIViewRepresentable {
             self.onFocused = onFocused
             self.onFocusLost = onFocusLost
             self.onCommit = onCommit
+        }
+
+        /// Construye el teclado Repera solo al editar (scroll barato; tap abre igual).
+        fileprivate func ensureKeypadInstalled() {
+            guard let field else { return }
+            if let pad {
+                if field.inputView !== pad {
+                    field.inputView = pad
+                }
+                return
+            }
+            let pad = OGReperaNumericKeypad(
+                coordinator: self,
+                allowsDecimal: allowsDecimal,
+                allowsTime: allowsTimeSeparator,
+                actionTitle: submitTitle
+            )
+            self.pad = pad
+            field.inputView = pad
+            field.inputAccessoryView = nil
+        }
+
+        func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+            ensureKeypadInstalled()
+            return true
         }
 
         func textFieldDidBeginEditing(_ textField: UITextField) {
@@ -2175,7 +2322,9 @@ struct OGSetEntryRow: View {
 }
 
 /// Campo con el teclado nativo de Repera y retorno contextual Siguiente / Listo.
-/// Sin foco: texto tappable (no monta UITextField). Con foco: teclado Repera.
+/// Lazy con `@State isArmed` (no solo `@FocusState`): sin armar = Text barato;
+/// al tocar monta `UITextField` y **sigue armado** (el FocusState solo en Form
+/// no abría el teclado). Ambas ramas usan altura 44 → sin salto de layout.
 private struct OGSetNumericCell: View {
     var display: String
     var allowsDecimal: Bool
@@ -2187,28 +2336,34 @@ private struct OGSetNumericCell: View {
     var onLastSubmit: () -> Void
 
     @State private var draft = ""
+    @State private var isArmed = false
+    @State private var pendingAutoFocus = false
 
     private var isFocused: Bool { focus.wrappedValue == fieldID }
 
     var body: some View {
         Group {
-            if isFocused && enabled {
+            if isArmed && enabled {
                 OGNumericTextField(
                     text: $draft,
                     allowsDecimal: allowsDecimal,
                     allowsTimeSeparator: display.contains(":"),
                     textAlignment: .center,
                     fontSize: 17,
-                    autoFocus: true,
-                    isFocused: true,
+                    autoFocus: pendingAutoFocus,
+                    isFocused: isFocused,
                     submitTitle: nextID == nil ? "✓" : "Siguiente",
                     focusIdentifier: fieldID.accessibilityKey,
                     nextFocusIdentifier: nextID?.accessibilityKey,
-                    onFocused: { focus.wrappedValue = fieldID },
+                    onFocused: {
+                        focus.wrappedValue = fieldID
+                        pendingAutoFocus = false
+                    },
                     onFocusLost: {
                         onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
                         if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
                     },
+                    compactIntrinsicHeight: 44,
                     onCommit: {
                         onCommit(draft.trimmingCharacters(in: .whitespacesAndNewlines))
                         if let nextID {
@@ -2219,10 +2374,17 @@ private struct OGSetNumericCell: View {
                         }
                     }
                 )
+                .onAppear {
+                    if pendingAutoFocus || focus.wrappedValue == nil {
+                        focus.wrappedValue = fieldID
+                    }
+                }
             } else {
                 Button {
                     guard enabled else { return }
                     draft = normalized(display)
+                    isArmed = true
+                    pendingAutoFocus = true
                     focus.wrappedValue = fieldID
                 } label: {
                     Text(display.isEmpty ? "—" : display)
@@ -2257,9 +2419,11 @@ private struct OGSetNumericCell: View {
             }
             onCommit(valid.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        .onChange(of: isFocused) { _, focused in
-            if focused {
-                draft = normalized(display)
+        // Al saltar a la siguiente celda con «Siguiente», armar el destino.
+        .onChange(of: focus.wrappedValue) { _, newFocus in
+            if newFocus == fieldID, enabled {
+                if !isArmed { pendingAutoFocus = true }
+                isArmed = true
             }
         }
     }
@@ -2281,6 +2445,8 @@ struct OGFormatNumberField: View {
     var fieldID: OGSetFieldID
     var nextID: OGSetFieldID? = nil
     @State private var draft = ""
+    @State private var isArmed = false
+    @State private var pendingAutoFocus = false
 
     private var isFocused: Bool { focus.wrappedValue == fieldID }
 
@@ -2292,37 +2458,50 @@ struct OGFormatNumberField: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             HStack(spacing: 2) {
-                if isFocused {
-                    OGNumericTextField(
-                        text: $draft,
-                        allowsDecimal: false,
-                        fontSize: 16,
-                        autoFocus: true,
-                        isFocused: true,
-                        submitTitle: nextID == nil ? "✓" : "Siguiente",
-                        focusIdentifier: fieldID.accessibilityKey,
-                        nextFocusIdentifier: nextID?.accessibilityKey,
-                        onFocused: { focus.wrappedValue = fieldID },
-                        onFocusLost: {
-                            commit()
-                            if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
-                        },
-                        onCommit: {
-                            commit()
-                            focus.wrappedValue = nextID
+                Group {
+                    if isArmed {
+                        OGNumericTextField(
+                            text: $draft,
+                            allowsDecimal: false,
+                            fontSize: 16,
+                            autoFocus: pendingAutoFocus,
+                            isFocused: isFocused,
+                            submitTitle: nextID == nil ? "✓" : "Siguiente",
+                            focusIdentifier: fieldID.accessibilityKey,
+                            nextFocusIdentifier: nextID?.accessibilityKey,
+                            onFocused: {
+                                focus.wrappedValue = fieldID
+                                pendingAutoFocus = false
+                            },
+                            onFocusLost: {
+                                commit()
+                                if focus.wrappedValue == fieldID { focus.wrappedValue = nil }
+                            },
+                            compactIntrinsicHeight: 44,
+                            onCommit: {
+                                commit()
+                                focus.wrappedValue = nextID
+                            }
+                        )
+                        .onAppear {
+                            if pendingAutoFocus || focus.wrappedValue == nil {
+                                focus.wrappedValue = fieldID
+                            }
                         }
-                    )
-                } else {
-                    Button {
-                        draft = String(value)
-                        focus.wrappedValue = fieldID
-                    } label: {
-                        Text(String(value))
-                            .font(.system(size: 16, weight: .medium).monospacedDigit())
-                            .foregroundStyle(OG.label)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        Button {
+                            draft = String(value)
+                            isArmed = true
+                            pendingAutoFocus = true
+                            focus.wrappedValue = fieldID
+                        } label: {
+                            Text(String(value))
+                                .font(.system(size: 16, weight: .medium).monospacedDigit())
+                                .foregroundStyle(OG.label)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
                 if !unit.isEmpty {
                     Text(unit)
@@ -2354,8 +2533,11 @@ struct OGFormatNumberField: View {
                 if value != valid { value = valid }
             }
         }
-        .onChange(of: isFocused) { _, focused in
-            if focused { draft = String(value) }
+        .onChange(of: focus.wrappedValue) { _, newFocus in
+            if newFocus == fieldID {
+                if !isArmed { pendingAutoFocus = true }
+                isArmed = true
+            }
         }
         .onDisappear {
             commit()

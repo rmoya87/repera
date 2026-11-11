@@ -110,7 +110,7 @@ class WearLiveCommandListener : WearableListenerService() {
         }.getOrNull() ?: return
         val sessionId = command.optString("sessionId")
         val action = command.optString("command")
-        if (sessionId.isBlank() || action !in setOf("pause", "resume", "finish")) return
+        if (sessionId.isBlank() || action !in setOf("pause", "resume", "finish", "cancel")) return
         val sessionStore = SessionStore(this)
         val owner = sessionStore.load()?.uniqueId ?: return
         val revision = sessionStore.identityRevision()
@@ -123,6 +123,10 @@ class WearLiveCommandListener : WearableListenerService() {
             when (action) {
                 "pause" -> runtime.pause()
                 "resume" -> runtime.resume()
+                "cancel" -> {
+                    // X del Wear: descarta en el dueño (teléfono) sin revisión ni HK.
+                    runtime.discard()
+                }
                 "finish" -> {
                     // Wear puede adjuntar kcal/FC finales en el mismo comando.
                     WearLiveMetricsReceiver.accept(this, owner, command)

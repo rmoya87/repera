@@ -192,14 +192,15 @@ struct WatchStandaloneTimerView: View {
             DragGesture(minimumDistance: 35).onEnded { drag in
                 let dx = drag.translation.width
                 guard abs(dx) > abs(drag.translation.height) * 1.4 else { return }
-                if dx < -55 {
+                // Controles ← Reloj → Now Playing (misma lógica que el entreno).
+                if dx > 55 {
                     if showingNowPlaying {
                         showingNowPlaying = false
                     } else {
                         showingTimerControls = true
                         showingTimerMetrics = false
                     }
-                } else if dx > 55 {
+                } else if dx < -55 {
                     if showingTimerControls {
                         showingTimerControls = false
                     } else {
@@ -242,30 +243,16 @@ struct WatchStandaloneTimerView: View {
             Color.black.ignoresSafeArea()
             if showingTimerControls {
                 ScrollView {
-                    VStack(spacing: 9) {
-                        WatchControlActionButton(
-                            title: running ? "Pausar" : "Reanudar",
-                            systemName: running ? "pause.fill" : "play.fill",
-                            tint: accent
-                        ) { togglePause() }
-                        WatchControlActionButton(
-                            title: "Finalizar",
-                            systemName: "flag.checkered",
-                            tint: accent
-                        ) { timerExitPrompt = .finish }
-                        Button {
-                            timerExitPrompt = .discard
-                        } label: {
-                            Label("Descartar", systemImage: "trash")
-                                .font(.headline.weight(.semibold))
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, minHeight: 49)
-                                .background(Color(white: 0.18),
-                                            in: RoundedRectangle(cornerRadius: 14))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Descartar temporizador")
-                    }
+                    WatchSessionControlsGrid(
+                        isPaused: !running,
+                        audioMuted: hub.audioMuted,
+                        cancelAccessibilityLabel: "Descartar temporizador",
+                        accent: accent,
+                        onPauseResume: { togglePause() },
+                        onFinish: { timerExitPrompt = .finish },
+                        onCancel: { timerExitPrompt = .discard },
+                        onToggleAudio: { hub.toggleAudioMuted() }
+                    )
                     .padding(.horizontal, 10)
                     .padding(.vertical, 10)
                 }

@@ -15,6 +15,10 @@ struct StatsView: View {
     @State private var isExpandedLayout = false
     /// Nota de preparación (0…10) para el chip Recuperación; nil = sin evidencia.
     @State private var recoveryGlanceScore: Int?
+    /// Elegible para revelado Inicio-like (1.ª visita del proceso); se arma tras snapshot estable.
+    @State private var wantsFirstVisitReveal = !OGMetricRevealSession.progressHubPlayed
+    /// `true` solo tras contenido listo + post-transición (~160 ms).
+    @State private var playMetricReveal = false
 
     private var mondayFirst: Bool {
         store.state.settings.weekStartsOn == .monday
@@ -22,6 +26,12 @@ struct StatsView: View {
 
     private var isPro: Bool { subscriptions.isPro }
     private var snap: ProgressSnapshot { model.snapshot }
+
+    /// Sin skeleton: recovery/sports, o snapshot ya preparado para el rango.
+    private var hubContentReady: Bool {
+        if !categoryNeedsSnapshotPrep { return true }
+        return snap.key.syncRevision >= 0 && snap.range == model.range
+    }
 
     var body: some View {
         NavigationStack {
@@ -63,6 +73,16 @@ struct StatsView: View {
                 isExpandedLayout = expanded
             }
             .ogContentTitleNav()
+            .environment(\.ogMetricRevealPlay, playMetricReveal)
+            .task(id: hubContentReady) {
+                guard wantsFirstVisitReveal, hubContentReady, !playMetricReveal else { return }
+                await Task.yield()
+                try? await Task.sleep(nanoseconds: 160_000_000)
+                guard !Task.isCancelled, wantsFirstVisitReveal else { return }
+                playMetricReveal = true
+                OGMetricRevealSession.progressHubPlayed = true
+                wantsFirstVisitReveal = false
+            }
             .onAppear {
                 ReperaAnalytics.track(.progressSectionViewed, parameters: [
                     "feature_area": "progress", "section_name": category.rawValue

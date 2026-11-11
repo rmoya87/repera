@@ -40,6 +40,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
     public let primaryLabel: String?
     public let secondaryValue: String?
     public let secondaryLabel: String?
+    /// Segundos del último km cerrado (nil en snapshots antiguos o sin parcial).
+    public let lastKilometerSeconds: TimeInterval?
 
     public init(
         id: UUID, sportTitle: String, phase: Phase,
@@ -55,7 +57,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         primaryValue: String? = nil,
         primaryLabel: String? = nil,
         secondaryValue: String? = nil,
-        secondaryLabel: String? = nil
+        secondaryLabel: String? = nil,
+        lastKilometerSeconds: TimeInterval? = nil
     ) {
         self.id = id
         self.sportTitle = sportTitle
@@ -77,6 +80,7 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         self.primaryLabel = primaryLabel
         self.secondaryValue = secondaryValue
         self.secondaryLabel = secondaryLabel
+        self.lastKilometerSeconds = lastKilometerSeconds.flatMap { $0 > 0 ? $0 : nil }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -84,7 +88,7 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         case averageSpeedKmh, heartRateBpm, activeEnergyKcal
         case nextTurn, nextTurnMeters, capturedAt, conditions
         case subtitle, symbolName, primaryValue, primaryLabel
-        case secondaryValue, secondaryLabel
+        case secondaryValue, secondaryLabel, lastKilometerSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -109,6 +113,8 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         primaryLabel = try c.decodeIfPresent(String.self, forKey: .primaryLabel)
         secondaryValue = try c.decodeIfPresent(String.self, forKey: .secondaryValue)
         secondaryLabel = try c.decodeIfPresent(String.self, forKey: .secondaryLabel)
+        let rawLastKm = try c.decodeIfPresent(TimeInterval.self, forKey: .lastKilometerSeconds)
+        lastKilometerSeconds = rawLastKm.flatMap { $0 > 0 ? $0 : nil }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -133,6 +139,7 @@ public struct WatchLiveActivitySnapshot: Codable, Equatable, Sendable {
         try c.encodeIfPresent(primaryLabel, forKey: .primaryLabel)
         try c.encodeIfPresent(secondaryValue, forKey: .secondaryValue)
         try c.encodeIfPresent(secondaryLabel, forKey: .secondaryLabel)
+        try c.encodeIfPresent(lastKilometerSeconds, forKey: .lastKilometerSeconds)
     }
 
     /// The phone owns the GPS/elapsed odometer. The watch interpolates display

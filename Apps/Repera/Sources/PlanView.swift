@@ -118,6 +118,68 @@ struct DayEditorView: View {
     /// Catálogo indexado; se reconstruye solo si cambia el seed del listado.
     @State private var exercisesById: [UUID: Exercise] = [:]
     @State private var exercisesByIdSeed: Int = -1
+    /// Paridad Android `expandedEntryId`: solo un ejercicio/movimiento monta
+    /// la retícula de series. Montar todas en el Form bloquea «Editar» segundos.
+    @State private var expandedEntryID: UUID?
+
+    init(
+        routine: Routine,
+        mode: DayEditorMode,
+        onSessionStarted: (() -> Void)? = nil,
+        onClose: (() -> Void)? = nil,
+        onApplyDraft: ((Routine) -> Void)? = nil,
+        onApplyCompleted: ((Routine, WorkoutSession, Bool) -> Void)? = nil,
+        completedSession: WorkoutSession? = nil,
+        completedHasHealthRoute: Bool = false,
+        embedsNavigationStack: Bool = true,
+        usesPageCloseHeader: Bool = false
+    ) {
+        // Series por defecto antes del 1.er layout: si se rellenan en onAppear,
+        // el Form salta de altura al entrar.
+        let normalized = Self.withStrengthPlannedSets(routine)
+        _routine = State(initialValue: normalized)
+        _expandedEntryID = State(initialValue: Self.firstExpandableEntryID(in: normalized))
+        self.mode = mode
+        self.onSessionStarted = onSessionStarted
+        self.onClose = onClose
+        self.onApplyDraft = onApplyDraft
+        self.onApplyCompleted = onApplyCompleted
+        self.completedSession = completedSession
+        self.completedHasHealthRoute = completedHasHealthRoute
+        self.embedsNavigationStack = embedsNavigationStack
+        self.usesPageCloseHeader = usesPageCloseHeader
+    }
+
+    private static func firstExpandableEntryID(in routine: Routine) -> UUID? {
+        for block in routine.blocks {
+            if block.kind == .strength, let first = block.exercises.first {
+                return first.id
+            }
+            if let first = block.movements.first(where: { !$0.isRest }) {
+                return first.id
+            }
+        }
+        return nil
+    }
+
+    private static func withStrengthPlannedSets(_ routine: Routine) -> Routine {
+        var copy = routine
+        for blockIndex in copy.blocks.indices where copy.blocks[blockIndex].kind == .strength {
+            for exerciseIndex in copy.blocks[blockIndex].exercises.indices
+            where copy.blocks[blockIndex].exercises[exerciseIndex].plannedSets.isEmpty {
+                copy.blocks[blockIndex].exercises[exerciseIndex].plannedSets = [
+                    PlannedSet(targetReps: 8, targetWeightKg: nil)
+                ]
+            }
+        }
+        return copy
+    }
+
+    /// Catálogo usable en el primer frame (sin esperar `onAppear`).
+    private var resolvedExerciseCatalog: [UUID: Exercise] {
+        if !exercisesById.isEmpty { return exercisesById }
+        return Dictionary(uniqueKeysWithValues: store.state.exercises.map { ($0.id, $0) })
+    }
 
     /// La ruta de Historial abre directamente una sesión finalizada. El diseño
     /// no debe esperar a que onAppear inicialice el estado para saber si muestra
@@ -328,13 +390,10 @@ struct DayEditorView: View {
                     }
                     .listRowSeparator(.hidden)
                     if block.kind == .strength {
-                        if isEditingCompletedWorkout,
-                           let format = block.wodFormat,
-                           format.resultCapture != .perMovementSets {
-                            completedStrengthPrescription(index: index)
-                        } else {
-                            strengthBlock(index: index)
-                        }
+                        // Misma retícula que Crear (añadir/editar series). El score de
+                        // formato WOD vive en completedScoreEditor de la cabecera;
+                        // no sustituir el editor de series por solo «reps/kg reales».
+                        strengthBlock(index: index)
                     } else {
                         wodBlock(index: index)
                     }
@@ -423,14 +482,14 @@ struct DayEditorView: View {
                         PlannedSet(targetReps: amount, targetWeightKg: nil,
                             targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
                     }
-                    routine.blocks[idx].exercises.append(
-                        RoutineExercise(
-                            exerciseId: exercise.id,
-                            plannedSets: sets,
-                            quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
-                                ? exercise.defaultQuantityUnit : nil
-                        )
+                    let entry = RoutineExercise(
+                        exerciseId: exercise.id,
+                        plannedSets: sets,
+                        quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
+                            ? exercise.defaultQuantityUnit : nil
                     )
+                    routine.blocks[idx].exercises.append(entry)
+                    expandedEntryID = entry.id
                 }
                 pickExerciseForBlock = nil
             }
@@ -438,9 +497,9 @@ struct DayEditorView: View {
         .navigationDestination(item: $pickMovementForBlock) { blockID in
             ExercisePickerView(embedsNavigationStack: false) { exercise in
                 if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
-                    routine.blocks[idx].movements.append(
-                        WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)
-                    )
+                    let movement = WODMovement(exerciseId: exercise.id, name: exercise.name, reps: 10)
+                    routine.blocks[idx].movements.append(movement)
+                    expandedEntryID = movement.id
                 }
                 pickMovementForBlock = nil
             }
@@ -1888,57 +1947,75 @@ extension DayEditorView {
     private func strengthBlock(index: Int) -> some View {
         let weightStep = store.state.settings.weightIncrementKg
         let weightUnitLabel = store.state.settings.weightUnit.label.uppercased()
-        let catalog = exercisesById
+        let catalog = resolvedExerciseCatalog
         ForEach(Array(routine.blocks[index].exercises.enumerated()), id: \.element.id) { exIndex, item in
             if let ex = catalog[item.exerciseId]
                 ?? completedDetails?.exercises.first(where: { $0.exercise.id == item.exerciseId })?.exercise {
-                let previousTexts = previousSetTexts(for: ex.id, setCount: item.plannedSets.count)
+                let isExpanded = expandedEntryID == item.id
                 HStack(spacing: 4) {
                     Button {
-                        exerciseDetailID = ex.id
+                        if isExpanded {
+                            exerciseDetailID = ex.id
+                        } else {
+                            expandedEntryID = item.id
+                        }
                     } label: {
                         HStack(spacing: 12) {
                             ExerciseThumb(exercise: ex, size: 48)
-                            Text(ex.name)
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(OG.label)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(ex.name)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(OG.label)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if !isExpanded {
+                                    Text(item.plannedSets.compactSummary)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(OG.label2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
                         }
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Ver ficha del ejercicio")
+                    .accessibilityHint(isExpanded ? "Ver ficha del ejercicio" : "Editar series")
                     exerciseOptions(blockID: routine.blocks[index].id, itemID: item.id, isWOD: false)
                 }
                 .listRowSeparator(.hidden, edges: .bottom)
 
-                let setsIdentity = StrengthExerciseSetsIdentity(
-                    item: item,
-                    exerciseID: ex.id,
-                    loggingStyle: ex.loggingStyle,
-                    previousTexts: previousTexts,
-                    weightStep: weightStep,
-                    weightUnitLabel: weightUnitLabel
-                )
-                StrengthExerciseSetsIsolator(
-                    identity: setsIdentity,
-                    exercise: ex,
-                    openedSetID: $openedSetID,
-                    quantityUnit: Binding(
-                        get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
-                        set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
-                    ),
-                    setBinding: { setIndex in
-                        plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
-                    },
-                    onDeleteSet: { setIndex in
-                        deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
-                    },
-                    onAddSet: {
-                        addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
-                    }
-                )
-                // Remonta solo si cambia la identidad del ejercicio (no Equatable en View / MainActor).
-                .id(setsIdentity)
+                if isExpanded {
+                    // Identidad sin IDs/conteo de series: si van en `.id`, «Añadir serie»
+                    // remonta el isolator y parece que no añade. Los valores viven en `item`.
+                    let previousTexts = previousSetTexts(for: ex.id, setCount: item.plannedSets.count)
+                    let setsIdentity = StrengthExerciseSetsIdentity(
+                        itemID: item.id,
+                        exerciseID: ex.id,
+                        loggingStyle: ex.loggingStyle,
+                        quantityUnit: item.quantityUnit,
+                        weightStep: weightStep,
+                        weightUnitLabel: weightUnitLabel
+                    )
+                    StrengthExerciseSetsIsolator(
+                        identity: setsIdentity,
+                        item: item,
+                        previousTexts: previousTexts,
+                        exercise: ex,
+                        openedSetID: $openedSetID,
+                        quantityUnit: Binding(
+                            get: { routine.blocks[index].exercises[exIndex].quantityUnit ?? ex.defaultQuantityUnit },
+                            set: { routine.blocks[index].exercises[exIndex].quantityUnit = $0 }
+                        ),
+                        setBinding: { setIndex in
+                            plannedSetBinding(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
+                        },
+                        onDeleteSet: { setIndex in
+                            deleteStrengthSet(blockIndex: index, exerciseIndex: exIndex, setIndex: setIndex)
+                        },
+                        onAddSet: {
+                            addStrengthSet(blockIndex: index, exerciseIndex: exIndex)
+                        }
+                    )
+                    .id(setsIdentity)
+                }
             }
         }
         WorkoutWODInsertActions(
@@ -2255,14 +2332,29 @@ extension DayEditorView {
                     Group {
                         if hasCatalog {
                             Button {
-                                exerciseDetailID = resolved.id
+                                if expandedEntryID == move.id {
+                                    exerciseDetailID = resolved.id
+                                } else {
+                                    expandedEntryID = move.id
+                                }
                             } label: {
                                 movementRowLabel(move: move, resolved: resolved, showSummary: false)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityHint("Ver ficha del ejercicio")
-                        } else {
+                            .accessibilityHint(
+                                expandedEntryID == move.id
+                                    ? "Ver ficha del ejercicio" : "Editar series"
+                            )
+                        } else if move.isRest {
                             movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                        } else {
+                            Button {
+                                expandedEntryID = move.id
+                            } label: {
+                                movementRowLabel(move: move, resolved: resolved, showSummary: false)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Editar series")
                         }
                     }
                     exerciseOptions(blockID: routine.blocks[index].id, itemID: move.id, isWOD: true, isRest: move.isRest)
@@ -2285,7 +2377,7 @@ extension DayEditorView {
                       format.resultCapture != .perMovementSets {
                 // Ya se registran los datos reales junto al título y miniatura.
                 EmptyView()
-            } else {
+            } else if expandedEntryID == move.id {
                 InlineWODMovementSets(
                     movement: Binding(
                         get: { routine.blocks[index].movements[mIndex] },
@@ -2294,6 +2386,24 @@ extension DayEditorView {
                     block: routine.blocks[index],
                     openedSetID: $openedSetID
                 )
+                .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+                .listRowSeparator(.hidden, edges: .top)
+            } else if !move.isRest {
+                Button {
+                    expandedEntryID = move.id
+                } label: {
+                    HStack {
+                        Text(move.summaryLine)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(OG.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(OG.label3)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Editar series de \(move.name)")
                 .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
             }
@@ -2441,11 +2551,37 @@ private struct InlineWODMovementSets: View {
     /// En historial, dibujar las series no reescribe automáticamente la prescripción Rx.
     var preservePrescriptionOnAppear = false
 
-    @State private var draftSets: [PlannedSet] = []
-    @State private var didSeedSets = false
+    @State private var draftSets: [PlannedSet]
+    @State private var didSeedSets: Bool
     @State private var previousTexts: [String?] = []
     @Binding var openedSetID: UUID?
     @FocusState private var focusedSetField: OGSetFieldID?
+
+    init(
+        movement: Binding<WODMovement>,
+        block: RoutineBlock,
+        preservePrescriptionOnAppear: Bool = false,
+        openedSetID: Binding<UUID?>
+    ) {
+        _movement = movement
+        self.block = block
+        self.preservePrescriptionOnAppear = preservePrescriptionOnAppear
+        _openedSetID = openedSetID
+        // Altura estable desde el 1.er frame (no sembrar en onAppear).
+        let seeded = Self.initialDraftSets(movement: movement.wrappedValue, block: block)
+        _draftSets = State(initialValue: seeded)
+        _didSeedSets = State(initialValue: !movement.wrappedValue.isRest)
+    }
+
+    private static func initialDraftSets(movement: WODMovement, block: RoutineBlock) -> [PlannedSet] {
+        guard !movement.isRest else { return [] }
+        var sets = block.plannedSets(for: movement)
+        if sets.isEmpty { sets = movement.plannedSetsFromReps }
+        if sets.isEmpty {
+            sets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
+        }
+        return sets
+    }
 
     private var weightStep: Double { store.state.settings.weightIncrementKg }
 
@@ -2539,7 +2675,12 @@ private struct InlineWODMovementSets: View {
             }
         }
         .padding(.vertical, 4)
-        .onAppear { seedSetsIfNeeded() }
+        .onAppear {
+            refreshPreviousTexts()
+            if !preservePrescriptionOnAppear, didSeedSets {
+                writeSetsToMovement()
+            }
+        }
         .onChange(of: movement.id) { _, _ in
             didSeedSets = false
             seedSetsIfNeeded()
@@ -2549,13 +2690,7 @@ private struct InlineWODMovementSets: View {
     private func seedSetsIfNeeded() {
         guard !didSeedSets, !movement.isRest else { return }
         didSeedSets = true
-        draftSets = block.plannedSets(for: movement)
-        if draftSets.isEmpty {
-            draftSets = movement.plannedSetsFromReps
-        }
-        if draftSets.isEmpty {
-            draftSets = [PlannedSet(targetReps: movement.reps ?? 10, targetWeightKg: movement.weightMaleKg)]
-        }
+        draftSets = Self.initialDraftSets(movement: movement, block: block)
         refreshPreviousTexts()
         if !preservePrescriptionOnAppear {
             writeSetsToMovement()
@@ -3268,20 +3403,25 @@ struct RoutineExerciseEditor: View {
     }
 }
 
-/// Identidad Equatable (Sendable) para saltar body de hermanos al editar otro ejercicio.
+/// Identidad estructural (Sendable) para `.id` del isolator de series.
+/// Solo ítem/ejercicio/unidad/estilo. **Sin** lista de series ni previousTexts:
+/// añadir/borrar serie no debe remontar (si no, «Añadir serie» parece roto).
 /// No poner `Equatable` en el `View`: en Swift 6 cruza con el aislamiento MainActor de View.
 private struct StrengthExerciseSetsIdentity: Hashable {
-    let item: RoutineExercise
+    let itemID: UUID
     let exerciseID: UUID
     let loggingStyle: ExerciseLoggingStyle
-    let previousTexts: [String?]
+    let quantityUnit: ExerciseQuantityUnit?
     let weightStep: Double
     let weightUnitLabel: String
 }
 
 /// Series de un ejercicio de fuerza; se remonta solo si cambia [StrengthExerciseSetsIdentity].
+/// `item` / `previousTexts` aportan valores vivos; no forman parte del `.id`.
 private struct StrengthExerciseSetsIsolator: View {
     let identity: StrengthExerciseSetsIdentity
+    let item: RoutineExercise
+    let previousTexts: [String?]
     let exercise: Exercise
     @Binding var openedSetID: UUID?
     var quantityUnit: Binding<ExerciseQuantityUnit>
@@ -3289,8 +3429,6 @@ private struct StrengthExerciseSetsIsolator: View {
     var onDeleteSet: (Int) -> Void
     var onAddSet: () -> Void
 
-    private var item: RoutineExercise { identity.item }
-    private var previousTexts: [String?] { identity.previousTexts }
     private var weightStep: Double { identity.weightStep }
     private var weightUnitLabel: String { identity.weightUnitLabel }
 

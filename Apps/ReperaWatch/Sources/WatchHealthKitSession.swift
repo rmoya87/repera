@@ -166,8 +166,24 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
         id: UUID, at date: Date, activityType: HKWorkoutActivityType,
         outdoor: Bool, mirrorsToPhone: Bool = true
     ) {
-        guard workout == nil, HKHealthStore.isHealthDataAvailable() else {
-            permissionIssue = "Salud no disponible o entrenamiento de Salud ya iniciado."
+        // Misma sesión ya en curso (handoff / snapshot / reintento): no-op
+        // silencioso. No alarmar la UI live con «Salud ya iniciado».
+        if let currentID = workoutID, workout != nil {
+            if currentID == id {
+                permissionIssue = nil
+                return
+            }
+            // Otro HKWorkout sigue vivo: el hub debe descartarlo antes.
+            permissionIssue = "Ya hay un entrenamiento de Salud en curso."
+            return
+        }
+        // Arranque async en vuelo del mismo UUID (aún sin `workout`): no
+        // duplicar; un fallo limpia `workoutID` para permitir reintento.
+        if workout == nil, workoutID == id, !finishing, permissionIssue == nil {
+            return
+        }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            permissionIssue = "Salud no disponible en este dispositivo."
             return
         }
         startGeneration &+= 1
@@ -212,6 +228,7 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
             } catch {
                 if self.startGeneration == generation, self.workoutID == id {
                     self.permissionIssue = error.localizedDescription
+                    self.workoutID = nil
                 }
                 return
             }
@@ -280,9 +297,13 @@ final class WatchHealthKitSession: NSObject, HKWorkoutSessionDelegate, HKLiveWor
                     self.routeBuilder = nil
                     self.recordsRoute = false
                     self.isRecording = false
+                    self.workoutID = nil
                 }
             } catch {
-                if self.workoutID == id { self.permissionIssue = error.localizedDescription }
+                if self.workoutID == id {
+                    self.permissionIssue = error.localizedDescription
+                    self.workoutID = nil
+                }
             }
         }
     }

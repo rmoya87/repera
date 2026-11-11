@@ -221,10 +221,12 @@ internal fun WorkoutSummaryTile(
                 maxLines = 1
             )
         }
-        Text(
-            value,
-            fontSize = if (compact) 15.sp else 20.sp,
-            fontWeight = FontWeight.SemiBold,
+        ReperaMetricRevealText(
+            value = value,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = if (compact) 15.sp else 20.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
             maxLines = 1,
             textAlign = TextAlign.Center,
             modifier = Modifier

@@ -137,9 +137,11 @@ internal fun WearAmbientScreen(
                 }
                 else -> AmbientLine(stringResource(R.string.wear_app_name), secondary)
             }
-            snapshot.heartRate?.takeIf { it in 25..250 }?.let {
-                AmbientMetric(stringResource(R.string.wear_ambient_heart_rate, it), primary)
-            }
+            // Misma barra de zonas que en activo: atenuada y congelada por tick ambient.
+            WearHeartRateZoneBar(
+                bpm = snapshot.heartRate?.takeIf { it in 25..250 },
+                attenuated = true
+            )
         }
     }
 }

@@ -57,11 +57,18 @@
     <string name="wear_cd_pause">Pausar</string>
     <string name="wear_cd_resume">Reanudar</string>
     <string name="wear_cd_finish">Finalizar</string>
+    <string name="wear_cd_cancel_activity">Cancelar actividad</string>
+    <string name="wear_cd_discard">Descartar</string>
     <string name="wear_cd_mute">Silenciar audio</string>
     <string name="wear_cd_unmute">Activar audio</string>
     <string name="wear_cd_timer">Temporizador</string>
     <string name="wear_cd_start_item">Comenzar %1$s</string>
     <string name="wear_cd_retry">Reintentar</string>
+    <string name="wear_now_playing_title">Reproduciendo</string>
+    <string name="wear_now_playing_subtitle">Controla el audio activo del reloj o del teléfono</string>
+    <string name="wear_cd_media_play_pause">Reproducir o pausar</string>
+    <string name="wear_cd_media_previous">Anterior</string>
+    <string name="wear_cd_media_next">Siguiente</string>
 
     <!-- Privacidad de permisos de salud (Wear OS 6 / API 36) -->
     <string name="wear_health_privacy_title">Datos de salud</string>

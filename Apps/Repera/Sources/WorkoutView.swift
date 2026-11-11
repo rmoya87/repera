@@ -3237,13 +3237,58 @@ private struct PlayEditableSetsView: View {
         var completed: Bool
     }
 
-    @State private var rows: [Row] = []
-    @State private var quantityUnit: ExerciseQuantityUnit = .reps
+    @State private var rows: [Row]
+    @State private var quantityUnit: ExerciseQuantityUnit
     @State private var dirty = false
     @State private var flushTask: Task<Void, Never>?
     @State private var previousSummaryByIndex: [Int: String] = [:]
     @Binding var openedSetID: UUID?
     @FocusState private var focus: OGSetFieldID?
+
+    init(
+        exerciseEntry: SessionExercise,
+        registerFlusher: ((@escaping () -> Void) -> Void)? = nil,
+        openedSetID: Binding<UUID?>
+    ) {
+        self.exerciseEntry = exerciseEntry
+        self.registerFlusher = registerFlusher
+        _openedSetID = openedSetID
+        // Filas desde el 1.er frame: sembrar en onAppear hacía saltar la altura del List.
+        _rows = State(initialValue: Self.makeRows(from: exerciseEntry))
+        _quantityUnit = State(
+            initialValue: exerciseEntry.quantityUnit ?? exerciseEntry.exercise.defaultQuantityUnit
+        )
+    }
+
+    private static func makeRows(from entry: SessionExercise) -> [Row] {
+        let exercise = entry.exercise
+        let prescribed = entry.plannedSets
+        let recorded = entry.loggedSets
+        let prescribedIDs = Set(prescribed.map(\.id))
+        let legacyIndexFallback = !recorded.contains(where: { prescribedIDs.contains($0.id) })
+        var rows = prescribed.enumerated().map { index, set -> Row in
+            let result = recorded.first(where: { $0.id == set.id })
+                ?? (legacyIndexFallback && recorded.indices.contains(index) ? recorded[index] : nil)
+            return Row(
+                id: result?.id ?? set.id,
+                weightKg: result?.weightKg ?? set.targetWeightKg,
+                deficitCm: result?.deficitCm ?? (exercise.loadField == .deficitCm
+                    ? set.targetWeightKg.map { Int($0.rounded()) } : nil),
+                durationSeconds: result?.durationSeconds ?? set.targetDurationSeconds,
+                reps: result?.reps ?? set.targetReps,
+                rir: result?.rir ?? set.targetRir,
+                completed: result != nil
+            )
+        }
+        if rows.isEmpty {
+            rows = recorded.map {
+                Row(id: $0.id, weightKg: $0.weightKg, deficitCm: $0.deficitCm,
+                    durationSeconds: $0.durationSeconds, reps: $0.reps, rir: $0.rir,
+                    completed: true)
+            }
+        }
+        return rows
+    }
 
     private var exercise: Exercise { exerciseEntry.exercise }
     private var style: ExerciseLoggingStyle { exercise.loggingStyle }
@@ -3306,8 +3351,12 @@ private struct PlayEditableSetsView: View {
         }
         .padding(.vertical, 6)
         .onAppear {
-            seedIfNeeded()
+            hydratePreviousSummariesIfNeeded()
             registerFlusher?({ flushPersist() })
+        }
+        .onChange(of: focus) { _, newFocus in
+            // Al cerrar teclado, volcar el borrador que se aplazó por foco activo.
+            if newFocus == nil { flushPersist(pushWatch: false) }
         }
         .onDisappear {
             flushPersist()
@@ -3383,9 +3432,9 @@ private struct PlayEditableSetsView: View {
         )
     }
 
-    private func seedIfNeeded() {
-        guard rows.isEmpty else { return }
-        quantityUnit = exerciseEntry.quantityUnit ?? exercise.defaultQuantityUnit
+    /// Solo textos «Anterior» (misma altura de fila; no reescribe `rows`).
+    private func hydratePreviousSummariesIfNeeded() {
+        guard previousSummaryByIndex.isEmpty else { return }
         let previous = store.cachedLastWorkingSession(for: exercise.id)?.sets
         var summaries: [Int: String] = [:]
         if let previous {
@@ -3394,34 +3443,10 @@ private struct PlayEditableSetsView: View {
             }
         }
         previousSummaryByIndex = summaries
-        let prescribed = exerciseEntry.plannedSets
-        let recorded = exerciseEntry.loggedSets
-        let prescribedIDs = Set(prescribed.map(\.id))
-        let legacyIndexFallback = !recorded.contains(where: { prescribedIDs.contains($0.id) })
-        rows = prescribed.enumerated().map { index, set in
-            let result = recorded.first(where: { $0.id == set.id })
-                ?? (legacyIndexFallback && recorded.indices.contains(index) ? recorded[index] : nil)
-            return Row(
-                id: result?.id ?? set.id,
-                weightKg: result?.weightKg ?? set.targetWeightKg,
-                deficitCm: result?.deficitCm ?? (exercise.loadField == .deficitCm
-                    ? set.targetWeightKg.map { Int($0.rounded()) } : nil),
-                durationSeconds: result?.durationSeconds ?? set.targetDurationSeconds,
-                reps: result?.reps ?? set.targetReps,
-                rir: result?.rir ?? set.targetRir,
-                completed: result != nil
-            )
-        }
-        if rows.isEmpty {
-            rows = recorded.map {
-                Row(id: $0.id, weightKg: $0.weightKg, deficitCm: $0.deficitCm,
-                    durationSeconds: $0.durationSeconds, reps: $0.reps, rir: $0.rir,
-                    completed: true)
-            }
-        }
     }
 
     /// Teclas → debounce local (sin Watch). Añadir/borrar/confirmar → flush + Watch.
+    /// Con foco activo no se escribe al store: invalidar el List puede tirar el teclado.
     private func schedulePersist(immediate: Bool) {
         dirty = true
         flushTask?.cancel()
@@ -3432,6 +3457,7 @@ private struct PlayEditableSetsView: View {
         flushTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
+            if focus != nil { return }
             flushPersist(pushWatch: false)
         }
     }

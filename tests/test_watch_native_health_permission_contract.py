@@ -110,6 +110,24 @@ class WatchNativeHealthContracts(unittest.TestCase):
         self.assertNotIn("La distancia GPS se conserva en Repera", distance)
         self.assertIn("share.insert(distanceType)", watch)
 
+    def test_repeat_start_same_session_is_silent_noop(self):
+        watch = read("Apps/ReperaWatch/Sources/WatchHealthKitSession.swift")
+        start = watch.split("private func startConfigured(", 1)[1].split(
+            "startGeneration &+= 1", 1
+        )[0]
+        # Reintento / handoff del mismo UUID: no pintar aviso en live.
+        self.assertIn("if let currentID = workoutID, workout != nil", start)
+        self.assertIn("permissionIssue = nil", start)
+        self.assertIn("workout == nil, workoutID == id, !finishing, permissionIssue == nil", start)
+        self.assertNotIn(
+            "Salud no disponible o entrenamiento de Salud ya iniciado.",
+            watch,
+        )
+        self.assertIn("Ya hay un entrenamiento de Salud en curso.", start)
+        self.assertIn("Salud no disponible en este dispositivo.", start)
+        # Fallo de auth/sesión limpia workoutID para no bloquear un reintento.
+        self.assertIn("self.workoutID = nil", watch)
+
     def test_iphone_route_permission_refresh_includes_numeric_distance(self):
         store = read("Apps/Repera/Sources/HealthKitStore.swift")
         permission = store.split("func ensureWorkoutRouteAccess()", 1)[1].split(

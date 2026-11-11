@@ -147,6 +147,9 @@ internal fun BodyMapView(
 ) {
     val context = LocalContext.current.applicationContext
     val compiled by produceState<CompiledBodyPaths?>(null, context) {
+        // Tras el 1.er paint del hub (no bloquear morph / charts con parse SVG).
+        kotlinx.coroutines.yield()
+        androidx.compose.runtime.withFrameNanos { }
         value = CompiledBodyPaths.shared(context)
     }
     val levels: Map<String, Int> = if (fatigueScores != null) {

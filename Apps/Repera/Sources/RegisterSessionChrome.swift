@@ -27,16 +27,15 @@ struct WorkoutSummaryTile: View {
             }
             .frame(height: 17)
             .frame(maxWidth: .infinity, alignment: .center)
-            Text(value)
+            OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                 .font(.system(size: 19, weight: .semibold, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.42)
                 .frame(height: 27)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .ogNumericText(value: value, reduceMotion: reduceMotion)
             // Reservar el mismo renglón en los tres tiles: valor/alto alineados.
-            Text(subtitle ?? " ")
+            OGMetricRevealText(value: subtitle ?? " ", reduceMotion: reduceMotion)
                 .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
                 .foregroundStyle(OG.label2)
                 .lineLimit(1)
@@ -44,7 +43,6 @@ struct WorkoutSummaryTile: View {
                 .opacity(subtitle == nil ? 0 : 1)
                 .frame(height: 13)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .ogNumericText(value: subtitle ?? "", reduceMotion: reduceMotion)
         }
         .frame(height: 73)
         .frame(maxWidth: .infinity)

@@ -159,6 +159,29 @@ object WearActiveSessionBridge {
         return !guidance.getBoolean("audioEnabled", true)
     }
 
+    /** Orden de hub enviado por Wear; sobrevive a reinstalar el reloj si el teléfono lo guarda. */
+    fun storeWearHubRecents(context: Context, ids: List<String>) {
+        val clean = ids.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(12)
+        context.getSharedPreferences(HUB_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(HUB_RECENTS_KEY, org.json.JSONArray(clean).toString())
+            .apply()
+    }
+
+    fun wearHubRecents(context: Context): List<String> {
+        val raw = context.getSharedPreferences(HUB_PREFS, Context.MODE_PRIVATE)
+            .getString(HUB_RECENTS_KEY, null) ?: return emptyList()
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                arr.optString(i).takeIf { it.isNotBlank() }
+            }.distinct()
+        }.getOrDefault(emptyList())
+    }
+
+    private const val HUB_PREFS = "repera.wear.hub"
+    private const val HUB_RECENTS_KEY = "recentLiveSportIDs"
+
     /**
      * A phone snapshot with no activeSession does not mean 'discard': the watch
      * may have created its own session offline. A terminal event identifies
@@ -187,6 +210,14 @@ object WearActiveSessionBridge {
             .put("elapsedSeconds", state.durationSeconds(System.currentTimeMillis()))
             .put("distanceMeters", if (state.sport.usesGPS) state.distanceMeters else 0)
             .put("averageSpeedKmh", state.averageSpeedKmh(System.currentTimeMillis()) ?: JSONObject.NULL)
+            .put(
+                "lastKilometerSeconds",
+                if (state.sport.usesGPS) {
+                    state.splitsSeconds.lastOrNull() ?: JSONObject.NULL
+                } else {
+                    JSONObject.NULL
+                }
+            )
             .put(
                 "elevationGainMeters",
                 if (state.sport.tracksElevation && state.elevationGainMeters > 0) {

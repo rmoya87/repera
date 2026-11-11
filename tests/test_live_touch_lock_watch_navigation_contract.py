@@ -90,8 +90,12 @@ class LiveTouchLockWatchNavigationContractTests(unittest.TestCase):
     def test_watch_ambient_mode_is_not_forced_fully_on(self):
         docs = source("docs/WATCH_WEAR_ALWAYS_ON_AND_SPLITS_2026_10_31.md")
         self.assertIn("WKSupportsAlwaysOnDisplay", docs)
-        self.assertIn("No se usa `FLAG_KEEP_SCREEN_ON`", docs)
         self.assertIn("View.keepScreenOn", docs)
+        self.assertIn("WearAmbientScreen", docs)
+        # Live/plan activo: keepScreenOn + no AmbientScreen.
+        wear = source("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
+        self.assertIn("rootView.keepScreenOn = workoutKeepsFace", wear)
+        self.assertIn("hubOverlay == WearHubOverlay.HOME && !workoutKeepsFace", wear)
 
 
 if __name__ == "__main__":

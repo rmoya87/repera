@@ -21,9 +21,14 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -347,6 +352,7 @@ internal fun WearTimerRunScreen(
     onFinished: (TimerCompletionDetails, Long, Long) -> Unit,
     onDiscard: () -> Unit,
     onMirror: (String, Int, Int) -> Unit = { _, _, _ -> },
+    onToggleAudioMuted: () -> Unit = {},
     remoteCommand: String? = null,
     remoteCommandEpoch: Int = 0
 ) {
@@ -399,7 +405,7 @@ internal fun WearTimerRunScreen(
         "intervals" -> phaseRemaining.coerceAtLeast(0)
         else -> remaining
     }
-    // Página 0: reloj/métricas. Deslizar de derecha a izquierda abre página 1 de acciones.
+    // Controles ← Reloj → Now Playing. Izquierda→derecha = Pausar/Finalizar.
     LaunchedEffect(elapsed, paused, completed, discarded) {
         if (completed == 0 && discarded == 0 && (elapsed % 3 == 0 || paused != 0)) {
             onMirror(if (paused == 0) "running" else "paused", elapsed, roundNumber)
@@ -413,19 +419,98 @@ internal fun WearTimerRunScreen(
             "finish" -> completed = 1
         }
     }
-    val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    val pager = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val metricsScroll = rememberScrollState()
     val metricsFocus = remember { FocusRequester() }
     val metricsScope = rememberCoroutineScope()
     LaunchedEffect(pager.currentPage) {
-        if (pager.currentPage == 0) metricsFocus.requestFocus()
+        if (pager.currentPage == 1) metricsFocus.requestFocus()
     }
     var confirmFinish by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-            if (page == 0) {
-                Column(
+            when (page) {
+                0 -> {
+                    val btn = IconButtonDefaults.DefaultButtonSize
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilledIconButton(
+                                onClick = { paused = if (paused == 0) 1 else 0 },
+                                modifier = Modifier.touchTargetAwareSize(btn),
+                                colors = IconButtonDefaults.filledIconButtonColors()
+                            ) {
+                                Icon(
+                                    imageVector = if (paused == 0) {
+                                        Icons.Outlined.Pause
+                                    } else {
+                                        Icons.Outlined.PlayArrow
+                                    },
+                                    contentDescription = stringResource(
+                                        if (paused == 0) R.string.wear_cd_pause else R.string.wear_cd_resume
+                                    )
+                                )
+                            }
+                            FilledIconButton(
+                                onClick = { confirmFinish = true },
+                                modifier = Modifier.touchTargetAwareSize(btn),
+                                colors = IconButtonDefaults.filledIconButtonColors()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Flag,
+                                    contentDescription = stringResource(R.string.wear_cd_finish)
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilledIconButton(
+                                onClick = { confirmDiscard = true },
+                                modifier = Modifier.touchTargetAwareSize(btn),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = WearOg.red,
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.wear_cd_discard)
+                                )
+                            }
+                            FilledIconButton(
+                                onClick = onToggleAudioMuted,
+                                modifier = Modifier.touchTargetAwareSize(btn),
+                                colors = IconButtonDefaults.filledIconButtonColors()
+                            ) {
+                                Icon(
+                                    imageVector = if (audioMuted) {
+                                        Icons.AutoMirrored.Outlined.VolumeOff
+                                    } else {
+                                        Icons.AutoMirrored.Outlined.VolumeUp
+                                    },
+                                    contentDescription = stringResource(
+                                        if (audioMuted) R.string.wear_cd_unmute else R.string.wear_cd_mute
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+                2 -> WearNowPlayingPage()
+                else -> Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(metricsScroll)
@@ -523,49 +608,6 @@ internal fun WearTimerRunScreen(
                         WearStatsLine("Fase restante", wearClockLabel(phaseRemaining.coerceAtLeast(0)))
                     }
                     Spacer(Modifier.height(24.dp))
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(9.dp)
-                ) {
-                    FilledIconButton(
-                        onClick = { paused = if (paused == 0) 1 else 0 },
-                        modifier = Modifier.touchTargetAwareSize(IconButtonDefaults.DefaultButtonSize),
-                        colors = IconButtonDefaults.filledIconButtonColors()
-                    ) {
-                        Icon(
-                            imageVector = if (paused == 0) {
-                                Icons.Outlined.Pause
-                            } else {
-                                Icons.Outlined.PlayArrow
-                            },
-                            contentDescription = if (paused == 0) "Pausar" else "Reanudar"
-                        )
-                    }
-                    Button(
-                        onClick = { confirmFinish = true },
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WearOg.accent, contentColor = WearOg.onAccent
-                        )
-                    ) {
-                        WearButtonLabel("Finalizar", color = WearOg.onAccent)
-                    }
-                    Button(
-                        onClick = { confirmDiscard = true },
-                        modifier = Modifier.fillMaxWidth().height(42.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = WearOg.red
-                        )
-                    ) {
-                        WearButtonLabel("Descartar", color = WearOg.red)
-                    }
                 }
             }
         }

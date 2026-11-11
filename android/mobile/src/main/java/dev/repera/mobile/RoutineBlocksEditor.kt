@@ -168,8 +168,22 @@ fun RoutineBlocksEditorScreen(
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
     var showReorder by remember { mutableStateOf(false) }
+    // Paridad iOS: abrir con el primer ejercicio expandido (si no, Editar solo
+    // muestra resúmenes y parece que no se pueden añadir series).
     var expandedEntryId by rememberSaveable(accountId, routine.id) {
-        mutableStateOf<String?>(null)
+        val firstKey = blocks.asSequence()
+            .flatMap { block ->
+                block.entries.withIndex().asSequence().map { (index, entry) ->
+                    entry to entry.stableKey(index)
+                }
+            }
+            .firstOrNull { (entry, _) ->
+                entry.sourceJson?.let {
+                    runCatching { org.json.JSONObject(it).optBoolean("isRest") }.getOrNull()
+                } != true
+            }
+            ?.second
+        mutableStateOf(firstKey)
     }
     val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
     var showBoardScanner by remember { mutableStateOf(false) }
@@ -450,7 +464,11 @@ fun RoutineBlocksEditorScreen(
                 }
             }
             item(key = "block-ftr-${block.listKey}") {
-                BlockEditorFooterActions(block = block, exercises = exercises)
+                BlockEditorFooterActions(
+                    block = block,
+                    exercises = exercises,
+                    onExpandedEntryIdChange = { expandedEntryId = it }
+                )
             }
         }
         item(key = "editor-actions") {
@@ -1066,7 +1084,9 @@ internal fun BlockEditorCard(
                     exercises = exercises,
                     excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
                     onPick = {
-                        block.entries.add(EntryUi(it.id, it.name, 8, 3, null))
+                        val entry = EntryUi(it.id, it.name, 8, 3, null)
+                        block.entries.add(entry)
+                        onExpandedEntryIdChange?.invoke(entry.stableKey(block.entries.lastIndex))
                         showExercisePicker = false
                     },
                     onDismiss = { showExercisePicker = false }
@@ -1083,7 +1103,8 @@ internal fun BlockEditorCard(
 @Composable
 internal fun BlockEditorFooterActions(
     block: BlockDraftUi,
-    exercises: List<ExerciseEntry>
+    exercises: List<ExerciseEntry>,
+    onExpandedEntryIdChange: ((String?) -> Unit)? = null
 ) {
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
@@ -1127,7 +1148,9 @@ internal fun BlockEditorFooterActions(
             exercises = exercises,
             excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
             onPick = {
-                block.entries.add(EntryUi(it.id, it.name, 8, 3, null))
+                val entry = EntryUi(it.id, it.name, 8, 3, null)
+                block.entries.add(entry)
+                onExpandedEntryIdChange?.invoke(entry.stableKey(block.entries.lastIndex))
                 showExercisePicker = false
             },
             onDismiss = { showExercisePicker = false }

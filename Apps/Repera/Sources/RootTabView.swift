@@ -700,8 +700,12 @@ struct RootTabView: View {
                 onStart: openWorkout,
                 onContinue: openWorkout,
                 onEdit: { routine in
+                    // Ceder un frame tras cerrar el menú antes de montar DayEditor.
                     previewRoutine = routine
-                    flowPath.append(.editWorkout(routineId: routine.id))
+                    Task { @MainActor in
+                        await Task.yield()
+                        flowPath.append(.editWorkout(routineId: routine.id))
+                    }
                 },
                 onOpenExercise: { exerciseID in
                     // Un único push por tap; back elimina solo esta ruta.

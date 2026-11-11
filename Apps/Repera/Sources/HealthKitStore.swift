@@ -364,13 +364,16 @@ final class HealthKitStore {
         ]
         do {
             let status = try? await store.statusForAuthorizationRequest(toShare: share, read: read)
+            // El flag local de sueño/ciclo NO lo escribe Ajustes → Salud del sistema.
+            // Activarlo antes del panel evita Progreso vacío tras conceder permisos fuera.
+            if includeAllOptional {
+                await HealthRecoveryStore.shared.enableUnifiedHealthAnalysis()
+            }
             try await store.requestAuthorization(toShare: share, read: read)
             permissionManagementRequiresSettings = includeAllOptional && status == .unnecessary
             if includeAllOptional {
-                // This only enables local queries for user-requested Health
-                // types. Read access remains unobservable; declined types
-                // return no samples and never contribute to a score.
-                await HealthRecoveryStore.shared.enableUnifiedHealthAnalysis()
+                // Releer tras el panel: HealthKit solo devuelve muestras autorizadas.
+                await HealthRecoveryStore.shared.refresh()
             } else if includeSleepInRequest {
                 await HealthRecoveryStore.shared.acceptSleepFromHealthAuthorization()
             }
@@ -382,6 +385,11 @@ final class HealthKitStore {
         } catch {
             lastError = error.localizedDescription
             isAuthorized = false
+            // Aun con error de escritura, si el usuario pidió el paquete unificado
+            // mantener la consulta local: la lectura puede estar ya concedida.
+            if includeAllOptional {
+                await HealthRecoveryStore.shared.enableUnifiedHealthAnalysis()
+            }
         }
     }
 

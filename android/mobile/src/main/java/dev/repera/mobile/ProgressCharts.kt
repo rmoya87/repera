@@ -79,12 +79,22 @@ internal fun Modifier.progressChartReveal(style: ProgressChartRevealStyle): Modi
     val progress = remember {
         androidx.compose.animation.core.Animatable(if (reduceMotion) 1f else 0f)
     }
-    androidx.compose.runtime.LaunchedEffect(reduceMotion) {
+    val playMetricReveal = LocalMetricRevealPlay.current
+    androidx.compose.runtime.LaunchedEffect(reduceMotion, playMetricReveal) {
         if (reduceMotion) {
             progress.snapTo(1f)
             return@LaunchedEffect
         }
+        // 1.ª visita Progreso: esperar al gate de números.
+        if (!ReperaMetricRevealSession.progressHubPlayed && !playMetricReveal) {
+            return@LaunchedEffect
+        }
         progress.snapTo(0f)
+        if (playMetricReveal) {
+            kotlinx.coroutines.delay(220)
+        } else {
+            kotlinx.coroutines.yield()
+        }
         progress.animateTo(1f, animationSpec = ProgressChartRevealSpec)
     }
     return this.then(

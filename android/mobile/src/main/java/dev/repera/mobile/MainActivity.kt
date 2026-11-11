@@ -1575,16 +1575,29 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         Wearable.getDataClient(this).dataItems.addOnSuccessListener { items ->
             try {
                 for (item in items) {
-                    if (item.uri.path != "/repera/watch-owned-live") continue
-                    val bytes = runCatching {
-                        com.google.android.gms.wearable.DataMapItem.fromDataItem(item)
-                            .dataMap.getByteArray("live")
-                    }.getOrNull() ?: continue
-                    if (!WearMessageBounds.withinLimit(bytes)) continue
-                    val snapshot = runCatching {
-                        JSONObject(String(bytes, Charsets.UTF_8))
-                    }.getOrNull() ?: continue
-                    runOnUiThread { WearOwnedLiveMirror.accept(this, snapshot) }
+                    when (item.uri.path) {
+                        "/repera/watch-owned-live" -> {
+                            val bytes = runCatching {
+                                com.google.android.gms.wearable.DataMapItem.fromDataItem(item)
+                                    .dataMap.getByteArray("live")
+                            }.getOrNull() ?: continue
+                            if (!WearMessageBounds.withinLimit(bytes)) continue
+                            val snapshot = runCatching {
+                                JSONObject(String(bytes, Charsets.UTF_8))
+                            }.getOrNull() ?: continue
+                            runOnUiThread { WearOwnedLiveMirror.accept(this, snapshot) }
+                        }
+                        "/repera/wear-hub-recents" -> {
+                            val ids = runCatching {
+                                com.google.android.gms.wearable.DataMapItem.fromDataItem(item)
+                                    .dataMap.getStringArray("recentLiveSportIDs")
+                                    ?.toList().orEmpty()
+                            }.getOrDefault(emptyList())
+                            if (ids.isNotEmpty()) {
+                                WearActiveSessionBridge.storeWearHubRecents(this, ids)
+                            }
+                        }
+                    }
                 }
             } finally {
                 items.release()
@@ -2549,6 +2562,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
             try {
                 val reader=HealthConnectReader(this@MainActivity)
                 if(!reader.available()) {if(current()) status="Health Connect no está disponible";return@launch}
+                // Sin flags locales, sueño/ciclo ni se piden ni se leen aunque HC ya los tenga.
+                if(PrivateRecoverySettings(this@MainActivity).ensureAnalysisEnabledIfUndecided()) {
+                    privateHealthRevision++
+                }
                 val requested=reader.requestedPermissions()
                 val granted=androidx.health.connect.client.HealthConnectClient.getOrCreate(this@MainActivity).permissionController.getGrantedPermissions()
                 if(!current()) return@launch
@@ -2616,6 +2633,10 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         healthLoadInFlight = true
         val owner=profile?.uniqueId ?: run { healthLoadInFlight = false; return }
         val revision=centerGate.revision
+        // Misma trampa que iOS: permisos de HC no escriben sleepEnabled/cycleEnabled.
+        if(PrivateRecoverySettings(this).ensureAnalysisEnabledIfUndecided()) {
+            privateHealthRevision++
+        }
         val sleepAtStart=PrivateRecoverySettings(this).sleepEnabled()
         val cycleAtStart=PrivateRecoverySettings(this).cycleEnabled()
         val privateRevision=privateHealthRevision

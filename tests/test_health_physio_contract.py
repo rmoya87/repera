@@ -38,6 +38,7 @@ class LocalHealthPhysiologyContract(unittest.TestCase):
         self.assertNotIn("Toggle(", view)
         self.assertIn("await health.requestAccess(includeAllOptional: true)", view)
         self.assertIn("enableUnifiedHealthAnalysis()", source("Apps/Repera/Sources/HealthKitStore.swift"))
+        self.assertIn("ensureSleepAnalysisEnabled(using: health)", screen)
         self.assertIn("sleepEnabled = true", screen)
         self.assertIn("cycleEnabled = true", screen)
         self.assertNotIn('Text("Recuperación")', view)

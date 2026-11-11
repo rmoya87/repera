@@ -23,6 +23,10 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.runtime.Composable
@@ -55,6 +59,7 @@ import androidx.wear.compose.foundation.lazy.TransformingLazyColumnScope
 import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.FilledIconButton
 import androidx.wear.compose.material3.FilledTonalIconButton
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.IconButtonDefaults
@@ -120,10 +125,33 @@ internal data class WearHomeState(
     val companionFinishPending: Boolean = false
 )
 
-/** Ítems del carrusel estilo Deportes: plan → recientes → catálogo. */
+/**
+ * Carrusel del hub Wear (paridad Watch):
+ * 1) Entreno(s) del día si existen.
+ * 2) Actividades por último uso (`recentLiveSportIDs`, más reciente primero).
+ * 3) Resto del catálogo en orden alfabético (`LiveSport.selectableCases`; «Otra» al final).
+ */
 internal sealed class WearHubCarouselItem {
     data class Plan(val plan: JSONObject) : WearHubCarouselItem()
     data class Sport(val sportId: String, val title: String) : WearHubCarouselItem()
+}
+
+/**
+ * Fusiona usos Wear + teléfono sin pisar el orden local.
+ * Local vacío → teléfono (p. ej. post-reinstall). Teléfono vacío → local.
+ * Ambos → local primero, luego ids solo del teléfono.
+ */
+internal fun wearMergeRecentSports(
+    local: List<String>,
+    phone: List<String>,
+    limit: Int = 12
+): List<String> {
+    if (phone.isEmpty()) return local.filter { it.isNotBlank() }.distinct().take(limit)
+    if (local.isEmpty()) return phone.filter { it.isNotBlank() }.distinct().take(limit)
+    val seen = linkedSetOf<String>()
+    for (id in local) if (id.isNotBlank()) seen += id
+    for (id in phone) if (id.isNotBlank()) seen += id
+    return seen.take(limit)
 }
 
 internal fun wearHubCarouselItems(
@@ -146,6 +174,7 @@ internal fun wearHubCarouselItems(
         val sport = LiveSport.byId(id) ?: continue
         if (seen.add(id)) items += WearHubCarouselItem.Sport(id, sport.title)
     }
+    // selectableCases ya viene A–Z (es) con OTHER al final.
     for (sport in LiveSport.selectableCases) {
         if (seen.add(sport.id)) items += WearHubCarouselItem.Sport(sport.id, sport.title)
     }
@@ -326,58 +355,113 @@ internal fun WearHomeContent(
             health = state.health,
             notice = state.liveNotice,
             finishPending = state.companionFinishPending,
+            audioMuted = state.audioMuted,
+            onToggleAudioMuted = callbacks.onToggleHubAudioMuted,
             onLiveCommand = callbacks.onLiveCommand,
             onDismissLiveToHome = callbacks.onDismissLiveToHome,
             modifier = modifier.fillMaxSize()
         )
         return
     }
-    // En entrenos ya iniciados, deslizar de derecha a izquierda abre
-    // Pausar / Finalizar. La lista de series conserva scroll vertical.
+    // Controles ← Series → Now Playing. Izquierda→derecha = Pausar/Finalizar.
     val runningPlan = state.session?.phase == "counting" &&
         !state.showOutline && !state.showSetDetails && !state.reviewingBlock
     if (runningPlan) {
         val session = state.session
-        val pager = rememberPagerState(initialPage = 0, pageCount = { 2 })
+        val pager = rememberPagerState(initialPage = 1, pageCount = { 3 })
         var confirmFinish by remember(session.sessionId) { mutableStateOf(false) }
         var confirmDiscard by remember(session.sessionId) { mutableStateOf(false) }
         Box(modifier = modifier.fillMaxSize()) {
             HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-                if (page == 0) {
-                    WearHomeSessionList(state, callbacks, modifier = Modifier.fillMaxSize())
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 18.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                when (page) {
+                    0 -> {
+                        val btn = IconButtonDefaults.DefaultButtonSize
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
                         ) {
-                            WearPauseCircle(state.sessionPaused) { callbacks.onTogglePause() }
-                            Button(
-                                onClick = { confirmFinish = true },
-                                modifier = Modifier.weight(1f).height(48.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                WearButtonLabel("Finalizar")
+                                FilledIconButton(
+                                    onClick = { callbacks.onTogglePause() },
+                                    modifier = Modifier.touchTargetAwareSize(btn),
+                                    colors = IconButtonDefaults.filledIconButtonColors()
+                                ) {
+                                    Icon(
+                                        imageVector = if (state.sessionPaused) {
+                                            Icons.Filled.PlayArrow
+                                        } else {
+                                            Icons.Filled.Pause
+                                        },
+                                        contentDescription = stringResource(
+                                            if (state.sessionPaused) {
+                                                R.string.wear_cd_resume
+                                            } else {
+                                                R.string.wear_cd_pause
+                                            }
+                                        )
+                                    )
+                                }
+                                FilledIconButton(
+                                    onClick = { confirmFinish = true },
+                                    modifier = Modifier.touchTargetAwareSize(btn),
+                                    colors = IconButtonDefaults.filledIconButtonColors()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Flag,
+                                        contentDescription = stringResource(R.string.wear_cd_finish)
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FilledIconButton(
+                                    onClick = { confirmDiscard = true },
+                                    modifier = Modifier.touchTargetAwareSize(btn),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = WearOg.red,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = stringResource(R.string.wear_cd_discard)
+                                    )
+                                }
+                                FilledIconButton(
+                                    onClick = { callbacks.onToggleHubAudioMuted() },
+                                    modifier = Modifier.touchTargetAwareSize(btn),
+                                    colors = IconButtonDefaults.filledIconButtonColors()
+                                ) {
+                                    Icon(
+                                        imageVector = if (state.audioMuted) {
+                                            Icons.AutoMirrored.Outlined.VolumeOff
+                                        } else {
+                                            Icons.AutoMirrored.Outlined.VolumeUp
+                                        },
+                                        contentDescription = stringResource(
+                                            if (state.audioMuted) {
+                                                R.string.wear_cd_unmute
+                                            } else {
+                                                R.string.wear_cd_mute
+                                            }
+                                        )
+                                    )
+                                }
                             }
                         }
-                        Button(
-                            onClick = { confirmDiscard = true },
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = WearOg.red
-                            )
-                        ) {
-                            WearButtonLabel("Descartar", color = WearOg.red)
-                        }
                     }
+                    2 -> WearNowPlayingPage()
+                    else -> WearHomeSessionList(state, callbacks, modifier = Modifier.fillMaxSize())
                 }
             }
             if (confirmFinish) {
@@ -1242,9 +1326,12 @@ private fun TransformingLazyColumnScope.runningItems(
         )
     }
     item {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            WearHealthRow(state.health?.first, state.health?.second)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             WearHeartRateZoneBar(bpm = state.health?.first)
+            WearLiveMetricRow(
+                label = "Kcal",
+                value = displayedEnergyKcal(state.health?.second).toInt().toString()
+            )
         }
     }
     if (session.wodFormatLabel != null) {

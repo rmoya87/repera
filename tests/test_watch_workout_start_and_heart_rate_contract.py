@@ -71,8 +71,14 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         self.assertIn("var heartRateIsFresh: Bool", hub)
         self.assertIn('guard (0...20).contains(now.timeIntervalSince(measuredAt)) else { return }', hub)
         zone = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
-        self.assertIn('?? "Esperando pulso"', zone)
-        self.assertIn("WatchHeartRateZoneBar(bpm: bpm, prominent: prominent)", zone)
+        self.assertIn('Text("LPM")', zone)
+        self.assertIn("WatchHeartRateZoneBar(", zone)
+        self.assertIn("attenuated: isLuminanceReduced", zone)
+        self.assertIn("var attenuated: Bool = false", zone)
+        self.assertNotIn('Text(zone.map { "Zona', zone)
+        # Always On: sin título FC.
+        self.assertNotIn('"FC ·', zone)
+        self.assertNotIn('label: "Últ. FC"', zone)
 
     def test_wear_plan_tap_starts_counting_and_clock(self):
         activity = read("android/wear/src/main/java/dev/repera/wear/WearMainActivity.kt")
@@ -106,12 +112,18 @@ class WatchWorkoutStartAndHeartRateTests(unittest.TestCase):
         watch = read("Apps/ReperaWatch/Sources/WatchLiveSessionView.swift")
         wear = read("android/wear/src/main/java/dev/repera/wear/WearLiveActivityScreen.kt")
         wear_plan = read("android/wear/src/main/java/dev/repera/wear/WearHomeContent.kt")
-        self.assertIn('?? "Esperando pulso"', watch)
+        self.assertIn('Text("LPM")', watch)
         self.assertIn("WatchHeartRateZoneMetric", watch)
         self.assertIn("accessibilityLabel(accessibilityDescription)", watch)
-        self.assertIn('?: "Zona —/5"', wear)
+        self.assertNotIn("Zona —/5", wear)
+        self.assertIn('"LPM"', wear)
         self.assertIn("WearHeartRateZoneBar(bpm = health?.first", wear)
         self.assertIn("WearHeartRateZoneBar(bpm = state.health?.first)", wear_plan)
+        self.assertIn('label = "Kcal"', wear)
+        self.assertIn('label = "último km"', wear)
+        self.assertIn('"ritmo medio"', wear)
+        self.assertIn('label: "último km"', watch)
+        self.assertIn('label: "Kcal"', watch)
 
     def test_watch_free_activity_prompts_edit_on_phone(self):
         hub = read("Apps/ReperaWatch/Sources/WatchSessionHub.swift")

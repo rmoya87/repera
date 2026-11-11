@@ -84,6 +84,11 @@ Card insight (`ProgressInsightCard` y equivalentes):
   lenguaje visual.
 - Movimiento solo si aclara feedback; sin decoración. Skills de animación
   aparte cuando haga falta.
+- **Primera entrada a hubs / pantallas pesadas:** seguir la regla
+  obligatoria en `AGENTS.md` → *Convenciones UI → Primera entrada / carga
+  de páginas* (gate ~160 ms tras contenido estable, charts ~220 ms después,
+  morph barato, sin IO en el pico del fade). Contrato
+  `tests/test_metric_reveal_contract.py`.
 
 ## Checklist rápido
 
@@ -93,3 +98,4 @@ Card insight (`ProgressInsightCard` y equivalentes):
 - [ ] ¿Sin calendario global ni chevron vacío?
 - [ ] ¿Fondos de app, no tinte verde de pantalla?
 - [ ] ¿Paridad pensada en la otra plataforma móvil?
+- [ ] ¿Primera visita: revelado/charts/IO fuera del pico de la transición?

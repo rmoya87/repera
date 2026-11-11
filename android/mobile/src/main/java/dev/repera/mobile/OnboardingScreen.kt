@@ -378,7 +378,12 @@ private fun OnboardingPermissionsStep(store: OnboardingStore) {
             icon = Icons.Outlined.FavoriteBorder,
             statusText = if (healthDone) "Conectado" else "Pendiente",
             isDone = healthDone,
-            onAllow = { healthLauncher.launch(HealthConnectReader.permissions) }
+            onAllow = {
+                // Activar flags locales antes de pedir HC: si no, sueño/ciclo
+                // quedan fuera del diálogo y Progreso no los lee (paridad iOS).
+                PrivateRecoverySettings(context).ensureAnalysisEnabledIfUndecided()
+                healthLauncher.launch(HealthConnectReader(context).requestedPermissions())
+            }
         )
         Spacer(Modifier.height(12.dp))
         PermissionRow(

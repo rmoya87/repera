@@ -79,6 +79,7 @@ private struct ProgressCategoryChip: View {
     let value: String
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var foreground: Color { isSelected ? .black : OG.label }
     private var secondaryForeground: Color { isSelected ? .black.opacity(0.72) : OG.label2 }
@@ -96,7 +97,7 @@ private struct ProgressCategoryChip: View {
                         .foregroundStyle(secondaryForeground)
                         .lineLimit(1)
                 }
-                Text(value)
+                OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                     .ogFont(18, weight: .bold, relativeTo: .body)
                     .monospacedDigit()
                     .foregroundStyle(foreground)
@@ -247,20 +248,18 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
             Group {
                 if let stackedMeta {
                     HStack(alignment: .center, spacing: 12) {
-                        Text(value)
+                        OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                             .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
                             .monospacedDigit()
                             .foregroundStyle(OG.label)
                             .minimumScaleFactor(0.55)
                             .lineLimit(1)
-                            .ogNumericText(value: value, reduceMotion: reduceMotion)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(stackedMeta.top)
+                            OGMetricRevealText(value: stackedMeta.top, reduceMotion: reduceMotion)
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .foregroundStyle(OG.label2)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
-                                .ogNumericText(value: stackedMeta.top, reduceMotion: reduceMotion)
                             Text(stackedMeta.bottom)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(OG.label2)
@@ -271,13 +270,12 @@ struct ProgressHeroMetricRow<Accessory: View>: View {
                 } else {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text(value)
+                            OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                                 .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
                                 .monospacedDigit()
                                 .foregroundStyle(OG.label)
                                 .minimumScaleFactor(0.55)
                                 .lineLimit(1)
-                                .ogNumericText(value: value, reduceMotion: reduceMotion)
                             if let unit {
                                 Text(unit)
                                     .font(.title3.weight(.semibold))
@@ -317,6 +315,7 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
     var chartBesideTitle: Bool = false
     /// Levitating (FC): alinear al centro para no recortar cápsulas. Fill/área: abajo con caption.
     var chartAlignsBottom: Bool = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ViewBuilder var chart: () -> Chart
 
     var body: some View {
@@ -391,7 +390,7 @@ struct ProgressInsightElevatedCard<Chart: View>: View {
 
     private var heroValueBlock: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(value)
+            OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                 .ogFont(valuePointSize, weight: .bold, design: .rounded, relativeTo: .largeTitle)
                 .monospacedDigit()
                 .foregroundStyle(OG.label)
@@ -434,12 +433,11 @@ struct ProgressMetricGlanceCard: View {
                     .foregroundStyle(tint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
-                Text(value)
+                OGMetricRevealText(value: value, reduceMotion: reduceMotion)
                     .font(.system(.title, design: .rounded, weight: .bold).monospacedDigit())
                     .foregroundStyle(OG.label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .ogNumericText(value: value, reduceMotion: reduceMotion)
                 if let footnote {
                     Text(footnote)
                         .font(.caption.weight(.medium))
