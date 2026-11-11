@@ -40,8 +40,18 @@ class ProgressChartRevealContractTests(unittest.TestCase):
         self.assertIn("CubicBezierEasing(0.16f, 1f, 0.3f, 1f)", ANDROID)
         self.assertIn("delay(220)", fn)
         self.assertIn("LocalMetricRevealPlay", fn)
+        self.assertIn("LocalProgressChartRevealActive", fn)
+        self.assertIn("!chartRevealActive", fn)
         self.assertNotIn("mutableFloatStateOf", fn)
         self.assertNotIn("durationMillis = 420", ANDROID)
+
+    def test_android_chart_reveal_only_defers_under_progress_hub(self):
+        reveal = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaMetricReveal.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("LocalProgressChartRevealActive", reveal)
+        self.assertIn("compositionLocalOf { false }", reveal)
+        self.assertIn("LocalProgressChartRevealActive provides true", reveal)
 
 
 if __name__ == "__main__":

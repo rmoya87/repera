@@ -81,6 +81,9 @@ class MetricRevealContractTests(unittest.TestCase):
         self.assertIn("live_start_countdown", live)
         self.assertIn("animateValueChanges: Boolean = false", reveal)
         self.assertIn("delay(220)", charts)
+        self.assertIn("LocalProgressChartRevealActive", charts)
+        self.assertIn("!chartRevealActive", charts)
+        self.assertIn("LocalProgressChartRevealActive", reveal)
         self.assertIn("withFrameNanos", body)
 
 

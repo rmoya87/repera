@@ -29,6 +29,13 @@ internal object ReperaMetricRevealSession {
 /** `false` = valor final al instante (revisitas de Progreso). */
 internal val LocalMetricRevealPlay = compositionLocalOf { true }
 
+/**
+ * Solo `true` bajo el hub Progreso (`ProvideMetricRevealPlay`).
+ * Fuera (Recuperación, detalle, tests): `progressChartReveal` pinta completo
+ * sin delay 220 ms — el default `LocalMetricRevealPlay=true` no implica 1.ª visita.
+ */
+internal val LocalProgressChartRevealActive = compositionLocalOf { false }
+
 internal fun reperaReduceMotion(context: android.content.Context): Boolean =
     runCatching {
         Settings.Global.getFloat(
@@ -112,5 +119,9 @@ internal fun ReperaMetricRevealText(
 
 @Composable
 internal fun ProvideMetricRevealPlay(play: Boolean, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalMetricRevealPlay provides play, content = content)
+    CompositionLocalProvider(
+        LocalMetricRevealPlay provides play,
+        LocalProgressChartRevealActive provides true,
+        content = content
+    )
 }

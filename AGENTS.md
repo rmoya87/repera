@@ -114,7 +114,10 @@ en iOS y Android (paridad):
    contenido estable (snapshot listo) + ≥1 frame + ~160 ms.
 2. **Plots después de números:** `ogChartReveal` / `progressChartReveal`
    esperan el gate; en 1.ª visita ~220 ms más. Solo máscara/transform
-   (composite); sin layout por frame.
+   (composite); sin layout por frame. Android: el delay/animación **solo**
+   bajo el hub Progreso (`LocalProgressChartRevealActive`); fuera (Recuperación,
+   fixtures JVM) pintar completo — el default `LocalMetricRevealPlay=true` no
+   implica diferir.
 3. **Morph barato:** iOS `numericText` / `OGMetricRevealText`. Android un solo
    `Text` + opacidad (`graphicsLayer` / `Animatable`) — **prohibido**
    `AnimatedContent` por métrica en hubs.
@@ -242,6 +245,12 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   ~160 ms, charts ~220 ms, sin `AnimatedContent`, idle sin tick 1 Hz) vuelve
   el morph + fade de tab + HK/HC + SVG = jank. No «arreglar» solo acortando
   fades del NavHost. Contrato: `tests/test_metric_reveal_contract.py`.
+- `progressChartReveal` con `delay(220)` cuando `LocalMetricRevealPlay` es el
+  default `true` (fuera de `ProvideMetricRevealPlay`) deja el clip en 0 y falla
+  `ReviewSpacingRenderTest.readinessMultidayCurve` (píxeles de rejilla iguales).
+  Diferir solo si `LocalProgressChartRevealActive` (armado en el provider del
+  hub). Contratos: `test_progress_chart_reveal_contract.py`,
+  `test_metric_reveal_contract.py`.
 
 #### WOD — nombres cortos `displayName` vs tests legacy (11/11/2026)
 - Acortar `WodFormat.displayName` (p. ej. `For Time`, `Escalera`) sin actualizar aserciones deja rojo

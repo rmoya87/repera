@@ -76,12 +76,16 @@ internal fun Modifier.progressChartReveal(style: ProgressChartRevealStyle): Modi
             ) == 0f
         }.getOrDefault(false)
     }
-    val progress = remember {
-        androidx.compose.animation.core.Animatable(if (reduceMotion) 1f else 0f)
-    }
+    val chartRevealActive = LocalProgressChartRevealActive.current
     val playMetricReveal = LocalMetricRevealPlay.current
-    androidx.compose.runtime.LaunchedEffect(reduceMotion, playMetricReveal) {
-        if (reduceMotion) {
+    val progress = remember(reduceMotion, chartRevealActive) {
+        androidx.compose.animation.core.Animatable(
+            if (reduceMotion || !chartRevealActive) 1f else 0f
+        )
+    }
+    androidx.compose.runtime.LaunchedEffect(reduceMotion, playMetricReveal, chartRevealActive) {
+        // Fuera del hub Progreso: paint completo (Recuperación / tests JVM).
+        if (reduceMotion || !chartRevealActive) {
             progress.snapTo(1f)
             return@LaunchedEffect
         }
