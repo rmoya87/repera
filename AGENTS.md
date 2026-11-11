@@ -201,9 +201,17 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
   midan bien. Mensajes distintos solo para otro workout vivo o HK ausente.
 - Contrato: `tests/test_watch_native_health_permission_contract.py`.
 
+#### Wear — FC en semántica fusionada vs test visual (11/11/2026)
+- `WearHeartRateZoneBar` usa `clearAndSetSemantics` con contentDescription
+  («frecuencia cardíaca N…»); el valor ya no es nodo `Text("145")`/`"lpm"`.
+- `WearVisualVerificationInstrumentedTest.capturaWearSesionFuerza` debe buscar
+  por `hasContentDescription(..., substring = true)`, no por texto suelto.
+  Fallo en `:wear:connectedDebugAndroidTest` (API 35/36); no bloquea Play
+  (`deploy-internal-beta` solo exige `android-native` + phone instrumented).
+
 #### Watch / Wear — swipe Controles↔Now Playing + FC en Ambient (11/11/2026)
 - Continuum **Controles ← Sesión → Now Playing**: L→R = Pausar/Finalizar; R→L = audio.
- No invertir otra vez sin actualizar docs y contratos.
+  No invertir otra vez sin actualizar docs y contratos.
 - watchOS: `WatchSwipeControlSurface` + temporizador; Wear: pager 3 páginas
  `initialPage = 1` (live, plan, timer) + `WearNowPlayingPage` con
  `dispatchMediaKeyEvent` (sin `MEDIA_CONTENT_CONTROL` ni intents OEM).

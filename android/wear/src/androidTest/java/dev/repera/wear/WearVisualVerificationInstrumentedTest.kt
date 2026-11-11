@@ -117,9 +117,16 @@ class WearVisualVerificationInstrumentedTest {
         }
         compose.waitForIdle()
         compose.onNodeWithText("Back Squat", substring = true).assertExists()
-        scrollHastaTexto("145")
-        compose.onNodeWithText("145").assertExists()
-        compose.onNodeWithText("lpm").assertExists()
+        // WearHeartRateZoneBar fusiona el valor en contentDescription (a11y);
+        // el texto "145"/"LPM" no queda como nodos Text separados.
+        compose.onNode(verticalList).performScrollToNode(
+            hasContentDescription("145", substring = true)
+        )
+        compose.waitForIdle()
+        compose.onNode(hasContentDescription("145", substring = true)).assertExists()
+        compose.onNode(
+            hasContentDescription("frecuencia cardíaca", substring = true)
+        ).assertExists()
         compose.onAllNodesWithText("WearHomeState(", substring = true).assertCountEquals(0)
         save("wear_sesion_fuerza_inicio", compose.onRoot().captureToImage())
         scrollHastaTexto("Reps")
