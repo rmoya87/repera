@@ -126,7 +126,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:19.2.0")
     // Google Play Billing: solo detección de compras; la concesión Pro exige
     // verificación backend (ver android/docs/MONETIZATION_PLAY_BILLING.md).
-    implementation("com.android.billingclient:billing-ktx:8.0.0")
+    implementation("com.android.billingclient:billing-ktx:9.1.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
     // Render headless inspeccionable (NO es validacion de dispositivo):
