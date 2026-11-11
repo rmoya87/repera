@@ -453,7 +453,7 @@ final class BusinessAuthStore {
             "connect start wipe=\(wipe) hadCache=\(hasCachedSupabaseSession) storedBinding=\(storedBinding != nil)"
         )
         if wipe {
-            try? await client.auth.signOut()
+            try? await client.auth.signOut(scope: .local)
         }
         BusinessDataStore.shared.clear()
         do {
@@ -520,14 +520,14 @@ final class BusinessAuthStore {
             guard googleAuthAttemptID == attemptID else { return false }
             let session = try await client.auth.signInWithIdToken(credentials: credentials)
             guard googleAuthAttemptID == attemptID else {
-                try? await client.auth.signOut()
+                try? await client.auth.signOut(scope: .local)
                 GIDSignIn.sharedInstance.signOut()
                 return false
             }
             guard isSameLocalOwner(session.user.id) else {
                 // Correo distinto/no verificado, Apple «Ocultar mi correo»,
                 // o cuentas realmente diferentes: NUNCA fusionar datos.
-                try? await client.auth.signOut()
+                try? await client.auth.signOut(scope: .local)
                 GIDSignIn.sharedInstance.signOut()
                 UserDefaults.standard.set(false, forKey: googleSignedInKey)
                 BusinessDataStore.shared.clear()
@@ -579,12 +579,12 @@ final class BusinessAuthStore {
             // a regular sign-in here would switch accounts instead of linking.
             let confirmed = try await client.auth.linkIdentityWithIdToken(credentials: credentials)
             guard googleAuthAttemptID == attemptID else {
-                try? await client.auth.signOut()
+                try? await client.auth.signOut(scope: .local)
                 GIDSignIn.sharedInstance.signOut()
                 return false
             }
             guard confirmed.user.id == currentID else {
-                try? await client.auth.signOut()
+                try? await client.auth.signOut(scope: .local)
                 GIDSignIn.sharedInstance.signOut()
                 UserDefaults.standard.set(false, forKey: googleSignedInKey)
                 BusinessDataStore.shared.clear()
@@ -817,7 +817,7 @@ final class BusinessAuthStore {
         profileMigrationErrorMessage = nil
         BusinessDataStore.shared.clear()
         UserDefaults.standard.removeObject(forKey: appleIdentityBindingKey)
-        if let client { try? await client.auth.signOut() }
+        if let client { try? await client.auth.signOut(scope: .local) }
         isConnected = false
         requiresReauthentication = false
         lastErrorMessage = nil
