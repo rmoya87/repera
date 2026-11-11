@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Select supported Xcode 26
         shell: bash
         run: |
@@ -45,8 +45,9 @@ jobs:
             exit 1
           fi
           sudo xcode-select -s "$XCODE_APP/Contents/Developer"
-          xcodebuild -version
-          xcodebuild -version | grep -q '^Xcode 26'
+          XCODE_VERSION=$(xcodebuild -version)
+          printf '%s\n' "$XCODE_VERSION"
+          grep -q '^Xcode 26' <<< "$XCODE_VERSION"
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:

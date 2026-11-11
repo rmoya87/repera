@@ -1,32 +1,42 @@
-# Análisis de seguridad automatizado
+# Seguridad y escaneo automático de Repera
 
 Última actualización: 2026-11-11
 
-## Alcance y ejecución
+## Estado confirmado
 
-- **Web y backend TypeScript/JavaScript:** `.github/workflows/codeql-web.yml`, CodeQL `javascript-typescript`; incluye la web y las funciones Supabase. El job `actions` analiza los GitHub Actions del repositorio.
-- **Android y Wear OS:** `.github/workflows/codeql-android.yml`, CodeQL `java-kotlin` en modo **manual**. Compila `:domain`, `:mobile` y `:wear` con Gradle 9.6/JDK 17 y el SDK Android canary que ya usa la CI nativa. No realiza despliegues ni utiliza credenciales de Play.
-- **Swift (solo contratos compatibles):** `.github/workflows/codeql-swift-contracts.yml` compila y analiza `mobile-contracts/swift` (Swift tools 6.2) con macOS/Xcode 26. **No cubre el código principal de iOS, iPadOS ni watchOS.**
-- Escaneos: push y PR hacia `main`/`beta` para las rutas indicadas en cada workflow, ejecución programada los miércoles en la rama por defecto, y ejecución manual. Las tareas son independientes de los pipelines de build, TestFlight y Google Play.
-- Las alertas aparecen en [Security → Code scanning](https://github.com/rmoya87/repera/security/code-scanning). El análisis utiliza `security-extended` y un token limitado a lectura de contenido, lectura de acciones y publicación de resultados de seguridad.
+**CodeQL Default setup ya está activado en GitHub.** Se confirmó el 11/11/2026 cuando los escaneos avanzados de la PR [#246](https://github.com/rmoya87/repera/pull/246) intentaron publicar resultados y GitHub los rechazó con `CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled`. No se debe subir a `main` un workflow CodeQL avanzado sin desactivar antes el modo predeterminado.
 
-## Limitación crítica de Swift 6.4 / Xcode 27
+Ver el estado actual y los lenguajes realmente analizados en [Security → Code scanning](https://github.com/rmoya87/repera/security/code-scanning), sección **Tool status**. La presencia del modo automático **no acredita** cobertura completa de iOS, Android o backend.
 
-A **11/11/2026**, GitHub no admite extracción trazada con **Xcode 27** ni análisis de **Swift 6.4** con CodeQL. Tanto `Apps/Repera`, `Apps/ReperaWatch` como `Packages/ReperaDomain` dependen de la toolchain actual; analizarlos con CodeQL/Xcode 27 podría dar una base de datos vacía o un resultado incompleto. **No se habilita un análisis engañoso**. El subset de contratos Swift 6.2 no sustituye una auditoría del código iOS/watchOS.
+## Dependencias (activado en código)
 
-Antes de ampliar la cobertura, verificar en la [comunicación oficial de GitHub](https://github.blog/changelog/2026-10-19-codeql-changes-for-macos-27-xcode-27-and-swift-6-4/) y en la [matriz de lenguajes CodeQL](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) que Xcode/Swift usados son compatibles. Mantener mientras tanto la CI de Xcode 27 y las revisiones de seguridad manuales.
+`.github/dependabot.yml` solicita PR semanales para:
+- GitHub Actions (lunes a las 06:30).
+- Gradle bajo `android/` (lunes a las 07:00).
+- npm bajo `web/console/` (lunes a las 07:30).
 
-## Dependencias y otras superficies
+No existe fusión ni despliegue automático. La consola no declara dependencias npm actualmente. Para obtener alertas de vulnerabilidades en dependencias, comprobar en `Settings → Advanced Security` que **Dependency graph**, **Dependabot alerts** y **Dependabot security updates** están habilitados: el YAML de actualizaciones de versión no basta para activarlos.
 
-`.github/dependabot.yml` solicita PR semanales de actualizaciones para GitHub Actions, Gradle y npm de `web/console`. No fusiona ni despliega automáticamente. La consola actualmente no declara dependencias npm, por lo que puede no generar propuestas. Las dependencias Swift configuradas en `project.yml`, Deno/Supabase y las migraciones SQL no quedan cubiertas por estas tres entradas; revisar sus avisos y versiones por separado.
+## Mejora avanzada preparada, pendiente de cambio administrativo
 
-CodeQL **no sustituye** las pruebas RLS multi-tenant, la revisión de SQL, los permisos Health/GPS, la protección de secretos, la comprobación de Play ni los tests funcionales. Mantener los contratos actuales.
+La PR [#246](https://github.com/rmoya87/repera/pull/246) prepara jobs independientes para:
+- CodeQL **JavaScript/TypeScript y GitHub Actions**.
+- CodeQL **Kotlin/Java** compilando Android/Wear con Gradle y SDK Android 17.
+- CodeQL **Swift 6.2** limitado al paquete `mobile-contracts/swift`.
 
-## Activación y bloqueo de PR (administración GitHub)
+**No fusionar la PR mientras Default setup esté activo**; causaría fallos en las tareas CodeQL. Para cambiar:
+1. Entrar en [Settings → Advanced Security](https://github.com/rmoya87/repera/settings/security_analysis).
+2. En **CodeQL analysis** abrir el menú de tres puntos, elegir **Switch to advanced**, confirmar **Disable CodeQL**.
+3. Una vez desactivado el modo predeterminado, validar y fusionar la PR de configuración avanzada; comprobar que los escaneos publiquen resultados válidos en Tool status.
 
-1. Revisar `Security → Code scanning → Tool status` después de la primera ejecución y comprobar que cada lenguaje finaliza con resultados válidos; si existía la configuración predeterminada de CodeQL, evitar duplicarla al adoptar la avanzada.
-2. En `Settings → Advanced Security`, verificar **Dependency graph**, **Dependabot alerts** y **Dependabot security updates**. El archivo de version updates **no** habilita por sí solo esas opciones.
-3. En `Settings → Rules → Rulesets`, añadir una regla de **Code scanning** para los PR hacia `main` y `beta`, herramienta **CodeQL**, bloqueando alertas nuevas **High/Critical** una vez verificados los primeros análisis. Mantener la protección contra borrados y force push. Configurar esto requiere permisos de administración: añadir workflows no cambia por sí mismo las reglas del repositorio.
-4. La protección de Code scanning solo actúa sobre PR, no convierte pushes directos en PR ni evita automáticamente todos los problemas de seguridad. Para exigir revisión en todos los cambios, añadir también la política de PR requerida de manera deliberada.
+La interfaz requiere permisos de administración; **no se ha cambiado esta opción de seguridad del repositorio** desde el conector.
 
-Para errores de análisis, ver la pestaña [Actions](https://github.com/rmoya87/repera/actions) y la página de estado de herramientas de Code scanning. No dar por verificadas plataformas que aún no han ejecutado un escaneo válido.
+## Limitación actual de Swift
+
+Desde el [aviso oficial de GitHub de 19/10/2026](https://github.blog/changelog/2026-10-19-codeql-changes-for-macos-27-xcode-27-and-swift-6-4/), CodeQL **no soporta Swift 6.4 ni el trazado en Xcode 27**. Repera utiliza esa toolchain para iOS/watchOS y `Packages/ReperaDomain`. No configurar un análisis que parezca completo: el job Swift 6.2 de la PR solo cubre contratos compatibles, no las apps ni el dominio.
+
+## Política de bloqueo
+
+El ruleset [Proteger main y beta](https://github.com/rmoya87/repera/rules/26992371) evita borrados y reescritura del historial, pero **no bloquea nuevas alertas graves**. Cuando CodeQL ofrezca resultados estables, añadir una regla **Code scanning** para bloquear alertas nuevas de severidad **High/Critical** en PR hacia `main` y `beta`, y evaluar exigir PR/revisiones. Esto requiere configuración administrativa separada.
+
+CodeQL tampoco sustituye la revisión de RLS, secretos, permisos Health/GPS, migraciones SQL y pruebas de aplicación existentes.

@@ -10,8 +10,7 @@ https://github.com/rmoya87/repera/security/advisories/new
 
 Por favor, no abras issues públicos para problemas de seguridad.
 
-## Escaneo continuo y limitaciones
+## Escaneo de código y dependencias
 
-La configuración de CodeQL, Dependabot, la cobertura efectiva por plataforma
-y los ajustes de protección de PR se documentan en
-[docs/SECURITY_SCANNING.md](docs/SECURITY_SCANNING.md).
+La configuración activa, sus limitaciones y los pasos administrativos para
+mejorar la cobertura están en [docs/SECURITY_SCANNING.md](docs/SECURITY_SCANNING.md).
