@@ -18,11 +18,15 @@ class RoutineEditorRestorationTest {
   val b=BlockDraftUi();val e=EntryUi("exercise","Nombre",8,2,20.0,sets,"item")
   b.entries.add(e)
   assertTrue(e.untouchedUniform)
+  assertFalse(e.setsExpanded)
   e.quantity="9"
   val r=restoreRoutineEditorBlocks(saveRoutineEditorBlocks(listOf(b))).single()
   assertFalse(r.entries.single().untouchedUniform)
+  assertFalse(r.entries.single().setsExpanded)
+  // Colapsado + uniform sucio: toDraft usa quantity/sets/weight (plannedSets null).
+  // Las series con ids/RIR siguen en memoria UI hasta reabrir o volver al baseline.
   assertEquals(sets,r.entries.single().plannedSets.toList())
-  assertEquals(sets, r.toDraft()!!.entries.single().plannedSets)
+  assertNull(r.toDraft()!!.entries.single().plannedSets)
   r.entries.single().quantity="8"
   assertTrue(r.entries.single().untouchedUniform)
   assertEquals(sets,r.toDraft()!!.entries.single().plannedSets)

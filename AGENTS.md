@@ -163,6 +163,12 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - `navSig` con `completed` recreaba todos los `BlockDraftUi` al marcar series; firmar solo estructura.
   Logging de Play como ítem Lazy aparte.
 - Contrato: `tests/test_play_editor_perf_v2_contract.py`. No afirmar «probado en dispositivo» sin medición.
+- **Android editor:** `setsExpanded` arranca en `false` (Lazy). `toDraft()` solo emite
+  `plannedSets` si `setsExpanded || untouchedUniform`. Con fila colapsada y quantity/sets/weight
+  sucios → `plannedSets` del draft es `null` (ganan los campos uniformes); las series con
+  ids/RIR siguen en memoria UI. No asumir el default antiguo `setsExpanded=true` en
+  `RoutineEditorRestorationTest.plannedIdsRirAndUniformDirtyBaselineSurvive` (bloqueó
+  `:mobile:testDebugUnitTest` y `deploy-internal-beta` el 11/11/2026).
 
 #### Android — Play upload `RedirectMissingLocation` / httplib2 308 (10/11/2026)
 - `deploy-internal-beta` puede fallar en *Publish AAB…* con
