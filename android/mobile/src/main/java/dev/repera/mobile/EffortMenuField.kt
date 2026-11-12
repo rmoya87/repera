@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,11 +61,12 @@ internal fun EffortMenuField(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = if (compact) 36.dp else 40.dp)
+                // Compact = misma altura 44 que CompactSetField / OGSetNumericCell iOS.
+                .then(if (compact) Modifier.height(44.dp) else Modifier.heightIn(min = 44.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                 .clickable(enabled = enabled) { open = true }
-                .padding(horizontal = 8.dp, vertical = 8.dp)
+                .padding(horizontal = 8.dp)
                 .testTag("effort_menu_field"),
             contentAlignment = Alignment.Center
         ) {

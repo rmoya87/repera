@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Favorite
@@ -38,6 +37,8 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Route
@@ -50,10 +51,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,14 +65,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
@@ -208,66 +212,94 @@ internal fun HomeSwipeRevealCard(
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
-    val deleteWidthPx = with(density) { 88.dp.toPx() }
-    val editWidthPx = with(density) { if (onEdit != null) 72.dp.toPx() else 0f }
+    // Paridad iOS RegisterSwipeRevealCard: reveal 72 + círculo 56.
+    val revealWidthPx = with(density) { 72.dp.toPx() }
+    val editWidthPx = if (onEdit != null) revealWidthPx else 0f
     val excludeBandPx = with(density) {
         (chipsBandHeight + footerExclusionHeight).toPx()
     }
-    var offset by remember(key) { mutableStateOf(0f) }
+    var offset by remember(key) { mutableFloatStateOf(0f) }
+    var cardHeightPx by remember(key) { mutableFloatStateOf(0f) }
     var confirmDelete by remember(key) { mutableStateOf(false) }
-    // Clip del contenedor al mismo radio que la card frontal: sin picos de
-    // Editar/Eliminar sobresaliendo por las esquinas del entreno.
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(registerCardShape)
-    ) {
-        Row(
-            modifier = Modifier.matchParentSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    val deleteRevealed = offset < -revealWidthPx * 0.2f
+    val editRevealed = onEdit != null && offset > revealWidthPx * 0.2f
+    val cardHeightDp = with(density) {
+        cardHeightPx.toDp().coerceAtLeast(56.dp)
+    }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Acciones DETRÁS: Surface circular (mismo patrón que Favoritos).
+        // Altura explícita = card; graphicsLayer en el frente mueve el clip entero.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(cardHeightDp)
+                .padding(horizontal = 8.dp)
         ) {
             if (onEdit != null) {
-                TextButton(
-                    onClick = { offset = 0f; onEdit() },
-                    enabled = !busy && offset > 0f,
+                Surface(
+                    onClick = {
+                        offset = 0f
+                        onEdit()
+                    },
+                    enabled = !busy && editRevealed,
+                    shape = CircleShape,
+                    color = ReperaAccents.swipeEdit,
                     modifier = Modifier
-                        .width(72.dp)
-                        .fillMaxHeight()
-                        .background(ReperaAccents.swipeEdit)
+                        .align(Alignment.CenterStart)
+                        .size(56.dp)
+                        .graphicsLayer {
+                            // Visible en cuanto hay swipe a la derecha.
+                            alpha = (offset / revealWidthPx).coerceIn(0f, 1f)
+                        }
+                        .testTag("home_swipe_edit")
                 ) {
-                    Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.home_day_cards_editar), tint = Color.White)
+                    Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.home_day_cards_editar),
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
-            } else {
-                Spacer(Modifier.width(0.dp))
             }
-            TextButton(
+            Surface(
                 onClick = {
                     offset = 0f
                     if (askDeleteConfirm) confirmDelete = true else onDelete()
                 },
-                enabled = !busy && offset < 0f,
+                enabled = !busy && deleteRevealed,
+                shape = CircleShape,
+                color = ReperaAccents.swipeDelete,
                 modifier = Modifier
-                    .width(88.dp)
-                    .fillMaxHeight()
-                    .background(ReperaAccents.swipeDelete)
+                    .align(Alignment.CenterEnd)
+                    .size(56.dp)
+                    .graphicsLayer {
+                        alpha = (-offset / revealWidthPx).coerceIn(0f, 1f)
+                    }
+                    .testTag("home_swipe_delete")
             ) {
-                Icon(
-                    Icons.Outlined.Delete,
-                    contentDescription = deleteContentDescription,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = deleteContentDescription,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         }
+        // Frontal: translationX FUERA del clip (si clip envuelve al offset, tapa los círculos).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { cardHeightPx = it.height.toFloat() }
+                .graphicsLayer { translationX = offset }
                 .clip(registerCardShape)
-                .offset { IntOffset(offset.toInt(), 0) }
+                .background(MaterialTheme.colorScheme.surface, registerCardShape)
                 .pointerInput(key, busy, onEdit != null, excludeBandPx) {
                     if (busy) return@pointerInput
-                    val maxLeft = -deleteWidthPx
+                    val maxLeft = -revealWidthPx
                     val maxRight = editWidthPx
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -277,7 +309,6 @@ internal fun HomeSwipeRevealCard(
                                 chipsBandHeight = excludeBandPx
                             )
                         ) {
-                            // Toque en chips/footer: ceder el gesto al carrusel.
                             return@awaitEachGesture
                         }
                         var total = offset
@@ -296,8 +327,8 @@ internal fun HomeSwipeRevealCard(
                             offset = total
                         }
                         offset = when {
-                            offset < -deleteWidthPx * 0.45f -> -deleteWidthPx
-                            onEdit != null && offset > editWidthPx * 0.45f -> editWidthPx
+                            offset < -revealWidthPx * 0.45f -> -revealWidthPx
+                            onEdit != null && offset > revealWidthPx * 0.45f -> revealWidthPx
                             else -> 0f
                         }
                     }
@@ -326,6 +357,8 @@ internal fun HomeDayRegisterCard(
     modifier: Modifier = Modifier,
     leadingIconTint: Color = brandGreen,
     captionColor: Color? = null,
+    /** Play / trailing dentro de la superficie blanca (paridad iOS plannedDayCard). */
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -338,7 +371,8 @@ internal fun HomeDayRegisterCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             HomeRegisterLeadingIcon(leadingIcon, tint = leadingIconTint)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -361,6 +395,7 @@ internal fun HomeDayRegisterCard(
                     maxLines = 2
                 )
             }
+            trailingContent?.invoke()
         }
         if (chips.isNotEmpty()) {
             HomeRegisterChipsRow(
@@ -696,35 +731,30 @@ internal fun HomePlannedRoutineCard(
     val caption = if (time != null) "HOY · $time" else "HOY"
     // Solo realizados (historial) van en verde; planificados siempre gris.
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HomeDayRegisterCard(
-            caption = caption,
-            captionColor = accentText,
-            title = routine.title,
-            leadingIcon = ReperaIcons.StrengthTraditional,
-            chips = chips,
-            onClick = onClick,
-            leadingIconTint = tint,
-            modifier = Modifier.weight(1f)
-        )
-        onPlay?.let { play ->
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(brandGreen)
-                    .clickable(onClick = play)
-                    .testTag("home_planned_play"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Empezar", tint = Color.Black)
+    HomeDayRegisterCard(
+        caption = caption,
+        captionColor = accentText,
+        title = routine.title,
+        leadingIcon = ReperaIcons.StrengthTraditional,
+        chips = chips,
+        onClick = onClick,
+        leadingIconTint = tint,
+        trailingContent = onPlay?.let { play ->
+            {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(brandGreen)
+                        .clickable(onClick = play)
+                        .testTag("home_planned_play"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Empezar", tint = Color.Black)
+                }
             }
         }
-    }
+    )
 }
 
 @Composable

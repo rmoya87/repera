@@ -92,24 +92,29 @@ class PlayEditorPerfV2Contract(unittest.TestCase):
         self.assertIn("expandedEntryID == item.id", IOS_PLAN)
         self.assertIn("plannedSets.compactSummary", IOS_PLAN)
 
-    def test_android_play_nav_sig_and_flat_lazy(self):
+    def test_android_play_nav_sig_and_nested_block(self):
         self.assertIn('"${it.blockId}:${it.index}:${it.name}"', ANDROID_PLAY)
         self.assertNotIn('"${it.blockId}:${it.index}:${it.name}:${it.completed}"', ANDROID_PLAY)
-        self.assertIn("includeEntries = false", ANDROID_PLAY)
-        self.assertIn("PlayCompactEntryRow(", ANDROID_PLAY)
-        self.assertIn('item(key = "play-log-${workout.index}")', ANDROID_PLAY)
-        self.assertIn("BlockEditorFooterActions(", ANDROID_PLAY)
+        # Ejercicios + logging dentro del mismo BlockEditorCard (paridad iOS).
+        self.assertIn("includeEntries = true", ANDROID_PLAY)
+        self.assertIn("playCompactEntries = true", ANDROID_PLAY)
+        self.assertIn("trailingContent = if (isCurrent)", ANDROID_PLAY)
+        self.assertIn("selectedEntryIndex == index", ANDROID_EDITOR)
+        self.assertIn("PlayCompactEntryRow(", ANDROID_EDITOR)
+        self.assertIn("play_entry_menu", ANDROID_EDITOR)
 
     def test_android_editor_single_expanded_entry(self):
         self.assertIn("var expandedEntryId by rememberSaveable", ANDROID_EDITOR)
         self.assertIn("var setsExpanded by mutableStateOf(false)", ANDROID_EDITOR)
         self.assertNotIn("// Series siempre visibles", ANDROID_EDITOR)
         self.assertIn("CompactEntrySummaryRow(", ANDROID_EDITOR)
-        self.assertIn("includeEntries = false", ANDROID_EDITOR)
+        self.assertIn("includeEntries = true", ANDROID_EDITOR)
         self.assertIn("BlockEntryEditorSlot(", ANDROID_EDITOR)
         # Primer ejercicio expandido al abrir (Crear y Editar iguales).
         self.assertIn("firstKey", ANDROID_EDITOR)
         self.assertIn("stableKey(index)", ANDROID_EDITOR)
+        self.assertIn("ExerciseListThumb(", ANDROID_EDITOR)
+        self.assertIn("plan_entry_compact_menu", ANDROID_EDITOR)
 
 
 if __name__ == "__main__":

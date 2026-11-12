@@ -90,6 +90,10 @@ internal fun ActiveWorkoutScreen(
     var playReorderBlocks by remember { mutableStateOf<SnapshotStateList<BlockDraftUi>?>(null) }
     var playReorderError by remember { mutableStateOf<String?>(null) }
     var showFinishSummary by remember(workout.id) { mutableStateOf(false) }
+    var showPlayWods by remember { mutableStateOf(false) }
+    var showPlayFavorites by remember { mutableStateOf(false) }
+    var showPlayBoardScanner by remember { mutableStateOf(false) }
+    var confirmCancelWorkout by remember { mutableStateOf(false) }
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     val hasMoreExercises = workout.index + 1 < workout.total
     val inlineTitle = workout.title.ifBlank { "Entreno" }
@@ -298,7 +302,19 @@ internal fun ActiveWorkoutScreen(
                 showExerciseNav = false,
                 showFinishInToolbar = false,
                 onEditPlan = onEditPlan,
+                onAddBlock = {
+                    val n = playBlocks.size + 1
+                    playBlocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
+                    flushPlayPlan()
+                },
+                onPickWod = { showPlayWods = true },
+                onScanBoard = { showPlayBoardScanner = true },
                 onReorderStructure = { beginPlayReorder() },
+                onToggleFavorite = {
+                    if (!workout.isFavorite) onSaveFavorite()
+                },
+                isFavorite = workout.isFavorite,
+                onCancelWorkout = { confirmCancelWorkout = true },
                 startedLabel = workout.sets.firstOrNull()?.let { "En curso" }
             )
         }
@@ -310,35 +326,6 @@ internal fun ActiveWorkoutScreen(
                 elapsedSeconds = elapsedSeconds,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
-        }
-        // Favorito al inicio; notas + Terminar al final (sin Lugar en Play).
-        item {
-            ReperaCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-            ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Favorito",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = workout.isFavorite,
-                        onCheckedChange = { on ->
-                            if (on && !workout.isFavorite) onSaveFavorite()
-                        },
-                        enabled = !busy && !workout.isFavorite,
-                        colors = reperaSwitchColors(),
-                        modifier = Modifier.testTag("play_favorite_switch")
-                    )
-                }
-            }
         }
         if (clockMinimized && timer != null) {
             item {
@@ -367,9 +354,11 @@ internal fun ActiveWorkoutScreen(
                 else -> bi == 0 && workout.index == 0
             }
             val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
-            item(key = "play-hdr-${block.blockId ?: bi}") {
+            item(key = "play-block-${block.blockId ?: bi}") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
+                    if (playBlocks.size > 1) {
+                        ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
+                    }
                     BlockEditorCard(
                         block = block,
                         nameById = nameById,
@@ -385,70 +374,57 @@ internal fun ActiveWorkoutScreen(
                         onOpenExercise = { },
                         effortUnit = effortUnit,
                         playCompactEntries = true,
-                        includeEntries = false,
-                        includeFooterActions = false,
+                        includeEntries = true,
+                        includeFooterActions = true,
+                        selectedEntryIndex = selectedLocal,
+                        onSelectEntryIndex = { ei ->
+                            blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
+                        },
                         onTimer = {
                             blockIndexes.firstOrNull()?.let { ix ->
                                 if (ix != workout.index) onSelectExercise(ix)
                             }
                             flushPlayPlan()
                             openBlockClockOrConfig()
-                        }
+                        },
+                        trailingContent = if (isCurrent) {
+                            {
+                                if (workout.wod != null) WodScoreCard(
+                                    active = workout, busy = busy, timer = timer,
+                                    onTimerAction = onTimerAction, onTimerTick = onTimerTick,
+                                    onSave = onWodScore,
+                                    onMeasuredScore = onWodMeasuredScore,
+                                    onMovement = onWodMovement,
+                                    onCompleteBlock = onCompleteWodBlock,
+                                    onReviseMovement = onReviseWodMovement,
+                                    onDeleteMovement = onDeleteWodMovement,
+                                    onFinish = onFinish, onDiscard = onDiscard,
+                                    onOpenClock = onOpenClock,
+                                    effortUnit = effortUnit,
+                                    embedded = true,
+                                    loadGuideProvider = loadGuideProvider,
+                                )
+                                else ActiveWorkoutCard(
+                                    effortUnit = effortUnit, weightUnit = weightUnit,
+                                    active = workout, busy = busy, onLogSet = onLogSet,
+                                    onLogDropSet = onLogDropSet,
+                                    onLogRestPauseSet = onLogRestPauseSet,
+                                    onReviseSet = onReviseSet, onDeleteSet = deleteSetWithUndo,
+                                    onNext = onNext, onFinish = onFinish, onDiscard = onDiscard,
+                                    embedded = true,
+                                    loadGuideProvider = loadGuideProvider,
+                                )
+                            }
+                        } else null,
+                        onOfferUndo = { message, undo ->
+                            flushPlayPlan()
+                            offerUndo(message) {
+                                undo()
+                                flushPlayPlan()
+                            }
+                        },
                     )
                 }
-            }
-            items(
-                count = block.entries.size,
-                key = { ei -> "play-entry-${block.blockId ?: bi}-${block.entries[ei].stableKey(ei)}" }
-            ) { ei ->
-                val entry = block.entries[ei]
-                val resolved = entry.name.ifBlank {
-                    nameById[entry.exerciseId] ?: "Ejercicio"
-                }
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        PlayCompactEntryRow(
-                            name = resolved,
-                            selected = selectedLocal == ei,
-                            onClick = {
-                                blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
-                            }
-                        )
-                    }
-                }
-            }
-            if (isCurrent) {
-                item(key = "play-log-${workout.index}") {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp)) {
-                            if (workout.wod != null) WodScoreCard(
-                                active = workout, busy = busy, timer = timer,
-                                onTimerAction = onTimerAction, onTimerTick = onTimerTick,
-                                onSave = onWodScore,
-                                onMeasuredScore = onWodMeasuredScore, onMovement = onWodMovement,
-                                onCompleteBlock = onCompleteWodBlock,
-                                onReviseMovement = onReviseWodMovement,
-                                onDeleteMovement = onDeleteWodMovement,
-                                onFinish = onFinish, onDiscard = onDiscard,
-                                onOpenClock = onOpenClock,
-                                effortUnit = effortUnit,
-                                embedded = true
-                            )
-                            else ActiveWorkoutCard(
-                                effortUnit = effortUnit, weightUnit = weightUnit,
-                                active = workout, busy = busy, onLogSet = onLogSet,
-                                onLogDropSet = onLogDropSet,
-                                onLogRestPauseSet = onLogRestPauseSet,
-                                onReviseSet = onReviseSet, onDeleteSet = deleteSetWithUndo,
-                                onNext = onNext, onFinish = onFinish, onDiscard = onDiscard,
-                                embedded = true
-                            )
-                        }
-                    }
-                }
-            }
-            item(key = "play-ftr-${block.blockId ?: bi}") {
-                BlockEditorFooterActions(block = block, exercises = catalog)
             }
         }
         item {
@@ -459,7 +435,14 @@ internal fun ActiveWorkoutScreen(
                 onFlushPlan = { flushPlayPlan() },
                 importableRoutines = importableRoutines,
                 overview = overview,
-                catalog = catalog
+                catalog = catalog,
+                showWods = showPlayWods,
+                onShowWodsChange = { showPlayWods = it },
+                showFavorites = showPlayFavorites,
+                onShowFavoritesChange = { showPlayFavorites = it },
+                showBoardScanner = showPlayBoardScanner,
+                onShowBoardScannerChange = { showPlayBoardScanner = it },
+                showSessionPlanActions = false,
             )
         }
         item(key = "play-notes") {
@@ -509,6 +492,19 @@ internal fun ActiveWorkoutScreen(
             snackbarHostState,
             Modifier.align(Alignment.BottomCenter).padding(16.dp)
         )
+        if (confirmCancelWorkout) {
+            ReperaConfirmSheet(
+                title = "Cancelar entreno",
+                message = "Se descartará la sesión en curso. Esta acción no se puede deshacer.",
+                confirmTitle = "Cancelar entreno",
+                onConfirm = {
+                    confirmCancelWorkout = false
+                    onDiscard()
+                },
+                onCancel = { confirmCancelWorkout = false },
+                confirmDestructive = true
+            )
+        }
     }
 }
 
@@ -522,11 +518,16 @@ private fun PlaySessionPlanFooter(
     onFlushPlan: () -> Unit,
     importableRoutines: List<RoutineEntry>,
     overview: StateOverview?,
-    catalog: List<ExerciseEntry>
+    catalog: List<ExerciseEntry>,
+    showWods: Boolean = false,
+    onShowWodsChange: (Boolean) -> Unit = {},
+    showFavorites: Boolean = false,
+    onShowFavoritesChange: (Boolean) -> Unit = {},
+    showBoardScanner: Boolean = false,
+    onShowBoardScannerChange: (Boolean) -> Unit = {},
+    /** Si false, las acciones de sesión viven solo en el menú ⋮ (paridad iOS). */
+    showSessionPlanActions: Boolean = true,
 ) {
-    var showWods by remember { mutableStateOf(false) }
-    var showFavorites by remember { mutableStateOf(false) }
-    var showBoardScanner by remember { mutableStateOf(false) }
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
     val favorites = importableRoutines.filter {
@@ -546,18 +547,18 @@ private fun PlaySessionPlanFooter(
     }
 
     if (showBoardScanner) {
-        ReperaModalBottomSheet(onDismissRequest = { showBoardScanner = false }) {
+        ReperaModalBottomSheet(onDismissRequest = { onShowBoardScannerChange(false) }) {
             BoardScanScreen(
                 busy = busy,
                 overview = overview,
                 asSheet = true,
                 onConfirm = { _, _, _ -> },
-                onBack = { showBoardScanner = false },
+                onBack = { onShowBoardScannerChange(false) },
                 onImportBlocks = { imported ->
                     mutateBlocks { list ->
                         imported.forEach { list.add(scannedRoutineBlockDraft(it)) }
                     }
-                    showBoardScanner = false
+                    onShowBoardScannerChange(false)
                 },
                 catalogOverride = catalog
             )
@@ -577,46 +578,48 @@ private fun PlaySessionPlanFooter(
             },
             onFreeMovement = { showFreeMove = true }
         )
-        ReperaCard(modifier = Modifier.fillMaxWidth()) {
-            Column {
-                PlanEditorActionRow(
-                    icon = Icons.Outlined.ViewAgenda,
-                    label = "Añadir bloque",
-                    modifier = Modifier.testTag("play_add_block_row"),
-                    onClick = {
-                        mutateBlocks { blocks ->
-                            val n = blocks.size + 1
-                            blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
-                        }
-                    },
-                    enabled = !busy
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                PlanEditorActionRow(
-                    icon = Icons.AutoMirrored.Outlined.List,
-                    label = "Elegir WOD",
-                    modifier = Modifier.testTag("play_pick_wod"),
-                    onClick = { showWods = true },
-                    enabled = !busy
-                )
-                if (favorites.isNotEmpty()) {
+        if (showSessionPlanActions) {
+            ReperaCard(modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    PlanEditorActionRow(
+                        icon = Icons.Outlined.ViewAgenda,
+                        label = "Añadir bloque",
+                        modifier = Modifier.testTag("play_add_block_row"),
+                        onClick = {
+                            mutateBlocks { blocks ->
+                                val n = blocks.size + 1
+                                blocks.add(BlockDraftUi(RoutineBlockInfo(title = "Bloque $n", format = "")))
+                            }
+                        },
+                        enabled = !busy
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     PlanEditorActionRow(
-                        icon = Icons.Outlined.Star,
-                        label = "Añadir favorito",
-                        modifier = Modifier.testTag("play_add_favorite"),
-                        onClick = { showFavorites = true },
+                        icon = Icons.AutoMirrored.Outlined.List,
+                        label = "Elegir WOD",
+                        modifier = Modifier.testTag("play_pick_wod"),
+                        onClick = { onShowWodsChange(true) },
+                        enabled = !busy
+                    )
+                    if (favorites.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        PlanEditorActionRow(
+                            icon = Icons.Outlined.Star,
+                            label = "Añadir favorito",
+                            modifier = Modifier.testTag("play_add_favorite"),
+                            onClick = { onShowFavoritesChange(true) },
+                            enabled = !busy
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    PlanEditorActionRow(
+                        icon = Icons.Outlined.AddCircle,
+                        label = "Escanear pizarra",
+                        modifier = Modifier.testTag("play_scan_board"),
+                        onClick = { onShowBoardScannerChange(true) },
                         enabled = !busy
                     )
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                PlanEditorActionRow(
-                    icon = Icons.Outlined.AddCircle,
-                    label = "Escanear pizarra",
-                    modifier = Modifier.testTag("play_scan_board"),
-                    onClick = { showBoardScanner = true },
-                    enabled = !busy
-                )
             }
         }
     }
@@ -629,9 +632,9 @@ private fun PlaySessionPlanFooter(
                 mutateBlocks { blocks ->
                     src.blocks.forEach { blocks.add(BlockDraftUi(EditorBlockOps.duplicateBlockInfo(it))) }
                 }
-                showFavorites = false
+                onShowFavoritesChange(false)
             },
-            onDismiss = { showFavorites = false }
+            onDismiss = { onShowFavoritesChange(false) }
         )
     }
     if (showWods) {
@@ -640,9 +643,9 @@ private fun PlaySessionPlanFooter(
                 mutateBlocks { blocks ->
                     blocks.add(BlockDraftUi(EditorBlockOps.templateToBlockInfo(t, catalog)))
                 }
-                showWods = false
+                onShowWodsChange(false)
             },
-            onDismiss = { showWods = false }
+            onDismiss = { onShowWodsChange(false) }
         )
     }
     if (showFreeMove) {
@@ -674,7 +677,7 @@ private fun PlaySessionPlanFooter(
     }
 }
 
-/** Paridad `WorkoutView.workoutToolbarContents`: cerrar circular, título inline, chevrons y ✓ verde. */
+/** Paridad `WorkoutView.workoutToolbarContents`: menú ⋮ = iOS (bloque/WOD/pizarra/reordenar/favorito/cancelar). */
 @Composable
 private fun ActiveWorkoutToolbar(
     title: String,
@@ -687,7 +690,13 @@ private fun ActiveWorkoutToolbar(
     onNext: () -> Unit,
     onFinish: () -> Unit,
     onEditPlan: () -> Unit,
+    onAddBlock: () -> Unit = {},
+    onPickWod: () -> Unit = {},
+    onScanBoard: () -> Unit = {},
     onReorderStructure: () -> Unit,
+    onToggleFavorite: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onCancelWorkout: () -> Unit = {},
     startedLabel: String? = null,
     showExerciseNav: Boolean = true,
     showFinishInToolbar: Boolean = true,
@@ -740,12 +749,65 @@ private fun ActiveWorkoutToolbar(
                 onDismissRequest = { structureMenuOpen = false },
             ) {
                 DropdownMenuItem(
+                    text = { Text("Añadir bloque") },
+                    leadingIcon = { Icon(Icons.Outlined.ViewAgenda, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onAddBlock()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Elegir WOD") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onPickWod()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Escanear pizarra") },
+                    leadingIcon = { Icon(Icons.Outlined.AddCircle, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onScanBoard()
+                    },
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
                     text = { Text("Reordenar") },
                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
                     onClick = {
                         structureMenuOpen = false
                         onReorderStructure()
                     },
+                )
+                DropdownMenuItem(
+                    text = { Text(if (isFavorite) "En favoritos" else "Favorito") },
+                    leadingIcon = { Icon(Icons.Outlined.Star, contentDescription = null) },
+                    enabled = !isFavorite,
+                    onClick = {
+                        structureMenuOpen = false
+                        onToggleFavorite()
+                    },
+                    modifier = Modifier.testTag("play_favorite_menu")
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text("Cancelar entreno", color = MaterialTheme.colorScheme.error)
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    onClick = {
+                        structureMenuOpen = false
+                        onCancelWorkout()
+                    },
+                    modifier = Modifier.testTag("play_cancel_workout")
                 )
             }
         }

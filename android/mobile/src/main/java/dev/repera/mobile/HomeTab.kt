@@ -317,19 +317,47 @@ internal fun HomeTab(
                         }.getOrNull() ?: "Actividad en vivo"
                     } else "Actividad en vivo"
                     if (isToday && activeWorkout != null) {
-                        HomeInProgressCard(
-                            title = activeWorkout.exerciseName.ifBlank {
-                                activeWorkout.title.ifBlank { "Entreno" }
-                            },
-                            subtitle = "${activeWorkout.index + 1}/${activeWorkout.total}",
-                            onClick = onOpenActiveSession
-                        )
+                        HomeSwipeRevealCard(
+                            key = "in-progress-${activeWorkout.id}",
+                            busy = busy,
+                            onDelete = onDiscardSession,
+                            onEdit = null,
+                            confirmTitle = "¿Descartar entreno en curso?",
+                            confirmMessage = "Se perderá el progreso de esta sesión.",
+                            confirmActionTitle = "Descartar",
+                            deleteContentDescription = "Descartar entreno en curso",
+                            chipsBandHeight = 0.dp
+                        ) {
+                            HomeInProgressCard(
+                                title = activeWorkout.exerciseName.ifBlank {
+                                    activeWorkout.title.ifBlank { "Entreno" }
+                                },
+                                subtitle = "${activeWorkout.index + 1}/${activeWorkout.total}",
+                                onClick = onOpenActiveSession
+                            )
+                        }
                     } else if (livePending) {
-                        HomeInProgressCard(
-                            title = liveTitle,
-                            subtitle = stringResource(R.string.tab_start),
-                            onClick = onOpenLiveActivity
-                        )
+                        HomeSwipeRevealCard(
+                            key = "live-pending-$accountId",
+                            busy = busy,
+                            onDelete = {
+                                if (accountId.isNotBlank()) {
+                                    LiveActivityRuntime.forAccount(homeContext, accountId).discard()
+                                }
+                            },
+                            onEdit = null,
+                            confirmTitle = "¿Descartar actividad en curso?",
+                            confirmMessage = "Se descartará la actividad Comenzar sin guardar.",
+                            confirmActionTitle = "Descartar",
+                            deleteContentDescription = "Descartar actividad en curso",
+                            chipsBandHeight = 0.dp
+                        ) {
+                            HomeInProgressCard(
+                                title = liveTitle,
+                                subtitle = stringResource(R.string.tab_start),
+                                onClick = onOpenLiveActivity
+                            )
+                        }
                     }
                     if (isToday && wearTimerMirror != null) {
                         WearLiveTimerHomeCard(wearTimerMirror, onWearTimerCommand)
@@ -522,11 +550,9 @@ internal fun HomeTab(
                     ) {
                         HomeEmptyDayCard(day)
                     }
-                    if (activeWorkout == null) {
-                        // Aire extra entre ficha del día y CTA (paridad iOS .padding(.top, 20)).
-                        Spacer(Modifier.height(14.dp))
-                        HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
-                    }
+                    // Planificar otro entreno aunque haya sesión en curso (no arranca Play).
+                    Spacer(Modifier.height(14.dp))
+                    HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
                     if (showDayPlus) {
                         val dayName = day.dayOfWeek.getDisplayName(
                             java.time.format.TextStyle.FULL,

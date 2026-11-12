@@ -205,6 +205,7 @@ internal fun LiveSetRows(
     initial: List<LiveRowSummary>,
     effortUnit: String,
     onSetCompleted: ((Int) -> Unit)? = null,
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
 ) {
  val key=active.id+"|"+active.index
  val context = LocalContext.current
@@ -268,7 +269,11 @@ internal fun LiveSetRows(
     optionTestTag = { i, _ -> "live_unit_tab_$i" }
    )
   }
-  // R8 P0: cabecera SERIE · ANTERIOR · REPS · RIR compacta (iOS PlayEditableSetsView).
+  // Una fila: SERIE · ANTERIOR · [KG/DÉFICIT] · REPS · [RIR] (paridad iOS / EntryEditorRow).
+  val previousSessionSets = remember(active.exerciseId, active.prescribedQuantity) {
+   loadGuideProvider(active.exerciseId, active.prescribedQuantity ?: 8, null)
+    ?.lastSession?.sets.orEmpty()
+  }
   Row(
    Modifier.fillMaxWidth().padding(horizontal = 4.dp),
    verticalAlignment = Alignment.CenterVertically,
@@ -278,6 +283,14 @@ internal fun LiveSetRows(
     modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
    Text(stringResource(R.string.live_set_rows_anterior), style = MaterialTheme.typography.labelSmall,
     modifier = Modifier.weight(1f))
+   if (active.allowsDeficit || active.allowsWeight) {
+    Text(
+     if (active.allowsDeficit) "DÉFICIT" else "KG",
+     style = MaterialTheme.typography.labelSmall,
+     modifier = Modifier.weight(0.9f),
+     textAlign = TextAlign.Center
+    )
+   }
    Text(
     when (unit) { "calories" -> "CAL"; "meters" -> "M"; else -> "REPS" },
     style = MaterialTheme.typography.labelSmall,
@@ -294,6 +307,17 @@ internal fun LiveSetRows(
   rows.forEachIndexed {i,row ->
    key(row.id) {
     val isCurrent = i == focusedRow && !row.completed
+    val prevFromSession = previousSessionSets.getOrNull(i)
+    val prevLabel = when {
+     row.completed -> "Hecha"
+     prevFromSession != null -> {
+      val kg = prevFromSession.weightKg?.let { "${ReperaNumberFormat.decimal(it)}×" }.orEmpty()
+      if (kg.isEmpty()) "${prevFromSession.reps} $unitSuffix" else "$kg${prevFromSession.reps}"
+     }
+     active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
+      "${active.prescribedQuantity} $unitSuffix"
+     else -> "—"
+    }
     Row(
      Modifier
       .fillMaxWidth()
@@ -309,24 +333,55 @@ internal fun LiveSetRows(
          onToggleComplete = null,
          modifier = Modifier.testTag("set_badge_${i + 1}")
      )
-     val prevLabel = when {
-      row.completed -> "Hecha"
-      active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
-       "${active.prescribedQuantity} $unitSuffix"
-      else -> "—"
-     }
      PreviousSetValueChip(
       label = prevLabel,
       enabled = !row.completed && prevLabel != "—",
       onCopy = {
-       active.prescribedQuantity?.let { q -> rows[i] = LiveRowEdit.reps(rows[i], q.toString(), active.quantityCap) }
-       active.prescribedWeightKg?.let { w ->
-        rows[i] = LiveRowEdit.weight(rows[i], ReperaNumberFormat.decimal(w))
+       prevFromSession?.let { prev ->
+        rows[i] = LiveRowEdit.reps(rows[i], prev.reps.toString(), active.quantityCap)
+        prev.weightKg?.let { w ->
+         rows[i] = LiveRowEdit.weight(rows[i], ReperaNumberFormat.decimal(w))
+        }
+       } ?: run {
+        active.prescribedQuantity?.let { q ->
+         rows[i] = LiveRowEdit.reps(rows[i], q.toString(), active.quantityCap)
+        }
+        active.prescribedWeightKg?.let { w ->
+         rows[i] = LiveRowEdit.weight(rows[i], ReperaNumberFormat.decimal(w))
+        }
        }
        touch()
       },
       modifier = Modifier.weight(1f)
      )
+     if (active.allowsDeficit) {
+      CompactSetField(
+       value = (row.deficitCm ?: 0).takeIf { it > 0 }?.toString().orEmpty(),
+       onValueChange = { v -> rows[i]=LiveRowEdit.deficit(rows[i],v.filter(Char::isDigit)); touch() },
+       modifier = Modifier.weight(0.9f),
+       useReperaKeypad = true,
+       fieldLabel = "Déficit",
+       focused = isCurrent && focusedCol == 0,
+       forceKeypadOpen = keypadCellKey == (i to 0),
+       submitTitle = "Reps →",
+       onSubmitAdvance = { focusedCol = 1 },
+      )
+     } else if (active.allowsWeight) {
+      CompactSetField(
+       value = row.weightKg?.let { ReperaNumberFormat.decimal(it) }.orEmpty(),
+       onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
+       modifier = Modifier.weight(0.9f),
+       keyboardType = KeyboardType.Decimal,
+       useReperaKeypad = true,
+       allowsDecimal = true,
+       fieldLabel = "Kg",
+       focused = isCurrent && focusedCol == 0,
+       forceKeypadOpen = keypadCellKey == (i to 0),
+       keypadStep = 2.5,
+       submitTitle = "Reps →",
+       onSubmitAdvance = { focusedCol = 1 },
+      )
+     }
      val openRepsPad = keypadCellKey == (i to 1)
      CompactSetField(
       value = row.reps.toString(),
@@ -350,58 +405,28 @@ internal fun LiveSetRows(
       focused = isCurrent && focusedCol == 1,
       forceKeypadOpen = openRepsPad,
       keypadStep = 1.0,
-      submitTitle = if (active.allowsWeight) "Kg →" else null,
+      submitTitle = if (active.durationInput) "Seg →" else null,
       previousLabel = prevLabel.takeIf { it != "—" },
-      onSubmitAdvance = if (active.allowsWeight) {
-       { focusedCol = 0 }
-      } else {
-       { maybeStartRest(i) }
+      onSubmitAdvance = {
+       if (active.durationInput) focusedCol = 2 else maybeStartRest(i)
       },
      )
      if (active.durationInput) {
       CompactSetField(
        value = (row.durationSeconds ?: 0).toString(),
        onValueChange = { v -> rows[i]=LiveRowEdit.duration(rows[i],v.filter(Char::isDigit)); touch() },
-       modifier = Modifier.weight(0.7f)
+       modifier = Modifier.weight(0.7f),
+       useReperaKeypad = true,
+       fieldLabel = "Seg",
+       focused = isCurrent && focusedCol == 2,
+       forceKeypadOpen = keypadCellKey == (i to 2),
+       onSubmitAdvance = { maybeStartRest(i) },
       )
      } else {
       Box(Modifier.weight(0.7f)) {
        EffortMenuField(storedRir = row.rir, effortUnit = effortUnit, compact = true) { next ->
         rows[i] = rows[i].copy(rir = next); touch()
        }
-      }
-     }
-    }
-    // Peso / déficit en la misma densidad iOS (sin «Quitar serie» por fila).
-    if (active.allowsDeficit || active.allowsWeight) {
-     Row(Modifier.fillMaxWidth().padding(start = 48.dp, end = 4.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalAlignment = Alignment.CenterVertically) {
-      if (active.allowsDeficit) {
-       CompactSetField(
-        value = (row.deficitCm ?: 0).takeIf { it > 0 }?.toString().orEmpty(),
-        onValueChange = { v -> rows[i]=LiveRowEdit.deficit(rows[i],v.filter(Char::isDigit)); touch() },
-        modifier = Modifier.weight(1f)
-       )
-      } else if (active.allowsWeight) {
-       val openKgPad = keypadCellKey == (i to 0)
-       CompactSetField(
-        value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
-        onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
-        modifier = Modifier.weight(1f),
-        keyboardType = KeyboardType.Decimal,
-        useReperaKeypad = true,
-        allowsDecimal = true,
-        fieldLabel = "Kg",
-        focused = isCurrent && focusedCol == 0,
-        forceKeypadOpen = openKgPad,
-        keypadStep = 2.5,
-        submitTitle = "Reps →",
-        onSubmitAdvance = {
-         focusedCol = 1
-         maybeStartRest(i)
-        },
-       )
       }
      }
     }

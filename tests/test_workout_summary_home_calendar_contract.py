@@ -212,6 +212,13 @@ class WorkoutSummaryAndHomeCalendarTests(unittest.TestCase):
         self.assertIn("testTag(\"home_register_chips\")", cards)
         self.assertIn("footerExclusionHeight = if (showActions)", tab)
         self.assertIn("HomeReviewFooterExclusionHeight", tab)
+        # Círculos azul/rojo (paridad iOS) + swipe descartar en curso.
+        self.assertIn("home_swipe_edit", cards)
+        self.assertIn("home_swipe_delete", cards)
+        self.assertIn(".size(56.dp)", cards)
+        self.assertIn("CircleShape", cards)
+        self.assertIn("in-progress-", tab)
+        self.assertIn("onDiscardSession", tab)
         ios = swift("RegisterSwipeRevealCard.swift")
         self.assertIn("chipsBandHeight: swipeBottomExclusion", ios)
         self.assertIn("SwipeRevealMath.shouldBeginSwipe(", ios)
