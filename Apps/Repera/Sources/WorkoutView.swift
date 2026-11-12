@@ -2496,12 +2496,67 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .amrap, .maxEffort:
+        case .amrap:
+            // Repeated AMRAP: each work period remains separate from its rest,
+            // including on the lock screen and when resuming the same session.
+            let structure = store.state.activeSession?.routineBlocks?
+                .first(where: { $0.id == current.blockId })?.structure
+            if let phase = structure?.phases.first(where: {
+                $0.kind == .work && ($0.repeatCount ?? 0) > 1 && ($0.workSeconds ?? 0) > 0
+            }) {
+                let count = min(100, max(1, phase.repeatCount ?? 1))
+                let work = max(1, phase.workSeconds ?? 60)
+                let rest = max(0, phase.restSeconds ?? 0)
+                var durations: [Int] = []
+                var labels: [String] = []
+                var rounds: [Int] = []
+                for index in 1...count {
+                    durations.append(work)
+                    labels.append("AMRAP \(index)/\(count) · trabajo")
+                    rounds.append(index)
+                    if index < count && rest > 0 {
+                        durations.append(rest)
+                        labels.append("Descanso · AMRAP \(index)/\(count)")
+                        rounds.append(index)
+                    }
+                }
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: "AMRAP por intervalos",
+                    countingUp: false,
+                    intervalMode: true,
+                    intervalLength: work,
+                    totalIntervals: durations.count,
+                    initialCountdown: work,
+                    customPhaseDurations: durations,
+                    customPhaseSubtitles: labels,
+                    customRoundNumbers: rounds,
+                    customRoundsTotal: count,
+                    sound: sound,
+                    haptic: haptic
+                )
+            } else {
+                let seconds = max(1, current.blockTimeCapSeconds ?? (current.blockTimeCapMinutes ?? 12) * 60)
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: subtitleDefault ?? "AMRAP",
+                    countingUp: false,
+                    intervalMode: false,
+                    intervalLength: seconds,
+                    totalIntervals: 0,
+                    initialCountdown: seconds,
+                    sound: sound,
+                    haptic: haptic
+                )
+            }
+        case .maxEffort:
             let seconds = max(1, current.blockTimeCapSeconds ?? (current.blockTimeCapMinutes ?? 12) * 60)
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
-                subtitle: subtitleDefault ?? format?.displayName ?? "WOD",
+                subtitle: subtitleDefault ?? "Max Effort",
                 countingUp: false,
                 intervalMode: false,
                 intervalLength: seconds,
