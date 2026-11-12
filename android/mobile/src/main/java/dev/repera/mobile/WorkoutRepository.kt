@@ -473,7 +473,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         timeCapMinutes: Int, rounds: Int, emomIntervalSeconds: Int,
         workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?,
         blockId: String? = null, blockSourceJson: String? = null,
-        restBetweenRoundsSeconds: Int? = null
+        restBetweenRoundsSeconds: Int? = null,
+        timeCapExtraSeconds: Int? = null
     ): JSONObject {
         // iOS: bloque nuevo = kind.strength + wodFormat nil («Sin formato»);
         // «Fuerza / Skill» pone wodFormat=.strength. Blank y strength usan exercises[].
@@ -585,6 +586,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     "tabata" -> (((workSeconds + restSeconds).toLong() * rounds + 59L) / 60L).toInt()
                     else -> timeCapMinutes
                 })
+            if (format == "forTime" && timeCapExtraSeconds != null) {
+                if (timeCapExtraSeconds != 0) block.put("timeCapSeconds", timeCapMinutes * 60 + timeCapExtraSeconds)
+                else block.remove("timeCapSeconds")
+            }
             if (format in setOf("forTime", "emom", "tabata", "circuit", "partner",
                 "roundsForQuality"))
                 block.put("rounds", rounds)
@@ -852,7 +857,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             array.put(buildBlock(draft.format, draft.title, draft.entries, byId,
                 draft.timeCapMinutes, draft.rounds, draft.emomIntervalSeconds,
                 draft.workSeconds, draft.restSeconds, draft.ladderScheme,
-                draft.blockId, draft.sourceJson, draft.restBetweenRoundsSeconds))
+                draft.blockId, draft.sourceJson, draft.restBetweenRoundsSeconds,
+                draft.timeCapExtraSeconds))
         }
         return array
     }
@@ -4425,6 +4431,7 @@ data class RoutineBlockDraft(
     val ladderScheme: List<Int>? = null,
     /** For Time / iOS `restBetweenRoundsSeconds` («Entre rondas»). */
     val restBetweenRoundsSeconds: Int? = null,
+    val timeCapExtraSeconds: Int? = null,
     /** Identidad del bloque original (editar conserva ids y campos no editables). */
     val blockId: String? = null,
     val sourceJson: String? = null
