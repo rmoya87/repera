@@ -20,7 +20,8 @@ data class PlannedSet(
     val targetWeightKg: Double? = null,
     val targetRir: Double? = null,
     val targetPercent1RM: Double? = null,
-    val targetPercent1RMIsMinimum: Boolean = false
+    val targetPercent1RMIsMinimum: Boolean = false,
+    val technique: WorkoutStrengthTechnique? = null
 )
 
 data class RoutineExercise(
