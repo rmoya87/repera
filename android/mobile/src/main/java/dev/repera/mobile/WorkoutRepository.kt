@@ -1861,6 +1861,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             }
             require(measuredValue.isFinite() && measuredValue > 0 && measuredValue <= 50000)
             require(roundsCompleted == null && additionalReps == null && elapsedSeconds == null)
+        } else if (format == WodFormat.MAX_EFFORT && elapsedSeconds != null) {
+            require(elapsedSeconds in 1..(180 * 60))
+            require(roundsCompleted == null && additionalReps == null)
         } else when (format.capture) {
             ResultCapture.TOTAL_REPS -> {
                 require(additionalReps != null && additionalReps >= 0)
