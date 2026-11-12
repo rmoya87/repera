@@ -1575,7 +1575,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     public func duplicatingContent() -> RoutineBlock {
         let clonedMovements = movements.map { $0.duplicatingContent() }
         let mapping = Dictionary(uniqueKeysWithValues:
-            zip(movements.map(\.id), clonedMovements.map(\.id)).map { ($0, $1) }
+            zip(movements.map(\.id), clonedMovements.map(\.id))
         )
         return RoutineBlock(
             title: title,
