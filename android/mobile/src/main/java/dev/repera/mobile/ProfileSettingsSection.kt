@@ -60,7 +60,8 @@ import kotlinx.coroutines.withContext
             Icon(
                 it,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Homogéneo: tinta de etiqueta (negro día / blanco noche), no acento.
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -96,7 +97,7 @@ import kotlinx.coroutines.withContext
             Icon(
                 it,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -136,7 +137,7 @@ import kotlinx.coroutines.withContext
                     tint = when {
                         !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         destructive -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> MaterialTheme.colorScheme.onSurface
                     },
                     modifier = Modifier.size(22.dp)
                 )

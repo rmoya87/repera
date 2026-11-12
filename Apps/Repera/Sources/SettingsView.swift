@@ -423,8 +423,7 @@ private struct SettingsAccountSection: View {
             NavigationLink {
                 AIAccessView()
             } label: {
-                Label("Conecta tu IA", systemImage: "brain.head.profile")
-                    .foregroundStyle(OG.label)
+                settingsRowLabel("Conecta tu IA", systemImage: "brain.head.profile")
             }
         } header: {
             Text("Cuenta")
@@ -642,7 +641,7 @@ private struct SettingsCentersSection: View {
             NavigationLink {
                 FindCenterTrainerView()
             } label: {
-                Label("Buscar", systemImage: "magnifyingglass")
+                settingsRowLabel("Buscar", systemImage: "magnifyingglass")
                     .foregroundStyle(OG.label)
             }
         } header: {
@@ -732,10 +731,9 @@ private struct SettingsAccessSection: View {
         Button {
             showOfferCodeRedemption = true
         } label: {
-            Label("Canjear código de oferta", systemImage: "giftcard")
+            settingsRowLabel("Canjear código de oferta", systemImage: "giftcard")
         }
         .disabled(subscriptions.purchaseInFlight)
-        .foregroundStyle(OG.label)
         .accessibilityIdentifier("settings-redeem-offer-code")
     }
 
@@ -750,13 +748,12 @@ private struct SettingsAccessSection: View {
                 restoreMessage = verifyAccessMessage
             }
         } label: {
-            Label(
+            settingsRowLabel(
                 isVerifyingSubscription ? "Comprobando acceso…" : "Comprobar acceso Pro",
                 systemImage: "checkmark.shield"
             )
         }
         .disabled(isVerifyingSubscription || subscriptions.purchaseInFlight)
-        .foregroundStyle(OG.label)
     }
 
     private var verifyAccessMessage: String {
@@ -879,8 +876,7 @@ private struct SettingsHealthSection: View {
             NavigationLink {
                 HealthGoalsView()
             } label: {
-                Label("Objetivos", systemImage: "target")
-                    .foregroundStyle(OG.label)
+                settingsRowLabel("Objetivos", systemImage: "target")
             }
             NavigationLink {
                 BodyWeightListView()
@@ -906,8 +902,7 @@ private struct SettingsHealthSection: View {
                 }
             } label: {
                 HStack(spacing: 10) {
-                    Label("Apple Salud", systemImage: "heart")
-                        .foregroundStyle(OG.label)
+                    settingsRowLabel("Apple Salud", systemImage: "heart")
                     Spacer(minLength: 8)
                     Text(health.isAuthorized ? "Conectada" : "Revisar en Ajustes")
                         .font(.subheadline)
@@ -918,16 +913,14 @@ private struct SettingsHealthSection: View {
             NavigationLink {
                 ConnectedHealthSettingsView()
             } label: {
-                Label("Conectar con Salud", systemImage: "heart")
-                    .foregroundStyle(OG.label)
+                settingsRowLabel("Conectar con Salud", systemImage: "heart")
             }
         }
     }
 
     private var weightRowLabel: some View {
         HStack {
-            Label("Peso", systemImage: "scalemass")
-                .foregroundStyle(OG.label)
+            settingsRowLabel("Peso", systemImage: "scalemass")
             Spacer()
             if let latest = store.state.bodyWeights.first {
                 Text("\(ReperaNumberFormat.decimal(latest.weightKg)) kg")
@@ -973,8 +966,7 @@ private struct SettingsHealthSection: View {
     ) -> some View {
         Button(action: action) {
             HStack {
-                Label(title, systemImage: symbol)
-                    .foregroundStyle(OG.label)
+                settingsRowLabel(title, systemImage: symbol)
                 Spacer()
                 Text(detail)
                     .font(.subheadline)
@@ -994,14 +986,14 @@ private struct SettingsTrainingSection: View {
                 Text("Femenino").tag(StrengthBenchmarkSex.female as StrengthBenchmarkSex?)
                 Text("Masculino").tag(StrengthBenchmarkSex.male as StrengthBenchmarkSex?)
             } label: {
-                Label("Género", systemImage: "person")
+                settingsRowLabel("Género", systemImage: "person")
             }
             .pickerStyle(.menu)
             Picker(selection: strengthFrameBinding) {
                 Text("Amateur").tag(StrengthReferenceFrame.amateur)
                 Text("Élite").tag(StrengthReferenceFrame.elite)
             } label: {
-                Label("Nivel", systemImage: "chart.bar")
+                settingsRowLabel("Nivel", systemImage: "chart.bar")
             }
             .pickerStyle(.menu)
             Picker(selection: birthYearBinding) {
@@ -1010,11 +1002,11 @@ private struct SettingsTrainingSection: View {
                     Text(String(year)).tag(year as Int?)
                 }
             } label: {
-                Label("Año de nacimiento", systemImage: "calendar")
+                settingsRowLabel("Año de nacimiento", systemImage: "calendar")
             }
             Stepper(value: heartRateBinding, in: 120...230, step: 1) {
                 HStack(spacing: 10) {
-                    Label("FC máxima", systemImage: "heart")
+                    settingsRowLabel("FC máxima", systemImage: "heart")
                     Spacer(minLength: 8)
                     Text("\(store.state.settings.heartRateMaxBpm ?? 190) lpm")
                         .foregroundStyle(.secondary)
@@ -1024,27 +1016,26 @@ private struct SettingsTrainingSection: View {
             NavigationLink {
                 HistoryView()
             } label: {
-                Label("Historial", systemImage: "clock")
-                    .foregroundStyle(OG.label)
+                settingsRowLabel("Historial", systemImage: "clock")
             }
             Picker(selection: weightUnitBinding) {
                 Text("kg").tag(WeightUnit.kg)
                 Text("lb").tag(WeightUnit.lb)
             } label: {
-                Label("Unidad", systemImage: "scalemass")
+                settingsRowLabel("Unidad", systemImage: "scalemass")
             }
             Picker(selection: weekStartBinding) {
                 Text("Lunes").tag(WeekStart.monday)
                 Text("Domingo").tag(WeekStart.sunday)
             } label: {
-                Label("Semana empieza", systemImage: "calendar.badge.clock")
+                settingsRowLabel("Semana empieza", systemImage: "calendar.badge.clock")
             }
             Picker(selection: effortUnitBinding) {
                 ForEach(EffortUnit.allCases, id: \.self) { unit in
                     Text(unit.displayName).tag(unit)
                 }
             } label: {
-                Label("Esfuerzo (registro)", systemImage: "waveform.path.ecg")
+                settingsRowLabel("Esfuerzo (registro)", systemImage: "waveform.path.ecg")
             }
         }
     }
@@ -1130,13 +1121,13 @@ private struct SettingsDataSection: View {
     var body: some View {
         Section {
             Button(action: onExportBackup) {
-                Label("Exportar JSON", systemImage: "square.and.arrow.up")
+                settingsRowLabel("Exportar JSON", systemImage: "square.and.arrow.up")
             }
             Button { showingImporter = true } label: {
-                Label("Importar JSON", systemImage: "square.and.arrow.down")
+                settingsRowLabel("Importar JSON", systemImage: "square.and.arrow.down")
             }
             Button { showingCSVImporter = true } label: {
-                Label("Importar CSV Strong/Hevy", systemImage: "tablecells")
+                settingsRowLabel("Importar CSV Strong/Hevy", systemImage: "tablecells")
             }
             if let summary = store.lastImportSummary {
                 Text(summary)
@@ -1152,12 +1143,21 @@ private struct SettingsDataSection: View {
                 confirmDeleteAccount = true
             } label: {
                 Label("Eliminar mi cuenta", systemImage: "trash")
+                    .symbolRenderingMode(.monochrome)
             }
             .disabled(isDeletingAccount)
         } header: {
             Text("Datos")
         }
     }
+}
+
+/// Iconos de Ajustes en tinta de etiqueta (negro día / blanco noche), no acento verde.
+@ViewBuilder
+private func settingsRowLabel(_ title: String, systemImage: String) -> some View {
+    Label(title, systemImage: systemImage)
+        .symbolRenderingMode(.monochrome)
+        .foregroundStyle(OG.label)
 }
 
 private struct SettingsMembershipRows: View {
@@ -1231,9 +1231,8 @@ private struct SettingsMembershipRows: View {
         Button {
             openURL(CommercialConfig.manageSubscriptionsURL)
         } label: {
-            Label("Gestionar suscripción", systemImage: "person.crop.circle")
+            settingsRowLabel("Gestionar suscripción", systemImage: "person.crop.circle")
         }
-        .foregroundStyle(OG.label)
     }
 
     @ViewBuilder
@@ -1253,10 +1252,9 @@ private struct SettingsMembershipRows: View {
         Button {
             subscriptions.presentPaywall(.settings, feature: .advancedProgress)
         } label: {
-            Label("Descubrir Pro", systemImage: "sparkles")
+            settingsRowLabel("Descubrir Pro", systemImage: "sparkles")
         }
         .fontWeight(.semibold)
-        .foregroundStyle(OG.label)
     }
 }
 

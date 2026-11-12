@@ -68,7 +68,9 @@ class WorkoutUiRedesignContract(unittest.TestCase):
     def test_play_finish_summary_and_rest(self):
         self.assertIn("OGWorkoutFinishSummarySheet", WORKOUT)
         self.assertIn("showFinishSummary", WORKOUT)
-        self.assertIn("Editar estructura", WORKOUT)
+        self.assertIn("Reordenar", WORKOUT)
+        self.assertNotIn("Formato de bloque", WORKOUT)
+        self.assertNotIn("Editar estructura", WORKOUT)
         self.assertIn("usesMinimizeGlyph: true", WORKOUT)
         self.assertIn("adjustRemaining(by:", WORKOUT)
         self.assertIn("func adjustRemaining(by delta: Int)", REST)
@@ -137,7 +139,8 @@ class WorkoutUiRedesignContract(unittest.TestCase):
     def test_android_play_and_live_rows(self):
         self.assertIn("WorkoutFinishSummarySheet", ANDROID_PLAY)
         self.assertIn("KeyboardArrowDown", ANDROID_PLAY)
-        self.assertIn("Editar estructura", ANDROID_PLAY)
+        self.assertIn("Reordenar", ANDROID_PLAY)
+        self.assertNotIn("Editar estructura", ANDROID_PLAY)
         self.assertIn("WorkoutPlayProgressHeader", ANDROID_PLAY)
         self.assertIn("play_finish_button", ANDROID_PLAY)
         self.assertIn("showExerciseNav = false", ANDROID_PLAY)

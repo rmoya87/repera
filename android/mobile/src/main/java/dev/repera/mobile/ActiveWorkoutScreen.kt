@@ -310,56 +310,32 @@ internal fun ActiveWorkoutScreen(
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
-        // Meta como Crear/Editar: Lugar → Favorito → Notas (sin menú intermedio).
+        // Favorito al inicio; notas + Terminar al final (sin Lugar en Play).
         item {
-            val chosenPin = pin?.takeIf { it.hasChosenPlace }
             ReperaCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    WorkoutPlacePickerRow(
-                        pin = chosenPin,
-                        accountId = accountId,
-                        onPinChange = onPinChange,
-                        modifier = if (chosenPin == null) {
-                            Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Favorito",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
                     )
-                    Column(
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Favorito",
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Switch(
-                                checked = workout.isFavorite,
-                                onCheckedChange = { on ->
-                                    if (on && !workout.isFavorite) onSaveFavorite()
-                                },
-                                enabled = !busy && !workout.isFavorite,
-                                colors = reperaSwitchColors(),
-                                modifier = Modifier.testTag("play_favorite_switch")
-                            )
-                        }
-                        WorkoutMetaNotesField(
-                            value = notesDraft,
-                            onValueChange = {
-                                notesDraft = it
-                                onUpdateNotes(it)
-                            },
-                            enabled = !busy
-                        )
-                    }
+                    Switch(
+                        checked = workout.isFavorite,
+                        onCheckedChange = { on ->
+                            if (on && !workout.isFavorite) onSaveFavorite()
+                        },
+                        enabled = !busy && !workout.isFavorite,
+                        colors = reperaSwitchColors(),
+                        modifier = Modifier.testTag("play_favorite_switch")
+                    )
                 }
             }
         }
@@ -484,12 +460,36 @@ internal fun ActiveWorkoutScreen(
                 catalog = catalog
             )
         }
+        item(key = "play-notes") {
+            ReperaCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(
+                        "Notas del entreno",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    WorkoutMetaNotesField(
+                        value = notesDraft,
+                        onValueChange = {
+                            notesDraft = it
+                            onUpdateNotes(it)
+                        },
+                        enabled = !busy
+                    )
+                }
+            }
+        }
         item(key = "play-finish-cta") {
             Button(
                 onClick = { showFinishSummary = true },
                 enabled = !busy,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(top = 8.dp)
                     .height(52.dp)
                     .testTag("play_finish_button"),
                 shape = CircleShape,
@@ -728,7 +728,7 @@ private fun ActiveWorkoutToolbar(
         Box {
             ReperaToolbarGlassIconButton(
                 icon = Icons.Outlined.MoreVert,
-                contentDescription = "Editar estructura",
+                contentDescription = "Más opciones",
                 onClick = { structureMenuOpen = true },
                 enabled = !busy,
                 modifier = Modifier.testTag("active_edit_structure")
@@ -737,14 +737,6 @@ private fun ActiveWorkoutToolbar(
                 expanded = structureMenuOpen,
                 onDismissRequest = { structureMenuOpen = false },
             ) {
-                DropdownMenuItem(
-                    text = { Text("Editar plan") },
-                    leadingIcon = { Icon(Icons.Outlined.ViewAgenda, contentDescription = null) },
-                    onClick = {
-                        structureMenuOpen = false
-                        onEditPlan()
-                    },
-                )
                 DropdownMenuItem(
                     text = { Text("Reordenar") },
                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },

@@ -256,10 +256,14 @@ fun ReperaPageHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineLarge,
+                // Aire superior para no cortar ascendentes (p. ej. «F» de Favoritos).
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    lineHeight = MaterialTheme.typography.headlineLarge.fontSize * 1.2f
+                ),
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
             )
             if (!subtitle.isNullOrBlank()) {
                 Text(

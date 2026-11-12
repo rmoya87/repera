@@ -598,15 +598,18 @@ internal fun HomeCompletedWorkoutCard(
             ) {
                 HomeRegisterLeadingIcon(icon, tint = brandGreen)
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        homeDayTimeCaption(day, homeTimeFromIso(workout.startedAtIso ?: workout.startedAt)),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            letterSpacing = 0.3.sp,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Paridad iOS: solo hora 24 h (sin «HECHO» / «ENTRENO»).
+                    homeTimeFromIso(workout.startedAtIso ?: workout.startedAt)?.let { time ->
+                        Text(
+                            time,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.3.sp,
+                                fontSize = 11.sp
+                            ),
+                            color = MaterialTheme.reperaColors.accentText
+                        )
+                    }
                     Text(
                         workout.title,
                         style = MaterialTheme.typography.titleMedium.copy(
