@@ -250,6 +250,7 @@ fun ReperaMobileScreen(
     onAIDismissCreated: () -> Unit,
     onAICopyCreated: () -> Unit,
     onWodScore: (Int?, Int?, Int?) -> Unit,
+    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
     onWodMovement: (Int, Int, Int, Double?) -> Unit,
     onCompleteWodBlock: () -> Unit,
     onReviseWodMovement: (String, Int, Double?) -> Unit,
@@ -1824,6 +1825,7 @@ fun ReperaMobileScreen(
                             exercises = editorOverview.exerciseEntries,
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
+                            onWodMeasuredScore = onWodMeasuredScore,
                             importableRoutines = editorOverview.routineEntries,
                             // Misma maqueta que Crear cuando es entreno del día.
                             oneOffEditor = routine.scheduledDate != null,
