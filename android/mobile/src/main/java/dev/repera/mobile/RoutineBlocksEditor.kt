@@ -992,7 +992,7 @@ internal fun restoreRoutineEditorBlocksOrNull(raw:String):androidx.compose.runti
 /**
  * Card de bloque de Crear/Editar. En Play se pasa [onTimer] para el círculo
  * del temporizador a la izquierda de ⋯; [trailingContent] pinta el logging
- * del ejercicio actual dentro del mismo cuadrado.
+ * justo debajo del ejercicio seleccionado ([selectedEntryIndex]), como iOS.
  */
 @Composable
 internal fun BlockEditorCard(
@@ -1246,6 +1246,14 @@ internal fun BlockEditorCard(
                             onOfferUndo = onOfferUndo,
                             effortUnit = effortUnit
                         )
+                        // Paridad iOS PlayEditableSetsView: series bajo el ejercicio actual.
+                        val showLoggingUnder = trailingContent != null && (
+                            selectedEntryIndex == index ||
+                                (selectedEntryIndex == null && index == block.entries.lastIndex)
+                            )
+                        if (showLoggingUnder) {
+                            trailingContent?.invoke()
+                        }
                     }
                 }
             }
@@ -1298,10 +1306,6 @@ internal fun BlockEditorCard(
                     },
                     onDismiss = { showExercisePicker = false }
                 )
-            }
-            if (trailingContent != null) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                trailingContent()
             }
         }
     }

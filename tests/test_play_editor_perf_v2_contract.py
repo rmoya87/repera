@@ -99,6 +99,7 @@ class PlayEditorPerfV2Contract(unittest.TestCase):
         self.assertIn("includeEntries = true", ANDROID_PLAY)
         self.assertIn("playCompactEntries = true", ANDROID_PLAY)
         self.assertIn("trailingContent = if (isCurrent)", ANDROID_PLAY)
+        self.assertIn("selectedEntryIndex == index", ANDROID_EDITOR)
         self.assertIn("PlayCompactEntryRow(", ANDROID_EDITOR)
         self.assertIn("play_entry_menu", ANDROID_EDITOR)
 

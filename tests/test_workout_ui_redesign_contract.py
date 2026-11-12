@@ -175,6 +175,10 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("home_swipe_edit", ANDROID_HOME)
         self.assertIn("home_swipe_delete", ANDROID_HOME)
         self.assertIn("CircleShape", ANDROID_HOME)
+        self.assertIn("Icons.Filled.Delete", ANDROID_HOME)
+        self.assertIn("Icons.Filled.Edit", ANDROID_HOME)
+        self.assertIn("ReperaAccents.swipeDelete", ANDROID_HOME)
+        self.assertIn("ReperaAccents.swipeEdit", ANDROID_HOME)
         self.assertIn("in-progress-", home_tab)
         self.assertIn("Modifier.height(44.dp)", (
             ROOT / "android/mobile/src/main/java/dev/repera/mobile/EffortMenuField.kt"

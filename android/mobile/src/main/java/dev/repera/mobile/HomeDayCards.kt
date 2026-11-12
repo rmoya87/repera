@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Favorite
@@ -38,6 +37,8 @@ import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Route
@@ -220,16 +221,19 @@ internal fun HomeSwipeRevealCard(
     val deleteRevealed = offset < -revealWidthPx * 0.2f
     val editRevealed = onEdit != null && offset > revealWidthPx * 0.2f
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Círculos detrás (iOS): lápiz azul a la izq., basura roja a la der.
-        Box(Modifier.matchParentSize()) {
+        // Círculos 56 dp detrás (paridad iOS RegisterSwipeRevealCard): azul lápiz / rojo basura.
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (onEdit != null) {
-                val editAlpha = (offset / revealWidthPx).coerceIn(0f, 1f)
                 Box(
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 8.dp)
                         .size(56.dp)
-                        .alpha(editAlpha)
+                        .alpha(if (editRevealed) 1f else 0f)
                         .clip(CircleShape)
                         .background(ReperaAccents.swipeEdit)
                         .clickable(enabled = !busy && editRevealed) {
@@ -240,20 +244,19 @@ internal fun HomeSwipeRevealCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Outlined.Edit,
+                        Icons.Filled.Edit,
                         contentDescription = stringResource(R.string.home_day_cards_editar),
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
                     )
                 }
+            } else {
+                Spacer(Modifier.size(56.dp))
             }
-            val deleteAlpha = (-offset / revealWidthPx).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp)
                     .size(56.dp)
-                    .alpha(deleteAlpha)
+                    .alpha(if (deleteRevealed) 1f else 0f)
                     .clip(CircleShape)
                     .background(ReperaAccents.swipeDelete)
                     .clickable(enabled = !busy && deleteRevealed) {
@@ -264,7 +267,7 @@ internal fun HomeSwipeRevealCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Outlined.Delete,
+                    Icons.Filled.Delete,
                     contentDescription = deleteContentDescription,
                     tint = Color.White,
                     modifier = Modifier.size(22.dp)
