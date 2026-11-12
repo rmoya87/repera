@@ -4,6 +4,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WodClockTest {
+    @Test fun repeatedAmrapHasDistinctWorkAndRestPhases() {
+        val spec = WodClockSpec(WodFormat.AMRAP,
+            repeatedWorkSeconds = 180, repeatedRestSeconds = 60, repeatCount = 4)
+        assertEquals(900, WodClock.timeCapSeconds(spec))
+        assertEquals("AMRAP 1/4 · trabajo", WodClock.face(spec, 0).label)
+        assertEquals(180, WodClock.face(spec, 0).primarySeconds)
+        assertEquals("Descanso · AMRAP 1/4", WodClock.face(spec, 180).label)
+        assertEquals(60, WodClock.face(spec, 180).primarySeconds)
+        assertEquals("AMRAP 2/4 · trabajo", WodClock.face(spec, 240).label)
+        assertEquals("Finalizado", WodClock.face(spec, 900).label)
+        assertTrue(WodClock.face(spec, 900).finishedIntervals)
+    }
+
+    @Test fun exactSecondsOverrideMinuteCapWithoutChangingOrdinaryFormats() {
+        val exact = WodClockSpec(WodFormat.AMRAP, blockTimeCapMinutes = 12,
+            blockTimeCapSeconds = 750)
+        assertEquals(750, WodClock.timeCapSeconds(exact))
+        assertEquals(750, WodClock.face(exact, 0).primarySeconds)
+        val classic = WodClockSpec(WodFormat.AMRAP, blockTimeCapMinutes = 12)
+        assertEquals(720, WodClock.timeCapSeconds(classic))
+    }
+
     @Test fun forTimeNeverStopsAtCap() {
         val spec = WodClockSpec(WodFormat.FOR_TIME, blockTimeCapMinutes = 12)
         assertEquals(0, WodClock.timeCapSeconds(spec))
