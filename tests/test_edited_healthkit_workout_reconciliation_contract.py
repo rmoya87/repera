@@ -97,6 +97,8 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         self.assertIn("if !energyOnly { await ensureWorkoutRouteAccess() }", health)
         self.assertIn("if energyOnly {", health)
         self.assertIn("let measured = await energyKcalForWorkout(workout)", health)
+        self.assertIn("if !energyOnly, let shellUUID, shellUUID != uuid", health)
+        self.assertIn("if !energyOnly, let shellUUID, shellUUID != verified.uuid", health)
         self.assertIn("extras.energySourceIsVerified", segment)
         self.assertIn("current.appleActiveEnergyKcal = kcal", segment)
         self.assertNotIn("estimateSessionKcal", segment)

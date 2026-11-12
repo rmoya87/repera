@@ -1476,7 +1476,7 @@ final class HealthKitStore {
             workout = watchWorkout
             workoutUUID = uuid
             // Fitness no debe seguir mostrando la cáscara iPhone 0 kcal.
-            if let shellUUID, shellUUID != uuid {
+            if !energyOnly, let shellUUID, shellUUID != uuid {
                 _ = await deleteExternalWorkout(id: shellUUID)
             }
         }
@@ -1504,7 +1504,7 @@ final class HealthKitStore {
                 let shellUUID = linkedToPhonePlaceholder ? workoutUUID : nil
                 workout = verified
                 workoutUUID = verified.uuid
-                if let shellUUID, shellUUID != verified.uuid {
+                if !energyOnly, let shellUUID, shellUUID != verified.uuid {
                     _ = await deleteExternalWorkout(id: shellUUID)
                 }
             }
