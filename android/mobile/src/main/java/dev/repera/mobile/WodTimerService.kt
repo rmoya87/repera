@@ -87,6 +87,9 @@ internal class WodTimerService : Service() {
             format = format,
             blockTimeCapMinutes = intent.getIntExtra(EXTRA_CAP, -1).takeIf { it >= 0 },
             blockTimeCapSeconds = intent.getIntExtra(EXTRA_EXACT_CAP, -1).takeIf { it > 0 },
+            repeatedWorkSeconds = intent.getIntExtra(EXTRA_REPEATED_WORK, -1).takeIf { it > 0 },
+            repeatedRestSeconds = intent.getIntExtra(EXTRA_REPEATED_REST, -1).takeIf { it >= 0 },
+            repeatCount = intent.getIntExtra(EXTRA_REPEAT_COUNT, -1).takeIf { it > 1 },
             intervalSeconds = intent.getIntExtra(EXTRA_INTERVAL, -1).takeIf { it >= 0 },
             rounds = intent.getIntExtra(EXTRA_ROUNDS, -1).takeIf { it >= 0 },
             workSeconds = intent.getIntExtra(EXTRA_WORK, -1).takeIf { it >= 0 },
@@ -167,6 +170,9 @@ internal class WodTimerService : Service() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_CAP = "cap"
         private const val EXTRA_EXACT_CAP = "exactCapSeconds"
+        private const val EXTRA_REPEATED_WORK = "repeatedWorkSeconds"
+        private const val EXTRA_REPEATED_REST = "repeatedRestSeconds"
+        private const val EXTRA_REPEAT_COUNT = "repeatCount"
         private const val EXTRA_INTERVAL = "interval"
         private const val EXTRA_ROUNDS = "rounds"
         private const val EXTRA_WORK = "work"
@@ -202,6 +208,9 @@ internal class WodTimerService : Service() {
                 .putExtra(EXTRA_TITLE, active.title)
                 .putExtra(EXTRA_CAP, wod?.timeCapMinutes ?: -1)
                 .putExtra(EXTRA_EXACT_CAP, wod?.timeCapSeconds ?: -1)
+                .putExtra(EXTRA_REPEATED_WORK, wod?.repeatedWorkSeconds ?: -1)
+                .putExtra(EXTRA_REPEATED_REST, wod?.repeatedRestSeconds ?: -1)
+                .putExtra(EXTRA_REPEAT_COUNT, wod?.repeatCount ?: -1)
                 .putExtra(EXTRA_INTERVAL, wod?.intervalSeconds ?: -1)
                 .putExtra(EXTRA_ROUNDS, wod?.rounds ?: manual?.rounds ?: -1)
                 .putExtra(EXTRA_WORK, wod?.workSeconds ?: manual?.workSeconds ?: -1)
