@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-13 (paridad Android Play/Inicio).
+Última actualización: 2026-11-13 (swipe circular Inicio + Play anidado).
 
 ## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
@@ -11,7 +11,8 @@ iOS y Android comparten el mismo contrato de producto; componentes nativos por p
 - **Crear/Editar y Play:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast/snackbar **Deshacer** (~4 s) al borrar serie o ejercicio (fuerza, series WOD inline/`WODMovementEditor` y Play iOS; editor Android y sesión activa Android con `WorkoutUndoSnackbarHost` + `restoreDeletedSet`/`restorePendingSet`); confirmación al **eliminar bloque** con más de un ejercicio (iOS editor y Play, Android `ConfirmDeleteMultiExerciseBlockDialog`); `DiscardChangesDialog` al salir con cambios; selector multiselección con chips musculares, Recientes y CTA flotante «Añadir N ejercicios» (`OGFloatingPrimaryCTA` / `FloatingPrimaryCta`, sin barra material). Un solo chevron **Volver** (back nativo siempre oculto; dirty → Descartar).
 - **WOD picker:** «Usar este WOD» / «Empezar ahora» como el mismo CTA flotante fijo abajo (sin caja inset).
 - **Android Play:** menú ⋯ alineado a iOS (Añadir bloque / Elegir WOD / Escanear pizarra / Reordenar / Favorito / Cancelar entreno); series en **una fila** SERIE·ANTERIOR·KG·REPS·RIR (`LiveSetRows`); «Anterior» desde última sesión; cadena de teclado sin cerrar pad; `PlayRestFooter`; CTA «Terminar entreno» al final; toolbar sin chevrons ni ✓ verde.
-- **Inicio con sesión en curso:** se puede **planificar** otro entreno (CTA «Añadir nuevo entreno» visible); arrancar una segunda sesión sigue bloqueado en dominio. Barra **Continuar** encima del menú (sin solapar texto). ▶ de rutina planificada va **dentro** de la card blanca del swipe.
+- **Inicio con sesión en curso:** se puede **planificar** otro entreno (CTA «Añadir nuevo entreno» visible); arrancar una segunda sesión sigue bloqueado en dominio. Barra **Continuar** encima del menú (sin solapar texto). ▶ de rutina planificada va **dentro** de la card blanca del swipe. Swipe Inicio: L→R círculo azul lápiz (editar), R→L círculo rojo basura (borrar); en curso solo R→L descartar.
+- **Crear/Editar y Play Android:** ejercicios **dentro** del card del bloque (miniatura + resumen + ⋮); RIR compacto a 44 dp como reps; logging Play en `trailingContent` del mismo bloque.
 - **Resumen de serie:** sin peso → «8 reps» (no «—×8»), dominio iOS+Android (`SetSummaryLine` / `LoggedSet.displaySummaryLine`).
 - **Ajustes Android:** iconos en Pro, Entrenamiento, Datos y Salud (misma pasada que iOS); scroll con margen inferior (`tabInset + 32.dp`).
 - **Android / iOS Inicio:** ▶ en tarjeta planificada arranca Play directo; **Continuar** abre Play si hay sesión de fuerza activa; tocar la tarjeta sigue abriendo vista previa. Detalle de entreno hecho (`WorkoutDetailView` / `historial-detalle`) y preview pendiente ocultan el menú principal (como Ajustes/Play).

@@ -59,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -208,55 +209,65 @@ internal fun HomeSwipeRevealCard(
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
-    val deleteWidthPx = with(density) { 88.dp.toPx() }
-    val editWidthPx = with(density) { if (onEdit != null) 72.dp.toPx() else 0f }
+    // Paridad iOS RegisterSwipeRevealCard: reveal 72 + círculo 56.
+    val revealWidthPx = with(density) { 72.dp.toPx() }
+    val editWidthPx = if (onEdit != null) revealWidthPx else 0f
     val excludeBandPx = with(density) {
         (chipsBandHeight + footerExclusionHeight).toPx()
     }
     var offset by remember(key) { mutableStateOf(0f) }
     var confirmDelete by remember(key) { mutableStateOf(false) }
-    // Clip del contenedor al mismo radio que la card frontal: sin picos de
-    // Editar/Eliminar sobresaliendo por las esquinas del entreno.
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(registerCardShape)
-    ) {
-        Row(
-            modifier = Modifier.matchParentSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    val deleteRevealed = offset < -revealWidthPx * 0.2f
+    val editRevealed = onEdit != null && offset > revealWidthPx * 0.2f
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Círculos detrás (iOS): lápiz azul a la izq., basura roja a la der.
+        Box(Modifier.matchParentSize()) {
             if (onEdit != null) {
-                TextButton(
-                    onClick = { offset = 0f; onEdit() },
-                    enabled = !busy && offset > 0f,
+                val editAlpha = (offset / revealWidthPx).coerceIn(0f, 1f)
+                Box(
                     modifier = Modifier
-                        .width(72.dp)
-                        .fillMaxHeight()
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp)
+                        .size(56.dp)
+                        .alpha(editAlpha)
+                        .clip(CircleShape)
                         .background(ReperaAccents.swipeEdit)
+                        .clickable(enabled = !busy && editRevealed) {
+                            offset = 0f
+                            onEdit()
+                        }
+                        .testTag("home_swipe_edit"),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Outlined.Edit, contentDescription = stringResource(R.string.home_day_cards_editar), tint = Color.White)
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = stringResource(R.string.home_day_cards_editar),
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
-            } else {
-                Spacer(Modifier.width(0.dp))
             }
-            TextButton(
-                onClick = {
-                    offset = 0f
-                    if (askDeleteConfirm) confirmDelete = true else onDelete()
-                },
-                enabled = !busy && offset < 0f,
+            val deleteAlpha = (-offset / revealWidthPx).coerceIn(0f, 1f)
+            Box(
                 modifier = Modifier
-                    .width(88.dp)
-                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp)
+                    .size(56.dp)
+                    .alpha(deleteAlpha)
+                    .clip(CircleShape)
                     .background(ReperaAccents.swipeDelete)
+                    .clickable(enabled = !busy && deleteRevealed) {
+                        offset = 0f
+                        if (askDeleteConfirm) confirmDelete = true else onDelete()
+                    }
+                    .testTag("home_swipe_delete"),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Delete,
                     contentDescription = deleteContentDescription,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -264,12 +275,11 @@ internal fun HomeSwipeRevealCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(registerCardShape)
-                // Opaco: sin huecos del trailing (play) ni esquinas del clip mostrando el rojo.
                 .background(MaterialTheme.colorScheme.surface, registerCardShape)
                 .offset { IntOffset(offset.toInt(), 0) }
                 .pointerInput(key, busy, onEdit != null, excludeBandPx) {
                     if (busy) return@pointerInput
-                    val maxLeft = -deleteWidthPx
+                    val maxLeft = -revealWidthPx
                     val maxRight = editWidthPx
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -279,7 +289,6 @@ internal fun HomeSwipeRevealCard(
                                 chipsBandHeight = excludeBandPx
                             )
                         ) {
-                            // Toque en chips/footer: ceder el gesto al carrusel.
                             return@awaitEachGesture
                         }
                         var total = offset
@@ -298,8 +307,8 @@ internal fun HomeSwipeRevealCard(
                             offset = total
                         }
                         offset = when {
-                            offset < -deleteWidthPx * 0.45f -> -deleteWidthPx
-                            onEdit != null && offset > editWidthPx * 0.45f -> editWidthPx
+                            offset < -revealWidthPx * 0.45f -> -revealWidthPx
+                            onEdit != null && offset > revealWidthPx * 0.45f -> revealWidthPx
                             else -> 0f
                         }
                     }

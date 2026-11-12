@@ -449,60 +449,13 @@ fun RoutineBlocksEditorScreen(
                         onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
                         onOpenExercise = onOpenExercise,
                         effortUnit = effortUnit,
-                        includeEntries = false,
-                        includeFooterActions = false,
+                        includeEntries = true,
+                        includeFooterActions = true,
                         expandedEntryId = expandedEntryId,
                         onExpandedEntryIdChange = { expandedEntryId = it },
                         onOfferUndo = offerUndo
                     )
                 }
-            }
-            items(
-                count = block.entries.size,
-                key = { ei -> "entry-${block.listKey}-${block.entries[ei].stableKey(ei)}" }
-            ) { ei ->
-                val entry = block.entries[ei]
-                val isStrengthLike = block.format.isBlank() || block.format == "strength"
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        BlockEntryEditorSlot(
-                            entry = entry,
-                            entryKey = entry.stableKey(ei),
-                            index = ei,
-                            nameById = nameById,
-                            exercisesById = exercisesById,
-                            isStrengthLike = isStrengthLike,
-                            playCompactEntries = false,
-                            selectedEntryIndex = null,
-                            onSelectEntryIndex = null,
-                            expandedEntryId = expandedEntryId,
-                            onExpandedEntryIdChange = { expandedEntryId = it },
-                            loadGuideProvider = loadGuideProvider,
-                            onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
-                            onOpenExercise = onOpenExercise,
-                            onRemoveEntry = {
-                                val backup = entry.cloneForUndo()
-                                val insertAt = ei
-                                block.entries.removeAt(ei)
-                                offerUndo("Ejercicio eliminado") {
-                                    block.entries.add(
-                                        insertAt.coerceAtMost(block.entries.size),
-                                        backup
-                                    )
-                                }
-                            },
-                            onOfferUndo = offerUndo,
-                            effortUnit = effortUnit
-                        )
-                    }
-                }
-            }
-            item(key = "block-ftr-${block.listKey}") {
-                BlockEditorFooterActions(
-                    block = block,
-                    exercises = exercises,
-                    onExpandedEntryIdChange = { expandedEntryId = it }
-                )
             }
         }
         item(key = "editor-actions") {
@@ -1647,22 +1600,102 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
 internal fun PlayCompactEntryRow(
     name: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    summary: String = "",
+    exercise: ExerciseEntry? = null,
+    onOpenReorder: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null,
+    onSubstitute: (() -> Unit)? = null,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            name,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            Modifier
+                .weight(1f)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ExerciseListThumb(
+                name = exercise?.name ?: name,
+                sportTag = exercise?.sportTag,
+                aliases = emptyMap(),
+                artKeys = exercise?.artKeys.orEmpty(),
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (selected) brandGreen else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2
+                )
+                if (summary.isNotBlank()) {
+                    Text(
+                        summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (!selected) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box {
+            Surface(
+                onClick = { menuOpen = true },
+                shape = CircleShape,
+                color = Color.Transparent,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+                ),
+                modifier = Modifier.size(34.dp).testTag("play_entry_menu")
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.MoreHoriz,
+                        contentDescription = "Opciones del ejercicio",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Seleccionar ejercicio") },
+                    onClick = { menuOpen = false; onClick() }
+                )
+                onSubstitute?.let {
+                    DropdownMenuItem(
+                        text = { Text("Sustituir ejercicio") },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
+                onOpenReorder?.let {
+                    DropdownMenuItem(
+                        text = { Text("Reordenar") },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
+                onRemove?.let {
+                    DropdownMenuItem(
+                        text = { Text("Eliminar ejercicio", color = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1670,34 +1703,90 @@ internal fun PlayCompactEntryRow(
 internal fun CompactEntrySummaryRow(
     name: String,
     summary: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    exercise: ExerciseEntry? = null,
+    onOpenReorder: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(vertical = 10.dp)
             .testTag("plan_entry_compact"),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2
+        Row(
+            Modifier
+                .weight(1f)
+                .clickable(onClick = onClick),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ExerciseListThumb(
+                name = exercise?.name ?: name,
+                sportTag = exercise?.sportTag,
+                aliases = emptyMap(),
+                artKeys = exercise?.artKeys.orEmpty(),
             )
-            Text(
-                summary,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(Modifier.weight(1f)) {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2
+                )
+                Text(
+                    summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = "Editar series",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Icon(
-            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-            contentDescription = "Editar series",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Box {
+            Surface(
+                onClick = { menuOpen = true },
+                shape = CircleShape,
+                color = Color.Transparent,
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.85f)
+                ),
+                modifier = Modifier.size(34.dp).testTag("plan_entry_compact_menu")
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.MoreHoriz,
+                        contentDescription = "Opciones del ejercicio",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Editar series") },
+                    onClick = { menuOpen = false; onClick() }
+                )
+                onOpenReorder?.let {
+                    DropdownMenuItem(
+                        text = { Text("Reordenar") },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
+                onRemove?.let {
+                    DropdownMenuItem(
+                        text = { Text("Eliminar ejercicio", color = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; it() }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1722,21 +1811,28 @@ internal fun BlockEntryEditorSlot(
     effortUnit: String
 ) {
     val resolved = entry.name.ifBlank { nameById[entry.exerciseId] ?: "Ejercicio" }
+    val ex = exercisesById[entry.exerciseId]
     if (playCompactEntries) {
         PlayCompactEntryRow(
             name = resolved,
             selected = selectedEntryIndex == index,
-            onClick = { onSelectEntryIndex?.invoke(index) }
+            onClick = { onSelectEntryIndex?.invoke(index) },
+            summary = entry.compactSummary(),
+            exercise = ex,
+            onOpenReorder = onOpenReorder,
+            onRemove = onRemoveEntry,
         )
         return
     }
-    val ex = exercisesById[entry.exerciseId]
     val expandHandler = onExpandedEntryIdChange
     if (expandHandler != null && expandedEntryId != entryKey) {
         CompactEntrySummaryRow(
             name = resolved,
             summary = entry.compactSummary(),
-            onClick = { expandHandler(entryKey) }
+            onClick = { expandHandler(entryKey) },
+            exercise = ex,
+            onOpenReorder = onOpenReorder,
+            onRemove = onRemoveEntry,
         )
         return
     }

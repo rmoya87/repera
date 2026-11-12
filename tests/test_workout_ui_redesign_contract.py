@@ -172,6 +172,13 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("HomeAddWorkoutButton(enabled = !busy)", home_tab)
         self.assertNotIn("if (activeWorkout == null) {\n                        // Aire extra", home_tab)
+        self.assertIn("home_swipe_edit", ANDROID_HOME)
+        self.assertIn("home_swipe_delete", ANDROID_HOME)
+        self.assertIn("CircleShape", ANDROID_HOME)
+        self.assertIn("in-progress-", home_tab)
+        self.assertIn("Modifier.height(44.dp)", (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/EffortMenuField.kt"
+        ).read_text(encoding="utf-8"))
         self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
         self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
         self.assertIn("aliases: Map<String, String>", ANDROID_PICKER)

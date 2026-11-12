@@ -354,9 +354,11 @@ internal fun ActiveWorkoutScreen(
                 else -> bi == 0 && workout.index == 0
             }
             val selectedLocal = blockIndexes.indexOf(workout.index).takeIf { it >= 0 }
-            item(key = "play-hdr-${block.blockId ?: bi}") {
+            item(key = "play-block-${block.blockId ?: bi}") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
+                    if (playBlocks.size > 1) {
+                        ReperaSectionTitle(block.title.ifBlank { "Bloque ${bi + 1}" })
+                    }
                     BlockEditorCard(
                         block = block,
                         nameById = nameById,
@@ -372,72 +374,57 @@ internal fun ActiveWorkoutScreen(
                         onOpenExercise = { },
                         effortUnit = effortUnit,
                         playCompactEntries = true,
-                        includeEntries = false,
-                        includeFooterActions = false,
+                        includeEntries = true,
+                        includeFooterActions = true,
+                        selectedEntryIndex = selectedLocal,
+                        onSelectEntryIndex = { ei ->
+                            blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
+                        },
                         onTimer = {
                             blockIndexes.firstOrNull()?.let { ix ->
                                 if (ix != workout.index) onSelectExercise(ix)
                             }
                             flushPlayPlan()
                             openBlockClockOrConfig()
-                        }
+                        },
+                        trailingContent = if (isCurrent) {
+                            {
+                                if (workout.wod != null) WodScoreCard(
+                                    active = workout, busy = busy, timer = timer,
+                                    onTimerAction = onTimerAction, onTimerTick = onTimerTick,
+                                    onSave = onWodScore,
+                                    onMeasuredScore = onWodMeasuredScore,
+                                    onMovement = onWodMovement,
+                                    onCompleteBlock = onCompleteWodBlock,
+                                    onReviseMovement = onReviseWodMovement,
+                                    onDeleteMovement = onDeleteWodMovement,
+                                    onFinish = onFinish, onDiscard = onDiscard,
+                                    onOpenClock = onOpenClock,
+                                    effortUnit = effortUnit,
+                                    embedded = true,
+                                    loadGuideProvider = loadGuideProvider,
+                                )
+                                else ActiveWorkoutCard(
+                                    effortUnit = effortUnit, weightUnit = weightUnit,
+                                    active = workout, busy = busy, onLogSet = onLogSet,
+                                    onLogDropSet = onLogDropSet,
+                                    onLogRestPauseSet = onLogRestPauseSet,
+                                    onReviseSet = onReviseSet, onDeleteSet = deleteSetWithUndo,
+                                    onNext = onNext, onFinish = onFinish, onDiscard = onDiscard,
+                                    embedded = true,
+                                    loadGuideProvider = loadGuideProvider,
+                                )
+                            }
+                        } else null,
+                        onOfferUndo = { message, undo ->
+                            flushPlayPlan()
+                            offerUndo(message) {
+                                undo()
+                                flushPlayPlan()
+                            }
+                        },
                     )
                 }
-            }
-            items(
-                count = block.entries.size,
-                key = { ei -> "play-entry-${block.blockId ?: bi}-${block.entries[ei].stableKey(ei)}" }
-            ) { ei ->
-                val entry = block.entries[ei]
-                val resolved = entry.name.ifBlank {
-                    nameById[entry.exerciseId] ?: "Ejercicio"
-                }
-                ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        PlayCompactEntryRow(
-                            name = resolved,
-                            selected = selectedLocal == ei,
-                            onClick = {
-                                blockIndexes.getOrNull(ei)?.let { onSelectExercise(it) }
-                            }
-                        )
-                    }
-                }
-            }
-            if (isCurrent) {
-                item(key = "play-log-${workout.index}") {
-                    ReperaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp)) {
-                            if (workout.wod != null) WodScoreCard(
-                                active = workout, busy = busy, timer = timer,
-                                onTimerAction = onTimerAction, onTimerTick = onTimerTick,
-                                onSave = onWodScore,
-                                onMeasuredScore = onWodMeasuredScore, onMovement = onWodMovement,
-                                onCompleteBlock = onCompleteWodBlock,
-                                onReviseMovement = onReviseWodMovement,
-                                onDeleteMovement = onDeleteWodMovement,
-                                onFinish = onFinish, onDiscard = onDiscard,
-                                onOpenClock = onOpenClock,
-                                effortUnit = effortUnit,
-                                embedded = true,
-                                loadGuideProvider = loadGuideProvider,
-                            )
-                            else ActiveWorkoutCard(
-                                effortUnit = effortUnit, weightUnit = weightUnit,
-                                active = workout, busy = busy, onLogSet = onLogSet,
-                                onLogDropSet = onLogDropSet,
-                                onLogRestPauseSet = onLogRestPauseSet,
-                                onReviseSet = onReviseSet, onDeleteSet = deleteSetWithUndo,
-                                onNext = onNext, onFinish = onFinish, onDiscard = onDiscard,
-                                embedded = true,
-                                loadGuideProvider = loadGuideProvider,
-                            )
-                        }
-                    }
-                }
-            }
-            item(key = "play-ftr-${block.blockId ?: bi}") {
-                BlockEditorFooterActions(block = block, exercises = catalog)
             }
         }
         item {
