@@ -615,6 +615,7 @@ struct WorkoutView: View {
                     kind: exercise.blockKind ?? .strength,
                     wodFormat: exercise.wodFormat,
                     timeCapMinutes: exercise.blockTimeCapMinutes,
+                    timeCapSeconds: exercise.blockTimeCapSeconds,
                     emomIntervalSeconds: exercise.blockIntervalSeconds,
                     rounds: exercise.blockRounds,
                     workSeconds: exercise.blockWorkSeconds,
@@ -2469,7 +2470,7 @@ struct WorkoutView: View {
                 haptic: haptic
             )
         case .amrap, .maxEffort:
-            let seconds = max(60, (current.blockTimeCapMinutes ?? 12) * 60)
+            let seconds = max(1, current.blockTimeCapSeconds ?? (current.blockTimeCapMinutes ?? 12) * 60)
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
@@ -2493,7 +2494,7 @@ struct WorkoutView: View {
                 intervalLength: 0,
                 totalIntervals: 0,
                 initialCountdown: 0,
-                timeCapSeconds: current.blockTimeCapMinutes.map { max(1, $0) * 60 },
+                timeCapSeconds: current.blockTimeCapSeconds ?? current.blockTimeCapMinutes.map { max(1, $0) * 60 },
                 sound: sound,
                 haptic: haptic
             )
