@@ -123,8 +123,37 @@ object BoardScanLiteParser {
             current = null
         }
 
-        for (line in rawLines) {
+        val officialExercises=catalogIndex(catalog)
+        for ((lineIndex,line) in rawLines.withIndex()) {
             val upper = line.uppercase(Locale.ROOT)
+            if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("FIND ") &&
+               officialExercises[norm(line)]!=null) {
+                flush()
+                sectionTitle=line
+                continue
+            }
+            if(upper.startsWith("FIND ") && sectionTitle!=null) {
+                val title=sectionTitle!!
+                val exercise=officialExercises[norm(title)]
+                val reps=Regex("""FIND\s*(\d+)\s*RM""", RegexOption.IGNORE_CASE)
+                    .find(line)?.groupValues?.get(1)?.toIntOrNull()
+                if(exercise!=null && reps!=null) {
+                    val strength=RoutineBlock.strength(
+                        title=title+" · "+line,
+                        exercises=listOf(RoutineExercise(
+                            exerciseId=exercise.id,
+                            plannedSets=listOf(PlannedSet(targetReps=reps))
+                        ))
+                    )
+                    strength.timeCapMinutes=Regex("""TC\s*[:=]?\s*(\d+)""", RegexOption.IGNORE_CASE)
+                        .find(line)?.groupValues?.get(1)?.toIntOrNull()
+                    strength.wodNotes=title+"\n"+line
+                    blocks.add(strength)
+                    sectionTitle=null
+                    pendingSectionFormat=null
+                    continue
+                }
+            }
             val section=if (isWarmUpHeader(line)) null else sectionLabel(line)
             if(section!=null || upper=="PULLING STRENGTH & POWER") {
                 flush()
