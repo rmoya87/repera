@@ -1842,6 +1842,101 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * Swift SessionController.recordWODResult + finishCurrentBlock.
      * 'totalReps' is additional reps after full rounds, NOT an invented sum.
      */
+    /**
+     * Persist an interval/participant outcome without advancing or completing
+     * the WOD. The active block and phase graph are the only allowed scope;
+     * timers NEVER call this method on their own.
+     */
+    @Synchronized fun recordWodPhaseResult(
+        phaseID: String, iteration: Int, participantIndex: Int?,
+        completedReps: Int?, roundsCompleted: Int? = null,
+        elapsedSeconds: Int? = null, movementID: String? = null
+    ): ActiveWorkout {
+        val state = requireState()
+        val session = requireActive(state)
+        val current = session.getJSONArray("exercises")
+            .getJSONObject(session.getInt("currentIndex"))
+        require(current.optString("blockKind") == "wod")
+        val blockID = current.getString("blockId")
+        val blocks = session.optJSONArray("routineBlocks") ?: error("Sin plan")
+        val block = (0 until blocks.length()).map { blocks.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockID } ?: error("Bloque no encontrado")
+        val root = block.optJSONObject("structure") ?: error("Sin fases configuradas")
+        fun findPhase(nodes: JSONArray): JSONObject? {
+            for (i in 0 until nodes.length()) {
+                val phase = nodes.getJSONObject(i)
+                if (phase.optString("id") == phaseID) return phase
+                val child = findPhase(phase.optJSONArray("children") ?: JSONArray())
+                if (child != null) return child
+            }
+            return null
+        }
+        val phase = findPhase(root.optJSONArray("phases") ?: JSONArray())
+            ?: error("Fase ajena al entrenamiento")
+        val count = phase.optInt("repeatCount", 1).coerceAtLeast(1)
+        require(iteration in 1..count)
+        val mode = root.optString("collaboration")
+        require(participantIndex == null || (mode.isNotBlank() && mode != "solo" &&
+            participantIndex in 1..2)) { "El resultado individual requiere equipo" }
+        if (movementID != null) {
+            val assigned = phase.optJSONArray("movementIDs") ?: JSONArray()
+            require((0 until assigned.length()).any { assigned.getString(it) == movementID })
+        }
+        val result = dev.repera.domain.WorkoutPhaseResult(
+            phaseID = phaseID, iteration = iteration,
+            participantIndex = participantIndex, movementID = movementID,
+            completedReps = completedReps,
+            roundsCompleted = roundsCompleted, elapsedSeconds = elapsedSeconds
+        )
+        require(result.isValid && listOf(completedReps, roundsCompleted, elapsedSeconds).any { it != null })
+        val existingScores = session.optJSONArray("wodResults") ?: JSONArray()
+        val score = (0 until existingScores.length()).map { existingScores.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockID }
+            ?.let { JSONObject(it.toString()) }
+            ?: JSONObject().put("id", blockID).put("format", current.optString("wodFormat"))
+        val oldLogs = score.optJSONArray("phaseResults") ?: JSONArray()
+        val revisedLogs = JSONArray()
+        for (i in 0 until oldLogs.length()) {
+            val existing = oldLogs.getJSONObject(i)
+            val sameKey = existing.optString("phaseID") == phaseID &&
+                existing.optInt("iteration") == iteration &&
+                existing.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                existing.optString("movementID") == (movementID ?: "")
+            if (!sameKey) revisedLogs.put(existing)
+            else {
+                // Keep the same row identity for edits, without double counting.
+                revisedLogs.put(WorkoutStructureWire.encodePhaseResult(
+                    result.copy(id = existing.optString("id").ifBlank { result.id })
+                ))
+            }
+        }
+        val found = (0 until revisedLogs.length()).any {
+            val row = revisedLogs.getJSONObject(it)
+            row.optString("phaseID") == phaseID && row.optInt("iteration") == iteration &&
+                row.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                row.optString("movementID") == (movementID ?: "")
+        }
+        if (!found) {
+            val originallyExists = (0 until oldLogs.length()).any {
+                val row = oldLogs.getJSONObject(it)
+                row.optString("phaseID") == phaseID && row.optInt("iteration") == iteration &&
+                    row.optInt("participantIndex", -1) == (participantIndex ?: -1) &&
+                    row.optString("movementID") == (movementID ?: "")
+            }
+            if (!originallyExists) revisedLogs.put(WorkoutStructureWire.encodePhaseResult(result))
+        }
+        score.put("phaseResults", revisedLogs)
+        val revised = JSONArray()
+        for (i in 0 until existingScores.length()) {
+            if (existingScores.getJSONObject(i).optString("id") != blockID)
+                revised.put(existingScores.getJSONObject(i))
+        }
+        revised.put(score)
+        session.put("wodResults", revised)
+        save(state)
+        return summarize(session)
+    }
+
     @Synchronized fun recordWodScore(
         roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?,
         measuredValue: Double? = null, measuredMetric: String? = null
@@ -1895,6 +1990,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (block?.has("wodTemplateId") == true && !block.isNull("wodTemplateId"))
             score.put("wodTemplateId", block.getString("wodTemplateId"))
         val previous = session.optJSONArray("wodResults") ?: JSONArray()
+        val oldScore = (0 until previous.length()).map { previous.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == blockId }
+        oldScore?.optJSONArray("phaseResults")?.let { score.put("phaseResults", it) }
         val revised = JSONArray()
         for (i in 0 until previous.length()) {
             if (previous.getJSONObject(i).optString("id") != blockId)
