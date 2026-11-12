@@ -192,7 +192,7 @@ struct OGUndoToastModifier: ViewModifier {
         ZStack(alignment: .bottom) {
             content
             if let toast {
-                OGUndoToast(message: toast.message, onUndo: toast.undo)
+                OGUndoToast(message: toast.message, onUndo: toast.performUndo)
                     .padding(.horizontal, OG.pad)
                     .padding(.bottom, 12)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -202,10 +202,34 @@ struct OGUndoToastModifier: ViewModifier {
     }
 }
 
-struct OGUndoToastState: Identifiable {
-    let id = UUID()
+/// Estado del toast Deshacer. El handler vive en un box MainActor para no
+/// exigir `@Sendable` en el closure (Swift 6 + `@State` romperían el tipo).
+@MainActor
+struct OGUndoToastState: Identifiable, Equatable {
+    let id: UUID
     let message: String
-    let undo: @MainActor () -> Void
+    private let handler: OGUndoToastHandler
+
+    init(message: String, undo: @escaping () -> Void) {
+        self.id = UUID()
+        self.message = message
+        self.handler = OGUndoToastHandler(undo)
+    }
+
+    func performUndo() {
+        handler.run()
+    }
+
+    static func == (lhs: OGUndoToastState, rhs: OGUndoToastState) -> Bool {
+        lhs.id == rhs.id && lhs.message == rhs.message
+    }
+}
+
+@MainActor
+private final class OGUndoToastHandler {
+    private let undo: () -> Void
+    init(_ undo: @escaping () -> Void) { self.undo = undo }
+    func run() { undo() }
 }
 
 extension View {

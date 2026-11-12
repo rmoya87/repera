@@ -564,10 +564,10 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 - Tras añadir Swift en subcarpeta nueva **o archivo Swift nuevo en Sources/**: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
 ```yaml
-# ❌ BAD — helpers al EOF de Theme.swift (2.7k+ líneas) o .swift nuevo sin xcodegen
-# → Cannot find 'OGUndoToastState' / type-check cascada
+# ❌ BAD — helpers al EOF de Theme.swift / undo: @MainActor () -> Void en @State
+# → Cannot find 'OGUndoToastState' + Passing non-Sendable parameter 'undo'
 
-# ✅ GOOD — chips/toast/resumen Play tras `enum OG` al inicio de Theme.swift
+# ✅ GOOD — toast tras `enum OG`; handler en box MainActor (sin @Sendable);
 # @FocusState: usar `focus`, no `focus.wrappedValue`
 ```
 
