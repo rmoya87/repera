@@ -56,6 +56,9 @@ final class RestSessionCoordinator {
         haptic: Bool
     ) {
         guard seconds > 0 else { return }
+        if !isActive {
+            RestLocalNotifier.cancelAll()
+        }
         cancelTasks()
         self.soundEnabled = sound
         self.hapticEnabled = haptic
@@ -137,6 +140,7 @@ final class RestSessionCoordinator {
     /// Call when the workout session is discarded or finished.
     func endForSessionClose() {
         finish(announce: false)
+        RestLocalNotifier.cancelAll()
     }
 
     func tickFeedbackIfNeeded() {

@@ -210,9 +210,7 @@ public struct SessionController: Sendable {
         return true
     }
 
-    /// Play conserva también las series editadas que todavía no se han
-    /// marcado como hechas. Los resultados `loggedSets` siguen siendo la
-    /// verdad de las series completadas y no se generan registros ficticios.
+    /// Play conserva el borrador en `plannedSets` y lo escrito en `loggedSets`.
     @discardableResult
     public mutating func updateExerciseDraft(
         id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?

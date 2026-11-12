@@ -1,6 +1,6 @@
 # AGENTS.md — Repera
 
-Última actualización: 2026-11-12 (rediseño UI entrenamientos).
+Última actualización: 2026-11-12 (auditoría 2 Play).
 
 Instrucciones para **cualquier agente o IA** que trabaje en este repo (Cursor, Claude, Codex, Copilot, Auto, Cloud Agents, etc.).
 
@@ -176,6 +176,12 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 - Docs que contradigan el código.
 
 ### Lecciones nativas (no repetir)
+
+#### Play — checks por serie vs sync Watch (12/11/2026)
+- Play iOS guardaba `loggedSets` solo con `row.completed`; el reloj no veía avances hasta marcar ✓.
+  Sin checks: persistir filas con `reps > 0` en cada flush y disparar descanso al avanzar con el teclado (`onLastSubmit`), no en `onConfirm`.
+- Contadores en vivo: `StatsEngine.liveWorkSetCount` / `liveVolumeKg`; no reutilizar `confirmedWorkSets` en sesión activa.
+- Contrato: `tests/test_auditoria2_play_contract.py`.
 
 #### Wear — `wearMergeRecentSports` + test que rompe deploy (11/11/2026)
 - Con teléfono vacío el merge debe devolver **solo** `local` (no inventar ids).

@@ -126,13 +126,19 @@ fun WorkoutPlayProgressHeader(
     completedSets: Int,
     totalSets: Int,
     volumeKg: Double,
+    elapsedSeconds: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val progress = if (totalSets > 0) completedSets.toFloat() / totalSets else 0f
+    val setsLine = if (elapsedSeconds > 0) {
+        "$completedSets de $totalSets series · ${ActiveSessionLiveStats.formatElapsed(elapsedSeconds)}"
+    } else {
+        "$completedSets de $totalSets series"
+    }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "$completedSets de $totalSets series",
+                setsLine,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -160,7 +166,7 @@ fun WorkoutPlayProgressHeader(
 fun WorkoutFinishSummarySheet(
     visible: Boolean,
     title: String,
-    elapsedMinutes: Int,
+    elapsedSeconds: Int,
     completedSets: Int,
     totalSets: Int,
     volumeKg: Double,
@@ -185,7 +191,7 @@ fun WorkoutFinishSummarySheet(
             Text("¿Terminar entreno?", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                finishSummaryTile("Tiempo", "${elapsedMinutes}'", Modifier.weight(1f))
+                finishSummaryTile("Tiempo", ActiveSessionLiveStats.formatElapsed(elapsedSeconds), Modifier.weight(1f))
                 finishSummaryTile("Series", "$completedSets/$totalSets", Modifier.weight(1f))
                 val vol = if (volumeKg > 0) "${ReperaNumberFormat.decimal(volumeKg, 0)} kg" else "—"
                 finishSummaryTile("Volumen", vol, Modifier.weight(1f))

@@ -101,6 +101,8 @@ struct HomeView: View {
     var onStart: () -> Void
     /// Abre el preview / inicio de un entreno concreto (p. ej. suelto del viernes).
     var onStartRoutine: (Routine) -> Void = { _ in }
+    /// Arranca Play directo (▶ en la tarjeta planificada).
+    var onPlayPlannedRoutine: (Routine) -> Void = { _ in }
 
     /// La semana seleccionada gobierna el resumen, no la posición del scroll horizontal.
     @State private var weekOffset = 0
@@ -1297,7 +1299,7 @@ struct HomeView: View {
         // alto flexible y deja un hueco blanco enorme hasta «Añadir nuevo entreno».
         VStack(spacing: 6) {
             if hasInProgress {
-                Button(action: onStart) {
+                Button(action: { if hasActive { onOpenWorkout() } else { onStart() } }) {
                     dayActionRowContent
                 }
                 .buttonStyle(.plain)
@@ -1646,7 +1648,7 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     Button {
-                        onStartRoutine(routine)
+                        onPlayPlannedRoutine(routine)
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 18, weight: .bold))

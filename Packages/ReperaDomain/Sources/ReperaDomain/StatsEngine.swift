@@ -55,6 +55,22 @@ public enum StatsEngine {
         }
     }
 
+    /// Series de trabajo ya escritas en sesión activa (sin calentamiento, reps > 0).
+    /// Solo UI en curso; Progreso e historial siguen con `confirmedWorkSets`.
+    public static func liveWorkSets(_ exercise: SessionExercise) -> [LoggedSet] {
+        exercise.loggedSets.filter { !$0.isWarmup && $0.reps > 0 }
+    }
+
+    public static func liveWorkSetCount(in session: WorkoutSession) -> Int {
+        session.exercises.reduce(0) { $0 + liveWorkSets($1).count }
+    }
+
+    public static func liveVolumeKg(in session: WorkoutSession) -> Double {
+        session.exercises.reduce(0) { partial, entry in
+            partial + liveWorkSets(entry).reduce(0) { $0 + $1.volumeKg }
+        }
+    }
+
     public static func personalRecords(from workouts: [WorkoutSession]) -> [PersonalRecord] {
         var best: [UUID: PersonalRecord] = [:]
 

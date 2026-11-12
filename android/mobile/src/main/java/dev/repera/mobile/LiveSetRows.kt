@@ -59,7 +59,10 @@ internal object LiveRowEdit {
   }
   return out
  }
- fun toDraftRows(rows:List<LiveRowSummary>)=rows.map {ActiveSessionDraft.Row(it.id,it.reps,it.weightKg,it.deficitCm,it.durationSeconds,it.rir,it.completed)}
+ /** Guarda todo lo escrito con reps > 0; el check de UI ya no marca series. */
+ fun toDraftRows(rows:List<LiveRowSummary>)=rows.filter { it.reps > 0 }.map {
+  ActiveSessionDraft.Row(it.id, it.reps, it.weightKg, it.deficitCm, it.durationSeconds, it.rir, completed = true)
+ }
 }
 
 /**
@@ -214,17 +217,14 @@ internal fun LiveSetRows(
   if(merged!=rows.toList()) {rows.clear();rows.addAll(merged)}
  }
  val persist=LocalPersistLiveRows.current
- var focusedRow by remember(key) { mutableStateOf(rows.indexOfFirst { !it.completed }.coerceAtLeast(0)) }
+ var focusedRow by remember(key) { mutableStateOf(0) }
  var focusedCol by remember(key) { mutableStateOf(if (active.allowsWeight) 0 else 1) }
  fun touch() {edited=true}
- fun toggleCompleted(i: Int) {
-  val wasDone = rows[i].completed
-  rows[i] = rows[i].copy(completed = !wasDone)
-  if (!wasDone) {
+ fun maybeStartRest(i: Int) {
+  if (rows.getOrNull(i)?.reps?.let { it > 0 } == true) {
    playSetCompleteHaptic(context)
    onSetCompleted?.invoke(i)
   }
-  touch()
  }
  // Hand the newest rows over at once; the activity keeps them in memory and saves them (debounced or before any other action).
  LaunchedEffect(key,rows.toList(),unit,edited) {
@@ -276,7 +276,6 @@ internal fun LiveSetRows(
      modifier = Modifier.weight(0.7f),
      textAlign = TextAlign.Center)
    }
-   Text("✓", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {
@@ -291,9 +290,9 @@ internal fun LiveSetRows(
     ) {
      SetRowIndexBadge(
          index = i + 1,
-         completed = row.completed,
+         completed = false,
          isCurrent = isCurrent,
-         onToggleComplete = { toggleCompleted(i) },
+         onToggleComplete = null,
          modifier = Modifier.testTag("set_badge_${i + 1}")
      )
      val prevLabel = when {
@@ -337,7 +336,11 @@ internal fun LiveSetRows(
       keypadStep = 1.0,
       submitTitle = if (active.allowsWeight) "Kg →" else null,
       previousLabel = prevLabel.takeIf { it != "—" },
-      onSubmitAdvance = if (active.allowsWeight) { { focusedCol = 0 } } else null,
+      onSubmitAdvance = if (active.allowsWeight) {
+       { focusedCol = 0; maybeStartRest(i) }
+      } else {
+       { maybeStartRest(i) }
+      },
      )
      if (active.durationInput) {
       CompactSetField(
@@ -352,16 +355,6 @@ internal fun LiveSetRows(
        }
       }
      }
-     Icon(
-      Icons.Outlined.Check,
-      contentDescription = "Marcar serie",
-      tint = if (row.completed) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier
-       .size(40.dp)
-       .clip(CircleShape)
-       .clickable { toggleCompleted(i) }
-       .padding(8.dp)
-     )
     }
     // Peso / déficit en la misma densidad iOS (sin «Quitar serie» por fila).
     if (active.allowsDeficit || active.allowsWeight) {

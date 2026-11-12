@@ -75,7 +75,9 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         play_sets = WORKOUT.split("private struct PlayEditableSetsView", 1)[1].split(
             "private struct WODResultInlineEditor", 1
         )[0]
-        self.assertGreaterEqual(play_sets.count("showsConfirmation: true"), 2)
+        self.assertIn("showsConfirmation: false", play_sets)
+        self.assertIn("liveWorkSetCount", WORKOUT)
+        self.assertIn("Terminar entreno", WORKOUT)
 
     def test_home_keeps_weekly_and_activity_sections(self):
         self.assertIn("weeklyProgressCard", HOME)
@@ -137,9 +139,12 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("KeyboardArrowDown", ANDROID_PLAY)
         self.assertIn("Editar estructura", ANDROID_PLAY)
         self.assertIn("WorkoutPlayProgressHeader", ANDROID_PLAY)
+        self.assertIn("play_finish_button", ANDROID_PLAY)
+        self.assertIn("showExerciseNav = false", ANDROID_PLAY)
         self.assertIn("SetRowIndexBadge", ANDROID_LIVE)
         self.assertIn("PreviousSetValueChip", ANDROID_LIVE)
         self.assertIn("border(2.dp, brandGreen", ANDROID_LIVE)
+        self.assertNotIn("Marcar serie", ANDROID_LIVE)
 
     def test_android_picker_preview_home_editor(self):
         self.assertIn("allowsMultipleSelection", ANDROID_PICKER)

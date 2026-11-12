@@ -4236,6 +4236,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             )
         } else null
         val currentExercise = current.getJSONObject("exercise")
+        val sessionLiveSetCount = ActiveSessionLiveStats.liveSetCount(session)
+        val sessionPlannedSetCount = ActiveSessionLiveStats.plannedSetCount(session)
+        val sessionLiveVolumeKg = ActiveSessionLiveStats.liveVolumeKg(session)
+        val sessionStartedAtEpochMillis = ActiveSessionLiveStats.startedAtEpochMillis(session)
         return ActiveWorkout(
             id = session.getString("id"),
             draftRequestId=session.optString("draftRequestId").takeIf {it.isNotBlank()},
@@ -4268,6 +4272,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 setOf(ExerciseInputMode.MACHINE_WORK, ExerciseInputMode.REPS_AND_TIME,
                     ExerciseInputMode.LOAD_DISTANCE),
             repsMetersToggle = ExerciseInput.supportsRepsOrMeters(current.getJSONObject("exercise").getString("name")),
+            sessionLiveSetCount = sessionLiveSetCount,
+            sessionPlannedSetCount = sessionPlannedSetCount,
+            sessionLiveVolumeKg = sessionLiveVolumeKg,
+            sessionStartedAtEpochMillis = sessionStartedAtEpochMillis,
             cardioToggle = ExerciseInput.supportsCaloriesAndMeters(
                 current.getJSONObject("exercise").getString("name"),
                 current.getJSONObject("exercise").optString("equipment")),
@@ -4356,7 +4364,11 @@ data class ActiveWorkout(
     val liveRows: List<LiveRowSummary>? = null,
     val quantityCap: Int = 50,
     val routineId: String? = null,
-    val repsMetersToggle:Boolean = false
+    val repsMetersToggle:Boolean = false,
+    val sessionLiveSetCount: Int = 0,
+    val sessionPlannedSetCount: Int = 1,
+    val sessionLiveVolumeKg: Double = 0.0,
+    val sessionStartedAtEpochMillis: Long? = null,
 )
 data class PendingSetSummary(val id:String,val reps:Int,val weightKg:Double?)
 /** Apple live row: a recorded straight work set (completed) or a pending planned set. null liveRows = use the classic form. */

@@ -94,19 +94,20 @@ internal fun ActiveWorkoutScreen(
     val hasMoreExercises = workout.index + 1 < workout.total
     val inlineTitle = workout.title.ifBlank { "Entreno" }
 
-    val completedSets = workout.navigationEntries.count { it.completed }
-    val totalSets = workout.navigationEntries.size.coerceAtLeast(1)
-    val volumeKg = workout.sets.sumOf { (it.weightKg ?: 0.0) * it.reps }
+    val completedSets = workout.sessionLiveSetCount
+    val totalSets = workout.sessionPlannedSetCount
+    val volumeKg = workout.sessionLiveVolumeKg
+    val elapsedSeconds = workout.sessionStartedAtEpochMillis?.let { started ->
+        ((System.currentTimeMillis() - started) / 1000).toInt().coerceAtLeast(0)
+    } ?: 0
     WorkoutFinishSummarySheet(
         visible = showFinishSummary,
         title = inlineTitle,
-        elapsedMinutes = (workout.sets.size * 2).coerceAtLeast(1),
+        elapsedSeconds = elapsedSeconds,
         completedSets = completedSets,
         totalSets = totalSets,
         volumeKg = volumeKg,
-        warning = if (completedSets < totalSets) {
-            "Algunos ejercicios tienen series sin marcar. Solo se guardarán las series hechas."
-        } else null,
+        warning = null,
         onDismiss = { showFinishSummary = false },
         onSave = {
             showFinishSummary = false
@@ -294,6 +295,8 @@ internal fun ActiveWorkoutScreen(
                 onPrevious = { onSelectExercise(workout.index - 1) },
                 onNext = { onSelectExercise(workout.index + 1) },
                 onFinish = { showFinishSummary = true },
+                showExerciseNav = false,
+                showFinishInToolbar = false,
                 onEditStructure = { showEditStructureMenu = true },
                 startedLabel = workout.sets.firstOrNull()?.let { "En curso" }
             )
@@ -303,6 +306,7 @@ internal fun ActiveWorkoutScreen(
                 completedSets = completedSets,
                 totalSets = totalSets,
                 volumeKg = volumeKg,
+                elapsedSeconds = elapsedSeconds,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
@@ -479,6 +483,23 @@ internal fun ActiveWorkoutScreen(
                 overview = overview,
                 catalog = catalog
             )
+        }
+        item(key = "play-finish-cta") {
+            Button(
+                onClick = { showFinishSummary = true },
+                enabled = !busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("play_finish_button"),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = brandGreen,
+                    contentColor = Color.Black
+                )
+            ) {
+                Text("Terminar entreno", fontWeight = FontWeight.SemiBold)
+            }
         }
     }
     if (showEditStructureMenu) {
@@ -692,6 +713,8 @@ private fun ActiveWorkoutToolbar(
     onFinish: () -> Unit,
     onEditStructure: () -> Unit,
     startedLabel: String? = null,
+    showExerciseNav: Boolean = true,
+    showFinishInToolbar: Boolean = true,
 ) {
     Row(
         modifier = Modifier
@@ -734,7 +757,7 @@ private fun ActiveWorkoutToolbar(
             enabled = !busy,
             modifier = Modifier.testTag("active_edit_structure")
         )
-        if (index > 0) {
+        if (showExerciseNav && index > 0) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
                 contentDescription = "Ejercicio anterior",
@@ -743,7 +766,7 @@ private fun ActiveWorkoutToolbar(
                 modifier = Modifier.testTag("active_previous")
             )
         }
-        if (hasMoreExercises) {
+        if (showExerciseNav && hasMoreExercises) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = "Ejercicio siguiente",
@@ -752,27 +775,28 @@ private fun ActiveWorkoutToolbar(
                 modifier = Modifier.testTag("active_navigate_next")
             )
         }
-        // ✓ siempre visible → resumen con Guardar / Descartar.
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .testTag("active_toolbar_finish"),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.material3.Surface(
-                onClick = onFinish,
-                enabled = !busy,
-                shape = CircleShape,
-                color = brandGreen,
-                modifier = Modifier.size(44.dp)
+        if (showFinishInToolbar) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag("active_toolbar_finish"),
+                contentAlignment = Alignment.Center
             ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.Check,
-                        contentDescription = "Terminar entreno",
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                androidx.compose.material3.Surface(
+                    onClick = onFinish,
+                    enabled = !busy,
+                    shape = CircleShape,
+                    color = brandGreen,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Terminar entreno",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }
