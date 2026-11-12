@@ -1771,6 +1771,25 @@ struct WorkoutView: View {
                         )
                         .font(.subheadline)
                     }
+                    if format == .partner {
+                        Picker("Trabajo en equipo", selection: Binding<WorkoutCollaboration>(
+                            get: { block.structure?.collaboration ?? .youGoIGo },
+                            set: { mode in
+                                mutatePlayRoutine { draft in
+                                    guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                                    var structure = draft.blocks[index].structure ?? WorkoutStructure()
+                                    structure.collaboration = mode
+                                    draft.blocks[index].structure = structure
+                                }
+                            }
+                        )) {
+                            Text("Alternando").tag(WorkoutCollaboration.youGoIGo)
+                            Text("Sincronizado").tag(WorkoutCollaboration.synchronized)
+                            Text("Repeticiones compartidas").tag(WorkoutCollaboration.sharedReps)
+                            Text("Juntos").tag(WorkoutCollaboration.together)
+                        }
+                        .pickerStyle(.menu)
+                    }
                     if let structure = block.structure, !structure.summary.isEmpty {
                         Text(structure.summary)
                             .font(.caption)
