@@ -51,10 +51,27 @@ public enum WorkoutStructureRecognition {
                 guard v.count == 2, let amount = Int(v[0]) else { return nil }
                 return amount * 60
             }
+            let hasBuyIn = upper.contains("BUY IN") || upper.contains("BUY-IN")
+            let hasCashOut = upper.contains("BUY OUT") || upper.contains("BUY-OUT") ||
+                upper.contains("CASH OUT") || upper.contains("CASH-OUT")
+            var children: [WorkoutPhase] = []
+            if hasBuyIn, let first = ids.first {
+                children.append(WorkoutPhase(kind: .buyIn, title: "Buy-in", movementIDs: [first]))
+            }
+            let middle = ids.dropFirst(hasBuyIn ? 1 : 0)
+                .dropLast(hasCashOut && ids.count > 1 ? 1 : 0)
+            if !middle.isEmpty {
+                children.append(WorkoutPhase(kind: .main, title: "Trabajo principal",
+                                             movementIDs: Array(middle)))
+            }
+            if hasCashOut, let last = ids.last {
+                children.append(WorkoutPhase(kind: .cashOut, title: "Cash-out", movementIDs: [last]))
+            }
             phases.append(WorkoutPhase(kind: .work, title: "AMRAP por intervalos",
                                        movementIDs: ids, repeatCount: count,
                                        workSeconds: duration * 60, restSeconds: rest,
-                                       notes: block.wodNotes))
+                                       notes: block.wodNotes,
+                                       children: hasBuyIn || hasCashOut ? children : []))
         } else {
             let hasBuyIn = upper.contains("BUY IN") || upper.contains("BUY-IN")
             let hasCashOut = upper.contains("BUY OUT") || upper.contains("BUY-OUT") ||
