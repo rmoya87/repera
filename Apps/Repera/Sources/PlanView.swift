@@ -2377,6 +2377,39 @@ extension DayEditorView {
                     )
                     .font(.subheadline)
                 }
+                if format == .partner {
+                    Picker("Trabajo en equipo", selection: Binding<WorkoutCollaboration>(
+                        get: { routine.blocks[index].structure?.collaboration ?? .youGoIGo },
+                        set: { mode in
+                            var structure = routine.blocks[index].structure ?? WorkoutStructure()
+                            structure.collaboration = mode
+                            routine.blocks[index].structure = structure
+                        }
+                    )) {
+                        Text("Alternando").tag(WorkoutCollaboration.youGoIGo)
+                        Text("Sincronizado").tag(WorkoutCollaboration.synchronized)
+                        Text("Repeticiones compartidas").tag(WorkoutCollaboration.sharedReps)
+                        Text("Juntos").tag(WorkoutCollaboration.together)
+                    }
+                    .pickerStyle(.menu)
+                }
+                if format == .maxEffort {
+                    Picker("Medida del resultado", selection: Binding<WorkoutResultMetric>(
+                        get: { routine.blocks[index].structure?.resultMetric ?? .totalReps },
+                        set: { metric in
+                            var structure = routine.blocks[index].structure ?? WorkoutStructure()
+                            structure.resultMetric = metric
+                            routine.blocks[index].structure = structure
+                        }
+                    )) {
+                        Text("Repeticiones").tag(WorkoutResultMetric.totalReps)
+                        Text("Carga (kg)").tag(WorkoutResultMetric.loadKg)
+                        Text("Calorías").tag(WorkoutResultMetric.calories)
+                        Text("Distancia (m)").tag(WorkoutResultMetric.distanceMeters)
+                        Text("Tiempo").tag(WorkoutResultMetric.elapsedSeconds)
+                    }
+                    .pickerStyle(.menu)
+                }
                 if let structure = routine.blocks[index].structure,
                    !structure.summary.isEmpty {
                     Text(structure.summary)
