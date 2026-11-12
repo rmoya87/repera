@@ -92,7 +92,11 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
             "func repairPastHealthKitExports()", 1
         )[0]
         self.assertIn("($0.appleActiveEnergyKcal ?? 0) <= 0", segment)
-        self.assertIn("sessionHealthExtras(for: original)", segment)
+        self.assertIn("sessionHealthExtras(for: original, energyOnly: true)", segment)
+        health = read(IOS / "HealthKitStore.swift")
+        self.assertIn("if !energyOnly { await ensureWorkoutRouteAccess() }", health)
+        self.assertIn("if energyOnly {", health)
+        self.assertIn("let measured = await energyKcalForWorkout(workout)", health)
         self.assertIn("extras.energySourceIsVerified", segment)
         self.assertIn("current.appleActiveEnergyKcal = kcal", segment)
         self.assertNotIn("estimateSessionKcal", segment)

@@ -2722,7 +2722,7 @@ final class ReperaStore: NSObject {
         }.sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
         for original in missingEnergy.prefix(20) {
             if Task.isCancelled { break }
-            guard let extras = await HealthKitStore.shared.sessionHealthExtras(for: original),
+            guard let extras = await HealthKitStore.shared.sessionHealthExtras(for: original, energyOnly: true),
                   extras.energySourceIsVerified,
                   let kcal = extras.activeEnergyKcal, kcal > 0,
                   let uuid = extras.resolvedWorkoutUUID,

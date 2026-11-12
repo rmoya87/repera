@@ -1434,11 +1434,11 @@ final class HealthKitStore {
     }
 
     /// FC + ruta de Salud para un entreno propio (UUID vinculado o solape temporal).
-    func sessionHealthExtras(for session: WorkoutSession) async -> SessionHealthExtras? {
+    func sessionHealthExtras(for session: WorkoutSession, energyOnly: Bool = false) async -> SessionHealthExtras? {
         // Un temporizador libre no ha medido un entrenamiento en Salud.
         // No asociar uno ajeno únicamente porque se solapan las horas.
         guard isAvailable, session.timerDetails == nil else { return nil }
-        await ensureWorkoutRouteAccess()
+        if !energyOnly { await ensureWorkoutRouteAccess() }
         // No usar isAuthorized (estado de escritura) para bloquear lectura.
         guard let start = session.startedAt else { return nil }
         let end: Date = {
@@ -1538,6 +1538,29 @@ final class HealthKitStore {
 
         let shouldReadEditedWindow = session.userEditedDuration && end > start
             && workout != nil
+        // Reconciliación en segundo plano: consulta solo la energía auténtica
+        // del HKWorkout verificado, sin pedir rutas ni cargar pulso/GPS.
+        if energyOnly {
+            guard let workout,
+                  (!Self.isReperaSource(workout.sourceRevision.source)
+                    || Self.isWatchRecordedSource(workout.sourceRevision.source)),
+                  let measured = await energyKcalForWorkout(workout)
+            else { return nil }
+            var kcal = measured
+            if shouldReadEditedWindow,
+               let type = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) {
+                kcal = await revisedWorkoutQuantity(
+                    type, workout: workout, newStart: start, newEnd: end,
+                    original: measured
+                ) ?? 0
+            }
+            guard kcal > 0 else { return nil }
+            return SessionHealthExtras(
+                averageHeartRateBpm: nil, maxHeartRateBpm: nil, minHeartRateBpm: nil,
+                activeEnergyKcal: kcal, energySourceIsVerified: true,
+                resolvedWorkoutUUID: workout.uuid
+            )
+        }
         let rangeStart = shouldReadEditedWindow ? start : (workout?.startDate ?? start)
         let rangeEnd = shouldReadEditedWindow ? end : (workout?.endDate ?? end)
         var extras = await loadHealthExtras(
