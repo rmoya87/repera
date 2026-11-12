@@ -1477,6 +1477,10 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     public var wodNotes: String?
     /// ID estable del catálogo de benchmarks (`CatalogWODs`), si viene de plantilla.
     public var wodTemplateId: String?
+    /// Exact cap for sub-minute precision. If absent, legacy minutes apply.
+    public var timeCapSeconds: Int?
+    /// Orthogonal section/phases/partner semantics; old plans decode as nil.
+    public var structure: WorkoutStructure?
 
     public init(
         id: UUID = UUID(),
@@ -1492,7 +1496,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         restSeconds: Int? = nil,
         restBetweenRoundsSeconds: Int? = nil,
         wodNotes: String? = nil,
-        wodTemplateId: String? = nil
+        wodTemplateId: String? = nil,
+        timeCapSeconds: Int? = nil,
+        structure: WorkoutStructure? = nil
     ) {
         self.id = id
         self.title = title
@@ -1508,12 +1514,15 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         self.restBetweenRoundsSeconds = restBetweenRoundsSeconds
         self.wodNotes = wodNotes
         self.wodTemplateId = wodTemplateId
+        self.timeCapSeconds = timeCapSeconds
+        self.structure = structure
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, kind, exercises, movements, wodFormat, timeCapMinutes
         case emomIntervalSeconds, rounds, workSeconds, restSeconds
         case restBetweenRoundsSeconds, wodNotes, wodTemplateId
+        case timeCapSeconds, structure
     }
 
     public init(from decoder: Decoder) throws {
@@ -1532,6 +1541,8 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         restBetweenRoundsSeconds = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsSeconds)
         wodNotes = try c.decodeIfPresent(String.self, forKey: .wodNotes)
         wodTemplateId = try c.decodeIfPresent(String.self, forKey: .wodTemplateId)
+        timeCapSeconds = try c.decodeIfPresent(Int.self, forKey: .timeCapSeconds)
+        structure = try c.decodeIfPresent(WorkoutStructure.self, forKey: .structure)
     }
 
     public static func strength(title: String = "Bloque 1", exercises: [RoutineExercise] = []) -> RoutineBlock {
@@ -1555,7 +1566,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             restSeconds: restSeconds,
             restBetweenRoundsSeconds: restBetweenRoundsSeconds,
             wodNotes: wodNotes,
-            wodTemplateId: wodTemplateId
+            wodTemplateId: wodTemplateId,
+            timeCapSeconds: timeCapSeconds,
+            structure: structure
         )
     }
 
@@ -1571,6 +1584,13 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             workSeconds: isTabata ? 20 : nil,
             restSeconds: isTabata ? 10 : nil
         )
+    }
+
+    /// The player must not infer a minute from a precise seconds cap.
+    public var effectiveTimeCapSeconds: Int? {
+        if let timeCapSeconds, timeCapSeconds > 0 { return timeCapSeconds }
+        guard let timeCapMinutes, timeCapMinutes > 0 else { return nil }
+        return timeCapMinutes * 60
     }
 
     public var headerLabel: String {
