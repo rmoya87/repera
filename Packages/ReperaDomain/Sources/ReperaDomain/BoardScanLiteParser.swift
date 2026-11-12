@@ -94,7 +94,8 @@ public enum BoardScanLiteParser {
                 sectionTitle = line
                 continue
             }
-            if let rounds = Self.standaloneRounds(line), current != nil {
+            if !upper.contains("FOR TIME"), !upper.contains("RFQ"),
+               let rounds = Self.standaloneRounds(line), current != nil {
                 current?.rounds = rounds
                 current?.body.append(line)
                 continue
@@ -299,7 +300,8 @@ public enum BoardScanLiteParser {
            upper.contains("YOU GO I GO") || upper.hasPrefix("RETOMA ") ||
            upper.hasPrefix("CONTINUA ") || upper.hasPrefix("CONTINÚA ") ||
            upper.hasPrefix("MAX ROUNDS OF") { return true }
-        if upper.range(of: #"^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b"#,
+        if !upper.contains("FOR TIME") && !upper.contains("RFQ"),
+           upper.range(of: #"^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b"#,
                        options: .regularExpression) != nil { return true }
         if upper.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}\s*$"#,
                        options: .regularExpression) != nil { return true }
