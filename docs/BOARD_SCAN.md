@@ -175,3 +175,32 @@ xcrun devicectl device info files --device <udid> \
 ```
 
 La variante OCR `20 / 16 CAL*` con espacios a ambos lados de la barra también debe leerse como calorías Air Bike por sexo, no como dos movimientos alternativos. El parser completo y el ligero dejan `rounds=nil` en For Time sin prefijo N RFT.
+
+
+## Regresiones de pizarras reales (12/11/2026)
+
+Las pruebas BoardScanGlobalFixturesTests.swift y BoardScanGlobalFixturesTest.kt reproducen
+transcripciones del OCR de pizarras aportadas por usuarios, incluyendo:
+
+- **Warm up** con rondas, línea suelta «OF», **Tabata** por intervalos odd/even,
+  AMRAP, RFT, For Time, EMOM y Every por segundos/minutos.
+- **Cabeceras y notas**: WODSITO/TC, Accessory Work, «Max (n) rep(s)»,
+  «FIND 5 RM», series «Sets 1-2», rondas escritas en línea independiente,
+  descansos entre AMRAP y «I Go You Go» como contexto del bloque.
+- **Esquemas** de repeticiones «10-9-...-1» y «1-2-...-10» ligados al
+  movimiento siguiente; se conserva la carga y se evita inventar un ejercicio
+  para la línea de repeticiones.
+- **Vídeos, enlaces y anotaciones** excluidos del listado de movimientos; el
+  texto original se mantiene en las notas del bloque para revisión.
+- **Variantes de material**: DDB PUSH PRESS debe vincular la ficha
+  Dumbbell Push Press y no un push press con barra.
+- **Distancias por sexo**: Buy in... 400/320m Row conserva los 400 m y
+  anota 320 m en la variante femenina, sin interpretarlos como pesos.
+
+El conjunto es una **regresión de interpretación de transcripciones**:
+no sustituye pruebas de Vision/ML Kit en dispositivos reales ni garantiza
+reconocimiento perfecto de cualquier imagen o escritura. La foto no se envía
+a Supabase; el catálogo editorial sí continúa actualizándose remotamente.
+Las variantes de máquina genérica («10/8 CAL») siguen requiriendo revisión
+del aparato cuando la pizarra no especifica el ergómetro: no inferir el
+material sin evidencia.
