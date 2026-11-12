@@ -1573,11 +1573,15 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
 
     /// Copia profunda con IDs nuevos (bloque, ejercicios, movimientos y series).
     public func duplicatingContent() -> RoutineBlock {
-        RoutineBlock(
+        let clonedMovements = movements.map { $0.duplicatingContent() }
+        let mapping = Dictionary(uniqueKeysWithValues:
+            zip(movements.map(\\.id), clonedMovements.map(\\.id)).map { ($0, $1) }
+        )
+        return RoutineBlock(
             title: title,
             kind: kind,
             exercises: exercises.map { $0.duplicatingContent() },
-            movements: movements.map { $0.duplicatingContent() },
+            movements: clonedMovements,
             wodFormat: wodFormat,
             timeCapMinutes: timeCapMinutes,
             emomIntervalSeconds: emomIntervalSeconds,
@@ -1588,7 +1592,7 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             wodNotes: wodNotes,
             wodTemplateId: wodTemplateId,
             timeCapSeconds: timeCapSeconds,
-            structure: structure
+            structure: structure?.remappingMovementIDs(mapping)
         )
     }
 
