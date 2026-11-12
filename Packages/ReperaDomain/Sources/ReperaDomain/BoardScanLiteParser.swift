@@ -21,11 +21,13 @@ public enum BoardScanLiteParser {
 
         func flush() {
             guard let cur = current else { return }
+            let exerciseLines = cur.body.filter { !Self.isNonExerciseLine($0) }
+            guard !exerciseLines.isEmpty else { current = nil; return }
             if let strength = Self.structuredIntervalComplex(
-                cur.header, cur.body, interval: cur.interval,
+                cur.header, exerciseLines, interval: cur.interval,
                 cap: cur.cap, rounds: cur.rounds, catalog: catalog
             ) ?? Self.structuredStrength(
-                cur.header, cur.body, interval: cur.interval,
+                cur.header, exerciseLines, interval: cur.interval,
                 cap: cur.cap, rounds: cur.rounds, catalog: catalog
             ) {
                 blocks.append(strength)
@@ -42,12 +44,7 @@ public enum BoardScanLiteParser {
             if cur.format == .emom {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
-            block.movements = cur.body.filter { line in
-                let upper = line.uppercased()
-                return !upper.contains("CAP: 4 INTERVALOS") &&
-                    !upper.hasPrefix("REALIZA AMBOS") &&
-                    !upper.hasPrefix("NO TOUCH")
-            }.map { movement(from: $0) }
+            block.movements = exerciseLines.map { movement(from: Self.exerciseText($0)) }
             if let values = Self.capture(
                 #"(?i)(\d+)\s*MIN\s*ON.*?(\d+)\s*MIN\s*OFF"#, from: cur.header
             ), values.count == 2, let work = Int(values[0]), let rest = Int(values[1]) {
@@ -56,19 +53,21 @@ public enum BoardScanLiteParser {
             }
             // 'REST BTWN' describe el descanso *entre* pasadas, no un ejercicio
             // extra al final de la última. Se preserva la anotación original.
-            if cur.format == .forTime {
-                for (position, line) in cur.body.enumerated().reversed() {
-                    if line.uppercased().contains("BTWN") || line.uppercased().contains("BETWEEN") || line.uppercased().contains("ENTRE RONDAS") {
-                        if block.movements.indices.contains(position),
-                           block.movements[position].isRest {
-                            block.restBetweenRoundsSeconds = block.movements[position].restSeconds
-                            block.movements.remove(at: position)
-                        }
+            if cur.format == .forTime || cur.format == .amrap {
+                for line in cur.body {
+                    let upper = line.uppercased()
+                    if upper.contains("BTWN") || upper.contains("BETWEEN") ||
+                       upper.contains("ENTRE RONDAS") || upper.contains("ENTRE AMRAP") {
+                        let rest = movement(from: Self.exerciseText(line))
+                        if rest.isRest { block.restBetweenRoundsSeconds = rest.restSeconds }
                     }
                 }
-                if block.restBetweenRoundsSeconds == nil,
+                if cur.format == .forTime && block.restBetweenRoundsSeconds == nil,
                    let rest = block.movements.first(where: { $0.isRest }) {
                     block.restBetweenRoundsSeconds = rest.restSeconds
+                }
+                if block.restBetweenRoundsSeconds != nil {
+                    block.movements.removeAll { $0.isRest }
                 }
             }
             block.wodNotes = ([cur.header] + cur.body).joined(separator: "\n")
@@ -79,10 +78,18 @@ public enum BoardScanLiteParser {
 
         for line in rawLines {
             let upper = line.uppercased()
-            if upper == "METCON" || upper.hasPrefix("WEIGHTLIFTING")
-                || upper == "PULLING STRENGTH & POWER" {
+            if Self.isSectionLabel(line) {
                 flush()
                 sectionTitle = line
+                continue
+            }
+            if let rounds = Self.standaloneRounds(line), current != nil {
+                current?.rounds = rounds
+                current?.body.append(line)
+                continue
+            }
+            if Self.isNonExerciseLine(line) {
+                if current != nil { current?.body.append(line) }
                 continue
             }
             if upper.contains("INTERVALOS DE") && upper.contains("ON") && upper.contains("OFF") {
@@ -120,9 +127,9 @@ public enum BoardScanLiteParser {
         }
         flush()
 
-        if blocks.isEmpty, !rawLines.isEmpty {
+        if blocks.isEmpty, rawLines.contains(where: { !Self.isNonExerciseLine($0) }) {
             var block = RoutineBlock.wod(format: .chipper, title: "Añadir entreno")
-            block.movements = rawLines.map { movement(from: $0) }
+            block.movements = rawLines.filter { !Self.isNonExerciseLine($0) }.map { movement(from: Self.exerciseText($0)) }
             block.wodNotes = ocrText
             blocks = [block]
         }
@@ -264,6 +271,62 @@ public enum BoardScanLiteParser {
         return ["QUALITY", "FOR QUALITY", "FQ", "RFQ", "FOR"].contains(normalized)
     }
 
+    /// A coaching note, block label or video link is not a movement. Notes
+    /// remain in wodNotes, separate from the movement list.
+    private static func isNonExerciseLine(_ line: String) -> Bool {
+        let raw = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let upper = raw.uppercased()
+        if raw.isEmpty { return true }
+        if ["OF", "SETS", "REPS", "BUY IN", "BUY OUT", "BUY-IN", "BUY-OUT",
+            "CIRCUITO", "CIRCUIT"].contains(upper) { return true }
+        if upper.hasPrefix("▶") || upper.hasPrefix("►") ||
+           upper.hasPrefix("HTTP://") || upper.hasPrefix("HTTPS://") ||
+           upper.hasPrefix("WWW.") || upper.contains("YOUTUBE.COM/") ||
+           upper.contains("YOUTU.BE/") { return true }
+        if upper.contains("CAP: 4 INTERVALOS") || upper.hasPrefix("REALIZA AMBOS") ||
+           upper.hasPrefix("NO TOUCH") || upper.contains("I GO YOU GO") ||
+           upper.contains("YOU GO I GO") || upper.hasPrefix("RETOMA ") ||
+           upper.hasPrefix("CONTINUA ") || upper.hasPrefix("CONTINÚA ") ||
+           upper.hasPrefix("MAX ROUNDS OF") { return true }
+        if upper.range(of: #"^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?)\b"#,
+                       options: .regularExpression) != nil { return true }
+        if upper.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}\s*$"#,
+                       options: .regularExpression) != nil { return true }
+        if (raw.hasPrefix("*") || raw.hasPrefix("•")) &&
+           raw.range(of: #"^[*•]\s*\d+\s*(?:M\b|CAL\b|[A-Z])"#,
+                        options: .regularExpression) == nil { return true }
+        if (upper.contains("REST") || upper.contains("DESCANSO")) &&
+           (upper.contains("BETWEEN") || upper.contains("ENTRE AMRAP") ||
+            upper.contains("ENTRE RONDAS")) { return true }
+        return false
+    }
+
+    private static func exerciseText(_ line: String) -> String {
+        line.replacingOccurrences(of: #"^\s*[*•]\s*(?=\d)"#, with: "",
+                                  options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^MINUTE\s+\d+\s*:\s*"#, with: "",
+                                  options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)^MINUTO\s+\d+\s*:\s*"#, with: "",
+                                  options: .regularExpression)
+    }
+
+    private static func standaloneRounds(_ line: String) -> Int? {
+        capture(#"(?i)^(\d+)\s+(?:ROUNDS?|RONDAS?)\b"#, from: line)?.first.flatMap(Int.init)
+    }
+
+    private static func isSectionLabel(_ line: String) -> Bool {
+        let upper = line.uppercased().trimmingCharacters(in: .whitespaces)
+        let labels = ["METCON", "WEIGHTLIFTING", "WEIGHT LIFTING",
+                      "PULLING STRENGTH & POWER", "STRENGTH", "FUERZA",
+                      "GYMNASTICS", "SKILL", "WOD", "WORKOUT",
+                      "ACCESSORY WORK", "ACCESSORIES", "WARM UP", "WARMUP",
+                      "CALENTAMIENTO"]
+        return labels.contains { label in
+            upper == label || (!["WARM UP", "WARMUP", "CALENTAMIENTO"].contains(label) &&
+                (upper.hasPrefix(label + " ") || upper.hasPrefix(label + ":")))
+        }
+    }
+
     private static func detectHeader(_ line: String) -> Header? {
         let upper = line.uppercased()
             .replacingOccurrences(of: "’", with: "'")
@@ -274,6 +337,13 @@ public enum BoardScanLiteParser {
                        options: .regularExpression) != nil {
             return Header(title: line, format: .roundsForQuality, cap: nil, rounds: firstInt(upper))
         }
+        if let minutes = capture(#"(?i)^EVERY\s+MINUTE\s+FOR\s+(\d+)\s*MIN"#, from: line)?
+            .first.flatMap(Int.init) {
+            let rounds = capture(#"(?i)\((\d+)\s*ROUNDS?\)"#, from: line)?
+                .first.flatMap(Int.init)
+            return Header(title: line, format: .emom,
+                          cap: minutes, rounds: rounds ?? minutes, interval: 60)
+        }
         if let values = Self.capture(
             #"(?i)^EVERY\s+(\d+)\s*S\s+FOR\s+(\d+)\s*MIN"#, from: line
         ), values.count == 2,
@@ -283,6 +353,27 @@ public enum BoardScanLiteParser {
             )?.first.flatMap(Int.init)
             return Header(title: line, format: .emom,
                           cap: minutes, rounds: rounds, interval: seconds)
+        }
+        // Warm-up headers are formats, never exercise names.
+        if upper.hasPrefix("WARM UP") || upper.hasPrefix("WARMUP") ||
+           upper.hasPrefix("CALENTAMIENTO") {
+            if upper.contains("TABATA") {
+                let mins = capture(#"(?i)TABATA\s+(\d+)"#, from: line)?.first.flatMap(Int.init)
+                return Header(title: line, format: .tabata, cap: mins)
+            }
+            let rounds = capture(#"(?i)(\d+)\s+(?:ROUNDS?|RONDAS?)"#, from: line)?.first.flatMap(Int.init)
+            return Header(title: line, format: .forTime, cap: nil, rounds: rounds)
+        }
+        // Named workouts: "WODSITO (TC35')" etc.
+        if upper.range(of: #"\bTC\s*[:=]?\s*\d+"#, options: .regularExpression) != nil,
+           !upper.hasPrefix("EVERY") && !upper.hasPrefix("FOR TIME") &&
+           !upper.hasPrefix("RFT") && !upper.hasPrefix("AMRAP") {
+            let cap = capture(#"(?i)\bTC\s*[:=]?\s*(\d+)"#, from: line)?.first.flatMap(Int.init)
+            return Header(title: line, format: .forTime, cap: cap)
+        }
+        if let minutes = capture(#"(?i)^(\d+)\s*MIN\s+AMRAP"#, from: line)?.first.flatMap(Int.init) {
+            let rounds = capture(#"(?i)\(\s*[X×]\s*(\d+)\s*\)"#, from: line)?.first.flatMap(Int.init)
+            return Header(title: line, format: .amrap, cap: minutes, rounds: rounds)
         }
         if upper.hasPrefix("EMOM") {
             let mins = firstInt(upper) ?? 10
