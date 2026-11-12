@@ -151,8 +151,12 @@ public enum BoardScanLiteParser {
                 continue
             }
             if Self.isNonExerciseLine(line) {
-                if current != nil { current?.body.append(line) }
-                continue
+                // A standalone ladder is a block header unless it belongs
+                // to an open For Time section, where it is a rep scheme.
+                if Self.standaloneWave(line) == nil || current?.format == .forTime {
+                    if current != nil { current?.body.append(line) }
+                    continue
+                }
             }
             if upper.contains("INTERVALOS DE") && upper.contains("ON") && upper.contains("OFF") {
                 intervalDescription = line
