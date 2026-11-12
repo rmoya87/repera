@@ -63,6 +63,7 @@ def pace_map_html(grad_id: str = "paceGrad") -> str:
     <span><i style="background:#ffd60a"></i> Medio</span>
     <span><i style="background:#ff453a"></i> Rápido</span>
   </div>
+  <p class="pace-map-tag">Mapa de ejemplo ilustrativo; no es una salida real.</p>
 </div>"""
 
 
@@ -152,12 +153,17 @@ def main() -> None:
           <h1>Lo das todo. <em>Que quede.</em></h1>
           <p class="lede">De la primera serie al último kilómetro. Tu entrenamiento tiene un lugar.</p>
           <div class="btn-row" id="descargar">
-            <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
+            <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="hero">Descargar en App Store</a>
             <a class="btn btn-ghost" href="/precios">Ver planes</a>
           </div>
         </div>
-        <div class="hero-visual" data-reveal>
-          <img src="/assets/mascot-hero.png" alt="Mascota de Repera celebrando con mancuernas" width="1024" height="1024" fetchpriority="high" decoding="async">
+        <div class="hero-visual hero-visual--combo" data-reveal>
+          <div class="hero-combo">
+            <figure class="phone-shot">
+              <img src="/assets/screens/cap-emom.jpg" alt="Captura real: anotar un EMOM con kg, reps y RPE en Repera" width="589" height="1128" fetchpriority="high" decoding="async">
+            </figure>
+            <img class="combo-mascot" src="/assets/mascot-hero.png" srcset="/assets/mascot-hero-320.webp 320w, /assets/mascot-hero-512.webp 512w" sizes="(min-width: 768px) 160px, 120px" alt="" width="1024" height="1024" decoding="async">
+          </div>
         </div>
       </div>
     </section>
@@ -209,10 +215,10 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Tus datos, tu teléfono</p>
         <h2 id="privacy-title">Calorías, GPS, pesos y series viven en tu dispositivo.</h2>
-        <p class="lede">Repera es local-first: el diario se guarda en el iPhone. iCloud solo si tú lo activas. Apple Salud solo con tu permiso. No hay red social ni acceso de terceros a tu entrenamiento.</p>
+        <p class="lede">Repera es local-first: el diario se guarda en el iPhone. iCloud solo si tú lo activas. Apple Salud solo con tu permiso. No hay perfil público ni red social. Si conectas tu IA, compartes con ese asistente los datos que autorices.</p>
         <div class="privacy-grid">
           <article class="privacy-card"><strong>Local en el teléfono</strong><p>Pesos, repeticiones, rutas GPS, kcal y marcas quedan en tu dispositivo.</p></article>
-          <article class="privacy-card"><strong>Sin red social</strong><p>No hay feed, ranking ni perfil público. Si conectas un asistente de IA, el espejo es solo para esa conexión.</p></article>
+          <article class="privacy-card"><strong>Sin red social</strong><p>No hay feed, ranking ni perfil público. Si conectas un asistente de IA, solo esa conexión recibe la copia de tu historial que autorices.</p></article>
           <article class="privacy-card"><strong>Tú autorizas</strong><p>Salud, iCloud y Conecta tu IA son opcionales. Exporta, revoca o borra desde Ajustes.</p></article>
         </div>
         <div class="lock-mark">Solo tú tienes la llave</div>
@@ -333,7 +339,7 @@ def main() -> None:
     <section class="section section--alt feat-block feat-block--watch" id="watch">
       <div class="wrap editorial-split">
         <div class="mascot-naked" data-reveal>
-          <img src="/assets/mascot-watch.png" alt="Mascota de Repera con Apple Watch" width="512" height="512" loading="lazy">
+          <img src="/assets/mascot-watch.png" srcset="/assets/mascot-watch-320.webp 320w, /assets/mascot-watch-512.webp 512w" sizes="(min-width: 768px) 280px, 60vw" alt="Mascota de Repera con Apple Watch" width="512" height="512" loading="lazy">
         </div>
         <div data-reveal>
           <p class="eyebrow">04 / Apple Watch</p>
@@ -362,7 +368,7 @@ def main() -> None:
           <div class="night-copy">
             <p class="eyebrow">06 / Recuperación</p>
             <h2>Sueño y VFC, junto a tu diario.</h2>
-            <p class="lede">Lo que ya está en el código de la app: noches, regularidad y variabilidad cardiaca de Apple Salud — solo con tu permiso. Contexto, no órdenes clínicas.</p>
+            <p class="lede">Noches, regularidad y variabilidad cardiaca de Apple Salud, visibles en la app y solo con tu permiso. Contexto, no órdenes clínicas.</p>
             <div class="recup-metrics">
               <div class="recup-metric"><strong>Sueño</strong><p>Duración y regularidad de tus últimas noches al lado de los entrenos.</p></div>
               <div class="recup-metric"><strong>VFC</strong><p>Variabilidad de la frecuencia cardiaca cuando Salud la tiene.</p></div>
@@ -370,7 +376,7 @@ def main() -> None:
             </div>
           </div>
           <div class="recup-hero-art">
-            <img class="mascot-sleep" src="/assets/mascot-sleep.png" alt="Mascota de Repera durmiendo" width="640" height="640" loading="lazy">
+            <img class="mascot-sleep" src="/assets/mascot-sleep.png" srcset="/assets/mascot-sleep-320.webp 320w, /assets/mascot-sleep-640.webp 640w" sizes="(min-width: 860px) 320px, 70vw" alt="Mascota de Repera durmiendo" width="640" height="640" loading="lazy">
             <div class="moon-ring" aria-hidden="true"></div>
           </div>
         </div>
@@ -393,17 +399,17 @@ def main() -> None:
           <article class="ai-card ai-card--claude">
             <span class="ai-logo"><img src="/assets/screens/claude.png" alt="Claude" width="48" height="48"></span>
             <h3>Claude</h3>
-            <p class="muted">Conector MCP en Claude.</p>
+            <p class="muted">Se conecta desde los ajustes de Claude.</p>
             <ul>
               <li>Consultar historial y series</li>
-              <li>Planes que se importan al sync</li>
-              <li>Edits de historial: OK en App</li>
+              <li>Planes que se importan al abrir o sincronizar</li>
+              <li>Cambios en tu historial: los apruebas en la app</li>
             </ul>
           </article>
           <article class="ai-card ai-card--gpt">
             <span class="ai-logo"><img src="/assets/screens/chatgpt.png" alt="ChatGPT" width="48" height="48"></span>
             <h3>ChatGPT</h3>
-            <p class="muted">Plugins / conectores MCP.</p>
+            <p class="muted">Conexión desde ChatGPT web, según tu cuenta.</p>
             <ul>
               <li>Preguntas sobre tu progreso</li>
               <li>Sesiones o planes fechados</li>
@@ -413,7 +419,7 @@ def main() -> None:
           <article class="ai-card ai-card--grok">
             <span class="ai-logo"><img src="/assets/screens/grok.png" alt="Grok" width="48" height="48"></span>
             <h3>Grok</h3>
-            <p class="muted">MCP remoto con OAuth.</p>
+            <p class="muted">Si tu cuenta permite conectar servicios externos.</p>
             <ul>
               <li>Mismo diario y permisos</li>
               <li>Sin pegar secretos en el chat</li>
@@ -547,7 +553,7 @@ def main() -> None:
           </div>
         </div>
         <div class="recup-hero-art">
-          <img class="mascot-sleep" src="/assets/mascot-sleep.png" alt="Mascota de Repera durmiendo" width="640" height="640" loading="eager">
+          <img class="mascot-sleep" src="/assets/mascot-sleep.png" srcset="/assets/mascot-sleep-320.webp 320w, /assets/mascot-sleep-640.webp 640w" sizes="(min-width: 860px) 320px, 70vw" alt="Mascota de Repera durmiendo" width="640" height="640" loading="eager">
           <div class="moon-ring" aria-hidden="true"></div>
         </div>
       </div>
@@ -614,10 +620,10 @@ def main() -> None:
       <div class="wrap" data-reveal>
         <p class="eyebrow">Conecta tu IA</p>
         <h1>Tu asistente. Tu historial. Tu siguiente plan.</h1>
-        <p class="lede" style="margin-inline:auto;text-align:center;max-width:38rem">No es un coach integrado. Es Claude, ChatGPT o Grok — el que tú elijas — con tu diario. Requiere cuenta Repera; el espejo vive en servidor solo si conectas la IA.</p>
+        <p class="lede" style="margin-inline:auto;text-align:center;max-width:38rem">No es un coach integrado. Es Claude, ChatGPT o Grok — el que tú elijas — con tu diario. Requiere cuenta Repera; una copia de tu historial vive en servidor solo si conectas la IA.</p>
         <div class="btn-row" style="justify-content:center">
-          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
-          <a class="btn btn-ghost" href="/ai/">Abrir consentimiento web</a>
+          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="ia_hero">Descargar en App Store</a>
+          <a class="btn btn-ghost" href="#como-conectar" data-track="ai_setup_help_click" data-track-cta="ia_hero">Cómo conectar tu IA</a>
         </div>
         <div class="ai-constellation ai-constellation--xl" style="margin-top:2rem" aria-hidden="true">
           <span class="ai-logo ai-logo--float"><img src="/assets/screens/claude.png" alt=""></span>
@@ -641,27 +647,27 @@ def main() -> None:
           <article class="ai-card ai-card--claude">
             <span class="ai-logo"><img src="/assets/screens/claude.png" alt="Claude" width="48" height="48"></span>
             <h3>Claude</h3>
-            <p class="muted">Conector web MCP desde Personalizar → Conectores.</p>
+            <p class="muted">Se conecta desde los ajustes de Claude (Personalizar → Conectores).</p>
             <ul>
               <li>Consultar historial y series</li>
-              <li>Crear planes que se importan al sincronizar</li>
-              <li>Edits de historial / custom: aprobación en App</li>
+              <li>Crear planes que se importan al abrir o sincronizar</li>
+              <li>Cambios en entrenamientos y ejercicios propios: los apruebas en la app</li>
             </ul>
           </article>
           <article class="ai-card ai-card--gpt">
             <span class="ai-logo"><img src="/assets/screens/chatgpt.png" alt="ChatGPT" width="48" height="48"></span>
             <h3>ChatGPT</h3>
-            <p class="muted">Plugins / conectores MCP en ChatGPT web (según tu cuenta).</p>
+            <p class="muted">Conexión desde ChatGPT web, según tu cuenta.</p>
             <ul>
               <li>Preguntas sobre tu progreso</li>
               <li>Sesiones sueltas o planes fechados</li>
-              <li>Planes: importación automática al sync</li>
+              <li>Planes: se importan al abrir o sincronizar la app</li>
             </ul>
           </article>
           <article class="ai-card ai-card--grok">
             <span class="ai-logo"><img src="/assets/screens/grok.png" alt="Grok" width="48" height="48"></span>
             <h3>Grok</h3>
-            <p class="muted">Si tu cuenta ofrece servidores MCP remotos con OAuth.</p>
+            <p class="muted">Si tu cuenta permite conectar servicios externos con acceso autorizado.</p>
             <ul>
               <li>Mismo diario, mismos permisos</li>
               <li>Sin pegar secretos en el chat</li>
@@ -672,7 +678,7 @@ def main() -> None:
       </div>
     </section>
 
-    <section class="section section--alt">
+    <section class="section section--alt" id="como-conectar">
       <div class="wrap">
         <div class="section-head" data-reveal>
           <p class="eyebrow">Flujo</p>
@@ -682,13 +688,13 @@ def main() -> None:
           <div class="flow-step">
             <div class="flow-badge">1</div>
             <h3>Autorizas</h3>
-            <p>Cuenta Repera + consentimiento web (lectura / escritura) o token personal.</p>
+            <p>Cuenta Repera y permiso de lectura o escritura, que puedes revocar cuando quieras.</p>
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="flow-step">
             <div class="flow-badge">2</div>
             <h3>Preguntas</h3>
-            <p>Historial espejado, series, progreso y material — no Salud ni GPS.</p>
+            <p>La copia de tu historial, series, progreso y material — no Salud ni GPS.</p>
           </div>
           <div class="flow-arrow" aria-hidden="true">→</div>
           <div class="flow-step">
@@ -753,7 +759,7 @@ def main() -> None:
           <h3>Repera Gratis</h3>
           <p class="amount">0 €</p>
           <p class="muted">Registro completo sin fricción.</p>
-          <a class="btn btn-ghost" href="{APP_STORE}" rel="noopener noreferrer">Empezar gratis</a>
+          <a class="btn btn-ghost" href="{APP_STORE}" rel="noopener noreferrer" data-track="plan_cta_click" data-track-plan="gratis" data-track-platform="ios" data-track-cta="plan_card">Empezar gratis</a>
           <ul>
             <li>Entrenamientos, series, pesos, RIR/RPE y WOD ilimitados</li>
             <li>Catálogo, timers, Watch, Salud e iCloud</li>
@@ -769,7 +775,7 @@ def main() -> None:
           <h3>Repera Pro</h3>
           <p class="amount">39,99 € <small>/ año</small></p>
           <p class="muted">O 5,99 €/mes · cancela cuando quieras</p>
-          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Probar en App Store</a>
+          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer" data-track="plan_cta_click" data-track-plan="pro" data-track-platform="ios" data-track-cta="plan_card">Probar en App Store</a>
           <ul>
             <li>Todo lo de Gratis</li>
             <li>Rutinas, ejercicios y escaneos ilimitados</li>
@@ -840,11 +846,11 @@ def main() -> None:
     support = site.get("supportEmail")
     if support:
         contact = (
-            f'<p class="lede">Escríbenos a <a href="mailto:{support}">{support}</a> '
+            f'<p class="lede">Escríbenos a <a href="mailto:{support}" data-track="support_click" data-track-cta="soporte_texto">{support}</a> '
             'para cualquier duda con la app, tu cuenta, la suscripción o la conexión con tu IA.</p>'
         )
         buttons = (
-            f'          <a class="btn btn-primary" href="mailto:{support}">{support}</a>\n'
+            f'          <a class="btn btn-primary" href="mailto:{support}" data-track="support_click" data-track-cta="soporte_mailto">{support}</a>\n'
             '          <a class="btn btn-ghost" href="/faq">Preguntas frecuentes</a>'
         )
         support_desc = (

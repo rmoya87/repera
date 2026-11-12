@@ -7,7 +7,7 @@
   --surface-3: #3a3a3c;
   --label: #ffffff;
   --label-2: rgba(255, 255, 255, 0.6);
-  --label-3: rgba(255, 255, 255, 0.32);
+  --label-3: rgba(255, 255, 255, 0.56);
   --accent: #30d158;
   --on-accent: #000000;
   --radius: 14px;
@@ -71,6 +71,20 @@ a:hover {
 .skip-link:focus {
   left: 1rem;
   top: 1rem;
+}
+
+/* Enlaces en texto corrido: siempre subrayados (no depender solo del color) */
+.prose a:not(.btn),
+.faq a:not(.btn),
+.lede a:not(.btn),
+.muted a:not(.btn),
+.tiny a:not(.btn),
+.shot-note a:not(.btn),
+.legal-nav a:not(.btn),
+.cookie-banner a:not(.btn),
+.cookie-panel a:not(.btn) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* —— Layout —— */
@@ -160,9 +174,25 @@ body.nav-open {
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.55));
 }
 
-/* Muñeco a la derecha (default, como Recuperación) */
-.scene-panel--art-right .scene-copy { grid-area: copy; }
-.scene-panel--art-right .scene-art { grid-area: art; }
+/* Mobile-first: una columna, el muñeco en flujo normal bajo el texto.
+   Sin template areas definidas, los grid-area con nombre creaban pistas
+   implícitas y la imagen se superponía al contenido en móvil. */
+.scene-panel--art-right,
+.scene-panel--art-left,
+.scene-panel--art-bottom {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "copy"
+    "art";
+}
+
+.scene-panel--art-right .scene-copy,
+.scene-panel--art-left .scene-copy,
+.scene-panel--art-bottom .scene-copy { grid-area: copy; }
+
+.scene-panel--art-right .scene-art,
+.scene-panel--art-left .scene-art,
+.scene-panel--art-bottom .scene-art { grid-area: art; }
 
 /* Muñeco a la izquierda */
 .scene-panel--art-left {
@@ -170,8 +200,6 @@ body.nav-open {
     radial-gradient(ellipse 80% 60% at 28% 22%, rgba(48, 209, 88, 0.22), transparent 60%),
     linear-gradient(180deg, #0a120e 0%, #050805 100%);
 }
-.scene-panel--art-left .scene-copy { grid-area: copy; }
-.scene-panel--art-left .scene-art { grid-area: art; }
 
 /* Muñeco abajo a la derecha */
 .scene-panel--art-bottom {
@@ -179,8 +207,6 @@ body.nav-open {
     radial-gradient(ellipse 70% 55% at 82% 88%, rgba(255, 159, 10, 0.24), transparent 58%),
     linear-gradient(180deg, #14100a 0%, #080603 100%);
 }
-.scene-panel--art-bottom .scene-copy { grid-area: copy; }
-.scene-panel--art-bottom .scene-art { grid-area: art; }
 .scene-panel--art-bottom .scene-art img {
   width: min(260px, 62vw);
   transform: translateY(0.35rem);
@@ -228,6 +254,16 @@ body.nav-open {
 .scene-metrics {
   display: grid;
   gap: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+/* Etiqueta visible para mapas ilustrativos (hasta tener captura real) */
+.pace-map-tag {
+  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--label-3);
+  text-align: center;
 }
 
 @media (min-width: 700px) {
@@ -381,8 +417,8 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 0;
   border-radius: 999px;
   background: var(--surface);
@@ -4592,4 +4628,82 @@ body.cookie-open {
   .fx-glove, .fx-stance, .fx-oar-tip, .fx-dust--fight {
     animation: none !important;
   }
+}
+
+/* —— Hero home: captura real + mascota —— */
+.hero-visual--combo {
+  aspect-ratio: auto;
+  overflow: visible;
+  max-width: min(100%, 24rem);
+}
+
+.hero-combo {
+  position: relative;
+  width: min(78%, 15.5rem);
+  margin-inline: auto;
+}
+
+.hero-combo .phone-shot {
+  max-width: none;
+  margin: 0;
+}
+
+.hero-combo .combo-mascot {
+  position: absolute;
+  width: 52%;
+  height: auto;
+  right: -22%;
+  bottom: -4%;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .hero-visual--combo {
+    max-width: 28rem;
+  }
+
+  .hero-combo {
+    width: min(72%, 17rem);
+  }
+
+  .hero-combo .combo-mascot {
+    right: -30%;
+  }
+}
+
+/* —— Casos de uso: contenido propio por actividad —— */
+.case-unique {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.case-unique li {
+  position: relative;
+  padding-left: 1.6rem;
+  line-height: 1.45;
+}
+
+.case-unique li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.case-shared {
+  margin-top: 2rem;
+}
+
+.case-shared > h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--label-3);
+  margin: 0 0 1rem;
 }

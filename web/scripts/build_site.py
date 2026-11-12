@@ -722,6 +722,7 @@ def mobile_casos_html(data: dict) -> str:
 def header_html(active: str = "", data: dict | None = None) -> str:
     if data is None:
         data = load_json("casos.json")
+    home_current = ' aria-current="page"' if active == "home" else ""
     return f"""  <a class="skip-link" href="#contenido">Saltar al contenido</a>
   <header class="site-header">
     <div class="wrap nav">
@@ -732,7 +733,7 @@ def header_html(active: str = "", data: dict | None = None) -> str:
       <nav aria-label="Principal">
         <ul class="nav-links">
           {nav_html(active, data)}
-          <li><a class="btn btn-primary btn-nav" href="{APP_STORE}" rel="noopener noreferrer">App Store</a></li>
+          <li><a class="btn btn-primary btn-nav" href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="header">App Store</a></li>
         </ul>
       </nav>
       <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="menu-movil" aria-label="Abrir menú">☰</button>
@@ -740,7 +741,7 @@ def header_html(active: str = "", data: dict | None = None) -> str:
 {casos_mega_panel_html(data)}
     <div class="wrap nav-drawer" id="menu-movil" data-nav-drawer>
       <ul>
-        <li><a href="/"{" aria-current=\"page\"" if active=="home" else ""}>Inicio</a></li>
+        <li><a href="/"{home_current}>Inicio</a></li>
         <li><a href="/funcionalidades">Funcionalidades</a></li>
         <li class="drawer-casos">
           <div class="mrow">
@@ -757,7 +758,7 @@ def header_html(active: str = "", data: dict | None = None) -> str:
         <li><a href="/precios">Precios</a></li>
         <li><a href="/soporte">Soporte</a></li>
         <li><a href="/faq">FAQ</a></li>
-        <li><a href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a></li>
+        <li><a href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="menu_movil">Descargar en App Store</a></li>
       </ul>
     </div>
   </header>"""
@@ -812,7 +813,7 @@ def footer_html() -> str:
     </div>
   </div>
   <div class="cookie-panel" data-cookie-panel role="dialog" aria-labelledby="cookie-panel-title" hidden>
-    <h2 id="cookie-panel-title">Preferencias</h2>
+    <h2 id="cookie-panel-title" tabindex="-1">Preferencias</h2>
     <p class="muted" style="margin:0;font-size:0.9rem">Elige qué categorías permitir. Las esenciales no se pueden desactivar.</p>
     <fieldset>
       <div class="cookie-option">
@@ -831,7 +832,7 @@ def footer_html() -> str:
       <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
     </div>
   </div>
-  <script src="/js/site.js?v=20261108-mega" defer></script>"""
+  <script src="/js/site.js?v=20261112-fix1" defer></script>"""
 
 
 def head_html(*, title: str, description: str, canonical: str, og_image: str, json_ld=None) -> str:
@@ -885,7 +886,7 @@ def head_html(*, title: str, description: str, canonical: str, og_image: str, js
   <meta name="twitter:title" content="{esc(title)}">
   <meta name="twitter:description" content="{esc(description)}">
   <meta name="twitter:image" content="{esc(og_image)}">
-    <link rel="stylesheet" href="/css/site.css?v=20261108-artpos">
+    <link rel="stylesheet" href="/css/site.css?v=20261112-fix1">
 {consent_boot}{ld}
 </head>
 <body>
@@ -912,6 +913,16 @@ def scene_panel_hero(
         for label, body in metrics
     )
     art_pos = art if art in {"right", "left", "bottom"} else "right"
+    img_base = image.rsplit(".", 1)[0]
+    candidates = [
+        (f"{img_base}-{w}.webp", w)
+        for w in (320, 512, 640)
+        if (ROOT / f"{img_base.lstrip('/')}-{w}.webp").exists()
+    ]
+    srcset_attr = ""
+    if candidates:
+        srcset = ", ".join(f"{path} {w}w" for path, w in candidates)
+        srcset_attr = f' srcset="{esc(srcset)}" sizes="(min-width: 860px) 300px, 70vw"'
     return f"""    <section class="hero hero--panel">
       <div class="wrap">
         <div class="scene-panel scene-panel--{esc(tone)} scene-panel--split scene-panel--art-{art_pos}" data-reveal>
@@ -924,7 +935,7 @@ def scene_panel_hero(
             </div>
           </div>
           <div class="scene-art">
-            <img src="{esc(image)}" alt="{esc(image_alt)}" width="640" height="640" loading="eager">
+            <img src="{esc(image)}"{srcset_attr} alt="{esc(image_alt)}" width="640" height="640" loading="eager">
           </div>
         </div>
       </div>
@@ -938,7 +949,7 @@ def cta_band(title: str, lede: str, *, light: bool = False) -> str:
         <h2 id="cta-title">{esc(title)}</h2>
         <p class="lede">{esc(lede)}</p>
         <div class="btn-row">
-          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
+          <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="cta_final">Descargar en App Store</a>
           <span class="btn btn-disabled" aria-disabled="true">Google Play · Próximamente</span>
         </div>
       </div>
@@ -1318,12 +1329,29 @@ def mascot_fx_markup(fx: str, x: str, y: str) -> str:
 
 
 
+MODE_TITLE = {
+    "gps": "Registra tus salidas de {n} con GPS | Repera",
+    "fuerza": "Registra tus entrenos de {n} en tu diario | Repera",
+    "wod": "Registra tus WOD de {n} en tu diario | Repera",
+    "indoor": "Registra tus sesiones de {n} en tu diario | Repera",
+}
+
+MODE_H1 = {
+    "gps": "{name}: ruta, ritmo y zonas en tu diario.",
+    "fuerza": "{name}: series, kg y progreso en tu diario.",
+    "wod": "{name}: tiempos y marcas en tu diario.",
+    "indoor": "{name}: sesiones y pulso en tu diario.",
+}
+
+
 def render_caso(site: dict, caso: dict, modes: dict, data: dict) -> str:
     base = site["siteUrl"].rstrip("/")
     slug = caso["slug"]
-    mode = modes.get(caso.get("mode") or "indoor", modes["indoor"])
-    cap_file, cap_label = MODE_CAPS.get(caso.get("mode") or "indoor", MODE_CAPS["indoor"])
-    title = f"{caso['name']}: caso de uso | Repera"
+    mode_key = caso.get("mode") or "indoor"
+    mode = modes.get(mode_key, modes["indoor"])
+    cap_file, cap_label = MODE_CAPS.get(mode_key, MODE_CAPS["indoor"])
+    title = MODE_TITLE.get(mode_key, MODE_TITLE["indoor"]).format(n=caso["name"].lower())
+    h1 = MODE_H1.get(mode_key, MODE_H1["indoor"]).format(name=esc(caso["name"]))
     desc = f"{caso['summary']} Así registra Repera {caso['name'].lower()} en tu diario de entreno."
     canonical = f"{base}/casos/{slug}"
     mascot = f"/assets/mascots/{slug}.webp"
@@ -1341,20 +1369,17 @@ def render_caso(site: dict, caso: dict, modes: dict, data: dict) -> str:
           </div>"""
         for i, (h, t, d) in enumerate(mode["steps"])
     )
-    # Prefer mode tiles (with icons) but keep sport-specific body in hero.
-    record_items = []
+    # Contenido propio de la actividad primero; las funciones compartidas del
+    # modo van aparte y etiquetadas, para que cada ficha diga algo distinto.
+    unique_items = "".join(
+        f"          <li>{esc(line)}</li>\n" for line in (caso.get("registers") or [])[:6]
+    )
+    shared_items = []
     for tile in mode["tiles"]:
         if isinstance(tile, dict):
-            record_items.append((tile.get("icon") or icon_for_text(tile.get("title", "")), tile["title"], tile["text"]))
+            shared_items.append((tile.get("icon") or icon_for_text(tile.get("title", "")), tile["title"], tile["text"]))
         else:
-            record_items.append((icon_for_text(tile[0]), tile[0], tile[1]))
-    # Append sport-specific register lines when they add unique detail
-    for line in caso.get("registers") or []:
-        if len(record_items) >= 6:
-            break
-        if any(line[:40] in (t + d) for _, t, d in record_items):
-            continue
-        record_items.append((icon_for_text(line), "En este deporte", line))
+            shared_items.append((icon_for_text(tile[0]), tile[0], tile[1]))
     tiles = "".join(
         f"""          <div class="record-row">
             {icon_svg(ic, 22)}
@@ -1363,7 +1388,7 @@ def render_caso(site: dict, caso: dict, modes: dict, data: dict) -> str:
               <p>{esc(d)}</p>
             </div>
           </div>"""
-        for ic, t, d in record_items[:6]
+        for ic, t, d in shared_items[:6]
     )
     ld = {
         "@context": "https://schema.org",
@@ -1389,10 +1414,10 @@ def render_caso(site: dict, caso: dict, modes: dict, data: dict) -> str:
       <div class="wrap case-hero-g">
         <div data-reveal>
           <p class="eyebrow">{esc(caso["group"])}</p>
-          <h1>{esc(caso["name"])}.</h1>
+          <h1>{h1}</h1>
           <p class="lede">{esc(caso["body"])}</p>
           <div class="btn-row">
-            <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer">Descargar en App Store</a>
+            <a class="btn btn-primary" href="{APP_STORE}" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="caso">Descargar en App Store</a>
           </div>
         </div>
         <div class="mascot-stage mascot-fx--{fx} mascot-slug--{slug} mascot-fx-layer--{fx_layer}" data-reveal>
@@ -1427,9 +1452,14 @@ def render_caso(site: dict, caso: dict, modes: dict, data: dict) -> str:
       <div class="wrap">
         <div class="section-head" data-reveal>
           <p class="eyebrow">Qué registra</p>
-          <h2>Lo que queda en tu diario</h2>
+          <h2>Lo que queda en tu diario en {esc(caso["name"].lower())}</h2>
         </div>
-        <div class="records-stack">{tiles}
+        <ul class="case-unique" data-reveal>
+{unique_items}        </ul>
+        <div class="case-shared" data-reveal>
+          <h3>Funciones compartidas del diario</h3>
+          <div class="records-stack">{tiles}
+          </div>
         </div>
         <p class="tiny" style="margin-top:1.5rem">{esc(mode["note"])}</p>
       </div>

@@ -5,6 +5,16 @@
     "open": true
   },
   {
+    "q": "¿Qué necesito para usar Repera?",
+    "a": "Un iPhone con iOS 26 o posterior. El Apple Watch (watchOS 26 o posterior) es opcional: el diario vive en el iPhone y el Watch suma el registro desde la muñeca. Al primer uso inicias sesión con Apple o Google.",
+    "open": false
+  },
+  {
+    "q": "¿Puedo importar mi historial de Strong o Hevy?",
+    "a": "Sí. En la app: Ajustes → <strong>Importar CSV Strong/Hevy</strong>. El formato de cada app se detecta solo al elegir el archivo.",
+    "open": false
+  },
+  {
     "q": "¿Qué incluye Repera Pro?",
     "a": "Rutinas, ejercicios personalizados y escaneos ilimitados; historial y evolución por ejercicio; estadísticas y periodos largos; mapa muscular; comparativas de marcas WOD; y progresión avanzada. El detalle está en la <a href=\"/precios\">página de precios</a>.",
     "open": false
@@ -17,6 +27,11 @@
   {
     "q": "¿Hay prueba gratuita?",
     "a": "Sí, cuando seas elegible: normalmente <strong>14 días</strong> gestionados por Apple como oferta introductoria de la suscripción. Si no eres elegible, la App no te promete una prueba falsa. Al terminar la prueba, se aplica el precio de renovación indicado en la compra salvo que canceles antes.",
+    "open": false
+  },
+  {
+    "q": "¿Cómo se cobra el plan anual?",
+    "a": "En un solo pago al año a través de la tienda (App Store hoy; Google Play cuando exista). Se renueva cada año salvo que canceles al menos 24 horas antes del fin del periodo, y el importe final es el que muestra la tienda en tu país y moneda.",
     "open": false
   },
   {

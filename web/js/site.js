@@ -28,6 +28,8 @@
   if (toggle && drawer) {
     const setOpen = (open) => {
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Cerrar menú" : "Abrir menú");
+      toggle.textContent = open ? "✕" : "☰";
       drawer.classList.toggle("is-open", open);
       document.body.classList.toggle("nav-open", open);
       if (!open) setMsub(false);
@@ -210,9 +212,24 @@
     }
   };
 
+  const clearGaCookies = () => {
+    // Limpieza al revocar: borra las cookies de GA4 creadas en este dominio.
+    const suffix = GA4_ID.replace(/^G-/, "");
+    const names = ["_ga"];
+    if (suffix) names.push(`_ga_${suffix}`);
+    const domains = [location.hostname, `.${location.hostname}`];
+    names.forEach((name) => {
+      domains.forEach((domain) => {
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}`;
+      });
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    });
+  };
+
   const revokeAnalytics = () => {
     ensureGtag();
     window.gtag("consent", "update", { analytics_storage: "denied" });
+    clearGaCookies();
   };
 
   const writePrefs = (prefs) => {
@@ -257,44 +274,95 @@
     syncPanel(defaultPrefs());
   }
 
+  // Foco accesible del panel de preferencias: entra al abrir, Escape cierra
+  // y el foco vuelve al control que lo abrió.
+  let cookieOpener = null;
+
+  const openPanel = (opener) => {
+    if (!panel) return;
+    cookieOpener = opener || document.activeElement;
+    panel.hidden = false;
+    const target =
+      panel.querySelector("#cookie-panel-title") ||
+      panel.querySelector("input:not(:disabled), button");
+    target?.focus();
+  };
+
+  const closePanel = ({ returnFocus = true } = {}) => {
+    if (!panel || panel.hidden) return;
+    panel.hidden = true;
+    if (returnFocus && cookieOpener && document.contains(cookieOpener)) {
+      cookieOpener.focus();
+    }
+    cookieOpener = null;
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && panel && !panel.hidden) {
+      e.stopPropagation();
+      closePanel();
+    }
+  });
+
   banner?.querySelector("[data-cookie-accept]")?.addEventListener("click", () => {
     writePrefs({ analytics: true });
     hideBanner();
-    if (panel) panel.hidden = true;
+    closePanel({ returnFocus: false });
   });
 
   banner?.querySelector("[data-cookie-reject]")?.addEventListener("click", () => {
     writePrefs({ analytics: false });
     hideBanner();
-    if (panel) panel.hidden = true;
+    closePanel({ returnFocus: false });
   });
 
-  banner?.querySelector("[data-cookie-customize]")?.addEventListener("click", () => {
-    if (panel) {
-      panel.hidden = false;
-      panel.querySelector("input,button")?.focus();
-    }
+  banner?.querySelector("[data-cookie-customize]")?.addEventListener("click", (e) => {
+    openPanel(e.currentTarget);
   });
 
   panel?.querySelector("[data-cookie-save]")?.addEventListener("click", () => {
     const analytics = !!panel.querySelector('[name="analytics"]')?.checked;
     writePrefs({ analytics });
     hideBanner();
-    panel.hidden = true;
+    closePanel();
   });
 
   panel?.querySelector("[data-cookie-close]")?.addEventListener("click", () => {
-    panel.hidden = true;
+    closePanel();
   });
 
   openers.forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       showBanner();
-      if (panel) {
-        panel.hidden = false;
-        syncPanel(readPrefs() || defaultPrefs());
-      }
+      syncPanel(readPrefs() || defaultPrefs());
+      openPanel(btn);
     });
+  });
+
+  // —— Eventos propios (solo con consentimiento de analítica) ——
+  const track = (event, params) => {
+    const prefs = readPrefs();
+    if (!prefs || !prefs.analytics || !ga4ScriptLoaded) return;
+    if (typeof window.gtag !== "function") return;
+    window.gtag("event", event, params);
+  };
+
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-track]");
+    if (!el) return;
+    const params = {
+      page: location.pathname,
+      cta: el.getAttribute("data-track-cta") || "",
+    };
+    const platform = el.getAttribute("data-track-platform");
+    if (platform) params.platform = platform;
+    const plan = el.getAttribute("data-track-plan");
+    if (plan) params.plan = plan;
+    track(el.getAttribute("data-track"), params);
+    // Las tarjetas de plan registran también la salida hacia la tienda.
+    if (plan && el.getAttribute("data-track") === "plan_cta_click") {
+      track("download_click", { page: location.pathname, cta: params.cta, platform: platform || "ios", plan });
+    }
   });
 })();

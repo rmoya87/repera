@@ -24,7 +24,7 @@
   <meta name="twitter:title" content="Funcionalidades | Repera">
   <meta name="twitter:description" content="Diario de series, temporizadores, progreso, rutas y recuperación: lo que hace Repera para registrar y entender tu entrenamiento.">
   <meta name="twitter:image" content="https://repera.app/assets/og-default.png">
-    <link rel="stylesheet" href="/css/site.css?v=20261108-artpos">
+    <link rel="stylesheet" href="/css/site.css?v=20261112-fix1">
 
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -61,7 +61,7 @@
           <li><a href="/recuperacion">Recuperación</a></li>
           <li><a href="/ia">Conecta tu IA</a></li>
           <li><a href="/precios">Precios</a></li>
-          <li><a class="btn btn-primary btn-nav" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">App Store</a></li>
+          <li><a class="btn btn-primary btn-nav" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="header">App Store</a></li>
         </ul>
       </nav>
       <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="menu-movil" aria-label="Abrir menú">☰</button>
@@ -74,6 +74,13 @@
         </div>
         <div class="sub-in">
             <div class="sub-col">
+              <p>Fuerza y fitness</p>
+              <a href="/casos/entrenamiento"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-strengthtraining-traditional.png');mask-image:url('/assets/sf-symbols/figure-strengthtraining-traditional.png');width:22px;height:22px" aria-hidden="true"></span><span>Entrenamiento</span></a>
+              <a href="/casos/crossfit"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-cross-training.png');mask-image:url('/assets/sf-symbols/figure-cross-training.png');width:22px;height:22px" aria-hidden="true"></span><span>CrossFit</span></a>
+              <a href="/casos/hiit"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/timer.png');mask-image:url('/assets/sf-symbols/timer.png');width:22px;height:22px" aria-hidden="true"></span><span>HIIT</span></a>
+              <a href="/casos/hyrox"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-run.png');mask-image:url('/assets/sf-symbols/figure-run.png');width:22px;height:22px" aria-hidden="true"></span><span>HYROX</span></a>
+            </div>
+            <div class="sub-col">
               <p>A pie</p>
               <a href="/casos/carrera"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-run.png');mask-image:url('/assets/sf-symbols/figure-run.png');width:22px;height:22px" aria-hidden="true"></span><span>Carrera</span></a>
               <a href="/casos/carrera-montana"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-run.png');mask-image:url('/assets/sf-symbols/figure-run.png');width:22px;height:22px" aria-hidden="true"></span><span>Carrera de montaña</span></a>
@@ -85,13 +92,6 @@
               <a href="/casos/ciclismo-carretera"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-outdoor-cycle.png');mask-image:url('/assets/sf-symbols/figure-outdoor-cycle.png');width:22px;height:22px" aria-hidden="true"></span><span>Ciclismo de carretera</span></a>
               <a href="/casos/ciclismo-montana"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/bicycle.png');mask-image:url('/assets/sf-symbols/bicycle.png');width:22px;height:22px" aria-hidden="true"></span><span>Ciclismo de montaña</span></a>
               <a href="/casos/gravel"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/bicycle.png');mask-image:url('/assets/sf-symbols/bicycle.png');width:22px;height:22px" aria-hidden="true"></span><span>Bicicleta de gravel</span></a>
-            </div>
-            <div class="sub-col">
-              <p>Fuerza y fitness</p>
-              <a href="/casos/entrenamiento"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-strengthtraining-traditional.png');mask-image:url('/assets/sf-symbols/figure-strengthtraining-traditional.png');width:22px;height:22px" aria-hidden="true"></span><span>Entrenamiento</span></a>
-              <a href="/casos/crossfit"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-cross-training.png');mask-image:url('/assets/sf-symbols/figure-cross-training.png');width:22px;height:22px" aria-hidden="true"></span><span>CrossFit</span></a>
-              <a href="/casos/hiit"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/timer.png');mask-image:url('/assets/sf-symbols/timer.png');width:22px;height:22px" aria-hidden="true"></span><span>HIIT</span></a>
-              <a href="/casos/hyrox"><span class="sport-icon sport-icon--sf" style="-webkit-mask-image:url('/assets/sf-symbols/figure-run.png');mask-image:url('/assets/sf-symbols/figure-run.png');width:22px;height:22px" aria-hidden="true"></span><span>HYROX</span></a>
             </div>
             <div class="sub-col">
               <p>Deportes de raqueta</p>
@@ -167,9 +167,9 @@
           </div>
           <div class="msub" data-msub hidden>
             <a href="/casos" class="msub-all">Página general de casos de uso</a>
+          <div class="msub-g"><p>Fuerza y fitness</p><a href="/casos/entrenamiento">Entrenamiento</a><a href="/casos/crossfit">CrossFit</a><a href="/casos/hiit">HIIT</a><a href="/casos/hyrox">HYROX</a></div>
           <div class="msub-g"><p>A pie</p><a href="/casos/carrera">Carrera</a><a href="/casos/carrera-montana">Carrera de montaña</a><a href="/casos/caminata">Caminata</a><a href="/casos/senderismo">Senderismo</a></div>
           <div class="msub-g"><p>Ciclismo</p><a href="/casos/ciclismo-carretera">Ciclismo de carretera</a><a href="/casos/ciclismo-montana">Ciclismo de montaña</a><a href="/casos/gravel">Bicicleta de gravel</a></div>
-          <div class="msub-g"><p>Fuerza y fitness</p><a href="/casos/entrenamiento">Entrenamiento</a><a href="/casos/crossfit">CrossFit</a><a href="/casos/hiit">HIIT</a><a href="/casos/hyrox">HYROX</a></div>
           <div class="msub-g"><p>Deportes de raqueta</p><a href="/casos/tenis">Tenis</a><a href="/casos/padel">Pádel</a><a href="/casos/badminton">Bádminton</a><a href="/casos/pickleball">Pickleball</a><a href="/casos/squash">Squash</a></div>
           <div class="msub-g"><p>Deportes acuáticos</p><a href="/casos/natacion">Natación</a><a href="/casos/surf">Surf</a><a href="/casos/windsurf">Windsurf</a><a href="/casos/kitesurf">Kitesurf</a><a href="/casos/kayak">Kayak</a><a href="/casos/remo">Remo</a><a href="/casos/piragua">Piragua</a><a href="/casos/vela">Vela</a></div>
           <div class="msub-g"><p>Deportes de invierno</p><a href="/casos/esqui-alpino">Esquí alpino</a><a href="/casos/snowboard">Snowboard</a><a href="/casos/esqui-fondo">Esquí de fondo</a><a href="/casos/patinaje-hielo">Patinaje sobre hielo</a></div>
@@ -185,7 +185,7 @@
         <li><a href="/precios">Precios</a></li>
         <li><a href="/soporte">Soporte</a></li>
         <li><a href="/faq">FAQ</a></li>
-        <li><a href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">Descargar en App Store</a></li>
+        <li><a href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="menu_movil">Descargar en App Store</a></li>
       </ul>
     </div>
   </header>
@@ -204,7 +204,7 @@
             </div>
           </div>
           <div class="scene-art">
-            <img src="/assets/mascot-hero.png" alt="Mascota de Repera con mancuernas" width="640" height="640" loading="eager">
+            <img src="/assets/mascot-hero.png" srcset="/assets/mascot-hero-320.webp 320w, /assets/mascot-hero-512.webp 512w, /assets/mascot-hero-640.webp 640w" sizes="(min-width: 860px) 300px, 70vw" alt="Mascota de Repera con mancuernas" width="640" height="640" loading="eager">
           </div>
         </div>
       </div>
@@ -259,7 +259,7 @@
     <section class="section section--alt feat-block feat-block--watch" id="watch">
       <div class="wrap editorial-split">
         <div class="mascot-naked" data-reveal>
-          <img src="/assets/mascot-watch.png" alt="Mascota de Repera con Apple Watch" width="512" height="512" loading="lazy">
+          <img src="/assets/mascot-watch.png" srcset="/assets/mascot-watch-320.webp 320w, /assets/mascot-watch-512.webp 512w" sizes="(min-width: 768px) 280px, 60vw" alt="Mascota de Repera con Apple Watch" width="512" height="512" loading="lazy">
         </div>
         <div data-reveal>
           <p class="eyebrow">04 / Apple Watch</p>
@@ -316,6 +316,7 @@
     <span><i style="background:#ffd60a"></i> Medio</span>
     <span><i style="background:#ff453a"></i> Rápido</span>
   </div>
+  <p class="pace-map-tag">Mapa de ejemplo ilustrativo; no es una salida real.</p>
 </div>
         </div>
       </div>
@@ -327,7 +328,7 @@
           <div class="night-copy">
             <p class="eyebrow">06 / Recuperación</p>
             <h2>Sueño y VFC, junto a tu diario.</h2>
-            <p class="lede">Lo que ya está en el código de la app: noches, regularidad y variabilidad cardiaca de Apple Salud — solo con tu permiso. Contexto, no órdenes clínicas.</p>
+            <p class="lede">Noches, regularidad y variabilidad cardiaca de Apple Salud, visibles en la app y solo con tu permiso. Contexto, no órdenes clínicas.</p>
             <div class="recup-metrics">
               <div class="recup-metric"><strong>Sueño</strong><p>Duración y regularidad de tus últimas noches al lado de los entrenos.</p></div>
               <div class="recup-metric"><strong>VFC</strong><p>Variabilidad de la frecuencia cardiaca cuando Salud la tiene.</p></div>
@@ -335,7 +336,7 @@
             </div>
           </div>
           <div class="recup-hero-art">
-            <img class="mascot-sleep" src="/assets/mascot-sleep.png" alt="Mascota de Repera durmiendo" width="640" height="640" loading="lazy">
+            <img class="mascot-sleep" src="/assets/mascot-sleep.png" srcset="/assets/mascot-sleep-320.webp 320w, /assets/mascot-sleep-640.webp 640w" sizes="(min-width: 860px) 320px, 70vw" alt="Mascota de Repera durmiendo" width="640" height="640" loading="lazy">
             <div class="moon-ring" aria-hidden="true"></div>
           </div>
         </div>
@@ -358,17 +359,17 @@
           <article class="ai-card ai-card--claude">
             <span class="ai-logo"><img src="/assets/screens/claude.png" alt="Claude" width="48" height="48"></span>
             <h3>Claude</h3>
-            <p class="muted">Conector MCP en Claude.</p>
+            <p class="muted">Se conecta desde los ajustes de Claude.</p>
             <ul>
               <li>Consultar historial y series</li>
-              <li>Planes que se importan al sync</li>
-              <li>Edits de historial: OK en App</li>
+              <li>Planes que se importan al abrir o sincronizar</li>
+              <li>Cambios en tu historial: los apruebas en la app</li>
             </ul>
           </article>
           <article class="ai-card ai-card--gpt">
             <span class="ai-logo"><img src="/assets/screens/chatgpt.png" alt="ChatGPT" width="48" height="48"></span>
             <h3>ChatGPT</h3>
-            <p class="muted">Plugins / conectores MCP.</p>
+            <p class="muted">Conexión desde ChatGPT web, según tu cuenta.</p>
             <ul>
               <li>Preguntas sobre tu progreso</li>
               <li>Sesiones o planes fechados</li>
@@ -378,7 +379,7 @@
           <article class="ai-card ai-card--grok">
             <span class="ai-logo"><img src="/assets/screens/grok.png" alt="Grok" width="48" height="48"></span>
             <h3>Grok</h3>
-            <p class="muted">MCP remoto con OAuth.</p>
+            <p class="muted">Si tu cuenta permite conectar servicios externos.</p>
             <ul>
               <li>Mismo diario y permisos</li>
               <li>Sin pegar secretos en el chat</li>
@@ -394,7 +395,7 @@
         <h2 id="cta-title">Empieza a registrar hoy</h2>
         <p class="lede">Repera está en App Store para iPhone y Apple Watch.</p>
         <div class="btn-row">
-          <a class="btn btn-primary" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer">Descargar en App Store</a>
+          <a class="btn btn-primary" href="https://apps.apple.com/es/app/repera-tu-diario-de-entreno/id6824523509" rel="noopener noreferrer" data-track="download_click" data-track-platform="ios" data-track-cta="cta_final">Descargar en App Store</a>
           <span class="btn btn-disabled" aria-disabled="true">Google Play · Próximamente</span>
         </div>
       </div>
@@ -448,7 +449,7 @@
     </div>
   </div>
   <div class="cookie-panel" data-cookie-panel role="dialog" aria-labelledby="cookie-panel-title" hidden>
-    <h2 id="cookie-panel-title">Preferencias</h2>
+    <h2 id="cookie-panel-title" tabindex="-1">Preferencias</h2>
     <p class="muted" style="margin:0;font-size:0.9rem">Elige qué categorías permitir. Las esenciales no se pueden desactivar.</p>
     <fieldset>
       <div class="cookie-option">
@@ -467,6 +468,6 @@
       <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
     </div>
   </div>
-  <script src="/js/site.js?v=20261108-mega" defer></script>
+  <script src="/js/site.js?v=20261112-fix1" defer></script>
 </body>
 </html>
