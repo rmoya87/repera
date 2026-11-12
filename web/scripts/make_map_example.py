@@ -1,26 +1,31 @@
 #!/usr/bin/env python3
 """Genera el mapa ilustrativo de outdoor (Casa de Campo, Madrid).
 
-Compone teselas de OpenStreetMap, las pasa a tema oscuro, dibuja un recorrido
-de ejemplo coloreado por ritmo y guarda assets/map-madrid-casa-de-campo-{640,1280}.webp.
-Fuente: © OpenStreetMap contributors (atribucion incluida en la imagen).
+Compone teselas de OpenStreetMap (modo callejero, tema oscuro), dibuja un
+recorrido de ejemplo que sigue caminos reales (ruta a pie calculada con OSRM,
+guardada en scripts/route_casa_de_campo.json) y exporta
+assets/map-madrid-casa-de-campo-{640,1280}.webp.
+Fuentes: © OpenStreetMap contributors (atribucion incluida en la imagen).
+Ruta: routing.openstreetmap.de (perfil a pie).
 """
 import io
+import json
 import math
 import urllib.request
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 Z = 15
 W, H = 1280, 720
-CENTER = (40.4175, -3.7570)  # Casa de Campo, Madrid
 UA = "ReperaWebStaticMap/1.0 (https://repera.app; hola@repera.app)"
+ROUTE_JSON = Path(__file__).with_name("route_casa_de_campo.json")
 
-# Recorrido de ejemplo (~8,4 km) por la Casa de Campo
-ROUTE = [
-    (40.4080, -3.7620), (40.4130, -3.7680), (40.4200, -3.7700),
-    (40.4260, -3.7640), (40.4275, -3.7560), (40.4240, -3.7470),
-    (40.4170, -3.7445), (40.4100, -3.7475), (40.4062, -3.7545),
+# waypoints de la vuelta a la Casa de Campo (salida y llegada: Lago)
+WAYPOINTS = [
+    (-3.7525, 40.4178), (-3.7630, 40.4220), (-3.7740, 40.4235),
+    (-3.7795, 40.4145), (-3.7720, 40.4060), (-3.7595, 40.4035),
+    (-3.7485, 40.4085), (-3.7525, 40.4178),
 ]
 
 PACE_STOPS = [
@@ -31,24 +36,23 @@ PACE_STOPS = [
 ]
 
 
+def fetch_route():
+    coords = ";".join(f"{lon},{lat}" for lon, lat in WAYPOINTS)
+    url = ("https://routing.openstreetmap.de/routed-foot/route/v1/driving/"
+           f"{coords}?overview=full&geometries=geojson&continue_straight=true")
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    data = json.load(urllib.request.urlopen(req, timeout=60))
+    if data.get("code") != "Ok":
+        raise SystemExit(f"OSRM error: {data.get('code')}")
+    return data["routes"][0]["geometry"]["coordinates"]  # [lon, lat]
+
+
 def deg2num(lat, lon, z):
     lat_r = math.radians(lat)
     n = 2 ** z
     x = (lon + 180.0) / 360.0 * n
     y = (1.0 - math.log(math.tan(lat_r) + 1.0 / math.cos(lat_r)) / math.pi) / 2.0 * n
     return x * 256.0, y * 256.0
-
-
-def chaikin(points, iterations=2):
-    pts = points[:]
-    for _ in range(iterations):
-        out = []
-        for i, p in enumerate(pts):
-            q = pts[(i + 1) % len(pts)]
-            out.append((0.75 * p[0] + 0.25 * q[0], 0.75 * p[1] + 0.25 * q[1]))
-            out.append((0.25 * p[0] + 0.75 * q[0], 0.25 * p[1] + 0.75 * q[1]))
-        pts = out
-    return pts
 
 
 def pace_color(t):
@@ -61,7 +65,16 @@ def pace_color(t):
 
 
 def main():
-    cx, cy = deg2num(*CENTER, Z)
+    if ROUTE_JSON.exists():
+        route = json.loads(ROUTE_JSON.read_text())
+    else:
+        route = fetch_route()
+        ROUTE_JSON.write_text(json.dumps(route))
+    lats = [p[1] for p in route]
+    lons = [p[0] for p in route]
+    center = ((min(lats) + max(lats)) / 2, (min(lons) + max(lons)) / 2)
+
+    cx, cy = deg2num(*center, Z)
     x0, y0 = cx - W / 2, cy - H / 2
     tx0, ty0 = int(x0 // 256), int(y0 // 256)
     tx1, ty1 = int((x0 + W) // 256), int((y0 + H) // 256)
@@ -90,10 +103,7 @@ def main():
         px, py = deg2num(lat, lon, Z)
         return (px - x0, py - y0)
 
-    raw = [to_px(*c) for c in ROUTE]
-    pts = chaikin(raw, 2) + [raw[0]]
-
-    # longitudes acumuladas para el degradado por ritmo
+    pts = [to_px(lat, lon) for lon, lat in route]
     seg_len = [math.dist(a, b) for a, b in zip(pts, pts[1:])]
     total = sum(seg_len)
 
@@ -116,10 +126,9 @@ def main():
     img = Image.alpha_composite(img, line)
 
     d = ImageDraw.Draw(img)
-    for (lat, lon), color in ((ROUTE[0], (48, 209, 88)), (ROUTE[0], (255, 69, 58))):
-        pass
-    sx, sy = to_px(*ROUTE[0])
-    for px, py, color in ((sx, sy, (48, 209, 88)), (sx - 4, sy - 30, (255, 69, 58))):
+    sx, sy = pts[0]
+    ex, ey = sx, sy - 26  # salida y llegada casi coinciden: se separan para verse
+    for px, py, color in ((sx, sy, (48, 209, 88)), (ex, ey, (255, 69, 58))):
         d.ellipse([px - 20, py - 20, px + 20, py + 20], outline=color + (90,), width=3)
         d.ellipse([px - 11, py - 11, px + 11, py + 11], fill=color + (255,))
 
@@ -134,7 +143,7 @@ def main():
     img.convert("RGB").save("assets/map-madrid-casa-de-campo-1280.webp", quality=80, method=6)
     img.convert("RGB").resize((640, 360), Image.LANCZOS).save(
         "assets/map-madrid-casa-de-campo-640.webp", quality=80, method=6)
-    print("mapas guardados")
+    print("mapas guardados; puntos ruta:", len(pts))
 
 
 if __name__ == "__main__":

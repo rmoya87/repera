@@ -29,7 +29,7 @@ def pace_map_html() -> str:
     """
     return """<div class="pace-map pace-map--hero" role="img" aria-label="Mapa de ejemplo de la Casa de Campo, Madrid, con recorrido coloreado por ritmo">
   <div class="pace-hud" aria-hidden="true">
-    <span><strong>8,42</strong> km</span>
+    <span><strong>9,90</strong> km</span>
     <span><strong>4:52</strong> /km</span>
     <span class="pace-hud-zone">Z3</span>
     <span><strong>+186</strong> m</span>

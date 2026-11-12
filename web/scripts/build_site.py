@@ -868,6 +868,7 @@ def head_html(*, title: str, description: str, canonical: str, og_image: str, js
   <title>{esc(title)}</title>
   <meta name="description" content="{esc(description)}">
   <meta name="robots" content="index, follow">
+  <meta name="google-site-verification" content="6-UNtlHZF4jvB1rbihIZBUDUNzRJFm97yz1RlW1UKww">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
   <link rel="canonical" href="{esc(canonical)}">
