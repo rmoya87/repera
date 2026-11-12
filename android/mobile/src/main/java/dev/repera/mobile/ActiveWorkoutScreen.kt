@@ -77,6 +77,7 @@ internal fun ActiveWorkoutScreen(
     /** Arranque del reloj de bloque libre tras el sheet (paridad iOS). */
     onLaunchManualClock: (ManualBlockTimerConfig) -> Unit = {},
     loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
+    onWodMeasuredScore: (Double, String) -> Unit = { _, _ -> },
 ) {
     var showBlockTimer by remember(workout.id, workout.index) { mutableStateOf(false) }
     var blockWorkOverride by remember(workout.id, workout.index) {
@@ -423,7 +424,8 @@ internal fun ActiveWorkoutScreen(
                             if (workout.wod != null) WodScoreCard(
                                 active = workout, busy = busy, timer = timer,
                                 onTimerAction = onTimerAction, onTimerTick = onTimerTick,
-                                onSave = onWodScore, onMovement = onWodMovement,
+                                onSave = onWodScore,
+                                onMeasuredScore = onWodMeasuredScore, onMovement = onWodMovement,
                                 onCompleteBlock = onCompleteWodBlock,
                                 onReviseMovement = onReviseWodMovement,
                                 onDeleteMovement = onDeleteWodMovement,
