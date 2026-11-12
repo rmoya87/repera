@@ -49,6 +49,7 @@ object BoardScanLiteParser {
                 cur.header, exerciseLines, cur.interval, cur.cap, cur.rounds, catalog
             )
             if (structured != null) {
+                structured.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")
                 blocks.add(structured)
                 current = null
                 return
@@ -65,17 +66,22 @@ object BoardScanLiteParser {
                 block.emomIntervalSeconds = cur.interval ?: 60
             }
             var roundLabel:String?=null
-            block.movements = exerciseLines.flatMap { raw ->
-                val segments=simpleComplexMovements(exerciseText(raw),searchAliases,catalog)
-                segments.mapNotNull {parsed ->
-                    val upperRaw=raw.uppercase(Locale.ROOT)
-                    if ((cur.format==WODFormat.FOR_TIME || cur.format==WODFormat.AMRAP) &&
-                        parsed.isRest && (upperRaw.contains("BTWN") ||
-                        upperRaw.contains("BETWEEN") || upperRaw.contains("ENTRE RONDAS") ||
-                        upperRaw.contains("ENTRE AMRAP"))) {
-                        block.restBetweenRoundsSeconds=parsed.restSeconds
-                        null
-                    } else parsed
+            var activeWave:List<Int>?=null
+            block.movements = cur.body.flatMap { raw ->
+                Regex("""^ROUNDS?\s*(\d+)\s*:?\s*$""",RegexOption.IGNORE_CASE)
+                    .matchEntire(raw)?.let { roundLabel="Ronda "+it.groupValues[1] }
+                val wave=standaloneWave(raw)
+                if(wave!=null) {
+                    activeWave=wave
+                    emptyList()
+                } else if(isNonExerciseLine(raw)) {
+                    emptyList()
+                } else {
+                    val segments=simpleComplexMovements(exerciseText(raw),searchAliases,catalog)
+                    segments.map { parsed ->
+                        val note=listOfNotNull(roundLabel,parsed.notes).joinToString(" · ").ifBlank {null}
+                        parsed.copy(repScheme=activeWave ?: parsed.repScheme,notes=note)
+                    }
                 }
             }
             capture("(?i)(\\d+)\\s*MIN\\s*ON.*?(\\d+)\\s*MIN\\s*OFF", cur.header)?.let { values ->
@@ -328,6 +334,13 @@ object BoardScanLiteParser {
            (upper.contains("BETWEEN") || upper.contains("ENTRE AMRAP") ||
             upper.contains("ENTRE RONDAS"))) return true
         return false
+    }
+
+    private fun standaloneWave(line:String):List<Int>? {
+        val raw=line.trim()
+        if(!Regex("""^\d+(?:\s*[-–]\s*\d+){2,}$""").matches(raw)) return null
+        val wave=raw.split(Regex("""\s*[-–]\s*""")).mapNotNull {it.toIntOrNull()}
+        return wave.takeIf {it.size>=3}
     }
 
     private fun exerciseText(line:String):String =
