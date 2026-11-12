@@ -87,9 +87,15 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
                     pickerRows(recentRows)
                 }
             }
-            Section(isMultiple && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Todos (A–Z)" : "") {
+            Section {
                 pickerRows(rows)
             } header: {
+                // No mezclar Section(String) con header:/footer: — Xcode lo
+                // interpreta como Binding y falla al compilar.
+                if isMultiple,
+                   query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Todos (A–Z)")
+                }
                 header()
             } footer: {
                 footer()
