@@ -100,6 +100,23 @@ class BoardScanGlobalFixturesTest {
         assertEquals(10,blocks[1].timeCapMinutes)
     }
 
+    @Test fun buyInRowIsDistanceNotHeavyBarbell() {
+        val blocks=BoardScanLiteParser.parse("""
+            Metcon
+            5min AMRAP (x3)
+            Buy in... 400/320m Row
+            Max Rounds of (Cindy):
+            5 Pull up
+            10 Push up
+            15 Air Squat
+            2min Rest entre AMRAPs
+        """.trimIndent()).blocks
+        assertEquals(1,blocks.size)
+        assertEquals(400,blocks[0].movements.first().distanceMeters)
+        assertEquals(null,blocks[0].movements.first().weightMaleKg)
+        assertTrue(blocks[0].movements.first().notes.orEmpty().contains("320"))
+    }
+
     @Test fun maxRepsAndGenericOneRMProgression() {
         val max=BoardScanLiteParser.parse("""
             Squat snatch
