@@ -92,6 +92,23 @@ struct BoardScanGlobalFixturesTests {
         #expect(blocks.first?.movements.last?.repScheme == [1,2,3,4,5,6,7,8,9,10])
     }
 
+    @Test func buyInRowIsDistanceNotBarbellWeight() {
+        let blocks = BoardScanLiteParser.parse(ocrText: """
+        Metcon
+        5min AMRAP (x3)
+        Buy in... 400/320m Row
+        Max Rounds of (Cindy):
+        5 Pull up
+        10 Push up
+        15 Air Squat
+        2min Rest entre AMRAPs
+        """, catalog: catalog).blocks
+        #expect(blocks.count == 1)
+        #expect(blocks.first?.movements.first?.distanceMeters == 400)
+        #expect(blocks.first?.movements.first?.weightMaleKg == nil)
+        #expect(blocks.first?.movements.first?.notes?.contains("320") == true)
+    }
+
     @Test func maxRepsAndGeneric1RMProgressionAreNotFakeMovements() {
         let maximum = BoardScanLiteParser.parse(ocrText: """
         Squat snatch
