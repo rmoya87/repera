@@ -47,8 +47,9 @@ function validateWorkoutStructure(structure){
    const v=p[key];if(v!=null&&(!Number.isInteger(v)||v<(key==='restSeconds'?0:1)||v>86400))
     throw Error('Duración o repeticiones de fase no válidas');
   }
-  if(!Array.isArray(p.children)||p.children.length>20)throw Error('Subfases no válidas');
-  p.children.forEach(c=>phase(c,depth+1));
+  if(p.children!=null&&(!Array.isArray(p.children)||p.children.length>20))
+   throw Error('Subfases no válidas');
+  (p.children||[]).forEach(c=>phase(c,depth+1));
  };
  structure.phases.forEach(p=>phase(p,0));
  return structure;
