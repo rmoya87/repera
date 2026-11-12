@@ -52,8 +52,9 @@ internal object ExerciseArtImages {
         fun present(stem: String) =
             stem in packaged || RemoteExerciseArtCache.hasFile(context, stem)
         if (artKeys.isNotEmpty()) {
-            val available = artKeys.filter(::present)
-            if (available.isNotEmpty()) return available
+            // Supabase is authoritative even before an OTA JPG reaches disk.
+            // Never fall back to a possibly unrelated seed image while downloading.
+            return artKeys.filter { it.matches(Regex("[A-Za-z0-9_-]+")) }.distinct()
         }
         val hero = ExerciseArtResolver.heroFor(name, isMobility, aliases) ?: return emptyList()
         return ExerciseArtResolver.framesFor(name, hero, captionCount, isMobility, ::present)
@@ -61,17 +62,26 @@ internal object ExerciseArtImages {
     }
 
     /** [targetPx] is the largest rendered side; 0 decodes at full resolution (hero). */
-    suspend fun load(context: Context, stem: String, targetPx: Int = 0): ImageBitmap? {
-        val key = "$stem@$targetPx"
-        cache.get(key)?.let { return it }
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                decodeStem(context, stem, targetPx)
-            }.getOrNull()?.also { cache.put(key, it) }
-        }
+    suspend fun load(
+        context: Context,
+        stem: String,
+        targetPx: Int = 0,
+        preferRemote: Boolean = false,
+    ): ImageBitmap? = withContext(Dispatchers.IO) {
+        if (preferRemote) RemoteExerciseArtCache.ensureAvailable(context, stem)
+        // Include the actual file revision: a newly cached asset must not
+        // be hidden by a bitmap previously decoded from a bundled resource.
+        val revision = RemoteExerciseArtCache.fileFor(context, stem)
+            .takeIf { it.isFile && it.length() > 0L }?.lastModified() ?: 0L
+        val key = "$stem@$targetPx@$preferRemote@$revision"
+        cache.get(key) ?: runCatching {
+            decodeStem(context, stem, targetPx, preferRemote)
+        }.getOrNull()?.also { cache.put(key, it) }
     }
 
-    private fun decodeStem(context: Context, stem: String, targetPx: Int): ImageBitmap? {
+    private fun decodeStem(
+        context: Context, stem: String, targetPx: Int, preferRemote: Boolean
+    ): ImageBitmap? {
         val remote = RemoteExerciseArtCache.fileFor(context, stem)
         if (remote.isFile) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -81,6 +91,9 @@ internal object ExerciseArtImages {
             }
             return BitmapFactory.decodeFile(remote.path, options)?.asImageBitmap()
         }
+        // A published remote stem has no legitimate fallback to another
+        // exercise or to an obsolete bundled file with the same name.
+        if (preferRemote) return null
         val path = "exercise-art/$stem.jpg"
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.assets.open(path).use { BitmapFactory.decodeStream(it, null, bounds) }

@@ -113,7 +113,7 @@ internal fun ExerciseDetailScreen(
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second
     val isMobility = entry.sportTag == "Movilidad"
-    val frames = remember(entry.id, entry.artKeys) {
+    val frames = remember(entry.id, entry.name, entry.sportTag, entry.artKeys, entry.instructions, aliases) {
         ExerciseArtImages.carouselStems(
             context, entry.name, isMobility, aliases,
             captionCount = entry.instructions.count { it.isNotBlank() },
@@ -173,6 +173,7 @@ internal fun ExerciseDetailScreen(
                     ExerciseArtHero(
                         frames = frames,
                         name = entry.name,
+                        remoteStems = entry.artKeys,
                         phaseCaptions = phaseCaptions,
                         clipTopOnly = entry.detailDescription != null || phaseCaptions.isNotEmpty()
                     )
@@ -274,20 +275,24 @@ private fun ArtImage(
     stem: String?,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(0.dp)
+    shape: RoundedCornerShape = RoundedCornerShape(0.dp),
+    remoteStems: List<String> = emptyList(),
 ) {
     if (stem == null) return
     val context = LocalContext.current
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, stem) {
-        value = ExerciseArtImages.load(context, stem)
+    val published = stem in remoteStems
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, stem, published) {
+        value = ExerciseArtImages.load(context, stem, preferRemote = published)
     }
-    bitmap?.let {
-        Image(
-            bitmap = it,
-            contentDescription = contentDescription,
-            modifier = modifier.clip(shape),
-            contentScale = ContentScale.Crop
-        )
+    Box(modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        bitmap?.let {
+            Image(
+                bitmap = it,
+                contentDescription = contentDescription,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
     }
 }
 
@@ -296,6 +301,7 @@ private fun ArtImage(
 private fun ExerciseArtHero(
     frames: List<String>,
     name: String,
+    remoteStems: List<String> = emptyList(),
     phaseCaptions: List<String> = emptyList(),
     clipTopOnly: Boolean = false
 ) {
@@ -318,7 +324,8 @@ private fun ExerciseArtHero(
             frames.first(),
             name,
             Modifier.fillMaxWidth().aspectRatio(4f / 3f),
-            shape = imageShape
+            shape = imageShape,
+            remoteStems = remoteStems
         )
         return
     }
@@ -342,7 +349,8 @@ private fun ExerciseArtHero(
                 frames[safePage],
                 name,
                 Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(0.dp)
+                shape = RoundedCornerShape(0.dp),
+                remoteStems = remoteStems
             )
             Text(
                 "${safePage + 1}/${frames.size}",

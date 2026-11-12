@@ -269,4 +269,74 @@ class RemoteExerciseCatalogInstrumentedTest {
             if (previous == null) file.delete() else file.writeBytes(previous)
         }
     }
+    @Test
+    fun remoteArtDeltaUpdatesOnlyPublishedExerciseWithoutRewritingHistory() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previous = if (file.exists()) file.readBytes() else null
+        val account = "catalog-field-delta-${UUID.randomUUID()}"
+        val pallofID = UUID.randomUUID().toString()
+        val otherID = UUID.randomUUID().toString()
+        val local = LocalSnapshotStore(context, account)
+        val workout = JSONObject().put("id", "historic-pallof").put("result", 15)
+        val pallof = JSONObject().put("id", pallofID)
+            .put("name", "Pallof Press").put("isCustom", false).put("isFavorite", true)
+            .put("equipment", "Cable / banda")
+        val other = JSONObject().put("id", otherID)
+            .put("name", "Press banca").put("isCustom", false).put("isFavorite", false)
+            .put("equipment", "Barra")
+        local.write(JSONObject()
+            .put("exercises", JSONArray().put(pallof).put(other))
+            .put("workouts", JSONArray().put(workout))
+            .put("routines", JSONArray())
+            .put("syncRevision", 1).toString().toByteArray())
+        val remotePallof = JSONObject()
+            .put("name", "Pallof Press").put("category", "CrossFit")
+            .put("description", "Ejercicio anti-rotación")
+            .put("art_keys", JSONArray().put("art_gy_pallof_press_r20261105_1"))
+            .put("is_active", true)
+        val remoteBench = JSONObject()
+            .put("name", "Press banca").put("category", "Fuerza")
+            .put("equipment", JSONArray().put("Barra"))
+            .put("is_active", true)
+        try {
+            val entries = JSONObject().put("catalog:Pallof Press", remotePallof)
+                .put("catalog:Press banca", remoteBench)
+            fun writeCache(revision: Int) {
+                file.writeText(JSONObject().put("revision", revision)
+                    .put("entries", entries).put("localIDs", JSONObject()).toString())
+            }
+            writeCache(1)
+            val feed = RemoteExerciseCatalog(context)
+            assertTrue(feed.applyToAccount(account))
+            val first = JSONObject(String(local.read()!!, Charsets.UTF_8))
+            val before = first.getJSONArray("exercises")
+            val otherBefore = before.getJSONObject(1).toString()
+            val oldRevision = first.getInt("syncRevision")
+            assertFalse(feed.applyToAccount(account))
+            // Only art_keys changes at the server. Do not rehydrate other fields.
+            remotePallof.put("art_keys", JSONArray()
+                .put("art_gy_pallof_press_r20261105_2")
+                .put("art_gy_pallof_press_r20261105_3"))
+            writeCache(2)
+            assertTrue(feed.applyToAccount(account))
+            val next = JSONObject(String(local.read()!!, Charsets.UTF_8))
+            val updated = next.getJSONArray("exercises")
+            assertEquals(pallofID, updated.getJSONObject(0).getString("id"))
+            assertTrue(updated.getJSONObject(0).getBoolean("isFavorite"))
+            assertEquals("Cable / banda", updated.getJSONObject(0).getString("equipment"))
+            assertEquals("Ejercicio anti-rotación",
+                updated.getJSONObject(0).getString("detailDescription"))
+            assertEquals("[\"art_gy_pallof_press_r20261105_2\",\"art_gy_pallof_press_r20261105_3\"]",
+                updated.getJSONObject(0).getJSONArray("artKeys").toString())
+            assertEquals(otherID, updated.getJSONObject(1).getString("id"))
+            assertEquals(otherBefore, updated.getJSONObject(1).toString())
+            assertEquals(JSONArray().put(workout).toString(), next.getJSONArray("workouts").toString())
+            assertEquals(oldRevision + 1, next.getInt("syncRevision"))
+            assertFalse(feed.applyToAccount(account))
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
 }

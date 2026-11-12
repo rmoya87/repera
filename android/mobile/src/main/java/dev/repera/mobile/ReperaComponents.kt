@@ -690,8 +690,12 @@ internal fun ExerciseListThumb(
             artKeys = artKeys,
         ).firstOrNull()
     }
-    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, stem) {
-        value = stem?.let { ExerciseArtImages.load(context, it, ExerciseArtImages.THUMBNAIL_PX) }
+    val published = stem != null && stem in artKeys
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, stem, published) {
+        value = stem?.let {
+            ExerciseArtImages.load(context, it, ExerciseArtImages.THUMBNAIL_PX,
+                preferRemote = published)
+        }
     }
     if (bitmap != null) {
         Image(
