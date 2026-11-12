@@ -1,6 +1,6 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-12 (auditoría 2 Play / Ajustes).
+Última actualización: 2026-11-12 (detalle entreno oculta menú).
 
 ## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
@@ -13,7 +13,7 @@ iOS y Android comparten el mismo contrato de producto; componentes nativos por p
 - **Android Play:** paridad sin columna ✓; menú ⋯ `DropdownMenu` anclado (editar plan / reordenar); cadena de teclado sin cerrar pad; `PlayRestFooter` (−15/+15/Saltar, tiempo m:ss) y margen inferior en scroll; CTA «Terminar entreno» al final; toolbar sin chevrons ni ✓ verde.
 - **Resumen de serie:** sin peso → «8 reps» (no «—×8»), dominio iOS+Android (`SetSummaryLine` / `LoggedSet.displaySummaryLine`).
 - **Ajustes Android:** iconos en Pro, Entrenamiento, Datos y Salud (misma pasada que iOS); scroll con margen inferior (`tabInset + 32.dp`).
-- **Android / iOS Inicio:** ▶ en tarjeta planificada arranca Play directo; **Continuar** abre Play si hay sesión de fuerza activa; tocar la tarjeta sigue abriendo vista previa.
+- **Android / iOS Inicio:** ▶ en tarjeta planificada arranca Play directo; **Continuar** abre Play si hay sesión de fuerza activa; tocar la tarjeta sigue abriendo vista previa. Detalle de entreno hecho (`WorkoutDetailView` / `historial-detalle`) y preview pendiente ocultan el menú principal (como Ajustes/Play).
 - **Ajustes:** iconos alineados en filas de Datos y Entrenamiento (iOS); secciones Cuenta, Centro, Salud, etc. conservadas.
 - **Vista previa:** título real, chips de resumen; abajo solo **Empezar** (Editar/Borrar en el menú ⋯).
 - **Inicio:** tarjetas planificadas/hechas con fondo `surface`, resumen «N ejercicios · N series» y ▶; se mantienen **Progreso semanal** y **Actividad de hoy**.

@@ -474,6 +474,8 @@ struct WorkoutDetailView: View {
             }
         }
         .ogPinnedTransparentNav(workoutNavTitle)
+        // Paridad con preview/Ajustes/Play: el menú principal baja en el detalle.
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { loadDraft() }
         .onChange(of: store.catalogEpoch) { _, _ in
             // Si llegan los alias mientras el detalle ya está abierto, usar
