@@ -1,20 +1,23 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-12 (rediseño UI gestión de entrenamientos).
+Última actualización: 2026-11-12 (detalle entreno oculta menú).
 
-## Gestión de entrenamientos — rediseño UI (12/11/2026)
+## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
-iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`Theme.swift` / `WorkoutUiComponents.kt`: chips, toast Deshacer, resumen de fin).
+iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`Theme.swift` / `WorkoutUiComponents.kt`).
 
-- **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable, paso ± configurable (kg 2,5 · reps 1 · tiempo 15 s), cabecera del pad y tecla de envío con destino («Reps →»). Corrección del foco al pulsar Siguiente (evita concatenar 60→6010).
-- **Play:** cabecera con progreso de series y volumen; ✓ por serie; descanso automático al marcar (−15 / +15 / Saltar); menú «Editar estructura»; cierre con `chevron.down`; hoja resumen antes de guardar (`OGWorkoutFinishSummarySheet`).
+- **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable (valores estructurados, no parseo de texto), paso ± y tecla «Reps →» / «Serie N →».
+- **Play:** sin ✓ por serie; lo escrito en kg/reps/RIR se persiste en `loggedSets` y se guarda al terminar tal cual. Contadores en vivo: `StatsEngine.liveWorkSetCount` / `liveVolumeKg` (iOS) y `ActiveSessionLiveStats` (Android). Descanso al avanzar de serie con el teclado (equivalente al gesto previo al ✓). **Terminar entreno** al final del último bloque (no en la barra superior). Sin flechas Anterior/Siguiente en la barra. Menú ⋯ nativo (sin submenú anidado). Hoja de fin anclada abajo, sin aviso de series pendientes.
 - **Crear/Editar y Play:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast/snackbar **Deshacer** (~4 s) al borrar serie o ejercicio (fuerza, series WOD inline/`WODMovementEditor` y Play iOS; editor Android y sesión activa Android con `WorkoutUndoSnackbarHost` + `restoreDeletedSet`/`restorePendingSet`); confirmación al **eliminar bloque** con más de un ejercicio (iOS editor y Play, Android `ConfirmDeleteMultiExerciseBlockDialog`); `DiscardChangesDialog` al salir con cambios; selector multiselección con chips musculares, Recientes y CTA flotante «Añadir N ejercicios» (`OGFloatingPrimaryCTA` / `FloatingPrimaryCta`, sin barra material). Un solo chevron **Volver** (back nativo siempre oculto; dirty → Descartar).
 - **WOD picker:** «Usar este WOD» / «Empezar ahora» como el mismo CTA flotante fijo abajo (sin caja inset).
-- **Android Play:** `CompactSetField` + `ReperaNumericKeypad` con paso ± (kg 2,5), borde en foco, cadena «Kg →» / «Reps →»; `LiveSetRows` con ✓ por serie y `PlayRestFooter` (−15/+15/Saltar); cabecera progreso; menú «Editar estructura»; `WorkoutFinishSummarySheet`.
-- **Android vista previa / Inicio:** `SessionPreviewSheet` con título real, chips y CTA flotante solo Empezar; tarjetas planificadas con fondo `surface`, resumen y ▶ directo (Progreso semanal y Actividad de hoy sin cambios).
+- **Android Play:** paridad sin columna ✓; menú ⋯ `DropdownMenu` anclado (editar plan / reordenar); cadena de teclado sin cerrar pad; `PlayRestFooter` (−15/+15/Saltar, tiempo m:ss) y margen inferior en scroll; CTA «Terminar entreno» al final; toolbar sin chevrons ni ✓ verde.
+- **Resumen de serie:** sin peso → «8 reps» (no «—×8»), dominio iOS+Android (`SetSummaryLine` / `LoggedSet.displaySummaryLine`).
+- **Ajustes Android:** iconos en Pro, Entrenamiento, Datos y Salud (misma pasada que iOS); scroll con margen inferior (`tabInset + 32.dp`).
+- **Android / iOS Inicio:** ▶ en tarjeta planificada arranca Play directo; **Continuar** abre Play si hay sesión de fuerza activa; tocar la tarjeta sigue abriendo vista previa. Detalle de entreno hecho (`WorkoutDetailView` / `historial-detalle`) y preview pendiente ocultan el menú principal (como Ajustes/Play).
+- **Ajustes:** iconos alineados en filas de Datos y Entrenamiento (iOS); secciones Cuenta, Centro, Salud, etc. conservadas.
 - **Vista previa:** título real, chips de resumen; abajo solo **Empezar** (Editar/Borrar en el menú ⋯).
 - **Inicio:** tarjetas planificadas/hechas con fondo `surface`, resumen «N ejercicios · N series» y ▶; se mantienen **Progreso semanal** y **Actividad de hoy**.
-- Contrato: `tests/test_workout_ui_redesign_contract.py`.
+- Contratos: `tests/test_workout_ui_redesign_contract.py`, `tests/test_auditoria2_play_contract.py`.
 
 ## Calorías medidas en el entreno (Watch y builder iPhone) (12/11/2026)
 

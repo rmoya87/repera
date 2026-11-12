@@ -294,7 +294,8 @@ struct RootTabView: View {
                     onOpenWorkout: openWorkout,
                     focusDay: homeFocusDay,
                     onStart: openTodayPreview,
-                    onStartRoutine: openRoutinePreview
+                    onStartRoutine: openRoutinePreview,
+                    onPlayPlannedRoutine: startPlannedRoutineFromHome
                 )
             }
 
@@ -432,10 +433,20 @@ struct RootTabView: View {
         if store.continueAccessory?.isLiveActivity == true {
             flowPath = []
             tab = .start
+        } else if store.hasActiveSession {
+            previewRoutine = nil
+            openWorkout()
         } else {
             previewRoutine = nil
             flowPath = [.sessionPreview(routineId: nil)]
         }
+    }
+
+    private func startPlannedRoutineFromHome(_ routine: Routine) {
+        store.requestExerciseCatalogRefresh()
+        store.startSession(from: routine)
+        guard store.state.activeSession != nil else { return }
+        openWorkout()
     }
 
     private func handleLivePhase(_ phase: LiveActivityRecorder.Phase) {
@@ -797,7 +808,7 @@ struct RootTabView: View {
     private func openTodayPreview() {
         if store.hasActiveSession {
             previewRoutine = nil
-            flowPath = [.sessionPreview(routineId: nil)]
+            openWorkout()
             return
         }
         if LiveActivityRecorder.shared.isActive {

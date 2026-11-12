@@ -176,6 +176,7 @@ struct BusinessProfessionalSessionDetailView: View {
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .toolbar(.hidden, for: .tabBar)
         .navigationDestination(item: $openExerciseId) { exerciseId in
             ExerciseDetailView(exerciseId: exerciseId)
         }

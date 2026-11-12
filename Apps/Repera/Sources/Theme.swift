@@ -309,7 +309,8 @@ struct OGWorkoutFinishSummarySheet: View {
             Image(systemName: "flag.checkered")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(OG.accent)
-                .padding(.top, 8)
+                .padding(.top, 4)
+                .accessibilityHidden(true)
             Text("¿Terminar entreno?")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(OG.label)
@@ -354,8 +355,9 @@ struct OGWorkoutFinishSummarySheet: View {
         }
         .padding(.horizontal, OG.pad)
         .padding(.bottom, 12)
-        .presentationDetents([.height(380)])
+        .presentationDetents([.height(320)])
         .presentationDragIndicator(.visible)
+        .presentationBackgroundInteraction(.enabled(upThrough: .height(320)))
     }
 
     private var volumeLabel: String {
@@ -395,9 +397,18 @@ struct OGPlaySessionProgressHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("\(completedSets) de \(max(totalSets, 1)) series")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(OG.label2)
+                if let startedAt {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        let elapsed = max(0, Int(Date().timeIntervalSince(startedAt)))
+                        Text("\(completedSets) de \(max(totalSets, 1)) series · \(DurationText.format(elapsed))")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(OG.label2)
+                    }
+                } else {
+                    Text("\(completedSets) de \(max(totalSets, 1)) series")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                }
                 Spacer()
                 Text(volumeTitle)
                     .font(.system(size: 14, weight: .semibold))

@@ -637,12 +637,12 @@ internal fun HomeTab(
     }
 
     val zone = remember { java.time.ZoneId.systemDefault() }
-    val es = remember { java.util.Locale.forLanguageTag("es-ES") }
-    val dayFmt = remember {
-        java.time.format.DateTimeFormatter.ofPattern("H:mm", es).withZone(zone)
+    val locale = remember { dev.repera.domain.ReperaLocale.app }
+    val dayFmt = remember(locale) {
+        java.time.format.DateTimeFormatter.ofPattern("H:mm", locale).withZone(zone)
     }
-    val dateFmt = remember {
-        java.time.format.DateTimeFormatter.ofPattern("EEEE d MMM", es).withZone(zone)
+    val dateFmt = remember(locale) {
+        java.time.format.DateTimeFormatter.ofPattern("EEEE d MMM", locale).withZone(zone)
     }
     detailOccurrence?.let { occurrence ->
         ClassDetailPage(

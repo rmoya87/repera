@@ -48,7 +48,14 @@ object SetSummaryLine {
         if (deficitCm != null) {
             return "${g(deficitCm)} cm × $reps"
         }
-        val w = weightKg?.let { g(it) } ?: "—"
+        if (weightKg == null || weightKg <= 0) {
+            var line = "$reps reps"
+            if (durationSeconds != null && durationSeconds > 0) {
+                line += " · ${clock(durationSeconds)}"
+            }
+            return line
+        }
+        val w = g(weightKg)
         var line = "$w×$reps"
         if (durationSeconds != null && durationSeconds > 0) {
             line += " · ${clock(durationSeconds)}"

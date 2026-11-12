@@ -985,6 +985,9 @@ final class ReperaStore: NSObject {
             started.appleHealthProvenance = "watchHealthKitPending"
         }
         state.activeSession = started
+        if !restCoordinator.isActive {
+            RestLocalNotifier.cancelAll()
+        }
         persist()
         pushActiveToWatch(immediate: true)
         if preferWatch {
@@ -1793,9 +1796,8 @@ final class ReperaStore: NSObject {
         mutateActive { $0.selectExercise(at: index) }
     }
 
-    /// Persiste el borrador de Play: `plannedSets` guarda también series
-    /// editadas aún no marcadas; `performedSets` (si viene) son solo las
-    /// confirmadas (`loggedSets`), sin inventar resultados ficticios.
+    /// Persiste el borrador de Play: `plannedSets` y valores visibles en
+    /// `loggedSets` tal como los dejó el usuario (sin checks en UI).
     func updateActiveExerciseDraft(
         id: UUID, plannedSets: [PlannedSet], quantityUnit: ExerciseQuantityUnit?,
         performedSets: [LoggedSet]? = nil,

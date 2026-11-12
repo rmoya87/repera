@@ -89,24 +89,24 @@ internal fun ActiveWorkoutScreen(
     var playReorderBlocks by remember { mutableStateOf<SnapshotStateList<BlockDraftUi>?>(null) }
     var playReorderError by remember { mutableStateOf<String?>(null) }
     var showFinishSummary by remember(workout.id) { mutableStateOf(false) }
-    var showEditStructureMenu by remember { mutableStateOf(false) }
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     val hasMoreExercises = workout.index + 1 < workout.total
     val inlineTitle = workout.title.ifBlank { "Entreno" }
 
-    val completedSets = workout.navigationEntries.count { it.completed }
-    val totalSets = workout.navigationEntries.size.coerceAtLeast(1)
-    val volumeKg = workout.sets.sumOf { (it.weightKg ?: 0.0) * it.reps }
+    val completedSets = workout.sessionLiveSetCount
+    val totalSets = workout.sessionPlannedSetCount
+    val volumeKg = workout.sessionLiveVolumeKg
+    val elapsedSeconds = workout.sessionStartedAtEpochMillis?.let { started ->
+        ((System.currentTimeMillis() - started) / 1000).toInt().coerceAtLeast(0)
+    } ?: 0
     WorkoutFinishSummarySheet(
         visible = showFinishSummary,
         title = inlineTitle,
-        elapsedMinutes = (workout.sets.size * 2).coerceAtLeast(1),
+        elapsedSeconds = elapsedSeconds,
         completedSets = completedSets,
         totalSets = totalSets,
         volumeKg = volumeKg,
-        warning = if (completedSets < totalSets) {
-            "Algunos ejercicios tienen series sin marcar. Solo se guardarán las series hechas."
-        } else null,
+        warning = null,
         onDismiss = { showFinishSummary = false },
         onSave = {
             showFinishSummary = false
@@ -281,7 +281,7 @@ internal fun ActiveWorkoutScreen(
     Box(Modifier.fillMaxSize()) {
     CompositionLocalProvider(LocalRemovePendingSet provides removePendingWithUndo) {
     LazyColumn(Modifier.fillMaxSize().testTag("active_workout_screen"),
-        contentPadding=reperaScrollContentPadding(extraBottom = 16.dp),
+        contentPadding=reperaScrollContentPadding(extraBottom = 96.dp),
         verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item {
             ActiveWorkoutToolbar(
@@ -294,7 +294,10 @@ internal fun ActiveWorkoutScreen(
                 onPrevious = { onSelectExercise(workout.index - 1) },
                 onNext = { onSelectExercise(workout.index + 1) },
                 onFinish = { showFinishSummary = true },
-                onEditStructure = { showEditStructureMenu = true },
+                showExerciseNav = false,
+                showFinishInToolbar = false,
+                onEditPlan = onEditPlan,
+                onReorderStructure = { beginPlayReorder() },
                 startedLabel = workout.sets.firstOrNull()?.let { "En curso" }
             )
         }
@@ -303,6 +306,7 @@ internal fun ActiveWorkoutScreen(
                 completedSets = completedSets,
                 totalSets = totalSets,
                 volumeKg = volumeKg,
+                elapsedSeconds = elapsedSeconds,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
@@ -480,31 +484,21 @@ internal fun ActiveWorkoutScreen(
                 catalog = catalog
             )
         }
-    }
-    if (showEditStructureMenu) {
-        ReperaModalBottomSheet(onDismissRequest = { showEditStructureMenu = false }) {
-            Column(
-                Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+        item(key = "play-finish-cta") {
+            Button(
+                onClick = { showFinishSummary = true },
+                enabled = !busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .testTag("play_finish_button"),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = brandGreen,
+                    contentColor = Color.Black
+                )
             ) {
-                Text(
-                    "Editar estructura",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = {
-                    showEditStructureMenu = false
-                    onEditPlan()
-                }) { Text("Editar plan") }
-                TextButton(onClick = {
-                    showEditStructureMenu = false
-                    beginPlayReorder()
-                }) { Text("Reordenar") }
-                Text(
-                    "Añadir bloque, WOD y pizarra están al final del scroll.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Terminar entreno", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -690,9 +684,13 @@ private fun ActiveWorkoutToolbar(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
-    onEditStructure: () -> Unit,
+    onEditPlan: () -> Unit,
+    onReorderStructure: () -> Unit,
     startedLabel: String? = null,
+    showExerciseNav: Boolean = true,
+    showFinishInToolbar: Boolean = true,
 ) {
+    var structureMenuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -727,14 +725,37 @@ private fun ActiveWorkoutToolbar(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ReperaToolbarGlassIconButton(
-            icon = Icons.Outlined.MoreVert,
-            contentDescription = "Editar estructura",
-            onClick = onEditStructure,
-            enabled = !busy,
-            modifier = Modifier.testTag("active_edit_structure")
-        )
-        if (index > 0) {
+        Box {
+            ReperaToolbarGlassIconButton(
+                icon = Icons.Outlined.MoreVert,
+                contentDescription = "Editar estructura",
+                onClick = { structureMenuOpen = true },
+                enabled = !busy,
+                modifier = Modifier.testTag("active_edit_structure")
+            )
+            DropdownMenu(
+                expanded = structureMenuOpen,
+                onDismissRequest = { structureMenuOpen = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Editar plan") },
+                    leadingIcon = { Icon(Icons.Outlined.ViewAgenda, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onEditPlan()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Reordenar") },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.List, contentDescription = null) },
+                    onClick = {
+                        structureMenuOpen = false
+                        onReorderStructure()
+                    },
+                )
+            }
+        }
+        if (showExerciseNav && index > 0) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
                 contentDescription = "Ejercicio anterior",
@@ -743,7 +764,7 @@ private fun ActiveWorkoutToolbar(
                 modifier = Modifier.testTag("active_previous")
             )
         }
-        if (hasMoreExercises) {
+        if (showExerciseNav && hasMoreExercises) {
             ReperaToolbarGlassIconButton(
                 icon = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = "Ejercicio siguiente",
@@ -752,27 +773,28 @@ private fun ActiveWorkoutToolbar(
                 modifier = Modifier.testTag("active_navigate_next")
             )
         }
-        // ✓ siempre visible → resumen con Guardar / Descartar.
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .testTag("active_toolbar_finish"),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.material3.Surface(
-                onClick = onFinish,
-                enabled = !busy,
-                shape = CircleShape,
-                color = brandGreen,
-                modifier = Modifier.size(44.dp)
+        if (showFinishInToolbar) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag("active_toolbar_finish"),
+                contentAlignment = Alignment.Center
             ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.Check,
-                        contentDescription = "Terminar entreno",
-                        tint = Color.Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                androidx.compose.material3.Surface(
+                    onClick = onFinish,
+                    enabled = !busy,
+                    shape = CircleShape,
+                    color = brandGreen,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Terminar entreno",
+                            tint = Color.Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

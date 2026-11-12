@@ -197,6 +197,9 @@ internal fun reperaRouteKeepsTabBar(route: String?): Boolean {
         route.startsWith("rutina-nueva") -> false
         route.startsWith("rutina/") -> false
         route.startsWith("historial-editar") -> false
+        // Detalle hecho / preview pendiente: sin menú (paridad iOS WorkoutDetailView).
+        route.startsWith("historial-detalle") -> false
+        route.startsWith("preview/") -> false
         route == "entreno-activo" || route == "entreno-activo-editar" ||
             route == "entreno-libre" || route == "favorito-nuevo" -> false
         route.startsWith("ejercicio") -> true

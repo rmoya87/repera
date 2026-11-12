@@ -59,7 +59,10 @@ internal object LiveRowEdit {
   }
   return out
  }
- fun toDraftRows(rows:List<LiveRowSummary>)=rows.map {ActiveSessionDraft.Row(it.id,it.reps,it.weightKg,it.deficitCm,it.durationSeconds,it.rir,it.completed)}
+ /** Guarda todo lo escrito con reps > 0; el check de UI ya no marca series. */
+ fun toDraftRows(rows:List<LiveRowSummary>)=rows.filter { it.reps > 0 }.map {
+  ActiveSessionDraft.Row(it.id, it.reps, it.weightKg, it.deficitCm, it.durationSeconds, it.rir, completed = true)
+ }
 }
 
 /**
@@ -101,6 +104,9 @@ internal fun CompactSetField(
     submitTitle: String? = null,
     previousLabel: String? = null,
     onSubmitAdvance: (() -> Unit)? = null,
+    /** Si true, «Siguiente» / «Reps →» no cierra el teclado (cadena de foco). */
+    keepKeypadOpenOnAdvance: Boolean = onSubmitAdvance != null,
+    forceKeypadOpen: Boolean = false,
 ) {
     val shape = RoundedCornerShape(10.dp)
     val borderMod = if (focused) {
@@ -109,6 +115,12 @@ internal fun CompactSetField(
     if (useReperaKeypad) {
         var showPad by remember { mutableStateOf(false) }
         var draft by remember { mutableStateOf(value) }
+        LaunchedEffect(forceKeypadOpen) {
+            if (forceKeypadOpen) {
+                draft = value
+                showPad = true
+            }
+        }
         val shown = if (showPad) draft else value
         Box(
             modifier = modifier
@@ -154,8 +166,9 @@ internal fun CompactSetField(
                 previousLabel = previousLabel,
                 onSubmitAdvance = {
                     onSubmitAdvance?.invoke()
-                    showPad = false
+                    if (!keepKeypadOpenOnAdvance) showPad = false
                 },
+                dismissKeepsPadOpen = keepKeypadOpenOnAdvance,
             )
         }
     } else {
@@ -214,17 +227,18 @@ internal fun LiveSetRows(
   if(merged!=rows.toList()) {rows.clear();rows.addAll(merged)}
  }
  val persist=LocalPersistLiveRows.current
- var focusedRow by remember(key) { mutableStateOf(rows.indexOfFirst { !it.completed }.coerceAtLeast(0)) }
+ var focusedRow by remember(key) { mutableStateOf(0) }
  var focusedCol by remember(key) { mutableStateOf(if (active.allowsWeight) 0 else 1) }
+ var keypadCellKey by remember(key) { mutableStateOf<Pair<Int, Int>?>(null) }
+ LaunchedEffect(focusedRow, focusedCol) {
+  keypadCellKey = focusedRow to focusedCol
+ }
  fun touch() {edited=true}
- fun toggleCompleted(i: Int) {
-  val wasDone = rows[i].completed
-  rows[i] = rows[i].copy(completed = !wasDone)
-  if (!wasDone) {
+ fun maybeStartRest(i: Int) {
+  if (rows.getOrNull(i)?.reps?.let { it > 0 } == true) {
    playSetCompleteHaptic(context)
    onSetCompleted?.invoke(i)
   }
-  touch()
  }
  // Hand the newest rows over at once; the activity keeps them in memory and saves them (debounced or before any other action).
  LaunchedEffect(key,rows.toList(),unit,edited) {
@@ -276,7 +290,6 @@ internal fun LiveSetRows(
      modifier = Modifier.weight(0.7f),
      textAlign = TextAlign.Center)
    }
-   Text("✓", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {
@@ -291,9 +304,9 @@ internal fun LiveSetRows(
     ) {
      SetRowIndexBadge(
          index = i + 1,
-         completed = row.completed,
+         completed = false,
          isCurrent = isCurrent,
-         onToggleComplete = { toggleCompleted(i) },
+         onToggleComplete = null,
          modifier = Modifier.testTag("set_badge_${i + 1}")
      )
      val prevLabel = when {
@@ -314,6 +327,7 @@ internal fun LiveSetRows(
       },
       modifier = Modifier.weight(1f)
      )
+     val openRepsPad = keypadCellKey == (i to 1)
      CompactSetField(
       value = row.reps.toString(),
       onValueChange = { v ->
@@ -334,10 +348,15 @@ internal fun LiveSetRows(
        else -> "Reps"
       },
       focused = isCurrent && focusedCol == 1,
+      forceKeypadOpen = openRepsPad,
       keypadStep = 1.0,
       submitTitle = if (active.allowsWeight) "Kg →" else null,
       previousLabel = prevLabel.takeIf { it != "—" },
-      onSubmitAdvance = if (active.allowsWeight) { { focusedCol = 0 } } else null,
+      onSubmitAdvance = if (active.allowsWeight) {
+       { focusedCol = 0 }
+      } else {
+       { maybeStartRest(i) }
+      },
      )
      if (active.durationInput) {
       CompactSetField(
@@ -352,16 +371,6 @@ internal fun LiveSetRows(
        }
       }
      }
-     Icon(
-      Icons.Outlined.Check,
-      contentDescription = "Marcar serie",
-      tint = if (row.completed) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier
-       .size(40.dp)
-       .clip(CircleShape)
-       .clickable { toggleCompleted(i) }
-       .padding(8.dp)
-     )
     }
     // Peso / déficit en la misma densidad iOS (sin «Quitar serie» por fila).
     if (active.allowsDeficit || active.allowsWeight) {
@@ -375,6 +384,7 @@ internal fun LiveSetRows(
         modifier = Modifier.weight(1f)
        )
       } else if (active.allowsWeight) {
+       val openKgPad = keypadCellKey == (i to 0)
        CompactSetField(
         value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
         onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
@@ -384,9 +394,13 @@ internal fun LiveSetRows(
         allowsDecimal = true,
         fieldLabel = "Kg",
         focused = isCurrent && focusedCol == 0,
+        forceKeypadOpen = openKgPad,
         keypadStep = 2.5,
         submitTitle = "Reps →",
-        onSubmitAdvance = { focusedCol = 1 },
+        onSubmitAdvance = {
+         focusedCol = 1
+         maybeStartRest(i)
+        },
        )
       }
      }

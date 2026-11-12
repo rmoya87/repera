@@ -996,7 +996,14 @@ public struct LoggedSet: Identifiable, Codable, Sendable, Hashable {
         if let deficit = deficitCm {
             return "\(deficit) cm × \(reps)"
         }
-        let w = weightKg.map { ReperaNumberFormat.decimal($0) } ?? "—"
+        if weightKg == nil || weightKg == 0 {
+            var line = "\(reps) reps"
+            if let sec = durationSeconds, sec > 0 {
+                line += " · \(Self.formatClock(sec))"
+            }
+            return line
+        }
+        let w = ReperaNumberFormat.decimal(weightKg!)
         var line = "\(w)×\(reps)"
         if let sec = durationSeconds, sec > 0 {
             line += " · \(Self.formatClock(sec))"

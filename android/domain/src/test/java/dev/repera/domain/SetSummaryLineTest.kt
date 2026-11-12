@@ -8,7 +8,7 @@ class SetSummaryLineTest {
     @Test fun weightTimesRepsIsTheStrengthShape() {
         assertEquals("50×8", SetSummaryLine.displayLine(reps = 8, weightKg = 50.0))
         assertEquals("22,5×5", SetSummaryLine.displayLine(reps = 5, weightKg = 22.5))
-        assertEquals("—×12", SetSummaryLine.displayLine(reps = 12))
+        assertEquals("12 reps", SetSummaryLine.displayLine(reps = 12))
     }
 
     @Test fun nonRepUnitsLeadWithUnitAndOptionalClock() {

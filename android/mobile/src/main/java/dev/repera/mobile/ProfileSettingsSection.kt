@@ -115,7 +115,8 @@ import kotlinx.coroutines.withContext
     enabled: Boolean = true,
     destructive: Boolean = false,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
 ) {
     TextButton(
         onClick = onClick,
@@ -123,16 +124,34 @@ import kotlinx.coroutines.withContext
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(
-            text,
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.bodyLarge,
-            color = when {
-                !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                destructive -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.primary
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            leadingIcon?.let {
+                Icon(
+                    it,
+                    contentDescription = null,
+                    tint = when {
+                        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        destructive -> MaterialTheme.colorScheme.error
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(22.dp)
+                )
             }
-        )
+            Text(
+                text,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = when {
+                    !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    destructive -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                }
+            )
+        }
     }
 }
 

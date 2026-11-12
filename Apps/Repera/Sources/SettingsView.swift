@@ -989,22 +989,28 @@ private struct SettingsTrainingSection: View {
 
     var body: some View {
         Section("Entrenamiento") {
-            Picker("Género", selection: competitionSexBinding) {
+            Picker(selection: competitionSexBinding) {
                 Text("Sin indicar").tag(nil as StrengthBenchmarkSex?)
                 Text("Femenino").tag(StrengthBenchmarkSex.female as StrengthBenchmarkSex?)
                 Text("Masculino").tag(StrengthBenchmarkSex.male as StrengthBenchmarkSex?)
+            } label: {
+                Label("Género", systemImage: "person")
             }
             .pickerStyle(.menu)
-            Picker("Nivel", selection: strengthFrameBinding) {
+            Picker(selection: strengthFrameBinding) {
                 Text("Amateur").tag(StrengthReferenceFrame.amateur)
                 Text("Élite").tag(StrengthReferenceFrame.elite)
+            } label: {
+                Label("Nivel", systemImage: "chart.bar")
             }
             .pickerStyle(.menu)
-            Picker("Año de nacimiento", selection: birthYearBinding) {
+            Picker(selection: birthYearBinding) {
                 Text("Sin indicar").tag(nil as Int?)
                 ForEach(((Calendar.current.component(.year, from: Date()) - 100)...Calendar.current.component(.year, from: Date())).reversed(), id: \.self) { year in
                     Text(String(year)).tag(year as Int?)
                 }
+            } label: {
+                Label("Año de nacimiento", systemImage: "calendar")
             }
             Stepper(value: heartRateBinding, in: 120...230, step: 1) {
                 HStack(spacing: 10) {
@@ -1021,18 +1027,24 @@ private struct SettingsTrainingSection: View {
                 Label("Historial", systemImage: "clock")
                     .foregroundStyle(OG.label)
             }
-            Picker("Unidad", selection: weightUnitBinding) {
+            Picker(selection: weightUnitBinding) {
                 Text("kg").tag(WeightUnit.kg)
                 Text("lb").tag(WeightUnit.lb)
+            } label: {
+                Label("Unidad", systemImage: "scalemass")
             }
-            Picker("Semana empieza", selection: weekStartBinding) {
+            Picker(selection: weekStartBinding) {
                 Text("Lunes").tag(WeekStart.monday)
                 Text("Domingo").tag(WeekStart.sunday)
+            } label: {
+                Label("Semana empieza", systemImage: "calendar.badge.clock")
             }
-            Picker("Esfuerzo (registro)", selection: effortUnitBinding) {
+            Picker(selection: effortUnitBinding) {
                 ForEach(EffortUnit.allCases, id: \.self) { unit in
                     Text(unit.displayName).tag(unit)
                 }
+            } label: {
+                Label("Esfuerzo (registro)", systemImage: "waveform.path.ecg")
             }
         }
     }
@@ -1117,9 +1129,15 @@ private struct SettingsDataSection: View {
 
     var body: some View {
         Section {
-            Button("Exportar JSON", action: onExportBackup)
-            Button("Importar JSON") { showingImporter = true }
-            Button("Importar CSV Strong/Hevy") { showingCSVImporter = true }
+            Button(action: onExportBackup) {
+                Label("Exportar JSON", systemImage: "square.and.arrow.up")
+            }
+            Button { showingImporter = true } label: {
+                Label("Importar JSON", systemImage: "square.and.arrow.down")
+            }
+            Button { showingCSVImporter = true } label: {
+                Label("Importar CSV Strong/Hevy", systemImage: "tablecells")
+            }
             if let summary = store.lastImportSummary {
                 Text(summary)
                     .font(.caption)
@@ -1130,8 +1148,10 @@ private struct SettingsDataSection: View {
                     .font(.footnote)
                     .foregroundStyle(OG.label2)
             }
-            Button("Eliminar mi cuenta", role: .destructive) {
+            Button(role: .destructive) {
                 confirmDeleteAccount = true
+            } label: {
+                Label("Eliminar mi cuenta", systemImage: "trash")
             }
             .disabled(isDeletingAccount)
         } header: {
@@ -1208,8 +1228,10 @@ private struct SettingsMembershipRows: View {
             Image(systemName: "checkmark.seal.fill")
                 .foregroundStyle(OG.label)
         }
-        Button("Gestionar suscripción") {
+        Button {
             openURL(CommercialConfig.manageSubscriptionsURL)
+        } label: {
+            Label("Gestionar suscripción", systemImage: "person.crop.circle")
         }
         .foregroundStyle(OG.label)
     }
@@ -1228,8 +1250,10 @@ private struct SettingsMembershipRows: View {
             Image(systemName: "lock.fill")
                 .foregroundStyle(OG.label)
         }
-        Button("Descubrir Pro") {
+        Button {
             subscriptions.presentPaywall(.settings, feature: .advancedProgress)
+        } label: {
+            Label("Descubrir Pro", systemImage: "sparkles")
         }
         .fontWeight(.semibold)
         .foregroundStyle(OG.label)

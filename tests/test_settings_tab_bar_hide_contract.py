@@ -21,12 +21,20 @@ class SettingsTabBarHideContractTests(unittest.TestCase):
         self.assertIn(".toolbar(.hidden, for: .tabBar)", IOS_AI)
         self.assertNotIn("Exercise data by RepDB", IOS_SETTINGS)
 
+    def test_ios_workout_detail_and_preview_hide_tab_bar(self):
+        detail = (ROOT / "Apps/Repera/Sources/HistoryView.swift").read_text(encoding="utf-8")
+        preview = (ROOT / "Apps/Repera/Sources/SessionPreviewView.swift").read_text(encoding="utf-8")
+        self.assertIn(".toolbar(.hidden, for: .tabBar)", detail)
+        self.assertIn(".toolbar(.hidden, for: .tabBar)", preview)
+
     def test_android_settings_routes_hide_tab_bar_with_slide(self):
         keeps = ANDROID_TABS.split(
             "internal fun reperaRouteKeepsTabBar(route: String?): Boolean", 1
         )[1].split("internal val REPERA_TAB_BAR_MAX_WIDTH", 1)[0]
         self.assertIn('route == "ajustes" || route.startsWith("ajustes-") -> false', keeps)
         self.assertIn('route == "acceso-ia" || route == "programas-ia" -> false', keeps)
+        self.assertIn('route.startsWith("historial-detalle") -> false', keeps)
+        self.assertIn('route.startsWith("preview/") -> false', keeps)
         self.assertNotIn('route == "ajustes" -> true', keeps)
         self.assertIn("slideOutVertically", ANDROID_TABS)
         self.assertNotIn("Exercise data by RepDB", ANDROID_SETTINGS)

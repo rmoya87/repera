@@ -165,10 +165,18 @@ fun ReperaNumericKeypadSheet(
     submitTitle: String? = null,
     previousLabel: String? = null,
     onSubmitAdvance: (() -> Unit)? = null,
+    /** Tap fuera: si true y hay cadena, solo commit (el pad se reabre en la celda destino). */
+    dismissKeepsPadOpen: Boolean = false,
 ) {
     Dialog(
         onDismissRequest = {
-            if (showDraftPreview) onDismiss() else onCommit(draft)
+            if (dismissKeepsPadOpen) {
+                onCommit(draft)
+            } else if (showDraftPreview) {
+                onDismiss()
+            } else {
+                onCommit(draft)
+            }
         },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
@@ -193,7 +201,8 @@ fun ReperaNumericKeypadSheet(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = {
-                            if (showDraftPreview) onDismiss() else onCommit(draft)
+                            if (dismissKeepsPadOpen) onCommit(draft)
+                            else if (showDraftPreview) onDismiss() else onCommit(draft)
                         }
                     )
             )
@@ -276,8 +285,14 @@ fun ReperaNumericKeypadSheet(
                     onDismiss = { onCommit(draft); onDismiss() },
                     onSubmit = {
                         onCommit(draft)
-                        onSubmitAdvance?.invoke()
-                    }
+                        val advance = onSubmitAdvance
+                        if (advance != null) {
+                            advance()
+                            if (!dismissKeepsPadOpen) onDismiss()
+                        } else {
+                            onDismiss()
+                        }
+                    },
                 )
                 // Continúa el color del teclado bajo la barra de gestos.
                 Box(

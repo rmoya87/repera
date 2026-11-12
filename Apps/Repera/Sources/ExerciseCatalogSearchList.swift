@@ -123,11 +123,7 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
             }
         }
         .animation(nil, value: rowIDsToken)
-        .searchable(
-            text: $query,
-            placement: isMultiple ? .automatic : .navigationBarDrawer(displayMode: .always),
-            prompt: prompt
-        )
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: prompt)
         .task(id: catalogToken) {
             await rebuildIndex()
         }
