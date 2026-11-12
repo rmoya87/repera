@@ -1827,7 +1827,9 @@ struct WorkoutView: View {
                 format: format,
                 existing: existing,
                 suggestedElapsedSeconds: suggested,
-                wodTemplateId: templateID
+                wodTemplateId: templateID,
+                resultMetric: session.routineBlocks?
+                    .first(where: { $0.id == block.id })?.structure?.resultMetric
             ) { result in
                 store.applyWODResult(result)
                 if pendingWODConfirm?.blockId == block.id {
@@ -3190,18 +3192,21 @@ struct WODResultInlineEditor: View {
     let existing: WODBlockResult?
     let suggestedElapsedSeconds: Int?
     let wodTemplateId: String?
+    let resultMetric: WorkoutResultMetric?
     let onSave: (WODBlockResult) -> Void
 
     @State private var roundsText: String
     @State private var repsText: String
     @State private var timeText: String
+    @State private var metricText: String
+    @State private var scoreMetric: WorkoutResultMetric
     @State private var hasEditedResult = false
     /// 0 unknown, 1 RX, 2 scaled. A legacy result never defaults to RX.
     @State private var rxSelection: Int
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case rounds, reps, time
+        case rounds, reps, time, metric
     }
 
     init(
@@ -3210,6 +3215,7 @@ struct WODResultInlineEditor: View {
         existing: WODBlockResult?,
         suggestedElapsedSeconds: Int? = nil,
         wodTemplateId: String? = nil,
+        resultMetric: WorkoutResultMetric? = nil,
         onSave: @escaping (WODBlockResult) -> Void
     ) {
         self.blockId = blockId
@@ -3217,6 +3223,9 @@ struct WODResultInlineEditor: View {
         self.existing = existing
         self.suggestedElapsedSeconds = suggestedElapsedSeconds
         self.wodTemplateId = wodTemplateId
+        self.resultMetric = resultMetric
+        _scoreMetric = State(initialValue: existing?.measuredMetric ?? resultMetric ?? .totalReps)
+        _metricText = State(initialValue: existing?.measuredValue.map(String.init) ?? "")
         self.onSave = onSave
         _rxSelection = State(initialValue: existing?.isRx.map { $0 ? 1 : 2 } ?? 0)
         _roundsText = State(initialValue: String(existing?.roundsCompleted ?? 0))
@@ -3228,7 +3237,21 @@ struct WODResultInlineEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if format.resultCapture == .totalReps {
+            if format == .maxEffort {
+                Picker("Tipo de marca", selection: $scoreMetric) {
+                    Text("Reps").tag(WorkoutResultMetric.totalReps)
+                    Text("Carga (kg)").tag(WorkoutResultMetric.loadKg)
+                    Text("Calorías").tag(WorkoutResultMetric.calories)
+                    Text("Distancia").tag(WorkoutResultMetric.distanceMeters)
+                    Text("Tiempo").tag(WorkoutResultMetric.elapsedSeconds)
+                }
+                .pickerStyle(.menu)
+            }
+            if isMeasuredMaxEffort {
+                numericField(metricLabel, text: $metricText, field: .metric)
+            } else if format == .maxEffort && scoreMetric == .elapsedSeconds {
+                numericField("Tiempo · m:ss", text: $timeText, field: .time)
+            } else if format.resultCapture == .totalReps {
                 if format == .amrap || format == .deathBy {
                     HStack(spacing: 10) {
                         numericField("Rondas completas", text: $roundsText, field: .rounds)
@@ -3253,7 +3276,9 @@ struct WODResultInlineEditor: View {
         .onChange(of: roundsText) { _, _ in hasEditedResult = true }
         .onChange(of: repsText) { _, _ in hasEditedResult = true }
         .onChange(of: timeText) { _, _ in hasEditedResult = true }
-        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(rxSelection)") {
+        .onChange(of: metricText) { _, _ in hasEditedResult = true }
+        .onChange(of: scoreMetric) { _, _ in hasEditedResult = true }
+        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(metricText)|\(scoreMetric.rawValue)|\(rxSelection)") {
             guard hasEditedResult else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
@@ -3281,14 +3306,18 @@ struct WODResultInlineEditor: View {
         onSave(WODBlockResult(
             id: blockId,
             format: format,
-            totalReps: format.resultCapture == .totalReps
+            totalReps: format.resultCapture == .totalReps && !isMeasuredMaxEffort &&
+                !(format == .maxEffort && scoreMetric == .elapsedSeconds)
                 ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-            elapsedSeconds: format.resultCapture == .elapsedTime
+            elapsedSeconds: format.resultCapture == .elapsedTime ||
+                (format == .maxEffort && scoreMetric == .elapsedSeconds)
                 ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
             roundsCompleted: format == .amrap || format == .deathBy
                 ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
             wodTemplateId: wodTemplateId ?? existing?.wodTemplateId,
-            isRx: rxSelection == 0 ? nil : (rxSelection == 1)
+            isRx: rxSelection == 0 ? nil : (rxSelection == 1),
+            measuredValue: isMeasuredMaxEffort ? parsedMeasurement : nil,
+            measuredMetric: isMeasuredMaxEffort ? scoreMetric : nil
         ))
     }
 
@@ -3304,7 +3333,8 @@ struct WODResultInlineEditor: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             TextField("0", text: text)
-                .keyboardType(field == .time ? .numbersAndPunctuation : .numberPad)
+                .keyboardType(field == .time ? .numbersAndPunctuation :
+                    field == .metric ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 21, weight: .medium).monospacedDigit())
                 .foregroundStyle(OG.label)
@@ -3316,7 +3346,32 @@ struct WODResultInlineEditor: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var isMeasuredMaxEffort: Bool {
+        format == .maxEffort && [.loadKg, .calories, .distanceMeters].contains(scoreMetric)
+    }
+
+    private var metricLabel: String {
+        switch scoreMetric {
+        case .loadKg: return "Carga máxima (kg)"
+        case .calories: return "Calorías máximas"
+        case .distanceMeters: return "Distancia (m)"
+        default: return "Marca"
+        }
+    }
+
+    private var parsedMeasurement: Double? {
+        Double(metricText.replacingOccurrences(of: ",", with: "."))
+    }
+
     private var canSave: Bool {
+        if isMeasuredMaxEffort {
+            guard let value = parsedMeasurement, value.isFinite else { return false }
+            return value > 0 && value <= 50_000
+        }
+        if format == .maxEffort && scoreMetric == .elapsedSeconds {
+            guard let seconds = DurationText.parse(timeText) else { return false }
+            return seconds > 0 && seconds <= 180 * 60
+        }
         switch format.resultCapture {
         case .totalReps:
             let reps = Int(repsText) ?? 0
