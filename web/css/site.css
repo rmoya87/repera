@@ -2196,19 +2196,19 @@ body.cookie-open {
   min-height: 280px;
 }
 
-.pace-map svg {
+.pace-map svg,
+.pace-map > img {
   width: 100%;
   height: auto;
   display: block;
 }
 
 .pace-map .pace-legend {
-  position: absolute;
-  left: 1rem;
-  bottom: 1rem;
   display: flex;
+  justify-content: center;
   gap: 0.65rem;
   flex-wrap: wrap;
+  margin: 0.75rem 0 0;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.04em;

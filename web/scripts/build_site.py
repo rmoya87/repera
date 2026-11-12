@@ -832,7 +832,7 @@ def footer_html() -> str:
       <button type="button" class="btn btn-primary" data-cookie-save>Guardar</button>
     </div>
   </div>
-  <script src="/js/site.js?v=20261112-fix1" defer></script>"""
+  <script src="/js/site.js?v=20261112-fix3" defer></script>"""
 
 
 def head_html(*, title: str, description: str, canonical: str, og_image: str, json_ld=None) -> str:
@@ -886,7 +886,7 @@ def head_html(*, title: str, description: str, canonical: str, og_image: str, js
   <meta name="twitter:title" content="{esc(title)}">
   <meta name="twitter:description" content="{esc(description)}">
   <meta name="twitter:image" content="{esc(og_image)}">
-    <link rel="stylesheet" href="/css/site.css?v=20261112-fix1">
+    <link rel="stylesheet" href="/css/site.css?v=20261112-fix3">
 {consent_boot}{ld}
 </head>
 <body>

@@ -22,48 +22,29 @@ from build_site import (  # noqa: E402
 )
 
 
-def pace_map_html(grad_id: str = "paceGrad") -> str:
-    """Illustrative map with a multi-segment pace-colored route."""
-    return f"""<div class="pace-map pace-map--hero" role="img" aria-label="Mapa ilustrativo con recorrido coloreado por ritmo">
+def pace_map_html() -> str:
+    """Mapa de ejemplo (Casa de Campo, Madrid) con recorrido coloreado por ritmo.
+
+    Imagen generada por scripts/make_map_example.py a partir de teselas OSM.
+    """
+    return """<div class="pace-map pace-map--hero" role="img" aria-label="Mapa de ejemplo de la Casa de Campo, Madrid, con recorrido coloreado por ritmo">
   <div class="pace-hud" aria-hidden="true">
     <span><strong>8,42</strong> km</span>
     <span><strong>4:52</strong> /km</span>
     <span class="pace-hud-zone">Z3</span>
     <span><strong>+186</strong> m</span>
   </div>
-  <svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="{grad_id}" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#30d158"/>
-        <stop offset="35%" stop-color="#a0e548"/>
-        <stop offset="65%" stop-color="#ffd60a"/>
-        <stop offset="100%" stop-color="#ff453a"/>
-      </linearGradient>
-      <filter id="{grad_id}Glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="3" result="b"/>
-        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <g opacity="0.22" stroke="#5a6a5e" stroke-width="1" fill="none">
-      <path d="M30 50h580v260H30z"/>
-      <path d="M30 115h580M30 180h580M30 245h580M175 50v260M320 50v260M465 50v260"/>
-      <path d="M80 300 C 160 220, 200 140, 280 160 S 360 240, 420 200 S 500 90, 580 80" stroke-dasharray="4 6"/>
-    </g>
-    <path class="route-draw" d="M70 270 C 130 250, 160 210, 200 175 S 270 115, 320 135 S 390 215, 440 195 S 510 115, 570 95" fill="none" stroke="url(#{grad_id})" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#{grad_id}Glow)"/>
-    <path d="M70 270 C 130 250, 160 210, 200 175" fill="none" stroke="#30d158" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-    <path d="M200 175 S 270 115, 320 135" fill="none" stroke="#a0e548" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-    <path d="M320 135 S 390 215, 440 195" fill="none" stroke="#ffd60a" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-    <path d="M440 195 S 510 115, 570 95" fill="none" stroke="#ff453a" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
-    <circle cx="70" cy="270" r="8" fill="#30d158"/><circle cx="70" cy="270" r="14" fill="none" stroke="#30d158" stroke-opacity="0.35"/>
-    <circle cx="570" cy="95" r="8" fill="#ff453a"/><circle cx="570" cy="95" r="14" fill="none" stroke="#ff453a" stroke-opacity="0.35"/>
-  </svg>
+  <img src="/assets/map-madrid-casa-de-campo-640.webp"
+       srcset="/assets/map-madrid-casa-de-campo-640.webp 640w, /assets/map-madrid-casa-de-campo-1280.webp 1280w"
+       sizes="(max-width: 640px) 100vw, 640px"
+       width="640" height="360" loading="lazy" decoding="async" alt="">
   <div class="pace-legend">
     <span><i style="background:#30d158"></i> Suave</span>
     <span><i style="background:#a0e548"></i> Firme</span>
     <span><i style="background:#ffd60a"></i> Medio</span>
     <span><i style="background:#ff453a"></i> Rápido</span>
   </div>
-  <p class="pace-map-tag">Mapa de ejemplo ilustrativo; no es una salida real.</p>
+  <p class="pace-map-tag">Mapa de ejemplo (Casa de Campo, Madrid); no es una salida real. Datos del mapa: © OpenStreetMap contributors</p>
 </div>"""
 
 
@@ -357,7 +338,7 @@ def main() -> None:
           <p class="lede">Ruta coloreada por ritmo, zonas de pulso y avisos por kilómetro. <a href="/outdoor">Más sobre Outdoor →</a></p>
         </div>
         <div data-reveal>
-{pace_map_html("paceGradFeat")}
+{pace_map_html()}
         </div>
       </div>
     </section>
@@ -451,7 +432,7 @@ def main() -> None:
           </div>
         </div>
         <div>
-{pace_map_html("paceGradOut")}
+{pace_map_html()}
         </div>
       </div>
     </section>
