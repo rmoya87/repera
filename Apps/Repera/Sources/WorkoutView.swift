@@ -1849,10 +1849,14 @@ struct WorkoutView: View {
                 suggestedElapsedSeconds: suggested,
                 wodTemplateId: templateID,
                 resultMetric: session.routineBlocks?
-                    .first(where: { $0.id == block.id })?.structure?.resultMetric
+                    .first(where: { $0.id == block.id })?.structure?.resultMetric,
+                structure: session.routineBlocks?
+                    .first(where: { $0.id == block.id })?.structure
             ) { result in
                 store.applyWODResult(result)
-                if pendingWODConfirm?.blockId == block.id {
+                let globalScoreSaved = result.totalReps != nil || result.elapsedSeconds != nil
+                    || result.measuredValue != nil
+                if globalScoreSaved && pendingWODConfirm?.blockId == block.id {
                     pendingWODConfirm = nil
                     store.finishCurrentTimedBlock()
                     if store.state.activeSession == nil { closeFlow() }
@@ -3268,6 +3272,7 @@ struct WODResultInlineEditor: View {
     let suggestedElapsedSeconds: Int?
     let wodTemplateId: String?
     let resultMetric: WorkoutResultMetric?
+    let structure: WorkoutStructure?
     let onSave: (WODBlockResult) -> Void
 
     @State private var roundsText: String
@@ -3275,6 +3280,9 @@ struct WODResultInlineEditor: View {
     @State private var timeText: String
     @State private var metricText: String
     @State private var scoreMetric: WorkoutResultMetric
+    @State private var selectedPhaseIteration = 1
+    @State private var selectedParticipant = 1
+    @State private var editedPhaseResults: [String: WorkoutPhaseResult] = [:]
     @State private var hasEditedResult = false
     /// 0 unknown, 1 RX, 2 scaled. A legacy result never defaults to RX.
     @State private var rxSelection: Int
@@ -3291,6 +3299,7 @@ struct WODResultInlineEditor: View {
         suggestedElapsedSeconds: Int? = nil,
         wodTemplateId: String? = nil,
         resultMetric: WorkoutResultMetric? = nil,
+        structure: WorkoutStructure? = nil,
         onSave: @escaping (WODBlockResult) -> Void
     ) {
         self.blockId = blockId
@@ -3299,6 +3308,7 @@ struct WODResultInlineEditor: View {
         self.suggestedElapsedSeconds = suggestedElapsedSeconds
         self.wodTemplateId = wodTemplateId
         self.resultMetric = resultMetric
+        self.structure = structure
         _scoreMetric = State(initialValue: existing?.measuredMetric ?? resultMetric ?? .totalReps)
         _metricText = State(initialValue: existing?.measuredValue.map { String($0) } ?? "")
         self.onSave = onSave
@@ -3346,6 +3356,39 @@ struct WODResultInlineEditor: View {
             }
             .pickerStyle(.segmented)
             .accessibilityLabel("Modalidad del WOD para comparar marcas")
+            if let phase = trackedPhase {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(isTeam ? "RESULTADO POR ATLETA" : "RESULTADO POR INTERVALO")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(OG.label2)
+                    Stepper(
+                        "Intervalo \(selectedPhaseIteration)/\(max(1, phase.repeatCount ?? 1))",
+                        value: $selectedPhaseIteration,
+                        in: 1...max(1, min(200, phase.repeatCount ?? 1))
+                    )
+                    if isTeam {
+                        Picker("Atleta", selection: $selectedParticipant) {
+                            Text("Atleta 1").tag(1)
+                            Text("Atleta 2").tag(2)
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    TextField(
+                        "Repeticiones realizadas",
+                        text: phaseResultText(for: phase)
+                    )
+                    .keyboardType(.numberPad)
+                    .font(.system(size: 17).monospacedDigit())
+                    .padding(10)
+                    .background(OG.surface2, in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityLabel("Repeticiones del intervalo")
+                    if let existing = savedPhaseResult(phase) {
+                        Text("Registrado: \(existing.completedReps ?? 0) reps")
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                    }
+                }
+            }
         }
         .onChange(of: rxSelection) { _, _ in hasEditedResult = true }
         .onChange(of: roundsText) { _, _ in hasEditedResult = true }
@@ -3353,7 +3396,8 @@ struct WODResultInlineEditor: View {
         .onChange(of: timeText) { _, _ in hasEditedResult = true }
         .onChange(of: metricText) { _, _ in hasEditedResult = true }
         .onChange(of: scoreMetric) { _, _ in hasEditedResult = true }
-        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(metricText)|\(scoreMetric.rawValue)|\(rxSelection)") {
+        .onChange(of: editedPhaseResults) { _, _ in hasEditedResult = true }
+        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(metricText)|\(scoreMetric.rawValue)|\(rxSelection)|\(editedPhaseResults)") {
             guard hasEditedResult else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
@@ -3375,24 +3419,87 @@ struct WODResultInlineEditor: View {
         }
     }
 
+    private var trackedPhase: WorkoutPhase? {
+        structure?.phases.first(where: {
+            $0.kind == .work && ($0.repeatCount ?? 0) > 1
+        }) ?? structure?.phases.first(where: { $0.kind != .rest })
+    }
+
+    private var isTeam: Bool {
+        if let mode = structure?.collaboration { return mode != .solo }
+        return false
+    }
+
+    private func phaseKey(_ phase: WorkoutPhase) -> String {
+        "\(phase.id.uuidString)|\(selectedPhaseIteration)|\(isTeam ? selectedParticipant : 0)"
+    }
+
+    private func savedPhaseResult(_ phase: WorkoutPhase) -> WorkoutPhaseResult? {
+        let key = phaseKey(phase)
+        if let edited = editedPhaseResults[key] { return edited }
+        return (existing?.phaseResults ?? []).first {
+            $0.phaseID == phase.id && $0.iteration == selectedPhaseIteration &&
+                $0.participantIndex == (isTeam ? selectedParticipant : nil) &&
+                $0.movementID == nil
+        }
+    }
+
+    private func phaseResultText(for phase: WorkoutPhase) -> Binding<String> {
+        Binding(
+            get: { savedPhaseResult(phase)?.completedReps.map(String.init) ?? "" },
+            set: { raw in
+                let trimmed = String(raw.filter(\.isNumber).prefix(6))
+                let key = phaseKey(phase)
+                let previous = savedPhaseResult(phase)
+                var updated = previous ?? WorkoutPhaseResult(
+                    phaseID: phase.id, iteration: selectedPhaseIteration,
+                    participantIndex: isTeam ? selectedParticipant : nil
+                )
+                updated.completedReps = Int(trimmed)
+                editedPhaseResults[key] = updated
+            }
+        )
+    }
+
+    private var mergedPhaseResults: [WorkoutPhaseResult] {
+        var entries = Dictionary(uniqueKeysWithValues:
+            (existing?.phaseResults ?? []).map {
+                ("\($0.phaseID.uuidString)|\($0.iteration)|\($0.participantIndex ?? 0)", $0)
+            })
+        for (key, value) in editedPhaseResults {
+            if value.completedReps != nil && value.isValid {
+                entries[key] = value
+            } else {
+                entries.removeValue(forKey: key)
+            }
+        }
+        return entries.values.sorted {
+            $0.iteration == $1.iteration
+                ? ($0.participantIndex ?? 0) < ($1.participantIndex ?? 0)
+                : $0.iteration < $1.iteration
+        }
+    }
+
     /// Los cambios válidos se persisten sin un segundo check ni botón Guardar.
     private func saveValidResult() {
         guard canSave else { return }
+        let globalResultIsValid = isGlobalScoreValid
         onSave(WODBlockResult(
             id: blockId,
             format: format,
-            totalReps: format.resultCapture == .totalReps && !isMeasuredMaxEffort &&
+            totalReps: globalResultIsValid && format.resultCapture == .totalReps && !isMeasuredMaxEffort &&
                 !(format == .maxEffort && scoreMetric == .elapsedSeconds)
                 ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-            elapsedSeconds: format.resultCapture == .elapsedTime ||
-                (format == .maxEffort && scoreMetric == .elapsedSeconds)
+            elapsedSeconds: globalResultIsValid && (format.resultCapture == .elapsedTime ||
+                (format == .maxEffort && scoreMetric == .elapsedSeconds))
                 ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
-            roundsCompleted: format == .amrap || format == .deathBy
+            roundsCompleted: globalResultIsValid && (format == .amrap || format == .deathBy)
                 ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
             wodTemplateId: wodTemplateId ?? existing?.wodTemplateId,
             isRx: rxSelection == 0 ? nil : (rxSelection == 1),
             measuredValue: isMeasuredMaxEffort ? parsedMeasurement : nil,
-            measuredMetric: isMeasuredMaxEffort ? scoreMetric : nil
+            measuredMetric: isMeasuredMaxEffort ? scoreMetric : nil,
+            phaseResults: mergedPhaseResults
         ))
     }
 
@@ -3438,7 +3545,36 @@ struct WODResultInlineEditor: View {
         Double(metricText.replacingOccurrences(of: ",", with: "."))
     }
 
+    private var isGlobalScoreValid: Bool {
+        if isMeasuredMaxEffort {
+            guard let value = parsedMeasurement, value.isFinite else { return false }
+            return value > 0 && value <= 50_000
+        }
+        if format == .maxEffort && scoreMetric == .elapsedSeconds {
+            guard let seconds = DurationText.parse(timeText) else { return false }
+            return seconds > 0 && seconds <= 180 * 60
+        }
+        switch format.resultCapture {
+        case .totalReps:
+            let reps = Int(repsText) ?? 0
+            let rounds = Int(roundsText) ?? 0
+            return reps >= 0 && reps <= 5000
+                && ((format == .amrap || format == .deathBy)
+                    ? rounds >= 0 && rounds <= 200 && (rounds > 0 || reps > 0)
+                    : reps > 0)
+        case .elapsedTime:
+            guard let seconds = DurationText.parse(timeText) else { return false }
+            return seconds > 0 && seconds <= 180 * 60
+        case .perMovementSets:
+            return false
+        }
+    }
+
     private var canSave: Bool {
+        if !editedPhaseResults.isEmpty {
+            return mergedPhaseResults.allSatisfy(\.isValid)
+        }
+
         if isMeasuredMaxEffort {
             guard let value = parsedMeasurement, value.isFinite else { return false }
             return value > 0 && value <= 50_000
