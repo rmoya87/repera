@@ -325,6 +325,7 @@ internal fun HomeDayRegisterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     leadingIconTint: Color = brandGreen,
+    captionColor: Color? = null,
 ) {
     Column(
         modifier = modifier
@@ -344,11 +345,11 @@ internal fun HomeDayRegisterCard(
                 Text(
                     caption,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.3.sp,
                         fontSize = 11.sp
                     ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = captionColor ?: MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     title,
@@ -677,27 +678,50 @@ internal fun homeWodChipLabel(block: RoutineBlockInfo): String {
 internal fun HomePlannedRoutineCard(
     routine: RoutineEntry,
     day: LocalDate,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPlay: (() -> Unit)? = null,
 ) {
     val time = routine.timeMinutes?.let { "%d:%02d".format(java.util.Locale.ROOT, it / 60, it % 60) }
-    val chips = buildList {
-        if (routine.blocks.isNotEmpty()) {
-            add(Icons.Outlined.Layers to "${routine.blocks.size} bloq.")
-        }
-        routine.blocks.firstOrNull { it.format.isNotBlank() }?.let {
-            add(Icons.Outlined.Timer to homeWodChipLabel(it))
-        }
+    val exerciseCount = routine.blocks.sumOf { it.entries.size }
+    val setCount = routine.blocks.sumOf { block ->
+        block.entries.sumOf { maxOf(it.sets, 1) }
     }
+    val chips = buildList {
+        add(Icons.Outlined.FitnessCenter to "$exerciseCount ejercicios · $setCount series")
+    }
+    val accentText = MaterialTheme.reperaColors.accentText
+    val caption = if (time != null) "HOY · $time" else "HOY"
     // Solo realizados (historial) van en verde; planificados siempre gris.
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
-    HomeDayRegisterCard(
-        caption = homeDayTimeCaption(day, time),
-        title = routine.title,
-        leadingIcon = ReperaIcons.StrengthTraditional,
-        chips = chips,
-        onClick = onClick,
-        leadingIconTint = tint
-    )
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        HomeDayRegisterCard(
+            caption = caption,
+            captionColor = accentText,
+            title = routine.title,
+            leadingIcon = ReperaIcons.StrengthTraditional,
+            chips = chips,
+            onClick = onClick,
+            leadingIconTint = tint,
+            modifier = Modifier.weight(1f)
+        )
+        onPlay?.let { play ->
+            Box(
+                Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(brandGreen)
+                    .clickable(onClick = play)
+                    .testTag("home_planned_play"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = "Empezar", tint = Color.Black)
+            }
+        }
+    }
 }
 
 @Composable

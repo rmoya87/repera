@@ -1612,54 +1612,56 @@ struct HomeView: View {
 
     /// Entreno planificado del día (aún sin sesión hecha): edición solo local.
     private func plannedDayCard(_ routine: Routine) -> some View {
-        return registerCardWithChipsOverlay(
-            open: { onStartRoutine(routine) },
-            accessibilityHint: "Toca para abrir. Desliza a la derecha para editar o a la izquierda para borrar.",
-            deleteLabel: "Borrar entreno del día",
+        let stats = RoutinePresentationStats.counts(for: routine)
+        let time = routine.normalizedScheduledTimeMinutes.map {
+            SpanishDate.time(minutesFromMidnight: $0)
+        }
+        let caption = time.map { "HOY · \($0)" } ?? "HOY"
+        let summary = "\(stats.exercises) ejercicios · \(stats.sets) series"
+        return RegisterSwipeRevealCard(
+            onOpen: { onStartRoutine(routine) },
             onDelete: { routinePendingDelete = routine },
             onEdit: { editOwnPlannedRoutine(routine) },
+            deleteAccessibilityLabel: "Borrar entreno del día",
+            cardBackground: OG.surface,
+            minimumCardHeight: singleWorkoutMinHeight,
             title: {
-                HStack(alignment: .top, spacing: 12) {
-                    // Pendiente: icono de fuerza gris, incluso si ya hay
-                    // otro entreno completado en la misma fecha.
+                HStack(alignment: .center, spacing: 12) {
                     OGRegisterLeadingIcon(
                         systemName: "figure.strengthtraining.traditional",
                         tint: OG.label2
                     )
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(WorkoutListCaption.dayTimeLine(
-                            for: selectedDay,
-                            time: routine.normalizedScheduledTimeMinutes.map {
-                                SpanishDate.time(minutesFromMidnight: $0)
-                            }
-                        ))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(OG.label3)
-                            .tracking(0.3)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(caption)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(OG.accentText)
                         Text(routine.title)
-                            .font(.body.weight(.medium))
+                            .font(.body.weight(.semibold))
                             .foregroundStyle(OG.label)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(summary)
+                            .font(.subheadline)
+                            .foregroundStyle(OG.label2)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        onStartRoutine(routine)
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(OG.onAccent)
+                            .frame(width: 48, height: 48)
+                            .background(OG.accent, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Empezar entreno")
                 }
                 .padding(.horizontal, Self.registerCardPad)
             },
-            chips: {
-                let blockCount = routine.blocks.count
-                if let planned = routine.plannedDurationMinutes, planned > 0 {
-                    OGRegisterChip(text: "\(planned) min", icon: "timer")
-                }
-                if blockCount > 0 {
-                    OGRegisterChip(text: "\(blockCount) bloq.", icon: "square.stack.3d.up")
-                }
-                if let wod = routine.blocks.first(where: { $0.kind == .wod }) {
-                    OGRegisterChip(text: wod.headerLabel, icon: "timer")
-                }
-            }
+            chips: { EmptyView() }
         )
+        .accessibilityHint("Toca para abrir. Desliza a la derecha para editar o a la izquierda para borrar.")
     }
 
     /// Clase con entreno del centro: misma caja que un programado, pero el título
@@ -1829,18 +1831,15 @@ struct HomeView: View {
                     OGRegisterLeadingIcon(
                         systemName: session.timerDetails != nil ? "timer"
                             : (session.liveSportID.flatMap { LiveSport(rawValue: $0)?.symbol }
-                                ?? "figure.strengthtraining.traditional"),
+                                ?? "checkmark"),
                         tint: OG.accent
                     )
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(WorkoutListCaption.dayTimeLine(
-                            for: selectedDay,
-                            time: session.startedAt.map(SpanishDate.time)
-                        ))
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(OG.label3)
-                        .tracking(0.3)
+                        let doneCaption = session.startedAt.map { "HECHO · \(SpanishDate.time($0))" } ?? "HECHO"
+                        Text(doneCaption)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OG.accentText)
                         Text(session.title)
                             .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)
@@ -2089,13 +2088,10 @@ struct HomeView: View {
                         .foregroundStyle(todayIconFg)
                 }
             VStack(alignment: .leading, spacing: 2) {
-                Text(inProgress
-                     ? "EN CURSO"
-                     : WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(OG.label3)
-                    .tracking(0.3)
-                Text(selectedDayTitle)
+                Text(inProgress ? "EN CURSO" : WorkoutListCaption.dayTimeLine(for: selectedDay, time: selectedDayTimeLabel))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(inProgress ? OG.accentText : OG.label3)
+                Text(inProgress ? (store.state.activeSession?.title ?? selectedDayTitle) : selectedDayTitle)
                     .font(.body.weight(.medium))
                     .foregroundStyle(OG.label)
                     .lineLimit(2)

@@ -87,6 +87,8 @@ internal data class ReperaExtendedColors(
     val keypadKey: Color,
     val keypadUtility: Color,
     val keypadInk: Color,
+    /** Texto verde legible (#15803D claro / #30D158 oscuro), paridad OG.accentText. */
+    val accentText: Color,
 )
 
 internal fun reperaExtendedColors(dark: Boolean): ReperaExtendedColors = if (dark) {
@@ -101,7 +103,8 @@ internal fun reperaExtendedColors(dark: Boolean): ReperaExtendedColors = if (dar
         tabSelectedFill = brandGreen.copy(alpha = 0.16f),
         timerRed = Color(0xFFFF382E), timerGreen = Color(0xFF38FF59),
         keypadBackground = Color(0xFF1C1C1E), keypadKey = Color(0xFF48484A),
-        keypadUtility = Color(0xFF2C2C2E), keypadInk = Color(0xFFF5F5F7))
+        keypadUtility = Color(0xFF2C2C2E), keypadInk = Color(0xFFF5F5F7),
+        accentText = brandGreen)
 } else {
     ReperaExtendedColors(
         blue = Color(0xFF007AFF), orange = Color(0xFFFF9500), yellow = Color(0xFFFFCC00),
@@ -114,7 +117,8 @@ internal fun reperaExtendedColors(dark: Boolean): ReperaExtendedColors = if (dar
         tabSelectedFill = brandGreen.copy(alpha = 0.08f),
         timerRed = Color(0xFFD70015), timerGreen = brandGreenReadable,
         keypadBackground = Color(0xFFECEDF2), keypadKey = Color.White,
-        keypadUtility = Color(0xFFDBDEE3), keypadInk = Color(0xFF080F1F))
+        keypadUtility = Color(0xFFDBDEE3), keypadInk = Color(0xFF080F1F),
+        accentText = brandGreenReadable)
 }
 
 internal val LocalReperaColors = staticCompositionLocalOf { reperaExtendedColors(dark = false) }

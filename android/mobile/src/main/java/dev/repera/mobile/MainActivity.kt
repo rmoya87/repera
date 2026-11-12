@@ -1464,6 +1464,13 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     runWorkoutAction { reviseCurrentSet(id, quantity, weight, unit, duration, deficit) }
                 },
                 onDeleteSet = { id -> runWorkoutAction { deleteCurrentSet(id) } },
+                onRestoreDeletedSet = { set, index ->
+                    runWorkoutAction { restoreDeletedSet(set, index) }
+                },
+                onRemovePendingSet = { id -> runWorkoutAction { removePendingSet(id) } },
+                onRestorePendingSet = { set, index ->
+                    runWorkoutAction { restorePendingSet(set, index) }
+                },
                 onReviseFinishedSet = { workoutId, entryId, setId, quantity, weight, duration ->
                     runWorkoutAction {
                         reviseFinishedSet(workoutId, entryId, setId, quantity, weight, duration)

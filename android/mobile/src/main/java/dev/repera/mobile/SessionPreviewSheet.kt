@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -61,12 +62,18 @@ fun SessionPreviewSheet(
     exerciseCatalog: List<ExerciseEntry> = emptyList(),
 ) {
     val day = dayLabel(routine)
+  val isFuture = routine.scheduledDate?.let { iso ->
+        runCatching { LocalDate.parse(iso.take(10)).isAfter(LocalDate.now()) }
+            .getOrDefault(false)
+    } == true
+    val canStart = !busy && routine.supported && !isFuture
+    Column(Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
-            .padding(bottom = 28.dp)
+            .padding(bottom = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ReperaToolbarGlassIconButton(
@@ -75,9 +82,11 @@ fun SessionPreviewSheet(
                 onClick = onClose
             )
             Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                // iOS SessionPreviewView: título fijo «Entreno»; nombre de rutina en contenido.
-                Text("Entreno", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold)
+                Text(
+                    routine.title.ifBlank { "Entreno" },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
                 if (day.isNotEmpty()) {
                     Text(day, style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -112,41 +121,6 @@ fun SessionPreviewSheet(
                             onClick = { menuOpen = false; confirmDelete = true })
                     }
                 }
-                val isFuture = routine.scheduledDate?.let { iso ->
-                    runCatching { LocalDate.parse(iso.take(10)).isAfter(LocalDate.now()) }
-                        .getOrDefault(false)
-                } == true
-                val canStart = !busy && routine.supported && !isFuture
-                val playTint = if (canStart) brandGreen
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            enabled = canStart,
-                            onClick = { onStart(); onClose() }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(playTint),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Filled.PlayArrow,
-                            contentDescription = if (isFuture)
-                                "No se puede empezar un entreno futuro"
-                            else "Empezar entrenamiento",
-                            tint = if (canStart) Color.Black
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
             }
             if (confirmDelete) {
                 // Paridad iOS (terminados): «¿Eliminar entreno?» / «Eliminar».
@@ -159,6 +133,14 @@ fun SessionPreviewSheet(
                 )
             }
         }
+        Spacer(Modifier.height(8.dp))
+        val exerciseCount = routine.blocks.sumOf { it.entries.size }
+        val setCount = routine.blocks.sumOf { b -> b.entries.sumOf { maxOf(it.sets, 1) } }
+        SessionPreviewSummaryChips(
+            exerciseCount = exerciseCount,
+            setCount = setCount,
+            durationMinutes = routine.timeMinutes?.let { it / 60 }?.takeIf { it > 0 }
+        )
         Spacer(Modifier.height(12.dp))
         if (routine.blocks.isEmpty()) {
             ReperaEmptyState(
@@ -173,6 +155,12 @@ fun SessionPreviewSheet(
                 onOpenExercise = onOpenExercise
             )
         }
+    }
+        SessionPreviewBottomBar(
+            onEdit = onEdit,
+            onStart = { onStart(); onClose() },
+            startEnabled = canStart
+        )
     }
 }
 

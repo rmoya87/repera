@@ -36,6 +36,7 @@ REQUIRED = (
     "StrengthContributionSubmitter.swift",
     "StrengthBenchmarkRemoteStore.swift",
     "ReperaAnalytics.swift",
+    "WorkoutUIComponents.swift",
 )
 WATCH_REQUIRED = (
     "ReperaWatchApp.swift",
