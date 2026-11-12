@@ -568,6 +568,7 @@ object CrossFitGlossary {
                 isSnatchFamily(n) -> "Snatch mancuerna"
                 isCleanFamily(n) -> "Clean mancuerna"
                 n.contains("thruster") -> "Thruster mancuernas"
+                n.contains("push press") || n.contains("press de impulso") -> "Dumbbell Push Press"
                 n.contains("devil") -> "Devil press"
                 n.contains("man maker") || n.contains("manmaker") -> "Man maker"
                 n.contains("farmer") -> "Farmer carry"
