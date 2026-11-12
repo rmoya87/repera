@@ -64,7 +64,22 @@ enum OG {
     )
 
     static let accent = Color(red: 48 / 255, green: 209 / 255, blue: 88 / 255) // #30d158
+    /// Texto verde legible sobre fondo claro u oscuro (#15803D claro / #30D158 oscuro).
+    static let accentText = adaptive(
+        light: UIColor(red: 21 / 255, green: 128 / 255, blue: 61 / 255, alpha: 1),
+        dark: UIColor(red: 48 / 255, green: 209 / 255, blue: 88 / 255, alpha: 1)
+    )
     static let onAccent = Color.black
+    /// Teclado numérico Repera (claro/oscuro).
+    static let keypadBg = adaptive(
+        light: UIColor(red: 232 / 255, green: 234 / 255, blue: 238 / 255, alpha: 1),
+        dark: UIColor(red: 22 / 255, green: 22 / 255, blue: 24 / 255, alpha: 1)
+    )
+    static let keypadKeyBg = adaptive(light: .white, dark: UIColor(red: 58 / 255, green: 58 / 255, blue: 60 / 255, alpha: 1))
+    static let keypadUtilityBg = adaptive(
+        light: UIColor(red: 220 / 255, green: 222 / 255, blue: 227 / 255, alpha: 1),
+        dark: UIColor(red: 44 / 255, green: 44 / 255, blue: 46 / 255, alpha: 1)
+    )
     /// Icono ✓ sobre círculo verde de «Listo»/confirmar: blanco día / negro noche.
     static let onDoneAccent = adaptive(light: .white, dark: .black)
     static let yellow = Color(red: 1, green: 214 / 255, blue: 10 / 255)
@@ -1266,11 +1281,13 @@ struct CloseToolbarButton: View {
     var action: () -> Void
     /// Cabecera de página en el contenido (aplica glass). Default `true`.
     var large: Bool = true
+    /// Play usa chevron.down en lugar de X.
+    var usesMinimizeGlyph = false
 
     var body: some View {
         OGToolbarGlassButton(
-            systemName: "xmark",
-            accessibilityLabel: "Cerrar",
+            systemName: usesMinimizeGlyph ? "chevron.down" : "xmark",
+            accessibilityLabel: usesMinimizeGlyph ? "Minimizar" : "Cerrar",
             tint: OG.label,
             appliesGlass: large,
             action: action
@@ -1524,6 +1541,12 @@ struct OGNumericTextField: UIViewRepresentable {
     var autoFocus: Bool = true
     var isFocused: Bool? = nil
     var submitTitle: String = "✓"
+    /// Paso de las teclas ± del pad (kg 2,5 · reps 1 · tiempo 15 s).
+    var keypadStep: Double = 1
+    /// Cabecera del pad (p. ej. «KG · Serie 2»).
+    var keypadContextTitle: String? = nil
+    /// Valor «Anterior» en la cabecera del pad.
+    var keypadPreviousHint: String? = nil
     /// Identificadores estables para transferir el foco sin depender solo de SwiftUI.
     var focusIdentifier: String? = nil
     var nextFocusIdentifier: String? = nil
@@ -1568,6 +1591,9 @@ struct OGNumericTextField: UIViewRepresentable {
         field.accessibilityIdentifier = focusIdentifier
         context.coordinator.nextFocusIdentifier = nextFocusIdentifier
         context.coordinator.submitTitle = submitTitle
+        context.coordinator.keypadStep = keypadStep
+        context.coordinator.keypadContextTitle = keypadContextTitle
+        context.coordinator.keypadPreviousHint = keypadPreviousHint
         context.coordinator.submitsToNextField = submitTitle != "✓"
             && submitTitle.lowercased() != "listo"
         field.text = text
@@ -1598,6 +1624,9 @@ struct OGNumericTextField: UIViewRepresentable {
         c.onFocusLost = onFocusLost
         c.onCommit = onCommit
         c.submitTitle = submitTitle
+        c.keypadStep = keypadStep
+        c.keypadContextTitle = keypadContextTitle
+        c.keypadPreviousHint = keypadPreviousHint
         c.submitsToNextField = submitTitle != "✓" && submitTitle.lowercased() != "listo"
         c.nextFocusIdentifier = nextFocusIdentifier
         if field.accessibilityIdentifier != focusIdentifier {
@@ -1606,7 +1635,10 @@ struct OGNumericTextField: UIViewRepresentable {
         c.pad?.update(
             allowsDecimal: allowsDecimal,
             allowsTime: allowsTimeSeparator,
-            actionTitle: submitTitle
+            actionTitle: submitTitle,
+            contextTitle: keypadContextTitle,
+            previousHint: keypadPreviousHint,
+            step: keypadStep
         )
         // No volver a establecer keyboardType / returnKeyType en cada cifra:
         // UIKit puede reconstruir el inputView y ocultar el teclado activo.
@@ -1669,6 +1701,9 @@ struct OGNumericTextField: UIViewRepresentable {
         var submitsToNextField = false
         var nextFocusIdentifier: String?
         var submitTitle: String = "✓"
+        var keypadStep: Double = 1
+        var keypadContextTitle: String?
+        var keypadPreviousHint: String?
         weak var field: UITextField?
         /// Retiene el pad mientras el campo vive; `inputView` no lo retiene solo.
         fileprivate var pad: OGReperaNumericKeypad?
@@ -1704,7 +1739,10 @@ struct OGNumericTextField: UIViewRepresentable {
                 coordinator: self,
                 allowsDecimal: allowsDecimal,
                 allowsTime: allowsTimeSeparator,
-                actionTitle: submitTitle
+                actionTitle: submitTitle,
+                contextTitle: keypadContextTitle,
+                previousHint: keypadPreviousHint,
+                step: keypadStep
             )
             self.pad = pad
             field.inputView = pad
@@ -1753,15 +1791,19 @@ struct OGNumericTextField: UIViewRepresentable {
             let nextFieldID = nextFocusIdentifier
             onCommit()
             if advances {
-                // Transferencia UIKit explícita; el @FocusState sigue como respaldo
-                // cuando la fila siguiente aún no está montada por SwiftUI.
-                DispatchQueue.main.async { [weak field] in
-                    guard let field, field.isFirstResponder,
-                          let nextFieldID, let window = field.window,
-                          let target = Self.findTextField(in: window, identifier: nextFieldID)
-                    else { return }
-                    target.becomeFirstResponder()
-                    target.selectAll(nil)
+                // Ceder el respondedor antes de montar/armar la celda destino en
+                // SwiftUI; si no, el siguiente dígito concatena en KG (60→6010).
+                field.resignFirstResponder()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    let window = UIApplication.shared.connectedScenes
+                        .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+                        .first
+                    if let nextFieldID, let window,
+                       let target = Self.findTextField(in: window, identifier: nextFieldID) {
+                        target.becomeFirstResponder()
+                        target.selectAll(nil)
+                    }
                 }
             } else {
                 field.resignFirstResponder()
@@ -1803,14 +1845,17 @@ struct OGNumericTextField: UIViewRepresentable {
             case "submit":
                 commitFromKeyboard()
             case "plus", "minus":
-                let delta = key == "plus" ? 1 : -1
+                let sign = key == "plus" ? 1.0 : -1.0
+                let delta = keypadStep * sign
                 if allowsTimeSeparator {
                     let seconds = DurationText.parse(field.text ?? "") ?? 0
-                    field.text = DurationText.format(max(0, seconds + delta))
+                    field.text = DurationText.format(max(0, seconds + Int(delta)))
                 } else {
                     let value = ReperaNumberFormat.parse(field.text ?? "") ?? 0
-                    let updated = max(0, value + Double(delta))
-                    field.text = allowsDecimal ? ReperaNumberFormat.decimal(updated) : ReperaNumberFormat.integer(Int(updated))
+                    let updated = max(0, value + delta)
+                    field.text = allowsDecimal
+                        ? ReperaNumberFormat.decimal(updated)
+                        : ReperaNumberFormat.integer(Int(updated.rounded()))
                 }
                 text.wrappedValue = field.text ?? ""
             case "point":
@@ -1878,29 +1923,62 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
     private var buttons: [String: UIButton] = [:]
     private var allowsDecimal = false
     private var allowsTime = false
+    private let headerStack = UIStackView()
+    private let contextLabel = UILabel()
+    private let previousLabel = UILabel()
+    private var gridStack: UIStackView?
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: 328)
+        CGSize(width: UIView.noIntrinsicMetric, height: 368)
     }
 
     init(
         coordinator: OGNumericTextField.Coordinator,
         allowsDecimal: Bool,
         allowsTime: Bool,
-        actionTitle: String
+        actionTitle: String,
+        contextTitle: String?,
+        previousHint: String?,
+        step: Double
     ) {
         self.coordinator = coordinator
-        super.init(frame: CGRect(x: 0, y: 0, width: 390, height: 328), inputViewStyle: .keyboard)
+        super.init(frame: CGRect(x: 0, y: 0, width: 390, height: 368), inputViewStyle: .keyboard)
         self.allowsDecimal = allowsDecimal
         self.allowsTime = allowsTime
-        backgroundColor = UIColor(red: 0.925, green: 0.93, blue: 0.95, alpha: 1)
         autoresizingMask = [.flexibleWidth]
+        buildChrome()
         buildGrid()
-        update(allowsDecimal: allowsDecimal, allowsTime: allowsTime, actionTitle: actionTitle)
+        update(
+            allowsDecimal: allowsDecimal,
+            allowsTime: allowsTime,
+            actionTitle: actionTitle,
+            contextTitle: contextTitle,
+            previousHint: previousHint,
+            step: step
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("OGReperaNumericKeypad is created programmatically")
+    }
+
+    private func buildChrome() {
+        headerStack.axis = .horizontal
+        headerStack.alignment = .center
+        headerStack.distribution = .equalSpacing
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+        contextLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+        previousLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        previousLabel.textAlignment = .right
+        headerStack.addArrangedSubview(contextLabel)
+        headerStack.addArrangedSubview(previousLabel)
+        addSubview(headerStack)
+        NSLayoutConstraint.activate([
+            headerStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            headerStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            headerStack.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            headerStack.heightAnchor.constraint(equalToConstant: 28)
+        ])
     }
 
     private func buildGrid() {
@@ -1916,11 +1994,12 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
         vertical.distribution = .fillEqually
         vertical.translatesAutoresizingMaskIntoConstraints = false
         addSubview(vertical)
+        gridStack = vertical
         NSLayoutConstraint.activate([
             vertical.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             vertical.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            vertical.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            vertical.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -26)
+            vertical.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 6),
+            vertical.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20)
         ])
         for row in rows {
             let horizontal = UIStackView()
@@ -1930,8 +2009,10 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
             for key in row {
                 let button = UIButton(type: .system)
                 button.accessibilityIdentifier = key
-                button.titleLabel?.font = .systemFont(ofSize: 32, weight: .regular)
+                button.titleLabel?.font = .systemFont(ofSize: key == "submit" ? 15 : 32, weight: .semibold)
                 button.titleLabel?.adjustsFontSizeToFitWidth = true
+                button.titleLabel?.minimumScaleFactor = 0.65
+                button.titleLabel?.numberOfLines = 2
                 button.layer.cornerRadius = 12
                 button.clipsToBounds = true
                 button.addTarget(coordinator, action: #selector(OGNumericTextField.Coordinator.keypadKey(_:)), for: .touchUpInside)
@@ -1942,25 +2023,69 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
         }
     }
 
-    func update(allowsDecimal: Bool, allowsTime: Bool, actionTitle: String) {
+  private func keypadUIColor(_ color: Color) -> UIColor {
+        UIColor(color)
+    }
+
+    func update(
+        allowsDecimal: Bool,
+        allowsTime: Bool,
+        actionTitle: String,
+        contextTitle: String?,
+        previousHint: String?,
+        step: Double
+    ) {
         self.allowsDecimal = allowsDecimal
         self.allowsTime = allowsTime
+        backgroundColor = keypadUIColor(OG.keypadBg)
+        let ink = keypadUIColor(Color(OG.label))
+        let keyBg = keypadUIColor(OG.keypadKeyBg)
+        let utilBg = keypadUIColor(OG.keypadUtilityBg)
+        let accentText = keypadUIColor(OG.accentText)
+        contextLabel.text = contextTitle
+        contextLabel.textColor = ink
+        contextLabel.isHidden = contextTitle?.isEmpty != false
+        if let hint = previousHint, !hint.isEmpty {
+            previousLabel.text = "Anterior \(hint)"
+            previousLabel.textColor = accentText
+            previousLabel.isHidden = false
+        } else {
+            previousLabel.isHidden = true
+        }
+        headerStack.isHidden = contextLabel.isHidden && previousLabel.isHidden
+        let stepLabel = step == step.rounded() && step != 2.5
+            ? (step == 15 ? "15" : String(Int(step)))
+            : ReperaNumberFormat.decimal(step)
         for (key, button) in buttons {
             button.setImage(nil, for: .normal)
             button.setTitle(nil, for: .normal)
-            button.backgroundColor = .white
-            button.tintColor = UIColor(red: 0.03, green: 0.06, blue: 0.12, alpha: 1)
+            button.backgroundColor = keyBg
+            button.tintColor = ink
+            button.setTitleColor(ink, for: .normal)
             switch key {
             case "dismiss":
-                button.backgroundColor = UIColor(red: 0.86, green: 0.87, blue: 0.89, alpha: 1)
+                button.backgroundColor = utilBg
                 button.setImage(UIImage(systemName: "keyboard.chevron.compact.down"), for: .normal)
                 button.accessibilityLabel = "Ocultar teclado"
-            case "plus", "minus":
-                button.backgroundColor = UIColor(red: 0.86, green: 0.87, blue: 0.89, alpha: 1)
-                button.setImage(UIImage(systemName: key == "plus" ? "plus" : "minus"), for: .normal)
-                button.accessibilityLabel = key == "plus" ? "Sumar" : "Restar"
+            case "plus":
+                button.backgroundColor = utilBg
+                if step != 1 {
+                    button.setTitle("+\(stepLabel)", for: .normal)
+                    button.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+                } else {
+                    button.setImage(UIImage(systemName: "plus"), for: .normal)
+                }
+                button.accessibilityLabel = "Sumar"
+            case "minus":
+                button.backgroundColor = utilBg
+                if step != 1 {
+                    button.setTitle("−\(stepLabel)", for: .normal)
+                    button.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+                } else {
+                    button.setImage(UIImage(systemName: "minus"), for: .normal)
+                }
+                button.accessibilityLabel = "Restar"
             case "erase":
-                button.backgroundColor = UIColor(red: 0.92, green: 0.93, blue: 0.95, alpha: 1)
                 button.setImage(UIImage(systemName: "delete.left"), for: .normal)
                 button.accessibilityLabel = "Borrar"
             case "point":
@@ -1970,19 +2095,26 @@ fileprivate final class OGReperaNumericKeypad: UIInputView {
             case "submit":
                 let isNext = actionTitle != "✓" && actionTitle.lowercased() != "listo"
                 button.backgroundColor = isNext
-                    ? .black
-                    : UIColor(red: 0.10, green: 0.79, blue: 0.33, alpha: 1)
-                button.tintColor = .white
-                button.setImage(UIImage(systemName: isNext ? "arrow.right" : "checkmark"), for: .normal)
-                button.accessibilityLabel = isNext ? "Siguiente" : "Confirmar"
+                    ? keypadUIColor(Color(OG.label))
+                    : keypadUIColor(OG.accent)
+                button.tintColor = isNext ? keypadUIColor(OG.bg) : keypadUIColor(OG.onAccent)
+                button.setTitleColor(button.tintColor, for: .normal)
+                if isNext {
+                    button.setTitle(actionTitle, for: .normal)
+                    button.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+                } else {
+                    button.setImage(UIImage(systemName: "checkmark"), for: .normal)
+                }
+                button.accessibilityLabel = isNext ? actionTitle : "Confirmar"
             default:
                 button.setTitle(key, for: .normal)
+                button.titleLabel?.font = .systemFont(ofSize: 32, weight: .regular)
                 button.accessibilityLabel = key
             }
             if button.image(for: .normal) != nil {
                 button.imageView?.contentMode = .scaleAspectFit
                 button.setPreferredSymbolConfiguration(
-                    .init(pointSize: key == "submit" ? 29 : 26, weight: .regular),
+                    .init(pointSize: key == "submit" ? 22 : 26, weight: .regular),
                     forImageIn: .normal
                 )
             }
@@ -2158,9 +2290,9 @@ struct OGSetEntryHeader: View {
     var showsRIR = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            caption("SERIE").frame(width: 30)
-            caption("ANTERIOR").frame(width: 52)
+        HStack(spacing: 6) {
+            caption("SERIE").frame(width: 36)
+            caption("ANTERIOR").frame(width: 66)
             caption(firstTitle.uppercased()).frame(maxWidth: .infinity)
             if let secondTitle {
                 caption(secondTitle.uppercased()).frame(maxWidth: .infinity)
@@ -2172,7 +2304,7 @@ struct OGSetEntryHeader: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(OG.label3)
-                    .frame(width: 34)
+                    .frame(width: 44)
                     .accessibilityHidden(true)
             }
         }
@@ -2204,8 +2336,14 @@ struct OGSetEntryRow: View {
     var enabled = true
     var showsConfirmation = false
     var completed = false
+    /// Fila activa (serie actual en Play / foco en editor).
+    var isCurrentRow = false
     /// En editor de plan el índice no es tappable (solo Play marca series hechas).
     var indexTappable = true
+    /// Copia peso/reps del texto «Anterior» al pulsar la columna.
+    var onCopyPrevious: (() -> Void)? = nil
+    var keypadColumnTitle: String? = nil
+    var keypadSetSubtitle: String? = nil
     var rir: Double? = nil
     var showsRIR = false
     var onRIRChange: (Double?) -> Void = { _ in }
@@ -2215,37 +2353,52 @@ struct OGSetEntryRow: View {
     var onConfirm: () -> Void = {}
 
     var body: some View {
-        HStack(spacing: 4) {
+        let rowContent = HStack(spacing: 6) {
             let indexBadge = Text("\(index)")
-                .font(.system(size: 13, weight: .bold).monospacedDigit())
+                .font(.system(size: 14, weight: .bold).monospacedDigit())
                 .foregroundStyle(completed ? OG.onAccent : OG.label)
-                .frame(width: 30, height: 36)
+                .frame(width: 44, height: 44)
                 .background(completed ? OG.accent : OG.surface2, in: Circle())
-                .scaleEffect(completed && !reduceMotion ? 1.08 : 1)
+                .scaleEffect(completed && !reduceMotion ? 1.06 : 1)
                 .animation(
                     OGMotion.animation(OGMotion.reorder, reduceMotion: reduceMotion),
                     value: completed
                 )
-            if indexTappable {
+            if indexTappable && showsConfirmation {
                 Button(action: onConfirm) { indexBadge }
                     .buttonStyle(.plain)
                     .disabled(!enabled)
                     .accessibilityLabel(completed
                         ? "Serie \(index) hecha. Toca para desmarcar"
                         : "Serie \(index). Toca para marcar hecha")
+            } else if indexTappable {
+                Button(action: onConfirm) { indexBadge }
+                    .buttonStyle(.plain)
+                    .disabled(!enabled)
+                    .accessibilityLabel("Serie \(index)")
             } else {
                 indexBadge
                     .accessibilityLabel("Serie \(index)")
             }
 
-            Text(previous ?? "—")
-                .font(.system(size: 10, weight: .medium).monospacedDigit())
-                .foregroundStyle(previous == nil ? OG.label3 : OG.label2)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(width: 52, height: 44)
-                .accessibilityLabel(previous.map { "Anterior: \($0)" } ?? "Sin registro anterior")
+            Group {
+                if let onCopyPrevious {
+                    Button(action: onCopyPrevious) {
+                        previousColumnLabel(copyable: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(previous == nil || !enabled || completed)
+                } else {
+                    previousColumnLabel(copyable: false)
+                }
+            }
+            .accessibilityLabel(previous.map {
+                onCopyPrevious != nil ? "Anterior: \($0). Toca para copiar" : "Anterior: \($0)"
+            } ?? "Sin registro anterior")
 
+            let firstSubmit = secondValue == nil
+                ? (nextEditableRowID == nil ? "✓" : "Serie \(index + 1) →")
+                : "\(secondTitleForSubmit) →"
             OGSetNumericCell(
                 display: firstValue,
                 allowsDecimal: firstAllowsDecimal,
@@ -2255,12 +2408,17 @@ struct OGSetEntryRow: View {
                     : OGSetFieldID(rowID: rowID, column: 1),
                 enabled: enabled && !completed,
                 focus: focus,
+                submitTitle: firstSubmit,
+                keypadStep: firstAllowsDecimal ? 2.5 : (firstValue.contains(":") ? 15 : 1),
+                keypadContextTitle: keypadContext(column: 0),
+                keypadPreviousHint: previous,
                 onCommit: onFirstCommit,
                 onLastSubmit: onConfirm
             )
             .frame(maxWidth: .infinity)
 
             if let secondValue {
+                let secondSubmit = nextEditableRowID == nil ? "✓" : "Serie \(index + 1) →"
                 OGSetNumericCell(
                     display: secondValue,
                     allowsDecimal: secondAllowsDecimal,
@@ -2268,6 +2426,10 @@ struct OGSetEntryRow: View {
                     nextID: nextEditableRowID.map { OGSetFieldID(rowID: $0, column: 0) },
                     enabled: enabled && !completed,
                     focus: focus,
+                    submitTitle: secondSubmit,
+                    keypadStep: 1,
+                    keypadContextTitle: keypadContext(column: 1),
+                    keypadPreviousHint: previous,
                     onCommit: onSecondCommit,
                     onLastSubmit: onConfirm
                 )
@@ -2307,15 +2469,59 @@ struct OGSetEntryRow: View {
                     Image(systemName: completed ? "checkmark.circle.fill" : "checkmark")
                         .font(.system(size: completed ? 20 : 17, weight: .bold))
                         .foregroundStyle(completed ? OG.onAccent : OG.accent)
-                        .frame(width: 34, height: 44)
+                        .frame(width: 44, height: 44)
                         .background(
                             completed ? OG.accent : OG.surface2,
-                            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                         )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(completed ? "Serie completada" : "Completar serie \(index)")
             }
+        }
+        rowContent
+            .padding(.vertical, 4)
+            .padding(.horizontal, isCurrentRow ? 8 : 0)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isCurrentRow ? OG.accent.opacity(0.10) : .clear)
+            )
+            .padding(.horizontal, isCurrentRow ? -8 : 0)
+    }
+
+    @ViewBuilder
+    private func previousColumnLabel(copyable: Bool) -> some View {
+        HStack(spacing: 3) {
+            Text(previous ?? "—")
+                .font(.system(size: 13, weight: .medium).monospacedDigit())
+                .foregroundStyle(previous == nil ? OG.label3 : (copyable ? OG.accentText : OG.label2))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            if copyable, previous != nil {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(OG.accentText)
+            }
+        }
+        .frame(width: 66, height: 44, alignment: .leading)
+    }
+
+    private var secondTitleForSubmit: String { "Reps" }
+
+    private func keypadContext(column: Int) -> String? {
+        guard let col = keypadColumnTitle ?? defaultColumnTitle(column: column) else { return nil }
+        let suffix = keypadSetSubtitle ?? "Serie \(index)"
+        return "\(col) · \(suffix)"
+    }
+
+    private func defaultColumnTitle(column: Int) -> String? {
+        switch column {
+        case 0:
+            if firstValue.contains(":") { return "Tiempo" }
+            if firstAllowsDecimal { return store.state.settings.weightUnit.label.uppercased() }
+            return "Reps"
+        case 1: return "Reps"
+        default: return nil
         }
     }
 
@@ -2342,6 +2548,10 @@ private struct OGSetNumericCell: View {
     var nextID: OGSetFieldID?
     var enabled: Bool
     var focus: FocusState<OGSetFieldID?>.Binding
+    var submitTitle: String = "Siguiente"
+    var keypadStep: Double = 1
+    var keypadContextTitle: String? = nil
+    var keypadPreviousHint: String? = nil
     var onCommit: (String) -> Void
     var onLastSubmit: () -> Void
 
@@ -2362,7 +2572,10 @@ private struct OGSetNumericCell: View {
                     fontSize: 17,
                     autoFocus: pendingAutoFocus,
                     isFocused: isFocused,
-                    submitTitle: nextID == nil ? "✓" : "Siguiente",
+                    submitTitle: submitTitle,
+                    keypadStep: keypadStep,
+                    keypadContextTitle: keypadContextTitle,
+                    keypadPreviousHint: keypadPreviousHint,
                     focusIdentifier: fieldID.accessibilityKey,
                     nextFocusIdentifier: nextID?.accessibilityKey,
                     onFocused: {
@@ -2409,6 +2622,12 @@ private struct OGSetNumericCell: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .background(OG.inputSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay {
+            if isFocused && enabled {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .strokeBorder(OG.accent, lineWidth: 2)
+            }
+        }
         .opacity(enabled ? 1 : 0.55)
         .onAppear { draft = normalized(display) }
         .onChange(of: display) { _, newValue in

@@ -121,6 +121,9 @@ struct DayEditorView: View {
     /// Paridad Android `expandedEntryId`: solo un ejercicio/movimiento monta
     /// la retícula de series. Montar todas en el Form bloquea «Editar» segundos.
     @State private var expandedEntryID: UUID?
+    @State private var baselineRoutine: Routine
+    @State private var showDiscardConfirm = false
+    @State private var undoToast: OGUndoToastState?
 
     init(
         routine: Routine,
@@ -138,6 +141,7 @@ struct DayEditorView: View {
         // el Form salta de altura al entrar.
         let normalized = Self.withStrengthPlannedSets(routine)
         _routine = State(initialValue: normalized)
+        _baselineRoutine = State(initialValue: normalized)
         _expandedEntryID = State(initialValue: Self.firstExpandableEntryID(in: normalized))
         self.mode = mode
         self.onSessionStarted = onSessionStarted
@@ -195,6 +199,29 @@ struct DayEditorView: View {
     /// Una ruta grabada es el registro del reloj/GPS, no un lugar editable.
     private var completedHasRecordedRoute: Bool {
         (completedWorkoutDraft?.routePoints.count ?? 0) >= 2 || completedHasHealthRoute
+    }
+
+    private var isEditorDirty: Bool {
+        routine != baselineRoutine
+    }
+
+    private func discardEditorChanges() {
+        routine = baselineRoutine
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    private func presentUndoToast(message: String, undo: @escaping () -> Void) {
+        undoToast = OGUndoToastState(message: message, undo: undo)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if undoToast?.message == message {
+                undoToast = nil
+            }
+        }
     }
 
     private func refreshExercisesByIdIfNeeded() {
@@ -436,6 +463,23 @@ struct DayEditorView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
+        .toolbar(.hidden, for: .tabBar)
+        .navigationBarBackButtonHidden(isEditorDirty)
+        .toolbar {
+            if isEditorDirty {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showDiscardConfirm = true
+                    } label: {
+                        Image(systemName: "chevron.backward")
+                            .fontWeight(.semibold)
+                    }
+                    .accessibilityLabel("Volver")
+                }
+            }
+        }
+        .ogDiscardChangesConfirm(isPresented: $showDiscardConfirm, onDiscard: discardEditorChanges)
+        .ogUndoToast($undoToast)
         .alert(
             saveAsFavorite ? "No se ha podido guardar el favorito" : "No se ha podido guardar el entrenamiento",
             isPresented: Binding(
@@ -474,25 +518,32 @@ struct DayEditorView: View {
         ))
         // Pickers de creación: push nativo horizontal con volver en topbar.
         .navigationDestination(item: $pickExerciseForBlock) { blockID in
-            ExercisePickerView(embedsNavigationStack: false) { exercise in
+            ExercisePickerView(
+                embedsNavigationStack: false,
+                allowsMultipleSelection: true
+            ) { exercises in
                 if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
-                    let style = exercise.loggingStyle
-                    let amount = style == .machineWork
-                        ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
-                        : (exercise.isMobility ? (exercise.isMobilityHold ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
-                    let count = style.usesDuration ? 1 : 3
-                    let sets = (0..<count).map { _ in
-                        PlannedSet(targetReps: amount, targetWeightKg: nil,
-                            targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
+                    var lastEntryID: UUID?
+                    for exercise in exercises {
+                        let style = exercise.loggingStyle
+                        let amount = style == .machineWork
+                            ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
+                            : (exercise.isMobility ? (exercise.isMobilityHold ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
+                        let count = style.usesDuration ? 1 : 3
+                        let sets = (0..<count).map { _ in
+                            PlannedSet(targetReps: amount, targetWeightKg: nil,
+                                targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
+                        }
+                        let entry = RoutineExercise(
+                            exerciseId: exercise.id,
+                            plannedSets: sets,
+                            quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
+                                ? exercise.defaultQuantityUnit : nil
+                        )
+                        routine.blocks[idx].exercises.append(entry)
+                        lastEntryID = entry.id
                     }
-                    let entry = RoutineExercise(
-                        exerciseId: exercise.id,
-                        plannedSets: sets,
-                        quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
-                            ? exercise.defaultQuantityUnit : nil
-                    )
-                    routine.blocks[idx].exercises.append(entry)
-                    expandedEntryID = entry.id
+                    expandedEntryID = lastEntryID
                 }
                 pickExerciseForBlock = nil
             }
@@ -2116,8 +2167,18 @@ extension DayEditorView {
               routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
         var sets = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
         guard sets.count > 1, sets.indices.contains(setIndex) else { return }
+        let removed = sets[setIndex]
         sets.remove(at: setIndex)
         routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = sets
+        let message = "Serie \(setIndex + 1) eliminada"
+        presentUndoToast(message: message) {
+            guard routine.blocks.indices.contains(blockIndex),
+                  routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
+            var restored = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
+            let insertAt = min(setIndex, restored.count)
+            restored.insert(removed, at: insertAt)
+            routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = restored
+        }
     }
 
     /// Rondas mostradas: EMOM deriva vueltas (cap÷estaciones); RFT default 4.
@@ -3559,7 +3620,31 @@ struct ExercisePickerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     var embedsNavigationStack = true
-    var onPick: (Exercise) -> Void
+    var allowsMultipleSelection = false
+    var onPick: ((Exercise) -> Void)? = nil
+    var onPickMany: (([Exercise]) -> Void)? = nil
+
+    init(
+        embedsNavigationStack: Bool = true,
+        allowsMultipleSelection: Bool = false,
+        onPick: @escaping (Exercise) -> Void
+    ) {
+        self.embedsNavigationStack = embedsNavigationStack
+        self.allowsMultipleSelection = allowsMultipleSelection
+        self.onPick = onPick
+        self.onPickMany = nil
+    }
+
+    init(
+        embedsNavigationStack: Bool = true,
+        allowsMultipleSelection: Bool = true,
+        onPickMany: @escaping ([Exercise]) -> Void
+    ) {
+        self.embedsNavigationStack = embedsNavigationStack
+        self.allowsMultipleSelection = allowsMultipleSelection
+        self.onPick = nil
+        self.onPickMany = onPickMany
+    }
 
     var body: some View {
         Group {
@@ -3572,15 +3657,30 @@ struct ExercisePickerView: View {
     }
 
     private var pickerContent: some View {
-        ExerciseCatalogSearchList(
-            exercises: store.state.exercises,
-            prompt: "Buscar ejercicio",
-            pageTitle: "Elegir ejercicio"
-        ) { exercise in
-            onPick(exercise)
-            if embedsNavigationStack { dismiss() }
+        Group {
+            if allowsMultipleSelection {
+                ExerciseCatalogSearchList(
+                    exercises: store.state.exercises,
+                    prompt: "Buscar ejercicio",
+                    pageTitle: "Elegir ejercicio",
+                    selectionMode: .multiple
+                ) { picked in
+                    onPickMany?(picked)
+                    if embedsNavigationStack { dismiss() }
+                }
+            } else {
+                ExerciseCatalogSearchList(
+                    exercises: store.state.exercises,
+                    prompt: "Buscar ejercicio",
+                    pageTitle: "Elegir ejercicio"
+                ) { exercise in
+                    onPick?(exercise)
+                    if embedsNavigationStack { dismiss() }
+                }
+            }
         }
         .ogScrollingTitleNav()
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {

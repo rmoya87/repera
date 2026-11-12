@@ -53,14 +53,26 @@ struct SessionPreviewView: View {
         List {
             // Título/fecha en sección propia (no se absorben en la caja de tiles).
             Section {
-                OGScrollablePageTitle(active != nil ? "Sesión" : "Entreno")
-                    .ogScrollingTitleListRow()
-                if active == nil, !dayLabel.isEmpty {
-                    Text("Entreno · \(dayLabel)")
+                if active == nil, let routine = liveRoutine {
+                    OGScrollablePageTitle(routine.title)
+                        .ogScrollingTitleListRow()
+                    Text(dayLabel)
                         .font(.system(size: 15, weight: .regular))
                         .foregroundStyle(OG.label2)
                         .fixedSize(horizontal: false, vertical: true)
                         .ogSessionDateListRow()
+                    let stats = RoutinePresentationStats.counts(for: routine)
+                    HStack(spacing: 8) {
+                        OGWorkoutMetaChip(icon: "dumbbell.fill", text: "\(stats.exercises) ejercicios", onBg: true)
+                        OGWorkoutMetaChip(icon: "square.stack.3d.up", text: "\(stats.sets) series", onBg: true)
+                        if let minutes = routine.plannedDurationMinutes, minutes > 0 {
+                            OGWorkoutMetaChip(icon: "timer", text: "≈ \(minutes) min", onBg: true)
+                        }
+                    }
+                    .ogSessionDateListRow()
+                } else {
+                    OGScrollablePageTitle("Sesión")
+                        .ogScrollingTitleListRow()
                 }
             }
             .listSectionSpacing(0)
@@ -181,19 +193,37 @@ struct SessionPreviewView: View {
                     }
                     .accessibilityLabel("Más opciones")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        startVisibleRoutine()
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                    .accessibilityLabel("Iniciar")
-                }
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            if active == nil, liveRoutine != nil {
+                HStack(spacing: 10) {
+                    Button {
+                        if let routine = liveRoutine { onEdit(routine) }
+                    } label: {
+                        Label("Editar", systemImage: "pencil")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(OG.label2)
+                    Button(action: startVisibleRoutine) {
+                        Label("Empezar", systemImage: "play.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(OG.onAccent)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(OG.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, OG.pad)
+                .padding(.vertical, 10)
+                .background(OG.bg)
+            }
+        }
+        .toolbar(.hidden, for: .tabBar)
         .alert("No se ha podido guardar el favorito", isPresented: Binding(
             get: { favoriteSaveError != nil },
             set: { if !$0 { favoriteSaveError = nil } }

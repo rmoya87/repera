@@ -118,6 +118,22 @@ final class RestSessionCoordinator {
         finish(announce: false)
     }
 
+    /// Ajusta el temporizador en curso (p. ej. ±15 s en Play).
+    func adjustRemaining(by delta: Int) {
+        guard delta != 0, isActive else { return }
+        if isPaused {
+            pausedRemaining = max(0, pausedRemaining + TimeInterval(delta))
+            return
+        }
+        guard let end = endDate else { return }
+        let next = end.addingTimeInterval(TimeInterval(delta))
+        endDate = max(next, Date())
+        totalSeconds = max(totalSeconds, remainingSeconds)
+        scheduleCompletion(at: endDate!)
+        scheduleFeedback()
+        publishRemoteCommands()
+    }
+
     /// Call when the workout session is discarded or finished.
     func endForSessionClose() {
         finish(announce: false)

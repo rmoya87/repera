@@ -36,23 +36,31 @@ private enum ExercisePickerFilter: Hashable, Sendable {
     }
 }
 
+enum ExerciseCatalogSelectionMode: Sendable {
+    case single
+    case multiple
+}
+
 /// Lista + `.searchable` compartida: índice/ranking off-main, filas ligeras, prefetch viewport.
 struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     @Environment(ReperaStore.self) private var store
     let exercises: [Exercise]
     var prompt: String = "Buscar ejercicio"
     var pageTitle: String? = nil
+    var selectionMode: ExerciseCatalogSelectionMode = .single
     var subtitle: (ExerciseSearch.Document) -> String = { doc in
         var parts = [doc.muscleGroup]
         if let eq = doc.equipment, !eq.isEmpty { parts.append(eq) }
         return parts.joined(separator: " · ")
     }
-    var onPick: (Exercise) -> Void
+    var onPick: (Exercise) -> Void = { _ in }
+    var onPickMany: ([Exercise]) -> Void = { _ in }
     @ViewBuilder var header: () -> Header
     @ViewBuilder var footer: () -> Footer
 
     @State private var query = ""
     @State private var filter: ExercisePickerFilter = .all
+    @State private var selectedIDs: Set<UUID> = []
     @State private var searchIndex: [ExerciseSearch.Document] = []
     /// Índice ya ordenado A–Z (query vacía sin re-sort).
     @State private var alphabeticalIndex: [ExerciseSearch.Document] = []
@@ -60,39 +68,27 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
     @State private var rowIDsToken: String = ""
     @State private var byId: [UUID: Exercise] = [:]
 
+    private var isMultiple: Bool { selectionMode == .multiple }
+
     var body: some View {
         List {
             if let pageTitle {
                 OGScrollablePageTitle(pageTitle).ogScrollingTitleListRow()
             }
-            Section {
-                ForEach(rows) { row in
-                    Button {
-                        if let exercise = byId[row.id] {
-                            onPick(exercise)
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            if let exercise = byId[row.id] {
-                                ExerciseThumb(exercise: exercise)
-                            } else {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(OG.surface2)
-                                    .frame(width: 48, height: 48)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.name)
-                                    .foregroundStyle(OG.label)
-                                Text(row.subtitle)
-                                    .font(.caption)
-                                    .foregroundStyle(OG.label2)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+            if isMultiple {
+                Section {
+                    muscleChipScroller
                 }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+            if isMultiple, !recentRows.isEmpty, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Section("Recientes") {
+                    pickerRows(recentRows)
+                }
+            }
+            Section(isMultiple && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Todos (A–Z)" : "") {
+                pickerRows(rows)
             } header: {
                 header()
             } footer: {
@@ -102,63 +98,36 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .scrollDismissesKeyboard(.interactively)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button {
-                        filter = .all
-                    } label: {
-                        Label("Todos", systemImage: filter == .all ? "checkmark" : "list.bullet")
-                    }
-                    Button {
-                        filter = .favorites
-                    } label: {
-                        Label("Favoritos", systemImage: filter == .favorites ? "checkmark" : "star")
-                    }
-                    Menu("Grupo muscular") {
-                        ForEach(muscleOptions, id: \.self) { muscle in
-                            Button {
-                                filter = .muscle(muscle)
-                            } label: {
-                                if filter == .muscle(muscle) {
-                                    Label(muscle, systemImage: "checkmark")
-                                } else {
-                                    Text(muscle)
-                                }
-                            }
-                        }
-                    }
-                    Menu("Disciplina") {
-                        ForEach(["Fuerza", "CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"], id: \.self) { sport in
-                            Button {
-                                filter = .sport(sport)
-                            } label: {
-                                if filter == .sport(sport) {
-                                    Label(sport, systemImage: "checkmark")
-                                } else {
-                                    Text(sport)
-                                }
-                            }
-                        }
-                    }
+        .safeAreaInset(edge: .bottom) {
+            if isMultiple, !selectedIDs.isEmpty {
+                Button {
+                    let picked = selectedIDs.compactMap { byId[$0] }
+                    guard !picked.isEmpty else { return }
+                    onPickMany(picked)
                 } label: {
-                    // Icono solo: el toolbar de iOS 27 lo envuelve en círculo glass
-                    // (paridad con filtrar de Biblioteca / Android topbar blanco).
-                    Image(systemName: "line.3.horizontal.decrease")
+                    Text("Añadir \(selectedIDs.count) ejercicio\(selectedIDs.count == 1 ? "" : "s")")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(filter == .all ? OG.label : OG.accent)
+                        .foregroundStyle(OG.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(OG.accent, in: Capsule())
                 }
-                .accessibilityLabel(
-                    filter == .all
-                        ? "Filtrar ejercicios por grupo muscular o disciplina"
-                        : "Filtro: \(filter.title)"
-                )
+                .padding(.horizontal, OG.pad)
+                .padding(.vertical, 10)
+                .background(.ultraThinMaterial)
+            }
+        }
+        .toolbar {
+            if !isMultiple {
+                ToolbarItem(placement: .topBarTrailing) {
+                    filterMenu
+                }
             }
         }
         .animation(nil, value: rowIDsToken)
         .searchable(
             text: $query,
-            placement: .navigationBarDrawer(displayMode: .always),
+            placement: isMultiple ? .automatic : .navigationBarDrawer(displayMode: .always),
             prompt: prompt
         )
         .task(id: catalogToken) {
@@ -171,12 +140,181 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
             prefetchWindow()
         }
         .onDisappear {
-            // Solo cancela prefetch group; los loads de celdas visibles siguen via cache.
             ExerciseArt.cancelThumbPrefetch()
         }
         .onChange(of: rowIDsToken) { _, _ in
             prefetchWindow()
         }
+    }
+
+    private var muscleChipScroller: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                muscleChip("Todos", active: filter == .all) { filter = .all }
+                ForEach(muscleOptions, id: \.self) { muscle in
+                    muscleChip(muscle, active: filter == .muscle(muscle)) {
+                        filter = .muscle(muscle)
+                    }
+                }
+            }
+            .padding(.horizontal, OG.pad)
+            .padding(.vertical, 4)
+        }
+    }
+
+  private func muscleChip(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(active ? OG.onAccent : OG.label)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
+                .background(active ? OG.accent : OG.surface2, in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var filterMenu: some View {
+        Menu {
+            Button { filter = .all } label: {
+                Label("Todos", systemImage: filter == .all ? "checkmark" : "list.bullet")
+            }
+            Button { filter = .favorites } label: {
+                Label("Favoritos", systemImage: filter == .favorites ? "checkmark" : "star")
+            }
+            Menu("Grupo muscular") {
+                ForEach(muscleOptions, id: \.self) { muscle in
+                    Button { filter = .muscle(muscle) } label: {
+                        if filter == .muscle(muscle) {
+                            Label(muscle, systemImage: "checkmark")
+                        } else {
+                            Text(muscle)
+                        }
+                    }
+                }
+            }
+            Menu("Disciplina") {
+                ForEach(["Fuerza", "CrossFit", "HYROX", "Halterofilia", "Gimnasia", "Cardio"], id: \.self) { sport in
+                    Button { filter = .sport(sport) } label: {
+                        if filter == .sport(sport) {
+                            Label(sport, systemImage: "checkmark")
+                        } else {
+                            Text(sport)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(filter == .all ? OG.label : OG.accent)
+        }
+        .accessibilityLabel(
+            filter == .all
+                ? "Filtrar ejercicios por grupo muscular o disciplina"
+                : "Filtro: \(filter.title)"
+        )
+    }
+
+    @ViewBuilder
+    private func pickerRows(_ source: [PickerRow]) -> some View {
+        ForEach(source) { row in
+            if isMultiple {
+                multiSelectRow(row)
+            } else {
+                singleSelectRow(row)
+            }
+        }
+    }
+
+    private func singleSelectRow(_ row: PickerRow) -> some View {
+        Button {
+            if let exercise = byId[row.id] {
+                onPick(exercise)
+            }
+        } label: {
+            rowLabel(row, trailing: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(OG.label3)
+            })
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func multiSelectRow(_ row: PickerRow) -> some View {
+        Button {
+            if selectedIDs.contains(row.id) {
+                selectedIDs.remove(row.id)
+            } else {
+                selectedIDs.insert(row.id)
+            }
+        } label: {
+            let selected = selectedIDs.contains(row.id)
+            rowLabel(row, trailing: {
+                Image(systemName: selected ? "checkmark.circle.fill" : "plus.circle")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(selected ? OG.accent : OG.label3)
+            })
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func rowLabel<Trailing: View>(
+        _ row: PickerRow,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 12) {
+            if let exercise = byId[row.id] {
+                ExerciseThumb(exercise: exercise)
+            } else {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(OG.surface2)
+                    .frame(width: 48, height: 48)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.name)
+                    .foregroundStyle(OG.label)
+                Text(row.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(OG.label2)
+            }
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var recentRows: [PickerRow] {
+        recentExerciseIDs.compactMap { id in
+            guard let exercise = byId[id] else { return nil }
+            return PickerRow(
+                id: id,
+                name: exercise.name,
+                subtitle: subtitle(for: exercise)
+            )
+        }
+    }
+
+    private func subtitle(for exercise: Exercise) -> String {
+        var parts = [exercise.muscleGroup]
+        if let eq = exercise.equipment, !eq.isEmpty { parts.append(eq) }
+        return parts.joined(separator: " · ")
+    }
+
+    private var recentExerciseIDs: [UUID] {
+        var seen = Set<UUID>()
+        var ids: [UUID] = []
+        for session in store.state.workouts.prefix(20) {
+            for item in session.exercises {
+                let exerciseID = item.exercise.id
+                if seen.insert(exerciseID).inserted {
+                    ids.append(exerciseID)
+                    if ids.count >= 8 { return ids }
+                }
+            }
+        }
+        return ids
     }
 
     private var muscleOptions: [String] {
@@ -260,6 +398,7 @@ extension ExerciseCatalogSearchList where Header == EmptyView, Footer == EmptyVi
         exercises: [Exercise],
         prompt: String = "Buscar ejercicio",
         pageTitle: String? = nil,
+        selectionMode: ExerciseCatalogSelectionMode = .single,
         subtitle: @escaping (ExerciseSearch.Document) -> String = { doc in
             var parts = [doc.muscleGroup]
             if let eq = doc.equipment, !eq.isEmpty { parts.append(eq) }
@@ -271,8 +410,35 @@ extension ExerciseCatalogSearchList where Header == EmptyView, Footer == EmptyVi
             exercises: exercises,
             prompt: prompt,
             pageTitle: pageTitle,
+            selectionMode: selectionMode,
             subtitle: subtitle,
             onPick: onPick,
+            onPickMany: { _ in },
+            header: { EmptyView() },
+            footer: { EmptyView() }
+        )
+    }
+
+    init(
+        exercises: [Exercise],
+        prompt: String = "Buscar ejercicio",
+        pageTitle: String? = nil,
+        selectionMode: ExerciseCatalogSelectionMode = .multiple,
+        subtitle: @escaping (ExerciseSearch.Document) -> String = { doc in
+            var parts = [doc.muscleGroup]
+            if let eq = doc.equipment, !eq.isEmpty { parts.append(eq) }
+            return parts.joined(separator: " · ")
+        },
+        onPickMany: @escaping ([Exercise]) -> Void
+    ) {
+        self.init(
+            exercises: exercises,
+            prompt: prompt,
+            pageTitle: pageTitle,
+            selectionMode: selectionMode,
+            subtitle: subtitle,
+            onPick: { _ in },
+            onPickMany: onPickMany,
             header: { EmptyView() },
             footer: { EmptyView() }
         )

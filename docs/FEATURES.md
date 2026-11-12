@@ -1,6 +1,17 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-12 (kcal medidas del builder iPhone en el detalle).
+Última actualización: 2026-11-12 (rediseño UI gestión de entrenamientos).
+
+## Gestión de entrenamientos — rediseño UI (12/11/2026)
+
+iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma.
+
+- **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable, paso ± configurable (kg 2,5 · reps 1 · tiempo 15 s), cabecera del pad y tecla de envío con destino («Reps →»). Corrección del foco al pulsar Siguiente (evita concatenar 60→6010).
+- **Play:** cabecera con progreso de series y volumen; ✓ por serie; descanso automático al marcar (−15 / +15 / Saltar); menú «Editar estructura»; cierre con `chevron.down`; hoja resumen antes de guardar (`OGWorkoutFinishSummarySheet`).
+- **Crear/Editar:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast Deshacer (4 s) al borrar serie en fuerza; confirmación «¿Descartar cambios?» al volver con el borrador sucio; selector multiselección con chips musculares, Recientes y «Añadir N ejercicios».
+- **Vista previa:** título real, chips de resumen, barra inferior Empezar + Editar.
+- **Inicio:** tarjetas planificadas/hechas con fondo `surface`, resumen «N ejercicios · N series» y ▶; se mantienen **Progreso semanal** y **Actividad de hoy**.
+- Contrato: `tests/test_workout_ui_redesign_contract.py`.
 
 ## Calorías medidas en el entreno (Watch y builder iPhone) (12/11/2026)
 
