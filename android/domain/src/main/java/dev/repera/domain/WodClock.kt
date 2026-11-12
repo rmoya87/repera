@@ -14,7 +14,10 @@ data class WodClockSpec(
     val workSeconds: Int? = null,
     val restSeconds: Int? = null,
     val restBetweenRoundsSeconds: Int? = null,
-    val stations: Int = 1
+    val stations: Int = 1,
+    val repeatedWorkSeconds: Int? = null,
+    val repeatedRestSeconds: Int? = null,
+    val repeatCount: Int? = null
 )
 
 data class WodClockFace(
@@ -47,6 +50,19 @@ object WodClock {
         }
     }
 
+    private fun repeatedAMRAPPhases(spec: WodClockSpec): List<Phase> {
+        if (spec.format != WodFormat.AMRAP) return emptyList()
+        val count = spec.repeatCount?.takeIf { it in 2..100 } ?: return emptyList()
+        val work = spec.repeatedWorkSeconds?.takeIf { it > 0 } ?: return emptyList()
+        val rest = (spec.repeatedRestSeconds ?: 0).coerceAtLeast(0)
+        return buildList {
+            for (i in 1..count) {
+                add(Phase(work, "AMRAP $i/$count · trabajo"))
+                if (i < count && rest > 0) add(Phase(rest, "Descanso · AMRAP $i/$count"))
+            }
+        }
+    }
+
     fun timeCapSeconds(spec: WodClockSpec): Int {
         val cap = spec.blockTimeCapMinutes ?: 0
         val exact = spec.blockTimeCapSeconds?.takeIf { it > 0 }
@@ -57,7 +73,9 @@ object WodClock {
             WodFormat.CIRCUIT -> phases(spec).sumOf { it.seconds }
             WodFormat.TABATA -> (spec.rounds ?: 8).coerceAtLeast(1) *
                 ((spec.workSeconds ?: 20).coerceAtLeast(5) + (spec.restSeconds ?: 10).coerceAtLeast(0))
-            WodFormat.AMRAP, WodFormat.MAX_EFFORT -> exact ?: (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60
+            WodFormat.AMRAP -> repeatedAMRAPPhases(spec).takeIf { it.isNotEmpty() }
+                ?.sumOf { it.seconds } ?: (exact ?: (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60)
+            WodFormat.MAX_EFFORT -> exact ?: (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60
             WodFormat.FOR_TIME, WodFormat.CHIPPER, WodFormat.AFAP,
             WodFormat.LADDER, WodFormat.BUY_IN_CASH_OUT -> 0
             else -> exact ?: cap.coerceAtLeast(0) * 60
@@ -70,6 +88,19 @@ object WodClock {
     fun activeIntervalIndex(spec: WodClockSpec, elapsedSeconds: Int): Int {
         val elapsed = elapsedSeconds.coerceAtLeast(0)
         return when (spec.format) {
+            WodFormat.AMRAP -> {
+                val phases = repeatedAMRAPPhases(spec)
+                if (phases.isEmpty()) 0 else {
+                    var remaining = elapsed
+                    var round = 0
+                    for (phase in phases) {
+                        if (remaining < phase.seconds) return round.coerceAtLeast(0)
+                        remaining -= phase.seconds
+                        if (phase.label.contains("· trabajo")) round++
+                    }
+                    (round - 1).coerceAtLeast(0)
+                }
+            }
             WodFormat.CIRCUIT -> {
                 val phases = phases(spec)
                 var remaining = elapsed
@@ -117,6 +148,20 @@ object WodClock {
                     val step = (spec.intervalSeconds ?: 60).coerceAtLeast(1)
                     intervalRemaining = step - elapsed % step
                     label = "Intervalo ${elapsed / step + 1}"
+                }
+                WodFormat.AMRAP -> {
+                    val phases = repeatedAMRAPPhases(spec)
+                    if (phases.isEmpty()) {
+                        intervalRemaining = null
+                        label = spec.format.displayName
+                    } else {
+                        var cursor = elapsed
+                        val current = phases.firstOrNull {
+                            if (cursor < it.seconds) true else { cursor -= it.seconds; false }
+                        }
+                        intervalRemaining = current?.seconds?.minus(cursor) ?: 0
+                        label = current?.label
+                    }
                 }
                 WodFormat.CIRCUIT -> {
                     var cursor = elapsed
