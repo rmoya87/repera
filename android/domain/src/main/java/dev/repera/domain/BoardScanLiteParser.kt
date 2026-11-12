@@ -378,7 +378,8 @@ object BoardScanLiteParser {
     }
 
     private fun exerciseText(line:String):String =
-        line.replace(Regex("""^\s*[*•]\s*(?=\d)"""),"")
+        line.replace(Regex("""(\d+)\s*MN\b""",RegexOption.IGNORE_CASE),"$1MIN")
+            .replace(Regex("""^\s*[*•]\s*(?=\d)"""),"")
             .replace(Regex("""^MINUTE\s+\d+\s*:\s*""",RegexOption.IGNORE_CASE),"")
             .replace(Regex("""^MINUTO\s+\d+\s*:\s*""",RegexOption.IGNORE_CASE),"")
 
