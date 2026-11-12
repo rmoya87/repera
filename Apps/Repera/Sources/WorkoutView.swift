@@ -3299,7 +3299,7 @@ struct WODResultInlineEditor: View {
         self.wodTemplateId = wodTemplateId
         self.resultMetric = resultMetric
         _scoreMetric = State(initialValue: existing?.measuredMetric ?? resultMetric ?? .totalReps)
-        _metricText = State(initialValue: existing?.measuredValue.map(String.init) ?? "")
+        _metricText = State(initialValue: existing?.measuredValue.map { String($0) } ?? "")
         self.onSave = onSave
         _rxSelection = State(initialValue: existing?.isRx.map { $0 ? 1 : 2 } ?? 0)
         _roundsText = State(initialValue: String(existing?.roundsCompleted ?? 0))
