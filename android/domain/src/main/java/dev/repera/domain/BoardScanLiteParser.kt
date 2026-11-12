@@ -126,6 +126,28 @@ object BoardScanLiteParser {
         val officialExercises=catalogIndex(catalog)
         for ((lineIndex,line) in rawLines.withIndex()) {
             val upper = line.uppercase(Locale.ROOT)
+            if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("MAX ") &&
+               sectionLabel(line)==null) {
+                flush()
+                sectionTitle=line
+                continue
+            }
+            if(upper.startsWith("MAX ") && !upper.startsWith("MAX ROUNDS") &&
+               sectionTitle!=null && sectionLabel(sectionTitle!!)==null) {
+                val title=sectionTitle!!
+                val ex=officialExercises[norm(title)]
+                    ?: officialExercises[norm(CrossFitGlossary.canonicalName(title))]
+                val block=RoutineBlock.wod(
+                    format=WODFormat.MAX_EFFORT, title=title+" · "+line
+                )
+                block.movements=listOf(WODMovement(
+                    exerciseId=ex?.id, name=ex?.name ?: title
+                ))
+                block.wodNotes=title+"\n"+line
+                blocks.add(block)
+                sectionTitle=null
+                continue
+            }
             if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("FIND ") &&
                officialExercises[norm(line)]!=null) {
                 flush()
