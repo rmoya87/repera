@@ -72,6 +72,25 @@ class BoardScanGlobalFixturesTest {
         assertEquals(listOf(1,2,3,4,5,6,7,8,9,10),ladder[0].movements[1].repScheme)
     }
 
+    @Test fun distinctFindFiveRMDoesNotExtendPreviousEMOM() {
+        val catalog=listOf(CatalogExercise("back-squat","Back Squat"))
+        val blocks=BoardScanLiteParser.parse("""
+            EMOM 10'
+            1 SQUAT SNATCH @5-9
+            BACK SQUAT
+            FIND 5 RM (TC 10')
+            AMRAP 10'
+            5 BBJO
+            7 POWER SNATCH 45/30
+            9 T2B
+        """.trimIndent(),catalog).blocks
+        assertEquals(3,blocks.size)
+        assertEquals(RoutineBlockKind.STRENGTH,blocks[1].kind)
+        assertEquals("back-squat",blocks[1].exercises.single().exerciseId)
+        assertEquals(5,blocks[1].exercises.single().plannedSets.single().targetReps)
+        assertEquals(10,blocks[1].timeCapMinutes)
+    }
+
     @Test fun photographedFormatMatrix() {
         val cases=listOf(
             Triple("team", """EMOM 40' (TEAM II)
