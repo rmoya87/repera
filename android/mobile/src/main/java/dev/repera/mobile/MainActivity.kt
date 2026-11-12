@@ -2514,16 +2514,24 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 busy = false
                 if (current()) prepareAccountDataAfterAuth(stored.uniqueId) { current() }
             } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 if(!current()) return@launch
                 if(!SupabaseAuthErrors.isUnrecoverable(error)) {
-                    // Apple: red u otro fallo temporal NO es logout. Se conserva la sesión cifrada y los datos locales;
-                    // la cuenta remota queda sin verificar hasta reintentar (onResume).
+                    // Red u otro fallo temporal NO es logout. Conservar sesión cifrada
+                    // e historial local incluso si también falla la hidratación offline.
                     profile = GoogleProfile(stored.uniqueId, stored.email, stored.displayName)
                     status = "Sin conexión con la cuenta. Los entrenos continúan guardados localmente."
                     restoringSession = false
                     busy = false
-                    ensureCatalogHydrated(stored.uniqueId) { current() }
-                    if (current()) reloadFor(stored.uniqueId)
+                    try {
+                        ensureCatalogHydrated(stored.uniqueId) { current() }
+                        if (current()) reloadFor(stored.uniqueId)
+                    } catch (recoveryError: Exception) {
+                        if (recoveryError is kotlinx.coroutines.CancellationException) throw recoveryError
+                        // El catálogo es complementario: su fallo nunca debe cerrar
+                        // la app ni descartar la identidad y el historial guardados.
+                        if (current()) status = "Sesión conservada. No se pudo cargar el catálogo local."
+                    }
                     return@launch
                 }
                 // Revoked refresh token or session confirmed by Supabase: back to the login screen.
@@ -2568,6 +2576,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
         busy = true
         status = null
         lifecycleScope.launch {
+            // Solo la validación Google/Supabase + persistencia cifrada son
+            // requisitos del login. Catálogo, foto y sincronizaciones no lo son.
+            var savedIdentity: Pair<SupabaseIdentity.Session, GoogleProfile>? = null
             try {
                 // Google gets SHA-256(raw); Supabase gets raw (same as iOS GIDSignIn).
                 val nonce = GoogleAuthNonce.generate()
@@ -2582,23 +2593,27 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 val google = GoogleIdTokenCredential.createFrom(credential.data)
                 val id = google.uniqueId
                 check(id.isNotBlank() && google.idToken.isNotBlank())
-                // The native Google identity must be verified by GoTrue before any login.
+                // Verificar con GoTrue: jamás confiar solo en la identidad local de Google.
                 val session = withContext(Dispatchers.IO) {
                     SupabaseIdentity().signInWithGoogle(google.idToken, nonce.raw)
                 }
-                verifiedSupabase = session
-                refreshCenter()
                 val signedIn = GoogleProfile(
                     uniqueId = id,
                     email = google.email ?: "",
                     displayName = google.displayName ?: "Deportista"
                 )
-                // Preparar biblioteca offline antes de mostrar la cuenta:
-                // nunca depender de la primera descarga de Supabase.
+                // Guardar antes de cualquier carga opcional. Si una falla,
+                // un nuevo arranque puede restaurar la sesión ya validada.
+                persistSession(session, signedIn)
+                savedIdentity = session to signedIn
+                verifiedSupabase = session
+                profile = signedIn
+                refreshCenter()
+                // La biblioteca offline es prioritaria, pero no debe invalidar
+                // un login correcto si el almacenamiento local falla.
                 val localSeedError = withContext(Dispatchers.IO) {
                     runCatching { CatalogBootstrap.ensureHydrated(this@MainActivity, id) }.exceptionOrNull()
                 }
-                profile = signedIn
                 if (localSeedError == null) {
                     reloadFor(id)
                 } else {
@@ -2608,24 +2623,44 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                 SessionStore(this@MainActivity).setGooglePhotoUrl(
                     google.profilePictureUri?.toString()
                 )
-                persistSession(session, signedIn)
                 DriveSyncWorker.schedulePeriodic(this@MainActivity)
                 RemoteExerciseCatalogWorker.schedule(this@MainActivity)
                 aiPlansRealtime.start()
                 val signInRevision = centerGate.revision
-                prepareAccountDataAfterAuth(id) { profile?.uniqueId == id && centerGate.revision == signInRevision }
+                prepareAccountDataAfterAuth(id) {
+                    profile?.uniqueId == id && centerGate.revision == signInRevision
+                }
                 if (localSeedError == null) status = null
             } catch (error: Exception) {
-                aiPlansRealtime.stop()
-                verifiedSupabase = null; resetManualMirrorSync()
-                clearAIAccessState()
-                centerSnapshot = null
-                centerError = null
-                profile = null
-                snapshot = null
-                snapshotCache.clear()
-                activeWorkout = null
-                status = "No se ha podido autenticar: " + (error.localizedMessage ?: "error desconocido")
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                val saved = savedIdentity
+                if (saved != null) {
+                    // No confundir una descarga/worker fallidos con un error de
+                    // Google. Conservar sesión, datos locales y entreno activo.
+                    if (verifiedSupabase == null) verifiedSupabase = saved.first
+                    if (profile == null) profile = saved.second
+                    status = "Cuenta conectada. No se pudieron cargar algunos datos; tu historial sigue guardado."
+                } else {
+                    aiPlansRealtime.stop()
+                    verifiedSupabase = null; resetManualMirrorSync()
+                    clearAIAccessState()
+                    centerSnapshot = null
+                    centerError = null
+                    profile = null
+                    snapshot = null
+                    snapshotCache.clear()
+                    activeWorkout = null
+                    status = when (error) {
+                        is androidx.credentials.exceptions.GetCredentialCancellationException ->
+                            "Inicio de sesión cancelado."
+                        is androidx.credentials.exceptions.GetCredentialException ->
+                            "Google no pudo proporcionar una credencial. Revisa Google Play Services."
+                        is AuthHttpException ->
+                            "Google no pudo validar tu cuenta con Repera (HTTP ${error.httpCode})."
+                        else -> "No se ha podido autenticar: " +
+                            (error.localizedMessage ?: "error desconocido")
+                    }
+                }
             } finally {
                 busy = false
             }

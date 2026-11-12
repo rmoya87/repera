@@ -1,6 +1,6 @@
 # Identidad Google y Google Drive (Android)
 
-**Última actualización:** 2026-10-28
+**Última actualización:** 2026-11-12
 
 ## Identidad
 
@@ -71,6 +71,13 @@ Proyecto `uvzgujlrqohreoucirms` → Authentication → Providers → **Google**:
 7. Guardar → reintentar login en el dispositivo.
 
 Esto **no** es billing ni Play Billing; es solo OAuth / Auth.
+
+## Recuperación segura del inicio de sesión (12/11/2026)
+
+- El login queda confirmado únicamente tras validar el ID token de Google con Supabase y guardar la sesión cifrada con `SessionStore`. La hidratación del catálogo, la foto, la sincronización y otras funciones se ejecutan después: un error en ellas **no invalida** el login ni elimina datos del usuario.
+- Si falla una inicialización tras autenticar, se mantiene la sesión y el historial local; se informa de que faltan datos por cargar. Si falla una restauración por falta de red, la recuperación del catálogo también está protegida para evitar excepciones no controladas.
+- Cancelaciones de Credential Manager, errores de credenciales y respuestas HTTP de Supabase muestran mensajes diferentes, sin exponer tokens ni respuestas sensibles.
+- Esta protección de errores no sustituye la comprobación real del certificado OAuth de Google Play o un Logcat para fallos anteriores al intercambio del ID token.
 
 ## Drive
 
