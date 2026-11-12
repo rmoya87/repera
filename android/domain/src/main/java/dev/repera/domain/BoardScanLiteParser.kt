@@ -190,8 +190,11 @@ object BoardScanLiteParser {
                 continue
             }
             if(isNonExerciseLine(line)) {
-                current?.body?.add(line)
-                continue
+                // Only a bare rep wave outside For Time can start a ladder.
+                if(standaloneWave(line)==null || current?.format==WODFormat.FOR_TIME) {
+                    current?.body?.add(line)
+                    continue
+                }
             }
             // Clock in the OCR corner and bare numeric noise are not exercises.
             if(Regex("^\\d{1,2}:\\d{2}$").matches(line) || Regex("^[\\d.,]+$").matches(line)) continue
