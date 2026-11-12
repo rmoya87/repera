@@ -832,6 +832,9 @@ private fun insertPlannedSetAt(
  * escala, notas, repScheme, REST) y NO se crea una nueva sesión. */
 internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): BlockDraftUi {
     val draft = BlockDraftUi()
+    // Carry the full scan payload through Create/Edit/Play; don't flatten
+    // phases, partner modes, exact caps or movement identities into notes.
+    draft.sourceJson = BoardScanImport.wireBlock(block).toString()
     draft.title = block.title
     draft.format = block.wodFormat?.raw ?: if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "" else "amrap"
     draft.timeCap = (block.timeCapMinutes ?: 12).toString()
@@ -870,7 +873,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
     /** Clave estable para LazyColumn aunque el bloque aún no tenga id de dominio. */
     val listKey: String = blockId ?: java.util.UUID.randomUUID().toString()
-    val sourceJson: String? = info?.sourceJson
+    var sourceJson: String? = info?.sourceJson
     var title by mutableStateOf(info?.title ?: "")
     var format by mutableStateOf(info?.format ?: "")
     var timeCap by mutableStateOf((info?.timeCapMinutes ?: 12).toString())
