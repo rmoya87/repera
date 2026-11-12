@@ -201,6 +201,9 @@ public enum BoardScanLiteParser {
         }
 
         blocks = enrichBlocks(blocks, catalog: catalog)
+        for index in blocks.indices {
+            WorkoutStructureRecognition.attach(to: &blocks[index])
+        }
         return Output(blocks: blocks, lines: importLines(from: blocks, catalog: catalog))
     }
 

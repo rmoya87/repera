@@ -832,6 +832,9 @@ private fun insertPlannedSetAt(
  * escala, notas, repScheme, REST) y NO se crea una nueva sesión. */
 internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): BlockDraftUi {
     val draft = BlockDraftUi()
+    // Carry the full scan payload through Create/Edit/Play; don't flatten
+    // phases, partner modes, exact caps or movement identities into notes.
+    draft.sourceJson = BoardScanImport.wireBlock(block).toString()
     draft.title = block.title
     draft.format = block.wodFormat?.raw ?: if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) "" else "amrap"
     draft.timeCap = (block.timeCapMinutes ?: 12).toString()
@@ -840,6 +843,7 @@ internal fun scannedRoutineBlockDraft(block: dev.repera.domain.RoutineBlock): Bl
     draft.work = (block.workSeconds ?: 20).toString()
     draft.rest = (block.restSeconds ?: 10).toString()
     draft.roundRest = block.restBetweenRoundsSeconds?.toString() ?: ""
+    draft.capSeconds = (block.timeCapSeconds?.rem(60) ?: 0).toString()
     if (block.kind == dev.repera.domain.RoutineBlockKind.STRENGTH) {
         block.exercises.forEach { item ->
             val sets = item.plannedSets.map { PlannedSetDraft(
@@ -870,11 +874,20 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     val blockId: String? = info?.id
     /** Clave estable para LazyColumn aunque el bloque aún no tenga id de dominio. */
     val listKey: String = blockId ?: java.util.UUID.randomUUID().toString()
-    val sourceJson: String? = info?.sourceJson
+    var sourceJson: String? = info?.sourceJson
+    var teamMode by mutableStateOf(info?.sourceJson?.let {
+        runCatching { JSONObject(it).optJSONObject("structure")?.optString("collaboration") }.getOrNull()
+    }?.takeIf { it.isNotBlank() } ?: "youGoIGo")
+    var resultMetric by mutableStateOf(info?.sourceJson?.let {
+        runCatching { JSONObject(it).optJSONObject("structure")?.optString("resultMetric") }.getOrNull()
+    }?.takeIf { it.isNotBlank() } ?: "totalReps")
     var title by mutableStateOf(info?.title ?: "")
     var format by mutableStateOf(info?.format ?: "")
     var timeCap by mutableStateOf((info?.timeCapMinutes ?: 12).toString())
     var rounds by mutableStateOf((info?.rounds ?: 1).toString())
+    var capSeconds by mutableStateOf(info?.sourceJson?.let {
+        runCatching { JSONObject(it).optInt("timeCapSeconds",0) % 60 }.getOrDefault(0)
+    }?.toString() ?: "0")
     var interval by mutableStateOf((info?.emomIntervalSeconds ?: 60).toString())
     var work by mutableStateOf((info?.workSeconds ?: 20).toString())
     var rest by mutableStateOf((info?.restSeconds ?: 10).toString())
@@ -898,6 +911,7 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     fun toDraft(): RoutineBlockDraft? {
         val cap = timeCap.toIntOrNull() ?: return null
         val rds = rounds.toIntOrNull() ?: return null
+        val sec = capSeconds.toIntOrNull()?.takeIf { it in 0..59 } ?: return null
         val intv = interval.toIntOrNull() ?: return null
         val wk = work.toIntOrNull() ?: return null
         val rst = rest.toIntOrNull() ?: return null
@@ -925,12 +939,21 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 base.copy(plannedSets = entry.plannedSets.toList())
             else base
         }
+        val advancedSource = if (format == "partner" || format == "maxEffort") {
+            val raw = sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+            val structure = raw.optJSONObject("structure") ?: JSONObject()
+                .put("version", 1).put("phases", org.json.JSONArray())
+            if (format == "partner") structure.put("collaboration", teamMode)
+            if (format == "maxEffort") structure.put("resultMetric", resultMetric)
+            raw.put("structure", structure).toString()
+        } else sourceJson
         return RoutineBlockDraft(
-            blockId = blockId, sourceJson = sourceJson,
+            blockId = blockId, sourceJson = advancedSource,
             title = title.trim(), format = format, entries = parsed,
             timeCapMinutes = cap, rounds = rds, emomIntervalSeconds = intv,
             workSeconds = wk, restSeconds = rst, ladderScheme = scheme,
-            restBetweenRoundsSeconds = between
+            restBetweenRoundsSeconds = between,
+            timeCapExtraSeconds = if (format=="forTime") sec else null
         )
     }
 }
@@ -941,6 +964,7 @@ internal fun saveRoutineEditorBlocks(blocks:List<BlockDraftUi>):String = org.jso
         put("blockId",b.blockId);put("source",b.sourceJson)
         put("title",b.title);put("format",b.format);put("cap",b.timeCap);put("rounds",b.rounds)
         put("interval",b.interval);put("work",b.work);put("rest",b.rest);put("ladder",b.ladder)
+        put("capSeconds",b.capSeconds);put("roundRest",b.roundRest)
         put("entries",org.json.JSONArray().apply {b.entries.forEach {e ->put(JSONObject().apply {
             put("exerciseId",e.exerciseId);put("name",e.name);put("itemId",e.itemId);put("source",e.sourceJson)
             put("unit",e.unit);put("quantity",e.quantity);put("sets",e.sets);put("weight",e.weight)
@@ -970,6 +994,7 @@ internal fun restoreRoutineEditorBlocks(raw:String):androidx.compose.runtime.sna
                 id=o.nullable("blockId"),sourceJson=o.nullable("source")))
             b.timeCap=o.getString("cap");b.rounds=o.getString("rounds");b.interval=o.getString("interval")
             b.work=o.getString("work");b.rest=o.getString("rest");b.ladder=o.getString("ladder")
+            b.capSeconds=o.optString("capSeconds","0");b.roundRest=o.optString("roundRest","")
             val entries=o.getJSONArray("entries")
             for(j in 0 until entries.length()) {
                 val e=entries.getJSONObject(j)
@@ -1168,9 +1193,12 @@ internal fun BlockEditorCard(
             when (block.format) {
                 "amrap", "afap", "chipper", "buyInCashOut", "maxEffort" ->
                     NumberRow(block, "TIEMPO" to "timeCap")
-                "forTime" ->
+                "forTime" -> {
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap",
-                        "Tiempo (s)" to "roundRest")
+                        "Segundos" to "capSeconds")
+                    if (block.roundRest.isNotBlank())
+                        NumberRow(block, "Entre rondas (s)" to "roundRest")
+                }
                 "roundsForQuality", "partner" ->
                     NumberRow(block, "Rondas" to "rounds", "TIEMPO" to "timeCap")
                 "emom", "circuit" ->
@@ -1188,6 +1216,47 @@ internal fun BlockEditorCard(
                         onValueChange = { block.ladder = it },
                         placeholder = "21-15-9"
                     )
+                }
+            }
+            block.sourceJson?.let { raw ->
+                val structured = runCatching {
+                    WorkoutStructureWire.decode(JSONObject(raw).optJSONObject("structure"))?.summary
+                }.getOrNull()
+                if (!structured.isNullOrBlank()) {
+                    Text(structured, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2)
+                }
+            }
+            if (block.format == "partner" || block.format == "maxEffort") {
+                var advancedMenu by remember(block.listKey) { mutableStateOf(false) }
+                val partner = block.format == "partner"
+                val options = if (partner) listOf(
+                    "youGoIGo" to "Alternando",
+                    "synchronized" to "Sincronizado",
+                    "sharedReps" to "Repeticiones compartidas",
+                    "together" to "Juntos"
+                ) else listOf(
+                    "totalReps" to "Repeticiones",
+                    "loadKg" to "Carga (kg)",
+                    "calories" to "Calorías",
+                    "distanceMeters" to "Distancia (m)",
+                    "elapsedSeconds" to "Tiempo"
+                )
+                val selected = if (partner) block.teamMode else block.resultMetric
+                Box {
+                    OutlinedButton(onClick = { advancedMenu = true }) {
+                        Text((if (partner) "Trabajo en equipo: " else "Resultado: ") +
+                            (options.firstOrNull { it.first == selected }?.second ?: "Seleccionar"))
+                    }
+                    DropdownMenu(expanded = advancedMenu, onDismissRequest = { advancedMenu = false }) {
+                        options.forEach { (value, label) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                                if (partner) block.teamMode = value else block.resultMetric = value
+                                advancedMenu = false
+                            })
+                        }
+                    }
                 }
             }
             if (includeEntries) {
@@ -1555,6 +1624,7 @@ private fun NumberRow(block: BlockDraftUi, vararg fields: Pair<String, String>) 
                 "interval" -> block.interval to { v: String -> block.interval = v }
                 "work" -> block.work to { v: String -> block.work = v }
                 "roundRest" -> block.roundRest to { v: String -> block.roundRest = v }
+                "capSeconds" -> block.capSeconds to { v: String -> block.capSeconds = v }
                 else -> block.rest to { v: String -> block.rest = v }
             }
             // iOS OGFormatNumberField: título TIEMPO + unidad «min» al lado del valor.

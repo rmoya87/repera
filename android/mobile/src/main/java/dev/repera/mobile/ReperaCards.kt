@@ -567,11 +567,16 @@ internal fun WodScoreCard(
     onDiscard: () -> Unit = {},
     effortUnit: String = "rir",
     embedded: Boolean = false,
+    onMeasuredScore: (Double, String) -> Unit = { _, _ -> },
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
         format = WodFormat.fromWire(wod.format),
         blockTimeCapMinutes = wod.timeCapMinutes,
+        blockTimeCapSeconds = wod.timeCapSeconds,
+        repeatedWorkSeconds = wod.repeatedWorkSeconds,
+        repeatedRestSeconds = wod.repeatedRestSeconds,
+        repeatCount = wod.repeatCount,
         intervalSeconds = wod.intervalSeconds,
         rounds = wod.rounds,
         workSeconds = wod.workSeconds,
@@ -592,6 +597,10 @@ internal fun WodScoreCard(
     }
     var rounds by rememberSaveable(active.id, active.index) { mutableStateOf("") }
     var extraReps by rememberSaveable(active.id, active.index) { mutableStateOf("") }
+    var scoreMetric by rememberSaveable(active.id, active.index) {
+        mutableStateOf(wod.resultMetric?.takeIf { it in setOf("totalReps","loadKg","calories","distanceMeters","elapsedSeconds") } ?: "totalReps")
+    }
+    var metricValue by rememberSaveable(active.id, active.index) { mutableStateOf("") }
     var minutes by rememberSaveable(active.id, active.index) { mutableStateOf("") }
     var seconds by rememberSaveable(active.id, active.index) { mutableStateOf("") }
     val m = minutes.toIntOrNull()
@@ -623,7 +632,10 @@ internal fun WodScoreCard(
         mutableStateOf((first?.calories ?: first?.meters ?: first?.reps)?.toString() ?: "")
     }
     var weightInput by remember(active.id, active.index, selectedMovement) { mutableStateOf("") }
-    val scoreIsTime = wod.capture == "ELAPSED_TIME"
+    val maxEffort = wod.format == "maxEffort"
+    val measured = maxEffort && scoreMetric in setOf("loadKg","calories","distanceMeters")
+    val scoreIsTime = wod.capture == "ELAPSED_TIME" ||
+        (maxEffort && scoreMetric == "elapsedSeconds")
     // Apple 39a3f7f2 pendingEnd userFinished (For Time): al pulsar "Terminar"
     // el reloj congela el elapsed REAL y lo persiste (WodTimerStore); aqui el
     // editor se siembra automaticamente con ese valor una unica vez, aunque
@@ -646,7 +658,10 @@ internal fun WodScoreCard(
             // Navigating away after prefill must not lose the measured elapsed.
         }
     }
-    val valid = if (scoreIsTime) elapsed != null else
+    val metricNumber=dev.repera.domain.ReperaNumberFormat.parse(metricValue)
+    val valid = if (measured) metricNumber != null && metricNumber.isFinite() &&
+        metricNumber > 0 && metricNumber <= 50000
+    else if (scoreIsTime) elapsed != null else
         extraReps.toIntOrNull() != null && (rounds.toIntOrNull() != null || !wod.expectsRounds)
 
     val wodBody: @Composable () -> Unit = {
@@ -720,6 +735,34 @@ internal fun WodScoreCard(
                 Text((prefix + "  " + movement.name).trim(),
                     style = MaterialTheme.typography.bodyMedium)
             }
+            if (maxEffort) {
+                var scoreMenu by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { scoreMenu = true }) {
+                        Text(when(scoreMetric) {
+                            "loadKg" -> "Carga máxima (kg)"
+                            "calories" -> "Calorías máximas"
+                            "distanceMeters" -> "Distancia (m)"
+                            "elapsedSeconds" -> "Tiempo"
+                            else -> "Repeticiones"
+                        })
+                    }
+                    DropdownMenu(expanded = scoreMenu, onDismissRequest = { scoreMenu = false }) {
+                        listOf(
+                            "totalReps" to "Repeticiones",
+                            "loadKg" to "Carga (kg)",
+                            "calories" to "Calorías",
+                            "distanceMeters" to "Distancia (m)",
+                            "elapsedSeconds" to "Tiempo"
+                        ).forEach { (metric,label) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                                scoreMetric = metric
+                                scoreMenu = false
+                            })
+                        }
+                    }
+                }
+            }
             if (perMovement) {
                 val candidates = wod.movements.filter { !it.isRest }
                 Text(stringResource(R.string.repera_cards_registrar_movimientos_realizados), style = MaterialTheme.typography.titleMedium)
@@ -792,6 +835,19 @@ internal fun WodScoreCard(
                 }
                 Button(onClick = onCompleteBlock, enabled = !busy && wod.recorded.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.repera_cards_terminar_bloque)) }
+            } else if (measured) {
+                ReperaNumericField(
+                    value = metricValue,
+                    onValueChange = { metricValue = it.filter { ch ->
+                        ch.isDigit() || ch == '.' || ch == ','
+                    } },
+                    label = when (scoreMetric) {
+                        "loadKg" -> "Carga máxima (kg)"
+                        "calories" -> "Calorías"
+                        else -> "Distancia (m)"
+                    },
+                    allowsDecimal = scoreMetric == "loadKg"
+                )
             } else if (scoreIsTime) {
                 Text(stringResource(R.string.repera_cards_tiempo_total_realizado), style = MaterialTheme.typography.titleSmall)
                 if (elapsedClock > 0) {
@@ -833,7 +889,8 @@ internal fun WodScoreCard(
                 enabled = !busy && valid,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    if (scoreIsTime) onSave(null, null, elapsed)
+                    if (measured) metricNumber?.let { onMeasuredScore(it, scoreMetric) }
+                    else if (scoreIsTime) onSave(null, null, elapsed)
                     else onSave(rounds.toIntOrNull(), extraReps.toIntOrNull(), null)
                 }
             ) { Text(stringResource(R.string.repera_cards_guardar_resultado_y_continuar)) }

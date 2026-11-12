@@ -199,13 +199,17 @@ export function validatePrescription(value){
    const sets=integer(x.sets,3),reps=integer(x.reps,8),rir=integer(x.rir,2),weight=Number(x.weight||0),duration=integer(x.duration,0);
    if(sets<1||sets>50||reps<0||reps>1000||rir<0||rir>10||!Number.isFinite(weight)||weight<0||weight>1000||duration<0||duration>3600)throw Error('Revisa series, repeticiones, RIR, peso o duración');
    const row={id:String(x.id||'custom').slice(0,80),name:label,sets,reps,rir,weight,duration,notes:String(x.notes||'').slice(0,400)};
+   if(typeof x.originId==='string'&&/^[0-9a-f-]{36}$/i.test(x.originId))row.originId=x.originId;
    if(isRestMovement(x)){row.id='rest';row.itemKind='rest';row.isRest=true;}
    if(x.itemKind==='free'||x.source==='free'){row.itemKind='free';row.source='free';}
    return row;
   });
   if(!exercises.length)throw Error('Añade al menos un ejercicio o descanso a cada bloque');
   const kind=isWodFormat(format)&&b.kind!=='warmup'&&b.kind!=='accessory'?'wod':b.kind;
-  return {kind,format,title:String(b.title||TYPES[kind]||'Bloque').slice(0,120),rounds:Math.max(1,Math.min(100,integer(b.rounds,1))),timeCap:Math.max(0,Math.min(720,integer(b.timeCap,0))),exercises};
+  const normalized={kind,format,title:String(b.title||TYPES[kind]||'Bloque').slice(0,120),rounds:Math.max(1,Math.min(100,integer(b.rounds,1))),timeCap:Math.max(0,Math.min(720,integer(b.timeCap,0))),exercises};
+  if(b.structure&&typeof b.structure==='object')normalized.structure=b.structure;
+  if(Number.isInteger(b.timeCapSeconds)&&b.timeCapSeconds>0)normalized.timeCapSeconds=b.timeCapSeconds;
+  return normalized;
  });
  if(!blocks.length)throw Error('Añade un bloque de fuerza, calentamiento o WOD');
  return {version:1,blocks};
@@ -220,7 +224,7 @@ function removeBtn(i,label){
 function movementMarkup(x,i){
  const known=resolveMovement(x);
  if(isRestMovement(x)){
-  return `<article class="editor-exercise is-rest" data-editor-exercise data-id="rest" data-name="Descanso" data-item-kind="rest"><div class="editor-exercise-head"><span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">⏱</span><div class="exercise-title"><strong>Descanso</strong><small>Pausa (como en la app)</small></div>${removeBtn(i,'Eliminar descanso')}</div><div class="editor-values">
+  return `<article class="editor-exercise is-rest" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-id="rest" data-name="Descanso" data-item-kind="rest"><div class="editor-exercise-head"><span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">⏱</span><div class="exercise-title"><strong>Descanso</strong><small>Pausa (como en la app)</small></div>${removeBtn(i,'Eliminar descanso')}</div><div class="editor-values">
  ${num(x.duration??60,5,3600,'Segundos','duration')}
  </div><label class="editor-notes">Notas<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Opcional"></label>
  <input type="hidden" data-editor-field="sets" value="1"><input type="hidden" data-editor-field="reps" value="0"><input type="hidden" data-editor-field="rir" value="0"><input type="hidden" data-editor-field="weight" value="0"></article>`;
@@ -229,7 +233,7 @@ function movementMarkup(x,i){
  const kind=free?'free':'exercise';
  const subtitle=free?'Movimiento libre':(known?.group||'Movimiento personalizado');
  const art=free?`<span class="exercise-thumb exercise-thumb-empty" aria-hidden="true">＋</span>`:thumb(known||{art:null});
- return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
+ return `<article class="editor-exercise ${free?'is-free':''}" data-editor-exercise data-origin-id="${escapeHTML(x.originId||'')}" data-id="${escapeHTML(known?.id||x.id||'custom')}" data-name="${escapeHTML(x.name)}" data-item-kind="${kind}"><div class="editor-exercise-head">${art}<div class="exercise-title"><strong>${escapeHTML(x.name)}</strong><small>${escapeHTML(subtitle)}</small></div>${removeBtn(i,`Eliminar ${x.name||'ejercicio'}`)}</div><div class="editor-values">
  ${num(x.sets??3,1,50,'Series','sets')}${num(x.reps??8,0,1000,'Reps','reps')}${num(x.rir??2,0,10,'RIR','rir')}
  ${num(x.weight??0,0,1000,'Kg','weight',.5)}${num(x.duration??0,0,3600,'Seg.','duration')}
  </div><label class="editor-notes">Indicaciones<input data-editor-field="notes" value="${escapeHTML(x.notes||'')}" maxlength="400" placeholder="Tempo, alternativa…"></label></article>`;
@@ -373,7 +377,7 @@ export function editorMarkup(value=emptyPrescription(),{meta=null,showMeta=false
   const picking=active!=null;
   const fmt=normalizeFormat(b.format);
   const showCaps=isWodFormat(fmt);
-  return `<section class="editor-block ${picking?'is-picking':''}" data-editor-block data-index="${i}">
+  return `<section class="editor-block ${picking?'is-picking':''}" data-editor-block data-index="${i}" data-workout-structure="${escapeHTML(JSON.stringify(b.structure||null))}" data-time-cap-seconds="${escapeHTML(String(b.timeCapSeconds||0))}" data-original-minutes="${escapeHTML(String(b.timeCap||0))}">
  <header class="editor-block-header">
   <input class="editor-block-title" data-editor-field="title" maxlength="120" value="${escapeHTML(b.title||`Bloque ${i+1}`)}" aria-label="Nombre del bloque">
   <button type="button" class="editor-icon-button is-danger" data-editor-action="remove-block" title="Eliminar bloque" aria-label="Eliminar bloque"><span aria-hidden="true">⌫</span></button>
@@ -401,8 +405,15 @@ export function readPrescription(form){
   let kind=get(block,'kind')||'strength';
   if(isWodFormat(format))kind='wod';
   else if(format==='none'||format==='sets')kind=kind==='warmup'||kind==='accessory'?kind:'strength';
-  return {kind,format,title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:integer(get(block,'timeCap')),exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
+  const minutes=integer(get(block,'timeCap'));
+  const exact=Number(block.dataset.timeCapSeconds)||0;
+  const structure=(()=>{try{return JSON.parse(block.dataset.workoutStructure||'null');}catch{return null;}})();
+  return {kind,format,title:get(block,'title'),rounds:integer(get(block,'rounds'),1),timeCap:minutes,
+   ...(structure?{structure}:{}),
+   ...(exact>0?{timeCapSeconds:Math.max(0,minutes*60+exact%60)}:{}),
+   exercises:[...block.querySelectorAll('[data-editor-exercise]')].map(el=>{
     const row={id:el.dataset.id||'custom',name:el.dataset.name||el.querySelector('.exercise-title strong')?.textContent||'',sets:integer(get(el,'sets'),3),reps:integer(get(el,'reps'),8),rir:integer(get(el,'rir'),2),weight:Number(get(el,'weight')||0),duration:integer(get(el,'duration')),notes:get(el,'notes')||''};
+    if(el.dataset.originId)row.originId=el.dataset.originId;
     if(el.dataset.itemKind==='rest'||isRestMovement(row)){row.id='rest';row.itemKind='rest';row.isRest=true;}
     if(el.dataset.itemKind==='free'){row.itemKind='free';row.source='free';}
     return row;
@@ -653,7 +664,7 @@ function canonicalBlock(b,entries,uid,forceWod){
  const exercises=b.exercises.map(e=>{
   const rest=isRestMovement(e);
   const known=rest?null:entries.get(e.name.toLowerCase());
-  const entry={id:uid(),source:known?'catalog':'free',catalogKey:known?.catalogKey||null,name:rest?'Descanso':(known?.name||e.name)};
+  const entry={id:e.originId||uid(),source:known?'catalog':'free',catalogKey:known?.catalogKey||null,name:rest?'Descanso':(known?.name||e.name)};
   if(rest){
    entry.isRest=true;
    entry.restSeconds=Math.max(5,e.duration||60);
@@ -683,6 +694,17 @@ function canonicalBlock(b,entries,uid,forceWod){
   canonical.wodFormat=onlyRest?'forTime':(wired||'forTime');
   canonical.rounds=onlyRest?1:b.rounds;
   canonical.timeCapMinutes=onlyRest?null:(b.timeCap||null);
+  if(!onlyRest&&Number.isInteger(b.timeCapSeconds)&&b.timeCapSeconds>0)
+   canonical.timeCapSeconds=b.timeCapSeconds;
+  if(!onlyRest&&b.structure&&b.structure.version===1) {
+   const valid=new Set(exercises.map(e=>e.id));
+   const clean=phase=>({
+    ...phase,
+    movementIDs:(phase.movementIDs||[]).filter(id=>valid.has(id)),
+    children:(phase.children||[]).map(clean)
+   });
+   canonical.structure={...b.structure,phases:(b.structure.phases||[]).map(clean)};
+  }
  }
  // catalogKey null rompe algunos clientes JSON; solo enviar clave cuando hay catálogo.
  for(const list of [canonical.exercises,canonical.movements]){
@@ -706,10 +728,12 @@ export function visualPrescription(prescription){
    format:wod?({amrap:'amrap',emom:'emom',forTime:'rft',tabata:'tabata',circuit:'circuit',chipper:'chipper',strength:'sets'})[formatWire]||'fortime'
     :(formatWire?'sets':'none'),
    title:b.title,rounds:b.rounds||1,timeCap:b.timeCapMinutes||0,
+   ...(b.structure?{structure:b.structure}:{}),
+   ...(b.timeCapSeconds?{timeCapSeconds:b.timeCapSeconds}:{}),
    exercises:entries.map(e=>{
     if(e.isRest)return restItem(e.restSeconds||60);
     const free=e.source==='free'||!e.catalogKey;
-    return {id:e.catalogKey||'custom',name:e.name,
+    return {id:e.catalogKey||'custom',originId:e.id,name:e.name,
      sets:wod?1:Math.max(1,e.plannedSets?.length||1),
      reps:wod?e.reps||1:e.plannedSets?.[0]?.targetReps||8,
      rir:wod?0:e.plannedSets?.[0]?.targetRir??2,

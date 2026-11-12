@@ -145,7 +145,9 @@ data class RoutineBlock(
     var workSeconds: Int? = null,
     var restSeconds: Int? = null,
     var restBetweenRoundsSeconds: Int? = null,
-    var wodNotes: String? = null
+    var wodNotes: String? = null,
+    var timeCapSeconds: Int? = null,
+    var structure: WorkoutStructure? = null
 ) {
     companion object {
         fun strength(title: String = "Bloque 1", exercises: List<RoutineExercise> = emptyList()) =
@@ -166,6 +168,9 @@ data class RoutineBlock(
             )
         }
     }
+
+    val effectiveTimeCapSeconds: Int?
+        get() = timeCapSeconds?.takeIf { it > 0 } ?: timeCapMinutes?.takeIf { it > 0 }?.times(60)
 
     val stationCount: Int get() = maxOf(1, movements.size)
 

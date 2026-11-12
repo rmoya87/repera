@@ -2240,17 +2240,18 @@ extension DayEditorView {
     }
 
     private enum BlockNumberField: Int, Hashable {
-        case duration, interval, rounds, work, rest, roundRest
+        case duration, capSeconds, interval, rounds, work, rest, roundRest
 
         var title: String {
             switch self {
             case .duration: return "Tiempo"
+            case .capSeconds: return "Segundos"
             case .interval: return "Intervalo"
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
             // For Time: minutos + segundos del time cap (no «rondas» otra vez).
-            case .roundRest: return "Tiempo"
+            case .roundRest: return "Entre rondas"
             }
         }
 
@@ -2258,13 +2259,14 @@ extension DayEditorView {
             switch self {
             case .duration: return "min"
             case .rounds: return ""
-            case .interval, .work, .rest, .roundRest: return "s"
+            case .interval, .work, .rest, .roundRest, .capSeconds: return "s"
             }
         }
 
         var range: ClosedRange<Int> {
             switch self {
             case .duration: return 1...120
+            case .capSeconds: return 0...59
             case .rounds: return 1...99
             case .interval: return 15...900
             case .work, .rest: return 1...300
@@ -2280,7 +2282,7 @@ extension DayEditorView {
         case .emom, .circuit: return [.duration, .interval]
         case .amrap: return [.duration]
         case .forTime:
-            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .roundRest]
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .capSeconds]
         case .chipper, .afap, .ladder:
             return block.timeCapMinutes == nil ? [] : [.duration]
         case .deathBy, .roundsForQuality, .partner:
@@ -2297,6 +2299,7 @@ extension DayEditorView {
                 let block = routine.blocks[blockIndex]
                 switch field {
                 case .duration: return block.timeCapMinutes ?? 12
+                case .capSeconds: return (block.timeCapSeconds ?? 0) % 60
                 case .interval: return block.emomIntervalSeconds ?? 60
                 case .rounds: return block.rounds ?? 8
                 case .work: return block.workSeconds ?? 20
@@ -2307,7 +2310,14 @@ extension DayEditorView {
             set: { value in
                 guard routine.blocks.indices.contains(blockIndex) else { return }
                 switch field {
-                case .duration: routine.blocks[blockIndex].timeCapMinutes = value
+                case .duration:
+                    routine.blocks[blockIndex].timeCapMinutes = value
+                    if let precise = routine.blocks[blockIndex].timeCapSeconds {
+                        routine.blocks[blockIndex].timeCapSeconds = value * 60 + precise % 60
+                    }
+                case .capSeconds:
+                    let minutes = routine.blocks[blockIndex].timeCapMinutes ?? 12
+                    routine.blocks[blockIndex].timeCapSeconds = value == 0 ? nil : minutes * 60 + value
                 case .interval: routine.blocks[blockIndex].emomIntervalSeconds = value
                 case .rounds: routine.blocks[blockIndex].rounds = value
                 case .work: routine.blocks[blockIndex].workSeconds = value
@@ -2359,12 +2369,61 @@ extension DayEditorView {
                     }
                     .padding(.vertical, 10)
                 }
+                if format == .forTime, routine.blocks[index].restBetweenRoundsSeconds != nil {
+                    Stepper(
+                        "Descanso entre rondas: \(routine.blocks[index].restBetweenRoundsSeconds ?? 0) s",
+                        value: numberBinding(.roundRest, blockIndex: index),
+                        in: 0...600, step: 15
+                    )
+                    .font(.subheadline)
+                }
+                if format == .partner {
+                    Picker("Trabajo en equipo", selection: Binding<WorkoutCollaboration>(
+                        get: { routine.blocks[index].structure?.collaboration ?? .youGoIGo },
+                        set: { mode in
+                            var structure = routine.blocks[index].structure ?? WorkoutStructure()
+                            structure.collaboration = mode
+                            routine.blocks[index].structure = structure
+                        }
+                    )) {
+                        Text("Alternando").tag(WorkoutCollaboration.youGoIGo)
+                        Text("Sincronizado").tag(WorkoutCollaboration.synchronized)
+                        Text("Repeticiones compartidas").tag(WorkoutCollaboration.sharedReps)
+                        Text("Juntos").tag(WorkoutCollaboration.together)
+                    }
+                    .pickerStyle(.menu)
+                }
+                if format == .maxEffort {
+                    Picker("Medida del resultado", selection: Binding<WorkoutResultMetric>(
+                        get: { routine.blocks[index].structure?.resultMetric ?? .totalReps },
+                        set: { metric in
+                            var structure = routine.blocks[index].structure ?? WorkoutStructure()
+                            structure.resultMetric = metric
+                            routine.blocks[index].structure = structure
+                        }
+                    )) {
+                        Text("Repeticiones").tag(WorkoutResultMetric.totalReps)
+                        Text("Carga (kg)").tag(WorkoutResultMetric.loadKg)
+                        Text("Calorías").tag(WorkoutResultMetric.calories)
+                        Text("Distancia (m)").tag(WorkoutResultMetric.distanceMeters)
+                        Text("Tiempo").tag(WorkoutResultMetric.elapsedSeconds)
+                    }
+                    .pickerStyle(.menu)
+                }
+                if let structure = routine.blocks[index].structure,
+                   !structure.summary.isEmpty {
+                    Text(structure.summary)
+                        .font(.caption)
+                        .foregroundStyle(OG.label2)
+                        .lineLimit(2)
+                }
                 if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
                     Toggle("Límite de tiempo", isOn: Binding(
                         get: { routine.blocks[index].timeCapMinutes != nil },
                         set: { enabled in
                             routine.blocks[index].timeCapMinutes = enabled
                                 ? (routine.blocks[index].timeCapMinutes ?? 12) : nil
+                            if !enabled { routine.blocks[index].timeCapSeconds = nil }
                         }
                     ))
                     .tint(OG.accent)

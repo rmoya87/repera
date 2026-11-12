@@ -1228,6 +1228,9 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     public var wodTemplateId: String?
     /// Explicit RX/scaled declaration. nil means unknown; never infer RX from template.
     public var isRx: Bool?
+    /// A load/distance/calorie Max Effort is not a repetition count.
+    public var measuredValue: Double?
+    public var measuredMetric: WorkoutResultMetric?
 
     public init(
         id: UUID,
@@ -1236,7 +1239,9 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         elapsedSeconds: Int? = nil,
         roundsCompleted: Int? = nil,
         wodTemplateId: String? = nil,
-        isRx: Bool? = nil
+        isRx: Bool? = nil,
+        measuredValue: Double? = nil,
+        measuredMetric: WorkoutResultMetric? = nil
     ) {
         self.id = id
         self.format = format
@@ -1245,9 +1250,24 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.roundsCompleted = roundsCompleted
         self.wodTemplateId = wodTemplateId
         self.isRx = isRx
+        self.measuredValue = measuredValue
+        self.measuredMetric = measuredMetric
     }
 
     public var summaryLabel: String {
+        if let measuredValue, let measuredMetric, measuredValue.isFinite {
+            let number = measuredValue.rounded() == measuredValue
+                ? String(Int(measuredValue)) : String(format: "%.1f", measuredValue)
+            switch measuredMetric {
+            case .loadKg: return "\(number) kg"
+            case .calories: return "\(number) kcal"
+            case .distanceMeters: return "\(number) m"
+            case .rounds: return "\(number) rondas"
+            case .totalReps: return "\(number) reps"
+            case .elapsedSeconds: return "\(number) s"
+            case .perMovementSets: return "\(number) series"
+            }
+        }
         if let elapsedSeconds {
             let m = elapsedSeconds / 60
             let s = elapsedSeconds % 60
@@ -1477,6 +1497,10 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
     public var wodNotes: String?
     /// ID estable del catálogo de benchmarks (`CatalogWODs`), si viene de plantilla.
     public var wodTemplateId: String?
+    /// Exact cap for sub-minute precision. If absent, legacy minutes apply.
+    public var timeCapSeconds: Int?
+    /// Orthogonal section/phases/partner semantics; old plans decode as nil.
+    public var structure: WorkoutStructure?
 
     public init(
         id: UUID = UUID(),
@@ -1492,7 +1516,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         restSeconds: Int? = nil,
         restBetweenRoundsSeconds: Int? = nil,
         wodNotes: String? = nil,
-        wodTemplateId: String? = nil
+        wodTemplateId: String? = nil,
+        timeCapSeconds: Int? = nil,
+        structure: WorkoutStructure? = nil
     ) {
         self.id = id
         self.title = title
@@ -1508,12 +1534,15 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         self.restBetweenRoundsSeconds = restBetweenRoundsSeconds
         self.wodNotes = wodNotes
         self.wodTemplateId = wodTemplateId
+        self.timeCapSeconds = timeCapSeconds
+        self.structure = structure
     }
 
     enum CodingKeys: String, CodingKey {
         case id, title, kind, exercises, movements, wodFormat, timeCapMinutes
         case emomIntervalSeconds, rounds, workSeconds, restSeconds
         case restBetweenRoundsSeconds, wodNotes, wodTemplateId
+        case timeCapSeconds, structure
     }
 
     public init(from decoder: Decoder) throws {
@@ -1532,6 +1561,8 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
         restBetweenRoundsSeconds = try c.decodeIfPresent(Int.self, forKey: .restBetweenRoundsSeconds)
         wodNotes = try c.decodeIfPresent(String.self, forKey: .wodNotes)
         wodTemplateId = try c.decodeIfPresent(String.self, forKey: .wodTemplateId)
+        timeCapSeconds = try c.decodeIfPresent(Int.self, forKey: .timeCapSeconds)
+        structure = try c.decodeIfPresent(WorkoutStructure.self, forKey: .structure)
     }
 
     public static func strength(title: String = "Bloque 1", exercises: [RoutineExercise] = []) -> RoutineBlock {
@@ -1542,11 +1573,15 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
 
     /// Copia profunda con IDs nuevos (bloque, ejercicios, movimientos y series).
     public func duplicatingContent() -> RoutineBlock {
-        RoutineBlock(
+        let clonedMovements = movements.map { $0.duplicatingContent() }
+        let mapping = Dictionary(uniqueKeysWithValues:
+            zip(movements.map(\.id), clonedMovements.map(\.id))
+        )
+        return RoutineBlock(
             title: title,
             kind: kind,
             exercises: exercises.map { $0.duplicatingContent() },
-            movements: movements.map { $0.duplicatingContent() },
+            movements: clonedMovements,
             wodFormat: wodFormat,
             timeCapMinutes: timeCapMinutes,
             emomIntervalSeconds: emomIntervalSeconds,
@@ -1555,7 +1590,9 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             restSeconds: restSeconds,
             restBetweenRoundsSeconds: restBetweenRoundsSeconds,
             wodNotes: wodNotes,
-            wodTemplateId: wodTemplateId
+            wodTemplateId: wodTemplateId,
+            timeCapSeconds: timeCapSeconds,
+            structure: structure?.remappingMovementIDs(mapping)
         )
     }
 
@@ -1571,6 +1608,13 @@ public struct RoutineBlock: Identifiable, Codable, Sendable, Hashable {
             workSeconds: isTabata ? 20 : nil,
             restSeconds: isTabata ? 10 : nil
         )
+    }
+
+    /// The player must not infer a minute from a precise seconds cap.
+    public var effectiveTimeCapSeconds: Int? {
+        if let timeCapSeconds, timeCapSeconds > 0 { return timeCapSeconds }
+        guard let timeCapMinutes, timeCapMinutes > 0 else { return nil }
+        return timeCapMinutes * 60
     }
 
     public var headerLabel: String {
@@ -1895,6 +1939,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     /// Metadatos del bloque WOD de origen (EMOM, AMRAP…).
     public var wodFormat: WODFormat?
     public var blockTimeCapMinutes: Int?
+    public var blockTimeCapSeconds: Int?
+    public var blockStructure: WorkoutStructure?
     public var blockIntervalSeconds: Int?
     public var blockRounds: Int?
     public var blockHeader: String?
@@ -1919,6 +1965,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockKind: RoutineBlockKind? = nil,
         wodFormat: WODFormat? = nil,
         blockTimeCapMinutes: Int? = nil,
+        blockTimeCapSeconds: Int? = nil,
+        blockStructure: WorkoutStructure? = nil,
         blockIntervalSeconds: Int? = nil,
         blockRounds: Int? = nil,
         blockHeader: String? = nil,
@@ -1941,6 +1989,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.blockKind = blockKind
         self.wodFormat = wodFormat
         self.blockTimeCapMinutes = blockTimeCapMinutes
+        self.blockTimeCapSeconds = blockTimeCapSeconds
+        self.blockStructure = blockStructure
         self.blockIntervalSeconds = blockIntervalSeconds
         self.blockRounds = blockRounds
         self.blockHeader = blockHeader
@@ -2104,7 +2154,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         case id, exercise, plannedSets, quantityUnit, loggedSets, restSeconds, completedReps, isCompleted, supersetGroup
         case adaptedReps, adaptedWeightKg
         case blockId, blockKind
-        case wodFormat, blockTimeCapMinutes, blockIntervalSeconds, blockRounds, blockHeader
+        case wodFormat, blockTimeCapMinutes, blockTimeCapSeconds, blockStructure, blockIntervalSeconds, blockRounds, blockHeader
         case blockWorkSeconds, blockRestSeconds, blockRestBetweenRoundsSeconds
     }
 
@@ -2125,6 +2175,8 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         blockKind = try c.decodeIfPresent(RoutineBlockKind.self, forKey: .blockKind)
         wodFormat = try c.decodeIfPresent(WODFormat.self, forKey: .wodFormat)
         blockTimeCapMinutes = try c.decodeIfPresent(Int.self, forKey: .blockTimeCapMinutes)
+        blockTimeCapSeconds = try c.decodeIfPresent(Int.self, forKey: .blockTimeCapSeconds)
+        blockStructure = try c.decodeIfPresent(WorkoutStructure.self, forKey: .blockStructure)
         blockIntervalSeconds = try c.decodeIfPresent(Int.self, forKey: .blockIntervalSeconds)
         blockRounds = try c.decodeIfPresent(Int.self, forKey: .blockRounds)
         blockHeader = try c.decodeIfPresent(String.self, forKey: .blockHeader)

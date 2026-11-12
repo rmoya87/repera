@@ -300,6 +300,8 @@ object BoardScanLiteParser {
             }
         }
 
+        outBlocks.forEach { WorkoutStructureRecognition.attach(it) }
+
         val byExerciseID = catalog.associate { it.id to it.name }
         val lines: List<BoardImportLine> = outBlocks.flatMap { block ->
             if (block.kind == RoutineBlockKind.STRENGTH) {

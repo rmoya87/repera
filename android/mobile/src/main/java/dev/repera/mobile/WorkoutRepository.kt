@@ -473,7 +473,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         timeCapMinutes: Int, rounds: Int, emomIntervalSeconds: Int,
         workSeconds: Int, restSeconds: Int, ladderScheme: List<Int>?,
         blockId: String? = null, blockSourceJson: String? = null,
-        restBetweenRoundsSeconds: Int? = null
+        restBetweenRoundsSeconds: Int? = null,
+        timeCapExtraSeconds: Int? = null
     ): JSONObject {
         // iOS: bloque nuevo = kind.strength + wodFormat nil («Sin formato»);
         // «Fuerza / Skill» pone wodFormat=.strength. Blank y strength usan exercises[].
@@ -487,6 +488,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     ?: "Circuito"
             })
             .put("kind", if (strengthLike) "strength" else "wod")
+        // Keep the exact cap only if the user did not change its minute
+        // counterpart. Otherwise an old seconds override would beat edits.
+        if (block.has("timeCapSeconds") && block.has("timeCapMinutes") &&
+            block.optInt("timeCapMinutes") != timeCapMinutes) block.remove("timeCapSeconds")
         if (strengthLike) {
             if (format == "strength") block.put("wodFormat", "strength")
             else block.remove("wodFormat")
@@ -581,6 +586,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     "tabata" -> (((workSeconds + restSeconds).toLong() * rounds + 59L) / 60L).toInt()
                     else -> timeCapMinutes
                 })
+            if (format == "forTime" && timeCapExtraSeconds != null) {
+                if (timeCapExtraSeconds != 0) block.put("timeCapSeconds", timeCapMinutes * 60 + timeCapExtraSeconds)
+                else block.remove("timeCapSeconds")
+            }
             if (format in setOf("forTime", "emom", "tabata", "circuit", "partner",
                 "roundsForQuality"))
                 block.put("rounds", rounds)
@@ -848,7 +857,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
             array.put(buildBlock(draft.format, draft.title, draft.entries, byId,
                 draft.timeCapMinutes, draft.rounds, draft.emomIntervalSeconds,
                 draft.workSeconds, draft.restSeconds, draft.ladderScheme,
-                draft.blockId, draft.sourceJson, draft.restBetweenRoundsSeconds))
+                draft.blockId, draft.sourceJson, draft.restBetweenRoundsSeconds,
+                draft.timeCapExtraSeconds))
         }
         return array
     }
@@ -1320,6 +1330,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 copyIfPresent(entry, item, "restSeconds", "quantityUnit")
                 copyIfPresent(block, item, "wodFormat")
                 if (block.has("timeCapMinutes")) item.put("blockTimeCapMinutes", block.getInt("timeCapMinutes"))
+                if (block.has("timeCapSeconds")) item.put("blockTimeCapSeconds", block.getInt("timeCapSeconds"))
                 if (block.has("emomIntervalSeconds")) item.put("blockIntervalSeconds", block.getInt("emomIntervalSeconds"))
                 if (block.has("rounds")) item.put("blockRounds", block.getInt("rounds"))
                 if (block.has("workSeconds")) item.put("blockWorkSeconds", block.getInt("workSeconds"))
@@ -1832,7 +1843,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * 'totalReps' is additional reps after full rounds, NOT an invented sum.
      */
     @Synchronized fun recordWodScore(
-        roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?
+        roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?,
+        measuredValue: Double? = null, measuredMetric: String? = null
     ): ActiveWorkout? {
         val state = requireState()
         val session = requireActive(state)
@@ -1842,7 +1854,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(current.optString("blockKind") == "wod") { "El ejercicio actual no es un bloque WOD" }
         val format = WodFormat.fromWire(current.getString("wodFormat"))
             ?: error("Formato WOD no reconocido")
-        when (format.capture) {
+        val validMetrics = setOf("loadKg", "calories", "distanceMeters")
+        if (measuredValue != null) {
+            require(format == WodFormat.MAX_EFFORT && measuredMetric in validMetrics) {
+                "Las marcas de carga, calorías o distancia requieren Max Effort"
+            }
+            require(measuredValue.isFinite() && measuredValue > 0 && measuredValue <= 50000)
+            require(roundsCompleted == null && additionalReps == null && elapsedSeconds == null)
+        } else if (format == WodFormat.MAX_EFFORT && elapsedSeconds != null) {
+            require(elapsedSeconds in 1..(180 * 60))
+            require(roundsCompleted == null && additionalReps == null)
+        } else when (format.capture) {
             ResultCapture.TOTAL_REPS -> {
                 require(additionalReps != null && additionalReps >= 0)
                 require(elapsedSeconds == null)
@@ -1867,6 +1889,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (roundsCompleted != null) score.put("roundsCompleted", roundsCompleted)
         if (additionalReps != null) score.put("totalReps", additionalReps)
         if (elapsedSeconds != null) score.put("elapsedSeconds", elapsedSeconds)
+        if (measuredValue != null && measuredMetric != null) {
+            score.put("measuredValue", measuredValue).put("measuredMetric", measuredMetric)
+        }
         if (block?.has("wodTemplateId") == true && !block.isNull("wodTemplateId"))
             score.put("wodTemplateId", block.getString("wodTemplateId"))
         val previous = session.optJSONArray("wodResults") ?: JSONArray()
@@ -4182,12 +4207,23 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val format = WodFormat.fromWire(current.optString("wodFormat"))
         val wod = if (current.optString("blockKind") == "wod" && format != null) {
             val moves = block?.optJSONArray("movements") ?: JSONArray()
+            val workPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
+                ?.let { phases ->
+                    (0 until phases.length()).map { phases.getJSONObject(it) }
+                        .firstOrNull { it.optString("kind") == "work" && it.optInt("repeatCount") > 1 }
+                }
             WodExecution(
                 format = format.wireName,
                 capture = format.capture.name,
                 expectsRounds = format == WodFormat.AMRAP || format == WodFormat.DEATH_BY,
                 title = block?.optString("title") ?: format.wireName,
                 timeCapMinutes = block?.optInt("timeCapMinutes")?.takeIf { block.has("timeCapMinutes") },
+                timeCapSeconds = block?.optInt("timeCapSeconds")?.takeIf { block.has("timeCapSeconds") },
+                resultMetric = block?.optJSONObject("structure")?.optString("resultMetric")
+                    ?.takeIf { it.isNotBlank() },
+                repeatedWorkSeconds = workPhase?.takeIf { it.has("workSeconds") }?.optInt("workSeconds"),
+                repeatedRestSeconds = workPhase?.takeIf { it.has("restSeconds") }?.optInt("restSeconds"),
+                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4383,13 +4419,18 @@ data class WodExecution(
     val movements: List<WodMovementSummary>,
     val recorded: List<WodRecordedMovement> = emptyList(),
     val timeCapMinutes: Int? = null,
+    val timeCapSeconds: Int? = null,
+    val resultMetric: String? = null,
     val intervalSeconds: Int? = null,
     val rounds: Int? = null,
     val workSeconds: Int? = null,
     val restSeconds: Int? = null,
     val restBetweenRoundsSeconds: Int? = null,
     val stations: Int = 1,
-    val plannedIntervals: Int? = null
+    val plannedIntervals: Int? = null,
+    val repeatedWorkSeconds: Int? = null,
+    val repeatedRestSeconds: Int? = null,
+    val repeatCount: Int? = null
 )
 
 data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)
@@ -4418,6 +4459,7 @@ data class RoutineBlockDraft(
     val ladderScheme: List<Int>? = null,
     /** For Time / iOS `restBetweenRoundsSeconds` («Entre rondas»). */
     val restBetweenRoundsSeconds: Int? = null,
+    val timeCapExtraSeconds: Int? = null,
     /** Identidad del bloque original (editar conserva ids y campos no editables). */
     val blockId: String? = null,
     val sourceJson: String? = null

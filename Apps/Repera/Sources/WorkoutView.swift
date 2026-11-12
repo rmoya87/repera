@@ -615,6 +615,7 @@ struct WorkoutView: View {
                     kind: exercise.blockKind ?? .strength,
                     wodFormat: exercise.wodFormat,
                     timeCapMinutes: exercise.blockTimeCapMinutes,
+                    timeCapSeconds: exercise.blockTimeCapSeconds,
                     emomIntervalSeconds: exercise.blockIntervalSeconds,
                     rounds: exercise.blockRounds,
                     workSeconds: exercise.blockWorkSeconds,
@@ -1630,28 +1631,30 @@ struct WorkoutView: View {
 
     /// Formato y parámetros visibles en Play, como en Crear/Editar.
     private enum PlayFormatField: Hashable {
-        case duration, interval, rounds, work, rest, roundRest
+        case duration, capSeconds, interval, rounds, work, rest, roundRest
 
         var title: String {
             switch self {
             case .duration: return "Tiempo"
+            case .capSeconds: return "Segundos"
             case .interval: return "Intervalo"
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
-            case .roundRest: return "Rondas"
+            case .roundRest: return "Entre rondas"
             }
         }
         var unit: String {
             switch self {
             case .duration: return "min"
             case .rounds: return ""
-            case .interval, .work, .rest, .roundRest: return "s"
+            case .interval, .work, .rest, .roundRest, .capSeconds: return "s"
             }
         }
         var range: ClosedRange<Int> {
             switch self {
             case .duration: return 1...120
+            case .capSeconds: return 0...59
             case .rounds: return 1...99
             case .interval: return 15...900
             case .work, .rest: return 1...300
@@ -1667,7 +1670,7 @@ struct WorkoutView: View {
         case .emom, .circuit: return [.duration, .interval]
         case .amrap: return [.duration]
         case .forTime:
-            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .roundRest]
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .capSeconds]
         case .chipper, .afap, .ladder:
             return block.timeCapMinutes == nil ? [] : [.duration]
         case .deathBy, .roundsForQuality, .partner:
@@ -1686,6 +1689,7 @@ struct WorkoutView: View {
                 else { return 0 }
                 switch field {
                 case .duration: return block.timeCapMinutes ?? 12
+                case .capSeconds: return (block.timeCapSeconds ?? 0) % 60
                 case .interval: return block.emomIntervalSeconds ?? 60
                 case .rounds: return block.rounds ?? 8
                 case .work: return block.workSeconds ?? 20
@@ -1697,7 +1701,14 @@ struct WorkoutView: View {
                 mutatePlayRoutine { draft in
                     guard let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
                     switch field {
-                    case .duration: draft.blocks[index].timeCapMinutes = value
+                    case .duration:
+                        draft.blocks[index].timeCapMinutes = value
+                        if let exact = draft.blocks[index].timeCapSeconds {
+                            draft.blocks[index].timeCapSeconds = value * 60 + exact % 60
+                        }
+                    case .capSeconds:
+                        let minutes = draft.blocks[index].timeCapMinutes ?? 12
+                        draft.blocks[index].timeCapSeconds = value == 0 ? nil : minutes * 60 + value
                     case .interval: draft.blocks[index].emomIntervalSeconds = value
                     case .rounds: draft.blocks[index].rounds = value
                     case .work: draft.blocks[index].workSeconds = value
@@ -1752,6 +1763,39 @@ struct WorkoutView: View {
                         }
                         .padding(.vertical, 10)
                     }
+                    if format == .forTime, block.restBetweenRoundsSeconds != nil {
+                        Stepper(
+                            "Descanso entre rondas: \(block.restBetweenRoundsSeconds ?? 0) s",
+                            value: playFormatBinding(.roundRest, for: block.id),
+                            in: 0...600, step: 15
+                        )
+                        .font(.subheadline)
+                    }
+                    if format == .partner {
+                        Picker("Trabajo en equipo", selection: Binding<WorkoutCollaboration>(
+                            get: { block.structure?.collaboration ?? .youGoIGo },
+                            set: { mode in
+                                mutatePlayRoutine { draft in
+                                    guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
+                                    var structure = draft.blocks[index].structure ?? WorkoutStructure()
+                                    structure.collaboration = mode
+                                    draft.blocks[index].structure = structure
+                                }
+                            }
+                        )) {
+                            Text("Alternando").tag(WorkoutCollaboration.youGoIGo)
+                            Text("Sincronizado").tag(WorkoutCollaboration.synchronized)
+                            Text("Repeticiones compartidas").tag(WorkoutCollaboration.sharedReps)
+                            Text("Juntos").tag(WorkoutCollaboration.together)
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    if let structure = block.structure, !structure.summary.isEmpty {
+                        Text(structure.summary)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(2)
+                    }
                     if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
                         Toggle("Límite de tiempo", isOn: Binding(
                             get: { block.timeCapMinutes != nil },
@@ -1760,6 +1804,7 @@ struct WorkoutView: View {
                                     guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
                                     draft.blocks[index].timeCapMinutes = enabled
                                         ? (draft.blocks[index].timeCapMinutes ?? 12) : nil
+                                    if !enabled { draft.blocks[index].timeCapSeconds = nil }
                                 }
                             }
                         ))
@@ -1801,7 +1846,9 @@ struct WorkoutView: View {
                 format: format,
                 existing: existing,
                 suggestedElapsedSeconds: suggested,
-                wodTemplateId: templateID
+                wodTemplateId: templateID,
+                resultMetric: session.routineBlocks?
+                    .first(where: { $0.id == block.id })?.structure?.resultMetric
             ) { result in
                 store.applyWODResult(result)
                 if pendingWODConfirm?.blockId == block.id {
@@ -2468,12 +2515,67 @@ struct WorkoutView: View {
                 sound: sound,
                 haptic: haptic
             )
-        case .amrap, .maxEffort:
-            let seconds = max(60, (current.blockTimeCapMinutes ?? 12) * 60)
+        case .amrap:
+            // Repeated AMRAP: each work period remains separate from its rest,
+            // including on the lock screen and when resuming the same session.
+            let structure = store.state.activeSession?.routineBlocks?
+                .first(where: { $0.id == current.blockId })?.structure
+            if let phase = structure?.phases.first(where: {
+                $0.kind == .work && ($0.repeatCount ?? 0) > 1 && ($0.workSeconds ?? 0) > 0
+            }) {
+                let count = min(100, max(1, phase.repeatCount ?? 1))
+                let work = max(1, phase.workSeconds ?? 60)
+                let rest = max(0, phase.restSeconds ?? 0)
+                var durations: [Int] = []
+                var labels: [String] = []
+                var rounds: [Int] = []
+                for index in 1...count {
+                    durations.append(work)
+                    labels.append("AMRAP \(index)/\(count) · trabajo")
+                    rounds.append(index)
+                    if index < count && rest > 0 {
+                        durations.append(rest)
+                        labels.append("Descanso · AMRAP \(index)/\(count)")
+                        rounds.append(index)
+                    }
+                }
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: "AMRAP por intervalos",
+                    countingUp: false,
+                    intervalMode: true,
+                    intervalLength: work,
+                    totalIntervals: durations.count,
+                    initialCountdown: work,
+                    customPhaseDurations: durations,
+                    customPhaseSubtitles: labels,
+                    customRoundNumbers: rounds,
+                    customRoundsTotal: count,
+                    sound: sound,
+                    haptic: haptic
+                )
+            } else {
+                let seconds = max(1, current.blockTimeCapSeconds ?? (current.blockTimeCapMinutes ?? 12) * 60)
+                store.workoutClock.configure(
+                    exercise: current.exercise,
+                    title: current.blockHeader ?? current.exercise.name,
+                    subtitle: subtitleDefault ?? "AMRAP",
+                    countingUp: false,
+                    intervalMode: false,
+                    intervalLength: seconds,
+                    totalIntervals: 0,
+                    initialCountdown: seconds,
+                    sound: sound,
+                    haptic: haptic
+                )
+            }
+        case .maxEffort:
+            let seconds = max(1, current.blockTimeCapSeconds ?? (current.blockTimeCapMinutes ?? 12) * 60)
             store.workoutClock.configure(
                 exercise: current.exercise,
                 title: current.blockHeader ?? current.exercise.name,
-                subtitle: subtitleDefault ?? format?.displayName ?? "WOD",
+                subtitle: subtitleDefault ?? "Max Effort",
                 countingUp: false,
                 intervalMode: false,
                 intervalLength: seconds,
@@ -2493,7 +2595,7 @@ struct WorkoutView: View {
                 intervalLength: 0,
                 totalIntervals: 0,
                 initialCountdown: 0,
-                timeCapSeconds: current.blockTimeCapMinutes.map { max(1, $0) * 60 },
+                timeCapSeconds: current.blockTimeCapSeconds ?? current.blockTimeCapMinutes.map { max(1, $0) * 60 },
                 sound: sound,
                 haptic: haptic
             )
@@ -3164,18 +3266,21 @@ struct WODResultInlineEditor: View {
     let existing: WODBlockResult?
     let suggestedElapsedSeconds: Int?
     let wodTemplateId: String?
+    let resultMetric: WorkoutResultMetric?
     let onSave: (WODBlockResult) -> Void
 
     @State private var roundsText: String
     @State private var repsText: String
     @State private var timeText: String
+    @State private var metricText: String
+    @State private var scoreMetric: WorkoutResultMetric
     @State private var hasEditedResult = false
     /// 0 unknown, 1 RX, 2 scaled. A legacy result never defaults to RX.
     @State private var rxSelection: Int
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case rounds, reps, time
+        case rounds, reps, time, metric
     }
 
     init(
@@ -3184,6 +3289,7 @@ struct WODResultInlineEditor: View {
         existing: WODBlockResult?,
         suggestedElapsedSeconds: Int? = nil,
         wodTemplateId: String? = nil,
+        resultMetric: WorkoutResultMetric? = nil,
         onSave: @escaping (WODBlockResult) -> Void
     ) {
         self.blockId = blockId
@@ -3191,6 +3297,9 @@ struct WODResultInlineEditor: View {
         self.existing = existing
         self.suggestedElapsedSeconds = suggestedElapsedSeconds
         self.wodTemplateId = wodTemplateId
+        self.resultMetric = resultMetric
+        _scoreMetric = State(initialValue: existing?.measuredMetric ?? resultMetric ?? .totalReps)
+        _metricText = State(initialValue: existing?.measuredValue.map { String($0) } ?? "")
         self.onSave = onSave
         _rxSelection = State(initialValue: existing?.isRx.map { $0 ? 1 : 2 } ?? 0)
         _roundsText = State(initialValue: String(existing?.roundsCompleted ?? 0))
@@ -3202,7 +3311,21 @@ struct WODResultInlineEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if format.resultCapture == .totalReps {
+            if format == .maxEffort {
+                Picker("Tipo de marca", selection: $scoreMetric) {
+                    Text("Reps").tag(WorkoutResultMetric.totalReps)
+                    Text("Carga (kg)").tag(WorkoutResultMetric.loadKg)
+                    Text("Calorías").tag(WorkoutResultMetric.calories)
+                    Text("Distancia").tag(WorkoutResultMetric.distanceMeters)
+                    Text("Tiempo").tag(WorkoutResultMetric.elapsedSeconds)
+                }
+                .pickerStyle(.menu)
+            }
+            if isMeasuredMaxEffort {
+                numericField(metricLabel, text: $metricText, field: .metric)
+            } else if format == .maxEffort && scoreMetric == .elapsedSeconds {
+                numericField("Tiempo · m:ss", text: $timeText, field: .time)
+            } else if format.resultCapture == .totalReps {
                 if format == .amrap || format == .deathBy {
                     HStack(spacing: 10) {
                         numericField("Rondas completas", text: $roundsText, field: .rounds)
@@ -3227,7 +3350,9 @@ struct WODResultInlineEditor: View {
         .onChange(of: roundsText) { _, _ in hasEditedResult = true }
         .onChange(of: repsText) { _, _ in hasEditedResult = true }
         .onChange(of: timeText) { _, _ in hasEditedResult = true }
-        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(rxSelection)") {
+        .onChange(of: metricText) { _, _ in hasEditedResult = true }
+        .onChange(of: scoreMetric) { _, _ in hasEditedResult = true }
+        .task(id: "\(roundsText)|\(repsText)|\(timeText)|\(metricText)|\(scoreMetric.rawValue)|\(rxSelection)") {
             guard hasEditedResult else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
@@ -3255,14 +3380,18 @@ struct WODResultInlineEditor: View {
         onSave(WODBlockResult(
             id: blockId,
             format: format,
-            totalReps: format.resultCapture == .totalReps
+            totalReps: format.resultCapture == .totalReps && !isMeasuredMaxEffort &&
+                !(format == .maxEffort && scoreMetric == .elapsedSeconds)
                 ? min(5000, max(0, Int(repsText) ?? 0)) : nil,
-            elapsedSeconds: format.resultCapture == .elapsedTime
+            elapsedSeconds: format.resultCapture == .elapsedTime ||
+                (format == .maxEffort && scoreMetric == .elapsedSeconds)
                 ? min(180 * 60, max(1, DurationText.parse(timeText) ?? 0)) : nil,
             roundsCompleted: format == .amrap || format == .deathBy
                 ? min(200, max(0, Int(roundsText) ?? 0)) : nil,
             wodTemplateId: wodTemplateId ?? existing?.wodTemplateId,
-            isRx: rxSelection == 0 ? nil : (rxSelection == 1)
+            isRx: rxSelection == 0 ? nil : (rxSelection == 1),
+            measuredValue: isMeasuredMaxEffort ? parsedMeasurement : nil,
+            measuredMetric: isMeasuredMaxEffort ? scoreMetric : nil
         ))
     }
 
@@ -3278,7 +3407,8 @@ struct WODResultInlineEditor: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             TextField("0", text: text)
-                .keyboardType(field == .time ? .numbersAndPunctuation : .numberPad)
+                .keyboardType(field == .time ? .numbersAndPunctuation :
+                    field == .metric ? .decimalPad : .numberPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 21, weight: .medium).monospacedDigit())
                 .foregroundStyle(OG.label)
@@ -3290,7 +3420,32 @@ struct WODResultInlineEditor: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var isMeasuredMaxEffort: Bool {
+        format == .maxEffort && [.loadKg, .calories, .distanceMeters].contains(scoreMetric)
+    }
+
+    private var metricLabel: String {
+        switch scoreMetric {
+        case .loadKg: return "Carga máxima (kg)"
+        case .calories: return "Calorías máximas"
+        case .distanceMeters: return "Distancia (m)"
+        default: return "Marca"
+        }
+    }
+
+    private var parsedMeasurement: Double? {
+        Double(metricText.replacingOccurrences(of: ",", with: "."))
+    }
+
     private var canSave: Bool {
+        if isMeasuredMaxEffort {
+            guard let value = parsedMeasurement, value.isFinite else { return false }
+            return value > 0 && value <= 50_000
+        }
+        if format == .maxEffort && scoreMetric == .elapsedSeconds {
+            guard let seconds = DurationText.parse(timeText) else { return false }
+            return seconds > 0 && seconds <= 180 * 60
+        }
         switch format.resultCapture {
         case .totalReps:
             let reps = Int(repsText) ?? 0

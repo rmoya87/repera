@@ -306,6 +306,7 @@ final class WatchSessionHub: NSObject {
     var isIntervalClock: Bool {
         switch current?.wodFormat {
         case .emom, .tabata, .circuit, .deathBy: return true
+        case .amrap: return !repeatedAMRAPPhases.isEmpty
         default: return false
         }
     }
@@ -320,6 +321,38 @@ final class WatchSessionHub: NSObject {
         case .strength, .partner, .roundsForQuality, .none:
             return (current.blockTimeCapMinutes ?? 0) <= 0
         }
+    }
+
+    /// The phone and watch share the same work/rest sequence and never log
+    /// a rest as an exercise or a completed repetition.
+    private var repeatedAMRAPPhases: [(duration: Int, title: String)] {
+        guard let current, current.wodFormat == .amrap,
+              let phase = current.blockStructure?.phases.first(where: {
+                  $0.kind == .work && ($0.repeatCount ?? 0) > 1 && ($0.workSeconds ?? 0) > 0
+              }) else { return [] }
+        let count = min(100, max(1, phase.repeatCount ?? 1))
+        let work = max(1, phase.workSeconds ?? 60)
+        let rest = max(0, phase.restSeconds ?? 0)
+        var result: [(duration: Int, title: String)] = []
+        for index in 1...count {
+            result.append((work, "AMRAP \(index)/\(count) · trabajo"))
+            if index < count && rest > 0 {
+                result.append((rest, "Descanso · AMRAP \(index)/\(count)"))
+            }
+        }
+        return result
+    }
+
+    private var repeatedAMRAPPhase: (remaining: Int, label: String)? {
+        var elapsed = blockElapsed
+        let phases = repeatedAMRAPPhases
+        for phase in phases {
+            if elapsed < phase.duration {
+                return (remaining: phase.duration - elapsed, label: phase.title)
+            }
+            elapsed -= phase.duration
+        }
+        return phases.last.map { (remaining: 0, label: $0.title) }
     }
 
     /// Mirror iPhone circuit phases, including rest between (not after) rounds.
@@ -364,6 +397,8 @@ final class WatchSessionHub: NSObject {
             return interval - blockElapsed % interval
         case .circuit:
             return circuitPhase?.remaining
+        case .amrap:
+            return repeatedAMRAPPhase?.remaining
         case .tabata:
             let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(0, current.blockRestSeconds ?? 10)
@@ -389,13 +424,18 @@ final class WatchSessionHub: NSObject {
             let work = max(5, exercise.blockWorkSeconds ?? 20)
             let rest = max(1, exercise.blockRestSeconds ?? 10)
             return rounds * (work + rest)
-        case .amrap, .maxEffort:
-            return max(60, (exercise.blockTimeCapMinutes ?? 12) * 60)
+        case .amrap:
+            let phases = repeatedAMRAPPhases
+            return phases.isEmpty
+                ? max(1, exercise.blockTimeCapSeconds ?? (exercise.blockTimeCapMinutes ?? 12) * 60)
+                : phases.reduce(0) { $0 + $1.duration }
+        case .maxEffort:
+            return max(1, (exercise.blockTimeCapSeconds ?? (exercise.blockTimeCapMinutes ?? 12) * 60))
         case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
             // For Time time caps are informational: the clock keeps counting up.
             return 0
         case .strength, .partner, .roundsForQuality, .none:
-            return max(0, exercise.blockTimeCapMinutes ?? 0) * 60
+            return max(0, exercise.blockTimeCapSeconds ?? (exercise.blockTimeCapMinutes ?? 0) * 60)
         }
     }
 
@@ -409,8 +449,8 @@ final class WatchSessionHub: NSObject {
     }
 
     var intervalsFinished: Bool {
-        isIntervalClock && wodUsesSeries && timeCapSeconds > 0
-            && blockElapsed >= timeCapSeconds
+        isIntervalClock && (wodUsesSeries || !repeatedAMRAPPhases.isEmpty) &&
+            timeCapSeconds > 0 && blockElapsed >= timeCapSeconds
     }
 
     var clockDescriptor: String? {
@@ -420,7 +460,7 @@ final class WatchSessionHub: NSObject {
             return current?.wodFormat?.displayName ?? "Cuenta atrás"
         }
         if clockCountsUp, (current?.blockTimeCapMinutes ?? 0) > 0,
-           blockElapsed > (current?.blockTimeCapMinutes ?? 0) * 60 {
+           blockElapsed > (current?.blockTimeCapSeconds ?? (current?.blockTimeCapMinutes ?? 0) * 60) {
             return "TC superado"
         }
         return nil
@@ -483,6 +523,8 @@ final class WatchSessionHub: NSObject {
             return "\(kind) \(clamped)"
         case .circuit:
             return circuitPhase?.label
+        case .amrap:
+            return repeatedAMRAPPhase?.label
         case .tabata:
             let work = max(1, current.blockWorkSeconds ?? 20)
             let rest = max(0, current.blockRestSeconds ?? 10)

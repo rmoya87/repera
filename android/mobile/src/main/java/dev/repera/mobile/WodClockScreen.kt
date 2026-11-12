@@ -70,6 +70,10 @@ internal fun WodClockScreen(
         WodClockSpec(
             format = WodFormat.fromWire(wod.format),
             blockTimeCapMinutes = wod.timeCapMinutes,
+            blockTimeCapSeconds = wod.timeCapSeconds,
+            repeatedWorkSeconds = wod.repeatedWorkSeconds,
+            repeatedRestSeconds = wod.repeatedRestSeconds,
+            repeatCount = wod.repeatCount,
             intervalSeconds = wod.intervalSeconds,
             rounds = wod.rounds,
             workSeconds = wod.workSeconds,

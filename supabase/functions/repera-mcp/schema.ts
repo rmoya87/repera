@@ -28,6 +28,28 @@ const movement = z.strictObject({
   scaleAlternative: z.string().max(180).optional(),
   explicitPlannedSets: z.array(plannedSet).max(30).optional(),
 });
+// Optional versioned structure: the 14 WOD format identifiers never change.
+// Two nesting levels cover buy-in -> repeated AMRAP -> rest without a recursive
+// unbounded JSON payload or a new database table.
+const phaseFields = {
+  id: z.string().uuid().optional(),
+  kind: z.enum(["work", "rest", "buyIn", "main", "cashOut"]),
+  title: z.string().max(120),
+  movementIDs: z.array(z.string().uuid()).max(50).default([]),
+  repeatCount: z.number().int().min(1).max(200).optional(),
+  workSeconds: z.number().int().min(1).max(86400).optional(),
+  restSeconds: z.number().int().min(0).max(86400).optional(),
+  notes: z.string().max(2000).optional(),
+};
+const nestedPhase = z.strictObject({ ...phaseFields, children: z.array(z.never()).max(0).optional() });
+const workoutPhase = z.strictObject({ ...phaseFields, children: z.array(nestedPhase).max(20).optional() });
+const workoutStructure = z.strictObject({
+  version: z.literal(1),
+  section: z.enum(["warmUp", "strength", "skill", "metcon", "accessory", "coolDown"]).optional(),
+  collaboration: z.enum(["solo", "youGoIGo", "synchronized", "sharedReps", "together"]).optional(),
+  resultMetric: z.enum(["elapsedSeconds", "totalReps", "loadKg", "calories", "distanceMeters", "rounds", "perMovementSets"]).optional(),
+  phases: z.array(workoutPhase).max(30).default([]),
+});
 export const wodFormat = z.enum([
   "amrap", "emom", "forTime", "tabata", "chipper", "deathBy", "strength", "afap",
   "ladder", "partner", "buyInCashOut", "roundsForQuality", "circuit", "maxEffort",
@@ -106,6 +128,8 @@ const block = z.strictObject({
   movements: z.array(movement).max(40).default([]),
   wodFormat: wodFormat.optional(),
   timeCapMinutes: z.number().int().min(1).max(240).optional(),
+  timeCapSeconds: z.number().int().min(1).max(14400).optional(),
+  structure: workoutStructure.optional(),
   emomIntervalSeconds: z.number().int().min(10).max(3600).optional(),
   rounds: z.number().int().min(1).max(200).optional(),
   workSeconds: z.number().int().min(5).max(3600).optional(),
@@ -119,7 +143,7 @@ const block = z.strictObject({
   if (b.kind === "wod" && (!b.wodFormat || b.movements.length === 0 || b.exercises.length > 0)) {
     ctx.addIssue({ code: "custom", message: "WOD blocks need format and movements" });
   }
-  if (b.kind === "wod" && b.wodFormat === "amrap" && b.timeCapMinutes == null) {
+  if (b.kind === "wod" && b.wodFormat === "amrap" && b.timeCapMinutes == null && b.timeCapSeconds == null) {
     ctx.addIssue({ code: "custom", path: ["timeCapMinutes"], message: "AMRAP requires a fixed countdown duration in minutes" });
   }
   if (b.kind === "wod" && b.wodFormat === "emom" && b.emomIntervalSeconds == null) {
