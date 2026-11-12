@@ -44,10 +44,20 @@ object WorkoutStructureRecognition {
         if(duration!=null && duration in 1..240 && count!=null && count in 2..100) {
             val restMatch=Regex("""(?i)(\d+)\s*(MIN|MN|M\b|['′])\s*REST\s*(?:BETWEEN|ENTRE)""").find(source)
             val rest=restMatch?.groupValues?.get(1)?.toIntOrNull()?.times(60)
+            val hasBuyIn=upper.contains("BUY IN") || upper.contains("BUY-IN")
+            val hasCashOut=listOf("BUY OUT","BUY-OUT","CASH OUT","CASH-OUT").any { upper.contains(it) }
+            val children=mutableListOf<WorkoutPhase>()
+            if(hasBuyIn && ids.isNotEmpty())
+                children.add(WorkoutPhase(kind=WorkoutPhaseKind.buyIn,title="Buy-in",movementIDs=listOf(ids.first())))
+            val middle=ids.drop(if(hasBuyIn) 1 else 0).dropLast(if(hasCashOut && ids.size>1) 1 else 0)
+            if(middle.isNotEmpty())
+                children.add(WorkoutPhase(kind=WorkoutPhaseKind.main,title="Trabajo principal",movementIDs=middle))
+            if(hasCashOut && ids.isNotEmpty())
+                children.add(WorkoutPhase(kind=WorkoutPhaseKind.cashOut,title="Cash-out",movementIDs=listOf(ids.last())))
             phases.add(WorkoutPhase(kind=WorkoutPhaseKind.work,
                 title="AMRAP por intervalos",movementIDs=ids,
                 repeatCount=count,workSeconds=duration*60,restSeconds=rest,
-                notes=block.wodNotes))
+                notes=block.wodNotes,children=if(hasBuyIn || hasCashOut) children else emptyList()))
         } else {
             val buyIn=upper.contains("BUY IN") || upper.contains("BUY-IN")
             val cashOut=listOf("BUY OUT","BUY-OUT","CASH OUT","CASH-OUT").any {upper.contains(it)}
