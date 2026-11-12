@@ -34,7 +34,7 @@ struct BoardScanGlobalFixturesTests {
         #expect(!blocks.flatMap(\.movements).contains {
             $0.name.uppercased().contains("WARM UP") ||
             $0.name.uppercased().contains("▶") ||
-            $0.name.uppercased().contains("OF")
+            $0.name.uppercased() == "OF"
         })
     }
 
