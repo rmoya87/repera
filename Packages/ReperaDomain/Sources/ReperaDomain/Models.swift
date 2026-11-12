@@ -1237,7 +1237,7 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     public var measuredValue: Double?
     public var measuredMetric: WorkoutResultMetric?
     /// Per-interval and per-athlete results. Empty for legacy WOD results.
-    public var phaseResults: [WorkoutPhaseResult]
+    public var phaseResults: [WorkoutPhaseResult]?
 
     public init(
         id: UUID,
@@ -1249,7 +1249,7 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         isRx: Bool? = nil,
         measuredValue: Double? = nil,
         measuredMetric: WorkoutResultMetric? = nil,
-        phaseResults: [WorkoutPhaseResult] = []
+        phaseResults: [WorkoutPhaseResult]? = nil
     ) {
         self.id = id
         self.format = format
@@ -1260,15 +1260,15 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.isRx = isRx
         self.measuredValue = measuredValue
         self.measuredMetric = measuredMetric
-        self.phaseResults = phaseResults.filter(\.isValid)
+        self.phaseResults = phaseResults?.filter(\.isValid)
     }
 
     public var totalRecordedPhaseReps: Int {
-        phaseResults.reduce(0) { $0 + ($1.completedReps ?? 0) }
+        (phaseResults ?? []).reduce(0) { $0 + ($1.completedReps ?? 0) }
     }
 
     public func contribution(for participantIndex: Int) -> Int {
-        phaseResults.filter { $0.participantIndex == participantIndex }
+        (phaseResults ?? []).filter { $0.participantIndex == participantIndex }
             .reduce(0) { $0 + ($1.completedReps ?? 0) }
     }
 
