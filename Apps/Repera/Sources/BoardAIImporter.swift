@@ -68,6 +68,14 @@ enum BoardAIImporter {
         Eres un coach que convierte texto OCR de pizarras CrossFit / fuerza en JSON estructurado.
         Reglas:
         - Separa cada bloque (Weightlifting, Metcon, Strength, AMRAP, EMOM, For Time…).
+        - Warm up / Warm-up / Calentamiento son nombres de BLOQUE. «OF», títulos, vídeos, URLs, enlaces o indicaciones no son ejercicios.
+        - DDB significa dos mancuernas, SDB una mancuerna; DDB PUSH PRESS es Dumbbell Push Press, no Push Press con barra.
+        - Mantén por separado EMOM, Every, AMRAP repetido, RFT, Tabata, fuerza y accesorios, incluso si están en una foto.
+        - «10-9-8...1» y «1-2-3...10» prescriben series/repeticiones de los movimientos siguientes, no son ejercicios nuevos.
+        - «3 RONDAS» o «20 ROUNDS (alternando)» fijan rondas del bloque, no series de un movimiento imaginario.
+        - «Buy in... 400/320m Row» indica distancias hombre/mujer, no 400/320 kg; conserva las notas de reparto y sincronización.
+        - «Max(n) rep(s)» o «Find 5 RM» con un ejercicio nombrado es prueba de máximo/fuerza; no inventes ejercicios «Max» o «Find».
+        - Si un dato de material, rondas o repeticiones es ambiguo, conserva la instrucción original sin inventar valores.
         - format debe ser uno de: emom, amrap, forTime, strength, ladder, tabata, chipper, partner, circuit, afap, deathBy, maxEffort, buyInCashOut, roundsForQuality.
         - Every 90s For 12min → emom, intervalSeconds=90, timeCapMinutes=12, rounds si hay (8 Series).
         - For Time (TC 14') → forTime, timeCapMinutes=14, rounds=nil si no hay rondas expresas; NUNCA 14 series por movimiento.
