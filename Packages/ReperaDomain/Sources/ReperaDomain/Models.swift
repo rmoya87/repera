@@ -449,8 +449,10 @@ public struct Exercise: Identifiable, Codable, Sendable, Hashable {
         // Un burpee con obstáculo o dominada final no se anota como levantamiento.
         if n.contains("burpee") { return .repsOnly }
         // La resistencia de una banda no es una carga expresada en kilogramos.
+        // Cable/polea sí son carga en kg aunque la ficha también admita banda.
         if (eq.contains("banda") || eq.contains("goma"))
-            && !eq.contains("mancuerna") && !eq.contains("barra") { return .repsOnly }
+            && !eq.contains("mancuerna") && !eq.contains("barra")
+            && !eq.contains("cable") && !eq.contains("polea") { return .repsOnly }
 
         // Dominadas / muscle-up / HSPU permiten anotar lastre o déficit.
         if isPullOrMuscleUp(name: n) || isHSPU(name: n) {

@@ -79,4 +79,18 @@ struct ExerciseLoggingStyleTests {
         #expect(meters.plannedSetsFromReps.first?.targetReps == 1000)
         #expect(meters.prescribedQuantityUnit == .meters)
     }
+
+    @Test func cableOrPulleyBeatsBandForWeight() {
+        #expect(Exercise.loadField(name: "Pallof Press", equipment: "Cable / banda") == .weightKg)
+        #expect(Exercise.loadField(name: "Pallof Press", equipment: "Cable") == .weightKg)
+        #expect(Exercise.loadField(name: "Pallof Press", equipment: "Polea, banda") == .weightKg)
+        #expect(Exercise.loggingStyle(name: "Pallof Press", equipment: "Cable / banda") == .loadAndReps)
+    }
+
+    @Test func bandAloneStaysRepsOnly() {
+        #expect(Exercise.loadField(name: "Face pull", equipment: "Banda elástica") == .none)
+        #expect(Exercise.loggingStyle(name: "Face pull", equipment: "Banda elástica") == .repsOnly)
+        #expect(Exercise.loggingStyle(name: "Pull apart", equipment: "Goma") == .repsOnly)
+        #expect(Exercise.loggingStyle(name: "Curl", equipment: "Mancuerna, banda") == .loadAndReps)
+    }
 }

@@ -112,8 +112,10 @@ object ExerciseInput {
             return ExerciseInputMode.MACHINE_WORK
         // Burpee variants and bands never imply an external load in kilograms.
         if (n.contains("burpee")) return ExerciseInputMode.REPS_ONLY
+        // Cable/polea sí son carga en kg aunque la ficha también admita banda.
         if ((eq.contains("banda") || eq.contains("goma")) &&
-            !eq.contains("mancuerna") && !eq.contains("barra")) return ExerciseInputMode.REPS_ONLY
+            !eq.contains("mancuerna") && !eq.contains("barra") &&
+            !eq.contains("cable") && !eq.contains("polea")) return ExerciseInputMode.REPS_ONLY
         val isHspu = n.contains("hspu") || n.contains("fondos en pino") ||
             n.contains("pino flex") || (n.contains("handstand") &&
             listOf("push", "press", "fond").any { n.contains(it) })

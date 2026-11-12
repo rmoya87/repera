@@ -94,4 +94,17 @@ class ExerciseInputModeTest {
         assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("Single-Under", null, null, null))
         assertEquals(ExerciseInputMode.REPS_AND_TIME, ExerciseInput.mode("Triple under", null, null, null))
     }
+
+    @Test fun cableOrPulleyBeatsBandForWeight() {
+        assertEquals(ExerciseInputMode.LOAD_REPS, ExerciseInput.mode("Pallof Press", "Cable / banda", "core", "Core"))
+        assertEquals(ExerciseInputMode.LOAD_REPS, ExerciseInput.mode("Pallof Press", "Cable", "core", "Core"))
+        assertEquals(ExerciseInputMode.LOAD_REPS, ExerciseInput.mode("Pallof Press", "Polea, banda", "core", "Core"))
+        assertTrue(ExerciseInput.mode("Pallof Press", "Cable / banda", "core", "Core").showsWeight)
+    }
+
+    @Test fun bandAloneStaysRepsOnly() {
+        assertEquals(ExerciseInputMode.REPS_ONLY, ExerciseInput.mode("Face pull", "Banda elástica", null, "Espalda"))
+        assertEquals(ExerciseInputMode.REPS_ONLY, ExerciseInput.mode("Pull apart", "Goma", null, "Espalda"))
+        assertEquals(ExerciseInputMode.LOAD_REPS, ExerciseInput.mode("Curl", "Mancuerna, banda", null, "Brazos"))
+    }
 }
