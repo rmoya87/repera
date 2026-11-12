@@ -563,6 +563,16 @@ Ampliar esta subsección cuando un fallo real enseñe algo nuevo.
 
 - Tras añadir Swift en subcarpeta nueva **o archivo Swift nuevo en Sources/**: `xcodegen generate` y `python3 scripts/check_xcode_sources.py`. No «partir» vistas gigantes por type-check hasta confirmar el símbolo en Compile Sources.
 
+```swift
+// ❌ BAD — WorkoutUIComponents.swift nuevo + PlanView usa OGUndoToastState
+// sin regenerar .xcodeproj (gitignored) → Cannot find 'OGUndoToastState' in scope
+// + .ogUndoToast / .ogDiscardChangesConfirm missing
+
+// ✅ GOOD — tipos OG de toast/resumen de entreno viven en Theme.swift
+// (ya en Compile Sources). Si hace falta un .swift nuevo: exclude + path
+// explícito + xcodegen generate + check_xcode_sources.py.
+```
+
 #### Apple — XcodeGen scripts + User Script Sandboxing (dSYMs Archive)
 
 ```yaml

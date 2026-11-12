@@ -82,7 +82,6 @@ targets:
       - path: Apps/Repera/Sources/StrengthBenchmarkCard.swift
       - path: Apps/Repera/Sources/StrengthContributionSubmitter.swift
       - path: Apps/Repera/Sources/StrengthBenchmarkRemoteStore.swift
-      - path: Apps/Repera/Sources/WorkoutUIComponents.swift
       - path: Apps/Repera/Sources/Analytics/ReperaAnalytics.swift
       - path: Apps/Shared/RestActivityAttributes.swift
       - path: Apps/Shared/TrainingActivityAttributes.swift
