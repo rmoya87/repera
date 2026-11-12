@@ -4305,11 +4305,16 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val format = WodFormat.fromWire(current.optString("wodFormat"))
         val wod = if (current.optString("blockKind") == "wod" && format != null) {
             val moves = block?.optJSONArray("movements") ?: JSONArray()
-            val workPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
+            val anyPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
                 ?.let { phases ->
                     (0 until phases.length()).map { phases.getJSONObject(it) }
                         .firstOrNull { it.optString("kind") == "work" && it.optInt("repeatCount") > 1 }
+                        ?: (0 until phases.length()).map { phases.getJSONObject(it) }
+                            .firstOrNull { it.optString("kind") != "rest" }
                 }
+            val workPhase = anyPhase?.takeIf {
+                it.optString("kind") == "work" && it.optInt("repeatCount") > 1
+            }
             WodExecution(
                 format = format.wireName,
                 capture = format.capture.name,
@@ -4321,8 +4326,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     ?.takeIf { it.isNotBlank() },
                 repeatedWorkSeconds = workPhase?.takeIf { it.has("workSeconds") }?.optInt("workSeconds"),
                 repeatedRestSeconds = workPhase?.takeIf { it.has("restSeconds") }?.optInt("restSeconds"),
-                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
-                phaseID = workPhase?.optString("id")?.takeIf { it.isNotBlank() },
+                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount")
+                    ?: anyPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
+                phaseID = anyPhase?.optString("id")?.takeIf { it.isNotBlank() },
                 collaboration = block?.optJSONObject("structure")?.optString("collaboration")
                     ?.takeIf { it.isNotBlank() },
                 phaseResults = session.optJSONArray("wodResults")?.let { scores ->
