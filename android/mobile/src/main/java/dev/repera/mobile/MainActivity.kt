@@ -1405,6 +1405,9 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     if (template != null && permitNewTemplate()) runWorkoutAction { createWodRoutine(template,
                         canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
+                onWodMeasuredScore = { value, metric ->
+                    runWorkoutAction { recordWodScore(null, null, null, value, metric) }
+                },
                 onWodScore = { rounds, reps, seconds ->
                     val scoreOwner=profile?.uniqueId
                     val scoredBlock=activeWorkout
