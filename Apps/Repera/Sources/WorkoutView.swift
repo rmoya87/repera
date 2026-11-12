@@ -1631,28 +1631,30 @@ struct WorkoutView: View {
 
     /// Formato y parámetros visibles en Play, como en Crear/Editar.
     private enum PlayFormatField: Hashable {
-        case duration, interval, rounds, work, rest, roundRest
+        case duration, capSeconds, interval, rounds, work, rest, roundRest
 
         var title: String {
             switch self {
             case .duration: return "Tiempo"
+            case .capSeconds: return "Segundos"
             case .interval: return "Intervalo"
             case .rounds: return "Rondas"
             case .work: return "Trabajo"
             case .rest: return "Descanso"
-            case .roundRest: return "Rondas"
+            case .roundRest: return "Entre rondas"
             }
         }
         var unit: String {
             switch self {
             case .duration: return "min"
             case .rounds: return ""
-            case .interval, .work, .rest, .roundRest: return "s"
+            case .interval, .work, .rest, .roundRest, .capSeconds: return "s"
             }
         }
         var range: ClosedRange<Int> {
             switch self {
             case .duration: return 1...120
+            case .capSeconds: return 0...59
             case .rounds: return 1...99
             case .interval: return 15...900
             case .work, .rest: return 1...300
@@ -1668,7 +1670,7 @@ struct WorkoutView: View {
         case .emom, .circuit: return [.duration, .interval]
         case .amrap: return [.duration]
         case .forTime:
-            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .roundRest]
+            return block.timeCapMinutes == nil ? [.rounds] : [.rounds, .duration, .capSeconds]
         case .chipper, .afap, .ladder:
             return block.timeCapMinutes == nil ? [] : [.duration]
         case .deathBy, .roundsForQuality, .partner:
@@ -1687,6 +1689,7 @@ struct WorkoutView: View {
                 else { return 0 }
                 switch field {
                 case .duration: return block.timeCapMinutes ?? 12
+                case .capSeconds: return (block.timeCapSeconds ?? 0) % 60
                 case .interval: return block.emomIntervalSeconds ?? 60
                 case .rounds: return block.rounds ?? 8
                 case .work: return block.workSeconds ?? 20
@@ -1698,7 +1701,14 @@ struct WorkoutView: View {
                 mutatePlayRoutine { draft in
                     guard let index = draft.blocks.firstIndex(where: { $0.id == blockID }) else { return }
                     switch field {
-                    case .duration: draft.blocks[index].timeCapMinutes = value
+                    case .duration:
+                        draft.blocks[index].timeCapMinutes = value
+                        if let exact = draft.blocks[index].timeCapSeconds {
+                            draft.blocks[index].timeCapSeconds = value * 60 + exact % 60
+                        }
+                    case .capSeconds:
+                        let minutes = draft.blocks[index].timeCapMinutes ?? 12
+                        draft.blocks[index].timeCapSeconds = value == 0 ? nil : minutes * 60 + value
                     case .interval: draft.blocks[index].emomIntervalSeconds = value
                     case .rounds: draft.blocks[index].rounds = value
                     case .work: draft.blocks[index].workSeconds = value
@@ -1753,6 +1763,20 @@ struct WorkoutView: View {
                         }
                         .padding(.vertical, 10)
                     }
+                    if format == .forTime, block.restBetweenRoundsSeconds != nil {
+                        Stepper(
+                            "Descanso entre rondas: \(block.restBetweenRoundsSeconds ?? 0) s",
+                            value: playFormatBinding(.roundRest, for: block.id),
+                            in: 0...600, step: 15
+                        )
+                        .font(.subheadline)
+                    }
+                    if let structure = block.structure, !structure.summary.isEmpty {
+                        Text(structure.summary)
+                            .font(.caption)
+                            .foregroundStyle(OG.label2)
+                            .lineLimit(2)
+                    }
                     if ![WODFormat.amrap, .emom, .tabata, .circuit].contains(format) {
                         Toggle("Límite de tiempo", isOn: Binding(
                             get: { block.timeCapMinutes != nil },
@@ -1761,6 +1785,7 @@ struct WorkoutView: View {
                                     guard let index = draft.blocks.firstIndex(where: { $0.id == block.id }) else { return }
                                     draft.blocks[index].timeCapMinutes = enabled
                                         ? (draft.blocks[index].timeCapMinutes ?? 12) : nil
+                                    if !enabled { draft.blocks[index].timeCapSeconds = nil }
                                 }
                             }
                         ))
