@@ -10,13 +10,17 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.*
+import dev.repera.domain.ReperaNumberFormat
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,17 +95,26 @@ internal fun CompactSetField(
     /** Si true, abre teclado Repera en lugar del IME del sistema. */
     useReperaKeypad: Boolean = false,
     allowsDecimal: Boolean = keyboardType == KeyboardType.Decimal,
-    fieldLabel: String = ""
+    fieldLabel: String = "",
+    focused: Boolean = false,
+    keypadStep: Double = if (allowsDecimal) 2.5 else 1.0,
+    submitTitle: String? = null,
+    previousLabel: String? = null,
+    onSubmitAdvance: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(10.dp)
+    val borderMod = if (focused) {
+        Modifier.border(2.dp, brandGreen, shape)
+    } else Modifier
     if (useReperaKeypad) {
         var showPad by remember { mutableStateOf(false) }
         var draft by remember { mutableStateOf(value) }
         val shown = if (showPad) draft else value
         Box(
             modifier = modifier
-                .heightIn(min = 36.dp)
+                .heightIn(min = 44.dp)
                 .clip(shape)
+                .then(borderMod)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                 .clickable {
                     draft = value
@@ -135,14 +148,22 @@ internal fun CompactSetField(
                     showPad = false
                 },
                 allowsDecimal = allowsDecimal,
-                showDraftPreview = true
+                showDraftPreview = true,
+                keypadStep = keypadStep,
+                submitTitle = submitTitle,
+                previousLabel = previousLabel,
+                onSubmitAdvance = {
+                    onSubmitAdvance?.invoke()
+                    showPad = false
+                },
             )
         }
     } else {
         Box(
             modifier = modifier
-                .heightIn(min = 36.dp)
+                .heightIn(min = 44.dp)
                 .clip(shape)
+                .then(borderMod)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                 .padding(horizontal = 10.dp, vertical = 8.dp)
                 .then(if (testTag != null) Modifier.testTag(testTag) else Modifier),
@@ -166,7 +187,12 @@ internal fun CompactSetField(
 }
 
 @Composable
-internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effortUnit:String) {
+internal fun LiveSetRows(
+    active: ActiveWorkout,
+    initial: List<LiveRowSummary>,
+    effortUnit: String,
+    onSetCompleted: ((Int) -> Unit)? = null,
+) {
  val key=active.id+"|"+active.index
  val context = LocalContext.current
  val rows=remember(key) {mutableStateListOf<LiveRowSummary>().apply {addAll(initial)}}
@@ -188,11 +214,16 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
   if(merged!=rows.toList()) {rows.clear();rows.addAll(merged)}
  }
  val persist=LocalPersistLiveRows.current
+ var focusedRow by remember(key) { mutableStateOf(rows.indexOfFirst { !it.completed }.coerceAtLeast(0)) }
+ var focusedCol by remember(key) { mutableStateOf(if (active.allowsWeight) 0 else 1) }
  fun touch() {edited=true}
  fun toggleCompleted(i: Int) {
   val wasDone = rows[i].completed
   rows[i] = rows[i].copy(completed = !wasDone)
-  if (!wasDone) playSetCompleteHaptic(context)
+  if (!wasDone) {
+   playSetCompleteHaptic(context)
+   onSetCompleted?.invoke(i)
+  }
   touch()
  }
  // Hand the newest rows over at once; the activity keeps them in memory and saves them (debounced or before any other action).
@@ -245,9 +276,11 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
      modifier = Modifier.weight(0.7f),
      textAlign = TextAlign.Center)
    }
+   Text("✓", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
   }
   rows.forEachIndexed {i,row ->
    key(row.id) {
+    val isCurrent = i == focusedRow && !row.completed
     Row(
      Modifier
       .fillMaxWidth()
@@ -256,36 +289,30 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
      verticalAlignment = Alignment.CenterVertically,
      horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-     val badgeLabel = stringResource(R.string.live_set_badge_a11y, i + 1)
-     Box(
-      Modifier
-       .minimumInteractiveComponentSize()
-       .size(34.dp)
-       .clip(CircleShape)
-       .background(if(row.completed) brandGreen else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-       .toggleable(value = row.completed, role = androidx.compose.ui.semantics.Role.Checkbox) { toggleCompleted(i) }
-       .semantics { contentDescription = badgeLabel }
-       .testTag("set_badge_${i+1}"),
-      contentAlignment=Alignment.Center
-     ) {
-      Text(
-       "${i+1}",
-       color=if(row.completed) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
-       fontWeight=FontWeight.Bold,
-       style=MaterialTheme.typography.labelLarge
-      )
+     SetRowIndexBadge(
+         index = i + 1,
+         completed = row.completed,
+         isCurrent = isCurrent,
+         onToggleComplete = { toggleCompleted(i) },
+         modifier = Modifier.testTag("set_badge_${i + 1}")
+     )
+     val prevLabel = when {
+      row.completed -> "Hecha"
+      active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
+       "${active.prescribedQuantity} $unitSuffix"
+      else -> "—"
      }
-     Text(
-      when {
-       row.completed -> "Hecha"
-       active.prescribedQuantity != null && active.prescribedQuantity > 0 ->
-        "${active.prescribedQuantity} $unitSuffix"
-       else -> "—"
+     PreviousSetValueChip(
+      label = prevLabel,
+      enabled = !row.completed && prevLabel != "—",
+      onCopy = {
+       active.prescribedQuantity?.let { q -> rows[i] = LiveRowEdit.reps(rows[i], q.toString(), active.quantityCap) }
+       active.prescribedWeightKg?.let { w ->
+        rows[i] = LiveRowEdit.weight(rows[i], ReperaNumberFormat.decimal(w))
+       }
+       touch()
       },
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.weight(1f),
-      maxLines = 1
+      modifier = Modifier.weight(1f)
      )
      CompactSetField(
       value = row.reps.toString(),
@@ -305,7 +332,12 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
        "calories" -> "Calorías"
        "meters" -> "Metros"
        else -> "Reps"
-      }
+      },
+      focused = isCurrent && focusedCol == 1,
+      keypadStep = 1.0,
+      submitTitle = if (active.allowsWeight) "Kg →" else null,
+      previousLabel = prevLabel.takeIf { it != "—" },
+      onSubmitAdvance = if (active.allowsWeight) { { focusedCol = 0 } } else null,
      )
      if (active.durationInput) {
       CompactSetField(
@@ -320,6 +352,16 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
        }
       }
      }
+     Icon(
+      Icons.Outlined.Check,
+      contentDescription = "Marcar serie",
+      tint = if (row.completed) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier
+       .size(40.dp)
+       .clip(CircleShape)
+       .clickable { toggleCompleted(i) }
+       .padding(8.dp)
+     )
     }
     // Peso / déficit en la misma densidad iOS (sin «Quitar serie» por fila).
     if (active.allowsDeficit || active.allowsWeight) {
@@ -337,7 +379,14 @@ internal fun LiveSetRows(active:ActiveWorkout,initial:List<LiveRowSummary>,effor
         value = row.weightKg?.let { dev.repera.domain.ReperaNumberFormat.decimal(it) }.orEmpty(),
         onValueChange = { v -> rows[i]=LiveRowEdit.weight(rows[i],v); touch() },
         modifier = Modifier.weight(1f),
-        keyboardType = KeyboardType.Decimal
+        keyboardType = KeyboardType.Decimal,
+        useReperaKeypad = true,
+        allowsDecimal = true,
+        fieldLabel = "Kg",
+        focused = isCurrent && focusedCol == 0,
+        keypadStep = 2.5,
+        submitTitle = "Reps →",
+        onSubmitAdvance = { focusedCol = 1 },
        )
       }
      }

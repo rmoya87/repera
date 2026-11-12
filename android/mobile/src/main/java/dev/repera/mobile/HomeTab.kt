@@ -402,9 +402,12 @@ internal fun HomeTab(
                             onDelete = { onRemoveScheduledRoutine(routine.id) },
                             onEdit = { onEditRoutineContent(routine.id) }
                         ) {
-                            HomePlannedRoutineCard(routine, day) {
-                                onOpenRoutinePreview(routine.id)
-                            }
+                            HomePlannedRoutineCard(
+                                routine = routine,
+                                day = day,
+                                onClick = { onOpenRoutinePreview(routine.id) },
+                                onPlay = { onStartRoutine(routine.id) }
+                            )
                         }
                     }
                     val dayBookings = dayBookingsEarly

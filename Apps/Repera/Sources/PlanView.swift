@@ -121,6 +121,10 @@ struct DayEditorView: View {
     /// Paridad Android `expandedEntryId`: solo un ejercicio/movimiento monta
     /// la retícula de series. Montar todas en el Form bloquea «Editar» segundos.
     @State private var expandedEntryID: UUID?
+    @State private var baselineRoutine: Routine
+    @State private var showDiscardConfirm = false
+    @State private var undoToast: OGUndoToastState?
+    @State private var blockDeleteConfirmID: UUID?
 
     init(
         routine: Routine,
@@ -138,6 +142,7 @@ struct DayEditorView: View {
         // el Form salta de altura al entrar.
         let normalized = Self.withStrengthPlannedSets(routine)
         _routine = State(initialValue: normalized)
+        _baselineRoutine = State(initialValue: normalized)
         _expandedEntryID = State(initialValue: Self.firstExpandableEntryID(in: normalized))
         self.mode = mode
         self.onSessionStarted = onSessionStarted
@@ -195,6 +200,29 @@ struct DayEditorView: View {
     /// Una ruta grabada es el registro del reloj/GPS, no un lugar editable.
     private var completedHasRecordedRoute: Bool {
         (completedWorkoutDraft?.routePoints.count ?? 0) >= 2 || completedHasHealthRoute
+    }
+
+    private var isEditorDirty: Bool {
+        routine != baselineRoutine
+    }
+
+    private func discardEditorChanges() {
+        routine = baselineRoutine
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
+    }
+
+    private func presentUndoToast(message: String, undo: @escaping () -> Void) {
+        undoToast = OGUndoToastState(message: message, undo: undo)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if undoToast?.message == message {
+                undoToast = nil
+            }
+        }
     }
 
     private func refreshExercisesByIdIfNeeded() {
@@ -369,7 +397,11 @@ struct DayEditorView: View {
                                 }
                                 Divider()
                                 Button(role: .destructive) {
-                                    routine.blocks.removeAll { $0.id == block.id }
+                                    if nonRestItemCount(in: block) > 1 {
+                                        blockDeleteConfirmID = block.id
+                                    } else {
+                                        routine.blocks.removeAll { $0.id == block.id }
+                                    }
                                 } label: {
                                     Label("Eliminar bloque", systemImage: "trash")
                                 }
@@ -436,6 +468,43 @@ struct DayEditorView: View {
         }
         .listStyle(.insetGrouped)
         .ogListChrome()
+        .toolbar(.hidden, for: .tabBar)
+        .navigationBarBackButtonHidden(isEditorDirty)
+        .toolbar {
+            if isEditorDirty {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showDiscardConfirm = true
+                    } label: {
+                        Image(systemName: "chevron.backward")
+                            .fontWeight(.semibold)
+                    }
+                    .accessibilityLabel("Volver")
+                }
+            }
+        }
+        .ogDiscardChangesConfirm(isPresented: $showDiscardConfirm, onDiscard: discardEditorChanges)
+        .ogUndoToast($undoToast)
+        .confirmationDialog(
+            "¿Eliminar este bloque?",
+            isPresented: Binding(
+                get: { blockDeleteConfirmID != nil },
+                set: { if !$0 { blockDeleteConfirmID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Eliminar bloque", role: .destructive) {
+                if let id = blockDeleteConfirmID {
+                    routine.blocks.removeAll { $0.id == id }
+                }
+                blockDeleteConfirmID = nil
+            }
+            Button("Cancelar", role: .cancel) {
+                blockDeleteConfirmID = nil
+            }
+        } message: {
+            Text("Se eliminarán todos los ejercicios del bloque.")
+        }
         .alert(
             saveAsFavorite ? "No se ha podido guardar el favorito" : "No se ha podido guardar el entrenamiento",
             isPresented: Binding(
@@ -474,25 +543,32 @@ struct DayEditorView: View {
         ))
         // Pickers de creación: push nativo horizontal con volver en topbar.
         .navigationDestination(item: $pickExerciseForBlock) { blockID in
-            ExercisePickerView(embedsNavigationStack: false) { exercise in
+            ExercisePickerView(
+                embedsNavigationStack: false,
+                allowsMultipleSelection: true
+            ) { exercises in
                 if let idx = routine.blocks.firstIndex(where: { $0.id == blockID }) {
-                    let style = exercise.loggingStyle
-                    let amount = style == .machineWork
-                        ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
-                        : (exercise.isMobility ? (exercise.isMobilityHold ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
-                    let count = style.usesDuration ? 1 : 3
-                    let sets = (0..<count).map { _ in
-                        PlannedSet(targetReps: amount, targetWeightKg: nil,
-                            targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
+                    var lastEntryID: UUID?
+                    for exercise in exercises {
+                        let style = exercise.loggingStyle
+                        let amount = style == .machineWork
+                            ? (exercise.defaultQuantityUnit == .meters ? 500 : 15)
+                            : (exercise.isMobility ? (exercise.isMobilityHold ? 1 : 8) : (style == .repsAndTime ? 50 : 8))
+                        let count = style.usesDuration ? 1 : 3
+                        let sets = (0..<count).map { _ in
+                            PlannedSet(targetReps: amount, targetWeightKg: nil,
+                                targetDurationSeconds: exercise.isMobility ? (exercise.isMobilityHold ? 30 : 60) : nil)
+                        }
+                        let entry = RoutineExercise(
+                            exerciseId: exercise.id,
+                            plannedSets: sets,
+                            quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
+                                ? exercise.defaultQuantityUnit : nil
+                        )
+                        routine.blocks[idx].exercises.append(entry)
+                        lastEntryID = entry.id
                     }
-                    let entry = RoutineExercise(
-                        exerciseId: exercise.id,
-                        plannedSets: sets,
-                        quantityUnit: style == .machineWork || exercise.supportsRepsOrMeters
-                            ? exercise.defaultQuantityUnit : nil
-                    )
-                    routine.blocks[idx].exercises.append(entry)
-                    expandedEntryID = entry.id
+                    expandedEntryID = lastEntryID
                 }
                 pickExerciseForBlock = nil
             }
@@ -907,13 +983,38 @@ struct DayEditorView: View {
         openedSetID = nil
     }
 
+    private func nonRestItemCount(in block: RoutineBlock) -> Int {
+        if block.kind == .strength {
+            return block.exercises.count
+        }
+        return block.movements.filter { !$0.isRest }.count
+    }
+
     private func deleteReorderExercise(type: String, blockID: UUID, itemID: UUID) {
         guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
-            if type == "exercise" {
-                routine.blocks[index].exercises.removeAll { $0.id == itemID }
-            } else if type == "movement" {
-                routine.blocks[index].movements.removeAll { $0.id == itemID }
+        if type == "exercise" {
+            guard let exIndex = routine.blocks[index].exercises.firstIndex(where: { $0.id == itemID }) else { return }
+            let removed = routine.blocks[index].exercises[exIndex]
+            let insertAt = exIndex
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
+                routine.blocks[index].exercises.remove(at: exIndex)
+            }
+            presentUndoToast(message: "Ejercicio eliminado") {
+                guard routine.blocks.indices.contains(index) else { return }
+                let at = min(insertAt, routine.blocks[index].exercises.count)
+                routine.blocks[index].exercises.insert(removed, at: at)
+            }
+        } else if type == "movement" {
+            guard let mvIndex = routine.blocks[index].movements.firstIndex(where: { $0.id == itemID }) else { return }
+            let removed = routine.blocks[index].movements[mvIndex]
+            let insertAt = mvIndex
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
+                routine.blocks[index].movements.remove(at: mvIndex)
+            }
+            presentUndoToast(message: "Ejercicio eliminado") {
+                guard routine.blocks.indices.contains(index) else { return }
+                let at = min(insertAt, routine.blocks[index].movements.count)
+                routine.blocks[index].movements.insert(removed, at: at)
             }
         }
     }
@@ -2116,8 +2217,18 @@ extension DayEditorView {
               routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
         var sets = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
         guard sets.count > 1, sets.indices.contains(setIndex) else { return }
+        let removed = sets[setIndex]
         sets.remove(at: setIndex)
         routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = sets
+        let message = "Serie \(setIndex + 1) eliminada"
+        presentUndoToast(message: message) {
+            guard routine.blocks.indices.contains(blockIndex),
+                  routine.blocks[blockIndex].exercises.indices.contains(exerciseIndex) else { return }
+            var restored = routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets
+            let insertAt = min(setIndex, restored.count)
+            restored.insert(removed, at: insertAt)
+            routine.blocks[blockIndex].exercises[exerciseIndex].plannedSets = restored
+        }
     }
 
     /// Rondas mostradas: EMOM deriva vueltas (cap÷estaciones); RFT default 4.
@@ -2387,7 +2498,10 @@ extension DayEditorView {
                         set: { routine.blocks[index].movements[mIndex] = $0 }
                     ),
                     block: routine.blocks[index],
-                    openedSetID: $openedSetID
+                    openedSetID: $openedSetID,
+                    onUndoSetDelete: { message, undo in
+                        presentUndoToast(message: message, undo: undo)
+                    }
                 )
                 .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
@@ -2553,6 +2667,7 @@ private struct InlineWODMovementSets: View {
     var block: RoutineBlock
     /// En historial, dibujar las series no reescribe automáticamente la prescripción Rx.
     var preservePrescriptionOnAppear = false
+    var onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil
 
     @State private var draftSets: [PlannedSet]
     @State private var didSeedSets: Bool
@@ -2564,11 +2679,13 @@ private struct InlineWODMovementSets: View {
         movement: Binding<WODMovement>,
         block: RoutineBlock,
         preservePrescriptionOnAppear: Bool = false,
-        openedSetID: Binding<UUID?>
+        openedSetID: Binding<UUID?>,
+        onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil
     ) {
         _movement = movement
         self.block = block
         self.preservePrescriptionOnAppear = preservePrescriptionOnAppear
+        self.onUndoSetDelete = onUndoSetDelete
         _openedSetID = openedSetID
         // Altura estable desde el 1.er frame (no sembrar en onAppear).
         let seeded = Self.initialDraftSets(movement: movement.wrappedValue, block: block)
@@ -2780,8 +2897,14 @@ private struct InlineWODMovementSets: View {
 
     private func removeSet(at index: Int) {
         guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        let removed = draftSets[index]
         draftSets.remove(at: index)
         writeSetsToMovement()
+        onUndoSetDelete?("Serie \(index + 1) eliminada") { [removed] in
+            let insertAt = min(index, draftSets.count)
+            draftSets.insert(removed, at: insertAt)
+            writeSetsToMovement()
+        }
     }
 
     private func writeSetsToMovement() {
@@ -2824,6 +2947,7 @@ private struct InlineWODMovementSets: View {
 /// Editor de movimiento WOD alineado con Apuntar: series según estilo (kg / tiempo / reps).
 struct WODMovementEditor: View {
     @State private var openedSetID: UUID?
+    @State private var undoToast: OGUndoToastState?
     @Environment(ReperaStore.self) private var store
     @Binding var movement: WODMovement
     /// Bloque padre para derivar las mismas series que Empezar/Apuntar.
@@ -2986,10 +3110,21 @@ struct WODMovementEditor: View {
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .ogUndoToast($undoToast)
         .onAppear {
             seedSetsIfNeeded()
             maleWeightDraft = movement.weightMaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
             femaleWeightDraft = movement.weightFemaleKg.map { ReperaNumberFormat.decimal($0) } ?? ""
+        }
+    }
+
+    private func presentUndoToast(message: String, undo: @escaping () -> Void) {
+        undoToast = OGUndoToastState(message: message, undo: undo)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(4))
+            if undoToast?.message == message {
+                undoToast = nil
+            }
         }
     }
 
@@ -3120,8 +3255,14 @@ struct WODMovementEditor: View {
 
     private func removeSet(at index: Int) {
         guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        let removed = draftSets[index]
         draftSets.remove(at: index)
         writeSetsToMovement()
+        presentUndoToast(message: "Serie \(index + 1) eliminada") {
+            let insertAt = min(index, draftSets.count)
+            draftSets.insert(removed, at: insertAt)
+            writeSetsToMovement()
+        }
     }
 
     private func applyMovementWeightToEmptySets() {
@@ -3559,7 +3700,31 @@ struct ExercisePickerView: View {
     @Environment(ReperaStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     var embedsNavigationStack = true
-    var onPick: (Exercise) -> Void
+    var allowsMultipleSelection = false
+    var onPick: ((Exercise) -> Void)? = nil
+    var onPickMany: (([Exercise]) -> Void)? = nil
+
+    init(
+        embedsNavigationStack: Bool = true,
+        allowsMultipleSelection: Bool = false,
+        onPick: @escaping (Exercise) -> Void
+    ) {
+        self.embedsNavigationStack = embedsNavigationStack
+        self.allowsMultipleSelection = allowsMultipleSelection
+        self.onPick = onPick
+        self.onPickMany = nil
+    }
+
+    init(
+        embedsNavigationStack: Bool = true,
+        allowsMultipleSelection: Bool = true,
+        onPickMany: @escaping ([Exercise]) -> Void
+    ) {
+        self.embedsNavigationStack = embedsNavigationStack
+        self.allowsMultipleSelection = allowsMultipleSelection
+        self.onPick = nil
+        self.onPickMany = onPickMany
+    }
 
     var body: some View {
         Group {
@@ -3572,15 +3737,30 @@ struct ExercisePickerView: View {
     }
 
     private var pickerContent: some View {
-        ExerciseCatalogSearchList(
-            exercises: store.state.exercises,
-            prompt: "Buscar ejercicio",
-            pageTitle: "Elegir ejercicio"
-        ) { exercise in
-            onPick(exercise)
-            if embedsNavigationStack { dismiss() }
+        Group {
+            if allowsMultipleSelection {
+                ExerciseCatalogSearchList(
+                    exercises: store.state.exercises,
+                    prompt: "Buscar ejercicio",
+                    pageTitle: "Elegir ejercicio",
+                    selectionMode: .multiple
+                ) { picked in
+                    onPickMany?(picked)
+                    if embedsNavigationStack { dismiss() }
+                }
+            } else {
+                ExerciseCatalogSearchList(
+                    exercises: store.state.exercises,
+                    prompt: "Buscar ejercicio",
+                    pageTitle: "Elegir ejercicio"
+                ) { exercise in
+                    onPick?(exercise)
+                    if embedsNavigationStack { dismiss() }
+                }
+            }
         }
         .ogScrollingTitleNav()
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             if embedsNavigationStack {
                 ToolbarItem(placement: .topBarLeading) {

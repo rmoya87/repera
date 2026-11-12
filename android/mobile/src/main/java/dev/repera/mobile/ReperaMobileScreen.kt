@@ -248,6 +248,9 @@ fun ReperaMobileScreen(
     onLogRestPauseSet: (List<Pair<Int, Int>>, Double?, Double?, Boolean) -> Unit,
     onReviseSet: (String, Int, Double?, String?, Int?, Int?) -> Unit,
     onDeleteSet: (String) -> Unit,
+    onRestoreDeletedSet: (WorkoutSetSummary, Int) -> Unit = { _, _ -> },
+    onRemovePendingSet: (String) -> Unit = {},
+    onRestorePendingSet: (PendingSetSummary, Int) -> Unit = { _, _ -> },
     onReviseFinishedSet: (String, String, String, Int, Double?, Int?) -> Unit,
     onSetTestedOneRM:(String,Double?)->Unit = {_,_->},
     exerciseSummary: suspend (String) -> dev.repera.domain.ExerciseHistorySummary? = { null },
@@ -1301,6 +1304,7 @@ fun ReperaMobileScreen(
                             onWodScore, onWodMovement, onCompleteWodBlock, onReviseWodMovement,
                             onDeleteWodMovement,
                             onLogSet, onLogDropSet, onLogRestPauseSet, onReviseSet, onDeleteSet,
+                            onRestoreDeletedSet, onRemovePendingSet, onRestorePendingSet,
                             onNext, onFinish,
                             onDiscardSession,
                             onOpenClock = {
