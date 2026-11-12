@@ -487,6 +487,10 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                     ?: "Circuito"
             })
             .put("kind", if (strengthLike) "strength" else "wod")
+        // Keep the exact cap only if the user did not change its minute
+        // counterpart. Otherwise an old seconds override would beat edits.
+        if (block.has("timeCapSeconds") && block.has("timeCapMinutes") &&
+            block.optInt("timeCapMinutes") != timeCapMinutes) block.remove("timeCapSeconds")
         if (strengthLike) {
             if (format == "strength") block.put("wodFormat", "strength")
             else block.remove("wodFormat")
