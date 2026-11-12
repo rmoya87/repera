@@ -126,7 +126,8 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         segment = health.split("func sessionHealthExtras(", 1)[1].split(
             "let shouldReadEditedWindow", 1
         )[0]
-        self.assertIn("if (workout == nil || linkedToPhonePlaceholder)", segment)
+        self.assertIn("if (workout == nil || workout.map {", segment)
+        self.assertIn("!Self.isWatchRecordedSource($0.sourceRevision.source)", segment)
         self.assertIn("hasRecordedAnchor", segment)
         self.assertIn("watchOnly: fromWatch", segment)
         self.assertIn("expectedSessionID: session.id", segment)

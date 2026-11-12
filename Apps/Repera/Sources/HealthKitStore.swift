@@ -1517,7 +1517,10 @@ final class HealthKitStore {
         // original conservado; nunca emparejar un tercero con el nuevo horario.
         let hasRecordedAnchor = session.recordedStartBeforeEditing != nil
             && session.recordedEndBeforeEditing != nil
-        if (workout == nil || linkedToPhonePlaceholder),
+        if (workout == nil || workout.map {
+            Self.isReperaSource($0.sourceRevision.source)
+                && !Self.isWatchRecordedSource($0.sourceRevision.source)
+        } == true),
            (!session.userEditedDuration || hasRecordedAnchor) {
             let anchorStart = session.recordedStartBeforeEditing ?? start
             let anchorEnd = session.recordedEndBeforeEditing ?? end
