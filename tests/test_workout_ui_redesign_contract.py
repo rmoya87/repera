@@ -179,6 +179,9 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("Icons.Filled.Edit", ANDROID_HOME)
         self.assertIn("ReperaAccents.swipeDelete", ANDROID_HOME)
         self.assertIn("ReperaAccents.swipeEdit", ANDROID_HOME)
+        # translationX fuera del clip: si clip envuelve offset, tapa los círculos.
+        self.assertIn("translationX = offset", ANDROID_HOME)
+        self.assertIn("shape = CircleShape", ANDROID_HOME)
         self.assertIn("in-progress-", home_tab)
         self.assertIn("Modifier.height(44.dp)", (
             ROOT / "android/mobile/src/main/java/dev/repera/mobile/EffortMenuField.kt"

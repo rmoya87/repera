@@ -51,27 +51,29 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
@@ -216,70 +218,85 @@ internal fun HomeSwipeRevealCard(
     val excludeBandPx = with(density) {
         (chipsBandHeight + footerExclusionHeight).toPx()
     }
-    var offset by remember(key) { mutableStateOf(0f) }
+    var offset by remember(key) { mutableFloatStateOf(0f) }
+    var cardHeightPx by remember(key) { mutableFloatStateOf(0f) }
     var confirmDelete by remember(key) { mutableStateOf(false) }
     val deleteRevealed = offset < -revealWidthPx * 0.2f
     val editRevealed = onEdit != null && offset > revealWidthPx * 0.2f
+    val cardHeightDp = with(density) {
+        cardHeightPx.toDp().coerceAtLeast(56.dp)
+    }
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Círculos 56 dp detrás (paridad iOS RegisterSwipeRevealCard): azul lápiz / rojo basura.
-        Row(
+        // Acciones DETRÁS: Surface circular (mismo patrón que Favoritos).
+        // Altura explícita = card; graphicsLayer en el frente mueve el clip entero.
+        Box(
             modifier = Modifier
-                .matchParentSize()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .height(cardHeightDp)
+                .padding(horizontal = 8.dp)
         ) {
             if (onEdit != null) {
-                Box(
+                Surface(
+                    onClick = {
+                        offset = 0f
+                        onEdit()
+                    },
+                    enabled = !busy && editRevealed,
+                    shape = CircleShape,
+                    color = ReperaAccents.swipeEdit,
                     modifier = Modifier
+                        .align(Alignment.CenterStart)
                         .size(56.dp)
-                        .alpha(if (editRevealed) 1f else 0f)
-                        .clip(CircleShape)
-                        .background(ReperaAccents.swipeEdit)
-                        .clickable(enabled = !busy && editRevealed) {
-                            offset = 0f
-                            onEdit()
+                        .graphicsLayer {
+                            // Visible en cuanto hay swipe a la derecha.
+                            alpha = (offset / revealWidthPx).coerceIn(0f, 1f)
                         }
-                        .testTag("home_swipe_edit"),
-                    contentAlignment = Alignment.Center
+                        .testTag("home_swipe_edit")
                 ) {
+                    Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.home_day_cards_editar),
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+            Surface(
+                onClick = {
+                    offset = 0f
+                    if (askDeleteConfirm) confirmDelete = true else onDelete()
+                },
+                enabled = !busy && deleteRevealed,
+                shape = CircleShape,
+                color = ReperaAccents.swipeDelete,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(56.dp)
+                    .graphicsLayer {
+                        alpha = (-offset / revealWidthPx).coerceIn(0f, 1f)
+                    }
+                    .testTag("home_swipe_delete")
+            ) {
+                Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Filled.Edit,
-                        contentDescription = stringResource(R.string.home_day_cards_editar),
+                        Icons.Filled.Delete,
+                        contentDescription = deleteContentDescription,
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
                     )
                 }
-            } else {
-                Spacer(Modifier.size(56.dp))
-            }
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .alpha(if (deleteRevealed) 1f else 0f)
-                    .clip(CircleShape)
-                    .background(ReperaAccents.swipeDelete)
-                    .clickable(enabled = !busy && deleteRevealed) {
-                        offset = 0f
-                        if (askDeleteConfirm) confirmDelete = true else onDelete()
-                    }
-                    .testTag("home_swipe_delete"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = deleteContentDescription,
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
             }
         }
+        // Frontal: translationX FUERA del clip (si clip envuelve al offset, tapa los círculos).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { cardHeightPx = it.height.toFloat() }
+                .graphicsLayer { translationX = offset }
                 .clip(registerCardShape)
                 .background(MaterialTheme.colorScheme.surface, registerCardShape)
-                .offset { IntOffset(offset.toInt(), 0) }
                 .pointerInput(key, busy, onEdit != null, excludeBandPx) {
                     if (busy) return@pointerInput
                     val maxLeft = -revealWidthPx
