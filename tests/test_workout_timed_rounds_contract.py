@@ -271,6 +271,20 @@ class WorkoutTimedRoundsTests(unittest.TestCase):
         self.assertIn("finishedTimedBlockID = current.blockId ?? current.id", confirm)
         self.assertNotIn("store.finishCurrentTimedBlock()", confirm)
 
+    def test_routine_for_editing_passes_exact_cap_after_emom_interval(self):
+        # Swift exige el orden del init de RoutineBlock: emomIntervalSeconds
+        # antes de timeCapSeconds (#272). Invertirlos rompe el build iOS.
+        site = PLAY.split("blocks.append(RoutineBlock(", 1)[1].split(
+            "\n                ))", 1
+        )[0]
+        self.assertIn("emomIntervalSeconds: exercise.blockIntervalSeconds", site)
+        self.assertIn("timeCapSeconds: exercise.blockTimeCapSeconds", site)
+        self.assertIn("structure: exercise.blockStructure", site)
+        self.assertLess(
+            site.index("emomIntervalSeconds:"),
+            site.index("timeCapSeconds:"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

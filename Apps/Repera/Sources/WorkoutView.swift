@@ -615,11 +615,12 @@ struct WorkoutView: View {
                     kind: exercise.blockKind ?? .strength,
                     wodFormat: exercise.wodFormat,
                     timeCapMinutes: exercise.blockTimeCapMinutes,
-                    timeCapSeconds: exercise.blockTimeCapSeconds,
                     emomIntervalSeconds: exercise.blockIntervalSeconds,
                     rounds: exercise.blockRounds,
                     workSeconds: exercise.blockWorkSeconds,
-                    restSeconds: exercise.blockRestSeconds
+                    restSeconds: exercise.blockRestSeconds,
+                    timeCapSeconds: exercise.blockTimeCapSeconds,
+                    structure: exercise.blockStructure
                 ))
             }
             guard let last = blocks.indices.last else { continue }

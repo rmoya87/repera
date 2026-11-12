@@ -177,6 +177,13 @@ Antes de código nuevo: reutilizar flujos existentes; comprobar disponibilidad d
 
 ### Lecciones nativas (no repetir)
 
+#### Apple — `RoutineBlock` init: `emomIntervalSeconds` antes de `timeCapSeconds` (13/11/2026)
+- Tras `#272`, `timeCapSeconds`/`structure` van **al final** del init (después de
+  notes/template). Pasar `timeCapSeconds:` antes de `emomIntervalSeconds:` en
+  `WorkoutView.routineForEditing` → «Argument must precede». Al reconstruir el
+  borrador, también pasar `structure: exercise.blockStructure`.
+- Contrato: `tests/test_workout_timed_rounds_contract.py::test_routine_for_editing_passes_exact_cap_after_emom_interval`.
+
 #### Play — checks por serie vs sync Watch (12/11/2026)
 - Play iOS guardaba `loggedSets` solo con `row.completed`; el reloj no veía avances hasta marcar ✓.
   Sin checks: persistir filas con `reps > 0` en cada flush y disparar descanso al avanzar con el teclado (`onLastSubmit`), no en `onConfirm`.
