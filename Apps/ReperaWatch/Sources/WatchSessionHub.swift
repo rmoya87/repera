@@ -449,8 +449,8 @@ final class WatchSessionHub: NSObject {
     }
 
     var intervalsFinished: Bool {
-        isIntervalClock && wodUsesSeries && timeCapSeconds > 0
-            && blockElapsed >= timeCapSeconds
+        isIntervalClock && (wodUsesSeries || !repeatedAMRAPPhases.isEmpty) &&
+            timeCapSeconds > 0 && blockElapsed >= timeCapSeconds
     }
 
     var clockDescriptor: String? {
