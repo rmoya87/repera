@@ -1324,6 +1324,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 copyIfPresent(entry, item, "restSeconds", "quantityUnit")
                 copyIfPresent(block, item, "wodFormat")
                 if (block.has("timeCapMinutes")) item.put("blockTimeCapMinutes", block.getInt("timeCapMinutes"))
+                if (block.has("timeCapSeconds")) item.put("blockTimeCapSeconds", block.getInt("timeCapSeconds"))
                 if (block.has("emomIntervalSeconds")) item.put("blockIntervalSeconds", block.getInt("emomIntervalSeconds"))
                 if (block.has("rounds")) item.put("blockRounds", block.getInt("rounds"))
                 if (block.has("workSeconds")) item.put("blockWorkSeconds", block.getInt("workSeconds"))
@@ -4192,6 +4193,7 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 expectsRounds = format == WodFormat.AMRAP || format == WodFormat.DEATH_BY,
                 title = block?.optString("title") ?: format.wireName,
                 timeCapMinutes = block?.optInt("timeCapMinutes")?.takeIf { block.has("timeCapMinutes") },
+                timeCapSeconds = block?.optInt("timeCapSeconds")?.takeIf { block.has("timeCapSeconds") },
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4387,6 +4389,7 @@ data class WodExecution(
     val movements: List<WodMovementSummary>,
     val recorded: List<WodRecordedMovement> = emptyList(),
     val timeCapMinutes: Int? = null,
+    val timeCapSeconds: Int? = null,
     val intervalSeconds: Int? = null,
     val rounds: Int? = null,
     val workSeconds: Int? = null,
