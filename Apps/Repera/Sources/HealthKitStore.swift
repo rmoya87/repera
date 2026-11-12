@@ -1228,6 +1228,13 @@ final class HealthKitStore {
            abs(newEnd.timeIntervalSince(oldEnd)) < 1 {
             return original
         }
+        // El editor guarda horas con precisión de minuto. Si ambos límites
+        // siguen en el mismo minuto que el HKWorkout, conserva su total
+        // verificado aunque Salud no publique muestras de energía individuales.
+        if Calendar.current.isDate(newStart, equalTo: oldStart, toGranularity: .minute),
+           Calendar.current.isDate(newEnd, equalTo: oldEnd, toGranularity: .minute) {
+            return original
+        }
         if newStart <= oldStart && newEnd >= oldEnd {
             let before = newStart < oldStart
                 ? await editedWindowQuantity(type, workout: workout,

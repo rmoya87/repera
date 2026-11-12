@@ -76,6 +76,32 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         )
         self.assertIn("totalEnergyBurned", watch)
 
+    def test_minute_precision_edits_keep_the_measured_watch_total(self):
+        health = read(IOS / "HealthKitStore.swift")
+        segment = health.split("private func revisedWorkoutQuantity(", 1)[1].split(
+            "private func revisedMovementMetrics", 1
+        )[0]
+        self.assertIn("Calendar.current.isDate(newStart", segment)
+        self.assertIn("Calendar.current.isDate(newEnd", segment)
+        self.assertIn("return original", segment)
+        self.assertIn("return await editedWindowQuantity(", segment)
+
+    def test_missing_watch_kcal_are_rechecked_on_foreground_and_not_estimated(self):
+        store = read(IOS / "ReperaStore.swift")
+        segment = store.split("func reconcileWatchHealthMetrics() async", 1)[1].split(
+            "func repairPastHealthKitExports()", 1
+        )[0]
+        self.assertIn("($0.appleActiveEnergyKcal ?? 0) <= 0", segment)
+        self.assertIn("sessionHealthExtras(for: original)", segment)
+        self.assertIn("extras.energySourceIsVerified", segment)
+        self.assertIn("current.appleActiveEnergyKcal = kcal", segment)
+        self.assertNotIn("estimateSessionKcal", segment)
+        app = read(IOS / "ReperaApp.swift")
+        foreground = app.split("private func refreshHealthOnForeground(", 1)[1].split(
+            "private struct LaunchSplashView", 1
+        )[0]
+        self.assertIn("await store.reconcileWatchHealthMetrics()", foreground)
+
     def test_phone_shell_zero_kcal_yields_to_watch_workout(self):
         health = read(IOS / "HealthKitStore.swift")
         self.assertIn("phoneShell", health)

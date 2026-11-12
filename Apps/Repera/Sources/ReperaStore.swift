@@ -2710,6 +2710,34 @@ final class ReperaStore: NSObject {
                 changed = true
             }
         }
+        // El UUID de Watch puede llegar antes que sus kcal. Releer también las
+        // sesiones ya enlazadas (incluidas históricas), sin estimar energía ni
+        // usar un entrenamiento ajeno por coincidencia temporal ambigua.
+        let missingEnergy = state.workouts.filter {
+            $0.phase == .finished && $0.timerDetails == nil
+                && ($0.appleActiveEnergyKcal ?? 0) <= 0
+                && ($0.healthKitWorkoutUUID != nil
+                    || $0.appleHealthProvenance == "watchHealthKit"
+                    || $0.appleHealthProvenance == "watchHealthKitPending")
+        }.sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
+        for original in missingEnergy.prefix(20) {
+            if Task.isCancelled { break }
+            guard let extras = await HealthKitStore.shared.sessionHealthExtras(for: original),
+                  extras.energySourceIsVerified,
+                  let kcal = extras.activeEnergyKcal, kcal > 0,
+                  let uuid = extras.resolvedWorkoutUUID,
+                  let index = state.workouts.firstIndex(where: { $0.id == original.id })
+            else { continue }
+            var current = state.workouts[index]
+            guard current.phase == .finished, current.timerDetails == nil,
+                  (current.appleActiveEnergyKcal ?? 0) <= 0 else { continue }
+            current.appleActiveEnergyKcal = kcal
+            current.healthKitWorkoutUUID = uuid
+            if current != state.workouts[index] {
+                state.workouts[index] = current
+                changed = true
+            }
+        }
         if changed {
             persistWorkouts()
             await LocalStore.shared.persistAndFlush(state)

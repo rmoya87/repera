@@ -1,6 +1,11 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-11 (IA Android: sheet manual fitted + swipe delete optimista).
+Última actualización: 2026-11-12 (reconciliación de kcal medidas por Apple Watch).
+
+## Calorías de Apple Watch en entrenamientos anteriores (12/11/2026)
+
+- Tras sincronizar Salud o volver a primer plano, Repera vuelve a comprobar las kcal ausentes de sesiones terminadas y solo guarda energía verificada del entrenamiento vinculado. Si Salud entrega la medición tarde, se recupera sin duplicar sesiones ni calcular calorías estimadas.
+- Si el usuario conserva el mismo minuto de inicio y fin que el entrenamiento original del Watch, el editor no descarta su energía medida por diferencias de segundos. Cuando cambia realmente el intervalo se consultan muestras del intervalo nuevo; el reloj sigue siendo prioritario y el iPhone solo complementa.
 
 ## Icono de inicio en modo noche (11/11/2026)
 

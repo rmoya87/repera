@@ -562,6 +562,7 @@ struct ReperaApp: App {
         guard health.isAvailable else { return }
         health.startObservingHealthChanges()
         await health.refreshToday()
+        await store.reconcileWatchHealthMetrics()
         await store.syncBodyWeightWithHealth()
         AutomaticHealthWorkoutReconciler.schedule(store: store)
         guard forceProgressiveIfNeeded else { return }
