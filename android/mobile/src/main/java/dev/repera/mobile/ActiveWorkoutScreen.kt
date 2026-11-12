@@ -11,6 +11,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AddCircle
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -78,22 +80,32 @@ internal fun ActiveWorkoutScreen(
     var showPlayReorder by remember { mutableStateOf(false) }
     var playReorderBlocks by remember { mutableStateOf<SnapshotStateList<BlockDraftUi>?>(null) }
     var playReorderError by remember { mutableStateOf<String?>(null) }
-    var showReview by remember(workout.id) { mutableStateOf(false) }
+    var showFinishSummary by remember(workout.id) { mutableStateOf(false) }
+    var showEditStructureMenu by remember { mutableStateOf(false) }
     val nameById = remember(catalog) { catalog.associate { it.id to it.name } }
     val hasMoreExercises = workout.index + 1 < workout.total
     val inlineTitle = workout.title.ifBlank { "Entreno" }
 
-    if (showReview) {
-        ActiveWorkoutReviewScreen(
-            workout = workout,
-            catalog = catalog,
-            busy = busy,
-            onBack = { showReview = false },
-            onSave = onFinish,
-            onDiscard = onDiscard
-        )
-        return
-    }
+    val completedSets = workout.navigationEntries.count { it.completed }
+    val totalSets = workout.navigationEntries.size.coerceAtLeast(1)
+    val volumeKg = workout.sets.sumOf { (it.weightKg ?: 0.0) * it.reps }
+    WorkoutFinishSummarySheet(
+        visible = showFinishSummary,
+        title = inlineTitle,
+        elapsedMinutes = (workout.sets.size * 2).coerceAtLeast(1),
+        completedSets = completedSets,
+        totalSets = totalSets,
+        volumeKg = volumeKg,
+        warning = if (completedSets < totalSets) {
+            "Algunos ejercicios tienen series sin marcar. Solo se guardarán las series hechas."
+        } else null,
+        onDismiss = { showFinishSummary = false },
+        onSave = {
+            showFinishSummary = false
+            onFinish()
+        },
+        onKeepTraining = { showFinishSummary = false }
+    )
 
     // Sin `completed`: marcar series no debe recrear todos los BlockDraftUi.
     val navSig = workout.navigationEntries.joinToString("|") {
@@ -238,11 +250,22 @@ internal fun ActiveWorkoutScreen(
                 title = inlineTitle,
                 busy = busy,
                 index = workout.index,
+                total = workout.total,
                 hasMoreExercises = hasMoreExercises,
                 onClose = onBack,
                 onPrevious = { onSelectExercise(workout.index - 1) },
                 onNext = { onSelectExercise(workout.index + 1) },
-                onFinish = { showReview = true }
+                onFinish = { showFinishSummary = true },
+                onEditStructure = { showEditStructureMenu = true },
+                startedLabel = workout.sets.firstOrNull()?.let { "En curso" }
+            )
+        }
+        item {
+            WorkoutPlayProgressHeader(
+                completedSets = completedSets,
+                totalSets = totalSets,
+                volumeKg = volumeKg,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
         // Meta como Crear/Editar: Lugar → Favorito → Notas (sin menú intermedio).
@@ -420,6 +443,33 @@ internal fun ActiveWorkoutScreen(
             )
         }
     }
+    if (showEditStructureMenu) {
+        ReperaModalBottomSheet(onDismissRequest = { showEditStructureMenu = false }) {
+            Column(
+                Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Editar estructura",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = {
+                    showEditStructureMenu = false
+                    onEditPlan()
+                }) { Text("Editar plan") }
+                TextButton(onClick = {
+                    showEditStructureMenu = false
+                    beginPlayReorder()
+                }) { Text("Reordenar") }
+                Text(
+                    "Añadir bloque, WOD y pizarra están al final del scroll.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 /** Acciones de plan en Play (iOS WorkoutView al final del scroll). */
@@ -590,11 +640,14 @@ private fun ActiveWorkoutToolbar(
     title: String,
     busy: Boolean,
     index: Int,
+    total: Int,
     hasMoreExercises: Boolean,
     onClose: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onFinish: () -> Unit,
+    onEditStructure: () -> Unit,
+    startedLabel: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -604,20 +657,38 @@ private fun ActiveWorkoutToolbar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         ReperaToolbarGlassIconButton(
-            icon = Icons.Outlined.Close,
-            contentDescription = "Cerrar",
+            icon = Icons.Outlined.KeyboardArrowDown,
+            contentDescription = "Minimizar",
             onClick = onClose,
             enabled = !busy,
             modifier = Modifier.testTag("active_workout_back")
         )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = buildString {
+                    startedLabel?.let { append(it) }
+                    append(" · Ejercicio ${index + 1} de $total")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        ReperaToolbarGlassIconButton(
+            icon = Icons.Outlined.MoreVert,
+            contentDescription = "Editar estructura",
+            onClick = onEditStructure,
+            enabled = !busy,
+            modifier = Modifier.testTag("active_edit_structure")
         )
         if (index > 0) {
             ReperaToolbarGlassIconButton(

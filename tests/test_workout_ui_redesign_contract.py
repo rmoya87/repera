@@ -14,6 +14,27 @@ REST = (ROOT / "Apps/Repera/Sources/RestSessionCoordinator.swift").read_text(enc
 ANDROID_KEYPAD = (
     ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaNumericKeypad.kt"
 ).read_text(encoding="utf-8")
+ANDROID_UI = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/WorkoutUiComponents.kt"
+).read_text(encoding="utf-8")
+ANDROID_PLAY = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/ActiveWorkoutScreen.kt"
+).read_text(encoding="utf-8")
+ANDROID_LIVE = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/LiveSetRows.kt"
+).read_text(encoding="utf-8")
+ANDROID_PICKER = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/ExercisePickerSheet.kt"
+).read_text(encoding="utf-8")
+ANDROID_PREVIEW = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/SessionPreviewSheet.kt"
+).read_text(encoding="utf-8")
+ANDROID_HOME = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/HomeDayCards.kt"
+).read_text(encoding="utf-8")
+ANDROID_EDITOR = (
+    ROOT / "android/mobile/src/main/java/dev/repera/mobile/RoutineBlocksEditor.kt"
+).read_text(encoding="utf-8")
 
 
 class WorkoutUiRedesignContract(unittest.TestCase):
@@ -68,6 +89,37 @@ class WorkoutUiRedesignContract(unittest.TestCase):
 
     def test_android_keypad_has_dynamic_colors(self):
         self.assertIn("keypadBackground", ANDROID_KEYPAD)
+        self.assertIn("submitTitle", ANDROID_KEYPAD)
+        self.assertIn("keypadStep", ANDROID_KEYPAD)
+
+    def test_android_shared_components(self):
+        for name in (
+            "WorkoutMetaChip",
+            "WorkoutFinishSummarySheet",
+            "WorkoutPlayProgressHeader",
+            "DiscardChangesDialog",
+            "PlayRestFooter",
+            "SessionPreviewBottomBar",
+        ):
+            self.assertIn(name, ANDROID_UI)
+
+    def test_android_play_and_live_rows(self):
+        self.assertIn("WorkoutFinishSummarySheet", ANDROID_PLAY)
+        self.assertIn("KeyboardArrowDown", ANDROID_PLAY)
+        self.assertIn("Editar estructura", ANDROID_PLAY)
+        self.assertIn("WorkoutPlayProgressHeader", ANDROID_PLAY)
+        self.assertIn("SetRowIndexBadge", ANDROID_LIVE)
+        self.assertIn("PreviousSetValueChip", ANDROID_LIVE)
+        self.assertIn("border(2.dp, brandGreen", ANDROID_LIVE)
+
+    def test_android_picker_preview_home_editor(self):
+        self.assertIn("allowsMultipleSelection", ANDROID_PICKER)
+        self.assertIn("Añadir ${selected.size}", ANDROID_PICKER)
+        self.assertIn("SessionPreviewBottomBar", ANDROID_PREVIEW)
+        self.assertIn("SessionPreviewSummaryChips", ANDROID_PREVIEW)
+        self.assertIn("home_planned_play", ANDROID_HOME)
+        self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
+        self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
 
 
 if __name__ == "__main__":

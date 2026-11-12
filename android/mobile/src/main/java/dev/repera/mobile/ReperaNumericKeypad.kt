@@ -73,6 +73,8 @@ fun ReperaNumericKeypad(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
     allowsDecimal: Boolean = true,
+    submitTitle: String? = null,
+    stepLabel: String? = null,
 ) {
     Column(
         modifier
@@ -93,19 +95,19 @@ fun ReperaNumericKeypad(
             DigitKey("4") { onDigit('4') }
             DigitKey("5") { onDigit('5') }
             DigitKey("6") { onDigit('6') }
-            UtilityKey(Icons.Outlined.Add, "Sumar", onPlus)
+            UtilityKey(Icons.Outlined.Add, stepLabel ?: "Sumar", onPlus)
         }
         KeypadRow {
             DigitKey("7") { onDigit('7') }
             DigitKey("8") { onDigit('8') }
             DigitKey("9") { onDigit('9') }
-            UtilityKey(Icons.Outlined.Remove, "Restar", onMinus)
+            UtilityKey(Icons.Outlined.Remove, stepLabel ?: "Restar", onMinus)
         }
         KeypadRow {
             DigitKey(",", enabled = allowsDecimal, onClick = onPoint)
             DigitKey("0") { onDigit('0') }
             EraseKey(onErase)
-            SubmitKey(onSubmit)
+            SubmitKey(onSubmit, title = submitTitle)
         }
     }
 }
@@ -114,17 +116,19 @@ fun ReperaNumericKeypad(
 internal fun applyNumericKeypadAction(
     current: String,
     action: NumericKeypadAction,
-    allowsDecimal: Boolean = true
+    allowsDecimal: Boolean = true,
+    step: Double = 1.0,
 ): String {
+    val safeStep = if (step > 0) step else 1.0
     return when (action) {
         NumericKeypadAction.Erase -> current.dropLast(1)
         NumericKeypadAction.Plus -> {
             val v = ReperaNumberFormat.parse(current) ?: 0.0
-            ReperaNumberFormat.decimal(maxOf(0.0, v + 1.0))
+            ReperaNumberFormat.decimal(maxOf(0.0, v + safeStep))
         }
         NumericKeypadAction.Minus -> {
             val v = ReperaNumberFormat.parse(current) ?: 0.0
-            ReperaNumberFormat.decimal(maxOf(0.0, v - 1.0))
+            ReperaNumberFormat.decimal(maxOf(0.0, v - safeStep))
         }
         NumericKeypadAction.Point -> {
             if (!allowsDecimal) current
@@ -157,6 +161,10 @@ fun ReperaNumericKeypadSheet(
     onCommit: (String) -> Unit,
     allowsDecimal: Boolean = true,
     showDraftPreview: Boolean = false,
+    keypadStep: Double = 1.0,
+    submitTitle: String? = null,
+    previousLabel: String? = null,
+    onSubmitAdvance: (() -> Unit)? = null,
 ) {
     Dialog(
         onDismissRequest = {
@@ -202,11 +210,21 @@ fun ReperaNumericKeypadSheet(
                         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
                     ) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                            Text(
-                                title,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    title,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                previousLabel?.let { prev ->
+                                    Text(
+                                        "Anterior $prev",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.reperaColors.accentText
+                                    )
+                                }
+                            }
                             Text(
                                 draft.ifEmpty { "—" },
                                 fontSize = 32.sp,
@@ -221,25 +239,45 @@ fun ReperaNumericKeypadSheet(
                         }
                     }
                 }
+                val stepLabel = when {
+                    keypadStep == 2.5 -> "-2,5 / +2,5"
+                    keypadStep == 15.0 -> "-15 / +15"
+                    else -> null
+                }
                 ReperaNumericKeypad(
                     allowsDecimal = allowsDecimal,
+                    submitTitle = submitTitle,
+                    stepLabel = stepLabel,
                     onDigit = { ch ->
-                        onDraftChange(applyNumericKeypadAction(draft, NumericKeypadAction.Digit(ch)))
+                        onDraftChange(
+                            applyNumericKeypadAction(draft, NumericKeypadAction.Digit(ch), allowsDecimal, keypadStep)
+                        )
                     },
                     onPoint = {
-                        onDraftChange(applyNumericKeypadAction(draft, NumericKeypadAction.Point))
+                        onDraftChange(
+                            applyNumericKeypadAction(draft, NumericKeypadAction.Point, allowsDecimal, keypadStep)
+                        )
                     },
                     onPlus = {
-                        onDraftChange(applyNumericKeypadAction(draft, NumericKeypadAction.Plus))
+                        onDraftChange(
+                            applyNumericKeypadAction(draft, NumericKeypadAction.Plus, allowsDecimal, keypadStep)
+                        )
                     },
                     onMinus = {
-                        onDraftChange(applyNumericKeypadAction(draft, NumericKeypadAction.Minus))
+                        onDraftChange(
+                            applyNumericKeypadAction(draft, NumericKeypadAction.Minus, allowsDecimal, keypadStep)
+                        )
                     },
                     onErase = {
-                        onDraftChange(applyNumericKeypadAction(draft, NumericKeypadAction.Erase))
+                        onDraftChange(
+                            applyNumericKeypadAction(draft, NumericKeypadAction.Erase, allowsDecimal, keypadStep)
+                        )
                     },
-                    onDismiss = { onCommit(draft) },
-                    onSubmit = { onCommit(draft) }
+                    onDismiss = { onCommit(draft); onDismiss() },
+                    onSubmit = {
+                        onCommit(draft)
+                        onSubmitAdvance?.invoke()
+                    }
                 )
                 // Continúa el color del teclado bajo la barra de gestos.
                 Box(
@@ -310,9 +348,22 @@ private fun RowScope.EraseKey(onClick: () -> Unit) {
 }
 
 @Composable
-private fun RowScope.SubmitKey(onClick: () -> Unit) {
-    KeySurface(background = brandGreen, onClick = onClick, contentDescription = stringResource(R.string.keypad_confirm)) {
-        Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+private fun RowScope.SubmitKey(onClick: () -> Unit, title: String? = null) {
+    val label = title ?: stringResource(R.string.keypad_confirm)
+    KeySurface(background = brandGreen, onClick = onClick, contentDescription = label) {
+        if (!title.isNullOrBlank()) {
+            Text(
+                title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        } else {
+            Icon(Icons.Outlined.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
+        }
     }
 }
 

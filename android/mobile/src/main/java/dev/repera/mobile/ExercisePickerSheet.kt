@@ -1,19 +1,30 @@
 package dev.repera.mobile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,34 +34,44 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
 
 /**
- * Selector de ejercicio a pantalla completa (paridad ExercisePicker iOS).
- * Topbar: ← / filtrar con [ReperaToolbarGlassIconButton] (círculo blanco día).
+ * Selector de ejercicio a pantalla completa (paridad ExercisePicker iOS):
+ * título, búsqueda, chips musculares, Recientes y multiselección.
  */
 @Composable
 internal fun ExercisePickerSheet(
     exercises: List<ExerciseEntry>,
     excluded: Set<String> = emptySet(),
-    onPick: (ExerciseEntry) -> Unit,
-    onDismiss: () -> Unit
+    onPick: (ExerciseEntry) -> Unit = {},
+    onDismiss: () -> Unit,
+    allowsMultipleSelection: Boolean = false,
+    onPickMany: ((List<ExerciseEntry>) -> Unit)? = null,
+    recentExerciseIds: List<String> = emptyList(),
 ) {
     var query by remember { mutableStateOf("") }
     var favoritesOnly by remember { mutableStateOf(false) }
+    var muscleFilter by remember { mutableStateOf<String?>(null) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
     val context = LocalContext.current
     val aliases = remember(context) { ExerciseSearchAssets.load(context) }
     val q = query.trim()
-    val filtered = remember(exercises, excluded, q, favoritesOnly) {
+    val muscleOptions = remember(exercises) {
+        exercises.map { it.muscleGroup }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val filtered = remember(exercises, excluded, q, favoritesOnly, muscleFilter) {
         exercises.asSequence()
             .filter { it.id !in excluded && !it.isCatalogArchived }
             .filter { !favoritesOnly || it.isFavorite }
+            .filter { muscleFilter == null || it.muscleGroup == muscleFilter }
             .filter {
                 q.isEmpty() ||
                     it.name.contains(q, ignoreCase = true) ||
@@ -58,8 +79,11 @@ internal fun ExercisePickerSheet(
                     it.searchAliases.any { a -> a.contains(q, ignoreCase = true) }
             }
             .sortedBy { it.name.lowercase() }
-            .take(120)
+            .take(200)
             .toList()
+    }
+    val recentRows = remember(recentExerciseIds, exercises) {
+        recentExerciseIds.mapNotNull { id -> exercises.firstOrNull { it.id == id } }
     }
 
     ReperaFullscreenDialog(onDismissRequest = onDismiss) {
@@ -68,7 +92,6 @@ internal fun ExercisePickerSheet(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .statusBarsPadding()
-                .navigationBarsPadding()
                 .testTag("exercise_picker_fullscreen")
         ) {
             Row(
@@ -87,7 +110,7 @@ internal fun ExercisePickerSheet(
                     "Elegir ejercicio",
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 ReperaToolbarGlassIconButton(
@@ -106,16 +129,38 @@ internal fun ExercisePickerSheet(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
                     .testTag("exercise_picker_search")
             )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MuscleFilterChip("Todos", selected = muscleFilter == null) { muscleFilter = null }
+                muscleOptions.take(8).forEach { muscle ->
+                    MuscleFilterChip(muscle, selected = muscleFilter == muscle) { muscleFilter = muscle }
+                }
+            }
             LazyColumn(
-                Modifier.fillMaxSize(),
+                Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                if (allowsMultipleSelection && q.isEmpty() && recentRows.isNotEmpty()) {
+                    item { Text("Recientes", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                    items(recentRows, key = { "recent-${it.id}" }) { entry ->
+                        PickerRow(entry, aliases, selected.contains(entry.id), allowsMultipleSelection) {
+                            if (allowsMultipleSelection) {
+                                selected = if (entry.id in selected) selected - entry.id else selected + entry.id
+                            } else onPick(entry)
+                        }
+                    }
+                    item { Text("Todos (A–Z)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
+                }
                 if (filtered.isEmpty()) {
                     item {
                         Text(
-                            if (favoritesOnly) "No hay favoritos que coincidan."
-                            else "Sin coincidencias",
+                            if (favoritesOnly) "No hay favoritos que coincidan." else "Sin coincidencias",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 16.dp)
@@ -123,36 +168,95 @@ internal fun ExercisePickerSheet(
                     }
                 } else {
                     items(filtered, key = { it.id }) { entry ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(entry) }
-                                .padding(vertical = 10.dp)
-                                .testTag("exercise_pick_${entry.id}"),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            ExerciseListThumb(
-                                name = entry.name,
-                                sportTag = entry.sportTag,
-                                aliases = aliases,
-                                artKeys = entry.artKeys,
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    entry.displayName,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    libraryExerciseSubtitle(entry),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        PickerRow(entry, aliases, selected.contains(entry.id), allowsMultipleSelection) {
+                            if (allowsMultipleSelection) {
+                                selected = if (entry.id in selected) selected - entry.id else selected + entry.id
+                            } else {
+                                onPick(entry)
+                                onDismiss()
                             }
                         }
                     }
                 }
             }
+            if (allowsMultipleSelection && selected.isNotEmpty()) {
+                Button(
+                    onClick = {
+                        val picked = selected.mapNotNull { id -> exercises.firstOrNull { it.id == id } }
+                        onPickMany?.invoke(picked)
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(16.dp)
+                        .height(52.dp)
+                        .testTag("exercise_picker_add_many"),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
+                ) {
+                    Text("Añadir ${selected.size} ejercicio${if (selected.size == 1) "" else "s"}",
+                        fontWeight = FontWeight.SemiBold)
+                }
+            } else {
+                Spacer(Modifier.navigationBarsPadding())
+            }
+        }
+    }
+}
+
+@Composable
+private fun MuscleFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (selected) brandGreen else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface,
+        style = MaterialTheme.typography.labelLarge
+    )
+}
+
+@Composable
+private fun PickerRow(
+    entry: ExerciseEntry,
+    aliases: Map<String, List<String>>,
+    checked: Boolean,
+    multiselect: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp)
+            .testTag("exercise_pick_${entry.id}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ExerciseListThumb(
+            name = entry.name,
+            sportTag = entry.sportTag,
+            aliases = aliases,
+            artKeys = entry.artKeys,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(entry.displayName, style = MaterialTheme.typography.titleMedium)
+            Text(
+                libraryExerciseSubtitle(entry),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (multiselect) {
+            Icon(
+                if (checked) Icons.Filled.CheckCircle else Icons.Outlined.AddCircleOutline,
+                contentDescription = null,
+                tint = if (checked) brandGreen else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

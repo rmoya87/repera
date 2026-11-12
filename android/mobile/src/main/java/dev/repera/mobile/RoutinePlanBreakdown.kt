@@ -86,11 +86,9 @@ internal fun RoutinePlanBreakdown(
                                     else -> ""
                                 }
                                 if (entry.sets > 0 && entry.quantity > 0) {
-                                    if (unitLabel.isNotEmpty()) {
-                                        append("${entry.sets}×${entry.quantity}$unitLabel")
-                                    } else {
-                                        append("${entry.sets}×${entry.quantity}")
-                                    }
+                                    val scheme = if (entry.sets > 1) "${entry.sets} × ${entry.quantity}" else "${entry.quantity}"
+                                    append(scheme.replace("×", " × "))
+                                    if (unitLabel.isNotEmpty()) append(unitLabel)
                                 } else if (entry.quantity > 0) {
                                     append("${entry.quantity}$unitLabel")
                                 }

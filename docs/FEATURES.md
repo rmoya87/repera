@@ -4,11 +4,13 @@
 
 ## Gestión de entrenamientos — rediseño UI (12/11/2026)
 
-iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma.
+iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`WorkoutUIComponents.swift` / `WorkoutUiComponents.kt`).
 
 - **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable, paso ± configurable (kg 2,5 · reps 1 · tiempo 15 s), cabecera del pad y tecla de envío con destino («Reps →»). Corrección del foco al pulsar Siguiente (evita concatenar 60→6010).
 - **Play:** cabecera con progreso de series y volumen; ✓ por serie; descanso automático al marcar (−15 / +15 / Saltar); menú «Editar estructura»; cierre con `chevron.down`; hoja resumen antes de guardar (`OGWorkoutFinishSummarySheet`).
-- **Crear/Editar:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast Deshacer (4 s) al borrar serie en fuerza; confirmación «¿Descartar cambios?» al volver con el borrador sucio; selector multiselección con chips musculares, Recientes y «Añadir N ejercicios».
+- **Crear/Editar:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast Deshacer (4 s) al borrar serie en fuerza (iOS); Snackbar Deshacer + `DiscardChangesDialog` en Android (`RoutineBlocksEditor`); selector multiselección con chips musculares, Recientes y «Añadir N ejercicios».
+- **Android Play:** `CompactSetField` + `ReperaNumericKeypad` con paso ± (kg 2,5), borde en foco, cadena «Kg →» / «Reps →»; `LiveSetRows` con ✓ por serie y `PlayRestFooter` (−15/+15/Saltar); cabecera progreso; menú «Editar estructura»; `WorkoutFinishSummarySheet`.
+- **Android vista previa / Inicio:** `SessionPreviewSheet` con título real, chips y barra Empezar/Editar; tarjetas planificadas con fondo `surface`, resumen y ▶ directo (Progreso semanal y Actividad de hoy sin cambios).
 - **Vista previa:** título real, chips de resumen, barra inferior Empezar + Editar.
 - **Inicio:** tarjetas planificadas/hechas con fondo `surface`, resumen «N ejercicios · N series» y ▶; se mantienen **Progreso semanal** y **Actividad de hoy**.
 - Contrato: `tests/test_workout_ui_redesign_contract.py`.

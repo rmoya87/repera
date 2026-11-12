@@ -167,6 +167,8 @@ fun RoutineBlocksEditorScreen(
         }
     }
     var error by remember(routine.id) { mutableStateOf<String?>(null) }
+    var editorTouched by remember(routine.id) { mutableStateOf(false) }
+    var showDiscardConfirm by remember { mutableStateOf(false) }
     var showReorder by remember { mutableStateOf(false) }
     // Paridad iOS: abrir con el primer ejercicio expandido (si no, Editar solo
     // muestra resúmenes y parece que no se pueden añadir series).
@@ -294,7 +296,9 @@ fun RoutineBlocksEditorScreen(
         item(key = "editor-chrome") {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 DayEditorTopBar(
-                    onBack = onBack,
+                    onBack = {
+                        if (editorTouched) showDiscardConfirm = true else onBack()
+                    },
                     onConfirm = { persistAndSave() },
                     confirmEnabled = canConfirm,
                     confirmContentDescription = confirmLabel,
@@ -318,7 +322,7 @@ fun RoutineBlocksEditorScreen(
                             ) {
                                 WorkoutMetaTitleField(
                                     value = draftTitle,
-                                    onValueChange = { draftTitle = it },
+                                    onValueChange = { draftTitle = it; editorTouched = true },
                                     enabled = !busy
                                 )
                                 if (dayMetaEditor) {
@@ -566,6 +570,7 @@ fun RoutineBlocksEditorScreen(
             onPick = { t ->
                 val info = EditorBlockOps.templateToBlockInfo(t, exercises)
                 blocks.add(BlockDraftUi(info)); error = null
+                editorTouched = true
                 val cur = routine.title.trim()
                 if (suggestedTitle == null &&
                     (cur.isEmpty() || cur == "Entreno" || cur == "Nuevo entreno")
@@ -577,6 +582,14 @@ fun RoutineBlocksEditorScreen(
             onDismiss = { showWods = false }
         )
     }
+    DiscardChangesDialog(
+        visible = showDiscardConfirm,
+        onDismiss = { showDiscardConfirm = false },
+        onDiscard = {
+            showDiscardConfirm = false
+            onBack()
+        }
+    )
     }
 }
 
@@ -1083,10 +1096,15 @@ internal fun BlockEditorCard(
                 ExercisePickerSheet(
                     exercises = exercises,
                     excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
-                    onPick = {
-                        val entry = EntryUi(it.id, it.name, 8, 3, null)
-                        block.entries.add(entry)
-                        onExpandedEntryIdChange?.invoke(entry.stableKey(block.entries.lastIndex))
+                    allowsMultipleSelection = true,
+                    onPickMany = { picked ->
+                        var lastKey: String? = null
+                        picked.forEach { ex ->
+                            val entry = EntryUi(ex.id, ex.name, 8, 3, null)
+                            block.entries.add(entry)
+                            lastKey = entry.stableKey(block.entries.lastIndex)
+                        }
+                        onExpandedEntryIdChange?.invoke(lastKey)
                         showExercisePicker = false
                     },
                     onDismiss = { showExercisePicker = false }
@@ -1147,10 +1165,15 @@ internal fun BlockEditorFooterActions(
         ExercisePickerSheet(
             exercises = exercises,
             excluded = block.entries.map { it.exerciseId }.filter { it.isNotBlank() }.toSet(),
-            onPick = {
-                val entry = EntryUi(it.id, it.name, 8, 3, null)
-                block.entries.add(entry)
-                onExpandedEntryIdChange?.invoke(entry.stableKey(block.entries.lastIndex))
+            allowsMultipleSelection = true,
+            onPickMany = { picked ->
+                var lastKey: String? = null
+                picked.forEach { ex ->
+                    val entry = EntryUi(ex.id, ex.name, 8, 3, null)
+                    block.entries.add(entry)
+                    lastKey = entry.stableKey(block.entries.lastIndex)
+                }
+                onExpandedEntryIdChange?.invoke(lastKey)
                 showExercisePicker = false
             },
             onDismiss = { showExercisePicker = false }

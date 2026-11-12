@@ -335,8 +335,10 @@ internal fun ActiveWorkoutCard(
                 }
             }
             var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
+            val restTimer = remember(active.id, active.index) { PlayRestTimerState() }
             active.liveRows?.let { rows ->
-                LiveSetRows(active, rows, effortUnit)
+                LiveSetRows(active, rows, effortUnit, onSetCompleted = { restTimer.start(90) })
+                PlayRestFooter(restTimer)
                 if (!active.durationInput) {
                     ReperaTopicSegmentedPicker(
                         options = listOf("Series", "Calentamiento / técnico"),
@@ -700,8 +702,10 @@ internal fun WodScoreCard(
                     ?: wod.format.replaceFirstChar { it.uppercase() }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val restTimer = remember(active.id, active.index) { PlayRestTimerState() }
             active.liveRows?.let { rows ->
-                LiveSetRows(active, rows, effortUnit)
+                LiveSetRows(active, rows, effortUnit, onSetCompleted = { restTimer.start(90) })
+                PlayRestFooter(restTimer)
             }
             wod.movements.forEach { movement ->
                 val prefix = when {
