@@ -1228,6 +1228,9 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
     public var wodTemplateId: String?
     /// Explicit RX/scaled declaration. nil means unknown; never infer RX from template.
     public var isRx: Bool?
+    /// A load/distance/calorie Max Effort is not a repetition count.
+    public var measuredValue: Double?
+    public var measuredMetric: WorkoutResultMetric?
 
     public init(
         id: UUID,
@@ -1236,7 +1239,9 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         elapsedSeconds: Int? = nil,
         roundsCompleted: Int? = nil,
         wodTemplateId: String? = nil,
-        isRx: Bool? = nil
+        isRx: Bool? = nil,
+        measuredValue: Double? = nil,
+        measuredMetric: WorkoutResultMetric? = nil
     ) {
         self.id = id
         self.format = format
@@ -1245,9 +1250,24 @@ public struct WODBlockResult: Identifiable, Codable, Sendable, Hashable {
         self.roundsCompleted = roundsCompleted
         self.wodTemplateId = wodTemplateId
         self.isRx = isRx
+        self.measuredValue = measuredValue
+        self.measuredMetric = measuredMetric
     }
 
     public var summaryLabel: String {
+        if let measuredValue, let measuredMetric, measuredValue.isFinite {
+            let number = measuredValue.rounded() == measuredValue
+                ? String(Int(measuredValue)) : String(format: "%.1f", measuredValue)
+            switch measuredMetric {
+            case .loadKg: return "\(number) kg"
+            case .calories: return "\(number) kcal"
+            case .distanceMeters: return "\(number) m"
+            case .rounds: return "\(number) rondas"
+            case .totalReps: return "\(number) reps"
+            case .elapsedSeconds: return "\(number) s"
+            case .perMovementSets: return "\(number) series"
+            }
+        }
         if let elapsedSeconds {
             let m = elapsedSeconds / 60
             let s = elapsedSeconds % 60
