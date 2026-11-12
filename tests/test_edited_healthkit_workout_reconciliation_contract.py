@@ -108,6 +108,34 @@ class EditedWorkoutHealthReconciliationTests(unittest.TestCase):
         )[0]
         self.assertIn("await store.reconcileWatchHealthMetrics()", foreground)
 
+    def test_legacy_ios_workout_without_health_uuid_is_eligible_for_verified_kcal(self):
+        store = read(IOS / "ReperaStore.swift")
+        segment = store.split("let missingEnergy = state.workouts.filter", 1)[1].split(
+            "for original in missingEnergy.prefix(20)", 1
+        )[0]
+        self.assertIn("session.healthKitWorkoutUUID != nil", segment)
+        self.assertIn("end >= Date().addingTimeInterval(-30 * 24 * 60 * 60)", segment)
+        self.assertIn("session.recordedStartBeforeEditing != nil", segment)
+        self.assertIn("session.recordedEndBeforeEditing != nil", segment)
+        self.assertIn("end.timeIntervalSince(start) >= 10 * 60", segment)
+        self.assertIn("sessionHealthExtras(for: original, energyOnly: true)",
+                      store)
+
+    def test_legacy_phone_shell_prefers_unambiguous_external_workout(self):
+        health = read(IOS / "HealthKitStore.swift")
+        segment = health.split("func sessionHealthExtras(", 1)[1].split(
+            "let shouldReadEditedWindow", 1
+        )[0]
+        self.assertIn("if (workout == nil || linkedToPhonePlaceholder)", segment)
+        self.assertIn("hasRecordedAnchor", segment)
+        self.assertIn("watchOnly: fromWatch", segment)
+        self.assertIn("expectedSessionID: session.id", segment)
+        self.assertIn("Self.isWatchRecordedSource(matchedExternal.sourceRevision.source)", segment)
+        self.assertLess(segment.index("matchedExternal = await overlappingWorkout("),
+                        segment.index("let own = await existingReperaWorkout("))
+        self.assertNotIn("activeEnergy(from:", segment)
+        self.assertNotIn("deleteExternalWorkout(id: matchedExternal.uuid)", segment)
+
     def test_phone_shell_zero_kcal_yields_to_watch_workout(self):
         health = read(IOS / "HealthKitStore.swift")
         self.assertIn("phoneShell", health)

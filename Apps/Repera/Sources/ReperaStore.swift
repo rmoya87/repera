@@ -2713,12 +2713,26 @@ final class ReperaStore: NSObject {
         // El UUID de Watch puede llegar antes que sus kcal. Releer también las
         // sesiones ya enlazadas (incluidas históricas), sin estimar energía ni
         // usar un entrenamiento ajeno por coincidencia temporal ambigua.
-        let missingEnergy = state.workouts.filter {
-            $0.phase == .finished && $0.timerDetails == nil
-                && ($0.appleActiveEnergyKcal ?? 0) <= 0
-                && ($0.healthKitWorkoutUUID != nil
-                    || $0.appleHealthProvenance == "watchHealthKit"
-                    || $0.appleHealthProvenance == "watchHealthKitPending")
+        let missingEnergy = state.workouts.filter { session in
+            guard session.phase == .finished, session.timerDetails == nil,
+                  (session.appleActiveEnergyKcal ?? 0) <= 0,
+                  let start = session.startedAt, let end = session.finishedAt,
+                  end.timeIntervalSince(start) >= 10 * 60
+            else { return false }
+            if session.healthKitWorkoutUUID != nil
+                || session.appleHealthProvenance == "watchHealthKit"
+                || session.appleHealthProvenance == "watchHealthKitPending" {
+                return true
+            }
+            // Entrenos antiguos con UUID vacío también pueden tener una
+            // sesión real del reloj en Salud. Solo reintentar los últimos
+            // 30 días: el match exige solape suficiente y fuente verificada.
+            // Nunca adivinar el workout de una sesión con hora editada si
+            // no se conservó su ventana de sensores original.
+            return end >= Date().addingTimeInterval(-30 * 24 * 60 * 60)
+                && (!session.userEditedDuration
+                    || (session.recordedStartBeforeEditing != nil
+                        && session.recordedEndBeforeEditing != nil))
         }.sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }
         for original in missingEnergy.prefix(20) {
             if Task.isCancelled { break }

@@ -1509,6 +1509,27 @@ final class HealthKitStore {
                 }
             }
         }
+        // Un entrenamiento antiguo del iPhone puede tener FC/pasos desde Salud,
+        // pero no un UUID vinculado al HKWorkout que midió las calorías.
+        // Antes de aceptar su ficha provisional, recuperar SOLO un workout
+        // externo con solape >=70% e identidad inequívoca (ver overlappingWorkout).
+        // Si el usuario editó el horario, usar exclusivamente el intervalo
+        // original conservado; nunca emparejar un tercero con el nuevo horario.
+        let hasRecordedAnchor = session.recordedStartBeforeEditing != nil
+            && session.recordedEndBeforeEditing != nil
+        if (workout == nil || linkedToPhonePlaceholder),
+           (!session.userEditedDuration || hasRecordedAnchor) {
+            let anchorStart = session.recordedStartBeforeEditing ?? start
+            let anchorEnd = session.recordedEndBeforeEditing ?? end
+            if let matchedExternal = await overlappingWorkout(
+                from: anchorStart, to: anchorEnd, watchOnly: fromWatch,
+                expectedSessionID: session.id
+            ), (!Self.isReperaSource(matchedExternal.sourceRevision.source)
+                  || Self.isWatchRecordedSource(matchedExternal.sourceRevision.source)) {
+                workout = matchedExternal
+                workoutUUID = matchedExternal.uuid
+            }
+        }
         if workout == nil,
            let own = await existingReperaWorkout(sessionId: session.id) {
             workout = own

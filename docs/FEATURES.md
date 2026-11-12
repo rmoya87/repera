@@ -5,6 +5,7 @@
 ## Calorías de Apple Watch en entrenamientos anteriores (12/11/2026)
 
 - Tras sincronizar Salud o volver a primer plano, Repera vuelve a comprobar las kcal ausentes de sesiones terminadas y solo guarda energía verificada del entrenamiento vinculado. Si Salud entrega la medición tarde, se recupera sin duplicar sesiones ni calcular calorías estimadas.
+- Se reintentan también entrenamientos históricos recientes sin UUID de Salud persistido (últimos 30 días y duración >=10 minutos), asociando exclusivamente un HKWorkout externo inequívoco con solape >=70% y vínculo temporal suficiente. Si la hora se editó, el match solo usa la ventana original guardada; no se rellenan kcal por estimación ni se reutiliza la ficha provisional del iPhone.
 - Si el usuario conserva el mismo minuto de inicio y fin que el entrenamiento original del Watch, el editor no descarta su energía medida por diferencias de segundos. Cuando cambia realmente el intervalo se consultan muestras del intervalo nuevo; el reloj sigue siendo prioritario y el iPhone solo complementa.
 
 ## Icono de inicio en modo noche (11/11/2026)
