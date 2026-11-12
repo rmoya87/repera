@@ -639,6 +639,47 @@ object BoardScanLiteParser {
         header: String, lines: List<String>, interval: Int?,
         cap: Int?, rounds: Int?, catalog: List<CatalogExercise>
     ): RoutineBlock? {
+        // Weightlifting "Squat Clean 1RM Test" + Sets 1-2/3-4/5-10.
+        // Keep percentage ranges as notes rather than choosing an arbitrary
+        // value (e.g. 75% from the prescribed 75-80%).
+        if(header.uppercase(Locale.ROOT).contains("1RM")) {
+            val rm=Regex("""1\s*RM""",RegexOption.IGNORE_CASE).find(header)
+            val rawName=rm?.let {header.substring(0,it.range.first)}
+                ?.substringBefore("·")?.trim()?.trim('"','“','”') ?: ""
+            val index=catalogIndex(catalog)
+            val exercise=index[norm(rawName)]
+                ?: index[norm(CrossFitGlossary.canonicalName(rawName))]
+                ?: if(norm(rawName)==norm("Squat Clean")) index[norm("Clean")] else null
+            if(exercise!=null) {
+                val sets=mutableMapOf<Int,PlannedSet>()
+                val pattern=Regex("""^SETS?\s*(\d+)\s*[-–]\s*(\d+)\s*:\s*(\d+)\s+REPS?\b""",RegexOption.IGNORE_CASE)
+                for(line in lines) {
+                    val match=pattern.find(line) ?: continue
+                    val start=match.groupValues[1].toIntOrNull() ?: continue
+                    val end=match.groupValues[2].toIntOrNull() ?: continue
+                    val reps=match.groupValues[3].toIntOrNull() ?: continue
+                    if(start !in 1..50 || end !in start..50 || reps<=0) continue
+                    for(n in start..end) sets[n]=PlannedSet(targetReps=reps)
+                }
+                val count=rounds ?: sets.size
+                if(count in 1..50 && sets.size==count) {
+                    val planned=(1..count).mapNotNull {sets[it]}
+                    if(planned.size==count) {
+                        val block=RoutineBlock.strength(
+                            title=header,
+                            exercises=listOf(RoutineExercise(
+                                exerciseId=exercise.id,plannedSets=planned
+                            ))
+                        )
+                        block.emomIntervalSeconds=interval
+                        block.timeCapMinutes=cap
+                        block.wodNotes=(listOf(header)+lines).joinToString("\n")
+                        return block
+                    }
+                }
+            }
+        }
+
         if (lines.any {
                 val u = it.uppercase(Locale.ROOT)
                 u.contains("SQUAT SNATCH") && u.contains("SETS")
