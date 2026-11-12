@@ -343,7 +343,9 @@ public enum BoardScanLiteParser {
     }
 
     private static func exerciseText(_ line: String) -> String {
-        line.replacingOccurrences(of: #"^\s*[*•]\s*(?=\d)"#, with: "",
+        line.replacingOccurrences(of: #"(?i)\b(\d+)\s*MN\b"#, with: "$1MIN",
+                                  options: .regularExpression)
+            .replacingOccurrences(of: #"^\s*[*•]\s*(?=\d)"#, with: "",
                                   options: .regularExpression)
             .replacingOccurrences(of: #"(?i)^MINUTE\s+\d+\s*:\s*"#, with: "",
                                   options: .regularExpression)
