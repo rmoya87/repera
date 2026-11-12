@@ -8,6 +8,15 @@ import org.junit.Test
 /** User-supplied training boards, transcribed after OCR. Test parser behavior,
  * not camera OCR accuracy, which requires device integration tests. */
 class BoardScanGlobalFixturesTest {
+    @Test fun ddbPushPressUsesOfficialDumbbellNotBarbellCatalog() {
+        val dumbbell=CatalogExercise("dumbbell-pp","Dumbbell Push Press")
+        val barbell=CatalogExercise("barbell-pp","Push press")
+        val parsed=BoardScanLiteParser.parse(
+            "AMRAP 4'\n7 DDB PUSH PRESS", listOf(barbell,dumbbell)
+        ).blocks
+        assertEquals("dumbbell-pp",parsed.first().movements.first().exerciseId)
+    }
+
     @Test fun warmupStrengthAndAmrapPreserveThreeSections() {
         val blocks=BoardScanLiteParser.parse("""
             WARM UP - 2 ROUNDS OF
