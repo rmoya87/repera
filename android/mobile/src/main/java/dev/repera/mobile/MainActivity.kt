@@ -1405,6 +1405,11 @@ class MainActivity : ComponentActivity(), MessageClient.OnMessageReceivedListene
                     if (template != null && permitNewTemplate()) runWorkoutAction { createWodRoutine(template,
                         canCreateTemplate={count ->subscriptions.policy.copy(libraryRoutineCount=count).canCreateLibraryRoutine(true).allowed}) }
                 },
+                onWodPhaseOutcome = { phaseID, iteration, participantIndex, reps ->
+                    runWorkoutAction {
+                        recordWodPhaseResult(phaseID, iteration, participantIndex, reps)
+                    }
+                },
                 onWodMeasuredScore = { value, metric ->
                     runWorkoutAction { recordWodScore(null, null, null, value, metric) }
                 },
