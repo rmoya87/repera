@@ -39,6 +39,9 @@ internal class RemoteExerciseCatalog(private val context: Context) {
 
     private val cache = AtomicFile(File(context.filesDir, "exercise_catalog_remote_v1.json"))
     private val http = OkHttpClient.Builder().callTimeout(25, TimeUnit.SECONDS).build()
+    private var publishedArtStamp: Pair<Long, Long>? = null
+    private var publishedArtByName: Map<String, List<String>?> = emptyMap()
+    private var ambiguousPublishedArtNames: Set<String> = emptySet()
 
     private fun readCache(): JSONObject = runCatching {
         // AtomicFile.openRead recovers an interrupted .bak write if necessary.
@@ -181,21 +184,42 @@ internal class RemoteExerciseCatalog(private val context: Context) {
      */
     /** Published art outranks stale account snapshots. Read on IO only.
      *  null: no published art field; []: explicitly no published images. */
+    /** Shared per-process index of published keys; rebuilding only when the
+     *  atomic Supabase cache changes avoids one JSON parse per library row.
+     *  A duplicate normalized exercise name is ambiguous and not matched. */
     fun cachedPublishedArtKeys(name: String): List<String>? = synchronized(gate) {
-        val entries = readCache().optJSONObject("entries") ?: return@synchronized null
-        val normalized = normalize(name)
-        val matching = entries.keys().asSequence().toList().filter { key ->
-            val entry = entries.optJSONObject(key) ?: return@filter false
-            normalize(key.removePrefix("catalog:")) == normalized ||
-                normalize(entry.optString("name")) == normalized
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val stamp = file.lastModified() to file.length()
+        if (stamp != publishedArtStamp) {
+            val entries = readCache().optJSONObject("entries") ?: JSONObject()
+            val byName = mutableMapOf<String, List<String>?>()
+            val counts = mutableMapOf<String, Int>()
+            for (key in entries.keys().asSequence()) {
+                val entry = entries.optJSONObject(key) ?: continue
+                val art = if (!entry.optBoolean("is_active", true)) emptyList()
+                    else entry.optJSONArray("art_keys")?.let { keys ->
+                        (0 until keys.length()).mapNotNull { i ->
+                            keys.optString(i).takeIf {
+                                it.matches(Regex("[A-Za-z0-9_-]+"))
+                            }
+                        }.distinct()
+                    }
+                val names = setOf(
+                    normalize(key.removePrefix("catalog:")),
+                    normalize(entry.optString("name"))
+                ).filter { it.isNotBlank() }
+                for (normalized in names) {
+                    counts[normalized] = (counts[normalized] ?: 0) + 1
+                    byName[normalized] = art
+                }
+            }
+            publishedArtByName = byName
+            ambiguousPublishedArtNames = counts.filterValues { it > 1 }.keys
+            publishedArtStamp = stamp
         }
-        if (matching.size != 1) return@synchronized null
-        val item = entries.optJSONObject(matching.single()) ?: return@synchronized null
-        if (!item.optBoolean("is_active", true)) return@synchronized emptyList()
-        val art = item.optJSONArray("art_keys") ?: return@synchronized null
-        (0 until art.length()).mapNotNull { i ->
-            art.optString(i).takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }
-        }.distinct()
+        val normalized = normalize(name)
+        if (normalized in ambiguousPublishedArtNames) null
+        else publishedArtByName[normalized]
     }
 
     fun applyToAccount(googleId: String): Boolean = synchronized(gate) {

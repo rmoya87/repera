@@ -47,7 +47,7 @@ internal object ExerciseArtImages {
             initialValue = null, name, stored
         ) {
             value = withContext(Dispatchers.IO) {
-                val cached = RemoteExerciseCatalog(context).cachedPublishedArtKeys(name)
+                val cached = publishedReader(context).cachedPublishedArtKeys(name)
                 when {
                     cached != null -> PublishedArtSelection(cached, true)
                     stored.isNotEmpty() -> PublishedArtSelection(stored, true)
@@ -57,6 +57,19 @@ internal object ExerciseArtImages {
         }
         return selected
     }
+
+    // Keep one catalog reader (and its revision-index) for all thumbnails.
+    // Creating a new OkHttpClient and parsing JSON for each Compose cell
+    // was unnecessarily expensive in large exercise libraries.
+    private val publishedReaderGate = Any()
+    private var publishedReader: RemoteExerciseCatalog? = null
+
+    private fun publishedReader(context: Context): RemoteExerciseCatalog =
+        synchronized(publishedReaderGate) {
+            publishedReader ?: RemoteExerciseCatalog(context.applicationContext).also {
+                publishedReader = it
+            }
+        }
 
     /** Largest power-of-two subsampling that keeps both sides >= [targetPx]. */
     internal fun sampleSize(width: Int, height: Int, targetPx: Int): Int {
