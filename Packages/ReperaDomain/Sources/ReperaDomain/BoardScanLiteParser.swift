@@ -90,6 +90,28 @@ public enum BoardScanLiteParser {
         let officialExercises = Self.catalogIndex(catalog)
         for (lineIndex, line) in rawLines.enumerated() {
             let upper = line.uppercased()
+            // "Squat snatch / Max (n) reps" is a max-effort block, not
+            // a second exercise called "Max (n) reps".
+            if rawLines.indices.contains(lineIndex + 1),
+               rawLines[lineIndex + 1].uppercased().hasPrefix("MAX "),
+               !Self.isSectionLabel(line) {
+                flush()
+                sectionTitle = line
+                continue
+            }
+            if upper.hasPrefix("MAX "), !upper.hasPrefix("MAX ROUNDS"),
+               let title = sectionTitle, !Self.isSectionLabel(title) {
+                let exercise = officialExercises[Self.norm(title)] ??
+                    officialExercises[Self.norm(CrossFitGlossary.canonicalName(for: title))]
+                var maxBlock = RoutineBlock.wod(format: .maxEffort, title: title + " · " + line)
+                maxBlock.movements = [WODMovement(
+                    exerciseId: exercise?.id, name: exercise?.name ?? title
+                )]
+                maxBlock.wodNotes = title + "\n" + line
+                blocks.append(maxBlock)
+                sectionTitle = nil
+                continue
+            }
             // A standalone title followed by "FIND 5 RM" starts a new
             // strength block, rather than extending the preceding EMOM.
             if rawLines.indices.contains(lineIndex + 1),
