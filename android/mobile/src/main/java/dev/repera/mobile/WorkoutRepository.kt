@@ -4218,9 +4218,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 timeCapSeconds = block?.optInt("timeCapSeconds")?.takeIf { block.has("timeCapSeconds") },
                 resultMetric = block?.optJSONObject("structure")?.optString("resultMetric")
                     ?.takeIf { it.isNotBlank() },
-                repeatedWorkSeconds = workPhase?.optInt("workSeconds")?.takeIf { workPhase.has("workSeconds") },
-                repeatedRestSeconds = workPhase?.optInt("restSeconds")?.takeIf { workPhase.has("restSeconds") },
-                repeatCount = workPhase?.optInt("repeatCount")?.takeIf { workPhase.has("repeatCount") },
+                repeatedWorkSeconds = workPhase?.takeIf { it.has("workSeconds") }?.optInt("workSeconds"),
+                repeatedRestSeconds = workPhase?.takeIf { it.has("restSeconds") }?.optInt("restSeconds"),
+                repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
