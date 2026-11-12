@@ -390,12 +390,12 @@ final class WatchSessionHub: NSObject {
             let rest = max(1, exercise.blockRestSeconds ?? 10)
             return rounds * (work + rest)
         case .amrap, .maxEffort:
-            return max(60, (exercise.blockTimeCapMinutes ?? 12) * 60)
+            return max(60, (exercise.blockTimeCapSeconds ?? (exercise.blockTimeCapMinutes ?? 12) * 60))
         case .forTime, .chipper, .afap, .ladder, .buyInCashOut:
             // For Time time caps are informational: the clock keeps counting up.
             return 0
         case .strength, .partner, .roundsForQuality, .none:
-            return max(0, exercise.blockTimeCapMinutes ?? 0) * 60
+            return max(0, exercise.blockTimeCapSeconds ?? (exercise.blockTimeCapMinutes ?? 0) * 60)
         }
     }
 
@@ -420,7 +420,7 @@ final class WatchSessionHub: NSObject {
             return current?.wodFormat?.displayName ?? "Cuenta atrás"
         }
         if clockCountsUp, (current?.blockTimeCapMinutes ?? 0) > 0,
-           blockElapsed > (current?.blockTimeCapMinutes ?? 0) * 60 {
+           blockElapsed > (current?.blockTimeCapSeconds ?? (current?.blockTimeCapMinutes ?? 0) * 60) {
             return "TC superado"
         }
         return nil
