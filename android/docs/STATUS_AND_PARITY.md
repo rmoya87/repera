@@ -2,6 +2,8 @@
 
 ## Catálogo editorial e imágenes OTA (12/11/2026)
 
+- Reparación adicional (12/11): Android consulta las claves de imagen de la caché editorial Supabase desde IO incluso si el registro privado del usuario todavía conserva una imagen anterior. Mientras se resuelve la clave muestra un estado neutro, nunca un fotograma de otro ejercicio. Pallof Press deja de asociarse al press militar, incluido el fallback difuso. El APK debe actualizarse para recibir este código; no hay borrados de entrenamientos, favoritos ni datos privados.
+
 - Supabase es la fuente de verdad para los campos publicados de todos los ejercicios. El feed versionado `mobile_exercise_catalog_events` actualiza únicamente la ficha afectada y persiste su último cursor en una caché atómica; `applyToAccount` compara antes de escribir y preserva UUID, favoritos, entrenamientos y registros privados. El seed local solo es respaldo offline cuando todavía no hay ficha editorial publicada.
 - En Android, si la ficha contiene `art_keys`, estos stems tienen prioridad **aunque no exista todavía el JPG local**. Los héroes y miniaturas los descargan bajo demanda de Storage por stem, reutilizan el JPG en disco y muestran un fondo neutro si la red falla; nunca enseñan una ilustración distinta por fallback mientras esperan a Supabase. Las descargas fallidas se reintentan con amortiguación de 60 s.
 - La descarga masiva de JPG se hace únicamente desde el worker de fondo (cada seis horas, cuando hay red); los cambios de metadatos se publican de inmediato sin esperar todas las imágenes. Los JPG visibles se recuperan bajo demanda incluso si el worker no ha terminado.

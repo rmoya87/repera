@@ -179,6 +179,25 @@ internal class RemoteExerciseCatalog(private val context: Context) {
      * favorites and private entries. No historical workout, routine or set is edited.
      * This method is called only from the account-load IO dispatcher.
      */
+    /** Published art outranks stale account snapshots. Read on IO only.
+     *  null: no published art field; []: explicitly no published images. */
+    fun cachedPublishedArtKeys(name: String): List<String>? = synchronized(gate) {
+        val entries = readCache().optJSONObject("entries") ?: return@synchronized null
+        val normalized = normalize(name)
+        val matching = entries.keys().asSequence().toList().filter { key ->
+            val entry = entries.optJSONObject(key) ?: return@filter false
+            normalize(key.removePrefix("catalog:")) == normalized ||
+                normalize(entry.optString("name")) == normalized
+        }
+        if (matching.size != 1) return@synchronized null
+        val item = entries.optJSONObject(matching.single()) ?: return@synchronized null
+        if (!item.optBoolean("is_active", true)) return@synchronized emptyList()
+        val art = item.optJSONArray("art_keys") ?: return@synchronized null
+        (0 until art.length()).mapNotNull { i ->
+            art.optString(i).takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }
+        }.distinct()
+    }
+
     fun applyToAccount(googleId: String): Boolean = synchronized(gate) {
         val cached = readCache()
         if (cached.optLong("revision", 0) == 0L) return false

@@ -13,6 +13,26 @@ def read(path: str) -> str:
 
 
 class AndroidCatalogRemoteAuthorityTest(unittest.TestCase):
+    def test_published_cache_overrides_stale_art_in_every_android_surface(self):
+        catalog = read("android/mobile/src/main/java/dev/repera/mobile/RemoteExerciseCatalogWorker.kt")
+        art = read("android/mobile/src/main/java/dev/repera/mobile/ExerciseArtImages.kt")
+        detail = read("android/mobile/src/main/java/dev/repera/mobile/ExerciseDetailScreen.kt")
+        thumb = read("android/mobile/src/main/java/dev/repera/mobile/ReperaComponents.kt")
+        wod = read("android/mobile/src/main/java/dev/repera/mobile/WodExerciseArt.kt")
+        data = read("android/mobile/src/main/java/dev/repera/mobile/ExerciseArtData.kt")
+        resolver = read("android/mobile/src/main/java/dev/repera/mobile/ExerciseArtResolver.kt")
+        self.assertIn("fun cachedPublishedArtKeys(name: String)", catalog)
+        self.assertIn('item.optJSONArray("art_keys")', catalog)
+        self.assertIn('normalize(entry.optString("name")) == normalized', catalog)
+        self.assertIn("RemoteExerciseCatalog(context).cachedPublishedArtKeys(name)", art)
+        self.assertIn("cached != null -> PublishedArtSelection(cached, true)", art)
+        self.assertIn("remoteKeysKnown && artKeys.isEmpty()", art)
+        self.assertIn("publishedSelection(entry.name, entry.artKeys)", detail)
+        self.assertIn("publishedSelection(name, artKeys)", thumb)
+        self.assertIn("publishedSelection(exercise.name, exercise.artKeys)", wod)
+        self.assertNotIn('"Pallof Press" to "art_press_militar"', data)
+        self.assertIn('if (normalizedName == "pallof press") return null', resolver)
+
     def test_event_cursor_atomic_cache_and_per_exercise_merge(self):
         catalog = read("android/mobile/src/main/java/dev/repera/mobile/RemoteExerciseCatalogWorker.kt")
         self.assertIn("if (cursor == head) return false", catalog)

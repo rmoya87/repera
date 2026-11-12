@@ -446,7 +446,6 @@ internal object ExerciseArtData {
         "Negative Pull Up" to "art_dominadas",
         "Nordic Curl" to "art_gy_air_squat",
         "Overhead Walk" to "art_gy_air_squat",
-        "Pallof Press" to "art_press_militar",
         "Parallel Bar Traverse" to "art_gy_air_squat",
         "Parallette Handstand Push Up" to "art_fondos",
         "Pendlay Row" to "art_remo_mancuerna",

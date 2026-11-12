@@ -3,6 +3,10 @@ package dev.repera.mobile
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +36,28 @@ internal object ExerciseArtImages {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
     }
 
+    data class PublishedArtSelection(val stems: List<String>, val published: Boolean)
+
+    /** Resolve globally cached Supabase art off the UI thread. Until resolved
+     *  display a neutral placeholder, not a wrong local fallback frame. */
+    @Composable
+    fun publishedSelection(name: String, stored: List<String>): PublishedArtSelection? {
+        val context = LocalContext.current
+        val selected by produceState<PublishedArtSelection?>(
+            initialValue = null, name, stored
+        ) {
+            value = withContext(Dispatchers.IO) {
+                val cached = RemoteExerciseCatalog(context).cachedPublishedArtKeys(name)
+                when {
+                    cached != null -> PublishedArtSelection(cached, true)
+                    stored.isNotEmpty() -> PublishedArtSelection(stored, true)
+                    else -> PublishedArtSelection(emptyList(), false)
+                }
+            }
+        }
+        return selected
+    }
+
     /** Largest power-of-two subsampling that keeps both sides >= [targetPx]. */
     internal fun sampleSize(width: Int, height: Int, targetPx: Int): Int {
         if (targetPx <= 0 || width <= 0 || height <= 0) return 1
@@ -47,10 +73,12 @@ internal object ExerciseArtImages {
         aliases: Map<String, String>,
         captionCount: Int,
         artKeys: List<String> = emptyList(),
+        remoteKeysKnown: Boolean = false,
     ): List<String> {
         val packaged = availableStems(context)
         fun present(stem: String) =
             stem in packaged || RemoteExerciseArtCache.hasFile(context, stem)
+        if (remoteKeysKnown && artKeys.isEmpty()) return emptyList()
         if (artKeys.isNotEmpty()) {
             // Supabase is authoritative even before an OTA JPG reaches disk.
             // Never fall back to a possibly unrelated seed image while downloading.

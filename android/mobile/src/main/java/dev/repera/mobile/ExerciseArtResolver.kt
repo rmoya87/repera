@@ -28,6 +28,8 @@ internal object ExerciseArtResolver {
             accepted(ExerciseArtData.nameMap[official])?.let { return it }
         }
         val normalizedName = CrossFitGlossary.normalize(name)
+        // No unrelated military press image for this anti-rotation movement.
+        if (normalizedName == "pallof press") return null
         if (normalizedName == "bbjo" || (normalizedName.contains("burpee") &&
                 normalizedName.contains("box") &&
                 (normalizedName.contains("over") || normalizedName.contains("jump")))) {

@@ -680,17 +680,20 @@ internal fun ExerciseListThumb(
     artKeys: List<String> = emptyList(),
 ) {
     val context = LocalContext.current
-    val stem = remember(name, sportTag, artKeys) {
-        ExerciseArtImages.carouselStems(
+    val publishedArt = ExerciseArtImages.publishedSelection(name, artKeys)
+    val stem = remember(name, sportTag, publishedArt, aliases) {
+        if (publishedArt == null) null else ExerciseArtImages.carouselStems(
             context,
             name,
             sportTag == "Movilidad",
             aliases,
             captionCount = 1,
-            artKeys = artKeys,
+            artKeys = publishedArt.stems,
+            remoteKeysKnown = publishedArt.published,
         ).firstOrNull()
     }
-    val published = stem != null && stem in artKeys
+    val published = stem != null && publishedArt?.published == true &&
+        stem in publishedArt.stems
     val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, stem, published) {
         value = stem?.let {
             ExerciseArtImages.load(context, it, ExerciseArtImages.THUMBNAIL_PX,

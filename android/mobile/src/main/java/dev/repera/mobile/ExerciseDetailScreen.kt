@@ -113,11 +113,13 @@ internal fun ExerciseDetailScreen(
     val thisSessionAppearance = appearancePair?.first
     val priorSessionAppearance = appearancePair?.second
     val isMobility = entry.sportTag == "Movilidad"
-    val frames = remember(entry.id, entry.name, entry.sportTag, entry.artKeys, entry.instructions, aliases) {
-        ExerciseArtImages.carouselStems(
+    val publishedArt = ExerciseArtImages.publishedSelection(entry.name, entry.artKeys)
+    val frames = remember(entry.id, entry.name, entry.sportTag, publishedArt, entry.instructions, aliases) {
+        if (publishedArt == null) emptyList() else ExerciseArtImages.carouselStems(
             context, entry.name, isMobility, aliases,
             captionCount = entry.instructions.count { it.isNotBlank() },
-            artKeys = entry.artKeys,
+            artKeys = publishedArt.stems,
+            remoteKeysKnown = publishedArt.published,
         )
     }
     ReadableColumn {
@@ -173,7 +175,8 @@ internal fun ExerciseDetailScreen(
                     ExerciseArtHero(
                         frames = frames,
                         name = entry.name,
-                        remoteStems = entry.artKeys,
+                        remoteStems = if (publishedArt?.published == true)
+                            publishedArt.stems else emptyList(),
                         phaseCaptions = phaseCaptions,
                         clipTopOnly = entry.detailDescription != null || phaseCaptions.isNotEmpty()
                     )

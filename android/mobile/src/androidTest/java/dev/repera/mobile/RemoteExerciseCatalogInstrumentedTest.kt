@@ -270,6 +270,47 @@ class RemoteExerciseCatalogInstrumentedTest {
         }
     }
     @Test
+    fun publishedPallofImagesOverrideStaleAccountArtwork() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
+        val previous = if (file.exists()) file.readBytes() else null
+        try {
+            val art = JSONArray()
+                .put("art_gy_pallof_press_r20261105_1")
+                .put("art_gy_pallof_press_r20261105_2")
+                .put("art_gy_pallof_press_r20261105_3")
+            file.writeText(JSONObject().put("revision", 10019)
+                .put("entries", JSONObject().put("catalog:Pallof Press",
+                    JSONObject().put("name", "Pallof Press")
+                        .put("is_active", true).put("art_keys", art)))
+                .put("localIDs", JSONObject()).toString())
+            val keys = RemoteExerciseCatalog(context).cachedPublishedArtKeys("Pallof Press")
+            assertEquals(art.toString(), JSONArray(keys.orEmpty()).toString())
+            val frames = ExerciseArtImages.carouselStems(
+                context, "Pallof Press", false, emptyMap(), 2,
+                artKeys = keys.orEmpty(), remoteKeysKnown = true
+            )
+            assertEquals(art.toString(), JSONArray(frames).toString())
+            assertFalse(frames.any { it.contains("press_militar") })
+            // Explicit empty remote art must not reactivate the local fallback.
+            file.writeText(JSONObject().put("revision", 10020)
+                .put("entries", JSONObject().put("catalog:Pallof Press",
+                    JSONObject().put("name", "Pallof Press")
+                        .put("is_active", true).put("art_keys", JSONArray())))
+                .put("localIDs", JSONObject()).toString())
+            assertEquals(emptyList<String>(),
+                RemoteExerciseCatalog(context).cachedPublishedArtKeys("Pallof Press"))
+            assertTrue(ExerciseArtImages.carouselStems(
+                context, "Pallof Press", false, emptyMap(), 2,
+                artKeys = emptyList(), remoteKeysKnown = true
+            ).isEmpty())
+            assertNull(ExerciseArtResolver.heroFor("Pallof Press", false, emptyMap()))
+        } finally {
+            if (previous == null) file.delete() else file.writeBytes(previous)
+        }
+    }
+
+    @Test
     fun remoteArtDeltaUpdatesOnlyPublishedExerciseWithoutRewritingHistory() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.filesDir, "exercise_catalog_remote_v1.json")
