@@ -668,9 +668,10 @@ object BoardScanLiteParser {
         // Keep percentage ranges as notes rather than choosing an arbitrary
         // value (e.g. 75% from the prescribed 75-80%).
         if(header.uppercase(Locale.ROOT).contains("1RM")) {
-            val rm=Regex("""1\s*RM""",RegexOption.IGNORE_CASE).find(header)
-            val rawName=rm?.let {header.substring(0,it.range.first)}
-                ?.substringBefore("·")?.trim()?.trim('"','“','”') ?: ""
+            val quoted=Regex("""["“]([^"”]+)["”]""").find(header)?.groupValues?.get(1)
+            val rawName=(quoted ?: header.substringBefore("·"))
+                .replace(Regex("""(?i)\s*1\s*RM.*$"""),"")
+                .removePrefix("Weightlifting ").trim().trim('"','“','”')
             val index=catalogIndex(catalog)
             val exercise=index[norm(rawName)]
                 ?: index[norm(CrossFitGlossary.canonicalName(rawName))]
