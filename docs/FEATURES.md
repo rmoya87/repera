@@ -1,13 +1,13 @@
 # Funcionalidades Repera
 
-Última actualización: 2026-11-12 (detalle entreno oculta menú).
+Última actualización: 2026-11-12 (polish Play/Ajustes Ramón).
 
 ## Gestión de entrenamientos — auditoría 2 (12/11/2026)
 
 iOS y Android comparten el mismo contrato de producto; componentes nativos por plataforma (`Theme.swift` / `WorkoutUiComponents.kt`).
 
 - **Series / teclado:** `OGSetNumericCell`, `OGSetEntryRow` y `OGReperaNumericKeypad` (Android: `CompactSetField` + `ReperaNumericKeypad`) con borde accent en foco, «Anterior» copiable (valores estructurados, no parseo de texto), paso ± y tecla «Reps →» / «Serie N →».
-- **Play:** sin ✓ por serie; lo escrito en kg/reps/RIR se persiste en `loggedSets` y se guarda al terminar tal cual. Contadores en vivo: `StatsEngine.liveWorkSetCount` / `liveVolumeKg` (iOS) y `ActiveSessionLiveStats` (Android). Descanso al avanzar de serie con el teclado (equivalente al gesto previo al ✓). **Terminar entreno** al final del último bloque (no en la barra superior). Sin flechas Anterior/Siguiente en la barra. Menú ⋯ nativo (sin submenú anidado). Hoja de fin anclada abajo, sin aviso de series pendientes.
+- **Play:** sin ✓ por serie ni fondo verde en la serie actual; sin línea «Registrado · …». Contadores en vivo: `liveWorkSetCount` / `liveVolumeKg` (iOS) y `ActiveSessionLiveStats` (Android). Descanso al avanzar con teclado. **Terminar entreno** tras Notas (con aire), no pegado al pie del bloque. Menú ⋯: sin «Formato de bloque»; «Reordenar» abre la estructura de bloques/ejercicios; separador tras escanear pizarra. Sin Anterior/Siguiente en barra. Hoja de fin anclada abajo con aire bajo el tirador. **Lugar** solo en entrenos ya hechos editables (sin ruta GPS); no en Crear/Editar no empezado ni en Play.
 - **Crear/Editar y Play:** tab bar oculta en el editor; chips de fecha/hora (evolución); toast/snackbar **Deshacer** (~4 s) al borrar serie o ejercicio (fuerza, series WOD inline/`WODMovementEditor` y Play iOS; editor Android y sesión activa Android con `WorkoutUndoSnackbarHost` + `restoreDeletedSet`/`restorePendingSet`); confirmación al **eliminar bloque** con más de un ejercicio (iOS editor y Play, Android `ConfirmDeleteMultiExerciseBlockDialog`); `DiscardChangesDialog` al salir con cambios; selector multiselección con chips musculares, Recientes y CTA flotante «Añadir N ejercicios» (`OGFloatingPrimaryCTA` / `FloatingPrimaryCta`, sin barra material). Un solo chevron **Volver** (back nativo siempre oculto; dirty → Descartar).
 - **WOD picker:** «Usar este WOD» / «Empezar ahora» como el mismo CTA flotante fijo abajo (sin caja inset).
 - **Android Play:** paridad sin columna ✓; menú ⋯ `DropdownMenu` anclado (editar plan / reordenar); cadena de teclado sin cerrar pad; `PlayRestFooter` (−15/+15/Saltar, tiempo m:ss) y margen inferior en scroll; CTA «Terminar entreno» al final; toolbar sin chevrons ni ✓ verde.

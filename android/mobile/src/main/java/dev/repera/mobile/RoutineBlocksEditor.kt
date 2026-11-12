@@ -110,7 +110,8 @@ fun RoutineBlocksEditorScreen(
     /** Duración inicial (min) del meta Fecha|Hora|Duración; p. ej. entreno ya realizado. */
     initialPlannedDurationMinutes: Int = 45,
     pageTitle: String? = null,
-    showPlaceSection: Boolean = true,
+    /** Solo entrenos ya hechos editables (sin ruta GPS). Crear/editar no empezado: false. */
+    showPlaceSection: Boolean = false,
     onOneOffMeta: (
         dayIso: String?,
         timeMinutes: Int?,

@@ -183,12 +183,18 @@ fun WorkoutFinishSummarySheet(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+                .padding(top = 12.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(Icons.Outlined.Flag, contentDescription = null,
-                tint = brandGreen, modifier = Modifier.size(28.dp))
+            Icon(
+                Icons.Outlined.Flag,
+                contentDescription = null,
+                tint = brandGreen,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(28.dp)
+            )
             Text("¿Terminar entreno?", style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

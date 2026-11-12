@@ -309,7 +309,7 @@ struct OGWorkoutFinishSummarySheet: View {
             Image(systemName: "flag.checkered")
                 .font(.system(size: 28, weight: .semibold))
                 .foregroundStyle(OG.accent)
-                .padding(.top, 4)
+                .padding(.top, 16)
                 .accessibilityHidden(true)
             Text("¿Terminar entreno?")
                 .font(.system(size: 22, weight: .bold))
@@ -355,9 +355,9 @@ struct OGWorkoutFinishSummarySheet: View {
         }
         .padding(.horizontal, OG.pad)
         .padding(.bottom, 12)
-        .presentationDetents([.height(320)])
+        .presentationDetents([.height(340)])
         .presentationDragIndicator(.visible)
-        .presentationBackgroundInteraction(.enabled(upThrough: .height(320)))
+        .presentationBackgroundInteraction(.enabled(upThrough: .height(340)))
     }
 
     private var volumeLabel: String {
@@ -2792,12 +2792,6 @@ struct OGSetEntryRow: View {
         }
         rowContent
             .padding(.vertical, 4)
-            .padding(.horizontal, isCurrentRow ? 8 : 0)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(isCurrentRow ? OG.accent.opacity(0.10) : .clear)
-            )
-            .padding(.horizontal, isCurrentRow ? -8 : 0)
     }
 
     @ViewBuilder

@@ -397,11 +397,6 @@ struct WorkoutView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Formato de bloque", systemImage: "slider.horizontal.3") {
-                        if let block = store.state.activeSession?.currentExercise?.blockId {
-                            selectPlayFormatForBlock = block
-                        }
-                    }
                     Button("Añadir bloque", systemImage: "square.stack.3d.up") {
                         mutatePlayRoutine { draft in
                             draft.blocks.append(.strength(title: "Bloque \(draft.blocks.count + 1)"))
@@ -413,10 +408,9 @@ struct WorkoutView: View {
                     Button("Escanear pizarra", systemImage: "camera.viewfinder") {
                         showPlayBoardScanner = true
                     }
-                    Button("Editar estructura", systemImage: "square.and.pencil") {
-                        if let routine = routineForEditing() {
-                            editingRoutine = routine
-                        }
+                    Divider()
+                    Button("Reordenar", systemImage: "arrow.up.arrow.down") {
+                        beginPlayReorder()
                     }
                     Button {
                         Task { await saveCurrentWorkoutFavorite() }
@@ -1322,18 +1316,25 @@ struct WorkoutView: View {
                 }
             }
 
-            Section {
-                // Mapa a bleed (clear + insets 0); sin lugar → tarjeta blanca «Añadir lugar».
-                let hasChosenPlace = store.state.activeSession?.locationPin?.hasChosenPlace == true
-                WorkoutPlacePickerRow(pin: activeLocationPin)
-                    .listRowInsets(hasChosenPlace ? EdgeInsets() : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                    .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
-            } header: {
-                Text("Lugar")
-            }
-
             Section("Notas del entreno") {
                 inlineWorkoutNotes
+            }
+
+            Section {
+                Button {
+                    presentPlayFinishSummary()
+                } label: {
+                    Label("Terminar entreno", systemImage: "flag.checkered")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(OG.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(OG.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 16, trailing: 0))
+                .accessibilityLabel("Terminar entreno")
             }
         }
         .listStyle(.insetGrouped)
@@ -1373,22 +1374,6 @@ struct WorkoutView: View {
             onRest: { insertPlayRest(after: block.id) },
             onFreeMovement: { beginPlayFreeMovement(after: block.id) }
         )
-        if block.id == workoutBlocks(session).last?.id {
-            Button {
-                presentPlayFinishSummary()
-            } label: {
-                Label("Terminar entreno", systemImage: "flag.checkered")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(OG.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(OG.accent, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-            .accessibilityLabel("Terminar entreno")
-        }
     }
 
     private func playBlockTitleRow(
@@ -1620,12 +1605,9 @@ struct WorkoutView: View {
                 Text(entry.plannedSets.compactSummary)
                     .font(.caption)
                     .foregroundStyle(OG.label2)
-                if !entry.loggedSets.isEmpty {
-                    Text("Registrado · " + entry.loggedSets.map(\.displaySummaryLine).joined(separator: " · "))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(OG.accent)
-                        .lineLimit(2)
-                } else if let blockResult, entry.usesBlockScoreResult {
+                if entry.loggedSets.isEmpty,
+                   let blockResult,
+                   entry.usesBlockScoreResult {
                     Text("Resultado del bloque · \(blockResult.summaryLabel)")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(OG.accent)

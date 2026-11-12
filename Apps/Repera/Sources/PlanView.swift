@@ -303,7 +303,6 @@ struct DayEditorView: View {
                     }
                 case .oneOff:
                     oneOffDateTimeDurationRow
-                    editorPlaceRow(pin: $routine.locationPin)
                     Toggle("Favorito", isOn: $routine.isFavorite)
                         .tint(OG.accent)
                 case .favorite:
@@ -335,7 +334,6 @@ struct DayEditorView: View {
                                 .tint(OG.accent)
                         }
                     } else {
-                        editorPlaceRow(pin: $routine.locationPin)
                         if onApplyDraft == nil {
                             Toggle("Favorito", isOn: $saveAsFavorite)
                                 .tint(OG.accent)
@@ -360,17 +358,8 @@ struct DayEditorView: View {
                 }
             }
 
-            // Lugar aparte solo en plantillas (plan / favorito); crear/editar/play van en la meta.
-            if showsStandalonePlaceSection {
-                Section {
-                    editorPlaceRow(pin: $routine.locationPin)
-                } header: {
-                    Text("Lugar")
-                }
-            }
-
-            // Lugar editable solo si no hay ruta real del reloj o del teléfono.
-            // Una ruta GPS se muestra intacta en el detalle del entrenamiento.
+            // Lugar solo en entrenos ya hechos y editables (sin ruta GPS).
+            // Crear / editar no empezado / plantillas / Play: sin «Añadir lugar».
             if isEditingCompletedWorkout && !completedHasRecordedRoute {
                 Section {
                     editorCompletedPlaceRow
@@ -1240,28 +1229,6 @@ struct DayEditorView: View {
         case .favorite: return "Nombre del favorito"
         case .plan: return "Nombre de la rutina"
         }
-    }
-
-    /// Crear / editar día / play llevan el lugar en la meta; plan y favorito
-    /// mantienen la sección «Lugar» aparte.
-    private var showsStandalonePlaceSection: Bool {
-        guard onApplyCompleted == nil else { return false }
-        switch mode {
-        case .plan, .favorite: return true
-        case .oneOff, .session: return false
-        }
-    }
-
-    @ViewBuilder
-    private func editorPlaceRow(pin: Binding<WorkoutLocationPin?>) -> some View {
-        let hasChosenPlace = pin.wrappedValue?.hasChosenPlace == true
-        WorkoutPlacePickerRow(pin: pin)
-            .listRowInsets(
-                hasChosenPlace
-                ? EdgeInsets()
-                : EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
-            )
-            .listRowBackground(hasChosenPlace ? Color.clear : OG.surface)
     }
 
     @ViewBuilder

@@ -15,6 +15,9 @@ class Auditoria2PlayContract(unittest.TestCase):
         self.assertIn("presentPlayFinishSummary", workout)
         self.assertIn("Terminar entreno", workout)
         self.assertNotIn("accessibilityLabel(\"Ejercicio siguiente\")", workout)
+        self.assertNotIn("Registrado · ", workout)
+        self.assertNotIn("Formato de bloque", workout)
+        self.assertIn('Button("Reordenar"', workout)
 
     def test_android_play_parity(self):
         play = (ROOT / "android/mobile/src/main/java/dev/repera/mobile/ActiveWorkoutScreen.kt").read_text(

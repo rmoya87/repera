@@ -1025,7 +1025,7 @@ fun ReperaMobileScreen(
                         importableRoutines = overview?.routineEntries.orEmpty(),
                         sessionMode = true,
                         pageTitle = "Crear entreno",
-                        showPlaceSection = true,
+                        showPlaceSection = false,
                         saveStatus=editorSaveStatus(status),
                         onFavoriteChosen = { favorite = it },
                         onSessionNotesChosen = { sessionNotes = it },
@@ -2349,7 +2349,7 @@ internal fun SettingsTab(
                             Icons.Outlined.MonitorHeart,
                             contentDescription = null,
                             modifier = Modifier.size(22.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                         Text("FC máxima", style = MaterialTheme.typography.bodyLarge)
                     }
