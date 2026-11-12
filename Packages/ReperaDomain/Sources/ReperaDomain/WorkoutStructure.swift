@@ -78,6 +78,21 @@ public struct WorkoutStructure: Codable, Sendable, Hashable {
         return collect(phases)
     }
 
+    /// Duplicating a routine creates new movement UUIDs. Keep phase references
+    /// aligned with the duplicated movements rather than pointing at old IDs.
+    public func remappingMovementIDs(_ mapping: [UUID: UUID]) -> WorkoutStructure {
+        func remap(_ source: WorkoutPhase) -> WorkoutPhase {
+            var phase = source
+            phase.id = UUID()
+            phase.movementIDs = source.movementIDs.compactMap { mapping[$0] }
+            phase.children = source.children.map(remap)
+            return phase
+        }
+        var result = self
+        result.phases = phases.map(remap)
+        return result
+    }
+
     public var summary: String {
         let names = phases.map(\.title).filter { !$0.isEmpty }
         return ([section?.rawValue, collaboration?.rawValue].compactMap { $0 } + names)
