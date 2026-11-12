@@ -4204,6 +4204,11 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         val format = WodFormat.fromWire(current.optString("wodFormat"))
         val wod = if (current.optString("blockKind") == "wod" && format != null) {
             val moves = block?.optJSONArray("movements") ?: JSONArray()
+            val workPhase = block?.optJSONObject("structure")?.optJSONArray("phases")
+                ?.let { phases ->
+                    (0 until phases.length()).map { phases.getJSONObject(it) }
+                        .firstOrNull { it.optString("kind") == "work" && it.optInt("repeatCount") > 1 }
+                }
             WodExecution(
                 format = format.wireName,
                 capture = format.capture.name,
@@ -4213,6 +4218,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 timeCapSeconds = block?.optInt("timeCapSeconds")?.takeIf { block.has("timeCapSeconds") },
                 resultMetric = block?.optJSONObject("structure")?.optString("resultMetric")
                     ?.takeIf { it.isNotBlank() },
+                repeatedWorkSeconds = workPhase?.optInt("workSeconds")?.takeIf { workPhase.has("workSeconds") },
+                repeatedRestSeconds = workPhase?.optInt("restSeconds")?.takeIf { workPhase.has("restSeconds") },
+                repeatCount = workPhase?.optInt("repeatCount")?.takeIf { workPhase.has("repeatCount") },
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4416,7 +4424,10 @@ data class WodExecution(
     val restSeconds: Int? = null,
     val restBetweenRoundsSeconds: Int? = null,
     val stations: Int = 1,
-    val plannedIntervals: Int? = null
+    val plannedIntervals: Int? = null,
+    val repeatedWorkSeconds: Int? = null,
+    val repeatedRestSeconds: Int? = null,
+    val repeatCount: Int? = null
 )
 
 data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)
