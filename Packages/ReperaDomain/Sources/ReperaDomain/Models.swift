@@ -1940,6 +1940,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
     public var wodFormat: WODFormat?
     public var blockTimeCapMinutes: Int?
     public var blockTimeCapSeconds: Int?
+    public var blockStructure: WorkoutStructure?
     public var blockIntervalSeconds: Int?
     public var blockRounds: Int?
     public var blockHeader: String?
@@ -1965,6 +1966,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         wodFormat: WODFormat? = nil,
         blockTimeCapMinutes: Int? = nil,
         blockTimeCapSeconds: Int? = nil,
+        blockStructure: WorkoutStructure? = nil,
         blockIntervalSeconds: Int? = nil,
         blockRounds: Int? = nil,
         blockHeader: String? = nil,
@@ -1988,6 +1990,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         self.wodFormat = wodFormat
         self.blockTimeCapMinutes = blockTimeCapMinutes
         self.blockTimeCapSeconds = blockTimeCapSeconds
+        self.blockStructure = blockStructure
         self.blockIntervalSeconds = blockIntervalSeconds
         self.blockRounds = blockRounds
         self.blockHeader = blockHeader
@@ -2151,7 +2154,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         case id, exercise, plannedSets, quantityUnit, loggedSets, restSeconds, completedReps, isCompleted, supersetGroup
         case adaptedReps, adaptedWeightKg
         case blockId, blockKind
-        case wodFormat, blockTimeCapMinutes, blockTimeCapSeconds, blockIntervalSeconds, blockRounds, blockHeader
+        case wodFormat, blockTimeCapMinutes, blockTimeCapSeconds, blockStructure, blockIntervalSeconds, blockRounds, blockHeader
         case blockWorkSeconds, blockRestSeconds, blockRestBetweenRoundsSeconds
     }
 
@@ -2173,6 +2176,7 @@ public struct SessionExercise: Identifiable, Codable, Sendable, Hashable {
         wodFormat = try c.decodeIfPresent(WODFormat.self, forKey: .wodFormat)
         blockTimeCapMinutes = try c.decodeIfPresent(Int.self, forKey: .blockTimeCapMinutes)
         blockTimeCapSeconds = try c.decodeIfPresent(Int.self, forKey: .blockTimeCapSeconds)
+        blockStructure = try c.decodeIfPresent(WorkoutStructure.self, forKey: .blockStructure)
         blockIntervalSeconds = try c.decodeIfPresent(Int.self, forKey: .blockIntervalSeconds)
         blockRounds = try c.decodeIfPresent(Int.self, forKey: .blockRounds)
         blockHeader = try c.decodeIfPresent(String.self, forKey: .blockHeader)
