@@ -202,10 +202,11 @@ struct OGUndoToastModifier: ViewModifier {
     }
 }
 
-/// Estado del toast Deshacer. El handler vive en un box MainActor para no
-/// exigir `@Sendable` en el closure (Swift 6 + `@State` romperían el tipo).
-@MainActor
-struct OGUndoToastState: Identifiable, Equatable {
+/// Estado del toast Deshacer.
+/// Sin `Equatable` + `@MainActor` en el struct (Swift 6: la conformidad
+/// cruzaría aislamiento). El closure vive en un box `@unchecked Sendable`;
+/// solo se crea/usa desde el MainActor de SwiftUI.
+struct OGUndoToastState: Identifiable {
     let id: UUID
     let message: String
     private let handler: OGUndoToastHandler
@@ -219,14 +220,9 @@ struct OGUndoToastState: Identifiable, Equatable {
     func performUndo() {
         handler.run()
     }
-
-    static func == (lhs: OGUndoToastState, rhs: OGUndoToastState) -> Bool {
-        lhs.id == rhs.id && lhs.message == rhs.message
-    }
 }
 
-@MainActor
-private final class OGUndoToastHandler {
+private final class OGUndoToastHandler: @unchecked Sendable {
     private let undo: () -> Void
     init(_ undo: @escaping () -> Void) { self.undo = undo }
     func run() { undo() }
@@ -2068,8 +2064,7 @@ struct OGNumericTextField: UIViewRepresentable {
                 // Ceder el respondedor antes de montar/armar la celda destino en
                 // SwiftUI; si no, el siguiente dígito concatena en KG (60→6010).
                 field.resignFirstResponder()
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
+                DispatchQueue.main.async {
                     let window = UIApplication.shared.connectedScenes
                         .compactMap { ($0 as? UIWindowScene)?.keyWindow }
                         .first

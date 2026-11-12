@@ -222,7 +222,7 @@ private fun MuscleFilterChip(label: String, selected: Boolean, onClick: () -> Un
 @Composable
 private fun PickerRow(
     entry: ExerciseEntry,
-    aliases: Map<String, List<String>>,
+    aliases: Map<String, String>,
     checked: Boolean,
     multiselect: Boolean,
     onClick: () -> Unit,

@@ -127,6 +127,7 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("home_planned_play", ANDROID_HOME)
         self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
         self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
+        self.assertIn("aliases: Map<String, String>", ANDROID_PICKER)
 
     def test_undo_and_block_delete_confirmations(self):
         self.assertIn("presentUndoToast", PLAN)
