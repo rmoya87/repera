@@ -1160,11 +1160,13 @@ struct WorkoutView: View {
         block.indexes.count
     }
 
+    @MainActor
     private func presentPlayUndoToast(message: String, undo: @escaping () -> Void) {
-        undoToast = OGUndoToastState(message: message, undo: undo)
+        let state = OGUndoToastState(message: message, undo: undo)
+        undoToast = state
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
-            if undoToast?.message == message {
+            if undoToast?.id == state.id {
                 undoToast = nil
             }
         }
