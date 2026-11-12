@@ -49,6 +49,13 @@ enum BoardImportPipeline {
         }
 
         let enriched = BoardScanLiteParser.enrichBlocks(aiBlocks, catalog: catalog)
+        guard BoardScanAIResultGuard.isConsistent(
+            localBlocks: local.blocks, proposedBlocks: enriched
+        ) else {
+            BoardScanLog.step("pipeline.ai", "rejected structure mismatch → local")
+            BoardScanLog.step("pipeline.done", "source=localRules score=\(String(format: "%.2f", local.confidence))")
+            return local
+        }
         let lines = BoardScanLiteParser.importLines(from: enriched, catalog: catalog)
         BoardScanLog.step("pipeline.ai", "ok \(ms)ms blocks=\(enriched.count)")
         for (i, b) in enriched.enumerated() {
