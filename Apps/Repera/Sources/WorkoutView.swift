@@ -3581,7 +3581,8 @@ private struct PlayEditableSetsView: View {
 
     private func isCurrentPlayRow(index: Int, row: Row) -> Bool {
         if row.completed { return false }
-        if let focused = focus.wrappedValue, focused.rowID == row.id { return true }
+        // @FocusState proyecta el valor opcional, no un Binding.
+        if let focused = focus, focused.rowID == row.id { return true }
         guard let firstOpen = rows.firstIndex(where: { !$0.completed }) else { return false }
         return firstOpen == index
     }
