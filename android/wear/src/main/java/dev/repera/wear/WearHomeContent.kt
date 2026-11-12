@@ -1793,6 +1793,8 @@ private fun wodFace(timer: JSONObject, tick: Int) = WodClock.face(
         format = WodFormat.fromWire(timer.optString("format")),
         blockTimeCapMinutes = timer.optInt("timeCapMinutes")
             .takeIf { timer.has("timeCapMinutes") && !timer.isNull("timeCapMinutes") },
+        blockTimeCapSeconds = timer.optInt("timeCapSeconds")
+            .takeIf { timer.has("timeCapSeconds") && !timer.isNull("timeCapSeconds") },
         intervalSeconds = timer.optInt("intervalSeconds")
             .takeIf { timer.has("intervalSeconds") && !timer.isNull("intervalSeconds") },
         plannedIntervals = timer.optInt("plannedIntervals")
