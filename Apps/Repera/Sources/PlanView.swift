@@ -124,6 +124,7 @@ struct DayEditorView: View {
     @State private var baselineRoutine: Routine
     @State private var showDiscardConfirm = false
     @State private var undoToast: OGUndoToastState?
+    @State private var blockDeleteConfirmID: UUID?
 
     init(
         routine: Routine,
@@ -396,7 +397,11 @@ struct DayEditorView: View {
                                 }
                                 Divider()
                                 Button(role: .destructive) {
-                                    routine.blocks.removeAll { $0.id == block.id }
+                                    if nonRestItemCount(in: block) > 1 {
+                                        blockDeleteConfirmID = block.id
+                                    } else {
+                                        routine.blocks.removeAll { $0.id == block.id }
+                                    }
                                 } label: {
                                     Label("Eliminar bloque", systemImage: "trash")
                                 }
@@ -480,6 +485,26 @@ struct DayEditorView: View {
         }
         .ogDiscardChangesConfirm(isPresented: $showDiscardConfirm, onDiscard: discardEditorChanges)
         .ogUndoToast($undoToast)
+        .confirmationDialog(
+            "¿Eliminar este bloque?",
+            isPresented: Binding(
+                get: { blockDeleteConfirmID != nil },
+                set: { if !$0 { blockDeleteConfirmID = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Eliminar bloque", role: .destructive) {
+                if let id = blockDeleteConfirmID {
+                    routine.blocks.removeAll { $0.id == id }
+                }
+                blockDeleteConfirmID = nil
+            }
+            Button("Cancelar", role: .cancel) {
+                blockDeleteConfirmID = nil
+            }
+        } message: {
+            Text("Se eliminarán todos los ejercicios del bloque.")
+        }
         .alert(
             saveAsFavorite ? "No se ha podido guardar el favorito" : "No se ha podido guardar el entrenamiento",
             isPresented: Binding(
@@ -958,13 +983,38 @@ struct DayEditorView: View {
         openedSetID = nil
     }
 
+    private func nonRestItemCount(in block: RoutineBlock) -> Int {
+        if block.kind == .strength {
+            return block.exercises.count
+        }
+        return block.movements.filter { !$0.isRest }.count
+    }
+
     private func deleteReorderExercise(type: String, blockID: UUID, itemID: UUID) {
         guard let index = routine.blocks.firstIndex(where: { $0.id == blockID }) else { return }
-        OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
-            if type == "exercise" {
-                routine.blocks[index].exercises.removeAll { $0.id == itemID }
-            } else if type == "movement" {
-                routine.blocks[index].movements.removeAll { $0.id == itemID }
+        if type == "exercise" {
+            guard let exIndex = routine.blocks[index].exercises.firstIndex(where: { $0.id == itemID }) else { return }
+            let removed = routine.blocks[index].exercises[exIndex]
+            let insertAt = exIndex
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
+                routine.blocks[index].exercises.remove(at: exIndex)
+            }
+            presentUndoToast(message: "Ejercicio eliminado") {
+                guard routine.blocks.indices.contains(index) else { return }
+                let at = min(insertAt, routine.blocks[index].exercises.count)
+                routine.blocks[index].exercises.insert(removed, at: at)
+            }
+        } else if type == "movement" {
+            guard let mvIndex = routine.blocks[index].movements.firstIndex(where: { $0.id == itemID }) else { return }
+            let removed = routine.blocks[index].movements[mvIndex]
+            let insertAt = mvIndex
+            OGMotion.run(OGMotion.reorder, reduceMotion: reduceMotion) {
+                routine.blocks[index].movements.remove(at: mvIndex)
+            }
+            presentUndoToast(message: "Ejercicio eliminado") {
+                guard routine.blocks.indices.contains(index) else { return }
+                let at = min(insertAt, routine.blocks[index].movements.count)
+                routine.blocks[index].movements.insert(removed, at: at)
             }
         }
     }
@@ -2448,7 +2498,10 @@ extension DayEditorView {
                         set: { routine.blocks[index].movements[mIndex] = $0 }
                     ),
                     block: routine.blocks[index],
-                    openedSetID: $openedSetID
+                    openedSetID: $openedSetID,
+                    onUndoSetDelete: { message, undo in
+                        presentUndoToast(message: message, undo: undo)
+                    }
                 )
                 .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
                 .listRowSeparator(.hidden, edges: .top)
@@ -2614,6 +2667,7 @@ private struct InlineWODMovementSets: View {
     var block: RoutineBlock
     /// En historial, dibujar las series no reescribe automáticamente la prescripción Rx.
     var preservePrescriptionOnAppear = false
+    var onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil
 
     @State private var draftSets: [PlannedSet]
     @State private var didSeedSets: Bool
@@ -2625,11 +2679,13 @@ private struct InlineWODMovementSets: View {
         movement: Binding<WODMovement>,
         block: RoutineBlock,
         preservePrescriptionOnAppear: Bool = false,
-        openedSetID: Binding<UUID?>
+        openedSetID: Binding<UUID?>,
+        onUndoSetDelete: ((String, @escaping () -> Void) -> Void)? = nil
     ) {
         _movement = movement
         self.block = block
         self.preservePrescriptionOnAppear = preservePrescriptionOnAppear
+        self.onUndoSetDelete = onUndoSetDelete
         _openedSetID = openedSetID
         // Altura estable desde el 1.er frame (no sembrar en onAppear).
         let seeded = Self.initialDraftSets(movement: movement.wrappedValue, block: block)
@@ -2841,8 +2897,14 @@ private struct InlineWODMovementSets: View {
 
     private func removeSet(at index: Int) {
         guard draftSets.count > 1, draftSets.indices.contains(index) else { return }
+        let removed = draftSets[index]
         draftSets.remove(at: index)
         writeSetsToMovement()
+        onUndoSetDelete?("Serie \(index + 1) eliminada") { [removed] in
+            let insertAt = min(index, draftSets.count)
+            draftSets.insert(removed, at: insertAt)
+            writeSetsToMovement()
+        }
     }
 
     private func writeSetsToMovement() {

@@ -258,6 +258,29 @@ fun DiscardChangesDialog(
     )
 }
 
+/** Confirmar borrado de bloque con más de un ejercicio (paridad iOS). */
+@Composable
+fun ConfirmDeleteMultiExerciseBlockDialog(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    if (!visible) return
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("¿Eliminar este bloque?") },
+        text = { Text("Se eliminarán todos los ejercicios del bloque.") },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Eliminar bloque", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancelar") }
+        }
+    )
+}
+
 /** Snackbar «Serie eliminada» + Deshacer (4 s). */
 suspend fun showWorkoutUndoSnackbar(
     host: SnackbarHostState,

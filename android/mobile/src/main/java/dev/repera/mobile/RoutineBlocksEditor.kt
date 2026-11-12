@@ -56,9 +56,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -78,6 +80,7 @@ import dev.repera.domain.WorkoutLocationPin
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /** Editor de contenido de rutina: bloques (secciones), formatos y movimientos.
  *  Multi-bloque: buy-in / trabajo / cash-out se componen como bloques
@@ -189,6 +192,16 @@ fun RoutineBlocksEditorScreen(
     }
     val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
     var showBoardScanner by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val offerUndo: (String, () -> Unit) -> Unit = remember(snackbarHostState) {
+        { message, undo ->
+            editorTouched = true
+            snackbarScope.launch {
+                showWorkoutUndoSnackbar(snackbarHostState, message, undo)
+            }
+        }
+    }
 
     if (showBoardScanner) {
         // Modal ajustado (paridad BoardScanSourceSheet / DayPlus escanear).
@@ -286,6 +299,7 @@ fun RoutineBlocksEditorScreen(
         else -> routine.title
     }
     val listState = rememberLazyListState()
+    Box(Modifier.fillMaxSize()) {
     ProvideLazyDragAutoScroll(listState) {
     LazyColumn(
         state = listState,
@@ -427,14 +441,18 @@ fun RoutineBlocksEditorScreen(
                         nameById = nameById,
                         exercises = exercises,
                         loadGuideProvider = loadGuideProvider,
-                        onRemove = { blocks.removeAt(index) },
+                        onRemove = {
+                            editorTouched = true
+                            blocks.removeAt(index)
+                        },
                         onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
                         onOpenExercise = onOpenExercise,
                         effortUnit = effortUnit,
                         includeEntries = false,
                         includeFooterActions = false,
                         expandedEntryId = expandedEntryId,
-                        onExpandedEntryIdChange = { expandedEntryId = it }
+                        onExpandedEntryIdChange = { expandedEntryId = it },
+                        onOfferUndo = offerUndo
                     )
                 }
             }
@@ -461,7 +479,18 @@ fun RoutineBlocksEditorScreen(
                             loadGuideProvider = loadGuideProvider,
                             onOpenReorder = if (blocks.isNotEmpty()) ({ showReorder = true }) else null,
                             onOpenExercise = onOpenExercise,
-                            onRemoveEntry = { block.entries.remove(entry) },
+                            onRemoveEntry = {
+                                val backup = entry.cloneForUndo()
+                                val insertAt = ei
+                                block.entries.removeAt(ei)
+                                offerUndo("Ejercicio eliminado") {
+                                    block.entries.add(
+                                        insertAt.coerceAtMost(block.entries.size),
+                                        backup
+                                    )
+                                }
+                            },
+                            onOfferUndo = offerUndo,
                             effortUnit = effortUnit
                         )
                     }
@@ -591,6 +620,11 @@ fun RoutineBlocksEditorScreen(
         }
     )
     }
+        WorkoutUndoSnackbarHost(
+            snackbarHostState,
+            Modifier.align(Alignment.BottomCenter).padding(16.dp)
+        )
+    }
 }
 
 private val blockFormats = listOf(
@@ -693,6 +727,104 @@ internal class EntryUi(val exerciseId: String, name: String, quantity: Int,
             if (kg != null && kg > 0) append(" @ ${dev.repera.domain.ReperaNumberFormat.decimal(kg)}kg")
         }
     }
+
+    /** Copia profunda para deshacer eliminación de ejercicio en el editor. */
+    internal fun cloneForUndo(): EntryUi {
+        val q = quantity.toIntOrNull() ?: plannedSets.firstOrNull()?.targetReps ?: 8
+        val s = sets.toIntOrNull() ?: plannedSets.size.coerceAtLeast(1)
+        val w = dev.repera.domain.ReperaNumberFormat.parse(weight)
+        val copy = EntryUi(
+            exerciseId,
+            name,
+            q,
+            s,
+            w,
+            planned = plannedSets.map { it.copy() },
+            itemId = itemId,
+            sourceJson = sourceJson
+        )
+        copy.unit = unit
+        copy.setsExpanded = setsExpanded
+        copy.hadPlanned = hadPlanned
+        copy.initialUniform = initialUniform
+        copy.detailsOpen = detailsOpen
+        copy.rawMovementInputs.putAll(rawMovementInputs)
+        copy.invalidMovementInputs.putAll(invalidMovementInputs)
+        copy.rawSetInputs.putAll(rawSetInputs.mapValues { (_, v) -> v.first to v.second })
+        copy.invalidSetInputs.putAll(invalidSetInputs)
+        return copy
+    }
+}
+
+internal fun entryIsRest(entry: EntryUi): Boolean =
+    entry.sourceJson?.let {
+        runCatching { JSONObject(it).optBoolean("isRest") }.getOrDefault(false)
+    } == true
+
+internal fun BlockDraftUi.nonRestExerciseCount(): Int =
+    entries.count { !entryIsRest(it) }
+
+private fun removePlannedSetAt(entry: EntryUi, index: Int) {
+    entry.plannedSets.removeAt(index)
+    val shifted = entry.invalidSetInputs.filterKeys { it != index }
+        .mapKeys { if (it.key > index) it.key - 1 else it.key }
+    entry.invalidSetInputs.clear()
+    entry.invalidSetInputs.putAll(shifted)
+    val rawShifted = entry.rawSetInputs.filterKeys { it != index }
+        .mapKeys { if (it.key > index) it.key - 1 else it.key }
+    entry.rawSetInputs.clear()
+    entry.rawSetInputs.putAll(rawShifted)
+    fun shiftedKey(key: String): String? {
+        if (!key.startsWith("duration:")) return key
+        val n = key.substringAfter(':').toInt()
+        return if (n == index) null else "duration:${if (n > index) n - 1 else n}"
+    }
+    val rawDurations = entry.rawMovementInputs.toMap()
+        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
+    val invalidDurations = entry.invalidMovementInputs.toMap()
+        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
+    entry.rawMovementInputs.clear()
+    entry.rawMovementInputs.putAll(rawDurations)
+    entry.invalidMovementInputs.clear()
+    entry.invalidMovementInputs.putAll(invalidDurations)
+    entry.sets = entry.plannedSets.size.toString()
+}
+
+private fun insertPlannedSetAt(
+    entry: EntryUi,
+    index: Int,
+    removed: PlannedSetDraft,
+    removedRaw: Pair<PlannedSetDraft, Triple<String, String, String>>?,
+) {
+    val at = index.coerceIn(0, entry.plannedSets.size)
+    entry.plannedSets.add(at, removed)
+    val newInvalid = mutableMapOf<Int, Boolean>()
+    entry.invalidSetInputs.forEach { (k, v) ->
+        newInvalid[if (k >= at) k + 1 else k] = v
+    }
+    entry.invalidSetInputs.clear()
+    entry.invalidSetInputs.putAll(newInvalid)
+    val newRaw = mutableMapOf<Int, Pair<PlannedSetDraft, Triple<String, String, String>>>()
+    entry.rawSetInputs.forEach { (k, v) ->
+        newRaw[if (k >= at) k + 1 else k] = v
+    }
+    removedRaw?.let { newRaw[at] = it }
+    entry.rawSetInputs.clear()
+    entry.rawSetInputs.putAll(newRaw)
+    fun durationShiftedKey(key: String): String {
+        if (!key.startsWith("duration:")) return key
+        val n = key.substringAfter(':').toInt()
+        return "duration:${if (n >= at) n + 1 else n}"
+    }
+    val rawDurations = entry.rawMovementInputs.toMap()
+        .mapKeys { (k, _) -> durationShiftedKey(k) }
+    val invalidDurations = entry.invalidMovementInputs.toMap()
+        .mapKeys { (k, _) -> durationShiftedKey(k) }
+    entry.rawMovementInputs.clear()
+    entry.rawMovementInputs.putAll(rawDurations)
+    entry.invalidMovementInputs.clear()
+    entry.invalidMovementInputs.putAll(invalidDurations)
+    entry.sets = entry.plannedSets.size.toString()
 }
 
 /** Bloques de OCR al editor actual. Se conserva el JSON de cada movimiento (pesos M/H,
@@ -906,12 +1038,15 @@ internal fun BlockEditorCard(
     /** Crear/Editar: un solo ejercicio expandido a la vez. */
     expandedEntryId: String? = null,
     onExpandedEntryIdChange: ((String?) -> Unit)? = null,
+    onOfferUndo: (String, () -> Unit) -> Unit = { _, _ -> },
 ) {
     val isStrengthLike = block.format.isBlank() || block.format == "strength"
     val exercisesById = remember(exercises) { exercises.associateBy { it.id } }
     var showExercisePicker by remember { mutableStateOf(false) }
     var showFreeMove by remember { mutableStateOf(false) }
     var showFormats by remember { mutableStateOf(false) }
+    var confirmRemoveBlock by remember { mutableStateOf(false) }
+    var pendingBlockRemove by remember { mutableStateOf<(() -> Unit)?>(null) }
     ReperaCard(modifier = Modifier.fillMaxWidth().testTag("plan_block_card")) {
         Column(modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -973,12 +1108,32 @@ internal fun BlockEditorCard(
                         onRemove?.let { remove ->
                             DropdownMenuItem(
                                 text = { Text("Eliminar bloque", color = MaterialTheme.colorScheme.error) },
-                                onClick = { blockMenu = false; remove() }
+                                onClick = {
+                                    blockMenu = false
+                                    if (block.nonRestExerciseCount() > 1) {
+                                        pendingBlockRemove = remove
+                                        confirmRemoveBlock = true
+                                    } else {
+                                        remove()
+                                    }
+                                }
                             )
                         }
                     }
                 }
             }
+            ConfirmDeleteMultiExerciseBlockDialog(
+                visible = confirmRemoveBlock,
+                onDismiss = {
+                    confirmRemoveBlock = false
+                    pendingBlockRemove = null
+                },
+                onConfirm = {
+                    confirmRemoveBlock = false
+                    pendingBlockRemove?.invoke()
+                    pendingBlockRemove = null
+                }
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             Row(
                 Modifier
@@ -1054,7 +1209,18 @@ internal fun BlockEditorCard(
                             loadGuideProvider = loadGuideProvider,
                             onOpenReorder = onOpenReorder,
                             onOpenExercise = onOpenExercise,
-                            onRemoveEntry = { block.entries.remove(entry) },
+                            onRemoveEntry = {
+                                val backup = entry.cloneForUndo()
+                                val insertAt = index
+                                block.entries.removeAt(index)
+                                onOfferUndo("Ejercicio eliminado") {
+                                    block.entries.add(
+                                        insertAt.coerceAtMost(block.entries.size),
+                                        backup
+                                    )
+                                }
+                            },
+                            onOfferUndo = onOfferUndo,
                             effortUnit = effortUnit
                         )
                     }
@@ -1481,6 +1647,7 @@ internal fun BlockEntryEditorSlot(
     onOpenReorder: (() -> Unit)?,
     onOpenExercise: (String) -> Unit,
     onRemoveEntry: () -> Unit,
+    onOfferUndo: (String, () -> Unit) -> Unit = { _, _ -> },
     effortUnit: String
 ) {
     val resolved = entry.name.ifBlank { nameById[entry.exerciseId] ?: "Ejercicio" }
@@ -1517,6 +1684,7 @@ internal fun BlockEntryEditorSlot(
         } == true,
         loadGuideProvider = loadGuideProvider,
         onRemove = onRemoveEntry,
+        onOfferUndo = onOfferUndo,
         onOpenReorder = onOpenReorder,
         onOpenDetail = entry.exerciseId.takeIf { it.isNotBlank() }?.let { id ->
             { onOpenExercise(id) }
@@ -1536,6 +1704,7 @@ private fun EntryEditorRow(
     mobilityHold: Boolean = false,
     loadGuideProvider: (String, Int, Double?) -> LoadGuide?,
     onRemove: () -> Unit,
+    onOfferUndo: (String, () -> Unit) -> Unit = { _, _ -> },
     unitChoices: Boolean = false,
     weightedRepsOrMeters: Boolean = false,
     onOpenReorder: (() -> Unit)? = null,
@@ -1754,8 +1923,15 @@ private fun EntryEditorRow(
                 ReperaSwipeDeleteRow(
                     canDelete = entry.plannedSets.size > 1,
                     onDelete = {
-                        entry.plannedSets.removeAt(idx)
+                        if (entry.plannedSets.size <= 1) return@ReperaSwipeDeleteRow
+                        val removed = entry.plannedSets[idx]
+                        val removedRaw = entry.rawSetInputs[idx]
+                        removePlannedSetAt(entry, idx)
                         syncWodPlannedSets(entry)
+                        onOfferUndo("Serie ${idx + 1} eliminada") {
+                            insertPlannedSetAt(entry, idx, removed, removedRaw)
+                            syncWodPlannedSets(entry)
+                        }
                     }
                 ) {
                     val previousLabel = previousWodSets.getOrNull(idx)?.let { prev ->
@@ -1960,30 +2136,17 @@ private fun EntryEditorRow(
                     val suffix = quantityPreviousSuffix(quantityUnit)
                     if (kg.isEmpty()) "${prev.reps} $suffix" else "$kg${prev.reps}"
                 } ?: "—"
-                fun removeSetAt(index: Int) {
-                    entry.plannedSets.removeAt(index)
-                    val shifted = entry.invalidSetInputs.filterKeys { it != index }
-                        .mapKeys { if (it.key > index) it.key - 1 else it.key }
-                    entry.invalidSetInputs.clear(); entry.invalidSetInputs.putAll(shifted)
-                    val rawShifted = entry.rawSetInputs.filterKeys { it != index }
-                        .mapKeys { if (it.key > index) it.key - 1 else it.key }
-                    entry.rawSetInputs.clear(); entry.rawSetInputs.putAll(rawShifted)
-                    fun shiftedKey(key: String): String? {
-                        if (!key.startsWith("duration:")) return key
-                        val n = key.substringAfter(':').toInt()
-                        return if (n == index) null else "duration:${if (n > index) n - 1 else n}"
-                    }
-                    val rawDurations = entry.rawMovementInputs.toMap()
-                        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
-                    val invalidDurations = entry.invalidMovementInputs.toMap()
-                        .mapNotNull { (k, v) -> shiftedKey(k)?.let { it to v } }.toMap()
-                    entry.rawMovementInputs.clear(); entry.rawMovementInputs.putAll(rawDurations)
-                    entry.invalidMovementInputs.clear(); entry.invalidMovementInputs.putAll(invalidDurations)
-                    entry.sets = entry.plannedSets.size.toString()
-                }
                 ReperaSwipeDeleteRow(
                     canDelete = entry.plannedSets.size > 1,
-                    onDelete = { removeSetAt(index) }
+                    onDelete = {
+                        if (entry.plannedSets.size <= 1) return@ReperaSwipeDeleteRow
+                        val removed = entry.plannedSets[index]
+                        val removedRaw = entry.rawSetInputs[index]
+                        removePlannedSetAt(entry, index)
+                        onOfferUndo("Serie ${index + 1} eliminada") {
+                            insertPlannedSetAt(entry, index, removed, removedRaw)
+                        }
+                    }
                 ) {
                     Row(
                         Modifier

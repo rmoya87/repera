@@ -121,6 +121,18 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
         self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
 
+    def test_undo_and_block_delete_confirmations(self):
+        self.assertIn("presentUndoToast", PLAN)
+        self.assertIn("deleteStrengthSet", PLAN)
+        self.assertIn("blockDeleteConfirmID", PLAN)
+        self.assertIn("¿Eliminar este bloque?", PLAN)
+        self.assertIn("Ejercicio eliminado", PLAN)
+        self.assertIn("showWorkoutUndoSnackbar", ANDROID_UI)
+        self.assertIn("WorkoutUndoSnackbarHost", ANDROID_EDITOR)
+        self.assertIn("ConfirmDeleteMultiExerciseBlockDialog", ANDROID_UI)
+        self.assertIn("nonRestExerciseCount", ANDROID_EDITOR)
+        self.assertIn("cloneForUndo", ANDROID_EDITOR)
+
 
 if __name__ == "__main__":
     unittest.main()
