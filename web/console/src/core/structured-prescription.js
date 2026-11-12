@@ -28,6 +28,31 @@ const numeric=(v,label,min,max,optional=false)=>{
  if(!Number.isFinite(x)||x<min||x>max)throw Error(label+' debe estar entre '+min+' y '+max);
  return x;
 };
+const PHASE_KINDS=new Set(['work','rest','buyIn','main','cashOut']);
+const SECTION_NAMES=new Set(['warmUp','strength','skill','metcon','accessory','coolDown']);
+const TEAM_MODES=new Set(['solo','youGoIGo','synchronized','sharedReps','together']);
+const SCORE_METRICS=new Set(['elapsedSeconds','totalReps','loadKg','calories','distanceMeters','rounds','perMovementSets']);
+function validateWorkoutStructure(structure){
+ if(!structure||structure.version!==1||!Array.isArray(structure.phases)||structure.phases.length>30)
+  throw Error('Estructura avanzada no válida');
+ if(structure.section!=null&&!SECTION_NAMES.has(structure.section))throw Error('Sección no válida');
+ if(structure.collaboration!=null&&!TEAM_MODES.has(structure.collaboration))throw Error('Trabajo en equipo no válido');
+ if(structure.resultMetric!=null&&!SCORE_METRICS.has(structure.resultMetric))throw Error('Medida de resultado no válida');
+ const phase=(p,depth)=>{
+  if(!p||depth>2||!PHASE_KINDS.has(p.kind)||typeof p.title!=='string'||p.title.length>120)
+   throw Error('Fase de entrenamiento no válida');
+  if(!Array.isArray(p.movementIDs)||p.movementIDs.length>50||
+     p.movementIDs.some(id=>typeof id!=='string'))throw Error('Ejercicios de fase no válidos');
+  for(const key of ['repeatCount','workSeconds','restSeconds']){
+   const v=p[key];if(v!=null&&(!Number.isInteger(v)||v<(key==='restSeconds'?0:1)||v>86400))
+    throw Error('Duración o repeticiones de fase no válidas');
+  }
+  if(!Array.isArray(p.children)||p.children.length>20)throw Error('Subfases no válidas');
+  p.children.forEach(c=>phase(c,depth+1));
+ };
+ structure.phases.forEach(p=>phase(p,0));
+ return structure;
+}
 export function buildPrescription(draft,catalog){
  const allowed=new Map(catalog.map(x=>[x.catalogKey,x.name]));
  if(!Array.isArray(draft)||draft.length<1||draft.length>30)throw Error('Añade al menos un bloque (máximo 30)');
@@ -66,7 +91,12 @@ export function buildPrescription(draft,catalog){
    b.rounds=numeric(b.rounds,'Rondas',1,300,true);
    if(b.rounds!=null&&!Number.isInteger(b.rounds))throw Error('Las rondas deben ser enteras');
    b.timeCapMinutes=numeric(b.timeCapMinutes,'Tiempo límite',1,300,true);
+   if(b.timeCapSeconds!=null){
+    b.timeCapSeconds=numeric(b.timeCapSeconds,'Tiempo exacto (segundos)',1,14400);
+    if(!Number.isInteger(b.timeCapSeconds))throw Error('Los segundos deben ser enteros');
+   }
   }
+  if(b.structure!=null)validateWorkoutStructure(b.structure);
   b.title=String(b.title).trim();
   return b;
  });
@@ -78,9 +108,11 @@ export function summaryHTML(prescription,legacy='',escape=escapeHTML){
  return blocks.map((b,i)=>{
   const names=(b.kind==='strength'?b.exercises:b.movements)||[];
   const format=b.kind==='wod'?(WOD_FORMATS.find(([v])=>v===b.wodFormat)?.[1]||'WOD'):'FUERZA';
-  const timing=b.kind==='wod'?[b.rounds?b.rounds+' rondas':'',b.timeCapMinutes?b.timeCapMinutes+' min TC':''].filter(Boolean).join(' · '):'';
+  const timing=b.kind==='wod'?[b.rounds?b.rounds+' rondas':'',b.timeCapSeconds?Math.floor(b.timeCapSeconds/60)+'m '+String(b.timeCapSeconds%60).padStart(2,'0')+'s TC':b.timeCapMinutes?b.timeCapMinutes+' min TC':''].filter(Boolean).join(' · '):'';
+  const phases=b.structure?.phases?.map(x=>x.title).filter(Boolean).join(' · ')||'';
   return '<article class="connected-block"><span class="connected-pill">'+escape(format)+'</span> <strong>'+escape((i+1)+'. '+b.title)+'</strong>'+
-   (timing?'<small>'+escape(timing)+'</small>':'')+names.map(e=>{
+   (timing?'<small>'+escape(timing)+'</small>':'')+
+   (phases?'<small>'+escape(phases)+'</small>':'')+names.map(e=>{
      const detail=b.kind==='strength'?(e.plannedSets||[]).map(s=>s.targetReps+' rep'+(s.targetWeightKg!=null?' · '+s.targetWeightKg+' kg':'')+(s.targetRir!=null?' · RIR '+s.targetRir:'')).join(' / '):[e.reps?e.reps+' rep':'',e.notes].filter(Boolean).join(' · ');
      return '<div class="connected-move"><span>'+escape(e.name)+(e.source==='free'?' <small>· libre</small>':'')+'</span><span>'+escape(detail)+'</span></div>';
    }).join('')+'</article>';
