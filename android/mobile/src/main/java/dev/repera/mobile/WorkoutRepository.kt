@@ -1843,7 +1843,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
      * 'totalReps' is additional reps after full rounds, NOT an invented sum.
      */
     @Synchronized fun recordWodScore(
-        roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?
+        roundsCompleted: Int?, additionalReps: Int?, elapsedSeconds: Int?,
+        measuredValue: Double? = null, measuredMetric: String? = null
     ): ActiveWorkout? {
         val state = requireState()
         val session = requireActive(state)
@@ -1853,7 +1854,14 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         require(current.optString("blockKind") == "wod") { "El ejercicio actual no es un bloque WOD" }
         val format = WodFormat.fromWire(current.getString("wodFormat"))
             ?: error("Formato WOD no reconocido")
-        when (format.capture) {
+        val validMetrics = setOf("loadKg", "calories", "distanceMeters")
+        if (measuredValue != null) {
+            require(format == WodFormat.MAX_EFFORT && measuredMetric in validMetrics) {
+                "Las marcas de carga, calorías o distancia requieren Max Effort"
+            }
+            require(measuredValue.isFinite() && measuredValue > 0 && measuredValue <= 50000)
+            require(roundsCompleted == null && additionalReps == null && elapsedSeconds == null)
+        } else when (format.capture) {
             ResultCapture.TOTAL_REPS -> {
                 require(additionalReps != null && additionalReps >= 0)
                 require(elapsedSeconds == null)
@@ -1878,6 +1886,9 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
         if (roundsCompleted != null) score.put("roundsCompleted", roundsCompleted)
         if (additionalReps != null) score.put("totalReps", additionalReps)
         if (elapsedSeconds != null) score.put("elapsedSeconds", elapsedSeconds)
+        if (measuredValue != null && measuredMetric != null) {
+            score.put("measuredValue", measuredValue).put("measuredMetric", measuredMetric)
+        }
         if (block?.has("wodTemplateId") == true && !block.isNull("wodTemplateId"))
             score.put("wodTemplateId", block.getString("wodTemplateId"))
         val previous = session.optJSONArray("wodResults") ?: JSONArray()
@@ -4200,6 +4211,8 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 title = block?.optString("title") ?: format.wireName,
                 timeCapMinutes = block?.optInt("timeCapMinutes")?.takeIf { block.has("timeCapMinutes") },
                 timeCapSeconds = block?.optInt("timeCapSeconds")?.takeIf { block.has("timeCapSeconds") },
+                resultMetric = block?.optJSONObject("structure")?.optString("resultMetric")
+                    ?.takeIf { it.isNotBlank() },
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4396,6 +4409,7 @@ data class WodExecution(
     val recorded: List<WodRecordedMovement> = emptyList(),
     val timeCapMinutes: Int? = null,
     val timeCapSeconds: Int? = null,
+    val resultMetric: String? = null,
     val intervalSeconds: Int? = null,
     val rounds: Int? = null,
     val workSeconds: Int? = null,
