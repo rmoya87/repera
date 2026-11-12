@@ -1838,10 +1838,11 @@ struct HomeView: View {
                     )
 
                     VStack(alignment: .leading, spacing: 2) {
-                        let doneCaption = session.startedAt.map { "HECHO · \(SpanishDate.time($0))" } ?? "HECHO"
-                        Text(doneCaption)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(OG.accentText)
+                        if let start = session.startedAt {
+                            Text(SpanishDate.time(start))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(OG.accentText)
+                        }
                         Text(session.title)
                             .font(.body.weight(.medium))
                             .foregroundStyle(OG.label)

@@ -2516,8 +2516,8 @@ enum SpanishDate {
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = appLocale
-        f.dateStyle = .none
-        f.timeStyle = .short
+        // Siempre 24 h (paridad Inicio / detalle / auditoria P2-10).
+        f.dateFormat = "H:mm"
         return f
     }()
 
