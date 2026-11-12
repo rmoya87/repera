@@ -2338,6 +2338,9 @@ public enum CrossFitGlossary {
             if isSnatchFamily(n) { return "Snatch mancuerna" }
             if isCleanFamily(n) { return "Clean mancuerna" }
             if n.contains("thruster") { return "Thruster mancuernas" }
+            if n.contains("push press") || n.contains("press de impulso") {
+                return "Dumbbell Push Press"
+            }
             if n.contains("devil") { return "Devil press" }
             if n.contains("man maker") || n.contains("manmaker") { return "Man maker" }
             if n.contains("farmer") { return "Farmer carry" }
