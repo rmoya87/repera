@@ -56,7 +56,7 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
                 Text("Músculos: ${selected.musclesLabel}")
                 selected.notes?.takeIf {it.isNotBlank()}?.let {Text(it)}
             }
-            if(canPlay) item {Button(enabled=!busy && (!hasActiveSession || activeRequestId==playRequest),onClick={onPlay(selected.id,playRequest)},modifier=Modifier.testTag("wod_play_now")) {Text("Empezar ahora")}}
+            // CTA flotante debajo de la lista (paridad «Usar este WOD» iOS).
             val scores=history[selected.id].orEmpty()
             val allowed=subscriptions?.isPro ?: false
             val visible=WodLibraryHistory.visible(scores,allowed)
@@ -125,15 +125,29 @@ internal fun WodLibraryScreen(accountId:String,busy:Boolean,favorites:Set<String
         }
     }
     }
-    if(split) Row(Modifier.fillMaxSize().testTag("wod_fallback_split"),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-        Box(Modifier.weight(1f).testTag("wod_fallback_selector")) {listContent(Modifier)}
-        Box(Modifier.weight(1f).testTag("wod_fallback_detail")) {
-            val exercise=exercises.firstOrNull {it.id==selectedExerciseId}
-            if(exercise==null) Column(Modifier.fillMaxWidth().padding(24.dp)) {
-                Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
-                Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
-            } else key(exercise.id) {exerciseDetail.invoke(exercise) {selectedExerciseId=null}}
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            if(split) Row(Modifier.fillMaxSize().testTag("wod_fallback_split"),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f).testTag("wod_fallback_selector")) {listContent(Modifier)}
+                Box(Modifier.weight(1f).testTag("wod_fallback_detail")) {
+                    val exercise=exercises.firstOrNull {it.id==selectedExerciseId}
+                    if(exercise==null) Column(Modifier.fillMaxWidth().padding(24.dp)) {
+                        Text("Selecciona ejercicio",style=MaterialTheme.typography.titleLarge)
+                        Text("Elige un ejercicio de la lista para ver sus datos, instrucciones y progreso.")
+                    } else key(exercise.id) {exerciseDetail.invoke(exercise) {selectedExerciseId=null}}
+                }
+            } else listContent(Modifier)
         }
-    } else listContent(Modifier)
+        if(selected!=null && canPlay) {
+            FloatingPrimaryCta(
+                title = "Empezar ahora",
+                onClick = { onPlay(selected.id, playRequest) },
+                enabled = !busy && (!hasActiveSession || activeRequestId == playRequest),
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .testTag("wod_play_now")
+            )
+        }
+    }
     }
 }

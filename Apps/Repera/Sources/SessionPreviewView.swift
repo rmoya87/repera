@@ -197,30 +197,12 @@ struct SessionPreviewView: View {
         }
         .safeAreaInset(edge: .bottom) {
             if active == nil, liveRoutine != nil {
-                HStack(spacing: 10) {
-                    Button {
-                        if let routine = liveRoutine { onEdit(routine) }
-                    } label: {
-                        Label("Editar", systemImage: "pencil")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(OG.label2)
-                    Button(action: startVisibleRoutine) {
-                        Label("Empezar", systemImage: "play.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(OG.onAccent)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(OG.accent, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, OG.pad)
-                .padding(.vertical, 10)
-                .background(OG.bg)
+                // Solo Empezar: Editar/Borrar viven en el menú ⋯.
+                OGFloatingPrimaryCTA(
+                    title: "Empezar",
+                    systemImage: "play.fill",
+                    action: startVisibleRoutine
+                )
             }
         }
         .toolbar(.hidden, for: .tabBar)

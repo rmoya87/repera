@@ -185,24 +185,14 @@ struct WODTemplateDetailView: View {
                 }
             }
 
-            if let onUse {
-                Section {
-                    Button {
-                        onUse()
-                    } label: {
-                        Text("Usar este WOD")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(OG.onAccent)
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(OG.accent)
-                    .controlSize(.large)
-                }
-            }
         }
         .ogListChrome()
         .ogScrollingTitleNav()
+        .safeAreaInset(edge: .bottom) {
+            if let onUse {
+                OGFloatingPrimaryCTA(title: "Usar este WOD", action: onUse)
+            }
+        }
         .toolbar {
             if showSessionActions {
                 ToolbarItem(placement: .topBarTrailing) {

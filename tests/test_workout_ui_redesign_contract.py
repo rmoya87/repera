@@ -86,13 +86,30 @@ class WorkoutUiRedesignContract(unittest.TestCase):
 
     def test_preview_bottom_bar_and_editor_tab_bar(self):
         self.assertIn("safeAreaInset(edge: .bottom)", PREVIEW)
+        self.assertIn("OGFloatingPrimaryCTA", PREVIEW)
         self.assertIn("Empezar", PREVIEW)
+        # Solo Empezar abajo; Editar/Borrar en ⋯ (sin segundo botón Editar).
+        preview_inset = PREVIEW.split("safeAreaInset(edge: .bottom)", 1)[1][:800]
+        self.assertIn("OGFloatingPrimaryCTA", preview_inset)
+        self.assertNotIn('"Editar"', preview_inset)
         self.assertIn("OGWorkoutMetaChip", PREVIEW)
         self.assertIn(".toolbar(.hidden, for: .tabBar)", PLAN)
         self.assertIn("ogDiscardChangesConfirm", PLAN)
         self.assertIn("ogUndoToast", PLAN)
+        self.assertIn("hideNativeBack: true", PLAN)
+        self.assertIn(".navigationBarBackButtonHidden(true)", PLAN)
+        self.assertIn('accessibilityLabel("Volver")', PLAN)
+        # Un solo chevron leading (no condicionado solo a dirty + nativo).
+        self.assertIn("if isEditorDirty", PLAN.split("accessibilityLabel(\"Volver\")", 1)[0][-400:])
         self.assertIn("ExerciseCatalogSelectionMode", PICKER)
         self.assertIn("Añadir \\(selectedIDs.count)", PICKER)
+        self.assertIn("OGFloatingPrimaryCTA", PICKER)
+        self.assertNotIn("ultraThinMaterial", PICKER)
+        wod_picker = (
+            ROOT / "Apps/Repera/Sources/WODCatalogPickerView.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn('OGFloatingPrimaryCTA(title: "Usar este WOD"', wod_picker)
+        self.assertIn("struct OGFloatingPrimaryCTA", THEME)
 
     def test_android_keypad_has_dynamic_colors(self):
         self.assertIn("keypadBackground", ANDROID_KEYPAD)
@@ -107,8 +124,13 @@ class WorkoutUiRedesignContract(unittest.TestCase):
             "DiscardChangesDialog",
             "PlayRestFooter",
             "SessionPreviewBottomBar",
+            "FloatingPrimaryCta",
         ):
             self.assertIn(name, ANDROID_UI)
+        bar = ANDROID_UI.split("fun SessionPreviewBottomBar", 1)[1][:900]
+        self.assertIn("FloatingPrimaryCta", bar)
+        self.assertIn('title = "Empezar"', bar)
+        self.assertNotIn('Text("Editar")', bar)
 
     def test_android_play_and_live_rows(self):
         self.assertIn("WorkoutFinishSummarySheet", ANDROID_PLAY)
@@ -122,12 +144,18 @@ class WorkoutUiRedesignContract(unittest.TestCase):
     def test_android_picker_preview_home_editor(self):
         self.assertIn("allowsMultipleSelection", ANDROID_PICKER)
         self.assertIn("Añadir ${selected.size}", ANDROID_PICKER)
+        self.assertIn("FloatingPrimaryCta", ANDROID_PICKER)
         self.assertIn("SessionPreviewBottomBar", ANDROID_PREVIEW)
         self.assertIn("SessionPreviewSummaryChips", ANDROID_PREVIEW)
         self.assertIn("home_planned_play", ANDROID_HOME)
         self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
         self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
         self.assertIn("aliases: Map<String, String>", ANDROID_PICKER)
+        wod_lib = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/WodLibraryScreen.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("FloatingPrimaryCta", wod_lib)
+        self.assertIn('title = "Empezar ahora"', wod_lib)
 
     def test_undo_and_block_delete_confirmations(self):
         self.assertIn("presentUndoToast", PLAN)

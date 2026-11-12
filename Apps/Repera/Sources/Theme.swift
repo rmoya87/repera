@@ -234,6 +234,37 @@ extension View {
     }
 }
 
+/// CTA primario flotante (Añadir N / Usar este WOD / Empezar): cápsula verde
+/// sin barra de material detrás.
+struct OGFloatingPrimaryCTA: View {
+    var title: String
+    var systemImage: String? = nil
+    var enabled: Bool = true
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if let systemImage {
+                    Label(title, systemImage: systemImage)
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(OG.onAccent)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(OG.accent.opacity(enabled ? 1 : 0.45), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .padding(.horizontal, OG.pad)
+        .padding(.vertical, 10)
+        // Sin ultraThinMaterial / superficie: la cápsula flota sobre el contenido.
+    }
+}
+
 // MARK: - Descartar cambios
 
 struct OGDiscardChangesConfirm: ViewModifier {

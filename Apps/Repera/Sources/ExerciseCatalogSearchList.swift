@@ -106,21 +106,13 @@ struct ExerciseCatalogSearchList<Header: View, Footer: View>: View {
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             if isMultiple, !selectedIDs.isEmpty {
-                Button {
+                OGFloatingPrimaryCTA(
+                    title: "Añadir \(selectedIDs.count) ejercicio\(selectedIDs.count == 1 ? "" : "s")"
+                ) {
                     let picked = selectedIDs.compactMap { byId[$0] }
                     guard !picked.isEmpty else { return }
                     onPickMany(picked)
-                } label: {
-                    Text("Añadir \(selectedIDs.count) ejercicio\(selectedIDs.count == 1 ? "" : "s")")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(OG.onAccent)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(OG.accent, in: Capsule())
                 }
-                .padding(.horizontal, OG.pad)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
             }
         }
         .toolbar {

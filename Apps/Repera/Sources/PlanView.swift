@@ -18,14 +18,15 @@ private struct DayEditorChromeModifier: ViewModifier {
     let confirmTitle: String
     let onConfirm: () -> Void
     var onBack: (() -> Void)? = nil
+    /// Siempre ocultar el back nativo: el editor aporta un único chevron
+    /// (dirty → confirmación Descartar). Si no, iOS 26 muestra dos Volver.
+    var hideNativeBack: Bool = true
 
     func body(content: Content) -> some View {
         if usesPageCloseHeader {
             content
                 .ogScrollingTitleNav()
-                // Usar solo el chevron nativo de NavigationStack.
-                // El botón manual duplicaba el volver en iOS 27.
-                .navigationBarBackButtonHidden(false)
+                .navigationBarBackButtonHidden(true)
                 // Siempre blanco de noche y negro de día; el check mantiene
                 // su tinte verde explícito, independiente del botón Volver.
                 .tint(Color.primary)
@@ -37,7 +38,7 @@ private struct DayEditorChromeModifier: ViewModifier {
         } else {
             content
                 .ogFixedTopBar(title) { confirmButton }
-                .navigationBarBackButtonHidden(embedsNavigationStack)
+                .navigationBarBackButtonHidden(embedsNavigationStack || hideNativeBack)
         }
     }
 
@@ -471,18 +472,24 @@ struct DayEditorView: View {
         .listStyle(.insetGrouped)
         .ogListChrome()
         .toolbar(.hidden, for: .tabBar)
-        .navigationBarBackButtonHidden(isEditorDirty)
+        // Un solo Volver: siempre custom (dirty → Descartar; limpio → cerrar).
+        // Si se deja el nativo + chevron propio, iOS 26 Liquid Glass muestra dos.
+        .navigationBarBackButtonHidden(true)
         .toolbar {
-            if isEditorDirty {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    if isEditorDirty {
                         showDiscardConfirm = true
-                    } label: {
-                        Image(systemName: "chevron.backward")
-                            .fontWeight(.semibold)
+                    } else if let onClose {
+                        onClose()
+                    } else {
+                        dismiss()
                     }
-                    .accessibilityLabel("Volver")
+                } label: {
+                    Image(systemName: "chevron.backward")
+                        .fontWeight(.semibold)
                 }
+                .accessibilityLabel("Volver")
             }
         }
         .ogDiscardChangesConfirm(isPresented: $showDiscardConfirm, onDiscard: discardEditorChanges)
@@ -541,7 +548,8 @@ struct DayEditorView: View {
             canConfirm: canConfirm,
             confirmTitle: confirmTitle,
             onConfirm: confirm,
-            onBack: onClose
+            onBack: onClose,
+            hideNativeBack: true
         ))
         // Pickers de creación: push nativo horizontal con volver en topbar.
         .navigationDestination(item: $pickExerciseForBlock) { blockID in

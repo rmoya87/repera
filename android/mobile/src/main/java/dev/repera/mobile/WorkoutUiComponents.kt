@@ -450,36 +450,54 @@ fun SessionPreviewSummaryChips(
     }
 }
 
+/** CTA primario flotante (paridad OGFloatingPrimaryCTA iOS): sin barra surface. */
+@Composable
+fun FloatingPrimaryCta(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .height(52.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = brandGreen,
+            contentColor = Color.Black,
+            disabledContainerColor = brandGreen.copy(alpha = 0.45f),
+            disabledContentColor = Color.Black.copy(alpha = 0.7f)
+        )
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(title, fontWeight = FontWeight.SemiBold)
+    }
+}
+
 @Composable
 fun SessionPreviewBottomBar(
-    onEdit: () -> Unit,
     onStart: () -> Unit,
     startEnabled: Boolean,
     modifier: Modifier = Modifier,
+    /** @Deprecated Editar/Borrar van en el menú ⋯; se ignora. */
+    onEdit: () -> Unit = {},
 ) {
-    Row(
-        modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        OutlinedButton(
-            onClick = onEdit,
-            modifier = Modifier.weight(1f).height(48.dp),
-            shape = CircleShape
-        ) { Text("Editar") }
-        Button(
-            onClick = onStart,
-            enabled = startEnabled,
-            modifier = Modifier.weight(1.2f).height(52.dp),
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
-        ) {
+    // Solo Empezar flotante (sin fondo surface / sin Editar duplicado).
+    FloatingPrimaryCta(
+        title = "Empezar",
+        onClick = onStart,
+        enabled = startEnabled,
+        modifier = modifier,
+        leadingIcon = {
             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Empezar", fontWeight = FontWeight.SemiBold)
         }
-    }
+    )
 }

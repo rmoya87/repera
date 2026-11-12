@@ -180,24 +180,17 @@ internal fun ExercisePickerSheet(
                 }
             }
             if (allowsMultipleSelection && selected.isNotEmpty()) {
-                Button(
+                FloatingPrimaryCta(
+                    title = "Añadir ${selected.size} ejercicio${if (selected.size == 1) "" else "s"}",
                     onClick = {
                         val picked = selected.mapNotNull { id -> exercises.firstOrNull { it.id == id } }
                         onPickMany?.invoke(picked)
                         onDismiss()
                     },
                     modifier = Modifier
-                        .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(16.dp)
-                        .height(52.dp)
-                        .testTag("exercise_picker_add_many"),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = brandGreen, contentColor = Color.Black)
-                ) {
-                    Text("Añadir ${selected.size} ejercicio${if (selected.size == 1) "" else "s"}",
-                        fontWeight = FontWeight.SemiBold)
-                }
+                        .testTag("exercise_picker_add_many")
+                )
             } else {
                 Spacer(Modifier.navigationBarsPadding())
             }
