@@ -91,6 +91,41 @@ class BoardScanGlobalFixturesTest {
         assertEquals(10,blocks[1].timeCapMinutes)
     }
 
+    @Test fun maxRepsAndGenericOneRMProgression() {
+        val max=BoardScanLiteParser.parse("""
+            Squat snatch
+            Max (n) rep(s)
+            Metcon
+            3min AMRAP (x4)
+            5 Hang Power Snatch #40/25kg
+            10 Pull Up
+            15 Air Squat
+            20 Double Under
+            1mn Rest between AMRAPs
+        """.trimIndent()).blocks
+        assertEquals(2,max.size)
+        assertEquals(WODFormat.MAX_EFFORT,max[0].wodFormat)
+        assertEquals(1,max[0].movements.size)
+        assertEquals(WODFormat.AMRAP,max[1].wodFormat)
+        assertEquals(4,max[1].rounds)
+        assertEquals(60,max[1].restBetweenRoundsSeconds)
+
+        val catalog=listOf(CatalogExercise("squat-clean","Clean",listOf("Squat Clean")))
+        val blocks=BoardScanLiteParser.parse("""
+            Weightlifting "Squat Clean 1RM Test"
+            Every 90s For 15min (10 Series)
+            Sets 1-2: 3 Reps #75-80%
+            Sets 3-4: 2 Reps #80-85%
+            Sets 5-10: 1 Rep #Buscar la 1RM
+            *NO Touch & Go. Trabaja a singles
+        """.trimIndent(),catalog).blocks
+        assertEquals(1,blocks.size)
+        assertEquals(RoutineBlockKind.STRENGTH,blocks[0].kind)
+        assertEquals(listOf(3,3,2,2,1,1,1,1,1,1),
+            blocks[0].exercises.first().plannedSets.map {it.targetReps})
+        assertTrue(blocks[0].wodNotes.orEmpty().contains("75-80%"))
+    }
+
     @Test fun photographedFormatMatrix() {
         val cases=listOf(
             Triple("team", """EMOM 40' (TEAM II)
