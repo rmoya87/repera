@@ -30,7 +30,9 @@ public enum BoardScanLiteParser {
                 cur.header, exerciseLines, interval: cur.interval,
                 cap: cur.cap, rounds: cur.rounds, catalog: catalog
             ) {
-                blocks.append(strength)
+                var enrichedStrength = strength
+                enrichedStrength.wodNotes = ([cur.header] + cur.body).joined(separator: "\n")
+                blocks.append(enrichedStrength)
                 current = nil
                 return
             }
@@ -44,7 +46,16 @@ public enum BoardScanLiteParser {
             if cur.format == .emom {
                 block.emomIntervalSeconds = cur.interval ?? 60
             }
-            block.movements = exerciseLines.map { movement(from: Self.exerciseText($0)) }
+            // A standalone ladder (30-20-10) scopes the following rows until
+            // the next wave. Preserve those repetitions as structured data.
+            var activeWave: [Int]?
+            block.movements = cur.body.compactMap { raw -> WODMovement? in
+                if let wave = Self.standaloneWave(raw) { activeWave = wave; return nil }
+                guard !Self.isNonExerciseLine(raw) else { return nil }
+                var move = movement(from: Self.exerciseText(raw))
+                if let activeWave, !move.isRest { move.repScheme = activeWave }
+                return move
+            }
             if let values = Self.capture(
                 #"(?i)(\d+)\s*MIN\s*ON.*?(\d+)\s*MIN\s*OFF"#, from: cur.header
             ), values.count == 2, let work = Int(values[0]), let rest = Int(values[1]) {
@@ -308,6 +319,15 @@ public enum BoardScanLiteParser {
                                   options: .regularExpression)
             .replacingOccurrences(of: #"(?i)^MINUTO\s+\d+\s*:\s*"#, with: "",
                                   options: .regularExpression)
+    }
+
+    private static func standaloneWave(_ line: String) -> [Int]? {
+        let raw = line.trimmingCharacters(in: .whitespaces)
+        guard raw.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}$"#,
+                        options: .regularExpression) != nil else { return nil }
+        let values = raw.split(whereSeparator: { $0 == "-" || $0 == "–" })
+            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        return values.count >= 3 ? values : nil
     }
 
     private static func standaloneRounds(_ line: String) -> Int? {
