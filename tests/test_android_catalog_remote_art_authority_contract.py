@@ -18,6 +18,12 @@ class AndroidCatalogRemoteAuthorityTest(unittest.TestCase):
         self.assertIn("if (cursor == head) return false", catalog)
         self.assertIn("entries.put(key, JSONObject(item.toString()))", catalog)
         self.assertIn("commitCache(working)", catalog)
+        foreground = catalog.split("fun refresh(accessToken: String)", 1)[1].split(
+            "fun applyToAccount(", 1
+        )[0]
+        self.assertNotIn("prefetchFromCatalogCache(context)", foreground)
+        worker = catalog.split("internal class RemoteExerciseCatalogWorker(", 1)[1]
+        self.assertIn("RemoteExerciseArtCache.prefetchFromCatalogCache(applicationContext)", worker)
         self.assertIn("original != exercise.toString()", catalog)
         self.assertIn("replaceIfUnchanged(bytes", catalog)
         self.assertIn('exercise.put("artKeys", JSONArray(artKeys.toString()))', catalog)

@@ -167,8 +167,10 @@ internal class RemoteExerciseCatalog(private val context: Context) {
             }
         }
         working.put("revision", cursor)
+        // Commit the editorial delta immediately. Downloading hundreds of
+        // JPGs here blocked foreground catalog metadata updates; the worker
+        // warms the offline image cache, visible images are fetched on demand.
         commitCache(working) // atomic: no partial cursor after a failed page
-        RemoteExerciseArtCache.prefetchFromCatalogCache(context)
         return true
     }
 
@@ -358,6 +360,9 @@ internal class RemoteExerciseCatalogWorker(
         if (session.expiresWithin(120)) return@withContext Result.success()
         runCatching {
             RemoteExerciseCatalog(applicationContext).refresh(session.accessToken)
+            // Only missing stems are downloaded; the file cache survives launches.
+            // Retry failures even without a new editorial event.
+            RemoteExerciseArtCache.prefetchFromCatalogCache(applicationContext)
             StrengthBenchmarkRemoteStore.get(applicationContext).refresh(session.accessToken)
         }.fold(
             onSuccess = { Result.success() },
