@@ -4322,6 +4322,17 @@ class WorkoutRepository(private val context: Context, private val googleId: Stri
                 repeatedWorkSeconds = workPhase?.takeIf { it.has("workSeconds") }?.optInt("workSeconds"),
                 repeatedRestSeconds = workPhase?.takeIf { it.has("restSeconds") }?.optInt("restSeconds"),
                 repeatCount = workPhase?.takeIf { it.has("repeatCount") }?.optInt("repeatCount"),
+                phaseID = workPhase?.optString("id")?.takeIf { it.isNotBlank() },
+                collaboration = block?.optJSONObject("structure")?.optString("collaboration")
+                    ?.takeIf { it.isNotBlank() },
+                phaseResults = session.optJSONArray("wodResults")?.let { scores ->
+                    val previous = (0 until scores.length()).map { scores.getJSONObject(it) }
+                        .firstOrNull { it.optString("id") == block?.optString("id") }
+                    val logs = previous?.optJSONArray("phaseResults") ?: JSONArray()
+                    (0 until logs.length()).mapNotNull { index ->
+                        WorkoutStructureWire.decodePhaseResult(logs.getJSONObject(index))
+                    }
+                } ?: emptyList(),
                 intervalSeconds = block?.optInt("emomIntervalSeconds")?.takeIf { block.has("emomIntervalSeconds") },
                 rounds = block?.optInt("rounds")?.takeIf { block.has("rounds") },
                 workSeconds = block?.optInt("workSeconds")?.takeIf { block.has("workSeconds") },
@@ -4528,7 +4539,10 @@ data class WodExecution(
     val plannedIntervals: Int? = null,
     val repeatedWorkSeconds: Int? = null,
     val repeatedRestSeconds: Int? = null,
-    val repeatCount: Int? = null
+    val repeatCount: Int? = null,
+    val phaseID: String? = null,
+    val collaboration: String? = null,
+    val phaseResults: List<dev.repera.domain.WorkoutPhaseResult> = emptyList()
 )
 
 data class WodRecordedMovement(val id: String, val name: String, val intervalIndex: Int, val quantity: Int, val weightKg: Double?, val quantityUnit: String?)
