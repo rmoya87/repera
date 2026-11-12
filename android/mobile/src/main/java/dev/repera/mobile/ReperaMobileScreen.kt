@@ -1355,7 +1355,8 @@ fun ReperaMobileScreen(
                                 clockMinimized = false
                                 navController.navigate("reloj")
                             },
-                            loadGuideProvider = loadGuideProvider
+                            loadGuideProvider = loadGuideProvider,
+                            onWodMeasuredScore = onWodMeasuredScore
                         )
                     }
                 }
@@ -1825,7 +1826,6 @@ fun ReperaMobileScreen(
                             exercises = editorOverview.exerciseEntries,
                             busy = busy,
                             loadGuideProvider = loadGuideProvider,
-                            onWodMeasuredScore = onWodMeasuredScore,
                             importableRoutines = editorOverview.routineEntries,
                             // Misma maqueta que Crear cuando es entreno del día.
                             oneOffEditor = routine.scheduledDate != null,
