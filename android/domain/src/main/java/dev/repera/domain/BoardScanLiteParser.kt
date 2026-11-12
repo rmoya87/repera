@@ -132,18 +132,18 @@ object BoardScanLiteParser {
                 sectionTitle=line
                 continue
             }
+            val pendingMaxTitle=sectionTitle
             if(upper.startsWith("MAX ") && !upper.startsWith("MAX ROUNDS") &&
-               sectionTitle!=null && sectionLabel(sectionTitle!!)==null) {
-                val title=sectionTitle!!
-                val ex=officialExercises[norm(title)]
-                    ?: officialExercises[norm(CrossFitGlossary.canonicalName(title))]
+               pendingMaxTitle!=null && sectionLabel(pendingMaxTitle)==null) {
+                val ex=officialExercises[norm(pendingMaxTitle)]
+                    ?: officialExercises[norm(CrossFitGlossary.canonicalName(pendingMaxTitle))]
                 val block=RoutineBlock.wod(
-                    format=WODFormat.MAX_EFFORT, title=title+" · "+line
+                    format=WODFormat.MAX_EFFORT, title=pendingMaxTitle+" · "+line
                 )
                 block.movements=listOf(WODMovement(
-                    exerciseId=ex?.id, name=ex?.name ?: title
+                    exerciseId=ex?.id, name=ex?.name ?: pendingMaxTitle
                 ))
-                block.wodNotes=title+"\n"+line
+                block.wodNotes=pendingMaxTitle+"\n"+line
                 blocks.add(block)
                 sectionTitle=null
                 continue
@@ -154,8 +154,9 @@ object BoardScanLiteParser {
                 sectionTitle=line
                 continue
             }
-            if(upper.startsWith("FIND ") && sectionTitle!=null) {
-                val title=sectionTitle!!
+            val pendingFindTitle=sectionTitle
+            if(upper.startsWith("FIND ") && pendingFindTitle!=null) {
+                val title=pendingFindTitle
                 val exercise=officialExercises[norm(title)]
                 val reps=Regex("""FIND\s*(\d+)\s*RM""", RegexOption.IGNORE_CASE)
                     .find(line)?.groupValues?.get(1)?.toIntOrNull()

@@ -156,6 +156,22 @@ class WorkoutUiRedesignContract(unittest.TestCase):
         self.assertIn("SessionPreviewBottomBar", ANDROID_PREVIEW)
         self.assertIn("SessionPreviewSummaryChips", ANDROID_PREVIEW)
         self.assertIn("home_planned_play", ANDROID_HOME)
+        self.assertIn("trailingContent", ANDROID_HOME)
+        live = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/LiveSetRows.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn('if (active.allowsDeficit) "DÉFICIT" else "KG"', live)
+        self.assertIn("loadGuideProvider", live)
+        tab = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/ReperaFloatingTabBar.kt"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("padding(bottom = 28.dp)", tab)
+        self.assertIn("Spacer(Modifier.height(8.dp))", tab)
+        home_tab = (
+            ROOT / "android/mobile/src/main/java/dev/repera/mobile/HomeTab.kt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("HomeAddWorkoutButton(enabled = !busy)", home_tab)
+        self.assertNotIn("if (activeWorkout == null) {\n                        // Aire extra", home_tab)
         self.assertIn("DiscardChangesDialog", ANDROID_EDITOR)
         self.assertIn("allowsMultipleSelection = true", ANDROID_EDITOR)
         self.assertIn("aliases: Map<String, String>", ANDROID_PICKER)

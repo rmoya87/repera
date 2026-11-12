@@ -61,6 +61,7 @@ internal fun FavoritesHubScreen(
     busy: Boolean,
     activeWorkout: ActiveWorkout?,
     onStartRoutine: (String) -> Unit,
+    onOpenActiveSession: () -> Unit = {},
     onOpenTimer: (String?) -> Unit,
     onBack: () -> Unit,
     targetDate: LocalDate? = null,
@@ -139,8 +140,11 @@ internal fun FavoritesHubScreen(
                                 pendingDeleteId = routine.id
                             },
                             onClick = {
-                                if (targetDate != null) onAssignRoutineToDate(routine.id, targetDate)
-                                else if (activeWorkout == null) onStartRoutine(routine.id)
+                                when {
+                                    targetDate != null -> onAssignRoutineToDate(routine.id, targetDate)
+                                    activeWorkout != null -> onOpenActiveSession()
+                                    else -> onStartRoutine(routine.id)
+                                }
                             }
                         ) {
                             Column {

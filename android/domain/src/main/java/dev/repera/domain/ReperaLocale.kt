@@ -9,6 +9,10 @@ object ReperaLocale {
             val current = Locale.getDefault()
             val language = current.language.ifBlank { "es" }
             val country = current.country
-            return if (country.isNotBlank()) Locale(language, country) else Locale("es", "ES")
+            return if (country.isNotBlank()) {
+                Locale.Builder().setLanguage(language).setRegion(country).build()
+            } else {
+                Locale.Builder().setLanguage("es").setRegion("ES").build()
+            }
         }
 }

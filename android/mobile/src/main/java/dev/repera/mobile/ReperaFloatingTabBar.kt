@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -308,7 +309,7 @@ internal fun ReperaContinueAccessory(
     val accent = if (isLiveActivity) brandAmber else brandGreen
     val chrome = MaterialTheme.reperaColors
     val continueLabel = stringResource(R.string.continue_a11y, title)
-    val continueShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
+    val continueShape = RoundedCornerShape(18.dp)
     Surface(
         color = chrome.chromeSurface,
         shape = continueShape,
@@ -325,8 +326,7 @@ internal fun ReperaContinueAccessory(
         Row(
             Modifier
                 .fillMaxWidth()
-                // Fondo blanco se prolonga por detrás de la píldora (sin corte gris).
-                .padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
+                .padding(start = 14.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -434,15 +434,16 @@ internal fun ReperaTabBarChrome(
             animationSpec = androidx.compose.animation.core.tween(160)
         )
     ) {
-        Box(
+        Column(
             Modifier
                 .fillMaxWidth()
                 .background(Color.Transparent)
                 .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp)
+                .padding(start = 16.dp, end = 16.dp, bottom = 10.dp, top = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (continueTitle != null) {
-                // Continuar detrás del menú: el blanco tapa el hueco bajo la píldora.
+                // Encima del menú (paridad iOS tabViewBottomAccessory), sin solapar texto.
                 ReperaContinueAccessory(
                     title = continueTitle,
                     progress = continueProgress,
@@ -450,19 +451,15 @@ internal fun ReperaTabBarChrome(
                     exercise = continueExercise,
                     isLiveActivity = continueIsLive,
                     liveSportIcon = continueLiveIcon,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 28.dp)
-                        .zIndex(0f)
+                    modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(Modifier.height(8.dp))
             }
             ReperaFloatingTabBar(
                 tabs = reperaTabsForCenter(showCenterTab),
                 selectedRoute = selectedRoute,
                 onTabSelected = onTabSelected,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .zIndex(1f)
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

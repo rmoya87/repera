@@ -522,11 +522,9 @@ internal fun HomeTab(
                     ) {
                         HomeEmptyDayCard(day)
                     }
-                    if (activeWorkout == null) {
-                        // Aire extra entre ficha del día y CTA (paridad iOS .padding(.top, 20)).
-                        Spacer(Modifier.height(14.dp))
-                        HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
-                    }
+                    // Planificar otro entreno aunque haya sesión en curso (no arranca Play).
+                    Spacer(Modifier.height(14.dp))
+                    HomeAddWorkoutButton(enabled = !busy) { showDayPlus = true }
                     if (showDayPlus) {
                         val dayName = day.dayOfWeek.getDisplayName(
                             java.time.format.TextStyle.FULL,

@@ -264,6 +264,8 @@ internal fun HomeSwipeRevealCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(registerCardShape)
+                // Opaco: sin huecos del trailing (play) ni esquinas del clip mostrando el rojo.
+                .background(MaterialTheme.colorScheme.surface, registerCardShape)
                 .offset { IntOffset(offset.toInt(), 0) }
                 .pointerInput(key, busy, onEdit != null, excludeBandPx) {
                     if (busy) return@pointerInput
@@ -326,6 +328,8 @@ internal fun HomeDayRegisterCard(
     modifier: Modifier = Modifier,
     leadingIconTint: Color = brandGreen,
     captionColor: Color? = null,
+    /** Play / trailing dentro de la superficie blanca (paridad iOS plannedDayCard). */
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -338,7 +342,8 @@ internal fun HomeDayRegisterCard(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             HomeRegisterLeadingIcon(leadingIcon, tint = leadingIconTint)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -361,6 +366,7 @@ internal fun HomeDayRegisterCard(
                     maxLines = 2
                 )
             }
+            trailingContent?.invoke()
         }
         if (chips.isNotEmpty()) {
             HomeRegisterChipsRow(
@@ -696,35 +702,30 @@ internal fun HomePlannedRoutineCard(
     val caption = if (time != null) "HOY · $time" else "HOY"
     // Solo realizados (historial) van en verde; planificados siempre gris.
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HomeDayRegisterCard(
-            caption = caption,
-            captionColor = accentText,
-            title = routine.title,
-            leadingIcon = ReperaIcons.StrengthTraditional,
-            chips = chips,
-            onClick = onClick,
-            leadingIconTint = tint,
-            modifier = Modifier.weight(1f)
-        )
-        onPlay?.let { play ->
-            Box(
-                Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(brandGreen)
-                    .clickable(onClick = play)
-                    .testTag("home_planned_play"),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = "Empezar", tint = Color.Black)
+    HomeDayRegisterCard(
+        caption = caption,
+        captionColor = accentText,
+        title = routine.title,
+        leadingIcon = ReperaIcons.StrengthTraditional,
+        chips = chips,
+        onClick = onClick,
+        leadingIconTint = tint,
+        trailingContent = onPlay?.let { play ->
+            {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(brandGreen)
+                        .clickable(onClick = play)
+                        .testTag("home_planned_play"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Empezar", tint = Color.Black)
+                }
             }
         }
-    }
+    )
 }
 
 @Composable

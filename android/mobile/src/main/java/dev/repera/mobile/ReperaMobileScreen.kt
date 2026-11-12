@@ -1090,6 +1090,10 @@ fun ReperaMobileScreen(
                             restoreDayPlus = false
                             startOrContinueRoutine(id)
                         },
+                        onOpenActiveSession = {
+                            restoreDayPlus = false
+                            navController.navigate("entreno-activo")
+                        },
                         onOpenTimer = { favId ->
                             restoreDayPlus = false
                             if (favId != null) navController.navigate("temporizador?fav=" + favId)
@@ -1132,6 +1136,7 @@ fun ReperaMobileScreen(
                         busy = busy,
                         activeWorkout = activeWorkout,
                         onStartRoutine = startOrContinueRoutine,
+                        onOpenActiveSession = { navController.navigate("entreno-activo") },
                         onOpenTimer = { favId ->
                             if (favId != null) navController.navigate("temporizador?fav=" + favId)
                             else navController.navigate("temporizador")

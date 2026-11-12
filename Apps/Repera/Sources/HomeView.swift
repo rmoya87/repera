@@ -1377,7 +1377,8 @@ struct HomeView: View {
                 healthActivityCard(activity)
             }
 
-            if !hasInProgress && !hasWatchTimer {
+            // Planificar otro entreno aunque haya sesión en curso (no arranca Play).
+            if !hasWatchTimer {
                 addAnotherWorkoutButton
                     .padding(.top, 12)
             }

@@ -125,6 +125,7 @@ internal fun ActiveWorkoutCard(
     weightUnit:String="kg",
     /** Dentro de [BlockEditorCard] en Play: sin card anidada. */
     embedded: Boolean = false,
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
 ) {
     val weightLabel = WeightDisplay.label(weightUnit)
     var technique by remember(active.id, active.index, active.completedSets) {
@@ -337,7 +338,13 @@ internal fun ActiveWorkoutCard(
             var showClassic by remember(active.id, active.index) { mutableStateOf(false) }
             val restTimer = remember(active.id, active.index) { PlayRestTimerState() }
             active.liveRows?.let { rows ->
-                LiveSetRows(active, rows, effortUnit, onSetCompleted = { restTimer.start(90) })
+                LiveSetRows(
+                    active,
+                    rows,
+                    effortUnit,
+                    onSetCompleted = { restTimer.start(90) },
+                    loadGuideProvider = loadGuideProvider,
+                )
                 PlayRestFooter(restTimer)
                 if (!active.durationInput) {
                     ReperaTopicSegmentedPicker(
@@ -568,6 +575,7 @@ internal fun WodScoreCard(
     effortUnit: String = "rir",
     embedded: Boolean = false,
     onMeasuredScore: (Double, String) -> Unit = { _, _ -> },
+    loadGuideProvider: (String, Int, Double?) -> LoadGuide? = { _, _, _ -> null },
 ) {
     val wod = active.wod ?: return
     val spec = WodClockSpec(
@@ -719,7 +727,13 @@ internal fun WodScoreCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             val restTimer = remember(active.id, active.index) { PlayRestTimerState() }
             active.liveRows?.let { rows ->
-                LiveSetRows(active, rows, effortUnit, onSetCompleted = { restTimer.start(90) })
+                LiveSetRows(
+                    active,
+                    rows,
+                    effortUnit,
+                    onSetCompleted = { restTimer.start(90) },
+                    loadGuideProvider = loadGuideProvider,
+                )
                 PlayRestFooter(restTimer)
             }
             wod.movements.forEach { movement ->

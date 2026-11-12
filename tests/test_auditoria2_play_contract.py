@@ -30,6 +30,10 @@ class Auditoria2PlayContract(unittest.TestCase):
         self.assertNotIn("Marcar serie", live)
         self.assertIn("DropdownMenu", play)
         self.assertNotIn("showEditStructureMenu", play)
+        self.assertIn("Cancelar entreno", play)
+        self.assertIn("Añadir bloque", play)
+        self.assertIn("Escanear pizarra", play)
+        self.assertIn("play_cancel_workout", play)
 
     def test_set_summary_without_weight(self):
         line = (ROOT / "android/domain/src/main/java/dev/repera/domain/SetSummaryLine.kt").read_text(
