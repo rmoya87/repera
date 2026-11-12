@@ -18,7 +18,7 @@ object BoardScanLiteParser {
         var header: String,
         val format: WODFormat,
         val cap: Int?,
-        val rounds: Int?,
+        var rounds: Int?,
         val interval: Int?,
         val body: MutableList<String>,
         val originalHeader:String=header
@@ -39,14 +39,17 @@ object BoardScanLiteParser {
 
         fun flush() {
             val cur = current ?: return
+            val exerciseLines=cur.body.filterNot {isNonExerciseLine(it)}
+            if(exerciseLines.isEmpty()) { current=null; return }
             val orphanStrength=if(cur.header=="Añadir entreno" || cur.format==WODFormat.STRENGTH)
-                BoardStrengthLines.block(cur.body,catalog)?.also {it.title=cur.header;it.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")} else null
+                BoardStrengthLines.block(exerciseLines,catalog)?.also {it.title=cur.header;it.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")} else null
             val structured = orphanStrength ?: structuredIntervalComplex(
-                cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
+                cur.header, exerciseLines, cur.interval, cur.cap, cur.rounds, catalog, searchAliases
             ) ?: structuredStrength(
-                cur.header, cur.body, cur.interval, cur.cap, cur.rounds, catalog
+                cur.header, exerciseLines, cur.interval, cur.cap, cur.rounds, catalog
             )
             if (structured != null) {
+                structured.wodNotes=(listOf(cur.originalHeader,cur.header).distinct()+cur.body).joinToString("\n")
                 blocks.add(structured)
                 current = null
                 return
@@ -63,28 +66,26 @@ object BoardScanLiteParser {
                 block.emomIntervalSeconds = cur.interval ?: 60
             }
             var roundLabel:String?=null
-            block.movements = cur.body.filter { line ->
-                val upper = line.uppercase(Locale.ROOT)
-                line.trim().length>=2 && upper !in setOf("SETS","REPS","CIRCUITO","CIRCUIT","WARMUP") &&
-                    !upper.contains("CAP: 4 INTERVALOS") &&
-                    !upper.startsWith("REALIZA AMBOS") &&
-                    !upper.startsWith("NO TOUCH")
-            }.flatMap { raw ->
-                // Full parser roundMarker/isFootnote: metadata stays in wodNotes,
-                // never becomes a fabricated movement. Round note scopes following rows.
-                if(raw.startsWith("*") || raw.startsWith("•")) return@flatMap emptyList()
-                Regex("^ROUNDS?\\s*(\\d+)\\s*:?\\s*$",RegexOption.IGNORE_CASE).matchEntire(raw)?.let {round ->
-                    roundLabel="Ronda ${round.groupValues[1]}"
-                    return@flatMap emptyList()
+            var activeWave:List<Int>?=null
+            block.movements = cur.body.flatMap { raw ->
+                val roundMarker=Regex("""^ROUNDS?\s*(\d+)\s*:?\s*$""",RegexOption.IGNORE_CASE).matchEntire(raw)
+                if(roundMarker!=null) {
+                    roundLabel="Ronda "+roundMarker.groupValues[1]
+                    emptyList()
+                } else {
+                val wave=standaloneWave(raw)
+                if(wave!=null) {
+                    activeWave=wave
+                    emptyList()
+                } else if(isNonExerciseLine(raw)) {
+                    emptyList()
+                } else {
+                    val segments=simpleComplexMovements(exerciseText(raw),searchAliases,catalog)
+                    segments.map { parsed ->
+                        val note=listOfNotNull(roundLabel,parsed.notes).joinToString(" · ").takeIf {it.isNotBlank()}
+                        parsed.copy(repScheme=activeWave ?: parsed.repScheme,notes=note)
+                    }
                 }
-                val segments=simpleComplexMovements(raw,searchAliases,catalog)
-                segments.mapNotNull {parsed ->
-                    val upperRaw=raw.uppercase(Locale.ROOT)
-                    if(cur.format==WODFormat.FOR_TIME && parsed.isRest &&
-                        (upperRaw.contains("BTWN") || upperRaw.contains("BETWEEN") || upperRaw.contains("ENTRE RONDAS"))) {
-                        block.restBetweenRoundsSeconds=parsed.restSeconds
-                        null
-                    } else roundLabel?.let {label ->parsed.copy(notes=listOfNotNull(label,parsed.notes).joinToString(" · "))} ?: parsed
                 }
             }
             capture("(?i)(\\d+)\\s*MIN\\s*ON.*?(\\d+)\\s*MIN\\s*OFF", cur.header)?.let { values ->
@@ -102,20 +103,98 @@ object BoardScanLiteParser {
             if(cur.format==WODFormat.FOR_TIME && block.restBetweenRoundsSeconds==null) {
                 block.movements.firstOrNull {it.isRest}?.let {block.restBetweenRoundsSeconds=it.restSeconds}
             }
+            if(cur.format==WODFormat.AMRAP || cur.format==WODFormat.FOR_TIME) {
+                cur.body.firstOrNull {
+                    val u=it.uppercase(Locale.ROOT)
+                    (u.contains("BETWEEN") || u.contains("ENTRE AMRAP") ||
+                     u.contains("ENTRE RONDAS")) &&
+                    (u.contains("REST") || u.contains("DESCANSO"))
+                }?.let {
+                    val rest=movement(it,searchAliases)
+                    if(rest.isRest) block.restBetweenRoundsSeconds=rest.restSeconds
+                }
+                if(block.restBetweenRoundsSeconds!=null) {
+                    block.movements=block.movements.filterNot {it.isRest}
+                }
+            }
             block.wodNotes = (listOf(cur.originalHeader,cur.header).distinct() + cur.body).joinToString("\n")
             block.deriveEmomRoundsIfNeeded()
             blocks.add(block)
             current = null
         }
 
-        for (line in rawLines) {
+        val officialExercises=catalogIndex(catalog)
+        for ((lineIndex,line) in rawLines.withIndex()) {
             val upper = line.uppercase(Locale.ROOT)
-            val section=sectionLabel(line)
+            if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("MAX ") &&
+               sectionLabel(line)==null) {
+                flush()
+                sectionTitle=line
+                continue
+            }
+            if(upper.startsWith("MAX ") && !upper.startsWith("MAX ROUNDS") &&
+               sectionTitle!=null && sectionLabel(sectionTitle!!)==null) {
+                val title=sectionTitle!!
+                val ex=officialExercises[norm(title)]
+                    ?: officialExercises[norm(CrossFitGlossary.canonicalName(title))]
+                val block=RoutineBlock.wod(
+                    format=WODFormat.MAX_EFFORT, title=title+" · "+line
+                )
+                block.movements=listOf(WODMovement(
+                    exerciseId=ex?.id, name=ex?.name ?: title
+                ))
+                block.wodNotes=title+"\n"+line
+                blocks.add(block)
+                sectionTitle=null
+                continue
+            }
+            if(lineIndex+1<rawLines.size && rawLines[lineIndex+1].uppercase(Locale.ROOT).startsWith("FIND ") &&
+               officialExercises[norm(line)]!=null) {
+                flush()
+                sectionTitle=line
+                continue
+            }
+            if(upper.startsWith("FIND ") && sectionTitle!=null) {
+                val title=sectionTitle!!
+                val exercise=officialExercises[norm(title)]
+                val reps=Regex("""FIND\s*(\d+)\s*RM""", RegexOption.IGNORE_CASE)
+                    .find(line)?.groupValues?.get(1)?.toIntOrNull()
+                if(exercise!=null && reps!=null) {
+                    val strength=RoutineBlock.strength(
+                        title=title+" · "+line,
+                        exercises=listOf(RoutineExercise(
+                            exerciseId=exercise.id,
+                            plannedSets=listOf(PlannedSet(targetReps=reps))
+                        ))
+                    )
+                    strength.timeCapMinutes=Regex("""TC\s*[:=]?\s*(\d+)""", RegexOption.IGNORE_CASE)
+                        .find(line)?.groupValues?.get(1)?.toIntOrNull()
+                    strength.wodNotes=title+"\n"+line
+                    blocks.add(strength)
+                    sectionTitle=null
+                    pendingSectionFormat=null
+                    continue
+                }
+            }
+            val section=if (isWarmUpHeader(line)) null else sectionLabel(line)
             if(section!=null || upper=="PULLING STRENGTH & POWER") {
                 flush()
                 sectionTitle=section ?: line
                 pendingSectionFormat=if(upper.startsWith("METCON") || upper.startsWith("MET CON") || upper.startsWith("CONDITION") || upper.startsWith("CONDICION")) WODFormat.FOR_TIME else WODFormat.STRENGTH
                 continue
+            }
+            if(current!=null && Regex("""^\d+\s+(?:ROUNDS?|RONDAS?)\b""", RegexOption.IGNORE_CASE)
+                    .containsMatchIn(line) && !upper.contains("FOR TIME") && !upper.contains("RFT")) {
+                current!!.rounds=Regex("""^\d+""").find(line)?.value?.toIntOrNull()
+                current!!.body.add(line)
+                continue
+            }
+            if(isNonExerciseLine(line)) {
+                // Only a bare rep wave outside For Time can start a ladder.
+                if(standaloneWave(line)==null || current?.format==WODFormat.FOR_TIME) {
+                    current?.body?.add(line)
+                    continue
+                }
             }
             // Clock in the OCR corner and bare numeric noise are not exercises.
             if(Regex("^\\d{1,2}:\\d{2}$").matches(line) || Regex("^[\\d.,]+$").matches(line)) continue
@@ -164,9 +243,9 @@ object BoardScanLiteParser {
         flush()
 
         var outBlocks: List<RoutineBlock> = blocks
-        if (outBlocks.isEmpty() && rawLines.isNotEmpty()) {
+        if (outBlocks.isEmpty() && rawLines.any { !isNonExerciseLine(it) }) {
             val block = RoutineBlock.wod(format = WODFormat.CHIPPER, title = "Añadir entreno")
-            block.movements = rawLines.map { movement(it, searchAliases) }
+            block.movements = rawLines.filterNot { isNonExerciseLine(it) }.map { movement(exerciseText(it), searchAliases) }
             block.wodNotes = ocrText
             outBlocks = listOf(block)
         }
@@ -286,9 +365,52 @@ object BoardScanLiteParser {
 
     /** BoardImportParser.sectionLabelTitle subset: explicit section prefix.
      * Titles remain visible even without a following timed-format header. */
+    private fun isWarmUpHeader(line:String):Boolean {
+        val upper=line.uppercase(Locale.ROOT)
+        return (upper.startsWith("WARM UP") || upper.startsWith("WARMUP") ||
+                upper.startsWith("CALENTAMIENTO")) &&
+               (Regex("""\d+\s*(?:ROUNDS?|RONDAS?)""").containsMatchIn(upper) ||
+                upper.contains("TABATA"))
+    }
+
+    private fun isNonExerciseLine(line:String):Boolean {
+        val raw=line.trim()
+        val upper=raw.uppercase(Locale.ROOT)
+        if(raw.isEmpty()) return true
+        if(upper in setOf("OF","SETS","REPS","BUY IN","BUY OUT","BUY-IN","BUY-OUT",
+                         "CIRCUITO","CIRCUIT")) return true
+        if(listOf("▶","►","HTTP://","HTTPS://","WWW.").any{upper.startsWith(it)} ||
+           upper.contains("YOUTUBE.COM/") || upper.contains("YOUTU.BE/")) return true
+        if(listOf("CAP: 4 INTERVALOS","REALIZA AMBOS","NO TOUCH","RETOMA ",
+                  "CONTINUA ","CONTINÚA ","MAX ROUNDS OF").any{upper.startsWith(it)} ||
+           upper.contains("I GO YOU GO") || upper.contains("YOU GO I GO")) return true
+        if(!upper.contains("FOR TIME") && !upper.contains("RFQ") &&
+           Regex("""^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b""").containsMatchIn(upper)) return true
+        if(Regex("""^\d+(?:\s*[-–]\s*\d+){2,}\s*$""").matches(upper)) return true
+        if((raw.startsWith("*") || raw.startsWith("•")) &&
+           !Regex("""^[*•]\s*\d+\s*(?:M\b|CAL\b|[A-Z])""",RegexOption.IGNORE_CASE).containsMatchIn(raw)) return true
+        if((upper.contains("REST") || upper.contains("DESCANSO")) &&
+           (upper.contains("BETWEEN") || upper.contains("ENTRE AMRAP") ||
+            upper.contains("ENTRE RONDAS"))) return true
+        return false
+    }
+
+    private fun standaloneWave(line:String):List<Int>? {
+        val raw=line.trim()
+        if(!Regex("""^\d+(?:\s*[-–]\s*\d+){2,}$""").matches(raw)) return null
+        val wave=raw.split(Regex("""\s*[-–]\s*""")).mapNotNull {it.toIntOrNull()}
+        return wave.takeIf {it.size>=3}
+    }
+
+    private fun exerciseText(line:String):String =
+        line.replace(Regex("""(\d+)\s*MN\b""",RegexOption.IGNORE_CASE),"$1MIN")
+            .replace(Regex("""^\s*[*•]\s*(?=\d)"""),"")
+            .replace(Regex("""^MINUTE\s+\d+\s*:\s*""",RegexOption.IGNORE_CASE),"")
+            .replace(Regex("""^MINUTO\s+\d+\s*:\s*""",RegexOption.IGNORE_CASE),"")
+
     private fun sectionLabel(line:String):String? {
         val upper=line.uppercase(Locale.ROOT)
-        val labels=listOf("WEIGHTLIFTING","WEIGHT LIFTING","HALTEROFILIA","HALTERO","METCON","MET CON","CONDITIONING","CONDICIONAMIENTO","GYMNASTICS","GIMNASIA","STRENGTH","FUERZA","SKILL","TECH","WOD","WORKOUT")
+        val labels=listOf("WEIGHTLIFTING","WEIGHT LIFTING","HALTEROFILIA","HALTERO","METCON","MET CON","CONDITIONING","CONDICIONAMIENTO","GYMNASTICS","GIMNASIA","STRENGTH","FUERZA","SKILL","TECH","WOD","WORKOUT","ACCESSORY WORK","ACCESSORIES","WARM UP","WARMUP","CALENTAMIENTO")
         val label=labels.sortedByDescending {it.length}.firstOrNull {upper==it || upper.startsWith("$it ") || upper.startsWith("$it:") || upper.startsWith("$it\"") || upper.startsWith("$it“") || upper.startsWith("$it«")} ?: return null
         Regex("[\"“«](.+?)[\"”»]").find(line)?.groupValues?.get(1)?.takeIf {it.isNotBlank()}?.let {return it}
         return line.drop(label.length).trim().trim(':','-','\"').trim().ifBlank {line}
@@ -319,6 +441,34 @@ object BoardScanLiteParser {
         val upper = line.uppercase(Locale.ROOT)
             .replace("’", "'").replace("′", "'").replace("×", "X")
 
+        if(isWarmUpHeader(line)) {
+            val rounds=Regex("""(\d+)\s+(?:ROUNDS?|RONDAS?)""").find(upper)
+                ?.groupValues?.get(1)?.toIntOrNull()
+            if(upper.contains("TABATA")) {
+                val cap=Regex("""TABATA\s+(\d+)""").find(upper)?.groupValues?.get(1)?.toIntOrNull()
+                return Header(line,WODFormat.TABATA,cap)
+            }
+            return Header(line,WODFormat.FOR_TIME,null,rounds=rounds)
+        }
+        // Named workouts like "WODSITO (TC35')" are blocks, not exercises.
+        if(Regex("""\bTC\s*[:=]?\s*\d+""").containsMatchIn(upper) &&
+           !listOf("EVERY","FOR TIME","RFT","AMRAP").any {upper.startsWith(it)}) {
+            val cap=Regex("""TC\s*[:=]?\s*(\d+)""").find(upper)
+                ?.groupValues?.get(1)?.toIntOrNull()
+            return Header(line,WODFormat.FOR_TIME,cap)
+        }
+        Regex("""^(\d+)\s*MIN\s+AMRAP""").find(upper)?.let { match ->
+            val mins=match.groupValues[1].toIntOrNull() ?: return null
+            val rounds=Regex("""\(\s*[X×]\s*(\d+)\s*\)""").find(upper)
+                ?.groupValues?.get(1)?.toIntOrNull()
+            return Header(line,WODFormat.AMRAP,mins,rounds)
+        }
+        Regex("""^EVERY\s+MINUTE\s+FOR\s+(\d+)\s*MIN""").find(upper)?.let { match ->
+            val mins=match.groupValues[1].toIntOrNull() ?: return null
+            val rounds=Regex("""\((\d+)\s*ROUNDS?\)""").find(upper)
+                ?.groupValues?.get(1)?.toIntOrNull() ?: mins
+            return Header(line,WODFormat.EMOM,mins,rounds,60)
+        }
         Regex("""^(\d+)\s+(?:RFQ|FOR\s+QUALITY|ROUNDS?\s+(?:FOR\s+QUALITY|RFQ))$""").matchEntire(upper)?.let { match ->
             val rounds=match.groupValues[1].toIntOrNull()
             if(rounds==null || rounds !in 1..200) return null
@@ -514,6 +664,48 @@ object BoardScanLiteParser {
         header: String, lines: List<String>, interval: Int?,
         cap: Int?, rounds: Int?, catalog: List<CatalogExercise>
     ): RoutineBlock? {
+        // Weightlifting "Squat Clean 1RM Test" + Sets 1-2/3-4/5-10.
+        // Keep percentage ranges as notes rather than choosing an arbitrary
+        // value (e.g. 75% from the prescribed 75-80%).
+        if(header.uppercase(Locale.ROOT).contains("1RM")) {
+            val quoted=Regex("""["“]([^"”]+)["”]""").find(header)?.groupValues?.get(1)
+            val rawName=(quoted ?: header.substringBefore("·"))
+                .replace(Regex("""(?i)\s*1\s*RM.*$"""),"")
+                .removePrefix("Weightlifting ").trim().trim('"','“','”')
+            val index=catalogIndex(catalog)
+            val exercise=index[norm(rawName)]
+                ?: index[norm(CrossFitGlossary.canonicalName(rawName))]
+                ?: if(norm(rawName)==norm("Squat Clean")) index[norm("Clean")] else null
+            if(exercise!=null) {
+                val sets=mutableMapOf<Int,PlannedSet>()
+                val pattern=Regex("""^SETS?\s*(\d+)\s*[-–]\s*(\d+)\s*:\s*(\d+)\s+REPS?\b""",RegexOption.IGNORE_CASE)
+                for(line in lines) {
+                    val match=pattern.find(line) ?: continue
+                    val start=match.groupValues[1].toIntOrNull() ?: continue
+                    val end=match.groupValues[2].toIntOrNull() ?: continue
+                    val reps=match.groupValues[3].toIntOrNull() ?: continue
+                    if(start !in 1..50 || end !in start..50 || reps<=0) continue
+                    for(n in start..end) sets[n]=PlannedSet(targetReps=reps)
+                }
+                val count=rounds ?: sets.size
+                if(count in 1..50 && sets.size==count) {
+                    val planned=(1..count).mapNotNull {sets[it]}
+                    if(planned.size==count) {
+                        val block=RoutineBlock.strength(
+                            title=header,
+                            exercises=listOf(RoutineExercise(
+                                exerciseId=exercise.id,plannedSets=planned
+                            ))
+                        )
+                        block.emomIntervalSeconds=interval
+                        block.timeCapMinutes=cap
+                        block.wodNotes=(listOf(header)+lines).joinToString("\n")
+                        return block
+                    }
+                }
+            }
+        }
+
         if (lines.any {
                 val u = it.uppercase(Locale.ROOT)
                 u.contains("SQUAT SNATCH") && u.contains("SETS")
@@ -676,6 +868,26 @@ object BoardScanLiteParser {
     private fun movement(line: String, searchAliases: Map<String, String>): WODMovement {
         var working = line
         val notes = mutableListOf<String>()
+        // Buy-in is an instruction on the following row, not part of its name.
+        if(Regex("""^BUY\s*IN\b""", RegexOption.IGNORE_CASE).containsMatchIn(working)) {
+            notes.add("Buy-in")
+            working=working.replace(Regex("""^BUY\s*IN[.:…]*\s*""",RegexOption.IGNORE_CASE),"")
+        }
+        // "400/320m Row" is a male/female distance, not a kg pair.
+        val pairedDistance=Regex("""^(\d+)\s*/\s*(\d+)\s*M\s+(.+)$""",RegexOption.IGNORE_CASE)
+            .matchEntire(working.trim())
+        if(pairedDistance!=null) {
+            val male=pairedDistance.groupValues[1].toIntOrNull()
+            val female=pairedDistance.groupValues[2].toIntOrNull()
+            if(male!=null && female!=null && male>0 && female>0) {
+                return WODMovement(
+                    name=CrossFitGlossary.canonicalName(pairedDistance.groupValues[3],searchAliases),
+                    distanceMeters=male,
+                    notes=(notes+listOf("Mujeres: "+female+"m")).joinToString(" · ")
+                )
+            }
+        }
+
         Regex("^SETS?\\s+(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*",RegexOption.IGNORE_CASE).find(working)?.let {range ->
             notes.add("Series ${range.groupValues[1]}-${range.groupValues[2]}")
             working=working.removeRange(range.range)
