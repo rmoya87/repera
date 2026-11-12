@@ -875,6 +875,12 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
     /** Clave estable para LazyColumn aunque el bloque aún no tenga id de dominio. */
     val listKey: String = blockId ?: java.util.UUID.randomUUID().toString()
     var sourceJson: String? = info?.sourceJson
+    var teamMode by mutableStateOf(info?.sourceJson?.let {
+        runCatching { JSONObject(it).optJSONObject("structure")?.optString("collaboration") }.getOrNull()
+    }?.takeIf { it.isNotBlank() } ?: "youGoIGo")
+    var resultMetric by mutableStateOf(info?.sourceJson?.let {
+        runCatching { JSONObject(it).optJSONObject("structure")?.optString("resultMetric") }.getOrNull()
+    }?.takeIf { it.isNotBlank() } ?: "totalReps")
     var title by mutableStateOf(info?.title ?: "")
     var format by mutableStateOf(info?.format ?: "")
     var timeCap by mutableStateOf((info?.timeCapMinutes ?: 12).toString())
@@ -933,8 +939,16 @@ internal class BlockDraftUi(info: RoutineBlockInfo? = null) {
                 base.copy(plannedSets = entry.plannedSets.toList())
             else base
         }
+        val advancedSource = if (format == "partner" || format == "maxEffort") {
+            val raw = sourceJson?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
+            val structure = raw.optJSONObject("structure") ?: JSONObject()
+                .put("version", 1).put("phases", org.json.JSONArray())
+            if (format == "partner") structure.put("collaboration", teamMode)
+            if (format == "maxEffort") structure.put("resultMetric", resultMetric)
+            raw.put("structure", structure).toString()
+        } else sourceJson
         return RoutineBlockDraft(
-            blockId = blockId, sourceJson = sourceJson,
+            blockId = blockId, sourceJson = advancedSource,
             title = title.trim(), format = format, entries = parsed,
             timeCapMinutes = cap, rounds = rds, emomIntervalSeconds = intv,
             workSeconds = wk, restSeconds = rst, ladderScheme = scheme,
@@ -1212,6 +1226,37 @@ internal fun BlockEditorCard(
                     Text(structured, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2)
+                }
+            }
+            if (block.format == "partner" || block.format == "maxEffort") {
+                var advancedMenu by remember(block.listKey) { mutableStateOf(false) }
+                val partner = block.format == "partner"
+                val options = if (partner) listOf(
+                    "youGoIGo" to "Alternando",
+                    "synchronized" to "Sincronizado",
+                    "sharedReps" to "Repeticiones compartidas",
+                    "together" to "Juntos"
+                ) else listOf(
+                    "totalReps" to "Repeticiones",
+                    "loadKg" to "Carga (kg)",
+                    "calories" to "Calorías",
+                    "distanceMeters" to "Distancia (m)",
+                    "elapsedSeconds" to "Tiempo"
+                )
+                val selected = if (partner) block.teamMode else block.resultMetric
+                Box {
+                    OutlinedButton(onClick = { advancedMenu = true }) {
+                        Text((if (partner) "Trabajo en equipo: " else "Resultado: ") +
+                            (options.firstOrNull { it.first == selected }?.second ?: "Seleccionar"))
+                    }
+                    DropdownMenu(expanded = advancedMenu, onDismissRequest = { advancedMenu = false }) {
+                        options.forEach { (value, label) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                                if (partner) block.teamMode = value else block.resultMetric = value
+                                advancedMenu = false
+                            })
+                        }
+                    }
                 }
             }
             if (includeEntries) {
