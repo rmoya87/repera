@@ -864,6 +864,26 @@ object BoardScanLiteParser {
     private fun movement(line: String, searchAliases: Map<String, String>): WODMovement {
         var working = line
         val notes = mutableListOf<String>()
+        // Buy-in is an instruction on the following row, not part of its name.
+        if(Regex("""^BUY\s*IN\b""", RegexOption.IGNORE_CASE).containsMatchIn(working)) {
+            notes.add("Buy-in")
+            working=working.replace(Regex("""^BUY\s*IN[.:…]*\s*""",RegexOption.IGNORE_CASE),"")
+        }
+        // "400/320m Row" is a male/female distance, not a kg pair.
+        val pairedDistance=Regex("""^(\d+)\s*/\s*(\d+)\s*M\s+(.+)$""",RegexOption.IGNORE_CASE)
+            .matchEntire(working.trim())
+        if(pairedDistance!=null) {
+            val male=pairedDistance.groupValues[1].toIntOrNull()
+            val female=pairedDistance.groupValues[2].toIntOrNull()
+            if(male!=null && female!=null && male>0 && female>0) {
+                return WODMovement(
+                    name=CrossFitGlossary.canonicalName(pairedDistance.groupValues[3],searchAliases),
+                    distanceMeters=male,
+                    notes=(notes+listOf("Mujeres: "+female+"m")).joinToString(" · ")
+                )
+            }
+        }
+
         Regex("^SETS?\\s+(\\d+)\\s*[-–]\\s*(\\d+)\\s*:\\s*",RegexOption.IGNORE_CASE).find(working)?.let {range ->
             notes.add("Series ${range.groupValues[1]}-${range.groupValues[2]}")
             working=working.removeRange(range.range)
