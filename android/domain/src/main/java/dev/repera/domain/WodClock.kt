@@ -7,6 +7,7 @@ package dev.repera.domain
 data class WodClockSpec(
     val format: WodFormat?,
     val blockTimeCapMinutes: Int? = null,
+    val blockTimeCapSeconds: Int? = null,
     val intervalSeconds: Int? = null,
     val plannedIntervals: Int? = null,
     val rounds: Int? = null,
@@ -48,6 +49,7 @@ object WodClock {
 
     fun timeCapSeconds(spec: WodClockSpec): Int {
         val cap = spec.blockTimeCapMinutes ?: 0
+        val exact = spec.blockTimeCapSeconds?.takeIf { it > 0 }
         val interval = (spec.intervalSeconds ?: 60).coerceAtLeast(15)
         return when (spec.format) {
             WodFormat.EMOM -> (spec.plannedIntervals ?: spec.rounds ?: 10).coerceAtLeast(1) * interval
@@ -55,10 +57,10 @@ object WodClock {
             WodFormat.CIRCUIT -> phases(spec).sumOf { it.seconds }
             WodFormat.TABATA -> (spec.rounds ?: 8).coerceAtLeast(1) *
                 ((spec.workSeconds ?: 20).coerceAtLeast(5) + (spec.restSeconds ?: 10).coerceAtLeast(0))
-            WodFormat.AMRAP, WodFormat.MAX_EFFORT -> (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60
+            WodFormat.AMRAP, WodFormat.MAX_EFFORT -> exact ?: (cap.takeIf { it > 0 } ?: 12).coerceAtLeast(1) * 60
             WodFormat.FOR_TIME, WodFormat.CHIPPER, WodFormat.AFAP,
             WodFormat.LADDER, WodFormat.BUY_IN_CASH_OUT -> 0
-            else -> cap.coerceAtLeast(0) * 60
+            else -> exact ?: cap.coerceAtLeast(0) * 60
         }
     }
 
@@ -136,8 +138,8 @@ object WodClock {
                     intervalRemaining = null
                     // R7 P2: «AMRAP» (displayName), no wire «amrap».
                     label = if (!countsUp && cap > 0) spec.format?.displayName
-                        else if (countsUp && spec.blockTimeCapMinutes != null &&
-                            elapsed > spec.blockTimeCapMinutes * 60) "TC superado" else null
+                        else if (countsUp && (spec.blockTimeCapSeconds != null || spec.blockTimeCapMinutes != null) &&
+                            elapsed > (spec.blockTimeCapSeconds ?: spec.blockTimeCapMinutes!! * 60)) "TC superado" else null
                 }
             }
         }
