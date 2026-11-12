@@ -6,6 +6,16 @@ import Testing
 struct BoardScanGlobalFixturesTests {
     private let catalog = Catalog.seed()
 
+    @Test func ddbPushPressPrefersDumbbellCatalogVariant() {
+        let dumbbell = Exercise(name: "Dumbbell Push Press", muscleGroup: "Hombro")
+        let barbell = Exercise(name: "Push press", muscleGroup: "Hombro")
+        let parsed = BoardScanLiteParser.parse(
+            ocrText: "AMRAP 4'\n7 DDB PUSH PRESS",
+            catalog: [barbell, dumbbell]
+        ).blocks
+        #expect(parsed.first?.movements.first?.exerciseId == dumbbell.id)
+    }
+
     @Test func warmUpStrengthAndAMRAPDoNotCreateHeadersOrVideosAsExercises() {
         let blocks = BoardScanLiteParser.parse(ocrText: """
         WARM UP - 2 ROUNDS
