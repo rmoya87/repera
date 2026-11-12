@@ -81,6 +81,8 @@ object BoardScanImport {
         block.restSeconds?.let { item.put("restSeconds", it) }
         block.restBetweenRoundsSeconds?.let { item.put("restBetweenRoundsSeconds", it) }
         block.wodNotes?.let { item.put("wodNotes", it) }
+        block.timeCapSeconds?.let { item.put("timeCapSeconds", it) }
+        block.structure?.let { item.put("structure", WorkoutStructureWire.encode(it)) }
         return item
     }
 }
