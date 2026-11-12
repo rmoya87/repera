@@ -697,6 +697,24 @@ public enum BoardScanLiteParser {
     private static func movement(from line: String) -> WODMovement {
         var working = line
         var notes: [String] = []
+        if working.range(of: #"(?i)^BUY\s*IN\b"#, options: .regularExpression) != nil {
+            notes.append("Buy-in")
+            working = working.replacingOccurrences(
+                of: #"(?i)^BUY\s*IN[.:…]*\s*"#, with: "",
+                options: .regularExpression
+            )
+        }
+        // Row 400/320m is a men's/women's distance, not a 400/320kg pair.
+        if let fields = capture(
+            #"(?i)^(\d+)\s*/\s*(\d+)\s*M\s+(.+)$"#, from: working
+        ), fields.count == 3, let male = Int(fields[0]),
+           let female = Int(fields[1]), male > 0, female > 0 {
+            let name = CrossFitGlossary.canonicalName(for: fields[2])
+            return WODMovement(
+                name: name, distanceMeters: male,
+                notes: (notes + ["Mujeres: \(female)m"]).joined(separator: " · ")
+            )
+        }
         if let rpe = working.range(of: #"@\s*\d+(?:[.,]\d+)?\s*[-–]\s*\d+(?:[.,]\d+)?"#,
                                    options: .regularExpression) {
             notes.append("RPE " + String(working[rpe]).replacingOccurrences(of: "@", with: "").trimmingCharacters(in: .whitespaces))
