@@ -299,7 +299,7 @@ public enum BoardScanLiteParser {
            upper.contains("YOU GO I GO") || upper.hasPrefix("RETOMA ") ||
            upper.hasPrefix("CONTINUA ") || upper.hasPrefix("CONTINÚA ") ||
            upper.hasPrefix("MAX ROUNDS OF") { return true }
-        if upper.range(of: #"^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?)\b"#,
+        if upper.range(of: #"^(?:\d+\s+ROUNDS?|\d+\s+RONDAS?|ROUNDS?\s+\d+)\b"#,
                        options: .regularExpression) != nil { return true }
         if upper.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}\s*$"#,
                        options: .regularExpression) != nil { return true }
@@ -326,7 +326,7 @@ public enum BoardScanLiteParser {
         guard raw.range(of: #"^\d+(?:\s*[-–]\s*\d+){2,}$"#,
                         options: .regularExpression) != nil else { return nil }
         let values = raw.split(whereSeparator: { $0 == "-" || $0 == "–" })
-            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+            .compactMap { Int(String($0).trimmingCharacters(in: .whitespaces)) }
         return values.count >= 3 ? values : nil
     }
 
